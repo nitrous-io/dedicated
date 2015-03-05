@@ -2,12 +2,14 @@ package amazon
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -444,7 +446,7 @@ func writeSettings(ctx *host.HostContext) error {
 		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
 	}
 
-	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
+	if err := h.conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
 		return err
 	}
 
@@ -469,7 +471,11 @@ func writeSettings(ctx *host.HostContext) error {
 func uploadFile(h *Host, files map[string]io.Reader) error {
 	flist := []string{}
 	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
+		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
+		if err := h.conn.Upload(tmpDest, val); err != nil {
+			return err
+		}
+		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, dest)); err != nil {
 			return err
 		}
 		flist = append(flist, dest)
@@ -496,12 +502,12 @@ func updateSoftware(ctx *host.HostContext) error {
 		`||`,
 		// apt-get update with single source
 		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive apt-get update",
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
 		"-o APT::List-Cleanup=0",
 		`-o Dir::Etc::sourceparts="/dev/null"`,
 		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
 		`&&`,
-		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y",
 		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
 		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
 	}
@@ -528,7 +534,7 @@ func updateSoftware(ctx *host.HostContext) error {
 func restartFreighterd(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 
-	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
+	if out, err := h.conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
 		err = fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
 		return err
 	}
