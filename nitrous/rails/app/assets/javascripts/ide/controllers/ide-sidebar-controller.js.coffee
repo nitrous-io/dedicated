@@ -36,7 +36,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     @set 'currentlyDraggedPath', null
     @set 'currentDroppable', null
     if socket = @get 'opsSocket'
-      socket.off 'dir_changed.output'
+      socket.off 'dirChanged.output'
 
   onDirChanged: (error, absolutePathString) ->
     this.refreshPath absolutePathString
@@ -45,7 +45,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     if @get 'opsSocket.startedFirstTime'
       Em.run.next =>
         socket = @get 'opsSocket'
-        socket.on 'dir_changed.output', _.bind(@onDirChanged, this)
+        socket.on 'dirChanged.output', _.bind(@onDirChanged, this)
         this.openPath @get('rootPath')
         unless App.get('container.metadata.readmeOpened')
           this.openRepoReadme()

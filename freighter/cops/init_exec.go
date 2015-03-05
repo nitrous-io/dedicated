@@ -99,7 +99,7 @@ func (oh *OpsHandler) sendReply(msg *Message) error {
 func (oh *OpsHandler) notifyDirChanged(dir string) {
 	msg := &Message{
 		Namespace: "watcher",
-		Event:     "dir_changed.output",
+		Event:     "dirChanged.output",
 	}
 	msg.Args = []interface{}{dir}
 	oh.sendReply(msg)
@@ -186,7 +186,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 					oh.watchedDirs[dir] = true
 					oh.fileWatcher.Add(dir)
 				}
-			case "unwatch-dir":
+			case "unwatchDir":
 				dir := msg.Args[0].(string)
 				delete(oh.watchedDirs, dir)
 				oh.fileWatcher.Remove(dir)

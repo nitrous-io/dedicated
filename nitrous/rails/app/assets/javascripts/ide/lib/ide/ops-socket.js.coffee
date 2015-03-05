@@ -101,7 +101,7 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
         @invokeCallback message.cid, [null].concat(message.args)
 
   unwatchDir: (absolutePath) ->
-    @send 'fs', 'unwatch-dir', absolutePath
+    @send 'fs', 'unwatchDir', absolutePath
 
   fetchFileList: (absolutePath, callback) ->
     @send 'fs', 'list', absolutePath, callback
