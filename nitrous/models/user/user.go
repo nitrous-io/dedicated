@@ -176,6 +176,7 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	if err := u.encryptPassword(); err != nil {
 		return err
 	}
+
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name, promo_code)
 		VALUES (:email, :username, :encrypted_password, :name, :promo_code)
@@ -183,17 +184,18 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	if err != nil {
 		return err
 	}
-
-	if err = nstmt.QueryRow(u).StructScan(u); err != nil {
+	if err := nstmt.QueryRow(u).StructScan(u); err != nil {
 		return err
 	}
 
-	// create a user profile
+	if err := u.CreateSettings(tx); err != nil {
+		return err
+	}
+
 	if err := userprofile.Create(tx, u.ID); err != nil {
 		return err
 	}
 
-	// create a billing profile
 	return billingprofile.Create(tx, u.ID)
 }
 

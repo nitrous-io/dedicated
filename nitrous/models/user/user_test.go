@@ -410,9 +410,18 @@ var _ = Describe("models/user", func() {
 				Expect(u.EncryptedPassword).NotTo(BeEmpty())
 			})
 
+			It("creates a user settings record", func() {
+				settings := &user.Settings{}
+				err := db.Get(settings, `SELECT * FROM user_settings WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+				Expect(settings.UserID).To(Equal(u.ID))
+				Expect(settings.CreatedAt).NotTo(BeNil())
+				Expect(settings.UpdatedAt).NotTo(BeNil())
+			})
+
 			It("creates a user profile record", func() {
 				up := &userprofile.UserProfile{}
-				err := db.Get(up, "SELECT * FROM user_profiles WHERE user_profiles.user_id = $1;", u.ID)
+				err := db.Get(up, "SELECT * FROM user_profiles WHERE user_id = $1;", u.ID)
 				Expect(err).To(BeNil())
 				Expect(up.ID).NotTo(BeNil())
 				Expect(up.UserID).To(Equal(u.ID))
@@ -423,7 +432,7 @@ var _ = Describe("models/user", func() {
 
 			It("creates a billing profile record", func() {
 				bp := &billingprofile.BillingProfile{}
-				err := db.Get(bp, "SELECT * FROM billing_profiles WHERE billing_profiles.user_id = $1;", u.ID)
+				err := db.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1;", u.ID)
 				Expect(err).To(BeNil())
 				Expect(bp.ID).NotTo(BeNil())
 				Expect(bp.UserID).To(Equal(u.ID))
