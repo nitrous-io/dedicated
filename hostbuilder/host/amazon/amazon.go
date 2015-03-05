@@ -121,25 +121,25 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
 	defer cancel()
 
-	// generate key pair
-	k, err := generateTempKeypair(h.provider)
-	if err != nil {
-		return nil, err
-	}
 	defer func() {
-		fmt.Fprintf(w, "Removing key...")
-		hlog(h, "keyID=%s Removing key...", k.name)
-		if err := k.Delete(); err != nil {
-			h.progressLog(w, "Removing key...Failed!")
-			hlog(h, "ERROR: Failed to remove key %s", k.name)
-		} else {
-			h.progressLog(w, "Removing key...Done!")
+		if h.keypair != nil {
+			fmt.Fprintf(w, "Removing key...")
+			hlog(h, "keyID=%s Removing key...", h.keypair.name)
+			if err := h.keypair.Delete(); err != nil {
+				h.progressLog(w, "Removing key...Failed!")
+				hlog(h, "ERROR: Failed to remove key %s", h.keypair.name)
+			} else {
+				h.progressLog(w, "Removing key...Done!")
+			}
 		}
 	}()
-	h.keypair = k
 
 	hctx := host.NewContext(ctx, h, w)
 	steps := []host.Step{
+		{
+			Description: "Creating key",
+			Func:        createKeypair,
+		},
 		{
 			Description: "Checking image's availability",
 			Func:        inspectSourceAMI,
@@ -356,6 +356,23 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 func init() {
 	host.Hosts["amazon"] = NewHost
+}
+
+// createKeypair create a temporary keypair using Amazon API, store the
+// temporary private key so we can connect to the host during the creation
+// phase. The keypair should be deleted after provisioning finishes.
+func createKeypair(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.metricsLabel("create_key")
+	defer mh.UpdateSince(label, time.Now())
+
+	// generate key pair
+	k, err := generateTempKeypair(h.provider)
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	h.keypair = k
+	return nil
 }
 
 // inspectSourceAMI checks that the requested AMI exists and can be used with
