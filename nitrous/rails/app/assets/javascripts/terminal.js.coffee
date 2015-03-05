@@ -9,6 +9,19 @@ parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
+utf8Decoder = new window.TextDecoder('utf8')
+
+utf8Decode = (data) ->
+  utf8Decoder.decode(new DataView(data))
+
+appendBuffer = (buffer1, buffer2) ->
+  if !buffer1? || buffer1.byteLength == 0
+    return buffer2
+  tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength)
+  tmp.set(new Uint8Array(buffer1), 0)
+  tmp.set(new Uint8Array(buffer2), buffer1.byteLength)
+  tmp.buffer
+
 window.NitrousTerminal =
   term: null
   conn: null
@@ -20,6 +33,9 @@ window.NitrousTerminal =
   ide: false
 
   resizeTimeout: null
+
+  dataBuffer: null
+  bufferTimeout: null
 
   init: ->
     @conn = conn = new SocketConnection()
@@ -105,6 +121,25 @@ window.NitrousTerminal =
   clear: ->
     @term.write '\x1b[r\x1b[H\x1b[J'
 
+  handleData: (data) ->
+    window.clearTimeout(@bufferTimeout)
+    @dataBuffer = appendBuffer(@dataBuffer, data)
+    decoded = utf8Decode(@dataBuffer)
+
+    flush = =>
+      @dataBuffer = new ArrayBuffer(0)
+      @term.write(decoded)
+
+    # if invalid utf8 char is detected, buffer for 10ms
+    if decoded.length > 0 && decoded[decoded.length - 1] == "\uFFFD"
+      @bufferTimeout = window.setTimeout(=>
+        flush()
+        @bufferTimeout = null
+      , 10)
+      return
+
+    flush()
+
   didOpen: (ev) ->
     @closed = false
     @term.sizeToFit()
@@ -118,7 +153,7 @@ window.NitrousTerminal =
     type = ev.data.slice(0, 2)
     switch type
       when 'd|'
-        @term.write ev.data.slice(2)
+        @handleData(ev.binaryData.slice(2))
       when 'c|'
         @close()
       when 'h'
