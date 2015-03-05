@@ -33,6 +33,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   token: null
 
   user: null
+  userSettings: null
   container: null
 
   terminalJsPath: null
