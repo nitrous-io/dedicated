@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/usersettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -109,6 +110,7 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/user":                              r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
 				"/user/profile":                      r("userprofiles.Show", userprofiles.Show),
+				"/user/settings":                     r("usersettings.Show", usersettings.Show),
 				"/user/billing_profile":              r("billingprofiles.Show", billingprofiles.Show),
 				"/hosts":                             r("hosts.Index", hosts.Index),
 				"/images":                            r("images.IndexAll", images.Index),
@@ -134,6 +136,7 @@ func (s *Server) drawRoutes() {
 			},
 			"POST": {
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
+				"/user/settings":                           r("usersettings.Update", usersettings.Update),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
 				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":                 r("registries.Login", registries.Login, EventRegistryAdded),
