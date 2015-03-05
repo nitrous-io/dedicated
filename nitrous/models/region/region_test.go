@@ -111,19 +111,16 @@ var _ = Describe("models/region", func() {
 	Describe("AllForProvider()", func() {
 		It("returns all regions for the given provider, ordered by rank", func() {
 			// Add associated provider templates for the regions in the database.
-			type row struct {
-				ID int64 `db:"id"`
-			}
-			var rows []row
-			err := db.Select(&rows, `SELECT id FROM regions;`)
+			var ids []int64
+			err := db.Select(&ids, `SELECT id FROM regions;`)
 			Expect(err).To(BeNil())
-			Expect(rows).To(HaveLen(4))
+			Expect(ids).To(HaveLen(4))
 			pl := plan.Plan{Slug: "Shift"}
 			Expect(pl.Insert(db)).To(BeNil())
-			for _, row := range rows {
+			for _, id := range ids {
 				t := providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
-					RegionID: row.ID,
+					RegionID: id,
 					Provider: "digitalocean",
 				}
 				Expect(t.Insert(db)).To(BeNil())
