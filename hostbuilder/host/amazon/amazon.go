@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
 
@@ -59,13 +60,15 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 type Host struct {
 	AccessConfig *AccessConfig
 	Config       *HostConfig
-	provider     *ec2.EC2
 
+	// ec2 properties
+	provider *ec2.EC2
 	instance *ec2.Instance
 
 	// the following settings are only available during the creation phase
 	keypair       *keypair      // temporary keypair of the instance
 	createTimeout time.Duration // limit of instance's creation time
+	conn          *sshutil.Conn // ssh connection using the temporary keypair
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -107,6 +110,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceName,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        waitForSSH,
+			Timeout:     1 * time.Minute,
 		},
 	}
 	for _, step := range steps {
@@ -330,5 +338,21 @@ func associateInstanceName(ctx *host.HostContext) error {
 	if err != nil {
 		log.Printf("amazon: Failed to set name for instance %s", h.instance.InstanceId)
 	}
+	return nil
+}
+
+// waitForSSH creates a SSH connection to the host using the temporary keypair
+// so we can perform setup actions on it
+func waitForSSH(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
+	connInterval := 5 * time.Second
+	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
+		connInterval, ctx.Done(), make(map[string]interface{}))
+	if err != nil {
+		return err
+	}
+	h.conn = sshConn
 	return nil
 }
