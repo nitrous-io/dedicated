@@ -10,6 +10,11 @@ import (
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
+/*
+ * HostOwner represents SQL-joined records of hosts and users table
+ * For information about a host and its owner. It is used as
+ * an embedded struct for host announcement.
+ */
 type HostOwner struct {
 	HostID   int64  `db:"host_id"`
 	UserID   int64  `db:"user_id"`
@@ -19,6 +24,17 @@ type HostOwner struct {
 	Slug     string `db:"slug"`
 }
 
+/*
+ * Announcement contains the base fields inside the
+ * announcement table. It has no link to specific host.
+ * The ShowToAll field is used to indicate whether
+ * the announcement is global or host-specific.
+ *
+ * Announcement can be used alone if it is a global
+ * announcement. Otherwise it is embedded to
+ * HostAnnouncement to contain full record of
+ * an announcement together with its host and owner.
+ */
 type Announcement struct {
 	ID              int64      `db:"id"`
 	SubjectTemplate string     `db:"subject_template"`
@@ -32,11 +48,19 @@ type Announcement struct {
 	compiledMessageTemplate *templateLib.Template
 }
 
+/*
+ * Use to represent an announcement with host and
+ * owner information. Note that HostAnnouncement
+ * can also be used to represent global announcement,
+ * in which case *HostOwner will be nil and ShowToAll
+ * should be true.
+ */
 type HostAnnouncement struct {
 	*Announcement
 	*HostOwner
 }
 
+// Create a global Announcement object
 func CreateForGlobal(subjectTemplate, messageTemplate string, expiresAt *time.Time) *Announcement {
 	return &Announcement{
 		SubjectTemplate: subjectTemplate,
@@ -46,6 +70,7 @@ func CreateForGlobal(subjectTemplate, messageTemplate string, expiresAt *time.Ti
 	}
 }
 
+// Create a HostAnnouncement object from given host owner
 func CreateForHostOwner(owner *HostOwner, subjectTemplate, messageTemplate string, expiresAt *time.Time) *HostAnnouncement {
 	return &HostAnnouncement{
 		Announcement: &Announcement{
@@ -58,6 +83,7 @@ func CreateForHostOwner(owner *HostOwner, subjectTemplate, messageTemplate strin
 	}
 }
 
+// Create a HostAnnouncement object from given host id
 func CreateForHost(db *dbLib.Database, hostID int64, subjectTemplate, messageTemplate string, expiresAt *time.Time) (*HostAnnouncement, error) {
 	owner, err := FindOwnerByHostID(db, hostID)
 	if err != nil {
@@ -99,7 +125,13 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
 	return owners, nil
 }
 
+/*
+ * Find both global and host announcements for a given host id.
+ * The global announcements retrieved are assigned the same
+ * host owner as the hosts.
+ */
 func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+	// First find the owner, because it will be the same for all announcements
 	owner, err := FindOwnerByHostID(db, hostID)
 	if err != nil {
 		return nil, err
@@ -107,10 +139,13 @@ func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, erro
 
 	announcements := []*Announcement{}
 
+	// Query the database for announcements without joining
 	err = db.Select(&announcements, `SELECT 
-    id, subject_template, message_template, show_to_all, expires_at, updated_at, created_at
+    announcements.id, subject_template, message_template, show_to_all, expires_at, updated_at, created_at
     FROM announcements 
-    WHERE host_id IS NULL OR host_id=$1;`, hostID)
+    LEFT JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
+    WHERE expires_at > now() 
+      AND (show_to_all=true OR host_id=$1);`, hostID)
 
 	if err != nil {
 		return nil, err
@@ -118,6 +153,7 @@ func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, erro
 
 	hostAnnouncements := make([]*HostAnnouncement, len(announcements))
 
+	// Manually join the same owner to each announcement to form HostAnnouncement
 	for i, ann := range announcements {
 		hostAnnouncements[i] = &HostAnnouncement{
 			Announcement: ann,
@@ -128,12 +164,16 @@ func FindAllForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, erro
 	return hostAnnouncements, nil
 }
 
+/*
+ * Find all host-specific announcements for a host id
+ */
 func FindForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
 	announcements := []*HostAnnouncement{}
 
 	err := db.Select(&announcements, `SELECT 
     announcements.*, hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
     FROM announcements 
+      INNER JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
       INNER JOIN hosts ON (announcements.host_id = hosts.id)
       INNER JOIN users ON (hosts.user_id = users.id)
     WHERE hosts.terminated_at IS NULL AND hosts.id=$1;`, hostID)
@@ -145,6 +185,9 @@ func FindForHost(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) 
 	return announcements, nil
 }
 
+/*
+ * Find all global announcements
+ */
 func FindForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 	announcements := []*Announcement{}
 
@@ -159,11 +202,14 @@ func FindForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 	return announcements, nil
 }
 
-func InsertForGlobal(db *dbLib.Database, announcement *Announcement) error {
-	nstmt, err := db.PrepareNamed(`INSERT INTO announcement
+/*
+ * Insert an announcement without its associated host, usually for global
+ */
+func Insert(db *dbLib.Database, announcement *Announcement) error {
+	nstmt, err := db.PrepareNamed(`INSERT INTO announcements
     (subject, message, host_id, show_to_all, expires_at, created_at, updated_at)
     VALUES
-    (:subject, :message, NULL, true, :expires_at, now(), now())
+    (:subject, :message, NULL, :show_to_all, :expires_at, now(), now())
     RETURNING *;`)
 
 	if err != nil {
@@ -172,17 +218,25 @@ func InsertForGlobal(db *dbLib.Database, announcement *Announcement) error {
 	return nstmt.QueryRowx(announcement).StructScan(announcement)
 }
 
-func InsertForHost(db *dbLib.Database, announcement *HostAnnouncement) error {
-	nstmt, err := db.PrepareNamed(`INSERT INTO announcement
-    (subject, message, host_id, show_to_all, expires_at, created_at, updated_at)
-    VALUES
-    (:subject, :message, :host_id, false, :expires_at, now(), now())
-    RETURNING *;`)
+func AddHost(db *dbLib.Database, announcementID, hostID int64) error {
+	_, err := db.Exec(`INSERT INTO announcement_host
+    (announcement_id, host_id) 
+    VALUES ($1, $2)`,
+		announcementID, hostID)
 
+	return err
+}
+
+/*
+ * Insert a host-specific announcement
+ */
+func InsertForHost(db *dbLib.Database, ann *HostAnnouncement) error {
+	err := Insert(db, ann.Announcement)
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(announcement).StructScan(announcement)
+
+	return AddHost(db, ann.ID, ann.HostID)
 }
 
 func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {
@@ -275,7 +329,7 @@ func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement) error 
 		return err
 	}
 
-	err = InsertForGlobal(db, ann)
+	err = Insert(db, ann)
 	if err != nil {
 		return err
 	}

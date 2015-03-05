@@ -920,13 +920,18 @@ func init() {
 			Up: `
 				CREATE TABLE announcements (
 					id bigserial PRIMARY KEY NOT NULL,
-					host_id bigint REFERENCES hosts(id) NULL,
 					subject text NOT NULL,
 					message text NOT NULL,
 					show_to_all boolean NOT NULL,
 					expires_at timestamp without time zone DEFAULT now(),
 					created_at timestamp without time zone DEFAULT now(),
 					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE TABLE announcement_host (
+					id bigserial PRIMARY KEY NOT NULL,
+					announcement_id bigint REFERENCES announcements(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL
 				);
 			`,
 		},
