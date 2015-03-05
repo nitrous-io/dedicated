@@ -15,6 +15,7 @@ import (
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
@@ -267,9 +268,11 @@ func (h *Host) Info() (*host.Info, error) {
 		return nil, errors.New("Invalid ec2 instance")
 	}
 	info := &host.Info{
-		Provider:  h.DriverName(),
-		ID:        h.instance.InstanceId,
-		IPAddress: h.instance.PublicIpAddress,
+		Provider:       h.DriverName(),
+		ID:             h.instance.InstanceId,
+		IPAddress:      h.instance.PublicIpAddress,
+		FreighterdPort: DefaultPort,
+		State:          getState(h.instance),
 	}
 	return info, nil
 }
@@ -698,4 +701,18 @@ func hlog(h *Host, format string, v ...interface{}) {
 		parts = append(parts, fmt.Sprintf("instance=%d", h.instance.InstanceId))
 	}
 	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+}
+
+func getState(instance *ec2.Instance) state.State {
+	switch instance.State.Name {
+	case "pending":
+		return state.Starting
+	case "running":
+		return state.Running
+	case "stopping":
+		return state.Stopping
+	case "stopped":
+		return state.Stopped
+	}
+	return state.Unknown
 }
