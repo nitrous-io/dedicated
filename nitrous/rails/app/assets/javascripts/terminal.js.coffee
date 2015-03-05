@@ -1,4 +1,5 @@
 #= require polyfills
+#= require encoding
 #= require_self
 #= require lib/socket/socket-connection
 #= require webfonts
