@@ -68,6 +68,29 @@ func TestEmbedded(t *testing.T) {
 	}
 }
 
+func TestTagNameMapping(t *testing.T) {
+	type Strategy struct {
+		StrategyId   string `protobuf:"bytes,1,opt,name=strategy_id" json:"strategy_id,omitempty"`
+		StrategyName string
+	}
+
+	m := NewMapperTagFunc("json", strings.ToUpper, func(value string) string {
+		if strings.Contains(value, ",") {
+			return strings.Split(value, ",")[0]
+		} else {
+			return value
+		}
+	})
+	strategy := Strategy{"1", "Alpah"}
+	mapping := m.TypeMap(reflect.TypeOf(strategy))
+
+	for _, key := range []string{"strategy_id", "STRATEGYNAME"} {
+		if _, ok := mapping[key]; !ok {
+			t.Errorf("Expecting to find key %s in mapping but did not.", key)
+		}
+	}
+}
+
 func TestMapping(t *testing.T) {
 	type Person struct {
 		ID           int
@@ -116,6 +139,24 @@ func TestMapping(t *testing.T) {
 	if _, ok := mapping["isallblack"]; ok {
 		t.Errorf("Expecting to ignore `IsAllBlack` field")
 	}
+
+	type EmbeddedLiteral struct {
+		Embedded struct {
+			Person   string
+			Position int
+		}
+		IsIntense bool
+	}
+
+	e := EmbeddedLiteral{}
+	mapping = m.TypeMap(reflect.TypeOf(e))
+	//fmt.Printf("Mapping: %#v\n", mapping)
+
+	//f := FieldByIndexes(reflect.ValueOf(e), mapping["isintense"])
+	//fmt.Println(f, f.Interface())
+
+	//tbn := m.TraversalsByName(reflect.TypeOf(e), []string{"isintense"})
+	//fmt.Printf("%#v\n", tbn)
 
 }
 
