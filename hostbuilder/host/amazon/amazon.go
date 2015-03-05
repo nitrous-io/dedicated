@@ -223,26 +223,42 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
+// Destroy releases the instance Elastic IP and terminate it
 func (h *Host) Destroy() error {
-	var instancesResp *ec2.InstancesResp
-	var err error
-	if instancesResp, err = h.provider.Instances([]string{h.Config.ID}, nil); err != nil {
-		return err
+	label := h.metricsLabel("destroy")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		// if the instance does not exist, then consider that it is sucessfully destroyed
+		if err == ErrInstanceNotFound {
+			return nil
+		}
+		return mh.Error(err, label)
 	}
-	if _, err := h.provider.TerminateInstances([]string{h.Config.ID}); err != nil {
-		return err
+
+	// release elastic IP
+	if _, err := h.provider.ReleasePublicAddress(h.instance.PublicIpAddress); err != nil {
+		err = fmt.Errorf("amazon: failed to release ElasticIP for %s, err %v", h.instance.InstanceId, err)
+		return mh.Error(err, label)
 	}
-	instance := instancesResp.Reservations[0].Instances[0]
+
+	// terminate the instance
+	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
+		err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
+		return mh.Error(err, label)
+	}
+
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, &instance),
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "terminated",
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
+
 	return nil
 }
 
