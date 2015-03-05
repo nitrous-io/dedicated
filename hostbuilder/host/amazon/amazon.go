@@ -157,6 +157,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Description: "Fetching updates",
 			Func:        updateSoftware,
 		},
+		{
+			Description: "Applying settings",
+			Func:        restartFreighterd,
+		},
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
@@ -515,6 +519,18 @@ func updateSoftware(ctx *host.HostContext) error {
 		}
 		// failure to update freighterd when a version is not specified is considered continuable
 		return nil
+	}
+	return nil
+}
+
+// restartFreighterd restarts the remote freighterd server. This should be run
+// after updateSoftware to make sure that it has the latest settings.
+func restartFreighterd(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
+		err = fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
+		return err
 	}
 	return nil
 }
