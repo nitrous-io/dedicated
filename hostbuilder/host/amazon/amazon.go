@@ -278,7 +278,29 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() (*host.Info, error) {
-	panic("amazon provider does not support stop yet")
+	label := h.metricsLabel("stop")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "stopping"},
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "stopped",
+	}
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	return h.Info()
 }
 
 func (h *Host) Start() (*host.Info, error) {
