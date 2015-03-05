@@ -177,10 +177,8 @@ func (oh *OpsHandler) copsMessageLoop() {
 		// message pipeline
 		switch msg.Namespace {
 		case "fs":
-			// optimization: we only watch directories that IDE explicitly asked for
-			// at some point. There is no way to de-register from watching but
-			// even without that it's much better than watching every directory
-			if msg.Event == "list" {
+			switch msg.Event {
+			case "list":
 				dir := msg.Args[0].(string)
 				// avoid watching same dir twice - unclear if fsnotify handles that
 				// for all platforms
@@ -188,6 +186,10 @@ func (oh *OpsHandler) copsMessageLoop() {
 					oh.watchedDirs[dir] = true
 					oh.fileWatcher.Add(dir)
 				}
+			case "unwatch-dir":
+				dir := msg.Args[0].(string)
+				delete(oh.watchedDirs, dir)
+				oh.fileWatcher.Remove(dir)
 			}
 			go oh.runHandler(fsHandler, msg)
 		case "finder":

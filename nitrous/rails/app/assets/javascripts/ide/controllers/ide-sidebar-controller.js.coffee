@@ -91,6 +91,8 @@ App.IdeSidebarController = Em.ArrayController.extend
       path.set 'expanded', !path.get('expanded')
       if path.get 'expanded'
         this.fetchFileList path
+      else
+        this.unwatchDir path
     else
       editorController = @get('controllers.ideEditor')
       if doc = editorController.findProperty 'path', path
@@ -118,6 +120,10 @@ App.IdeSidebarController = Em.ArrayController.extend
     freighterdUrl = container.get 'freighterdUrl'
     cid = container.get 'cid'
     "https://#{freighterdUrl}/containers/#{cid}/download?path=#{path}&token=#{token}"
+
+  unwatchDir: (path) ->
+    opsSocket = @get 'opsSocket'
+    opsSocket.unwatchDir path.get('absolutePath')
 
   fetchFileList: (path) ->
     opsSocket = @get 'opsSocket'
