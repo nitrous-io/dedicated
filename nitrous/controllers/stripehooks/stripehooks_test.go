@@ -79,11 +79,15 @@ var _ = Describe("controllers/stripehooks", func() {
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
+		start := time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 		inv = &invoice.Invoice{
 			UserID:      u.ID,
 			TotalCharge: 900,
 			Attempts:    23,
 			StripeID:    sql.NullString{"Xcccs", true},
+			PeriodStart: &start,
+			PeriodEnd:   &end,
 		}
 		err = inv.Insert(db)
 		Expect(err).To(BeNil())

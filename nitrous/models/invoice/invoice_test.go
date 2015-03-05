@@ -88,12 +88,16 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should return the invoice for the stripe ID", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			i := &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
 				SuccessfulCharge: true,
 				Attempts:         23,
 				StripeID:         sql.NullString{"Xcccs", true},
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -217,12 +221,16 @@ var _ = Describe("models/invoice", func() {
 	Describe("PaymentSucceeded", func() {
 		var i *invoice.Invoice
 		BeforeEach(func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			i = &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
 				SuccessfulCharge: false,
 				Attempts:         23,
 				StripeID:         sql.NullString{"Xcccs", true},
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -266,6 +274,8 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should update others covered by this invoice", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
@@ -273,6 +283,8 @@ var _ = Describe("models/invoice", func() {
 				Attempts:         23,
 				Deferred:         true,
 				CoveredBy:        sql.NullInt64{i.ID, true},
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -300,12 +312,16 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should not mark the billingprofile as state Paid if there are other unpaid invoices remaining", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
 				SuccessfulCharge: false,
 				Attempts:         23,
 				Deferred:         false,
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -323,12 +339,16 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should mark the billingprofile as state Paid if other unpaid invoices remain but are deferred", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
 				SuccessfulCharge: false,
 				Attempts:         23,
 				Deferred:         true,
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -349,12 +369,16 @@ var _ = Describe("models/invoice", func() {
 	Describe("PaymentFailed", func() {
 		var i *invoice.Invoice
 		BeforeEach(func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
 			i = &invoice.Invoice{
 				UserID:           u.ID,
 				TotalCharge:      900,
 				SuccessfulCharge: false,
 				Attempts:         23,
 				StripeID:         sql.NullString{"Xcccs", true},
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
