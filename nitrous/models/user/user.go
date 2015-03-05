@@ -53,31 +53,31 @@ func init() {
 }
 
 type User struct {
-	ID        int64      `db:"id" json:"id"`
-	Name      string     `db:"name" json:"name"`
-	Username  string     `db:"username" json:"username"`
-	Email     string     `db:"email" json:"email"`
-	CreatedAt *time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
+	ID        int64      `db:"id"`
+	Name      string     `db:"name"`
+	Username  string     `db:"username"`
+	Email     string     `db:"email"`
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 
-	Password          string `json:"-"`
-	EncryptedPassword string `db:"encrypted_password" json:"-"`
+	Password          string
+	EncryptedPassword string `db:"encrypted_password"`
 
-	PromoCode sql.NullString `db:"promo_code" json:"-"`
+	PromoCode sql.NullString `db:"promo_code"`
 
-	LoginAttempts  int  `db:"login_attempts" json:"-"`
-	Admin          bool `db:"admin" json:"admin"`
-	ServiceAccount bool `db:"service_account" json:"-"`
+	LoginAttempts  int  `db:"login_attempts"`
+	Admin          bool `db:"admin"`
+	ServiceAccount bool `db:"service_account"`
 
-	MaxContainers sql.NullInt64 `db:"max_containers" json:"-"`
+	MaxContainers sql.NullInt64 `db:"max_containers"`
 
-	ResetPasswordToken  sql.NullString `db:"reset_password_token" json:"-"`
-	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at" json:"-"`
+	ResetPasswordToken  sql.NullString `db:"reset_password_token"`
+	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at"`
 
-	ConfirmationToken  sql.NullString `db:"confirmation_token" json:"-"`
-	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at" json:"-"`
-	ConfirmedAt        pq.NullTime    `db:"confirmed_at" json:"-"`
-	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email" json:"unconfirmed_email,omitempty"`
+	ConfirmationToken  sql.NullString `db:"confirmation_token"`
+	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at"`
+	ConfirmedAt        pq.NullTime    `db:"confirmed_at"`
+	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -176,6 +176,7 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	if err := u.encryptPassword(); err != nil {
 		return err
 	}
+
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name, promo_code)
 		VALUES (:email, :username, :encrypted_password, :name, :promo_code)
@@ -183,17 +184,18 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	if err != nil {
 		return err
 	}
-
-	if err = nstmt.QueryRow(u).StructScan(u); err != nil {
+	if err := nstmt.QueryRow(u).StructScan(u); err != nil {
 		return err
 	}
 
-	// create a user profile
+	if err := u.CreateSettings(tx); err != nil {
+		return err
+	}
+
 	if err := userprofile.Create(tx, u.ID); err != nil {
 		return err
 	}
 
-	// create a billing profile
 	return billingprofile.Create(tx, u.ID)
 }
 

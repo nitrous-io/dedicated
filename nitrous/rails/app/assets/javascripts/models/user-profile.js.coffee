@@ -10,7 +10,7 @@ App.UserProfile = klass = App.Model.extend
   githubAuthorize: ->
     Em.$.ajax(
       type: 'GET'
-      url: "/api/v0/github/authorize"
+      url: '/api/v0/github/authorize'
       cache: false
       headers: { Authorization: "Bearer #{App.get 'token'}" }
     ).done((json) ->

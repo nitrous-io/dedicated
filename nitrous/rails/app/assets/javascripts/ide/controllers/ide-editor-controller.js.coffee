@@ -27,45 +27,32 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @set 'rootPane', editorPane
     @set 'activePane', editorPane
 
-    @useUserEditorSettings()
-    @observeEditorSettings()
+    @useUserSettings()
+
+    # We do this so that saving using :w in Vim mode works.
+    # Sucks that this is a CodeMirror "global".
+    CodeMirror.commands.save = (cm) =>
+      @saveDocument(@get('activeTab'))
 
   reset: ->
     @set 'content', null
     @set 'saveDialog', null
     @set 'confirmCloseDialog', null
 
-  useUserEditorSettings: ->
-    userSettings = App.get('user.user_settings') || {}
-    editorSettings = {}
-    _.each App.Editor.SETTINGS, (k) ->
-      editorSettings[k] = userSettings[k.underscore()]
-
-    # Backwards compatibility: theme and tab settings used to be stored in HTML
-    # local storage at the box level.
-    if oldSettings = @localStorageEditorSettings()
-      editorSettings.softTabs ?= oldSettings.softTabs
-      editorSettings.tabSize ?= oldSettings.tabSize
-      editorSettings.theme ?= oldSettings.theme
-
+  useUserSettings: ->
+    userSettings = App.get('userSettings') || {}
     _.each App.Editor.SETTINGS, (k) =>
-      @set(k, editorSettings[k]) if editorSettings[k]?
-
-  localStorageEditorSettings: ->
-    if boxId = App.get 'router.ideController.content.id'
-      App.localStorage.delete("box:#{boxId}:editorSettings") || App.localStorage.delete("box:#{boxId}:lastTabSettings")
-
-  observeEditorSettings: ->
-    _.each App.Editor.SETTINGS, (setting) =>
-      @addObserver(setting, this, 'updateUserSettings')
+      setting = userSettings[k.underscore()]
+      if setting?
+        @set(k, setting)
+        @addObserver(k, this, 'updateUserSettings')
 
   updateUserSettings: ->
-    user = App.get('user')
-    userSettings = user.get('user_settings') || {}
-    _.each App.Editor.SETTINGS, (k) =>
-      userSettings[k.underscore()] = @get(k)
-    # FIXME Enable user settings when backend supports it
-    # user.updateSettings()
+    userSettings = App.get('userSettings')
+    if userSettings
+      _.each App.Editor.SETTINGS, (k) =>
+        userSettings[k.underscore()] = @get(k)
+      userSettings.save()
 
   removeTab: (tab, forceRemove = false) ->
     tab = @get 'activeTab' unless tab
