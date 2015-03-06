@@ -28,6 +28,7 @@ App.Host = klass = App.Model.extend
 
   stats: null
   liveHost: null
+  announcements: null
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -62,6 +63,15 @@ App.Host = klass = App.Model.extend
     if id = @get('id')
       App.Image.fetch(hostId: id).value
   ).property 'id'
+
+  announcements: (->
+    if id = @get('id')
+      App.Announcement.fetch(hostId: id).value
+  ).property 'id'
+
+  topAnnouncement: (->
+    @get 'announcements.firstObject'
+  ).property 'announcements.firstObject'
 
   region: (->
     if regionId = @get('regionId')
@@ -115,6 +125,7 @@ App.Host = klass = App.Model.extend
     @get 'images'
     @get 'registries'
     @get 'volumes'
+    @get 'announcements'
     true
 
   fetchStats: ->

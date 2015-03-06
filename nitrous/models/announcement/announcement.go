@@ -170,7 +170,8 @@ func FindAllByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, err
     FROM announcements 
     LEFT JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
     WHERE expires_at > now() 
-      AND (show_to_all=true OR host_id=$1);`, hostID)
+      AND (show_to_all=true OR host_id=$1)
+    ORDER BY created_at DESC;`, hostID)
 
 	if err != nil {
 		return nil, err

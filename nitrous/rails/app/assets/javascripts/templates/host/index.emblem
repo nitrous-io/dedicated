@@ -13,6 +13,14 @@
         else
           | There are updates available for this workspace. Please stop your containers before updating.
 
+  if topAnnouncement
+    .notice-text
+      p
+        i.fa.fa-warning
+        = topAnnouncement.subject
+      p 
+        = topAnnouncement.message
+
   table.ui.table.horizontal
     tr
       th State
