@@ -19,15 +19,15 @@ type Announcement struct {
 type HostOwner struct {
 	HostID   int64  `json:"host_id"`
 	UserID   int64  `json:"user_id"`
-	Username string `json"username"`
+	Username string `json:"username"`
 	Slug     string `json:"slug"`
 }
 
 type HostAnnouncement struct {
 	*Announcement
 	*HostOwner
-	Subject *string `json:subject`
-	Message *string `json:message`
+	Subject *string `json:"subject"`
+	Message *string `json:"message"`
 }
 
 func SerializeAnnouncement(ann *announcement.Announcement) *Announcement {

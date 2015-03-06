@@ -43,3 +43,4 @@ App.Router.map ->
       @route 'templates', path: '/templates'
       @route 'templates-new', path: '/templates/new'
       @route 'template-edit', path: '/template/:templateSlug/edit'
+      @route 'announcements-new', path: '/announcements/new'

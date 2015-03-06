@@ -2,7 +2,6 @@ package announcement
 
 import (
 	"bytes"
-	"fmt"
 	"net/mail"
 	templateLib "text/template"
 	"time"
