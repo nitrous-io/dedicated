@@ -116,10 +116,9 @@ type UtilizationItem struct {
 }
 
 type Utilization struct {
+	mu     sync.Mutex
 	Buffer []UtilizationItem
 	Index  int
-
-	mutex sync.Mutex
 }
 
 func NewUtilization(size int) *Utilization {
@@ -137,8 +136,8 @@ func (u *Utilization) Record(interval time.Duration) {
 }
 
 func (u *Utilization) RecordSample(now time.Time, sample *Stats) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	u.Buffer[u.Index] = UtilizationItem{now, sample}
 	u.Index++
 	if u.Index >= len(u.Buffer) {
@@ -147,8 +146,8 @@ func (u *Utilization) RecordSample(now time.Time, sample *Stats) {
 }
 
 func (u *Utilization) Fetch() []UtilizationItem {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	ordered := make([]UtilizationItem, len(u.Buffer))
 	idx := 0
 	for i := u.Index; i < len(u.Buffer); i++ {
