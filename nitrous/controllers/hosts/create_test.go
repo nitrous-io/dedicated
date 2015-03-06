@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -261,8 +262,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix(params.Get("name")), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
-		Expect(config["apt_username"]).To(Equal(u.Username))
-		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
+
+		// Test that we use the host ID and secret as Apt user/pass.
+		hosts, err := host.FindAllByUser(db, u)
+		Expect(err).To(BeNil())
+		Expect(hosts).To(HaveLen(1))
+		h := hosts[0]
+		Expect(config["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
+		Expect(config["apt_password"]).To(Equal(h.Secret))
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -296,8 +303,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		json.Unmarshal([]byte(req.FormValue("config")), &config)
 		Expect(config["name"]).To(HavePrefix("myhost"), "invalid slug set in name")
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
-		Expect(config["apt_username"]).To(Equal(u.Username))
-		Expect(config["apt_password"]).To(Equal(ht), "invalid token set in apt_password")
+
+		// Test that we use the host ID and secret as Apt user/pass.
+		hosts, err := host.FindAllByUser(db, u)
+		Expect(err).To(BeNil())
+		Expect(hosts).To(HaveLen(1))
+		h := hosts[0]
+		Expect(config["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
+		Expect(config["apt_password"]).To(Equal(h.Secret))
 	})
 
 	Context("when hostbuilder successfully creates a host", func() {
