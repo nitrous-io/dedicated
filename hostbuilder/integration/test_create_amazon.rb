@@ -20,6 +20,7 @@ params = {
   },
   availability_zone: "us-west-2a",
   instance_type: "t1.micro",
+  storage_size: 5, # 50GB storage
   public_keys: [
     File.read("#{ENV['HOME']}/.ssh/id_rsa.pub")
   ],

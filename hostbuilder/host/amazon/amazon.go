@@ -24,6 +24,18 @@ import (
 const (
 	DefaultPort uint16 = 65333
 	sshPort     uint16 = 65100
+
+	// represents 10gb of storage
+	storageUnit = 10
+	// minimum storage size. This is the size of standard root disk used in AMI
+	minStorageSize = 4
+	// represents 1TB of storage, also the maximum size of a single EBS volume
+	// http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EbsBlockDevice.html
+	maxStorageSize = 100
+
+	GeneralVolumeType  = "gp2"
+	IOPSVolumeType     = "io1"
+	MagneticVolumeType = "standard"
 )
 
 var (
@@ -73,6 +85,10 @@ type HostConfig struct {
 	RawRegion        string            `json:"region"`
 	RawSecurityGroup map[string]string `json:"security_group"`
 	IPAddress        string            `json:"ip_address"`
+
+	// StorageSize is used to calculate total storage of the root device.
+	// TotalStorage = StorageSize * storageUnit
+	StorageSize int `json:"storage_size"`
 
 	// freighter specific config
 	PublicKeys        []string   `json:"public_keys"`
@@ -560,7 +576,16 @@ func createInstance(ctx *host.HostContext) error {
 		mh.UpdateSince(label, start)
 	}(time.Now())
 
-	hlog(h, "amazon: creating instance in region %s, size: %s, slug: %s", h.Config.RawRegion, h.Config.InstanceType, h.Config.Name)
+	if h.Config.StorageSize > maxStorageSize {
+		h.Config.StorageSize = maxStorageSize
+	} else if h.Config.StorageSize < minStorageSize {
+		h.Config.StorageSize = minStorageSize
+	}
+	storageSize := int64(h.Config.StorageSize * storageUnit)
+
+	hlog(h, "amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
+		h.Config.RawRegion, h.Config.InstanceType, storageSize, h.Config.Name)
+
 	opts := &ec2.RunInstances{
 		KeyName:        h.keypair.name,
 		ImageId:        h.Config.SourceAMI,
@@ -569,6 +594,14 @@ func createInstance(ctx *host.HostContext) error {
 		AvailZone:      h.Config.AvailabilityZone,
 		MinCount:       0,
 		MaxCount:       0,
+		BlockDevices: []ec2.BlockDeviceMapping{
+			{
+				DeviceName:          "/dev/sda1",
+				VolumeType:          GeneralVolumeType,
+				VolumeSize:          storageSize,
+				DeleteOnTermination: true,
+			},
+		},
 	}
 	resp, err := h.provider.RunInstances(opts)
 	if err != nil || len(resp.Instances) == 0 {
@@ -803,7 +836,7 @@ func hlog(h *Host, format string, v ...interface{}) {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%d", h.instance.InstanceId))
+		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
 	}
 	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
 }
