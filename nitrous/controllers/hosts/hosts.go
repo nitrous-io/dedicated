@@ -2,10 +2,13 @@ package hosts
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -36,6 +39,7 @@ var (
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
+	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -497,6 +501,60 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		"status": "accepted",
 	}
 	return nil
+}
+
+func AptAllowed(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	authHeader := r.Header.Get("Authorization")
+	prefix := "Basic "
+	if len(authHeader) <= len(prefix) ||
+		(!strings.HasPrefix(authHeader, prefix) &&
+			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+		requireAuth(w)
+		return errBasicAuthFailed
+	}
+
+	s := authHeader[len(prefix):]
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		requireAuth(w)
+		env.Logger.Warnf("cannot decode Basic Auth header, err: %v", err)
+		return errBasicAuthFailed
+	}
+	pair := strings.SplitN(string(b), ":", 2)
+	if len(pair) != 2 {
+		requireAuth(w)
+		return errBasicAuthFailed
+	}
+
+	hostID, err := strconv.ParseInt(pair[0], 10, 64)
+	if err != nil {
+		requireAuth(w)
+		env.Logger.Warnf("cannot decode parse host ID from %v, err: %v", pair[0], err)
+		return errBasicAuthFailed
+	}
+	password := pair[1]
+
+	hostSlug := mux.Vars(r)["slug"]
+	h, err := host.FindByIdentifier(env.DB, hostSlug)
+	if err != nil {
+		requireAuth(w)
+		return errBasicAuthFailed
+	}
+	if hostID != h.ID || password != h.Secret {
+		requireAuth(w)
+		return errBasicAuthFailed
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+
+	return nil
+}
+
+func requireAuth(w http.ResponseWriter) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="nitrous"`)
 }
 
 func hostbuilderHeaders(env *middleware.Env) map[string]string {
