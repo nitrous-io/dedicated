@@ -2,6 +2,7 @@ package announcement
 
 import (
 	"bytes"
+	"fmt"
 	"net/mail"
 	templateLib "text/template"
 	"time"
@@ -83,16 +84,6 @@ func CreateForHostOwner(owner *HostOwner, subjectTemplate, messageTemplate strin
 	}
 }
 
-// Create a HostAnnouncement object from given host id
-func CreateForHost(db *dbLib.Database, hostID int64, subjectTemplate, messageTemplate string, expiresAt *time.Time) (*HostAnnouncement, error) {
-	owner, err := FindOwnerByHostID(db, hostID)
-	if err != nil {
-		return nil, err
-	}
-
-	return CreateForHostOwner(owner, subjectTemplate, messageTemplate, expiresAt), nil
-}
-
 func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
@@ -109,6 +100,41 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	return owner, nil
 }
 
+func FindOwnerByHostSlug(db *dbLib.Database, slug string) (*HostOwner, error) {
+	owner := &HostOwner{}
+
+	err := db.Get(owner, `SELECT
+    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+    WHERE hosts.slug=$1;
+  `, slug)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return owner, nil
+}
+
+func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, error) {
+	owners := []*HostOwner{}
+
+	err := db.Select(owners, `SELECT
+    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+    WHERE hosts.slug IN $1;
+  `, slugs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return owners, nil
+}
+
+/*
+ * Find all owners with active host, so that we can send global announcement to.
+ */
 func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
 	owners := []*HostOwner{}
 
@@ -207,7 +233,12 @@ func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 
 /*
  * Find all global and host-specific announcements.
- * Global announcements would have HostOwner field as nil
+ * Global announcements would have HostOwner field as nil.
+ *
+ * Soares: We have to perform two separate queries to find
+ * global and host announcements, because I have no idea
+ * how to map left joined rows with null-host_id to
+ * this HostAnnouncement struct.. :(
  */
 func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
 	globals, err := FindAllForGlobal(db)
@@ -231,13 +262,13 @@ func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
 }
 
 /*
- * Insert an announcement without its associated host, usually for global
+ * Insert an announcement without its associated host
  */
 func Insert(db *dbLib.Database, announcement *Announcement) error {
 	nstmt, err := db.PrepareNamed(`INSERT INTO announcements
-    (subject, message, host_id, show_to_all, expires_at, created_at, updated_at)
+    (subject_template, message_template, show_to_all, expires_at, created_at, updated_at)
     VALUES
-    (:subject, :message, NULL, :show_to_all, :expires_at, now(), now())
+    (:subject_template, :message_template, :show_to_all, :expires_at, now(), now())
     RETURNING *;`)
 
 	if err != nil {
@@ -247,7 +278,7 @@ func Insert(db *dbLib.Database, announcement *Announcement) error {
 }
 
 /*
- * Add an host to an announcement
+ * Add an host to an existing announcement
  */
 func AddHost(db *dbLib.Database, announcementID, hostID int64) error {
 	_, err := db.Exec(`INSERT INTO announcement_host
@@ -259,15 +290,40 @@ func AddHost(db *dbLib.Database, announcementID, hostID int64) error {
 }
 
 /*
- * Insert a host-specific announcement
+ * Insert a host-specific announcement.
+ *
+ * TODO: Please please fix this to insert all at once in a single transaction.
+ * How do we insert multiple sql rows at once in Go again?... :(
  */
-func InsertForHost(db *dbLib.Database, ann *HostAnnouncement) error {
-	err := Insert(db, ann.Announcement)
+func InsertForHosts(db *dbLib.Database, ann *Announcement, hostIDs []int64) error {
+	err := Insert(db, ann)
 	if err != nil {
 		return err
 	}
 
-	return AddHost(db, ann.ID, ann.HostID)
+	for _, hostID := range hostIDs {
+		// TODO: NOT transactional if fail
+		err = AddHost(db, ann.ID, hostID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func InsertForHost(db *dbLib.Database, ann *Announcement, hostID int64) error {
+	err := Insert(db, ann)
+	if err != nil {
+		return err
+	}
+
+	err = AddHost(db, ann.ID, hostID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {
@@ -293,20 +349,20 @@ func (ann *Announcement) IsGlobal() bool {
 	return ann.ShowToAll
 }
 
-func (ann *Announcement) Subject(owner *HostOwner) (string, error) {
+func (ann *Announcement) RenderSubject(owner *HostOwner) (string, error) {
 	return renderTemplate(&ann.compiledSubjectTemplate, "AnnouncementSubject", ann.SubjectTemplate, owner)
 }
 
-func (ann *Announcement) Message(owner *HostOwner) (string, error) {
+func (ann *Announcement) RenderMessage(owner *HostOwner) (string, error) {
 	return renderTemplate(&ann.compiledMessageTemplate, "AnnouncementMessage", ann.MessageTemplate, owner)
 }
 
 func (ann *HostAnnouncement) Subject() (string, error) {
-	return ann.Announcement.Subject(ann.HostOwner)
+	return ann.Announcement.RenderSubject(ann.HostOwner)
 }
 
 func (ann *HostAnnouncement) Message() (string, error) {
-	return ann.Announcement.Message(ann.HostOwner)
+	return ann.Announcement.RenderMessage(ann.HostOwner)
 }
 
 func (ann *HostAnnouncement) SendEmail() error {
@@ -322,12 +378,12 @@ func sendEmail(from, to, subject, body string) error {
 }
 
 func SendToOwner(ann *Announcement, owner *HostOwner) error {
-	subject, err := ann.Subject(owner)
+	subject, err := ann.RenderSubject(owner)
 	if err != nil {
 		return err
 	}
 
-	message, err := ann.Message(owner)
+	message, err := ann.RenderMessage(owner)
 	if err != nil {
 		return err
 	}

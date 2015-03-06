@@ -10,7 +10,7 @@ type Announcement struct {
 	ID              int64      `json:"id"`
 	SubjectTemplate string     `json:"subject_template"`
 	MessageTemplate string     `json:"message_template"`
-	IsGlobal        bool       `json:"is_global"`
+	ShowToAll       bool       `json:"show_to_all"`
 	ExpiresAt       *time.Time `json:"expires_at"`
 	CreatedAt       *time.Time `json:"created_at"`
 	UpdatedAt       *time.Time `json:"updated_at"`
@@ -39,7 +39,7 @@ func SerializeAnnouncement(ann *announcement.Announcement) *Announcement {
 		ID:              ann.ID,
 		SubjectTemplate: ann.SubjectTemplate,
 		MessageTemplate: ann.MessageTemplate,
-		IsGlobal:        ann.IsGlobal(),
+		ShowToAll:       ann.ShowToAll,
 		ExpiresAt:       ann.ExpiresAt,
 		CreatedAt:       ann.CreatedAt,
 		UpdatedAt:       ann.UpdatedAt,
@@ -81,6 +81,16 @@ func SerializeHostAnnouncement(ann *announcement.HostAnnouncement) *HostAnnounce
 		if err == nil {
 			res.Message = &message
 		}
+	}
+
+	return res
+}
+
+func SerializeHostOwners(owners []*announcement.HostOwner) []*HostOwner {
+	res := make([]*HostOwner, len(owners))
+
+	for i, owner := range owners {
+		res[i] = SerializeHostOwner(owner)
 	}
 
 	return res
