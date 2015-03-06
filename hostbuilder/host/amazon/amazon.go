@@ -754,7 +754,7 @@ func uploadFile(h *Host, files map[string]io.Reader) error {
 		if err := h.conn.Upload(tmpDest, val); err != nil {
 			return mh.Error(err, label)
 		}
-		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, dest)); err != nil {
+		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, fmt.Sprintf("%q", dest))); err != nil {
 			return mh.Error(err, label)
 		}
 		flist = append(flist, dest)
