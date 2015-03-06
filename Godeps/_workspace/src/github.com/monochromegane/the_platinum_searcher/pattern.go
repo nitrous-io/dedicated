@@ -24,10 +24,12 @@ func NewPattern(pattern, filePattern string, smartCase, ignoreCase, useRegexp bo
 
 	var regPattern *regexp.Regexp
 	var patternErr error
-	if ignoreCase {
-		regPattern, patternErr = regexp.Compile(`(?i)(` + pattern + `)`)
-	} else if useRegexp {
-		regPattern, patternErr = regexp.Compile(`(` + pattern + `)`)
+	if useRegexp {
+		if ignoreCase {
+			regPattern, patternErr = regexp.Compile(`(?i)(` + pattern + `)`)
+		} else {
+			regPattern, patternErr = regexp.Compile(`(` + pattern + `)`)
+		}
 	}
 
 	var regFile *regexp.Regexp
