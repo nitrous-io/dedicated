@@ -3,6 +3,7 @@ package serializers_test
 import (
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -12,6 +13,14 @@ import (
 
 var _ = Describe("invoice item serializer", func() {
 	Describe("SerializeRegion", func() {
+		var t1 = time.Unix(20, 0)
+		var t2 = t1.Add(1 * time.Hour)
+		var usage = &serializers.HostUsage{
+			Minutes: 193,
+			Start:   t1,
+			End:     t2,
+		}
+
 		var model = &invoiceitem.InvoiceItem{
 			ID:          23,
 			InvoiceID:   28,
@@ -26,6 +35,7 @@ var _ = Describe("invoice item serializer", func() {
 			r.HostSlug = "Slug1"
 			r.Description = "I am a desc"
 			r.TotalCharge = 12
+			r.Usage = []*serializers.HostUsage{usage}
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -37,7 +47,12 @@ var _ = Describe("invoice item serializer", func() {
         "terminated": true,
         "hourly_cents": 1,
         "total_charge": 12,
-        "description": "I am a desc"
+        "description": "I am a desc",
+        "usage": [{
+          "minutes": 193,
+          "start_at": "1970-01-01T00:00:20Z",
+          "end_at": "1970-01-01T01:00:20Z"
+        }]
       }`))
 		})
 	})

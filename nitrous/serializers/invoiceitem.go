@@ -5,15 +5,16 @@ import (
 )
 
 type InvoiceItem struct {
-	ID          int64   `json:"id"`
-	InvoiceID   int64   `json:"invoice_id"`
-	HostID      int64   `json:"host_id"`
-	HostSlug    string  `json:"host_slug"`
-	Hours       int64   `json:"hours"`
-	Terminated  bool    `json:"terminated"`
-	HourlyCents float64 `json:"hourly_cents"`
-	TotalCharge int64   `json:"total_charge"`
-	Description string  `json:"description"`
+	ID          int64        `json:"id"`
+	InvoiceID   int64        `json:"invoice_id"`
+	HostID      int64        `json:"host_id"`
+	HostSlug    string       `json:"host_slug"`
+	Hours       int64        `json:"hours"`
+	Terminated  bool         `json:"terminated"`
+	HourlyCents float64      `json:"hourly_cents"`
+	TotalCharge int64        `json:"total_charge"`
+	Description string       `json:"description"`
+	Usage       []*HostUsage `json:"usage"`
 }
 
 func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {

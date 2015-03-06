@@ -5,9 +5,10 @@ App.BillingUsage = klass = App.Model.extend
   totalCharge: attr('number', as: 'total_charge')
   availableCreditsDollars: attr('number', as: 'available_credits_dollars')
 
+  _usage: attr('object', as: 'usage')
   _items: attr('object', as: 'items')
   items: (->
-    @get('_items').map (item)->
+    @get('_items').map (item)=>
       inv = App.InvoiceItem.create()
       inv.load item
       inv
