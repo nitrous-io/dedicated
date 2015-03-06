@@ -900,5 +900,14 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "812",
+			Up: `
+				UPDATE user_settings SET theme = 'solarized dark' WHERE theme IS NULL;
+				ALTER TABLE user_settings ALTER COLUMN theme SET DEFAULT 'solarized dark';
+				ALTER TABLE user_settings ALTER COLUMN theme SET NOT NULL;
+				ALTER TABLE user_settings ALTER COLUMN keybindings SET NOT NULL;
+			`,
+		},
 	}
 }

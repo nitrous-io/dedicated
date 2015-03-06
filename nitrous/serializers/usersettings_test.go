@@ -1,7 +1,6 @@
 package serializers_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -22,14 +21,14 @@ var _ = Describe("usersettings serializer", func() {
 			UserID:            2,
 			AutoCloseBrackets: true,
 			HighlightLine:     true,
-			Keybindings:       sql.NullString{"vim", true},
+			Keybindings:       "vim",
 			MatchBrackets:     false,
 			RulerColumn:       80,
 			ShowLineNumbers:   true,
 			ShowTrailingSpace: true,
 			SoftTabs:          true,
 			TabSize:           4,
-			Theme:             sql.NullString{"base16-dark", true},
+			Theme:             "base16-dark",
 			WrapLines:         true,
 			CreatedAt:         pq.NullTime{createdAt, true}, // Not serialized.
 			UpdatedAt:         pq.NullTime{updatedAt, true}, // Not serialized.

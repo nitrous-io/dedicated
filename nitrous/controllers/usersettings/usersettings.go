@@ -1,7 +1,6 @@
 package usersettings
 
 import (
-	"database/sql"
 	"net/http"
 	"strconv"
 
@@ -38,7 +37,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	if val := r.PostFormValue("keybindings"); val != "" {
-		settings.Keybindings = sql.NullString{val, true}
+		settings.Keybindings = val
 	}
 	if val := r.PostFormValue("match_brackets"); val != "" {
 		if v, err := strconv.ParseBool(val); err == nil {
@@ -71,7 +70,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	if val := r.PostFormValue("theme"); val != "" {
-		settings.Theme = sql.NullString{val, true}
+		settings.Theme = val
 	}
 	if val := r.PostFormValue("wrap_lines"); val != "" {
 		if v, err := strconv.ParseBool(val); err == nil {
