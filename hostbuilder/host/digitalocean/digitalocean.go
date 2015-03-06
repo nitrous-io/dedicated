@@ -254,6 +254,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		list = append(list, &host.Info{
 			Provider:       h.DriverName(),
 			ID:             strconv.Itoa(droplet.ID),
+			Region:         droplet.Region.Slug,
 			Name:           droplet.Name,
 			IPAddress:      droplet.Networks.V4[0].IPAddress,
 			FreighterdPort: DefaultPort,
@@ -267,6 +268,7 @@ func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             strconv.Itoa(h.droplet.ID),
+		Region:         h.droplet.Region.Slug,
 		IPAddress:      h.ipAddress(),
 		FreighterdPort: DefaultPort,
 		State:          getState(h.droplet),
