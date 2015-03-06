@@ -5,6 +5,7 @@ require "httpclient"
 require "json"
 
 client = HTTPClient.new
+client.receive_timeout = 10000
 
 id = ARGV[0]
 
