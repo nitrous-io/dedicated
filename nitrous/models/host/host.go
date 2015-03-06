@@ -322,8 +322,8 @@ func (h *Host) Validate() error {
 
 // MachineConfig returns the configuration that hostbuilder can use to
 // identify the host and manipulate it.
-func (h *Host) MachineConfig() *hostbuilderclient.Config {
-	return &hostbuilderclient.Config{
+func (h *Host) MachineConfig() hostbuilderclient.Config {
+	return hostbuilderclient.Config{
 		"id":         h.ProviderIdentifier.String,
 		"region_id":  h.RegionIdentifier.String,
 		"ip_address": h.IPAddress.String,
