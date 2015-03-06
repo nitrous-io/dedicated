@@ -40,7 +40,7 @@ const (
 
 var (
 	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/root/.ssh/authorized_keys"
+	PubKeysLocation = "/home/ubuntu/.ssh/authorized_keys"
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
