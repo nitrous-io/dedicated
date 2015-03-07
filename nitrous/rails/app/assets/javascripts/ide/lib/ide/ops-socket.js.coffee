@@ -89,6 +89,8 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
   handleMessage: (message) ->
     try
       message = JSON.parse message
+    return if !message?  # cannot parse json, ignore message
+
     # check if there are any registered handlers
     # for the incoming event
     # otherwise, try to find corresponding callback
