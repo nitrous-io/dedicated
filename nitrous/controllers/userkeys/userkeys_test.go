@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"testing"
 
-	"bitbucket.org/kardianos/osext"
-
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -61,10 +59,9 @@ var _ = Describe("controllers/userkeys", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		root, err := osext.ExecutableFolder()
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer(root, db, logger, nil)
+		svr = server.NewServer("", db, logger, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}

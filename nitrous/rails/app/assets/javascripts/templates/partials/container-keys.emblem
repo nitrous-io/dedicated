@@ -1,12 +1,12 @@
 .card-body
+  label.field-label
+    | Container Public Keys
+
+  p.hint-text
+   | Public keys on your container. Add these to external services to allow access to them from your container
+
   if containerKeys.loaded
     if containerKeys.length
-      label.field-label
-        | Container Public Keys
-
-      p.hint-text
-       | Public keys on your container. Add these to external services to allow access to them from your container
-
       table.ui.table
         tbody
           each key in containerKeys

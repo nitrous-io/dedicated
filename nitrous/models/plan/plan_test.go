@@ -208,21 +208,18 @@ var _ = Describe("models/plan", func() {
 	Describe("EnabledForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
 			// Add associated provider templates for the plans in the database.
-			type row struct {
-				ID int64 `db:"id"`
-			}
-			var rows []row
-			err := db.Select(&rows, `SELECT id FROM plans;`)
+			var ids []int64
+			err := db.Select(&ids, `SELECT id FROM plans;`)
 			Expect(err).To(BeNil())
-			Expect(rows).To(HaveLen(2))
+			Expect(ids).To(HaveLen(2))
 			r := region.Region{
 				Slug: "sfo",
 				Name: "US West",
 			}
 			Expect(r.Insert(db)).To(BeNil())
-			for _, row := range rows {
+			for _, id := range ids {
 				t := providertemplate.ProviderTemplate{
-					PlanID:   row.ID,
+					PlanID:   id,
 					RegionID: r.ID,
 					Provider: "digitalocean",
 				}

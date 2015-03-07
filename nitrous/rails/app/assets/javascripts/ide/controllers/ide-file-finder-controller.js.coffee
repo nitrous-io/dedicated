@@ -37,7 +37,9 @@ App.IdeFileFinderController = Em.Controller.extend
 
   showFindDialog: (path) ->
     if !path?
-      path = this.guessPath(@get('controllers.ideEditor.activeTab.path.absolutePath'))
+      path = this.get('controllers.ideSidebar.rootPath')?.absolutePath
+      if !path?
+        path = App.get('container.homePath')
     @set 'fileFinderDialog', App.FileFinderDialog.create basePath: path
 
   startFind: (pattern, path) ->
@@ -66,24 +68,3 @@ App.IdeFileFinderController = Em.Controller.extend
 
   closeFindDialog: ->
     this.reset()
-
-  # try to pick a sensible default search root
-  guessPath: (path) ->
-    homeDir = App.get('container.homePath')
-    workspaceDir = @get('controllers.ide.workspaceDir')
-    return homeDir if not path?.length
-
-    path = path.replace(new RegExp("^#{homeDir}\/"), '')
-    parts = path.split('/')
-    in_workspace = parts[0] == workspaceDir
-    path = switch
-      when parts.length == 1
-        if in_workspace then workspaceDir else homeDir
-      when parts.length == 2
-        parts[0]
-      else
-        if in_workspace
-          [parts[0], parts[1]].join('/')
-        else
-          parts[0]
-    [homeDir, path].join("/")

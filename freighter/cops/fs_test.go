@@ -1,4 +1,4 @@
-package cfs
+package cops
 
 import (
 	"io/ioutil"

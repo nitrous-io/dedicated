@@ -198,7 +198,7 @@ if [ "$IN_DOCKER" == "true" ]; then
 else
   if [ "$APP" == "all" ]; then
     build_freighter
-    build_nitro
+    # build_nitro
     build_hostbuilder
     build_compass
     build_tender

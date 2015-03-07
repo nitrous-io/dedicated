@@ -1286,18 +1286,17 @@ var _ = Describe("server", func() {
 			server.Utilization.Index = 1
 			doRequest("")
 			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(res.Body.String()).To(MatchJSON(`{"utilization":[{
-				"time": "2014-12-31T00:00:00Z",
-				"stats": {
-					"uptime": 30,
-					"memory_usage": 12345678,
-					"memory_total": 17179869184,
-					"storage_usage": 2000000000,
-					"storage_total": 1000000000000,
-					"num_cpu": 2,
-					"per_cpu_usage": [0.5, 30]
-				}
-			}]}`))
+
+			var j struct {
+				Utilization []stats.UtilizationItem `json:"utilization"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Utilization[0]).To(Equal(stats.UtilizationItem{
+				Time:  now,
+				Stats: st,
+			}))
 		})
 	})
 

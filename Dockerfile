@@ -52,8 +52,6 @@ RUN curl -s https://storage.googleapis.com/golang/go1.4.1.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
 ENV GOPATH /opt
-RUN go get github.com/mitchellh/gox
-RUN gox -build-toolchain
 
 # install requires go binaries
 RUN go get github.com/tools/godep

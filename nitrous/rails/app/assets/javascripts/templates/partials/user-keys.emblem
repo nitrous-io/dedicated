@@ -1,12 +1,12 @@
 .card-body.bordered
+  label.field-label
+      | User Public Keys
+
+  p.hint-text
+   | Add public keys from your machine so you can access your container via ssh
+
   if records.loaded
     if records.length
-      label.field-label
-        | User Public Keys
-
-      p.hint-text
-       | Add public keys from your machine so you can access your container via ssh
-
       ul.ui.list.item-2-line
         each key in records
           li.list-item
@@ -30,7 +30,7 @@
       i.spinner
       | Loading...
 
-.card-footer.bordered
+.card-footer
   .left
     if removing
       button.ui.btn disabled='disabled'

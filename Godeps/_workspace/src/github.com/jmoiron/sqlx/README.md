@@ -1,6 +1,6 @@
 #sqlx
 
-[![Build Status](https://drone.io/github.com/jmoiron/sqlx/status.png)](https://drone.io/github.com/jmoiron/sqlx/latest)
+[![Build Status](https://drone.io/github.com/jmoiron/sqlx/status.png)](https://drone.io/github.com/jmoiron/sqlx/latest) [![Godoc](http://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/jmoiron/sqlx) [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/jmoiron/sqlx/master/LICENSE)
 
 sqlx is a library which provides a set of extensions on go's standard
 `database/sql` library.  The sqlx versions of `sql.DB`, `sql.TX`, `sql.Stmt`,
@@ -21,46 +21,27 @@ documentation on godoc](http://godoc.org/github.com/jmoiron/sqlx).
 
 ## Recent Changes
 
-There have been some recent changes to the sqlx API after a long period of
-API stability.  These changes were made for a number of reasons:
+The ability to use basic types as Select and Get destinations was added.  This
+is only valid when there is one column in the result set, and both functions
+return an error if this isn't the case.  This allows for much simpler patterns
+of access for single column results:
 
-* the API surface area was way too large
-* descending non-embedded structs was confusing and problematic
-* separating map/struct for binding added lots of noise and little value
-* reflect helpers didn't belong in the API of `sqlx`
+```go
+var count int
+err := db.Get(&count, "SELECT count(*) FROM person;")
 
-Towards this end, the following public API has been removed or altered:
+var names []string
+err := db.Select(&names, "SELECT name FROM person;")
+```
 
-* **Execl**, **Execf**, **Execv**, **Selectf**, and **Selectv** removed.
-* **Execp** removed in favor of `MustExec`, which remains.
-* **BindMap**, **BindStruct** removed in favor of **BindNamed** which handles
-  both maps and structs.
-* **NamedExecMap**, **NamedQueryMap** removed in favor of **NamedExec** and
-  **NamedQuery**, respectively, which both handle structs & maps.
-* **Binder** interface no longer exported.
-* **BaseStructType** and **BaseSliceType** removed;  see `sqlx/reflectx` for
-  reflect helpers.
+See the note on Scannability at the bottom of this README for some more info.
 
-The above changes will all be caught by a build step.  The following changes
-to *behavior* in sqlx might require significant changes to client code.  If
-these are a problem, please vendor the git tag @sqlx-v1.0.
-
-* Non-embedded structs no longer probed for fields as more scan targets.
-  This was causing [#60](https://github.com/jmoiron/sqlx/issues/60), but also made little sense.  Embed these structs
-  instead.
-* `MapScan` and `SliceScan` previously returned values which, while `interface{}`,
-  were guaranteed to be a `string` or `nil`.  This guarantee no longer exists,
-  as `sql.NullString` and `sql.RawBytes` are *not* safe targets for all types.
-  This is related to [#59](https://github.com/jmoiron/sqlx/issues/59), but the problem could pop up in future as well.
-* Using the global `NameMapper` to change the behavior of sqlx is discouraged as
-  this will no longer impact `sqlx.DB` structs created before the change.
-
-### Going Forward
+### Backwards Compatibility
 
 There is no Go1-like promise of absolute stability, but I take the issue
 seriously and will maintain the library in a compatible state unless vital
 bugs prevent me from doing so.  Since [#59](https://github.com/jmoiron/sqlx/issues/59) and [#60](https://github.com/jmoiron/sqlx/issues/60) necessitated
-breaking behavior, I decided to perform the API cleanup at the same time.
+breaking behavior, a wider API cleanup was done at the time of fixing.
 
 ## install
 
@@ -160,12 +141,12 @@ func main() {
 
     // if you have null fields and use SELECT *, you must use sql.Null* in your struct
     places := []Place{}
-    err := db.Select(&places, "SELECT * FROM place ORDER BY telcode ASC")
+    err = db.Select(&places, "SELECT * FROM place ORDER BY telcode ASC")
     if err != nil {
-        fmt.Printf(err)
+        fmt.Println(err)
         return
     }
-    usa, singsing, honkers = places[0], places[1], places[2]
+    usa, singsing, honkers := places[0], places[1], places[2]
     
     fmt.Printf("%#v\n%#v\n%#v\n", usa, singsing, honkers)
     // Place{Country:"United States", City:sql.NullString{String:"New York", Valid:true}, TelCode:1}
@@ -178,7 +159,7 @@ func main() {
     for rows.Next() {
         err := rows.StructScan(&place)
         if err != nil {
-            log.Fataln(err)
+            log.Fatalln(err)
         } 
         fmt.Printf("%#v\n", place)
     }
@@ -196,26 +177,40 @@ func main() {
     })
 
     // Selects Mr. Smith from the database
-    rows, err := db.NamedQuery(`SELECT * FROM person WHERE first_name=:fn`, map[string]interface{}{"fn": "Bin"})
+    rows, err = db.NamedQuery(`SELECT * FROM person WHERE first_name=:fn`, map[string]interface{}{"fn": "Bin"})
 
     // Named queries can also use structs.  Their bind names follow the same rules
     // as the name -> db mapping, so struct fields are lowercased and the `db` tag
     // is taken into consideration.
-    rows, err := db.NamedQuery(`SELECT * FROM person WHERE first_name=:first_name`, jason)
+    rows, err = db.NamedQuery(`SELECT * FROM person WHERE first_name=:first_name`, jason)
 }
 ```
 
+## Scannability
+
+Get and Select are able to take base types, so the following is now possible:
+
+```go
+var name string
+db.Get(&name, "SELECT first_name FROM person WHERE id=$1", 10)
+
+var ids []int64
+db.Select(&ids, "SELECT id FROM person LIMIT 20;")
+```
+
+This can get complicated with destination types which are structs, like `sql.NullString`.  Because of this, straightforward rules for *scannability* had to be developed.  Iff something is "Scannable", then it is used directly in `rows.Scan`;  if it's not, then the standard sqlx struct rules apply.
+
+Something is scannable if any of the following are true:
+
+* It is not a struct, ie. `reflect.ValueOf(v).Kind() != reflect.Struct`
+* It implements the `sql.Scanner` interface
+* It has no exported fields (eg. `time.Time`)
+
 ## embedded structs
 
-Structs which do not implement the [sql.Scanner](http://golang.org/pkg/database/sql/#Scanner)
-interface will be inspected and their fields used as possible targets for a scan.  This includes
-embedded and non-embedded structs.
+Scan targets obey Go attribute rules directly, including nested embedded structs.  Older versions of sqlx would attempt to also descend into non-embedded structs, but this is no longer supported.
 
-Go makes '[ambiguous selectors](http://play.golang.org/p/MGRxdjLaUc)' a compile time error,
-but does not make structs with possible ambiguous selectors errors.  Sqlx will decide
-which field to use on a struct based on a breadth first search of the struct and any
-structs it contains or embeds, as specified by the order of the fields as accessible
-by `reflect`, which generally means in source-order.
+Go makes *accessing* '[ambiguous selectors](http://play.golang.org/p/MGRxdjLaUc)' a compile time error, defining structs with ambiguous selectors is legal.  Sqlx will decide which field to use on a struct based on a breadth first search of the struct and any structs it embeds, as specified by the order of the fields as accessible by `reflect`, which generally means in source-order.  This means that sqlx chooses the outer-most, top-most matching name for targets, even when the selector might technically be ambiguous.
 
 ## scan safety
 
