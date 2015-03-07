@@ -131,13 +131,17 @@ func NewWriter(w io.Writer) io.WriteCloser {
 	return &Writer{writer: w}
 }
 
-func (w *Writer) Write(p []byte) (int, error) {
+func WriteMsg(p []byte, w io.Writer) (int, error) {
 	l := len(p)
 	buf := make([]byte, l+len(dataMsg))
 	copy(buf[0:2], dataMsg)
 	copy(buf[2:], p)
-	_, err := w.writer.Write(buf)
-	return l, err
+	return w.Write(buf)
+}
+
+func (w *Writer) Write(p []byte) (int, error) {
+	_, err := WriteMsg(p, w.writer)
+	return len(p), err
 }
 
 var maxBufferSize = 3 * 1024 * 1024 // 3 megabytes

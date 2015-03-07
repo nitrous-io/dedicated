@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -559,14 +560,12 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
-	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan msgproto.Message, messageQueueSize)
 	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
-	stdout := msgproto.NewWriter(stream)
 
-	done, quit, err := cops.Start(id, stdin, stdout)
+	done, quit, msgs, err := cops.Start(id, stdin)
 	if err != nil {
-		stdout.Close()
+		stream.Close()
 		return err
 	}
 	ActiveCops.AddChannel(id, quit)
@@ -575,8 +574,22 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
 			ActiveCops.RemoveChannel(id, quit)
-			stdout.Close() // inform client that server has closed connection.
+			stream.Close() // inform client that server has closed connection.
 			return nil
+		case msg := <-msgs:
+			d, err := json.Marshal(msg)
+			if err != nil {
+				fmt.Printf("json.Marshal() of %v failed with %s\n", msg, err)
+			} else {
+				_, err = msgproto.WriteMsg(d, stream)
+				if err != nil {
+					log.Printf("msgproto.WriteMsg() failed with '%s'\n", err)
+				}
+			}
+
+			if err != nil {
+				done <- err
+			}
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			default:
