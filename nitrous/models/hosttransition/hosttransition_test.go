@@ -8,8 +8,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -23,12 +21,10 @@ func Test(t *testing.T) {
 
 var _ = Describe("models/hosttransition", func() {
 	var (
-		db *db.Database
-		u  *user.User
-		h  *host.Host
-		r  *region.Region
-		p  *plan.Plan
-		pt *providertemplate.ProviderTemplate
+		db  *db.Database
+		u   *user.User
+		hs1 *HostStack
+		h1  *host.Host
 	)
 
 	BeforeEach(func() {
@@ -44,33 +40,15 @@ var _ = Describe("models/hosttransition", func() {
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
-		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
-		err = r.Insert(db)
+		hs1, err = CreateHostStack(db, &HostStack{
+			H: &host.Host{
+				Slug:        "my-host-1",
+				HourlyPrice: 3000,
+			},
+			U: u,
+		})
 		Expect(err).To(BeNil())
-
-		p = &plan.Plan{Slug: "512mb", Name: "micro", MaxContainers: 1, Price: 500}
-		err = p.Insert(db)
-		Expect(err).To(BeNil())
-
-		pt = &providertemplate.ProviderTemplate{
-			RegionID: r.ID,
-			PlanID:   p.ID,
-			Name:     "digital-ocean-1",
-			Provider: "digitalocean",
-		}
-		err = pt.Insert(db)
-		Expect(err).To(BeNil())
-
-		h = &host.Host{
-			UserID:             u.ID,
-			Slug:               "my-host-1",
-			RegionID:           r.ID,
-			PlanID:             p.ID,
-			ProviderTemplateID: pt.ID,
-			HourlyPrice:        3000,
-		}
-		err = h.Insert(db)
-		Expect(err).To(BeNil())
+		h1 = hs1.H
 	})
 
 	AfterEach(func() {
@@ -87,15 +65,18 @@ var _ = Describe("models/hosttransition", func() {
 				oH   *host.Host
 			)
 			BeforeEach(func() {
-				oH = &host.Host{
-					UserID:             u.ID,
-					Slug:               "my-host-2",
-					RegionID:           r.ID,
-					PlanID:             p.ID,
-					ProviderTemplateID: pt.ID,
-				}
-				err := oH.Insert(db)
+				oHs, err := CreateHostStack(db, &HostStack{
+					H: &host.Host{
+						Slug:        "my-host-2",
+						HourlyPrice: 9000,
+					},
+					P:  hs1.P,
+					R:  hs1.R,
+					PT: hs1.PT,
+					U:  u,
+				})
 				Expect(err).To(BeNil())
+				oH = oHs.H
 
 				stm, err := db.Prepare(
 					`INSERT INTO host_transitions (host_id, previous_state, state) VALUES ($1, 'restarting', 'suspended')  RETURNING ID`)
@@ -110,8 +91,8 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(err).To(BeNil())
 
 				t := time.Now()
-				h.State = "terminated"
-				err = hosttransition.Record(tx, h, "running", t)
+				h1.State = "terminated"
+				err = hosttransition.Record(tx, h1, "running", t)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -122,7 +103,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(preEx.PreviousState.String).To(Equal("restarting"))
 				Expect(preEx.State).To(Equal("suspended"))
 
-				created, err := hosttransition.FindMostRecentForHost(db, h.ID)
+				created, err := hosttransition.FindMostRecentForHost(db, h1.ID)
 				Expect(err).To(BeNil())
 				Expect(created).ToNot(BeNil())
 
@@ -141,7 +122,7 @@ var _ = Describe("models/hosttransition", func() {
 					`INSERT INTO host_transitions (host_id, previous_state, state) VALUES ($1, 'restarting', 'suspended')  RETURNING ID`)
 				Expect(err).To(BeNil())
 
-				err = stm.QueryRow(h.ID).Scan(&exId)
+				err = stm.QueryRow(h1.ID).Scan(&exId)
 				Expect(err).To(BeNil())
 			})
 
@@ -150,7 +131,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(err).To(BeNil())
 
 				t := time.Now()
-				err = hosttransition.Record(tx, h, "running", t)
+				err = hosttransition.Record(tx, h1, "running", t)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -161,7 +142,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(preEx.State).To(Equal("suspended"))
 				Expect(preEx.EndedAt.Unix()).To(Equal(t.Unix()))
 
-				created, err := hosttransition.FindMostRecentForHost(db, h.ID)
+				created, err := hosttransition.FindMostRecentForHost(db, h1.ID)
 				Expect(err).To(BeNil())
 				Expect(created).ToNot(BeNil())
 
@@ -169,6 +150,122 @@ var _ = Describe("models/hosttransition", func() {
 			})
 		})
 
+	})
+
+	Describe("UsageForHosts", func() {
+		var (
+			hs2 *HostStack
+			hs3 *HostStack
+			h2  *host.Host
+			h3  *host.Host
+
+			startTime time.Time
+			endTime   time.Time
+		)
+
+		BeforeEach(func() {
+			startTime = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
+			endTime = time.Date(2014, 1, 31, 24, 59, 59, 1000000000, time.Local)
+
+			_, err := db.Exec("UPDATE hosts SET terminated_at = $1, updated_at = now() WHERE id = $2;", endTime, h1.ID)
+			Expect(err).To(BeNil())
+
+			hs2, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 500,
+				},
+				R:  hs1.R,
+				PT: hs1.PT,
+				U:  u,
+			})
+			Expect(err).To(BeNil())
+			h2 = hs2.H
+
+			hs3, err = CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-3",
+					HourlyPrice: 3722, // total cost for host will theoretically be $25.01 but plan price is 25.00
+				},
+				P: &plan.Plan{
+					Slug:          "hs3Plan",
+					Name:          "hs3Plan",
+					MaxContainers: 1,
+					Price:         2500,
+				},
+				R:  hs1.R,
+				PT: hs1.PT,
+				U:  u,
+			})
+			Expect(err).To(BeNil())
+			h3 = hs3.H
+
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", startTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "running", "stopped", startTime.Add(2*time.Hour), startTime.Add(4*time.Hour))
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h2.ID, "stopped", "running", startTime.Add(4*time.Hour))
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h3.ID, "born", "running", startTime)
+			Expect(err).To(BeNil())
+		})
+
+		It("should list the hosts for times it is running", func() {
+			times, err := hosttransition.UsageForHosts(db, []int64{h1.ID, h2.ID, h3.ID}, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(times).To(HaveLen(3))
+
+			hl1, ok := times[h1.ID]
+			Expect(ok).To(BeTrue())
+			Expect(hl1).To(HaveLen(1))
+			Expect(hl1[0].Minutes).To(Equal(int64(120)))
+			Expect(hl1[0].Start).To(BeTemporally("==", startTime))
+			Expect(hl1[0].End).To(BeTemporally("==", startTime.Add(2*time.Hour)))
+
+			hl2, ok := times[h2.ID]
+			Expect(ok).To(BeTrue())
+			Expect(hl2).To(HaveLen(2))
+			Expect(hl2[0].Minutes).To(Equal(int64(120)))
+			Expect(hl2[0].Start).To(BeTemporally("==", startTime))
+			Expect(hl2[0].End).To(BeTemporally("==", startTime.Add(2*time.Hour)))
+			Expect(hl2[1].Minutes).To(Equal(int64(44460)))
+			Expect(hl2[1].Start).To(BeTemporally("==", startTime.Add(4*time.Hour)))
+			Expect(hl2[1].End).To(BeTemporally("==", endTime))
+
+			hl3, ok := times[h3.ID]
+			Expect(ok).To(BeTrue())
+			Expect(hl3).To(HaveLen(1))
+			Expect(hl3[0].Minutes).To(Equal(int64(44700)))
+			Expect(hl3[0].Start).To(BeTemporally("==", startTime))
+			Expect(hl3[0].End).To(BeTemporally("==", endTime))
+		})
+
+		It("should round up part of a minute", func() {
+			_, err := db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "stopped", "running", startTime.Add(2*time.Hour), startTime.Add(140*time.Minute+1*time.Second))
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", startTime.Add(140*time.Minute))
+			Expect(err).To(BeNil())
+
+			times, err := hosttransition.UsageForHosts(db, []int64{h1.ID}, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(times).To(HaveLen(1))
+
+			hl1, ok := times[h1.ID]
+			Expect(ok).To(BeTrue())
+			Expect(hl1).To(HaveLen(2))
+			Expect(hl1[0].Minutes).To(Equal(int64(120)))
+			Expect(hl1[0].Start).To(BeTemporally("==", startTime))
+			Expect(hl1[0].End).To(BeTemporally("==", startTime.Add(2*time.Hour)))
+			Expect(hl1[1].Minutes).To(Equal(int64(21)))
+			Expect(hl1[1].Start).To(BeTemporally("==", startTime.Add(2*time.Hour)))
+			Expect(hl1[1].End).To(BeTemporally("==", startTime.Add(140*time.Minute+1*time.Second)))
+		})
 	})
 
 })
