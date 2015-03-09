@@ -30,6 +30,9 @@ func NewPattern(pattern, filePattern string, smartCase, ignoreCase, useRegexp bo
 		} else {
 			regPattern, patternErr = regexp.Compile(`(` + pattern + `)`)
 		}
+	} else if ignoreCase {
+		// not used during matching but used to simplify highlighting in decorator.go
+		regPattern, patternErr = regexp.Compile(`(?i)(` + regexp.QuoteMeta(pattern) + `)`)
 	}
 
 	var regFile *regexp.Regexp
