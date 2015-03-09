@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -454,8 +455,8 @@ var _ = Describe("provisioner", func() {
 			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
 			Expect(hcfg["host_id"]).To(Equal(float64(h.ID)))
 			Expect(hcfg["name"]).To(Equal("new-slug"))
-			Expect(hcfg["apt_username"]).To(Equal(u.Username))
-			Expect(hcfg["apt_password"]).To(Equal(t.Token))
+			Expect(hcfg["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
+			Expect(hcfg["apt_password"]).To(Equal(h.Secret))
 		})
 	})
 })

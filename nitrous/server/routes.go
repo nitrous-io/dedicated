@@ -83,11 +83,12 @@ func (s *Server) drawRoutes() {
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
-				"/plans":              r("plans.Index", plans.Index),
-				"/regions":            r("regions.Index", regions.Index),
-				"/templates":          r("templates.Index", templates.Index),
-				"/app_settings":       r("appsettings.Index", appsettings.Index),
-				"/promo_codes/{code}": r("promocodes.Show", promocodes.Show),
+				"/plans":                    r("plans.Index", plans.Index),
+				"/regions":                  r("regions.Index", regions.Index),
+				"/templates":                r("templates.Index", templates.Index),
+				"/app_settings":             r("appsettings.Index", appsettings.Index),
+				"/promo_codes/{code}":       r("promocodes.Show", promocodes.Show),
+				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
 			},
 			"POST": {
 				"/oauth/token":                  r("tokens.Post", tokens.Post),
