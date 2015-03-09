@@ -82,7 +82,7 @@ type HostConfig struct {
 	SourceAMI        string            `json:"source_ami"`
 	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
-	RawRegion        string            `json:"region"`
+	RegionID         string            `json:"region_id"`
 	RawSecurityGroup map[string]string `json:"security_group"`
 	IPAddress        string            `json:"ip_address"`
 
@@ -478,8 +478,8 @@ func (h *Host) logFailed() {
 func (h *Host) metricsLabel(prefix string) string {
 	// region should be set for every requests because ec2 API requires it to
 	// find the instance id properly
-	if h.Config.RawRegion != "" {
-		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RawRegion)
+	if h.Config.RegionID != "" {
+		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
 	}
 	return fmt.Sprintf("%s.amazon", prefix)
 }
@@ -493,7 +493,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	accessConfig := &AccessConfig{
 		AccessKey: defaultConfig["access_key"],
 		SecretKey: defaultConfig["secret_key"],
-		RawRegion: hostConfig.RawRegion,
+		RawRegion: hostConfig.RegionID,
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
@@ -584,7 +584,7 @@ func createInstance(ctx *host.HostContext) error {
 	storageSize := int64(h.Config.StorageSize * storageUnit)
 
 	hlog(h, "amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
-		h.Config.RawRegion, h.Config.InstanceType, storageSize, h.Config.Name)
+		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.Name)
 
 	opts := &ec2.RunInstances{
 		KeyName:        h.keypair.name,
