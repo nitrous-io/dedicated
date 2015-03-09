@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -86,7 +85,7 @@ var _ = Describe("biller", func() {
 			Expect(count).To(Equal(0))
 		})
 
-		Describe("with transisitions", func() {
+		Describe("with transitions", func() {
 			var (
 				hs1 *HostStack
 				hs2 *HostStack
@@ -139,14 +138,14 @@ var _ = Describe("biller", func() {
 
 				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
 				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", startTime.Add(2*time.Hour))
+				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "terminated", startTime.Add(2*time.Hour))
 				Expect(err).To(BeNil())
 
 				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
 				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "running", "stopped", startTime.Add(2*time.Hour), startTime.Add(4*time.Hour))
+				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h2.ID, "running", "terminated", startTime.Add(2*time.Hour), startTime.Add(4*time.Hour))
 				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h2.ID, "stopped", "running", startTime.Add(4*time.Hour))
+				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h2.ID, "terminated", "running", startTime.Add(4*time.Hour))
 				Expect(err).To(BeNil())
 
 				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h3.ID, "born", "running", startTime)
@@ -851,68 +850,6 @@ var _ = Describe("biller", func() {
 					})
 				})
 			})
-		})
-	})
-
-	Describe(".InvoiceItemsForUsages()", func() {
-		It("should calculate the total charges and return invoiceItems", func() {
-			usage1 := hosttransition.HostHourUsage{
-				HostID:      56,
-				UserID:      98,
-				HourlyPrice: 500,   // 0.5cent/hr
-				Seconds:     86400, // 24hrs
-			} // total should be 12 cents
-			usage2 := hosttransition.HostHourUsage{
-				HostID:      53,
-				UserID:      98,
-				HourlyPrice: 2000,   // 2cent/hr
-				Seconds:     172800, // 48hrs
-			} // total should be 96 cents
-			usage3 := hosttransition.HostHourUsage{
-				HostID:      54,
-				UserID:      98,
-				HourlyPrice: 0,      // 0cent/hr
-				Seconds:     172800, // 48hrs
-			} // total should be 0 cents
-			usage4 := hosttransition.HostHourUsage{
-				HostID:      55,
-				UserID:      98,
-				HourlyPrice: 2000,                                 // 2cent/hr
-				Seconds:     60 * 60 * (invoiceitem.MaxHours + 1), // MaxHours + 1hr
-			} // total should be 2c * MaxHours cents
-
-			planPricingMap := map[int64]int64{
-				56: 5000,
-				53: 2000,
-				54: 3000,
-				55: 4000,
-			}
-
-			charge, items, err := biller.InvoiceItemsForUsages([]hosttransition.HostHourUsage{usage1, usage2, usage3, usage4}, planPricingMap, nil)
-			Expect(err).To(BeNil())
-			Expect(charge).To(Equal(int64(108 + (invoiceitem.MaxHours * 2))))
-
-			eX1 := invoiceitem.InvoiceItem{
-				HostID:      sql.NullInt64{56, true},
-				HourlyPrice: sql.NullInt64{500, true},
-				Hours:       sql.NullInt64{24, true},
-			}
-			eX2 := invoiceitem.InvoiceItem{
-				HostID:      sql.NullInt64{53, true},
-				HourlyPrice: sql.NullInt64{2000, true},
-				Hours:       sql.NullInt64{48, true},
-			}
-			eX3 := invoiceitem.InvoiceItem{
-				HostID:      sql.NullInt64{54, true},
-				HourlyPrice: sql.NullInt64{0, true},
-				Hours:       sql.NullInt64{48, true},
-			}
-			eX4 := invoiceitem.InvoiceItem{
-				HostID:      sql.NullInt64{55, true},
-				HourlyPrice: sql.NullInt64{2000, true},
-				Hours:       sql.NullInt64{invoiceitem.MaxHours, true},
-			}
-			Expect(items).To(Equal([]invoiceitem.InvoiceItem{eX1, eX2, eX3, eX4}))
 		})
 	})
 
