@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/mitchellh/goamz/aws"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -75,16 +74,6 @@ var (
 		"nyc": "nyc3",
 		"sfo": "sfo1",
 		"ams": "ams3",
-	}
-
-	// default mapping for amazon regions. This will support the same mapping
-	// as digitalocean for now to maintain 1-1 comparable latency between the
-	// twos.
-	amazonRegionsMap = map[string]string{
-		"sgp": aws.APSoutheast.Name,
-		"nyc": aws.USEast.Name,
-		"sfo": aws.USWest.Name,
-		"ams": aws.EUWest.Name,
 	}
 )
 
@@ -723,16 +712,12 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			config["region_id"] = reg
 		}
 	case AmazonProvider:
-		if reg, ok := amazonRegionsMap[rid.String]; !ok {
-			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
-		} else {
-			config["region_id"] = reg
-			size, err := strconv.Atoi(config["storage_size"].(string))
-			if err != nil {
-				return config, fmt.Errorf("invalid size for config %v", config)
-			}
-			config["storage_size"] = size
+		// convert storage_size to format accepted by hostbuilder
+		size, err := strconv.Atoi(config["storage_size"].(string))
+		if err != nil {
+			return config, fmt.Errorf("invalid size for config %v", config)
 		}
+		config["storage_size"] = size
 	default:
 		return nil, ErrUnknownProvider
 	}
