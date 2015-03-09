@@ -77,13 +77,13 @@ type tlsConfig struct {
 }
 
 type HostConfig struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	SourceAMI        string            `json:"source_ami"`
-	InstanceType     string            `json:"instance_type"`
-	RegionID         string            `json:"region_id"`
-	RawSecurityGroup map[string]string `json:"security_group"`
-	IPAddress        string            `json:"ip_address"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	SourceAMI       string `json:"source_ami"`
+	InstanceType    string `json:"instance_type"`
+	RegionID        string `json:"region_id"`
+	SecurityGroupID string `json:"security_group_id"`
+	IPAddress       string `json:"ip_address"`
 
 	// StorageSize is used to calculate total storage of the root device.
 	// TotalStorage = StorageSize * storageUnit
@@ -103,8 +103,7 @@ type HostConfig struct {
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 	return []ec2.SecurityGroup{
 		ec2.SecurityGroup{
-			Id:   h.RawSecurityGroup["id"],
-			Name: h.RawSecurityGroup["name"],
+			Id: h.SecurityGroupID,
 		},
 	}
 }
