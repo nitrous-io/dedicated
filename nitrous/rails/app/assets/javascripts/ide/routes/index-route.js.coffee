@@ -4,3 +4,5 @@ App.IndexRoute = Em.Route.extend
     if window.location.pathname == '/ide' && query
       transition.abort()
       window.location.replace "/ide/#/#{query}"
+    else
+      window.location.href = '/app/#/'
