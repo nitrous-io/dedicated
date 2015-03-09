@@ -19,11 +19,112 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const DigitalOceanImageID = "5714430"
+const (
+	DigitalOceanImageID = "5714430"
+	AmazonImageID       = "ami-5d98b86d" // for us-west-2
+)
 
 var (
 	logr           *logger.Logger
 	providerToSeed string
+
+	// default configuration for amazon provider
+	// FIXME: replace this with proper configuration once the AMIs/security
+	// groups for all supported regions are in place
+	amazonConfig = map[string]map[string]string{
+		"sfo": map[string]string{
+			"1gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "4",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"2gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "5",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"4gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "6",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+		},
+		"nyc": map[string]string{
+			"1gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "4",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"2gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "5",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"4gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "6",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+		},
+		"ams": map[string]string{
+			"1gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "4",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"2gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "5",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"4gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "6",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+		},
+		"sgp": map[string]string{
+			"1gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "4",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"2gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "5",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+			"4gb": `{
+				"source_ami": "ami-5d98b86d",
+				"instance_type": "t1.micro",
+				"region_id": "us-west-2",
+				"storage_size": "6",
+				"security_group_id": "sg-c4b2f0f7"
+			}`,
+		},
+	}
 )
 
 func init() {
@@ -40,8 +141,8 @@ func main() {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
 	providerToSeed = envvars.DefaultProvider
-	if providerToSeed != "digitalocean" && providerToSeed != "docker" {
-		logr.Fatalf("DEFAULT_PROVIDER %s must be one of digitalocean or docker", providerToSeed)
+	if providerToSeed != "digitalocean" && providerToSeed != "docker" && providerToSeed != "amazon" {
+		logr.Fatalf("DEFAULT_PROVIDER %s is invalid", providerToSeed)
 	}
 
 	dbConn, err := db.NewDatabase(dbURL)
@@ -140,9 +241,15 @@ func plans(d db.QueryReceiver) error {
 }
 
 func providertemplates(d db.QueryReceiver) error {
-	ok, err := shouldSeed(d, "provider_templates")
-	if err != nil || !ok {
+	c := -1
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE provider = $1", "provider_templates")
+	err := d.QueryRowx(query, providerToSeed).Scan(&c)
+	if err != nil {
 		return err
+	}
+	if c > 0 {
+		logr.Infof("%d %s found for provider %s, skipping %s seeds", c, "provider_templates", providerToSeed, "provider_templates")
+		return nil
 	}
 	plans := []plan.Plan{}
 	err = d.Select(&plans, "SELECT * FROM plans")
@@ -161,15 +268,45 @@ func providertemplates(d db.QueryReceiver) error {
 				Provider: providerToSeed,
 				RegionID: r.ID,
 				PlanID:   p.ID,
-				Config: hstore.Hstore{
+			}
+			switch providerToSeed {
+			case "digitalocean":
+				pt.Config = hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"region_id": {r.Slug, true},
+						"size_id":   {p.Slug, true},
+						"image_id":  {DigitalOceanImageID, true},
+					},
+				}
+			case "docker":
+				pt.Config = hstore.Hstore{
 					Map: map[string]sql.NullString{
 						"region_id": {r.Slug, true},
 						"size_id":   {p.Slug, true},
 					},
-				},
-			}
-			if providerToSeed == "digitalocean" {
-				pt.Config.Map["image_id"] = sql.NullString{DigitalOceanImageID, true}
+				}
+			case "amazon":
+				regionCfg, ok := amazonConfig[r.Slug]
+				if !ok {
+					return fmt.Errorf("missing config for region %s", r.Slug)
+				}
+				cfgData, ok := regionCfg[p.Slug]
+				if !ok {
+					return fmt.Errorf("missing config for region %s, plan %s", r.Slug, p.Slug)
+				}
+				var cfg map[string]string
+				if err := json.Unmarshal([]byte(cfgData), &cfg); err != nil {
+					return err
+				}
+				pt.Config = hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"source_ami":        {cfg["source_ami"], true},
+						"instance_type":     {cfg["instance_type"], true},
+						"region_id":         {cfg["region_id"], true},
+						"storage_size":      {cfg["storage_size"], true},
+						"security_group_id": {cfg["security_group_id"], true},
+					},
+				}
 			}
 			err := pt.Insert(d)
 			if err != nil {
