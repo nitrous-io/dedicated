@@ -140,7 +140,7 @@ func TestFindWithStream(t *testing.T) {
 func TestFindNonRegex(t *testing.T) {
 	out := make(chan *GrepParams)
 	find := find{out, &Option{}}
-	pattern, err := NewPattern("rumba(", "ascii.txt", false, true, false)
+	pattern, err := NewPattern("Rumba(", "ascii.txt", false, true, false)
 	if err != nil {
 		t.Errorf("NewPattern() failed with %s\n", err)
 	}

@@ -38,7 +38,7 @@ func (c Color) lineNumber(lineNum int, sep string) string {
 }
 
 func (c Color) match(pattern *Pattern, line *Line) string {
-	if pattern.UseRegexp {
+	if pattern.UseRegexp || pattern.IgnoreCase {
 		return pattern.Regexp.ReplaceAllString(line.Str, ColorMatch+"${1}"+ColorReset)
 	} else {
 		return strings.Replace(line.Str, pattern.Pattern, ColorMatch+pattern.Pattern+ColorReset, -1)
