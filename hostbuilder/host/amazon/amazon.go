@@ -113,6 +113,7 @@ type Host struct {
 	Config       *HostConfig
 	notifyURL    string // to be set in builder's config
 	uuid         string // request UUID set by user
+	env          string // env tag to be set for each instance
 
 	// ec2 properties
 	provider *ec2.EC2
@@ -171,7 +172,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Setting workspace's name",
-			Func:        associateInstanceName,
+			Func:        associateInstanceTags,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
@@ -222,7 +223,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	steps := []host.Step{
 		{
 			Description: "Setting workspace's name",
-			Func:        associateInstanceName,
+			Func:        associateInstanceTags,
 		},
 	}
 	for _, step := range steps {
@@ -392,7 +393,9 @@ func (h *Host) List() ([]*host.Info, error) {
 	label := h.metricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
-	instancesResp, err := h.provider.Instances(nil, ec2.NewFilter())
+	filter := ec2.NewFilter()
+	filter.Add("tag", fmt.Sprintf("dedicated=%s", h.env))
+	instancesResp, err := h.provider.Instances(nil, filter)
 	if err != nil {
 		return nil, mh.Error(err, label)
 	}
@@ -517,6 +520,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		createTimeout: createTimeout,
 		uuid:          defaultConfig["uuid"], // this is injected by the server per request
 		notifyURL:     defaultConfig["notify_url"],
+		env:           defaultConfig["env"],
 	}
 	return host, nil
 }
@@ -655,15 +659,18 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	return nil
 }
 
-// associateInstanceName sets the instance's Name tag to the provided name so
-// we can later filter this instance using API.
+// associateInstanceTags sets the instance's tags which include Name and
+// dedicated environment.
 // If this fails, we still consider the operation to be successful
-func associateInstanceName(ctx *host.HostContext) error {
+func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.metricsLabel("set_name")
 	defer mh.UpdateSince(label, time.Now())
 
 	tags := []ec2.Tag{{"Name", h.Config.Name}}
+	if h.env != "" {
+		tags = append(tags, ec2.Tag{"dedicated", h.env})
+	}
 	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {
 		hlog(h, "Failed to set name for instance %s", h.instance.InstanceId)
