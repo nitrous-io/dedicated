@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	loggerLib "github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -21,8 +22,8 @@ var (
 		"json_form_required", "POST content-type must be application/json")
 	errInvalidJSON = httperror.New(http.StatusBadRequest,
 		"invalid_json", "Invalid JSON")
-	errMultiSlugsNotSupported = httperror.New(http.StatusBadRequest,
-		"multi_slugs_not_supported", "Sorry, only support single slug for now")
+	errNoSlugSpecified = httperror.New(http.StatusBadRequest,
+		"no_slug_specified", "Must specify at least one host slug")
 )
 
 func showGlobal(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -57,6 +58,12 @@ func showAll(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+func mailErrorLogger(logger *loggerLib.Logger) func(error) {
+	return func(err error) {
+		logger.Warnf("Failed to send mail to host owners: %s", err)
+	}
+}
+
 func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var announcementForm struct {
 		Content struct {
@@ -86,8 +93,10 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 		ExpiresAt:       form.ExpiresAt,
 	}
 
+	errHandler := mailErrorLogger(env.Logger)
+
 	if form.ShowToAll {
-		err := announcement.SendAndSaveGlobalAnnouncement(env.DB, ann)
+		err := announcement.SendAndSaveGlobalAnnouncement(env.DB, ann, errHandler)
 		if err != nil {
 			return err
 		}
@@ -101,39 +110,18 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 
 	} else {
 		slugs := form.HostSlugs
-
-		// TODO: Only support single host slug for now
-		// Because can't figure how to select and insert
-		// multiple values to db :(
-		if len(slugs) != 1 {
-			return errMultiSlugsNotSupported
+		if len(slugs) == 0 {
+			return errNoSlugSpecified
 		}
 
-		slug := slugs[0]
-
-		owner, err := announcement.FindOwnerByHostSlug(env.DB, slug)
+		hostAnns, err := announcement.SendAndSaveForHostSlugs(env.DB, ann, form.HostSlugs, errHandler)
 		if err != nil {
 			return err
-		}
-
-		err = announcement.InsertForHost(env.DB, ann, owner.HostID)
-		if err != nil {
-			return err
-		}
-
-		err = announcement.SendToOwner(ann, owner)
-		if err != nil {
-			return err
-		}
-
-		hostAnn := &announcement.HostAnnouncement{
-			Announcement: ann,
-			HostOwner:    owner,
 		}
 
 		env.Status = http.StatusOK
 		env.Data = map[string]interface{}{
-			"announcement": serializers.SerializeHostAnnouncement(hostAnn),
+			"announcements": serializers.SerializeHostAnnouncements(hostAnns),
 		}
 
 		return nil

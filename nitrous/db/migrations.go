@@ -933,6 +933,8 @@ func init() {
 					announcement_id bigint REFERENCES announcements(id) NOT NULL,
 					host_id bigint REFERENCES hosts(id) NOT NULL
 				);
+
+				CREATE UNIQUE INDEX index_announcement_id_host_id ON announcement_host USING btree (announcement_id, host_id);
 			`,
 		},
 	}

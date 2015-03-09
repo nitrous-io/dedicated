@@ -15,11 +15,9 @@
 
   if topAnnouncement
     .notice-text
-      p
-        i.fa.fa-warning
-        = topAnnouncement.subject
-      p 
-        = topAnnouncement.message
+      i.fa.fa-warning
+      '
+      = topAnnouncement.message
 
   table.ui.table.horizontal
     tr
