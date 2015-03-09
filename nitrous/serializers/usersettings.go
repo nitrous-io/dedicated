@@ -20,24 +20,19 @@ type UserSettings struct {
 }
 
 func SerializeUserSettings(s *user.Settings) *UserSettings {
-	serialized := &UserSettings{
+	return &UserSettings{
 		ID:                s.ID,
 		UserID:            s.UserID,
 		AutoCloseBrackets: s.AutoCloseBrackets,
 		HighlightLine:     s.HighlightLine,
+		Keybindings:       s.Keybindings,
 		MatchBrackets:     s.MatchBrackets,
 		RulerColumn:       s.RulerColumn,
 		ShowLineNumbers:   s.ShowLineNumbers,
 		ShowTrailingSpace: s.ShowTrailingSpace,
 		SoftTabs:          s.SoftTabs,
 		TabSize:           s.TabSize,
+		Theme:             s.Theme,
 		WrapLines:         s.WrapLines,
 	}
-	if s.Keybindings.Valid {
-		serialized.Keybindings = s.Keybindings.String
-	}
-	if s.Theme.Valid {
-		serialized.Theme = s.Theme.String
-	}
-	return serialized
 }

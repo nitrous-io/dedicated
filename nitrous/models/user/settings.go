@@ -1,8 +1,6 @@
 package user
 
 import (
-	"database/sql"
-
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 )
@@ -11,17 +9,17 @@ type Settings struct {
 	ID     int64 `db:"id"`
 	UserID int64 `db:"user_id"`
 
-	AutoCloseBrackets bool           `db:"auto_close_brackets"`
-	HighlightLine     bool           `db:"highlight_line"`
-	Keybindings       sql.NullString `db:"keybindings"`
-	MatchBrackets     bool           `db:"match_brackets"`
-	RulerColumn       int64          `db:"ruler_column"`
-	ShowLineNumbers   bool           `db:"show_line_numbers"`
-	ShowTrailingSpace bool           `db:"show_trailing_space"`
-	SoftTabs          bool           `db:"soft_tabs"`
-	TabSize           int64          `db:"tab_size"`
-	Theme             sql.NullString `db:"theme"`
-	WrapLines         bool           `db:"wrap_lines"`
+	AutoCloseBrackets bool   `db:"auto_close_brackets"`
+	HighlightLine     bool   `db:"highlight_line"`
+	Keybindings       string `db:"keybindings"`
+	MatchBrackets     bool   `db:"match_brackets"`
+	RulerColumn       int64  `db:"ruler_column"`
+	ShowLineNumbers   bool   `db:"show_line_numbers"`
+	ShowTrailingSpace bool   `db:"show_trailing_space"`
+	SoftTabs          bool   `db:"soft_tabs"`
+	TabSize           int64  `db:"tab_size"`
+	Theme             string `db:"theme"`
+	WrapLines         bool   `db:"wrap_lines"`
 
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
