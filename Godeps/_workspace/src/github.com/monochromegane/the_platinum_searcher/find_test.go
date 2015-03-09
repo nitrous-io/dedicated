@@ -136,3 +136,23 @@ func TestFindWithStream(t *testing.T) {
 		}
 	}
 }
+
+func TestFindNonRegex(t *testing.T) {
+	out := make(chan *GrepParams)
+	find := find{out, &Option{}}
+	pattern, err := NewPattern("rumba(", "ascii.txt", false, true, false)
+	if err != nil {
+		t.Errorf("NewPattern() failed with %s\n", err)
+	}
+	go find.Start([]string{"files"}, pattern)
+	var res []*GrepParams
+	for o := range out {
+		res = append(res, o)
+	}
+	if len(res) != 1 {
+		t.Errorf("expected 1 result, got %d\n", len(res))
+	}
+	if res[0].Path != "files/ascii.txt" {
+		t.Errorf("expected to find in 'files/ascii.txt', found in '%s'\n", res[0].Path)
+	}
+}
