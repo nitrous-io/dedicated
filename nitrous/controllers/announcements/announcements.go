@@ -24,6 +24,10 @@ var (
 		"invalid_json", "Invalid JSON")
 	errNoSlugSpecified = httperror.New(http.StatusBadRequest,
 		"no_slug_specified", "Must specify at least one host slug")
+	errEmptySubject = httperror.New(http.StatusBadRequest,
+		"empty_subject", "Subject field is empty")
+	errEmptyMessage = httperror.New(http.StatusBadRequest,
+		"message_subject", "Message field is empty")
 )
 
 func showGlobal(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -32,11 +36,9 @@ func showGlobal(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	serialized := serializers.SerializeAnnouncements(announcements)
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"announcements": serialized,
+		"announcements": serializers.SerializeAnnouncements(announcements),
 	}
 
 	return nil
@@ -48,11 +50,9 @@ func showAll(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	serialized := serializers.SerializeHostAnnouncements(announcements)
-
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"announcements": serialized,
+		"announcements": serializers.SerializeHostAnnouncements(announcements),
 	}
 
 	return nil
@@ -86,6 +86,14 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 
 	form := announcementForm.Content
 
+	if form.SubjectTemplate == "" {
+		return errEmptySubject
+	}
+
+	if form.MessageTemplate == "" {
+		return errEmptyMessage
+	}
+
 	ann := &announcement.Announcement{
 		SubjectTemplate: form.SubjectTemplate,
 		MessageTemplate: form.MessageTemplate,
@@ -103,7 +111,7 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 
 		env.Status = http.StatusAccepted
 		env.Data = map[string]interface{}{
-			"announcement": serializers.SerializeAnnouncement(ann),
+			"announcements": serializers.SerializeAnnouncements([]*announcement.Announcement{ann}),
 		}
 
 		return nil

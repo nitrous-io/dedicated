@@ -2,14 +2,18 @@ package announcement
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/mail"
 	templateLib "text/template"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
+)
+
+var (
+	ErrSlugsNotFound = errors.New("Some of the host slugs cannot be found")
 )
 
 /*
@@ -86,29 +90,6 @@ func (ann *HostAnnouncement) SendEmail() error {
 	return SendToOwner(ann.Announcement, ann.HostOwner)
 }
 
-// Create a global Announcement object
-func CreateForGlobal(subjectTemplate, messageTemplate string, expiresAt *time.Time) *Announcement {
-	return &Announcement{
-		SubjectTemplate: subjectTemplate,
-		MessageTemplate: messageTemplate,
-		ShowToAll:       true,
-		ExpiresAt:       expiresAt,
-	}
-}
-
-// Create a HostAnnouncement object from given host owner
-func CreateForHostOwner(owner *HostOwner, subjectTemplate, messageTemplate string, expiresAt *time.Time) *HostAnnouncement {
-	return &HostAnnouncement{
-		Announcement: &Announcement{
-			SubjectTemplate: subjectTemplate,
-			MessageTemplate: messageTemplate,
-			ShowToAll:       false,
-			ExpiresAt:       expiresAt,
-		},
-		HostOwner: owner,
-	}
-}
-
 func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
@@ -117,22 +98,6 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
     FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
     WHERE hosts.id=$1;
   `, hostID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return owner, nil
-}
-
-func FindOwnerByHostSlug(db *dbLib.Database, slug string) (*HostOwner, error) {
-	owner := &HostOwner{}
-
-	err := db.Get(owner, `SELECT
-    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.slug=$1;
-  `, slug)
 
 	if err != nil {
 		return nil, err
@@ -150,7 +115,7 @@ func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, er
 	slugsCount := len(slugs)
 	values := make([]interface{}, slugsCount)
 
-	// Ugly hacks to perform SQL SELECT IN query
+	// Construct query string for SELECT IN
 	for i, slug := range slugs {
 		values[i] = slug
 		query += fmt.Sprintf("$%d", i+1)
@@ -274,13 +239,10 @@ func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 /*
  * Find all global and host-specific announcements.
  * Global announcements would have HostOwner field as nil.
- *
- * Soares: We have to perform two separate queries to find
- * global and host announcements, because I have no idea
- * how to map left joined rows with null-host_id to
- * this HostAnnouncement struct.. :(
  */
 func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
+	// perform two separate queries to find
+	// global and host announcements
 	globals, err := FindAllForGlobal(db)
 	if err != nil {
 		return nil, err
@@ -301,14 +263,10 @@ func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
 	return append(res, hosts...), nil
 }
 
-type prepareNamedDB interface {
-	PrepareNamed(query string) (*sqlx.NamedStmt, error)
-}
-
 /*
  * Insert an announcement without its associated host
  */
-func Insert(db prepareNamedDB, announcement *Announcement) error {
+func Insert(db dbLib.QueryReceiver, announcement *Announcement) error {
 	query := `INSERT INTO announcements
     (subject_template, message_template, show_to_all, expires_at, created_at, updated_at)
     VALUES
@@ -323,25 +281,16 @@ func Insert(db prepareNamedDB, announcement *Announcement) error {
 	return nstmt.QueryRowx(announcement).StructScan(announcement)
 }
 
-func AddHost(db *dbLib.Database, announcementID, hostID int64) error {
-	_, err := db.Exec(`INSERT INTO announcement_host
-    (announcement_id, host_id) 
-    VALUES ($1, $2)`,
-		announcementID, hostID)
-
-	return err
-}
-
 /*
  * Add an host to an existing announcement
  */
-func AddHosts(db *sqlx.Tx, announcementID int64, hostIDs []int64) error {
+func AddHosts(db dbLib.QueryReceiver, announcementID int64, hostIDs []int64) error {
 	hostCount := len(hostIDs)
 
 	query := "INSERT INTO announcement_host (announcement_id, host_id) VALUES "
 	values := make([]interface{}, 2*hostCount)
 
-	// Ugly hack for inserting multiple rows at the same time in Go..
+	// Construct query string for bulk insert hosts
 	for i, hostID := range hostIDs {
 		offset := i * 2
 
@@ -382,20 +331,6 @@ func InsertForHosts(db *dbLib.Database, ann *Announcement, hostIDs []int64) erro
 	}
 
 	return tx.Commit()
-}
-
-func InsertForHost(db *dbLib.Database, ann *Announcement, hostID int64) error {
-	err := Insert(db, ann)
-	if err != nil {
-		return err
-	}
-
-	err = AddHost(db, ann.ID, hostID)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {
@@ -475,13 +410,19 @@ func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement, errHan
 }
 
 func SendAndSaveForHostSlugs(db *dbLib.Database, ann *Announcement, slugs []string, errHandler func(error)) ([]*HostAnnouncement, error) {
+	slugsCount := len(slugs)
+
 	owners, err := FindOwnersByHostSlugs(db, slugs)
 	if err != nil {
 		return nil, err
 	}
 
-	hostAnns := make([]*HostAnnouncement, len(owners))
-	hostIDs := make([]int64, len(owners))
+	if len(owners) != slugsCount {
+		return nil, ErrSlugsNotFound
+	}
+
+	hostAnns := make([]*HostAnnouncement, slugsCount)
+	hostIDs := make([]int64, slugsCount)
 
 	for i, owner := range owners {
 		hostAnns[i] = &HostAnnouncement{

@@ -12,7 +12,7 @@ form submit='sendAnnouncement'
       .ui.input-group
         label.field-label for='message-template'
           | Message template 
-        = input type='text' id='message-template' name='message-template' required=true disabled=saving value=messageTemplate
+        = textarea type='text' id='message-template' name='message-template' rows='5' required=true disabled=saving value=messageTemplate
  
       .ui.input-group
         label.field-label for='expires-at'
