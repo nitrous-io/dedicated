@@ -20,14 +20,24 @@ var (
 
 	errJSONFormRequired = httperror.New(http.StatusBadRequest,
 		"json_form_required", "POST content-type must be application/json")
+
 	errInvalidJSON = httperror.New(http.StatusBadRequest,
 		"invalid_json", "Invalid JSON")
+
 	errNoSlugSpecified = httperror.New(http.StatusBadRequest,
 		"no_slug_specified", "Must specify at least one host slug")
+
 	errEmptySubject = httperror.New(http.StatusBadRequest,
 		"empty_subject", "Subject field is empty")
+
 	errEmptyMessage = httperror.New(http.StatusBadRequest,
 		"message_subject", "Message field is empty")
+
+	errInvalidExpiry = httperror.New(http.StatusBadRequest,
+		"invalid_expiry", "Invalid announcement expiry date")
+
+	errSlugsNotFound = httperror.New(http.StatusNotFound,
+		"slugs_not_found", "Some of the host slugs cannot be found")
 )
 
 func showGlobal(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -94,6 +104,10 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 		return errEmptyMessage
 	}
 
+	if form.ExpiresAt == nil || form.ExpiresAt.Before(time.Now()) {
+		return errInvalidExpiry
+	}
+
 	ann := &announcement.Announcement{
 		SubjectTemplate: form.SubjectTemplate,
 		MessageTemplate: form.MessageTemplate,
@@ -124,10 +138,14 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 
 		hostAnns, err := announcement.SendAndSaveForHostSlugs(env.DB, ann, form.HostSlugs, errHandler)
 		if err != nil {
+			if err == announcement.ErrSlugsNotFound {
+				return errSlugsNotFound
+			}
+
 			return err
 		}
 
-		env.Status = http.StatusOK
+		env.Status = http.StatusAccepted
 		env.Data = map[string]interface{}{
 			"announcements": serializers.SerializeHostAnnouncements(hostAnns),
 		}

@@ -589,7 +589,7 @@ func publishContainersStopped(env *middleware.Env, h *host.Host) {
 }
 
 func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	announcements, err := announcement.FindAllByHostID(env.DB, h.ID)
+	announcements, err := announcement.FindByHostID(env.DB, h.ID)
 	if err != nil {
 		return err
 	}

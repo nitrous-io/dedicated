@@ -86,18 +86,14 @@ func (ann *HostAnnouncement) Message() (string, error) {
 	return ann.Announcement.RenderMessage(ann.HostOwner)
 }
 
-func (ann *HostAnnouncement) SendEmail() error {
-	return SendToOwner(ann.Announcement, ann.HostOwner)
-}
-
 func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
 	err := db.Get(owner, `SELECT
-    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.id=$1;
-  `, hostID)
+		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+		WHERE hosts.id=$1;
+	`, hostID)
 
 	if err != nil {
 		return nil, err
@@ -108,9 +104,9 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 
 func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, error) {
 	query := `SELECT
-    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.slug IN (`
+		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+		WHERE hosts.slug IN (`
 
 	slugsCount := len(slugs)
 	values := make([]interface{}, slugsCount)
@@ -144,10 +140,10 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
 	owners := []*HostOwner{}
 
 	err := db.Select(&owners, `SELECT
-    hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-    FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE hosts.terminated_at IS NULL;
-  `)
+		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+		WHERE hosts.terminated_at IS NULL AND preprovisioned=false;
+	`)
 
 	if err != nil {
 		return nil, err
@@ -161,7 +157,7 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
  * The global announcements retrieved are assigned the same
  * host owner as the hosts.
  */
-func FindAllByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+func FindByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
 	// First find the owner, because it will be the same for all announcements
 	owner, err := FindOwnerByHostID(db, hostID)
 	if err != nil {
@@ -172,11 +168,11 @@ func FindAllByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, err
 
 	// Query the database for announcements without joining
 	err = db.Select(&announcements, `SELECT 
-    announcements.* FROM announcements 
-    LEFT JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
-    WHERE expires_at > now() 
-      AND (show_to_all=true OR host_id=$1)
-    ORDER BY created_at DESC;`, hostID)
+		announcements.* FROM announcements 
+		LEFT JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
+		WHERE expires_at > now() 
+			AND (show_to_all=true OR host_id=$1)
+		ORDER BY created_at DESC;`, hostID)
 
 	if err != nil {
 		return nil, err
@@ -202,15 +198,16 @@ func FindAllForHosts(db *dbLib.Database) ([]*HostAnnouncement, error) {
 	announcements := []*HostAnnouncement{}
 
 	err := db.Select(&announcements, `SELECT 
-    announcements.*, hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-    FROM announcements 
-      INNER JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
-      INNER JOIN hosts ON (announcement_host.host_id = hosts.id)
-      INNER JOIN users ON (hosts.user_id = users.id)
-    WHERE 
-      show_to_all=false
-      AND expires_at > now() 
-      AND hosts.terminated_at IS NULL;`)
+		announcements.*, hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+		FROM announcements 
+			INNER JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
+			INNER JOIN hosts ON (announcement_host.host_id = hosts.id)
+			INNER JOIN users ON (hosts.user_id = users.id)
+		WHERE 
+			show_to_all=false
+			AND expires_at > now() 
+			AND hosts.terminated_at IS NULL
+			AND preprovisioned=false;`)
 
 	if err != nil {
 		return nil, err
@@ -227,7 +224,7 @@ func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
 
 	err := db.Select(&announcements, `SELECT *
 		FROM announcements 
-    WHERE show_to_all=true AND expires_at > now();`)
+		WHERE show_to_all=true AND expires_at > now();`)
 
 	if err != nil {
 		return nil, err
@@ -268,10 +265,10 @@ func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
  */
 func Insert(db dbLib.QueryReceiver, announcement *Announcement) error {
 	query := `INSERT INTO announcements
-    (subject_template, message_template, show_to_all, expires_at, created_at, updated_at)
-    VALUES
-    (:subject_template, :message_template, :show_to_all, :expires_at, now(), now())
-    RETURNING *;`
+		(subject_template, message_template, show_to_all, expires_at, created_at, updated_at)
+		VALUES
+		(:subject_template, :message_template, :show_to_all, :expires_at, now(), now())
+		RETURNING *;`
 
 	nstmt, err := db.PrepareNamed(query)
 	if err != nil {
@@ -322,11 +319,13 @@ func InsertForHosts(db *dbLib.Database, ann *Announcement, hostIDs []int64) erro
 
 	err = Insert(tx, ann)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	err = AddHosts(tx, ann.ID, hostIDs)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 

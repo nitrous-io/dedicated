@@ -920,8 +920,8 @@ func init() {
 			Up: `
 				CREATE TABLE announcements (
 					id bigserial PRIMARY KEY NOT NULL,
-					subject text NOT NULL,
-					message text NOT NULL,
+					subject_template text NOT NULL,
+					message_template text NOT NULL,
 					show_to_all boolean NOT NULL,
 					expires_at timestamp without time zone DEFAULT now(),
 					created_at timestamp without time zone DEFAULT now(),
