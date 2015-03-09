@@ -107,46 +107,6 @@ func countMatches(pattern *pt.Pattern, str string) int {
 	return strings.Count(str, pattern.Pattern)
 }
 
-// FindFiles finds files which name has the pattern
-//
-// the response channel has to be fully read even if we dont consume it
-// completely
-func (f *Finder) FindFiles(term string) (chan string, error) {
-	term = regexTerm(term)
-	pattern, err := pt.NewPattern(term, term, true, false, false)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make(chan *pt.GrepParams, chanSize)
-	results := make(chan string, chanSize)
-	go func() {
-		for val := range out {
-			if val == nil {
-				continue
-			}
-			rel, err := filepath.Rel(f.root, val.Path)
-			if err != nil {
-				continue
-			}
-			results <- rel
-		}
-		close(results)
-	}()
-
-	option := defaultOption()
-	go pt.Find(f.root, pattern, out, option)
-
-	return results, nil
-}
-
-// regexTerm splits the term characters and join them with .*? so it behaves
-// like a quick-open/smart regex for searching filenames
-func regexTerm(term string) string {
-	chars := strings.Split(term, "")
-	return ".*?" + strings.Join(chars, ".*?") + ".*?"
-}
-
 func defaultOption() *pt.Option {
 	return &pt.Option{
 		VcsIgnore: []string{".gitignore", ".hgignore", ".ptignore"},

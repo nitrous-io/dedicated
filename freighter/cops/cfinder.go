@@ -67,8 +67,7 @@ type SearchResponse struct {
 	Results []*finder.SearchResult `json:"results"`
 }
 
-// Finder implements AsyncHandler and not Handler because we want to return
-// response to the user asynchronously. The flow of response is
+// The flow of response from Finder is
 //
 // --> d|{"event": "file_find", "cid": 1, ...}
 // <-- d|{"event": "file_find", "cid": 1, ...} // this signal that we are processing it
@@ -79,41 +78,53 @@ type SearchResponse struct {
 type Finder struct {
 }
 
+func doFileFind(msg *Message, resp chan *Message) chan *Message {
+	term := msg.Args[0].(string)
+	dir := msg.Args[1].(string)
+
+	fileinfo, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return sendErr(resp, msg, fmt.Errorf("%q does not exist", dir))
+	}
+	if !fileinfo.IsDir() {
+		return sendErr(resp, msg, fmt.Errorf("%q is not a directory", dir))
+	}
+
+	// reply the original message to signal that we are processsing it
+	resp <- msg
+
+	go func() {
+		matches, err := finder.FindFiles(dir, term)
+		if err != nil {
+			sendErr(resp, msg, err)
+			return
+		}
+		if len(matches) > fileFindLimit {
+			matches = matches[:fileFindLimit]
+		}
+
+		for _, match := range matches {
+			sendMessage(resp, msg, "file_find.output", FileFindResponse{
+				Term:  term,
+				Root:  dir,
+				Paths: []string{match.FilePath},
+			})
+		}
+		sendFinalMessage(resp, msg, "file_find.completed", FileFindResponse{
+			Term: term,
+			Root: dir,
+		})
+	}()
+
+	return resp
+}
+
 func (c *Finder) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 	switch msg.Event {
 	case "file_find":
-		term := msg.Args[0].(string)
-		root := msg.Args[1].(string)
-		ch, errch, err := c.fileFind(term, root)
-		if err != nil {
-			return sendErr(resp, msg, err)
-		}
-		go func() {
-			for err := range errch {
-				sendMessage(resp, msg, "file_find.error", FileFindResponse{
-					Term:  term,
-					Root:  root,
-					Error: err,
-				})
-			}
-		}()
-		go func() {
-			for r := range ch {
-				sendMessage(resp, msg, "file_find.output", FileFindResponse{
-					Term:  term,
-					Root:  root,
-					Paths: []string{r},
-				})
-			}
-			sendFinalMessage(resp, msg, "file_find.completed", FileFindResponse{
-				Term: term,
-				Root: root,
-			})
-		}()
-		// reply the original message to signal that we are processsing it
-		resp <- msg
-		return resp
+		return doFileFind(msg, resp)
+
 	case "search":
 		if len(msg.Args) < 1 {
 			return sendErr(resp, msg, errors.New("request argument is required"))
@@ -159,52 +170,6 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 		return resp
 	}
 	return resp
-}
-
-// fileFind returns a channel that will be populated with matched paths
-// it will not return more results when we counted at least
-// `fileFindLimit` matched files
-//
-// this returns
-// - a channel for reading search results
-// - a channel for reading potential errors happen in searching
-// - an error when we failed to perform the search at all
-func (c *Finder) fileFind(term, root string) (chan string, chan error, error) {
-	var errSent bool // we only want to send error once
-	errch := make(chan error, 1)
-	ch := make(chan string, chanSize)
-
-	fileinfo, err := os.Stat(root)
-	if os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("%q does not exist", root)
-	}
-	if !fileinfo.IsDir() {
-		return nil, nil, fmt.Errorf("%q is not a directory", root)
-	}
-
-	f := finder.NewFinder(root)
-	results, err := f.FindFiles(term)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var counter int
-	go func() {
-		for r := range results {
-			if counter < fileFindLimit {
-				ch <- r
-				counter++
-			} else {
-				if !errSent {
-					errch <- fmt.Errorf("term %q has more than %d results", term, fileFindLimit)
-					errSent = true
-					close(errch)
-				}
-			}
-		}
-		close(ch)
-	}()
-	return ch, errch, nil
 }
 
 // search returns a channel that will be populated with matched contents
