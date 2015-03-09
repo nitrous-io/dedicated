@@ -191,7 +191,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
 		if err != nil {
 			return err
 		}
@@ -257,10 +257,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
-	info, err := HostbuilderClient.Start(h.Provider, &hostbuilderclient.Config{
-		"id":         h.ProviderIdentifier.String,
-		"ip_address": h.IPAddress.String,
-	}, hostbuilderHeaders(env))
+	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
@@ -336,7 +333,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 	publishHostEvent(env, controllers.EventHostStopping, h)
 
-	info, err := HostbuilderClient.Stop(h.Provider, &hostbuilderclient.Config{"id": h.ProviderIdentifier.String}, hostbuilderHeaders(env))
+	info, err := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
@@ -413,10 +410,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, &hostbuilderclient.Config{
-		"id":         h.ProviderIdentifier.String,
-		"ip_address": h.IPAddress.String,
-	}, hostbuilderHeaders(env))
+	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.

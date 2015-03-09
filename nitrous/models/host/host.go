@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
@@ -56,11 +57,15 @@ type Host struct {
 	Slug              string         `db:"slug"`
 	Name              sql.NullString `db:"name"`
 	State             string         `db:"state"`
-	IPAddress         sql.NullString `db:"ip_address"`
-	FreighterdPort    sql.NullInt64  `db:"freighterd_port"`
 	FreighterdVersion string         `db:"freighterd_version"`
 	DockerVersion     string         `db:"docker_version"`
 
+	// The following fields are set using the response we get from
+	// hostbuilder's creation pipeline and should be considered immutable for a
+	// single host
+	IPAddress        sql.NullString `db:"ip_address"`
+	FreighterdPort   sql.NullInt64  `db:"freighterd_port"`
+	RegionIdentifier sql.NullString `db:"region_identifier"`
 	// ProviderIdentifier is the identifier used by the host's provider to
 	// uniquely identify this host.
 	ProviderIdentifier sql.NullString `db:"provider_identifier"`
@@ -234,11 +239,14 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
-			hourly_price, preprovisioned, freighterd_version, docker_version)
+			hourly_price, preprovisioned, freighterd_version, docker_version,
+			region_identifier
+		)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
-		:hourly_price, :preprovisioned, :freighterd_version, :docker_version)
+		:hourly_price, :preprovisioned, :freighterd_version, :docker_version,
+		:region_identifier)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -249,9 +257,11 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at)
+			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at,
+			region_identifier)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now())
+			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now(),
+			:region_identifier)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -308,6 +318,16 @@ func (h *Host) Validate() error {
 		return ErrSlugInvalid
 	}
 	return nil
+}
+
+// MachineConfig returns the configuration that hostbuilder can use to
+// identify the host and manipulate it.
+func (h *Host) MachineConfig() hostbuilderclient.Config {
+	return hostbuilderclient.Config{
+		"id":         h.ProviderIdentifier.String,
+		"region_id":  h.RegionIdentifier.String,
+		"ip_address": h.IPAddress.String,
+	}
 }
 
 // Hostname returns the public domain that the host can be reached. This should be the

@@ -434,15 +434,14 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	}()
 
 	// Update host in hostbuilder (e.g. rename host).
-	config := &hostbuilderclient.Config{
-		"id":           preprovisionedHost.ProviderIdentifier.String,
-		"host_id":      h.ID,
-		"name":         opts.Slug,
-		"apt_username": strconv.FormatInt(h.ID, 10),
-		"apt_password": h.Secret,
-		"apt_location": opts.AptLocation,
-		"apt_dist":     opts.AptDist,
-	}
+	config := preprovisionedHost.MachineConfig()
+	config["host_id"] = h.ID
+	config["name"] = opts.Slug
+	config["apt_username"] = strconv.FormatInt(h.ID, 10)
+	config["apt_password"] = h.Secret
+	config["apt_location"] = opts.AptLocation
+	config["apt_dist"] = opts.AptDist
+
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
@@ -591,7 +590,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		return nil, err
 	}
 
-	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, &config, opts.OutputStream, p.hostbuilderHeaders(opts))
+	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
 	if err != nil {
 		err = &HostbuilderError{Err: err}
 		return nil, err
@@ -600,6 +599,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
+	h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	h.State = host.StateRunning
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 

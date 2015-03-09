@@ -148,6 +148,7 @@ func (h *Host) Info() (*host.Info, error) {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
+		Region:         "local",
 		Name:           h.Name,
 		IPAddress:      "127.0.0.1",
 		FreighterdPort: uint16(getFreighterdPort(container)),

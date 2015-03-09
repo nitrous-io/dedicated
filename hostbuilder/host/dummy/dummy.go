@@ -53,6 +53,7 @@ func (h *Host) Info() (*host.Info, error) {
 	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.ID,
+		Region:         "dummy",
 		Name:           h.Name,
 		IPAddress:      h.IPAddress,
 		FreighterdPort: uint16(h.FreighterdPort),
@@ -89,6 +90,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		{
 			Provider:       h.DriverName(),
 			ID:             "abcd",
+			Region:         "dummy",
 			Name:           "ABCD",
 			IPAddress:      "1.2.3.4",
 			FreighterdPort: uint16(60001),
@@ -97,6 +99,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		{
 			Provider:       h.DriverName(),
 			ID:             "bcde",
+			Region:         "dummy",
 			Name:           "BCDE",
 			IPAddress:      "1.2.3.5",
 			FreighterdPort: uint16(60002),

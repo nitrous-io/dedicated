@@ -56,7 +56,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			out := bytes.NewBuffer(nil)
-			info, err := hb.Create("digitalocean", &hostbuilderclient.Config{
+			info, err := hb.Create("digitalocean", hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
 			}, out, map[string]string{
@@ -84,7 +84,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			prepareHandlers("POST", "/hosts", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
-			_, err := hb.Create("digitalocean", &hostbuilderclient.Config{
+			_, err := hb.Create("digitalocean", hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
 			}, ioutil.Discard, map[string]string{
@@ -105,7 +105,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			out := bytes.NewBuffer(nil)
-			info, err := hb.Update("digitalocean", &hostbuilderclient.Config{
+			info, err := hb.Update("digitalocean", hostbuilderclient.Config{
 				"name": "doublerainbow",
 			}, out, map[string]string{
 				"NITROUS": "IS_PRETTY",
@@ -131,7 +131,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
-			_, err := hb.Update("digitalocean", &hostbuilderclient.Config{
+			_, err := hb.Update("digitalocean", hostbuilderclient.Config{
 				"name": "doublerainbow",
 			}, ioutil.Discard, map[string]string{
 				"NITROUS": "IS_FAST",
@@ -144,7 +144,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
 		doRequest := func() (*hostbuilder.Response, error) {
-			return hb.Delete("digitalocean", &hostbuilderclient.Config{
+			return hb.Delete("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_CLOUD",
@@ -180,7 +180,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
 		doRequest := func() (*hostbuilder.Response, error) {
-			return hb.Start("digitalocean", &hostbuilderclient.Config{
+			return hb.Start("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_IDE",
@@ -214,7 +214,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 	Describe("Stop()", func() {
 		doRequest := func() (*hostbuilder.Response, error) {
-			return hb.Stop("digitalocean", &hostbuilderclient.Config{
+			return hb.Stop("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_SAAS",
@@ -248,7 +248,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 	Describe("Restart()", func() {
 		doRequest := func() (*hostbuilder.Response, error) {
-			return hb.Restart("digitalocean", &hostbuilderclient.Config{
+			return hb.Restart("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_AJAX",
