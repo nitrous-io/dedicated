@@ -1,8 +1,6 @@
 package user_test
 
 import (
-	"database/sql"
-
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -43,24 +41,23 @@ var _ = Describe("models/user settings", func() {
 			Expect(err).To(BeNil())
 
 			Expect(settings.AutoCloseBrackets).To(BeTrue())
-			Expect(settings.Keybindings.String).To(Equal("default"))
+			Expect(settings.Keybindings).To(Equal("default"))
 			Expect(settings.RulerColumn).To(Equal(int64(0)))
-			Expect(settings.Theme.Valid).To(BeFalse())
+			Expect(settings.Theme).To(Equal("solarized dark"))
 			origUpdatedAt := settings.UpdatedAt
 
 			settings.AutoCloseBrackets = false
-			settings.Keybindings = sql.NullString{"vim", true}
+			settings.Keybindings = "vim"
 			settings.RulerColumn = 120
-			settings.Theme = sql.NullString{"vibrant-ink", true}
+			settings.Theme = "vibrant-ink"
 
 			err = settings.Update(db)
 			Expect(err).To(BeNil())
 
 			Expect(settings.AutoCloseBrackets).To(BeFalse())
-			Expect(settings.Keybindings.String).To(Equal("vim"))
+			Expect(settings.Keybindings).To(Equal("vim"))
 			Expect(settings.RulerColumn).To(Equal(int64(120)))
-			Expect(settings.Theme.Valid).To(BeTrue())
-			Expect(settings.Theme.String).To(Equal("vibrant-ink"))
+			Expect(settings.Theme).To(Equal("vibrant-ink"))
 			Expect(settings.UpdatedAt.Time).To(BeTemporally(">", origUpdatedAt.Time))
 		})
 	})
