@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/mitchellh/goamz/aws"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -35,6 +36,11 @@ import (
 	"github.com/nitrous-io/nitrous-common/cipher"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"golang.org/x/crypto/ssh"
+)
+
+const (
+	DigitalOceanProvider = "digitalocean"
+	AmazonProvider       = "amazon"
 )
 
 var (
@@ -57,6 +63,7 @@ var (
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrHostCreationNotAllowed         = errors.New("not allowed to create more hosts")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
+	ErrUnknownProvider                = errors.New("unknown provider")
 
 	validations = map[string]error{
 		"index_hosts_on_slug": ErrSlugIsTaken,
@@ -68,6 +75,16 @@ var (
 		"nyc": "nyc3",
 		"sfo": "sfo1",
 		"ams": "ams3",
+	}
+
+	// default mapping for amazon regions. This will support the same mapping
+	// as digitalocean for now to maintain 1-1 comparable latency between the
+	// twos.
+	amazonRegionsMap = map[string]string{
+		"sgp": aws.APSoutheast.Name,
+		"nyc": aws.USEast.Name,
+		"sfo": aws.USWest.Name,
+		"ams": aws.EUWest.Name,
 	}
 )
 
@@ -691,15 +708,30 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			config[k] = ""
 		}
 	}
+
+	// FIXME: we should just store the canonical mapping in DB instead of
+	// having to remap region identifier here for different providers.
 	rid, ok := opts.Template.Config.Map["region_id"]
 	if !ok {
 		return config, nil
 	}
-	if reg, ok := doRegionsMap[rid.String]; !ok {
-		return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
-	} else {
-		config["region_id"] = reg
+	switch opts.Template.Provider {
+	case DigitalOceanProvider:
+		if reg, ok := doRegionsMap[rid.String]; !ok {
+			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
+		} else {
+			config["region_id"] = reg
+		}
+	case AmazonProvider:
+		if reg, ok := amazonRegionsMap[rid.String]; !ok {
+			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
+		} else {
+			config["region_id"] = reg
+		}
+	default:
+		return nil, ErrUnknownProvider
 	}
+
 	return config, nil
 }
 
