@@ -67,8 +67,8 @@ type HostConfig struct {
 	Secret     string     `json:"secret"`
 
 	// for setting up repository on the host
-	AptUsername string `json:"apt_username"` // username on nitrous.io
-	AptPassword string `json:"apt_password"` // nitrous.io access token
+	AptUsername string `json:"apt_username"` // host id on nitrousd
+	AptPassword string `json:"apt_password"` // host secret
 	AptLocation string `json:"apt_location"` // URI of the repository
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
 

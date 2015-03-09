@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -437,8 +438,8 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 		"id":           preprovisionedHost.ProviderIdentifier.String,
 		"host_id":      h.ID,
 		"name":         opts.Slug,
-		"apt_username": opts.User.Username,
-		"apt_password": opts.Token.Token,
+		"apt_username": strconv.FormatInt(h.ID, 10),
+		"apt_password": h.Secret,
 		"apt_location": opts.AptLocation,
 		"apt_dist":     opts.AptDist,
 	}
@@ -677,8 +678,8 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			"cert": phost.cert.ServerCert,
 			"key":  phost.cert.ServerKey,
 		},
-		"apt_username":       opts.User.Username,
-		"apt_password":       opts.Token.Token,
+		"apt_username":       strconv.FormatInt(h.ID, 10),
+		"apt_password":       h.Secret,
 		"apt_location":       opts.AptLocation,
 		"apt_dist":           opts.AptDist,
 		"freighterd_version": phost.host.FreighterdVersion,

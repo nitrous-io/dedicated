@@ -1969,7 +1969,74 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.DockerVersion).To(Equal("1.2.3-nitrous"))
 			})
 		})
+	})
 
+	Describe("GET /api/v0/hosts/:slug/apt_allowed", func() {
+		doRequest := func(hostID int64, secret, hostSlug string) {
+			req, err := test.NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%s/apt_allowed", hostSlug), nil)
+			Expect(err).To(BeNil())
+			req.SetBasicAuth(strconv.FormatInt(hostID, 10), secret)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("returns 200 when basic auth user/password are set to a host's ID/secret", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug: "foo",
+				},
+			})
+			Expect(err).To(BeNil())
+			Expect(hs.H.Secret).ToNot(BeEmpty())
+
+			doRequest(hs.H.ID, hs.H.Secret, strconv.FormatInt(hs.H.ID, 10))
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns 401 when basic auth password is not the host's secret", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug: "foo",
+				},
+			})
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.ID, "invalid-secret", strconv.FormatInt(hs.H.ID, 10))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("returns 401 when basic auth user/password are a valid host ID/secret but for a different host", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug: "foo",
+				},
+			})
+			Expect(err).To(BeNil())
+			Expect(hs.H.Secret).ToNot(BeEmpty())
+
+			doRequest(hs.H.ID, hs.H.Secret, "1234") // "1234" is ID of a different host.
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("returns 401 when host is terminated", func() {
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug: "foo",
+				},
+			})
+			Expect(err).To(BeNil())
+			Expect(hs.H.Secret).ToNot(BeEmpty())
+
+			err = hs.H.Delete(db)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.ID, hs.H.Secret, strconv.FormatInt(hs.H.ID, 10))
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("returns 401 when host does not exist", func() {
+			doRequest(1234, "some-secret", "1234")
+			Expect(res.Code).To(Equal(http.StatusUnauthorized))
+		})
 	})
 })
 
