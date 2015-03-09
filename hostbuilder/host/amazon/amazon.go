@@ -80,7 +80,6 @@ type HostConfig struct {
 	ID               string            `json:"id"`
 	Name             string            `json:"name"`
 	SourceAMI        string            `json:"source_ami"`
-	AvailabilityZone string            `json:"availability_zone"`
 	InstanceType     string            `json:"instance_type"`
 	RegionID         string            `json:"region_id"`
 	RawSecurityGroup map[string]string `json:"security_group"`
@@ -591,7 +590,6 @@ func createInstance(ctx *host.HostContext) error {
 		ImageId:        h.Config.SourceAMI,
 		InstanceType:   h.Config.InstanceType,
 		SecurityGroups: h.Config.securityGroups(),
-		AvailZone:      h.Config.AvailabilityZone,
 		MinCount:       0,
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
