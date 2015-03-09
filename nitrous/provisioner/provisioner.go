@@ -727,6 +727,11 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
 		} else {
 			config["region_id"] = reg
+			size, err := strconv.Atoi(config["storage_size"].(string))
+			if err != nil {
+				return config, fmt.Errorf("invalid size for config %v", config)
+			}
+			config["storage_size"] = size
 		}
 	default:
 		return nil, ErrUnknownProvider
