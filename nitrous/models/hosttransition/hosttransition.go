@@ -2,6 +2,9 @@ package hosttransition
 
 import (
 	"database/sql"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -20,6 +23,13 @@ type HostTransition struct {
 	EndedAt   *time.Time `db:"ended_at"`
 }
 
+type HostUsage struct {
+	HostID  int64     `db:"host_id"`
+	Minutes int64     `db:"minutes"`
+	Start   time.Time `db:"start_at"`
+	End     time.Time `db:"end_at"`
+}
+
 func FindMostRecentForHost(db *db.Database, id int64) (*HostTransition, error) {
 	hT := &HostTransition{}
 	err := db.Get(hT, `SELECT * FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`, id)
@@ -36,6 +46,33 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 		return nil, err
 	}
 	return hT, err
+}
+
+func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
+	times := []*HostUsage{}
+	sHostIDs := []string{}
+	for _, hID := range hostIDs {
+		sHostIDs = append(sHostIDs, strconv.FormatInt(hID, 10))
+	}
+	query := fmt.Sprintf(`SELECT host_id,
+			ceiling(cast((EXTRACT(EPOCH FROM LEAST(COALESCE(ended_at, $2), $2) - GREATEST(created_at, $1))) as integer) / 60.0) minutes,
+			GREATEST(created_at, $1) start_at,
+			LEAST(COALESCE(ended_at, $2), $2) end_at
+			FROM host_transitions
+			WHERE host_id IN (%s)
+			AND state = 'running'
+			AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($1, $2)
+			ORDER BY id ASC;
+			`, strings.Join(sHostIDs, ","))
+	if err := d.Select(&times, query, start, end); err != nil {
+		return nil, err
+	}
+
+	res := make(map[int64][]*HostUsage)
+	for _, r := range times {
+		res[r.HostID] = append(res[r.HostID], r)
+	}
+	return res, nil
 }
 
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {

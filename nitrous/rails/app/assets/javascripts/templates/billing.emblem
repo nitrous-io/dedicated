@@ -45,7 +45,26 @@ if App.billingUsage
           = each item in App.billingUsage.items
             tr
               td
-                = item.description
+                .title
+                  a href="#" click='toggleItems target="view"'
+                    = item.description
+                .items
+                  table
+                    tbody
+                      = each usage in item.usage
+                        tr
+                          td.hours
+                            | Running (
+                            = toFixed usage.hours 2
+                            '
+                            = plural usage.hours 'hour' 'hours'
+                            | )
+                          td.time
+                            = basicdatetime usage.startAt
+                            '
+                            | -
+                            '
+                            = basicdatetime usage.endAt
               td.charge
                 | $
                 = currency item.totalChargeDollars
@@ -121,7 +140,26 @@ if App.billingUsage
           = each item in invoice.items
             tr
               td
-                = item.description
+                .title
+                  a href="#" click='toggleItems target="view"'
+                    = item.description
+                .items
+                  table
+                    tbody
+                      = each usage in item.usage
+                        tr
+                          td.hours
+                            | Running (
+                            = toFixed usage.hours 2
+                            '
+                            = plural usage.hours 'hour' 'hours'
+                            | )
+                          td.time
+                            = basicdatetime usage.startAt
+                            '
+                            | -
+                            '
+                            = basicdatetime usage.endAt
               td.charge
                 | $
                 = currency item.totalChargeDollars

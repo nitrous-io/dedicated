@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
@@ -72,6 +73,16 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
+	hostIDs := make([]int64, len(hMap))
+	for hID := range hMap {
+		hostIDs = append(hostIDs, hID)
+	}
+
+	usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, start, end)
+	if err != nil {
+		env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+	}
+
 	sItems := []serializers.InvoiceItem{}
 	for _, inv := range res.Items {
 		ser := serializers.SerializeInvoiceItem(&inv)
@@ -87,6 +98,10 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		} else {
 			ser.TotalCharge = inv.UncappedTotalCharge()
 			env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+		}
+
+		if hUsages, ok := usages[ser.HostID]; ok {
+			ser.Usage = serializers.SerializeHostUsages(hUsages)
 		}
 		sItems = append(sItems, *ser)
 	}
@@ -139,6 +154,16 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	}
 
 	for _, inv := range serInvs {
+		hostIDs := []int64{}
+		for _, item := range invItems {
+			if item.InvoiceID == inv.ID && item.HostID.Valid {
+				hostIDs = append(hostIDs, item.HostID.Int64)
+			}
+		}
+		usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, *inv.PeriodStart, *inv.PeriodEnd)
+		if err != nil {
+			env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+		}
 		for _, item := range invItems {
 			if item.InvoiceID == inv.ID {
 				if item.Credit.Valid {
@@ -157,6 +182,10 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 					} else {
 						ser.TotalCharge = item.UncappedTotalCharge()
 						env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+					}
+					hUsages, ok := usages[ser.HostID]
+					if ok {
+						ser.Usage = serializers.SerializeHostUsages(hUsages)
 					}
 					inv.Items = append(inv.Items, *ser)
 				}
