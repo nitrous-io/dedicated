@@ -935,6 +935,12 @@ func init() {
 				);
 
 				CREATE UNIQUE INDEX index_announcement_id_host_id ON announcement_host USING btree (announcement_id, host_id);
+				`,
+		},
+		{
+			Version: "830",
+			Up: `
+				ALTER TABLE plans ADD COLUMN base_price bigint DEFAULT 0 NOT NULL;
 			`,
 		},
 	}
