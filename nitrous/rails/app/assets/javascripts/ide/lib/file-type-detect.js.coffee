@@ -72,6 +72,8 @@ App.FileTypeDetect =
           'text/x-sass'
         when 'sh'
           'text/x-sh'
+        when 'slim', 'emblem'
+          'text/x-slim'
         when 'xml'
           'application/xml'
         when 'yml', 'yaml'

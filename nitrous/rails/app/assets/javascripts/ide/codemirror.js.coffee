@@ -24,6 +24,7 @@
 #= require ./vendor/codemirror/mode/xml/xml
 #= require ./vendor/codemirror/mode/yaml/yaml
 #= require ./vendor/codemirror/mode/haml/haml
+#= require ./vendor/codemirror/mode/slim/slim
 
 #= require ./vendor/codemirror/keymap/vim
 #= require ./vendor/codemirror/keymap/sublime
@@ -97,6 +98,7 @@ CodeMirror.MODES =
   'text/x-scss'             : 'SCSS'
   'text/x-sh'               : 'Shell Script'
   'text/x-sql'              : 'SQL'
+  'text/x-slim'             : 'Slim'
   'application/xml'         : 'XML'
   'text/x-yaml'             : 'YAML'
 
