@@ -37,7 +37,7 @@ App.IdeFindInProjectController = Em.Controller.extend
 
       socket = @get('opsSocket')
       editorController = @get('controllers.ideEditor')
-      tab = editorController.createTab({ term: term, path: location }, App.SearchResults)
+      tab = editorController.createTab({ term: term, path: location, multiple: true }, App.SearchResults)
 
       # Generate a unique search ID so that we can handle concurrent searches.
       searchId = Date.now().toString()

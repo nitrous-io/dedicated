@@ -118,10 +118,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @_super.apply this, arguments
     Mp.track Mp.EventIDEUserOpenedFile
 
+  # omit `path` or provide `multiple=true` in attrs to allow for multiple tabs
+  # with same path
   createTab: (attrs={}, modelClass=null) ->
     rootPane = @get 'rootPane'
-    if rootPane.findBy('path', attrs.path)
-      return # disallow duplicate tabs for now
+    if attrs.multiple != true && rootPane.findBy('path', attrs.path)
+      return # disallow duplicate tabs for now, unless specified by caller
     @_super(attrs, modelClass)
 
   splitActivePaneVertically: ->
