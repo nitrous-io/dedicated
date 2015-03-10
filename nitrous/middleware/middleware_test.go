@@ -377,7 +377,7 @@ var _ = Describe("middleware", func() {
 		})
 	})
 
-	Describe("getRemoteAddr", func() {
+	Describe("GetRemoteAddr", func() {
 		var r *http.Request
 		var err error
 
@@ -447,6 +447,37 @@ var _ = Describe("middleware", func() {
 			It("should return the IP address stored in RemoteAddr", func() {
 				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.10"))
 			})
+		})
+	})
+
+	Describe("GetBearerToken", func() {
+		It("should handle a lack of Authorization header", func() {
+			r := &http.Request{}
+			t, err := middleware.GetBearerToken(r)
+			Expect(err).ToNot(BeNil())
+			Expect(t).To(BeEmpty())
+		})
+
+		It("should handle a malformed Authorization header", func() {
+			r := &http.Request{
+				Header: map[string][]string{
+					"Authorization": []string{"ABC"},
+				},
+			}
+			t, err := middleware.GetBearerToken(r)
+			Expect(err).ToNot(BeNil())
+			Expect(t).To(BeEmpty())
+		})
+
+		It("should extract the token from the Authorization Bearer", func() {
+			r := &http.Request{
+				Header: map[string][]string{
+					"Authorization": []string{"Bearer ABC123x2"},
+				},
+			}
+			t, err := middleware.GetBearerToken(r)
+			Expect(err).To(BeNil())
+			Expect(t).To(Equal("ABC123x2"))
 		})
 	})
 })

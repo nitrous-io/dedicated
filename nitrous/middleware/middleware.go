@@ -143,16 +143,13 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 
 func Auth(mw Middleware) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
-		authHeader := r.Header.Get("Authorization")
-		prefix := "Bearer "
-		if len(authHeader) <= len(prefix) ||
-			(!strings.HasPrefix(authHeader, prefix) &&
-				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
-			return errInvalidRequest
+		tok, err := GetBearerToken(r)
+		if err != nil {
+			if err == errInvalidRequest {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
+			}
+			return err
 		}
-
-		tok := authHeader[len(prefix):]
 		return authenticate(tok, mw, env, w, r)
 	}
 }
@@ -218,6 +215,18 @@ func HostViaForm(srcVar string, fn hostHandlerFn) Middleware {
 
 func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 	return withHost("path", srcVar, fn)
+}
+
+func GetBearerToken(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	prefix := "Bearer "
+	if len(authHeader) <= len(prefix) ||
+		(!strings.HasPrefix(authHeader, prefix) &&
+			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+		return "", errInvalidRequest
+	}
+
+	return authHeader[len(prefix):], nil
 }
 
 // Stolen from Rack:
