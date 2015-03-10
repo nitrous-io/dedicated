@@ -125,14 +125,17 @@ var _ = Describe("biller/user", func() {
 				}
 			}
 
+			Expect(i1.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i1.Terminated).To(BeTrue())
 			Expect(i1.HourlyPrice).To(Equal(sql.NullInt64{2000, true}))
 			Expect(i1.Hours).To(Equal(sql.NullInt64{2, true}))
 
+			Expect(i2.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i2.Terminated).To(BeFalse())
 			Expect(i2.HourlyPrice).To(Equal(sql.NullInt64{500, true}))
 			Expect(i2.Hours).To(Equal(sql.NullInt64{672, true}))
 
+			Expect(i3.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i3.Terminated).To(BeFalse())
 			Expect(i3.HourlyPrice).To(Equal(sql.NullInt64{3722, true}))
 			Expect(i3.Hours).To(Equal(sql.NullInt64{672, true}))

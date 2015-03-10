@@ -18,6 +18,8 @@ type InvoiceItem struct {
 	InvoiceID int64         `db:"invoice_id"`
 	HostID    sql.NullInt64 `db:"host_id"`
 
+	ItemType string `db:"item_type"`
+
 	Hours sql.NullInt64 `db:"hours"`
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice sql.NullInt64 `db:"hourly_price"`
@@ -31,6 +33,12 @@ type InvoiceItem struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+const (
+	ItemTypeCredit  = "credit"
+	ItemTypeCompute = "compute"
+	ItemTypeBaseEBS = "base_ebs"
+)
+
 const MaxHours = 28 * 24
 
 var (
@@ -41,6 +49,7 @@ var (
 	ErrHoursNotPositive    = errors.New("Hours must be greater than 0")
 	ErrHourlyPriceNegative = errors.New("HourlyPrice must not be a negative")
 	ErrHoursExceedMaxHours = errors.New("Hours must be less than/equal to MaxHours")
+	ErrInvalidItemType     = errors.New("ItemType must be valid")
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
@@ -93,8 +102,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id)
-    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id)
+    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type)
+    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -107,8 +116,8 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, updated_at)
-    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, now())
+    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, updated_at)
+    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -118,13 +127,14 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 }
 
 func (i *InvoiceItem) validate() error {
-	if !i.HostID.Valid && !i.Credit.Valid {
-		return ErrMissingHostIDCredit
+	if i.ItemType == ItemTypeCredit {
+		if i.Credit.Int64 <= 0 {
+			return ErrCreditInvalid
+		}
+		return nil
 	}
-	if !i.HostID.Valid && i.Credit.Int64 <= 0 {
-		return ErrCreditInvalid
-	}
-	if i.HostID.Valid {
+
+	if i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeBaseEBS {
 		if !i.Hours.Valid {
 			return ErrHoursInvalid
 		}
@@ -140,6 +150,8 @@ func (i *InvoiceItem) validate() error {
 		if i.HourlyPrice.Int64 < 0 {
 			return ErrHourlyPriceNegative
 		}
+		return nil
 	}
-	return nil
+
+	return ErrInvalidItemType
 }

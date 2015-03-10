@@ -379,7 +379,7 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		// perform an update if have existing items
 		if !isNew {
 			for _, ex := range existing {
-				if inv.HostID == ex.HostID {
+				if inv.HostID == ex.HostID && inv.ItemType == ex.ItemType {
 					inv.ID = ex.ID
 					inv.StripeID = ex.StripeID
 				}
@@ -411,6 +411,7 @@ func (b *Biller) applyInvoiceItems(i *invoice.Invoice, isNew bool, items []invoi
 		itm := &invoiceitem.InvoiceItem{
 			InvoiceID: i.ID,
 			Credit:    sql.NullInt64{i.CreditAmount - totalAmountCredited, true},
+			ItemType:  invoiceitem.ItemTypeCredit,
 		}
 		if err := itm.Insert(tx); err != nil {
 			tx.Rollback()

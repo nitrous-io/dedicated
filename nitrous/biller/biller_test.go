@@ -322,6 +322,7 @@ var _ = Describe("biller", func() {
 					InvoiceID:   inv.ID,
 					Hours:       sql.NullInt64{92, true},
 					HourlyPrice: sql.NullInt64{30, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 
 				err = invItem.Insert(db)
@@ -361,6 +362,7 @@ var _ = Describe("biller", func() {
 				invItem := &invoiceitem.InvoiceItem{
 					InvoiceID: inv.ID,
 					Credit:    sql.NullInt64{2, true},
+					ItemType:  invoiceitem.ItemTypeCredit,
 				}
 
 				err = invItem.Insert(db)
@@ -424,11 +426,13 @@ var _ = Describe("biller", func() {
 			item1 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{92, true},
 				HourlyPrice: sql.NullInt64{1000, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 
 			item2 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{672, true},
 				HourlyPrice: sql.NullInt64{3722, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 
 			i = &biller.InvoiceResult{
@@ -596,6 +600,7 @@ var _ = Describe("biller", func() {
 					itm3 := invoiceitem.InvoiceItem{
 						InvoiceID: i.Invoice.ID,
 						Credit:    sql.NullInt64{20, true},
+						ItemType:  invoiceitem.ItemTypeCredit,
 					}
 					Expect(itm3.Insert(db)).To(BeNil())
 					i.Items = append(i.Items, itm3)
@@ -758,11 +763,11 @@ var _ = Describe("biller", func() {
 								PeriodEnd:   &e1,
 							}
 							Expect(oInv1.Insert(db)).To(BeNil())
-							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv1.ID, h1.ID, 90, 1500, "INV1")
+							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv1.ID, h1.ID, 90, 1500, "INV1", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv1.ID, h2.ID, 20, 1000, "INV2")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv1.ID, h2.ID, 20, 1000, "INV2", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
 
 							oInv2 = &invoice.Invoice{
@@ -772,11 +777,11 @@ var _ = Describe("biller", func() {
 								StripeID:    sql.NullString{"oInv2", true},
 							}
 							Expect(oInv2.Insert(db)).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv2.ID, h1.ID, 90, 1500, "INV3")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv2.ID, h1.ID, 90, 1500, "INV3", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv2.ID, h2.ID, 20, 1000, "INV4")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv2.ID, h2.ID, 20, 1000, "INV4", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
 						})
 

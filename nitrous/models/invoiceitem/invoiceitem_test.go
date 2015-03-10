@@ -180,6 +180,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err := i1.Insert(db)
 			Expect(err).To(BeNil())
@@ -189,6 +190,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err = i2.Insert(db)
 			Expect(err).To(BeNil())
@@ -206,6 +208,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err = n1.Insert(db)
 			Expect(err).To(BeNil())
@@ -220,6 +223,7 @@ var _ = Describe("models/invoiceitem", func() {
 		It("persists the invoice item in the database", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Terminated:  true,
 				Hours:       sql.NullInt64{24, true},
@@ -240,20 +244,20 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i).To(Equal(i2))
 		})
 
-		It("should expect a HostID or Credit is provided", func() {
+		It("should expect a ItemType is provided", func() {
 			i := &invoiceitem.InvoiceItem{
-				InvoiceID:   in.ID,
-				Hours:       sql.NullInt64{24, true},
-				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
-				StripeID:    sql.NullString{"Xcccs", true},
+				InvoiceID: in.ID,
+				ItemType:  "",
+				StripeID:  sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
-			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+			Expect(err).To(Equal(invoiceitem.ErrInvalidItemType))
 		})
 
-		It("should expect a Credit be greater than 0", func() {
+		It("should expect a Credit be greater than 0 if the type is a credit", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCredit,
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				Credit:      sql.NullInt64{-20, true},
@@ -263,9 +267,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
-		It("should expect Hours to be valid if HostID is valid", func() {
+		It("should expect Hours to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
@@ -274,9 +279,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+		It("should expect HourlyPrice to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID: in.ID,
+				ItemType:  invoiceitem.ItemTypeCompute,
 				HostID:    sql.NullInt64{h.ID, true},
 				Hours:     sql.NullInt64{24, true},
 				StripeID:  sql.NullString{"Xcccs", true},
@@ -288,6 +294,7 @@ var _ = Describe("models/invoiceitem", func() {
 		It("should expect Hours to be greater than zero", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{-1, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
@@ -297,9 +304,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
 		})
 
-		It("should expect Hours to be not negative", func() {
+		It("should expect Hours to be not negative if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{-1, true},
@@ -315,6 +323,7 @@ var _ = Describe("models/invoiceitem", func() {
 		BeforeEach(func() {
 			i = &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				Terminated:  true,
@@ -355,39 +364,39 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i3.Terminated).To(BeFalse())
 		})
 
-		It("should expect a HostID or Credit is provided", func() {
-			i.HostID = sql.NullInt64{}
-			i.Credit = sql.NullInt64{}
+		It("should expect a Type is provided", func() {
+			i.ItemType = ""
 			err := i.Update(db)
-			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+			Expect(err).To(Equal(invoiceitem.ErrInvalidItemType))
 		})
 
-		It("should expect a Credit be greater than 0", func() {
+		It("should expect a Credit be greater than 0 if the type is a Credit", func() {
+			i.ItemType = invoiceitem.ItemTypeCredit
 			i.HostID = sql.NullInt64{}
 			i.Credit = sql.NullInt64{-8, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
-		It("should expect Hours to be valid if HostID is valid", func() {
+		It("should expect Hours to be valid if type is a Compute", func() {
 			i.Hours = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+		It("should expect HourlyPrice to be valid if type is a Compute", func() {
 			i.HourlyPrice = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
 		})
 
-		It("should expect Hours to be greater than zero", func() {
+		It("should expect Hours to be greater than zero if type is a Compute", func() {
 			i.Hours = sql.NullInt64{-1, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
 		})
 
-		It("should expect Hours to be not negative", func() {
+		It("should expect Hours to be not negative if type is a Compute", func() {
 			i.HourlyPrice = sql.NullInt64{-1, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))

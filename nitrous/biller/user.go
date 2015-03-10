@@ -82,6 +82,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 		HostID:      sql.NullInt64{hostID, true},
 		Terminated:  h.TerminatedAt != nil,
+		ItemType:    invoiceitem.ItemTypeCompute,
 	}
 
 	for _, row := range rows {
