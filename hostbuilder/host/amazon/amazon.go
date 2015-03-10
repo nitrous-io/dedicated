@@ -283,14 +283,14 @@ func (h *Host) Info() (*host.Info, error) {
 	if h.instance == nil {
 		return nil, errors.New("Invalid ec2 instance")
 	}
-	info := &host.Info{
+	return &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.instance.InstanceId,
 		IPAddress:      h.instance.PublicIpAddress,
 		FreighterdPort: DefaultPort,
+		Region:         h.provider.Region.Name,
 		State:          getState(h.instance),
-	}
-	return info, nil
+	}, nil
 }
 
 func (h *Host) Stop() (*host.Info, error) {

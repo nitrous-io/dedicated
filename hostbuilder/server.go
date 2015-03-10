@@ -191,6 +191,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
@@ -229,6 +230,7 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
@@ -276,6 +278,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		ID:             info.ID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 	}
 	writeResponse(w, resp)
 	return nil
@@ -308,6 +311,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
@@ -346,6 +350,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
@@ -398,6 +403,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 			Name:           hst.Name,
 			IPAddress:      hst.IPAddress,
 			FreighterdPort: hst.FreighterdPort,
+			Region:         hst.Region,
 			State:          hst.State.String(),
 		})
 	}
