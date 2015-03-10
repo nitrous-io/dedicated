@@ -138,12 +138,21 @@ App.on 'fetchUser', (user) ->
   App.refreshUsage()
   App.refreshBillingProfile()
   App.refreshInvoices()
+  App.loadSettings()
 
   App.set 'eventsSocket', socket = App.EventMessageHandler.create()
   socket.connect()
 
 App.loadSettings = ->
-  promise = Em.RSVP.Promise.cast(Em.$.ajax("/api/v0/app_settings"))
+  headers = {}
+  if App.get('token')
+    headers = { Authorization: "Bearer #{App.get 'token'}" }
+  req = Em.$.ajax
+    type: 'GET'
+    url: '/api/v0/app_settings'
+    headers: headers
+    cache: false
+  promise = Em.RSVP.Promise.cast(req)
   promise.then (settings) ->
     App.set 'settings', settings
   promise
