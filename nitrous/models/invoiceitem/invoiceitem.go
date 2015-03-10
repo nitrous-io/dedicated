@@ -53,7 +53,7 @@ var (
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return fmt.Sprintf("Credit of $%.2f", float64(i.Credit.Int64)/100.0)
 	}
 	state := ""
@@ -62,7 +62,11 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
-	return fmt.Sprintf("Workspace '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours.Int64, prcnt)
+	descType := "compute"
+	if i.ItemType == ItemTypeBaseEBS {
+		descType = "base"
+	}
+	return fmt.Sprintf("Workspace '%s'%s %s - %d hours at %sc/hour", hst.Slug, state, descType, i.Hours.Int64, prcnt)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
@@ -79,18 +83,28 @@ func (i *InvoiceItem) HourlyCents() float64 {
 }
 
 func (i *InvoiceItem) TotalCharge(p *plan.Plan) int64 {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return i.UncappedTotalCharge()
 	}
-	if p.Price > i.UncappedTotalCharge() {
+
+	if i.ItemType == ItemTypeCompute {
+		if p.Price > i.UncappedTotalCharge() {
+			return i.UncappedTotalCharge()
+		} else {
+			return p.Price
+		}
+	}
+
+	if p.BasePrice > i.UncappedTotalCharge() {
 		return i.UncappedTotalCharge()
 	} else {
-		return p.Price
+		return p.BasePrice
 	}
+
 }
 
 func (i *InvoiceItem) UncappedTotalCharge() int64 {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return -1 * i.Credit.Int64
 	}
 	totalCents := float64(i.Hours.Int64*i.HourlyPrice.Int64) / 1000.0
