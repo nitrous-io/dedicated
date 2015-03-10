@@ -142,7 +142,7 @@ func main() {
 	}
 	providerToSeed = envvars.DefaultProvider
 	if providerToSeed != "digitalocean" && providerToSeed != "docker" && providerToSeed != "amazon" {
-		logr.Fatalf("DEFAULT_PROVIDER %s is invalid", providerToSeed)
+		logr.FatalfExit("DEFAULT_PROVIDER %s is invalid", providerToSeed)
 	}
 
 	dbConn, err := db.NewDatabase(dbURL)
