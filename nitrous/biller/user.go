@@ -46,10 +46,11 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
 	type pHost struct {
 		host.Host
-		PlanPrice int64 `db:"plan_price"`
+		PlanPrice     int64 `db:"plan_price"`
+		PlanBasePrice int64 `db:"plan_base_price"`
 	}
 	h := &pHost{}
-	err := d.Get(h, "SELECT hosts.*, plans.price plan_price FROM hosts INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1", hostID)
+	err := d.Get(h, "SELECT hosts.*, plans.price plan_price, plans.base_price plan_base_price FROM hosts INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1", hostID)
 	if err != nil {
 		return 0, []invoiceitem.InvoiceItem{}, err
 	}
@@ -95,8 +96,35 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 	}
 
 	applyRulesToInvoiceItem(&i, l)
+	items := []invoiceitem.InvoiceItem{i}
+	totalCharge := i.TotalCharge(&plan.Plan{Price: h.PlanPrice})
 
-	return i.TotalCharge(&plan.Plan{Price: h.PlanPrice}), []invoiceitem.InvoiceItem{i}, nil
+	// apply base workspace price
+	if h.PlanBasePrice > 0 && (h.TerminatedAt == nil || h.TerminatedAt.After(start)) {
+		startingPoint := start
+		if h.CreatedAt.After(startingPoint) {
+			startingPoint = *h.CreatedAt
+		}
+		endPoint := end
+		if h.TerminatedAt != nil {
+			endPoint = *h.TerminatedAt
+		}
+
+		totalHours := int64(math.Ceil(float64(endPoint.Sub(startingPoint)/time.Second) / 60.0 / 60.0))
+		hourlyPlanPrice := int64(math.Ceil(float64(h.PlanBasePrice) / invoiceitem.MaxHours * 1000))
+		ebsI := invoiceitem.InvoiceItem{
+			Hours:       sql.NullInt64{totalHours, true},
+			HourlyPrice: sql.NullInt64{hourlyPlanPrice, true},
+			HostID:      sql.NullInt64{hostID, true},
+			Terminated:  h.TerminatedAt != nil,
+			ItemType:    invoiceitem.ItemTypeBaseEBS,
+		}
+		applyRulesToInvoiceItem(&ebsI, l)
+		totalCharge += ebsI.TotalCharge(&plan.Plan{BasePrice: h.PlanBasePrice})
+		items = append(items, ebsI)
+	}
+
+	return totalCharge, items, nil
 }
 
 func applyRulesToInvoiceItem(itm *invoiceitem.InvoiceItem, l *logger.Logger) {

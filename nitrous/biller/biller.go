@@ -289,7 +289,7 @@ func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice
 	}
 }
 
-func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planHostMap map[int64]int64, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
+func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planHostMap map[int64]plan.PlanPricing, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
 	hosts, err := host.FindAllWithTerminated(b.db, b.user)
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planH
 			if !ok {
 				return fmt.Errorf("Could not locate plan pricing for host %d for invoice %d", invI.HostID.Int64, invI.ID)
 			}
-			pl = &plan.Plan{Price: planPrice}
+			pl = &plan.Plan{Price: planPrice.Price, BasePrice: planPrice.BasePrice}
 		}
 
 		desc := invoiceitem.ItemDescription(&invI, matchingHost)
@@ -481,16 +481,20 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID.Int64)
 		}
 
-		pl := &plan.Plan{Price: planPrice}
+		pl := &plan.Plan{Price: planPrice.Price, BasePrice: planPrice.BasePrice}
+		targetPrice := pl.Price
+		if item.ItemType == invoiceitem.ItemTypeBaseEBS {
+			targetPrice = pl.BasePrice
+		}
 		totalCh := float64(item.TotalCharge(pl))
-		b.logger.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %.2f Monthly Plan: %d", b.user.ID, item.HostID.Int64, item.Hours.Int64, item.HourlyPrice.Int64, totalCh, planPrice)
+		b.logger.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %.2f Monthly Plan: %d", b.user.ID, item.HostID.Int64, item.Hours.Int64, item.HourlyPrice.Int64, totalCh, targetPrice)
 
-		uncappedRatio := float64(item.UncappedTotalCharge()) / float64(planPrice)
+		uncappedRatio := float64(item.UncappedTotalCharge()) / float64(targetPrice)
 		if uncappedRatio > MaxHostPriceDiffRatio {
-			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price ratio %d by %f", item.UncappedTotalCharge(), b.user.ID, item.HostID.Int64, planPrice, uncappedRatio)
+			return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds plan price ratio %d by %f", item.UncappedTotalCharge(), b.user.ID, item.HostID.Int64, targetPrice, uncappedRatio)
 		}
 		if item.Hours.Int64 == invoiceitem.MaxHours {
-			priceRatio := float64(planPrice) / totalCh
+			priceRatio := float64(targetPrice) / totalCh
 			if priceRatio >= MaxPriceDiffRatio {
 				return fmt.Errorf("biller: Pricing %d for user %d host %d exceeds ratio %f with %f", item.TotalCharge(pl), b.user.ID, item.HostID.Int64, MaxPriceDiffRatio, priceRatio)
 			}
@@ -534,7 +538,7 @@ func updateAvailableCredits(tx *sqlx.Tx, userID int64, invID int64, amount int64
 	}, nil
 }
 
-func (b *Biller) planHostMap() (map[int64]int64, error) {
+func (b *Biller) planHostMap() (map[int64]plan.PlanPricing, error) {
 	return plan.PlanPricingHostMap(b.db, b.user.ID)
 }
 

@@ -94,7 +94,7 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 			env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
 		}
 		if price, ok := pHMap[ser.HostID]; ok {
-			ser.TotalCharge = inv.TotalCharge(&plan.Plan{Price: price})
+			ser.TotalCharge = inv.TotalCharge(&plan.Plan{Price: price.Price, BasePrice: price.BasePrice})
 		} else {
 			ser.TotalCharge = inv.UncappedTotalCharge()
 			env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
@@ -178,7 +178,7 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 						env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
 					}
 					if price, ok := pHMap[ser.HostID]; ok {
-						ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: price})
+						ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: price.Price, BasePrice: price.BasePrice})
 					} else {
 						ser.TotalCharge = item.UncappedTotalCharge()
 						env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)

@@ -173,6 +173,7 @@ var _ = Describe("models/plan", func() {
 					Name:          "hs1Plan",
 					MaxContainers: 1,
 					Price:         1901,
+					BasePrice:     500,
 				},
 				U: u,
 			})
@@ -198,9 +199,9 @@ var _ = Describe("models/plan", func() {
 
 			m, err := plan.PlanPricingHostMap(db, u.ID)
 			Expect(err).To(BeNil())
-			exMap := map[int64]int64{
-				hs1.H.ID: 1901,
-				hs2.H.ID: 2016,
+			exMap := map[int64]plan.PlanPricing{
+				hs1.H.ID: plan.PlanPricing{Price: 1901, BasePrice: 500},
+				hs2.H.ID: plan.PlanPricing{Price: 2016, BasePrice: 0},
 			}
 			Expect(m).To(Equal(exMap))
 		})
