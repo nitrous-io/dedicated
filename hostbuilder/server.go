@@ -75,6 +75,7 @@ type Response struct {
 	Name           string `json:"name,omitempty"`
 	IPAddress      string `json:"ip_address,omitempty"`
 	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
+	Region         string `json:"region_id,omitempty"`
 	State          string `json:"state,omitempty"`
 	Stream         string `json:"stream,omitempty"`
 	Error          string `json:"error,omitempty"`

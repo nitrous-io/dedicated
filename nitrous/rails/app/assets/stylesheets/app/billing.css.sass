@@ -38,12 +38,42 @@
           color: $red400
 
     td.charge
+      vertical-align: top
       text-align: right
       &.credit
         color: $green500
 
     tr.divider
       margin-top: 24px
+
+    .title
+      a
+        color: $n2oGray100
+
+        &:link, &:visited, &:active
+          color: $n2oGray100
+
+        &:hover
+          color: $n2oGray50
+
+    .items
+      max-height: 0
+      overflow: hidden
+      transition: max-height 0.5s ease-out
+
+      &.show
+        max-height: 100px
+
+      &.flow
+        overflow: auto
+
+      table
+        width: 100%
+
+        tr
+          height: 20px
+          line-height: 21px
+          color: $n2oGray200
 
     tr.total-charge
       font-weight: bold

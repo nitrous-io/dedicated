@@ -447,7 +447,7 @@ var _ = Describe("provisioner", func() {
 			Expect(h.ID).To(Equal(preprovisionedHost.ID))
 
 			// assert post config data
-			Expect(rt.Requests).To(HaveLen(1))
+			Expect(len(rt.Requests) >= 1).To(BeTrue(), "failed to update the host")
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
 

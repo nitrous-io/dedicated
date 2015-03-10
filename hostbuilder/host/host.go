@@ -10,6 +10,7 @@ import (
 type Info struct {
 	Provider       string      `json:"provider"`
 	ID             string      `json:"id"`
+	Region         string      `json:"region_id"`
 	Name           string      `json:"name"`
 	IPAddress      string      `json:"ip_address"`
 	FreighterdPort uint16      `json:"freighterd_port"`

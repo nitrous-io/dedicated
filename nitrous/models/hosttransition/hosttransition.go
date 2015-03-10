@@ -2,7 +2,9 @@ package hosttransition
 
 import (
 	"database/sql"
-	"math"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -21,18 +23,11 @@ type HostTransition struct {
 	EndedAt   *time.Time `db:"ended_at"`
 }
 
-type HostHourUsage struct {
-	HostID     int64 `db:"host_id"`
-	UserID     int64 `db:"user_id"`
-	Terminated bool  `db:"terminated"`
-	Seconds    int64 `db:"seconds"`
-	// HourlyPrice unit is milli-cents (x1000)
-	HourlyPrice int64 `db:"hourly_price"`
-}
-
-func (h *HostHourUsage) Hours() int {
-	totalHours := (time.Duration(h.Seconds) * time.Second).Hours()
-	return int(math.Ceil(totalHours))
+type HostUsage struct {
+	HostID  int64     `db:"host_id"`
+	Minutes int64     `db:"minutes"`
+	Start   time.Time `db:"start_at"`
+	End     time.Time `db:"end_at"`
 }
 
 func FindMostRecentForHost(db *db.Database, id int64) (*HostTransition, error) {
@@ -53,25 +48,31 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 	return hT, err
 }
 
-func BillableHostHours(d db.QueryReceiver, userId int64, start, end time.Time) ([]HostHourUsage, error) {
-	hostHours := []HostHourUsage{}
-	err := d.Select(&hostHours,
-		`SELECT host_id,
-			u.id user_id,
-			COALESCE(MAX(h.terminated_at) <= $3, FALSE) terminated,
-			MAX(h.hourly_price) hourly_price,
-				cast((EXTRACT(EPOCH FROM
-					SUM(COALESCE(ht.ended_at, $3) - GREATEST(ht.created_at, $2)))) as integer) seconds
-			FROM host_transitions ht
-			JOIN hosts h ON h.id = ht.host_id
-			JOIN users u ON u.id = h.user_id
+func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
+	times := []*HostUsage{}
+	sHostIDs := []string{}
+	for _, hID := range hostIDs {
+		sHostIDs = append(sHostIDs, strconv.FormatInt(hID, 10))
+	}
+	query := fmt.Sprintf(`SELECT host_id,
+			ceiling(cast((EXTRACT(EPOCH FROM LEAST(COALESCE(ended_at, $2), $2) - GREATEST(created_at, $1))) as integer) / 60.0) minutes,
+			GREATEST(created_at, $1) start_at,
+			LEAST(COALESCE(ended_at, $2), $2) end_at
+			FROM host_transitions
+			WHERE host_id IN (%s)
+			AND state = 'running'
+			AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($1, $2)
+			ORDER BY id ASC;
+			`, strings.Join(sHostIDs, ","))
+	if err := d.Select(&times, query, start, end); err != nil {
+		return nil, err
+	}
 
-			WHERE u.id = $1
-				AND ht.state = 'running'
-				AND (ht.created_at, COALESCE(ht.ended_at, $3)) OVERLAPS ($2, $3)
-			GROUP BY host_id, u.id;`,
-		userId, start, end)
-	return hostHours, err
+	res := make(map[int64][]*HostUsage)
+	for _, r := range times {
+		res[r.HostID] = append(res[r.HostID], r)
+	}
+	return res, nil
 }
 
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {

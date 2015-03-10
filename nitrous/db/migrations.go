@@ -909,5 +909,11 @@ func init() {
 				ALTER TABLE user_settings ALTER COLUMN keybindings SET NOT NULL;
 			`,
 		},
+		{
+			Version: "813",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN region_identifier character varying(255);
+			`,
+		},
 	}
 }

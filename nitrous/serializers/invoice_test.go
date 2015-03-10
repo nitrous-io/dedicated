@@ -14,8 +14,14 @@ var _ = Describe("invoice serializer", func() {
 	Describe("SerializeInvoice", func() {
 		var t1 = time.Unix(20, 0)
 		var t2 = t1.Add(1 * time.Hour)
+		var usage = &serializers.HostUsage{
+			Minutes: 193,
+			Start:   t1,
+			End:     t2,
+		}
 		var item1 = serializers.InvoiceItem{
-			ID: 12,
+			ID:    12,
+			Usage: []*serializers.HostUsage{usage},
 		}
 
 		var model = &invoice.Invoice{
@@ -58,7 +64,12 @@ var _ = Describe("invoice serializer", func() {
           "terminated": false,
           "hourly_cents": 0,
           "total_charge": 0,
-          "description": ""
+          "description": "",
+          "usage": [{
+            "minutes": 193,
+            "start_at": "1970-01-01T00:00:20Z",
+            "end_at": "1970-01-01T01:00:20Z"
+          }]
         }]
       }`))
 		})

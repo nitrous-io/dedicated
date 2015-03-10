@@ -41,11 +41,6 @@ var (
 func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	start := now.BeginningOfMonth()
 	end := time.Now()
-	hours, err := hosttransition.BillableHostHours(env.DB, env.User.ID, start, end)
-
-	if err != nil {
-		return err
-	}
 
 	availableCredits, err := credit.AvailableCredits(env.DB, env.User.ID)
 	if err != nil {
@@ -53,25 +48,24 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 	availableCreditsDollars := float64(availableCredits) / 100.0
 
-	if len(hours) == 0 {
-		env.Status = http.StatusOK
-		env.Data = map[string]interface{}{
-			"items":                     []interface{}{},
-			"total_charge":              0,
-			"total_charge_dollars":      0.0,
-			"available_credits_dollars": availableCreditsDollars,
-		}
-		return nil
-	}
-
 	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
 	if err != nil {
 		return err
 	}
 
-	total, items, err := biller.InvoiceItemsForUsages(hours, pHMap, nil)
+	res, err := biller.InvoiceItemsForUser(env.DB, nil, env.User.ID, start, end)
 	if err != nil {
 		return err
+	}
+
+	if len(res.Items) == 0 {
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"items":                     []interface{}{},
+			"total_charge":              0,
+			"available_credits_dollars": availableCreditsDollars,
+		}
+		return nil
 	}
 
 	hMap, err := fetchHosts(env.DB, env.User)
@@ -79,8 +73,18 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
+	hostIDs := make([]int64, len(hMap))
+	for hID := range hMap {
+		hostIDs = append(hostIDs, hID)
+	}
+
+	usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, start, end)
+	if err != nil {
+		env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+	}
+
 	sItems := []serializers.InvoiceItem{}
-	for _, inv := range items {
+	for _, inv := range res.Items {
 		ser := serializers.SerializeInvoiceItem(&inv)
 		if hst, ok := hMap[ser.HostID]; ok {
 			ser.HostSlug = hst.Slug
@@ -95,14 +99,17 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 			ser.TotalCharge = inv.UncappedTotalCharge()
 			env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
 		}
+
+		if hUsages, ok := usages[ser.HostID]; ok {
+			ser.Usage = serializers.SerializeHostUsages(hUsages)
+		}
 		sItems = append(sItems, *ser)
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"items":                     sItems,
-		"total_charge":              total,
-		"total_charge_dollars":      (float64(total) / 100.0),
+		"total_charge":              res.TotalCharge,
 		"available_credits_dollars": availableCreditsDollars,
 	}
 
@@ -147,6 +154,16 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	}
 
 	for _, inv := range serInvs {
+		hostIDs := []int64{}
+		for _, item := range invItems {
+			if item.InvoiceID == inv.ID && item.HostID.Valid {
+				hostIDs = append(hostIDs, item.HostID.Int64)
+			}
+		}
+		usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, *inv.PeriodStart, *inv.PeriodEnd)
+		if err != nil {
+			env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+		}
 		for _, item := range invItems {
 			if item.InvoiceID == inv.ID {
 				if item.Credit.Valid {
@@ -165,6 +182,10 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 					} else {
 						ser.TotalCharge = item.UncappedTotalCharge()
 						env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+					}
+					hUsages, ok := usages[ser.HostID]
+					if ok {
+						ser.Usage = serializers.SerializeHostUsages(hUsages)
 					}
 					inv.Items = append(inv.Items, *ser)
 				}

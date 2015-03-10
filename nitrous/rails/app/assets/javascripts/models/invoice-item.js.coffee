@@ -12,6 +12,17 @@ App.InvoiceItem = App.Model.extend
   description: attr()
   terminated: attr('boolean', as: 'terminated')
 
+  _usage: attr('array', as: 'usage')
+
+  usage: (->
+    return [] unless @get("_usage")
+    @get('_usage').map (item)=>
+      inv = App.HostUsage.create()
+      inv.load item
+      inv
+    .sortBy('startsAt:asc')
+  ).property 'usage'
+
   ranking: (->
     if @get 'terminated'
       -1

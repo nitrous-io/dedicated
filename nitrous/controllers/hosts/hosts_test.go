@@ -649,7 +649,12 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{Slug: "honeybadger", ProviderIdentifier: sql.NullString{"001", true}},
+				H: &host.Host{
+					Slug:               "honeybadger",
+					ProviderIdentifier: sql.NullString{"001", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+					RegionIdentifier:   sql.NullString{"us-east-1", true},
+				},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -683,6 +688,29 @@ var _ = Describe("controllers/hosts", func() {
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
 		Context("when hostbuilder successfully deletes the host", func() {
@@ -750,9 +778,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
 				Expect(j.Host.Slug).To(Equal("honeybadger"))
-				Expect(j.Host.IPAddress).To(Equal(""))
-				Expect(j.Host.FreighterdPort).To(Equal(int64(0)))
-				Expect(j.Host.Size).To(Equal(""))
+				Expect(j.Host.IPAddress).To(Equal("10.0.0.1"))
 				Expect(j.Host.State).To(Equal(host.StateTerminated))
 				Expect(j.Host.Hostname).To(Equal(hostname("honeybadger")))
 				Expect(j.Host.RegionID).To(Equal(hs.R.ID))
@@ -913,7 +939,11 @@ var _ = Describe("controllers/hosts", func() {
 		BeforeEach(func() {
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{State: host.StateStopped, IPAddress: sql.NullString{"10.0.0.1", true}},
+				H: &host.Host{
+					State:            host.StateStopped,
+					IPAddress:        sql.NullString{"10.0.0.1", true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
+				},
 				U: u,
 			})
 			Expect(err).To(BeNil())
@@ -948,11 +978,13 @@ var _ = Describe("controllers/hosts", func() {
 			payload := &struct {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
 		Context("when host is not in the stopped state", func() {
@@ -1141,8 +1173,9 @@ var _ = Describe("controllers/hosts", func() {
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
-					State:     host.StateRunning,
-					IPAddress: sql.NullString{"127.0.0.1", true},
+					State:            host.StateRunning,
+					IPAddress:        sql.NullString{"127.0.0.1", true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
 				},
 				U: u,
 			})
@@ -1162,6 +1195,29 @@ var _ = Describe("controllers/hosts", func() {
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, nil)
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
 		Context("when host is already stopped", func() {
@@ -1450,8 +1506,9 @@ var _ = Describe("controllers/hosts", func() {
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
-					State:     host.StateRunning,
-					IPAddress: sql.NullString{"127.0.0.1", true},
+					State:            host.StateRunning,
+					IPAddress:        sql.NullString{"127.0.0.1", true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
 				},
 				U: u,
 			})
@@ -1487,11 +1544,13 @@ var _ = Describe("controllers/hosts", func() {
 			payload := &struct {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
+			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
 		Context("when host is not in the running state", func() {
