@@ -177,7 +177,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		{
 			Description: "Waiting for the workspace to be ready",
 			Func:        waitForSSH,
-			Timeout:     1 * time.Minute,
+			Timeout:     5 * time.Minute,
 		},
 		{
 			Description: "Populating settings",
@@ -793,7 +793,7 @@ func updateSoftware(ctx *host.HostContext) error {
 		`-o Dir::Etc::sourceparts="/dev/null"`,
 		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
 		`&&`,
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y",
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
 		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
 		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
 	}
