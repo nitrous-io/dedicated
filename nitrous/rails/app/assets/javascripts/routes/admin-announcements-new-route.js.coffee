@@ -2,7 +2,7 @@
 
 App.AdminAnnouncementsNewRoute = App.AdminRoute.extend
   activate: ->
-    App.set 'title', 'Admin - New Template'
+    App.set 'title', 'Admin - New Announcement'
 
   renderTemplate: ->
     @render 'admin/announcements-new', outlet: 'content'

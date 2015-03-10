@@ -250,7 +250,7 @@ func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
 		return nil, err
 	}
 
-	totalLen := +len(hosts)
+	totalLen := len(globals) + len(hosts)
 	res := make([]*HostAnnouncement, totalLen)
 
 	for i, ann := range globals {

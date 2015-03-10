@@ -55,7 +55,7 @@ App.AdminAnnouncementsNewController = Em.Controller.extend
       .done( =>
         App.snackbar.post("Successfully sent announcement")
         @set 'saving', false
-        @transitionToRoute 'home.index'
+        @transitionToRoute 'admin.announcements'
 
       ).fail (jqxhr) =>
         App.postError(jqxhr.responseJSON, "Failed to send announcement")

@@ -1,47 +1,47 @@
-.card-header.bordered
-  h2 Admin &mdash; New Announcement
+.ui.card
+  .card-header.bordered
+    h2 Admin &mdash; New Announcement
 
-form submit='sendAnnouncement'
-  .card-body
-    .card-body.bordered
-      .ui.input-group
-        label.field-label for='subject-template'
-          | Subject Template 
-        = input type='text' id='subject-template' name='subject-template' required=true disabled=saving value=subjectTemplate
+  form submit='sendAnnouncement'
+    .card-body
+      .card-body.bordered
+        .ui.input-group
+          label.field-label for='subject-template'
+            | Subject Template 
+          = input type='text' id='subject-template' name='subject-template' required=true disabled=saving value=subjectTemplate
 
-      .ui.input-group
-        label.field-label for='message-template'
-          | Message template 
-        = textarea type='text' id='message-template' name='message-template' rows='5' required=true disabled=saving value=messageTemplate
- 
-      .ui.input-group
-        label.field-label for='expires-at'
-          | Expires At
-        = input type='text' id='expires-at' name='expires-at' required=true disabled=saving value=expiresAt
-        p.hint-text
-          | (
-          = simpledate expiryDate
-          | )
- 
-      .ui.input-group
-        label.field-label for='slugs'
-          | Host Slugs 
-        = input type='text' id='template-slug' name='slugs' required=true disabled=slugsDisabled value=slugs
-      
-      .ui.input-group
-        ul.ui.checkbox-group
-          li
-            .ui.checkbox
-              = input type='checkbox' id='show-to-all' checked=showToAll
-              label
-            label for='show-to-all' Show To All
+        .ui.input-group
+          label.field-label for='message-template'
+            | Message template 
+          = textarea type='text' id='message-template' name='message-template' rows='5' required=true disabled=saving value=messageTemplate
+   
+        .ui.input-group
+          label.field-label for='expires-at'
+            | Expires At
+          = input type='text' id='expires-at' name='expires-at' required=true disabled=saving value=expiresAt
+          p.hint-text
+            | (
+            = simpledate expiryDate
+            | )
+   
+        .ui.input-group
+          label.field-label for='slugs'
+            | Host Slugs 
+          = input type='text' id='template-slug' name='slugs' required=true disabled=slugsDisabled value=slugs
+        
+        .ui.input-group
+          ul.ui.checkbox-group
+            li
+              .ui.checkbox
+                = input type='checkbox' id='show-to-all' checked=showToAll
+                label
+              label for='show-to-all' Show To All
 
-    .card-footer.bordered
-      .right
-        if saving
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Sending...
-        else 
-          input.ui.btn.primary type='submit' disabled={saving} value='Create'
-
+      .card-footer.bordered
+        .right
+          if saving
+            button.ui.btn disabled='disabled'
+              i.spinner
+              | Sending...
+          else 
+            input.ui.btn.primary type='submit' disabled={saving} value='Create'
