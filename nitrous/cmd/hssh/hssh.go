@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	sshUser = "root"
-	aesKey  string
-	dbURL   string
+	aesKey string
+	dbURL  string
 )
 
 type resizeRequest struct {
@@ -99,6 +98,13 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	// create the ssh client
 	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
 	connInterval := 5 * time.Second
+
+	// set sshUser depends on the provider
+	sshUser := "root"
+	if h.Provider == "amazon" {
+		sshUser = "ubuntu"
+	}
+
 	return sshutil.WaitForSSH(address, sshUser, privKey,
 		connInterval, make(chan struct{}), map[string]interface{}{})
 }

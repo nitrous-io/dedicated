@@ -677,7 +677,7 @@ func updateSoftware(ctx *host.HostContext) error {
 		`-o Dir::Etc::sourceparts="/dev/null"`,
 		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
 		`&&`,
-		"DEBIAN_FRONTEND=noninteractive apt-get install -y",
+		"DEBIAN_FRONTEND=noninteractive apt-get install -y --force-yes",
 		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
 		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
 	}

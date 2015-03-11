@@ -10,7 +10,10 @@ import (
 	"github.com/mitchellh/goamz/ec2"
 )
 
-var defaultSleep = 2 * time.Second
+var (
+	ErrResourceNotFound = errors.New("resource not found")
+	defaultSleep        = 2 * time.Second
+)
 
 // StateRefreshFunc is a function type used for StateChangeConf that is
 // responsible for refreshing the item being watched for a state change.
@@ -61,14 +64,12 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 // state.
 func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
 	log.Printf("Waiting for state to become: %s", conf.Target)
-
-	notfoundTick := 0
-
+	var notfoundTick int
 	for {
 		var currentState string
 		i, currentState, err = conf.Refresh()
 		if err != nil {
-			return
+			return i, err
 		}
 
 		if i == nil {
@@ -76,27 +77,25 @@ func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
 			// not finding it for awhile, and if so, report an error.
 			notfoundTick += 1
 			if notfoundTick > 20 {
-				return nil, errors.New("couldn't find resource")
+				return nil, ErrResourceNotFound
 			}
 		} else {
 			// Reset the counter for when a resource isn't found
 			notfoundTick = 0
 
 			if currentState == conf.Target {
-				return
+				return i, err
 			}
 
-			found := false
+			var found bool
 			for _, allowed := range conf.Pending {
 				if currentState == allowed {
 					found = true
 					break
 				}
 			}
-
 			if !found {
-				fmt.Errorf("unexpected state '%s', wanted target '%s'", currentState, conf.Target)
-				return
+				return nil, fmt.Errorf("unexpected state %q, wanted target %q", currentState, conf.Target)
 			}
 		}
 
