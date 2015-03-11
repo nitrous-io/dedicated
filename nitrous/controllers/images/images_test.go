@@ -1077,6 +1077,55 @@ var _ = Describe("controllers/images", func() {
 				Expect(errDesc).To(ContainSubstring("image is being used"))
 			})
 		})
+
+		Context("when image is removed in Freighter, but still returns an error", func() {
+			BeforeEach(func() {
+				mockClient.RemoveImageError = errors.New("freighter: unexpected error in docker")
+				mockClient.ListImagesArray = []*freighterclient.Image{}
+			})
+
+			It("deletes image record from the database", func() {
+				_, err := image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+				Expect(err).To(BeNil())
+
+				res := doRequest("foo", "nitrousio/elixir")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(mockClient.ListImagesCalled).To(Equal(1))
+
+				_, err = image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when image is not removed in Freighter and returns an error", func() {
+			BeforeEach(func() {
+				mockClient.RemoveImageError = errors.New("freighter: failed to remove image")
+
+				img := &freighterclient.Image{
+					ID:          "cafebabe",
+					Name:        "nitrousio/elixir",
+					Tag:         "latest",
+					CreatedAt:   time.Date(2014, time.August, 14, 0, 0, 0, 0, time.UTC).Unix(),
+					ActualSize:  14,
+					VirtualSize: 30,
+				}
+				mockClient.ListImagesArray = []*freighterclient.Image{img}
+			})
+
+			It("does not delete image record from the database and return error 500", func() {
+				_, err := image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+				Expect(err).To(BeNil())
+
+				res := doRequest("foo", "nitrousio/elixir")
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				Expect(mockClient.ListImagesCalled).To(Equal(1))
+
+				_, err = image.Find(db, hs.U, hs.H, "nitrousio/elixir")
+				Expect(err).To(BeNil())
+			})
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/tag", func() {

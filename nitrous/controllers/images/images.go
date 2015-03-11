@@ -174,7 +174,23 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		if err == freighterclient.ErrImageInUse {
 			return errImageInUse
 		}
-		return err
+
+		// Even when RemoveImage() fails,
+		// the image could still have been deleted, so we check whether it exists.
+		// If it doesn't exist, we delete it from the database.
+		fImgs, nerr := cl.ListImages()
+		if nerr != nil {
+			// return the original error
+			return err
+		}
+		for _, i := range fImgs {
+			if i.ID == img.FreighterID {
+				// image is still there, return the error
+				return err
+			}
+		}
+
+		env.Logger.Errorf("cl.RemoveImage() failed with %s", err)
 	}
 
 	if err := img.Delete(db); err != nil {
