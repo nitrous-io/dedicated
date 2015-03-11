@@ -35,7 +35,7 @@ var _ = Describe("WaitForServer", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 	})
 
-	FIt("should return false if the server times out", func() {
+	It("should return false if the server times out", func() {
 		clientTimeout := 50 * time.Millisecond
 		serverTimeout := 100 * time.Millisecond
 
