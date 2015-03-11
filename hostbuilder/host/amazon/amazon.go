@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -126,8 +125,6 @@ type Host struct {
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	w = io.MultiWriter(os.Stdout, w)
-
 	// ctx is the Context for this method. Calling cancel closes the ctx.Done
 	// channel, which will in turn signal for child requests started by this
 	// method to be cancelled.
