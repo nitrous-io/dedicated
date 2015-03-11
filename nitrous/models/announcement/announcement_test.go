@@ -423,12 +423,10 @@ var _ = Describe("models/announcement", func() {
 				hostAnns, err := announcement.SendAndSaveForHostSlugs(db, ann, slugs, errHandler)
 				Expect(err).To(BeNil())
 
-				Expect(len(hostAnns)).To(Equal(2))
-				Expect(hostAnns[0].Announcement).To(Equal(ann))
-				Expect(hostAnns[1].Announcement).To(Equal(ann))
+				type annSlice []*announcement.Announcement
+				Expect(annSlice{hostAnns[0].Announcement, hostAnns[1].Announcement}).To(ConsistOf(annSlice{ann, ann}))
 
-				Expect(hostAnns[0].Slug).To(Equal(slugs[0]))
-				Expect(hostAnns[1].Slug).To(Equal(slugs[1]))
+				Expect([]string{hostAnns[0].Slug, hostAnns[1].Slug}).To(ConsistOf([]string{slugs[0], slugs[1]}))
 
 				assertSentMails(mailSpy, expectedSentMails, errorCaught)
 			})

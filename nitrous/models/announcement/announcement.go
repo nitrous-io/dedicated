@@ -80,11 +80,11 @@ func (ann *Announcement) RenderMessage(owner *HostOwner) (string, error) {
 }
 
 func (ann *HostAnnouncement) Subject() (string, error) {
-	return ann.Announcement.RenderSubject(ann.HostOwner)
+	return ann.RenderSubject(ann.HostOwner)
 }
 
 func (ann *HostAnnouncement) Message() (string, error) {
-	return ann.Announcement.RenderMessage(ann.HostOwner)
+	return ann.RenderMessage(ann.HostOwner)
 }
 
 func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
@@ -120,8 +120,7 @@ func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, er
 		WHERE hosts.slug IN (%s);`, strings.Join(placeholders, ", "))
 
 	owners := []*HostOwner{}
-	err := db.Select(&owners, query, values...)
-	if err != nil {
+	if err := db.Select(&owners, query, values...); err != nil {
 		return nil, err
 	}
 
@@ -313,14 +312,12 @@ func InsertForHosts(db *dbLib.Database, ann *Announcement, hostIDs []int64) erro
 		return err
 	}
 
-	err = Insert(tx, ann)
-	if err != nil {
+	if err := Insert(tx, ann); err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	err = AddHosts(tx, ann.ID, hostIDs)
-	if err != nil {
+	if err := AddHosts(tx, ann.ID, hostIDs); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -369,8 +366,7 @@ func SendToOwner(ann *Announcement, owner *HostOwner) error {
 	from := emailAddress("Nitrous Mailer", "mailer@nitrous.io")
 	to := emailAddress(owner.Fullname, owner.Email)
 
-	err = sendEmail(from, to, subject, message)
-	if err != nil {
+	if err := sendEmail(from, to, subject, message); err != nil {
 		return err
 	}
 
@@ -380,8 +376,7 @@ func SendToOwner(ann *Announcement, owner *HostOwner) error {
 func SendToOwners(ann *Announcement, owners []*HostOwner, errorHandler func(error)) {
 	go func() {
 		for _, owner := range owners {
-			err := SendToOwner(ann, owner)
-			if err != nil {
+			if err := SendToOwner(ann, owner); err != nil {
 				errorHandler(err)
 			}
 		}
@@ -394,8 +389,7 @@ func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement, errHan
 		return err
 	}
 
-	err = Insert(db, ann)
-	if err != nil {
+	if err := Insert(db, ann); err != nil {
 		return err
 	}
 
@@ -428,8 +422,7 @@ func SendAndSaveForHostSlugs(db *dbLib.Database, ann *Announcement, slugs []stri
 		hostIDs[i] = owner.HostID
 	}
 
-	err = InsertForHosts(db, ann, hostIDs)
-	if err != nil {
+	if err := InsertForHosts(db, ann, hostIDs); err != nil {
 		return nil, err
 	}
 
