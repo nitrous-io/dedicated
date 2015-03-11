@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"strings"
 	templateLib "text/template"
 
 	"github.com/lib/pq"
@@ -103,29 +104,23 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 }
 
 func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, error) {
-	query := `SELECT
-		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
-		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-		WHERE hosts.slug IN (`
-
 	slugsCount := len(slugs)
+	placeholders := make([]string, slugsCount)
 	values := make([]interface{}, slugsCount)
 
-	// Construct query string for SELECT IN
+	// Construct placeholder string for SELECT IN
 	for i, slug := range slugs {
 		values[i] = slug
-		query += fmt.Sprintf("$%d", i+1)
-		if i+1 != slugsCount {
-			query += ", "
-		}
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
 	}
 
-	query += ");"
+	query := fmt.Sprintf(`SELECT
+		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email 
+		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
+		WHERE hosts.slug IN (%s);`, strings.Join(placeholders, ", "))
 
 	owners := []*HostOwner{}
-
 	err := db.Select(&owners, query, values...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +162,7 @@ func FindByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error)
 	announcements := []*Announcement{}
 
 	// Query the database for announcements without joining
+	// the hosts and users table
 	err = db.Select(&announcements, `SELECT 
 		announcements.* FROM announcements 
 		LEFT JOIN announcement_host ON (announcements.id = announcement_host.announcement_id)
@@ -285,7 +281,7 @@ func Insert(db dbLib.QueryReceiver, announcement *Announcement) error {
 func AddHosts(db dbLib.QueryReceiver, announcementID int64, hostIDs []int64) error {
 	hostCount := len(hostIDs)
 
-	query := "INSERT INTO announcement_host (announcement_id, host_id) VALUES "
+	placeholders := make([]string, hostCount)
 	values := make([]interface{}, 2*hostCount)
 
 	// Construct query string for bulk insert hosts
@@ -295,14 +291,11 @@ func AddHosts(db dbLib.QueryReceiver, announcementID int64, hostIDs []int64) err
 		values[offset] = announcementID
 		values[offset+1] = hostID
 
-		query += fmt.Sprintf("($%d, $%d)", offset+1, offset+2)
-
-		if i+1 != hostCount {
-			query += ", "
-		}
+		placeholders[i] = fmt.Sprintf("($%d, $%d)", offset+1, offset+2)
 	}
 
-	query += ";"
+	query := fmt.Sprintf("INSERT INTO announcement_host (announcement_id, host_id) VALUES %s;",
+		strings.Join(placeholders, ", "))
 
 	_, err := db.Exec(query, values...)
 
