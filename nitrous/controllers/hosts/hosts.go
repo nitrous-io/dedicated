@@ -333,8 +333,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 	publishHostEvent(env, controllers.EventHostStopping, h)
 
-	info, err := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
-	if err != nil {
+	if _, err = HostbuilderClient.Stop(h.Provider, h.MachineConfig(), hostbuilderHeaders(env)); err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
@@ -359,8 +358,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	h.State = host.StateStopped
-	h.IPAddress = sql.NullString{info.IPAddress, true}
-	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
 	tx, err = env.DB.Beginx()
 	if err != nil {

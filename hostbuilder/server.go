@@ -191,6 +191,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
@@ -199,7 +200,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r)
+	h, err := s.hostFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("update.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
@@ -229,6 +230,7 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	pw.WriteResponse(resp)
@@ -236,7 +238,7 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r)
+	h, err := s.hostFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("delete.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
@@ -276,6 +278,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		ID:             info.ID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 	}
 	writeResponse(w, resp)
 	return nil
@@ -308,6 +311,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
@@ -315,7 +319,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r)
+	h, err := s.hostFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("restart.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
@@ -346,6 +350,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
 		State:          info.State.String(),
 	}
 	writeResponse(w, resp)
@@ -376,7 +381,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	// TODO This is independent of any particular host so we don't need to use
 	// host-specific form data.
-	h, err := s.hostFromRequest(r)
+	h, err := s.hostFromRequest(r, map[string]string{"ignore_region": "true"})
 	if err != nil {
 		label := fmt.Sprintf("list.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
@@ -398,6 +403,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 			Name:           hst.Name,
 			IPAddress:      hst.IPAddress,
 			FreighterdPort: hst.FreighterdPort,
+			Region:         hst.Region,
 			State:          hst.State.String(),
 		})
 	}
@@ -416,7 +422,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
+func (s *Server) hostFromRequest(r *http.Request, customConfig map[string]string) (host.Host, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, err
 	}
@@ -424,6 +430,9 @@ func (s *Server) hostFromRequest(r *http.Request) (host.Host, error) {
 	providerConfig := s.Config.Providers[provider]
 	if providerConfig == nil {
 		providerConfig = make(map[string]string)
+	}
+	for k, v := range customConfig {
+		providerConfig[k] = v
 	}
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 	configJSON := r.Form.Get("config")

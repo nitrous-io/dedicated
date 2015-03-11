@@ -37,6 +37,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+const (
+	DigitalOceanProvider = "digitalocean"
+	AmazonProvider       = "amazon"
+)
+
 var (
 	// shared client to interact with hostbuilder
 	HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -57,6 +62,7 @@ var (
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrHostCreationNotAllowed         = errors.New("not allowed to create more hosts")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
+	ErrUnknownProvider                = errors.New("unknown provider")
 
 	validations = map[string]error{
 		"index_hosts_on_slug": ErrSlugIsTaken,
@@ -691,15 +697,31 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			config[k] = ""
 		}
 	}
+
+	// FIXME: we should just store the canonical mapping in DB instead of
+	// having to remap region identifier here for different providers.
 	rid, ok := opts.Template.Config.Map["region_id"]
 	if !ok {
 		return config, nil
 	}
-	if reg, ok := doRegionsMap[rid.String]; !ok {
-		return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
-	} else {
-		config["region_id"] = reg
+	switch opts.Template.Provider {
+	case DigitalOceanProvider:
+		if reg, ok := doRegionsMap[rid.String]; !ok {
+			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
+		} else {
+			config["region_id"] = reg
+		}
+	case AmazonProvider:
+		// convert storage_size to format accepted by hostbuilder
+		size, err := strconv.Atoi(config["storage_size"].(string))
+		if err != nil {
+			return config, fmt.Errorf("invalid size for config %v", config)
+		}
+		config["storage_size"] = size
+	default:
+		return nil, ErrUnknownProvider
 	}
+
 	return config, nil
 }
 

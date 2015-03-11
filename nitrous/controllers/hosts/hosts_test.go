@@ -1175,6 +1175,7 @@ var _ = Describe("controllers/hosts", func() {
 				H: &host.Host{
 					State:            host.StateRunning,
 					IPAddress:        sql.NullString{"127.0.0.1", true},
+					FreighterdPort:   sql.NullInt64{65333, true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
 				},
 				U: u,
@@ -1185,7 +1186,7 @@ var _ = Describe("controllers/hosts", func() {
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
-				Message: okResponse,
+				Message: stopOkResponse,
 				Status:  http.StatusOK,
 			}
 			replaceTransport(hb, rt)
@@ -1200,7 +1201,7 @@ var _ = Describe("controllers/hosts", func() {
 		It("sends the correct payload to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
-				Message: okResponse,
+				Message: stopOkResponse,
 				Status:  http.StatusOK,
 			}
 			replaceTransport(hb, rt)
@@ -1224,7 +1225,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("responds with HTTP 400 Bad Request", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &test.FakeRoundTripper{
-					Message: okResponse,
+					Message: stopOkResponse,
 					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
@@ -1245,7 +1246,7 @@ var _ = Describe("controllers/hosts", func() {
 			It("allows host to be stopped if force=true", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &test.FakeRoundTripper{
-					Message: okResponse,
+					Message: stopOkResponse,
 					Status:  http.StatusOK,
 				})
 				hosts.HostbuilderClient = hb
@@ -1269,7 +1270,7 @@ var _ = Describe("controllers/hosts", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				replaceTransport(hb, &test.FakeRoundTripper{
-					Message: okResponse,
+					Message: stopOkResponse,
 					Status:  http.StatusOK,
 				})
 
@@ -1384,6 +1385,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
+				Expect(h.IPAddress.String).To(Equal("127.0.0.1"))
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
@@ -2100,8 +2102,9 @@ var _ = Describe("controllers/hosts", func() {
 })
 
 var (
-	okResponse    = `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`
-	errorResponse = `{"error":"some error occurred"}`
+	stopOkResponse = `{"state": "stopped", "ip_address": ""}`
+	okResponse     = `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`
+	errorResponse  = `{"error":"some error occurred"}`
 )
 
 // replace the transport in hostbuilder client with a new fake transport

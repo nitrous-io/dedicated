@@ -7,7 +7,10 @@
   "providers": {
     "amazon": {
       "access_key": "",
-      "secret_key": ""
+      "secret_key": "",
+      "env": "development",
+      "create_timeout": "5m",
+      "notify_url": "http://pro.n2odev.com:3333/api/v0/hosts/{{slug}}/freighterd_hook"
     },
     "digitalocean": {
       "token": "",
