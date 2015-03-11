@@ -8,6 +8,10 @@ App.IdeRoute = Em.Route.extend
         App.set 'user', user
       App.UserSettings.fetch().then (settings) ->
         App.set 'userSettings', settings
+      , (jqxhr) ->
+        if jqxhr.responseJSON?.error == "outstanding_invoices"
+          App.snackbar.post "IDE unavailable while you have outstanding invoices. Redirecting.."
+        window.location.href = '/app'
     else
       # redirect to login screen if user hasn't logged in
       window.location.href = '/app/#/login'
