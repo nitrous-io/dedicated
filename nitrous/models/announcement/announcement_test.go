@@ -2,7 +2,6 @@ package announcement_test
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -300,13 +299,12 @@ var _ = Describe("models/announcement", func() {
 					return err
 				}
 
-				if reflect.DeepEqual(mailSpy.sentMails, expectedMails) {
+				if len(expectedMails) == len(mailSpy.sentMails) {
 					return nil
-				} else {
-					return fmt.Errorf("Sent mails content are not the same as expected.\n Expected: %s\n Actual: %s\n", expectedMails, mailSpy.sentMails)
 				}
-
+				return fmt.Errorf("Expected to receive %d emails, only received %d emails", len(expectedMails), len(mailSpy.sentMails))
 			}, 100*time.Millisecond).Should(BeNil())
+			Expect(mailSpy.sentMails).To(ConsistOf(expectedMails))
 		}
 
 		Context("Global Announcement", func() {
