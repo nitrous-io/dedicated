@@ -357,31 +357,15 @@ func (h *Host) Start() (*host.Info, error) {
 }
 
 // Restart performs a hard-reset of the instance. This should not change the
-// public IP address of the instance
+// public IP address of the instance. This does not use RebootAPI, but instead
+// stop/starting the instance to make sure that it has a clean state.
 func (h *Host) Restart() (*host.Info, error) {
 	label := h.metricsLabel("restart")
 	defer mh.UpdateSince(label, time.Now())
-
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		return nil, mh.Error(err, label)
+	if _, err := h.Stop(); err != nil {
+		return nil, err
 	}
-
-	if _, err := h.provider.RebootInstances(h.instance.InstanceId); err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "running",
-	}
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		return nil, mh.Error(err, label)
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	return h.Info()
+	return h.Start()
 }
 
 // List returns all instances in the current region. To perform list of
