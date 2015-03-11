@@ -8,10 +8,12 @@ client = HTTPClient.new
 client.receive_timeout = 10000
 
 id = ARGV[0]
+ip_address = ARGV[1]
 
 params = {
   id: id,
-  region: "us-west-2"
+  ip_address: ip_address,
+  region_id: "us-west-2"
 }
 
 resp = client.post "http://localhost:6666/hosts/delete", {
