@@ -62,14 +62,15 @@ var _ = Describe("models/announcement", func() {
 		db         *dbLib.Database
 		h1, h2, h3 *host.Host
 		u1, u2     *user.User
-
-		expiry = time.Now().Add(5 * time.Second)
+		expiry     time.Time
 	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
+
+		expiry = time.Now().Add(5 * time.Second)
 
 		u1 = &user.User{
 			Username: "foo",

@@ -512,10 +512,9 @@ var _ = Describe("controllers/hosts", func() {
 
 	Describe("GET /api/v0/hosts/{slug}/announcements", func() {
 		var (
-			h1, h2 *host.Host
 			err    error
-
-			expiry = time.Now().Add(5 * time.Second)
+			h1, h2 *host.Host
+			expiry time.Time
 		)
 
 		doRequest := func(slug string) {
@@ -527,6 +526,8 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
+			expiry = time.Now().Add(5 * time.Second)
+
 			h1 = &host.Host{
 				Slug: "elixir-web-1",
 			}
