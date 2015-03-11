@@ -10,8 +10,10 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
@@ -50,6 +52,18 @@ var (
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
 	ErrInstanceNotFound = errors.New("instance not found")
+
+	KnownRegions = map[string]aws.Region{
+		aws.APNortheast.Name:  aws.APNortheast,
+		aws.APSoutheast.Name:  aws.APSoutheast,
+		aws.APSoutheast2.Name: aws.APSoutheast2,
+		aws.EUWest.Name:       aws.EUWest,
+		aws.EUCentral.Name:    aws.EUCentral,
+		aws.USEast.Name:       aws.USEast,
+		aws.USWest.Name:       aws.USWest,
+		aws.USWest2.Name:      aws.USWest2,
+		aws.SAEast.Name:       aws.SAEast,
+	}
 )
 
 // configFile is used to marshal/unmarshal /etc/freighter/config.json.
@@ -115,6 +129,7 @@ type Host struct {
 	env          string // env tag to be set for each instance
 
 	// ec2 properties
+	auth     aws.Auth // this is used when we want to query all known regions
 	provider *ec2.EC2
 	instance *ec2.Instance
 
@@ -374,25 +389,44 @@ func (h *Host) List() ([]*host.Info, error) {
 	label := h.metricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
+	var (
+		mu    = &sync.Mutex{}
+		infos = []*host.Info{}
+		wg    sync.WaitGroup
+	)
+
+	// create a filter for the current environment
 	filter := ec2.NewFilter()
-	filter.Add("tag", fmt.Sprintf("dedicated=%s", h.env))
-	instancesResp, err := h.provider.Instances(nil, filter)
-	if err != nil {
-		return nil, mh.Error(err, label)
+	filter.Add("tag:dedicated", h.env)
+
+	for _, region := range KnownRegions {
+		conn := ec2.New(h.auth, region)
+		wg.Add(1)
+		go func(conn *ec2.EC2, region aws.Region) {
+			defer wg.Done()
+			instancesResp, err := conn.Instances(nil, filter)
+			if err != nil {
+				hlog(h, "failed to get instances in region %s, err %v", region.Name, err)
+				return
+			}
+			mu.Lock()
+			for _, reservation := range instancesResp.Reservations {
+				for _, instance := range reservation.Instances {
+					infos = append(infos, &host.Info{
+						Provider:       h.DriverName(),
+						ID:             instance.InstanceId,
+						IPAddress:      instance.PublicIpAddress,
+						FreighterdPort: DefaultPort,
+						State:          getState(&instance),
+						Region:         region.Name,
+					})
+				}
+			}
+			mu.Unlock()
+		}(conn, region)
 	}
 
-	infos := []*host.Info{}
-	for _, reservation := range instancesResp.Reservations {
-		for _, instance := range reservation.Instances {
-			infos = append(infos, &host.Info{
-				Provider:       h.DriverName(),
-				ID:             instance.InstanceId,
-				IPAddress:      instance.PublicIpAddress,
-				FreighterdPort: DefaultPort,
-				State:          getState(&instance),
-			})
-		}
-	}
+	wg.Wait()
 	return infos, nil
 }
 
@@ -482,11 +516,6 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
 		return nil, err
 	}
-	region, err := accessConfig.Region()
-	if err != nil {
-		log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
-		return nil, err
-	}
 	// get create timeout
 	createTimeout := DefaultCreateTimeout
 	d, err := time.ParseDuration(defaultConfig["create_timeout"])
@@ -497,11 +526,23 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	host := &Host{
 		AccessConfig:  accessConfig,
 		Config:        hostConfig,
-		provider:      ec2.New(auth, region),
+		auth:          auth,
 		createTimeout: createTimeout,
 		uuid:          defaultConfig["uuid"], // this is injected by the server per request
 		notifyURL:     defaultConfig["notify_url"],
 		env:           defaultConfig["env"],
+	}
+
+	// workaround for actions that requires multiple regions i.e. Host#List
+	// This is set by the caller and should not be serialized as a
+	// configuration value
+	if _, ok := defaultConfig["ignore_region"]; !ok {
+		region, err := accessConfig.Region()
+		if err != nil {
+			log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
+			return nil, err
+		}
+		host.provider = ec2.New(auth, region)
 	}
 	return host, nil
 }
