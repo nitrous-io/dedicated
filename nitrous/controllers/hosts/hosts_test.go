@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -505,6 +507,119 @@ var _ = Describe("controllers/hosts", func() {
 					},
 				}))
 			}
+		})
+	})
+
+	Describe("GET /api/v0/hosts/{slug}/announcements", func() {
+		var (
+			h1, h2 *host.Host
+			err    error
+
+			expiry = time.Now().Add(5 * time.Second)
+		)
+
+		doRequest := func(slug string) {
+			url := fmt.Sprintf("/api/v0/hosts/%s/announcements", slug)
+			req, err := test.NewRequest("GET", url, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			h1 = &host.Host{
+				Slug: "elixir-web-1",
+			}
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: h1,
+			})
+			Expect(err).To(BeNil())
+
+			h2 = &host.Host{
+				Slug: "gopher-bar-1",
+			}
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				H: h2,
+			})
+			Expect(err).To(BeNil())
+
+			hostAnn1 := &announcement.Announcement{
+				SubjectTemplate: "Host announcement for {{ .Slug }}",
+				MessageTemplate: "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} next week.",
+				ShowToAll:       false,
+				ExpiresAt:       pq.NullTime{expiry, true},
+			}
+
+			err = announcement.InsertForHosts(db, hostAnn1, []int64{h1.ID})
+			Expect(err).To(BeNil())
+
+			globalAnn := &announcement.Announcement{
+				SubjectTemplate: "Global announcement for {{ .Slug }}",
+				MessageTemplate: "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} tomorrow.",
+				ShowToAll:       true,
+				ExpiresAt:       pq.NullTime{expiry, true},
+			}
+
+			err = announcement.Insert(db, globalAnn)
+			Expect(err).To(BeNil())
+
+			hostAnn2 := &announcement.Announcement{
+				SubjectTemplate: "Another host announcement for {{ .Slug }}",
+				MessageTemplate: "Hey again {{ .Username }}, This is a different announcement regarding your host {{ .Slug }}",
+				ShowToAll:       false,
+				ExpiresAt:       pq.NullTime{expiry, true},
+			}
+
+			err = announcement.InsertForHosts(db, hostAnn2, []int64{h2.ID})
+			Expect(err).To(BeNil())
+		})
+
+		It("Host h1 should get globalAnn and hostAnn1", func() {
+			doRequest("elixir-web-1")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Announcements []*serializers.HostAnnouncement `json:"announcements"`
+			}
+
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			ann := j.Announcements
+			Expect(len(ann)).To(Equal(2))
+
+			// Most recent first
+			Expect(*ann[0].Subject).To(Equal("Global announcement for elixir-web-1"))
+			Expect(*ann[0].Message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 tomorrow."))
+
+			Expect(*ann[1].Subject).To(Equal("Host announcement for elixir-web-1"))
+			Expect(*ann[1].Message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 next week."))
+		})
+
+		It("Host h2 should get globalAnn and hostAnn2", func() {
+			doRequest("gopher-bar-1")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Announcements []*serializers.HostAnnouncement `json:"announcements"`
+			}
+
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			ann := j.Announcements
+			Expect(len(ann)).To(Equal(2))
+
+			// Most recent first
+			Expect(*ann[0].Subject).To(Equal("Another host announcement for gopher-bar-1"))
+			Expect(*ann[0].Message).To(Equal("Hey again foo, This is a different announcement regarding your host gopher-bar-1"))
+
+			Expect(*ann[1].Subject).To(Equal("Global announcement for gopher-bar-1"))
+			Expect(*ann[1].Message).To(Equal("Hello foo, We will be upgrading your host gopher-bar-1 tomorrow."))
 		})
 	})
 

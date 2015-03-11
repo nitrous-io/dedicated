@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -128,7 +129,7 @@ var _ = Describe("models/announcement", func() {
 				SubjectTemplate: subjectTemplate,
 				MessageTemplate: messageTemplate,
 				ShowToAll:       true,
-				ExpiresAt:       &expiry,
+				ExpiresAt:       pq.NullTime{expiry, true},
 			}
 
 			err := announcement.Insert(db, insertAnn)
@@ -213,7 +214,7 @@ var _ = Describe("models/announcement", func() {
 				SubjectTemplate: subjectTemplate,
 				MessageTemplate: messageTemplate,
 				ShowToAll:       false,
-				ExpiresAt:       &expiry,
+				ExpiresAt:       pq.NullTime{expiry, true},
 			}
 
 			insertHosts := []int64{h1.ID, h3.ID}
@@ -316,7 +317,7 @@ var _ = Describe("models/announcement", func() {
 					SubjectTemplate: subjectTemplate,
 					MessageTemplate: messageTemplate,
 					ShowToAll:       true,
-					ExpiresAt:       &expiry,
+					ExpiresAt:       pq.NullTime{expiry, true},
 				}
 
 				expectedSentMails []*sentMailStruct
@@ -410,7 +411,7 @@ var _ = Describe("models/announcement", func() {
 					SubjectTemplate: subjectTemplate,
 					MessageTemplate: messageTemplate,
 					ShowToAll:       false,
-					ExpiresAt:       &expiry,
+					ExpiresAt:       pq.NullTime{expiry, true},
 				}
 
 				errHandler, errorCaught := createErrorSpy()

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
@@ -112,7 +113,7 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 		SubjectTemplate: form.SubjectTemplate,
 		MessageTemplate: form.MessageTemplate,
 		ShowToAll:       form.ShowToAll,
-		ExpiresAt:       form.ExpiresAt,
+		ExpiresAt:       pq.NullTime{*form.ExpiresAt, true},
 	}
 
 	errHandler := mailErrorLogger(env.Logger)

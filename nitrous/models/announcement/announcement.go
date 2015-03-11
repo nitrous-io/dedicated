@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/mail"
 	templateLib "text/template"
-	"time"
 
+	"github.com/lib/pq"
 	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
 )
@@ -24,7 +24,7 @@ var (
 type HostOwner struct {
 	HostID   int64  `db:"host_id"`
 	UserID   int64  `db:"user_id"`
-	Username string `db"username"`
+	Username string `db:"username"`
 	Fullname string `db:"fullname"`
 	Email    string `db:"email"`
 	Slug     string `db:"slug"`
@@ -42,13 +42,13 @@ type HostOwner struct {
  * an announcement together with its host and owner.
  */
 type Announcement struct {
-	ID              int64      `db:"id"`
-	SubjectTemplate string     `db:"subject_template"`
-	MessageTemplate string     `db:"message_template"`
-	ShowToAll       bool       `db:"show_to_all"`
-	ExpiresAt       *time.Time `db:"expires_at"`
-	CreatedAt       *time.Time `db:"created_at"`
-	UpdatedAt       *time.Time `db:"updated_at"`
+	ID              int64       `db:"id"`
+	SubjectTemplate string      `db:"subject_template"`
+	MessageTemplate string      `db:"message_template"`
+	ShowToAll       bool        `db:"show_to_all"`
+	ExpiresAt       pq.NullTime `db:"expires_at"`
+	CreatedAt       pq.NullTime `db:"created_at"`
+	UpdatedAt       pq.NullTime `db:"updated_at"`
 
 	compiledSubjectTemplate *templateLib.Template
 	compiledMessageTemplate *templateLib.Template
@@ -207,7 +207,8 @@ func FindAllForHosts(db *dbLib.Database) ([]*HostAnnouncement, error) {
 			show_to_all=false
 			AND expires_at > now() 
 			AND hosts.terminated_at IS NULL
-			AND preprovisioned=false;`)
+			AND preprovisioned=false
+		ORDER BY announcements.created_at DESC;`)
 
 	if err != nil {
 		return nil, err

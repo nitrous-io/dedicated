@@ -28,7 +28,6 @@ App.Host = klass = App.Model.extend
 
   stats: null
   liveHost: null
-  announcements: null
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'

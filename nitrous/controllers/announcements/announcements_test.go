@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -24,7 +25,7 @@ func Test(t *testing.T) {
 	RunSpecs(t, "controllers/announcements")
 }
 
-var _ = Describe("controllers/", func() {
+var _ = Describe("controllers/announcements", func() {
 	var (
 		db      *db.Database
 		svr     *server.Server
@@ -124,6 +125,24 @@ var _ = Describe("controllers/", func() {
 
 				res := postAnnouncement(annForm)
 				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				anns, err := announcement.FindByHostID(db, h1.ID)
+				Expect(err).To(BeNil())
+
+				Expect(len(anns)).To(Equal(1))
+				ann := anns[0]
+
+				Expect(ann.ShowToAll).To(BeTrue())
+				Expect(ann.HostID).To(Equal(h1.ID))
+				Expect(ann.UserID).To(Equal(u1.ID))
+
+				subject, err := ann.Subject()
+				Expect(err).To(BeNil())
+				Expect(subject).To(Equal("Global announcement for elixir-web-1"))
+
+				message, err := ann.Message()
+				Expect(err).To(BeNil())
+				Expect(message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 tomorrow."))
 			})
 
 			It("Host announcement should succeed", func() {
@@ -139,6 +158,24 @@ var _ = Describe("controllers/", func() {
 
 				res := postAnnouncement(annForm)
 				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				anns, err := announcement.FindByHostID(db, h1.ID)
+				Expect(err).To(BeNil())
+
+				Expect(len(anns)).To(Equal(1))
+				ann := anns[0]
+
+				Expect(ann.ShowToAll).To(BeFalse())
+				Expect(ann.HostID).To(Equal(h1.ID))
+				Expect(ann.UserID).To(Equal(u1.ID))
+
+				subject, err := ann.Subject()
+				Expect(err).To(BeNil())
+				Expect(subject).To(Equal("Host announcement for elixir-web-1"))
+
+				message, err := ann.Message()
+				Expect(err).To(BeNil())
+				Expect(message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 next week."))
 			})
 
 			It("Invalid host slug should fail", func() {

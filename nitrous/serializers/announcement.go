@@ -40,9 +40,18 @@ func SerializeAnnouncement(ann *announcement.Announcement) *Announcement {
 		SubjectTemplate: ann.SubjectTemplate,
 		MessageTemplate: ann.MessageTemplate,
 		ShowToAll:       ann.ShowToAll,
-		ExpiresAt:       ann.ExpiresAt,
-		CreatedAt:       ann.CreatedAt,
-		UpdatedAt:       ann.UpdatedAt,
+	}
+
+	if ann.ExpiresAt.Valid {
+		serialized.ExpiresAt = &ann.ExpiresAt.Time
+	}
+
+	if ann.CreatedAt.Valid {
+		serialized.CreatedAt = &ann.CreatedAt.Time
+	}
+
+	if ann.UpdatedAt.Valid {
+		serialized.UpdatedAt = &ann.UpdatedAt.Time
 	}
 
 	return serialized
