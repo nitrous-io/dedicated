@@ -12,7 +12,7 @@ random_id = SecureRandom.hex(8)
 
 params = {
   name: "this-is-a-test-#{random_id}",
-  source_ami: "ami-5d98b86d",
+  source_ami: "ami-1bc5e72b",
   region_id: "us-west-2",
   security_group_id: "sg-c4b2f0f7",
   instance_type: "t1.micro",
