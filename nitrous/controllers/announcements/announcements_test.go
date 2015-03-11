@@ -90,7 +90,7 @@ var _ = Describe("controllers/announcements", func() {
 			return res
 		}
 
-		expiryField := time.Now().Add(5 * time.Second).Format(time.RFC3339)
+		expiryField := time.Now().Add(5 * time.Hour).Format(time.RFC3339)
 
 		Context("when the requester is not an admin", func() {
 			It("responds with 404 Not Found", func() {
@@ -190,6 +190,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, expiryField)
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("slugs_not_found"))
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
@@ -205,6 +207,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, expiryField)
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("no_slug_specified"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
@@ -219,6 +223,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, expiryField)
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("no_slug_specified"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
@@ -233,6 +239,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, expiryField)
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("empty_subject"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
@@ -246,6 +254,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, expiryField)
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("message_subject"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
@@ -259,6 +269,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_expiry"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 
@@ -273,6 +285,8 @@ var _ = Describe("controllers/announcements", func() {
 				}`, time.Now().Add(-5*time.Second).Format(time.RFC3339))
 
 				res := postAnnouncement(annForm)
+				errType, _ := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_expiry"))
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
