@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -585,4 +586,20 @@ func publishContainersStopped(env *middleware.Env, h *host.Host) {
 			env.User.Topic(),
 		)
 	}
+}
+
+func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	announcements, err := announcement.FindByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	serialized := serializers.SerializeHostAnnouncements(announcements)
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"announcements": serialized,
+	}
+
+	return nil
 }

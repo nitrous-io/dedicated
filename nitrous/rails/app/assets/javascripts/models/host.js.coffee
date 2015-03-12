@@ -63,6 +63,15 @@ App.Host = klass = App.Model.extend
       App.Image.fetch(hostId: id).value
   ).property 'id'
 
+  announcements: (->
+    if id = @get('id')
+      App.Announcement.fetch(hostId: id).value
+  ).property 'id'
+
+  topAnnouncement: (->
+    @get 'announcements.firstObject'
+  ).property 'announcements.firstObject'
+
   region: (->
     if regionId = @get('regionId')
       App.get('regions').findBy('id', regionId)
@@ -115,6 +124,7 @@ App.Host = klass = App.Model.extend
     @get 'images'
     @get 'registries'
     @get 'volumes'
+    @get 'announcements'
     true
 
   fetchStats: ->

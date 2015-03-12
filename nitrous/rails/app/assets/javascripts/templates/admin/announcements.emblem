@@ -1,0 +1,28 @@
+.ui.card
+  .card-header.bordered
+    h2 Admin &mdash; Announcements
+
+  .card-body.bordered
+    table.ui.table
+      tbody
+        tr
+          th ID
+          th Subject Template
+          th Message Template
+          th Global
+          th Slug
+          th Username
+
+        each ann in announcements
+          tr
+            td = ann.id
+            td = ann.subject_template
+            td = ann.message_template
+            td = ann.show_to_all
+            td = ann.slug
+            td = ann.username
+
+
+  .card-footer.bordered
+    .right
+      a = link-to 'admin.announcements-new' | New
