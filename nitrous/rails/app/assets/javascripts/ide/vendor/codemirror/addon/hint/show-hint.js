@@ -24,6 +24,18 @@
     return cm.showHint(newOpts);
   };
 
+  var asyncRunID = 0;
+  function retrieveHints(getter, cm, options, then) {
+    if (getter.async) {
+      var id = ++asyncRunID;
+      getter(cm, function(hints) {
+        if (asyncRunID == id) then(hints);
+      }, options);
+    } else {
+      then(getter(cm, options));
+    }
+  }
+
   CodeMirror.defineExtension("showHint", function(options) {
     // We want a single cursor position.
     if (this.listSelections().length > 1 || this.somethingSelected()) return;
@@ -34,10 +46,7 @@
     if (!getHints) return;
 
     CodeMirror.signal(this, "startCompletion", this);
-    if (getHints.async)
-      getHints(this, function(hints) { completion.showHints(hints); }, completion.options);
-    else
-      return completion.showHints(getHints(this, completion.options));
+    return retrieveHints(getHints, this, completion.options, function(hints) { completion.showHints(hints); });
   });
 
   function Completion(cm, options) {
@@ -102,11 +111,7 @@
       function update() {
         if (finished) return;
         CodeMirror.signal(data, "update");
-        var getHints = completion.options.hint;
-        if (getHints.async)
-          getHints(completion.cm, finishUpdate, completion.options);
-        else
-          finishUpdate(getHints(completion.cm, completion.options));
+        retrieveHints(completion.options.hint, completion.cm, completion.options, finishUpdate);
       }
       function finishUpdate(data_) {
         data = data_;
@@ -228,9 +233,9 @@
     (completion.options.container || document.body).appendChild(hints);
     var box = hints.getBoundingClientRect(), overlapY = box.bottom - winH;
     if (overlapY > 0) {
-      var height = box.bottom - box.top, curTop = box.top - (pos.bottom - pos.top);
+      var height = box.bottom - box.top, curTop = pos.top - (pos.bottom - box.top);
       if (curTop - height > 0) { // Fits above cursor
-        hints.style.top = (top = curTop - height) + "px";
+        hints.style.top = (top = pos.top - height) + "px";
         below = false;
       } else if (height > winH) {
         hints.style.height = (winH - 5) + "px";
@@ -243,7 +248,7 @@
         }
       }
     }
-    var overlapX = box.left - winW;
+    var overlapX = box.right - winW;
     if (overlapX > 0) {
       if (box.right - box.left > winW) {
         hints.style.width = (winW - 5) + "px";

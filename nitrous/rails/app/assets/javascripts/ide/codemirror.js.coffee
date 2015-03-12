@@ -7,8 +7,11 @@
 #= require ./vendor/codemirror/mode/erlang/erlang
 #= require ./vendor/codemirror/mode/groovy/groovy
 #= require ./vendor/codemirror/mode/go/go
+#= require ./vendor/codemirror/mode/haskell/haskell
 #= require ./vendor/codemirror/mode/htmlembedded/htmlembedded
 #= require ./vendor/codemirror/mode/htmlmixed/htmlmixed
+#= require ./vendor/codemirror/mode/jade/jade
+#= require ./vendor/codemirror/mode/julia/julia
 #= require ./vendor/codemirror/mode/javascript/javascript
 #= require ./vendor/codemirror/mode/jinja2/jinja2
 #= require ./vendor/codemirror/mode/lua/lua
@@ -16,10 +19,13 @@
 #= require ./vendor/codemirror/mode/perl/perl
 #= require ./vendor/codemirror/mode/php/php
 #= require ./vendor/codemirror/mode/python/python
+#= require ./vendor/codemirror/mode/r/r
 #= require ./vendor/codemirror/mode/ruby/ruby
+#= require ./vendor/codemirror/mode/rust/rust
 #= require ./vendor/codemirror/mode/sass/sass
 #= require ./vendor/codemirror/mode/scheme/scheme
 #= require ./vendor/codemirror/mode/shell/shell
+#= require ./vendor/codemirror/mode/stylus/stylus
 #= require ./vendor/codemirror/mode/sql/sql
 #= require ./vendor/codemirror/mode/xml/xml
 #= require ./vendor/codemirror/mode/yaml/yaml
@@ -77,21 +83,26 @@ CodeMirror.MODES =
   'text/x-go'               : 'Go'
   'text/x-groovy'           : 'Groovy'
   'text/x-haml'             : 'Haml'
+  'text/x-haskell'          : 'Haskell'
   'text/html'               : 'HTML'
   'application/x-ejs'       : 'HTML (ejs)'
   'application/x-erb'       : 'HTML (erb)'
+  'text/x-jade'             : 'Jade'
   'text/x-java'             : 'Java'
   'text/javascript'         : 'JavaScript'
   'text/x-jinja2'           : 'Jinja2'
   'application/json'        : 'JSON'
   'application/x-jsp'       : 'JSP'
+  'text/x-julia'            : 'Julia'
   'text/x-less'             : 'LESS'
   'text/x-lua'              : 'Lua'
   'text/x-markdown'         : 'Markdown'
   'text/x-perl'             : 'Perl'
   'application/x-httpd-php' : 'PHP'
   'text/x-python'           : 'Python'
+  'text/x-rsrc'             : 'R'
   'text/x-ruby'             : 'Ruby'
+  'text/x-rustsrc'          : 'Rust'
   'text/x-sass'             : 'Sass'
   'text/x-scala'            : 'Scala'
   'text/x-scheme'           : 'Scheme'
@@ -99,6 +110,7 @@ CodeMirror.MODES =
   'text/x-sh'               : 'Shell Script'
   'text/x-sql'              : 'SQL'
   'text/x-slim'             : 'Slim'
+  'text/x-styl'             : 'Stylus'
   'application/xml'         : 'XML'
   'text/x-yaml'             : 'YAML'
 
