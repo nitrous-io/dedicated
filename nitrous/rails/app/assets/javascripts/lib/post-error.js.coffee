@@ -4,9 +4,5 @@ window.App.reopen
       msg = err?.capitalize()
     msg ||= err.error_description?.capitalize()
     unless msg
-      msg = def?.capitalize() || 'Something went wrong'
-      if err.error
-        msg += ": #{err.error}"
-    if err.error_hash
-      msg += " (Error code: #{err.error_hash})"
+      msg = def?.capitalize() || "An unexpected error has occurred. If you require assistance, please contact us at support@nitrous.io"
     App.snackbar.post(msg, sticky: true)
