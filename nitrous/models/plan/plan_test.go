@@ -31,14 +31,14 @@ var _ = Describe("models/plan", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, cpu, memory, storage, disabled, most_popular)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
-			"1gb", "Micro", 4, 1995, "2", "1 GB", "20 GB", false, true)
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true)
 		Expect(err).To(BeNil())
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, cpu, memory, storage, disabled)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-			"2gb", "Small", 8, 3995, "4", "2 GB", "30 GB", false)
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			"2gb", "Small", 8, 3995, 900, "4", "2 GB", "30 GB", false)
 		Expect(err).To(BeNil())
 	})
 
@@ -86,6 +86,7 @@ var _ = Describe("models/plan", func() {
 				Expect(p.Name).To(Equal("Micro"))
 				Expect(p.MaxContainers).To(Equal(int64(4)))
 				Expect(p.Price).To(Equal(int64(1995)))
+				Expect(p.BasePrice).To(Equal(int64(500)))
 				Expect(p.CPU).To(Equal("2"))
 				Expect(p.Memory).To(Equal("1 GB"))
 				Expect(p.Storage).To(Equal("20 GB"))
@@ -172,6 +173,7 @@ var _ = Describe("models/plan", func() {
 					Name:          "hs1Plan",
 					MaxContainers: 1,
 					Price:         1901,
+					BasePrice:     500,
 				},
 				U: u,
 			})
@@ -197,9 +199,9 @@ var _ = Describe("models/plan", func() {
 
 			m, err := plan.PlanPricingHostMap(db, u.ID)
 			Expect(err).To(BeNil())
-			exMap := map[int64]int64{
-				hs1.H.ID: 1901,
-				hs2.H.ID: 2016,
+			exMap := map[int64]plan.PlanPricing{
+				hs1.H.ID: plan.PlanPricing{Price: 1901, BasePrice: 500},
+				hs2.H.ID: plan.PlanPricing{Price: 2016, BasePrice: 0},
 			}
 			Expect(m).To(Equal(exMap))
 		})

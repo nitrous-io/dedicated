@@ -18,6 +18,8 @@ type InvoiceItem struct {
 	InvoiceID int64         `db:"invoice_id"`
 	HostID    sql.NullInt64 `db:"host_id"`
 
+	ItemType string `db:"item_type"`
+
 	Hours sql.NullInt64 `db:"hours"`
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice sql.NullInt64 `db:"hourly_price"`
@@ -31,6 +33,12 @@ type InvoiceItem struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+const (
+	ItemTypeCredit  = "credit"
+	ItemTypeCompute = "compute"
+	ItemTypeBaseEBS = "base_ebs"
+)
+
 const MaxHours = 28 * 24
 
 var (
@@ -41,10 +49,11 @@ var (
 	ErrHoursNotPositive    = errors.New("Hours must be greater than 0")
 	ErrHourlyPriceNegative = errors.New("HourlyPrice must not be a negative")
 	ErrHoursExceedMaxHours = errors.New("Hours must be less than/equal to MaxHours")
+	ErrInvalidItemType     = errors.New("ItemType must be valid")
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return fmt.Sprintf("Credit of $%.2f", float64(i.Credit.Int64)/100.0)
 	}
 	state := ""
@@ -53,7 +62,11 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
-	return fmt.Sprintf("Workspace '%s'%s %d hours at %sc/hour", hst.Slug, state, i.Hours.Int64, prcnt)
+	descType := "compute"
+	if i.ItemType == ItemTypeBaseEBS {
+		descType = "base"
+	}
+	return fmt.Sprintf("Workspace '%s'%s %s - %d hours at %sc/hour", hst.Slug, state, descType, i.Hours.Int64, prcnt)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
@@ -70,18 +83,28 @@ func (i *InvoiceItem) HourlyCents() float64 {
 }
 
 func (i *InvoiceItem) TotalCharge(p *plan.Plan) int64 {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return i.UncappedTotalCharge()
 	}
-	if p.Price > i.UncappedTotalCharge() {
+
+	if i.ItemType == ItemTypeCompute {
+		if p.Price > i.UncappedTotalCharge() {
+			return i.UncappedTotalCharge()
+		} else {
+			return p.Price
+		}
+	}
+
+	if p.BasePrice > i.UncappedTotalCharge() {
 		return i.UncappedTotalCharge()
 	} else {
-		return p.Price
+		return p.BasePrice
 	}
+
 }
 
 func (i *InvoiceItem) UncappedTotalCharge() int64 {
-	if i.Credit.Valid && i.Credit.Int64 != 0 {
+	if i.ItemType == ItemTypeCredit {
 		return -1 * i.Credit.Int64
 	}
 	totalCents := float64(i.Hours.Int64*i.HourlyPrice.Int64) / 1000.0
@@ -93,8 +116,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id)
-    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id)
+    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type)
+    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -107,8 +130,8 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, updated_at)
-    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, now())
+    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, updated_at)
+    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -118,13 +141,14 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 }
 
 func (i *InvoiceItem) validate() error {
-	if !i.HostID.Valid && !i.Credit.Valid {
-		return ErrMissingHostIDCredit
+	if i.ItemType == ItemTypeCredit {
+		if i.Credit.Int64 <= 0 {
+			return ErrCreditInvalid
+		}
+		return nil
 	}
-	if !i.HostID.Valid && i.Credit.Int64 <= 0 {
-		return ErrCreditInvalid
-	}
-	if i.HostID.Valid {
+
+	if i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeBaseEBS {
 		if !i.Hours.Valid {
 			return ErrHoursInvalid
 		}
@@ -140,6 +164,8 @@ func (i *InvoiceItem) validate() error {
 		if i.HourlyPrice.Int64 < 0 {
 			return ErrHourlyPriceNegative
 		}
+		return nil
 	}
-	return nil
+
+	return ErrInvalidItemType
 }

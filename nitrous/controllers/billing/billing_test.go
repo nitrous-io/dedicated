@@ -357,6 +357,7 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h1.ID, true},
 					Hours:       sql.NullInt64{24, true},
 					HourlyPrice: sql.NullInt64{2000, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm1.Insert(db)).To(BeNil())
 				itm2 := invoiceitem.InvoiceItem{
@@ -364,6 +365,7 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h2.ID, true},
 					Hours:       sql.NullInt64{48, true},
 					HourlyPrice: sql.NullInt64{1000, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm2.Insert(db)).To(BeNil())
 
@@ -372,6 +374,7 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h2.ID, true},
 					Hours:       sql.NullInt64{10, true},
 					HourlyPrice: sql.NullInt64{3000, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm3.Insert(db)).To(BeNil())
 
@@ -380,6 +383,7 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h1.ID, true},
 					Hours:       sql.NullInt64{8, true},
 					HourlyPrice: sql.NullInt64{1000, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm4.Insert(db)).To(BeNil())
 				itm5 := invoiceitem.InvoiceItem{
@@ -387,6 +391,7 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h2.ID, true},
 					Hours:       sql.NullInt64{12, true},
 					HourlyPrice: sql.NullInt64{500, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm5.Insert(db)).To(BeNil())
 				itm6 := invoiceitem.InvoiceItem{
@@ -394,11 +399,13 @@ var _ = Describe("controllers/billing", func() {
 					HostID:      sql.NullInt64{h3.ID, true},
 					Hours:       sql.NullInt64{6, true},
 					HourlyPrice: sql.NullInt64{37210, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 				Expect(itm6.Insert(db)).To(BeNil())
 				itm7 := invoiceitem.InvoiceItem{
 					InvoiceID: i3.ID,
 					Credit:    sql.NullInt64{200, true},
+					ItemType:  invoiceitem.ItemTypeCredit,
 				}
 				Expect(itm7.Insert(db)).To(BeNil())
 

@@ -94,11 +94,15 @@ var _ = Describe("biller/user", func() {
 					Name:          "hs3Plan",
 					MaxContainers: 1,
 					Price:         2500,
+					BasePrice:     900, // base price should be 1.34c/hr (1340 milli cents)
 				},
 				U: u,
 			})
 			Expect(err).To(BeNil())
 			h3 = hs3.H
+
+			_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(1*time.Hour), startTime.Add(370*time.Minute), h3.ID)
+			Expect(err).To(BeNil())
 
 			createHostEndingTransition(db, h1.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
 			createHostTransition(db, h1.ID, "running", "terminated", startTime.Add(2*time.Hour))
@@ -112,30 +116,43 @@ var _ = Describe("biller/user", func() {
 			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
 			items := res.Items
 			Expect(err).To(BeNil())
-			Expect(items).To(HaveLen(3))
+			Expect(items).To(HaveLen(4))
 
 			var i1, i2, i3 invoiceitem.InvoiceItem
+			var ebsItem3 invoiceitem.InvoiceItem
 			for _, i := range items {
 				if i.HostID.Int64 == h1.ID {
 					i1 = i
 				} else if i.HostID.Int64 == h2.ID {
 					i2 = i
 				} else {
-					i3 = i
+					if i.ItemType == invoiceitem.ItemTypeCompute {
+						i3 = i
+					} else {
+						ebsItem3 = i
+					}
 				}
 			}
 
+			Expect(i1.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i1.Terminated).To(BeTrue())
 			Expect(i1.HourlyPrice).To(Equal(sql.NullInt64{2000, true}))
 			Expect(i1.Hours).To(Equal(sql.NullInt64{2, true}))
 
+			Expect(i2.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i2.Terminated).To(BeFalse())
 			Expect(i2.HourlyPrice).To(Equal(sql.NullInt64{500, true}))
 			Expect(i2.Hours).To(Equal(sql.NullInt64{672, true}))
 
-			Expect(i3.Terminated).To(BeFalse())
+			Expect(i3.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
+			Expect(i3.Terminated).To(BeTrue())
 			Expect(i3.HourlyPrice).To(Equal(sql.NullInt64{3722, true}))
 			Expect(i3.Hours).To(Equal(sql.NullInt64{672, true}))
+
+			Expect(ebsItem3.ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+			Expect(ebsItem3.Terminated).To(BeTrue())
+			Expect(ebsItem3.HourlyPrice).To(Equal(sql.NullInt64{1340, true}))
+			Expect(ebsItem3.Hours).To(Equal(sql.NullInt64{6, true}))
 		})
 
 		It("should not incur charges to the user for stopped instances", func() {
@@ -174,15 +191,15 @@ var _ = Describe("biller/user", func() {
 			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			items := res.Items
-			Expect(items).To(HaveLen(2))
+			Expect(items).To(HaveLen(3))
 
-			Expect([]int64{items[0].HostID.Int64, items[1].HostID.Int64}).To(ConsistOf([]int64{h2.ID, h3.ID}))
+			Expect([]int64{items[0].HostID.Int64, items[1].HostID.Int64, items[2].HostID.Int64}).To(ConsistOf([]int64{h2.ID, h3.ID, h3.ID}))
 		})
 
 		It("should provide the total charge", func() {
 			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
 			Expect(err).To(BeNil())
-			Expect(res.TotalCharge).To(Equal(int64(2500 + 336 + 4)))
+			Expect(res.TotalCharge).To(Equal(int64(2500 + 336 + 4 + 9)))
 		})
 	})
 
@@ -309,6 +326,117 @@ var _ = Describe("biller/user", func() {
 			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
 			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
 			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{3700, true}))
+		})
+
+		It("should include base prices for plans that support it", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 3700,
+				},
+				P: &plan.Plan{
+					Price:     2200,
+					BasePrice: 500, // plan base price should be .745c/hr (745 millicents)
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(-72*time.Hour), endTime, hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
+			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(items).To(HaveLen(2))
+			Expect(ch).To(Equal(int64(2700))) // 2500 + maximum plan base price (672hrs) 500c
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{3700, true}))
+
+			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[1].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[1].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
+		})
+
+		It("should cap the max base price to the terminated_at time", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 3700,
+				},
+				P: &plan.Plan{
+					Price:     2200,
+					BasePrice: 500, // plan base price should be .745c/hr (745 millicents)
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(-72*time.Hour), startTime.Add(370*time.Minute), hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
+			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(items).To(HaveLen(2))
+			Expect(ch).To(Equal(int64(2206))) // 2200 + 7hrs * 0.745 = 5.2 = 6
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{3700, true}))
+
+			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[1].Hours).To(Equal(sql.NullInt64{7, true}))
+			Expect(items[1].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
+		})
+
+		It("should use an earler created_at if possible", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 3700,
+				},
+				P: &plan.Plan{
+					Price:     2200,
+					BasePrice: 500, // plan base price should be .745c/hr (745 millicents)
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(1*time.Hour), startTime.Add(370*time.Minute), hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
+			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(items).To(HaveLen(2))
+			Expect(ch).To(Equal(int64(2205))) // 2200 + 7hrs * 0.745 = 5.2 = 6
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{3700, true}))
+
+			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[1].Hours).To(Equal(sql.NullInt64{6, true}))
+			Expect(items[1].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
 		})
 	})
 })

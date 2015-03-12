@@ -12,7 +12,7 @@ import (
 )
 
 var _ = Describe("invoice item serializer", func() {
-	Describe("SerializeRegion", func() {
+	Describe("SerializeInvoiceItem", func() {
 		var t1 = time.Unix(20, 0)
 		var t2 = t1.Add(1 * time.Hour)
 		var usage = &serializers.HostUsage{
@@ -28,6 +28,7 @@ var _ = Describe("invoice item serializer", func() {
 			Hours:       sql.NullInt64{12, true},
 			Terminated:  true,
 			HourlyPrice: sql.NullInt64{1000, true},
+			ItemType:    invoiceitem.ItemTypeCompute,
 		}
 
 		It("serializes to JSON", func() {
@@ -41,6 +42,7 @@ var _ = Describe("invoice item serializer", func() {
 			Expect(b).To(MatchJSON(`{
         "id": 23,
         "invoice_id": 28,
+        "item_type": "compute",
         "host_id": 39,
         "host_slug": "Slug1",
         "hours": 12,
