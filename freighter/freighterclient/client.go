@@ -54,6 +54,7 @@ var (
 	ErrImageInUse              = provider.ErrImageInUse
 	ErrImagePushAuthRequired   = provider.ErrImagePushAuthRequired
 	ErrImageAuthNotAllowed     = provider.ErrImageAuthNotAllowed
+	ErrContainerNotRunning     = provider.ErrContainerNotRunning
 
 	// ErrInvalidSecret is returned when freighterclient caller passed in an
 	// empty/invalid secret
@@ -719,7 +720,17 @@ func (c *client) ListContainerKeys(id string) ([]*ContainerKey, error) {
 		return nil, ErrContainerNotFound
 	}
 
-	// handle non 404, 200 statuses
+	// handle 400 bad request
+	if resp.StatusCode == http.StatusBadRequest {
+		return nil, ErrPubKeyOpsNotSupported
+	}
+
+	// handle 409 conflict
+	if resp.StatusCode == http.StatusConflict {
+		return nil, ErrContainerNotRunning
+	}
+
+	// handle any other non OK statuses
 	if resp.StatusCode != http.StatusOK {
 		return nil, statusError(resp)
 	}

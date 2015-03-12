@@ -1001,6 +1001,27 @@ var _ = Describe("server", func() {
 			Expect(prov.ReceivedID).To(Equal(id))
 		})
 
+		Context("when container returns ErrPubKeyOpsNotSupported", func() {
+			It("responds with bad request status", func() {
+				Expect(prov.ListContainerKeysCalled).To(BeFalse())
+				prov.ListContainerKeysError = provider.ErrPubKeyOpsNotSupported
+				doRequest()
+				Expect(prov.ListContainerKeysCalled).To(BeTrue())
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Public key operations are not supported on this container"}`))
+			})
+		})
+
+		Context("when container returns ErrContainerNotRunning", func() {
+			It("responds with conflict status", func() {
+				Expect(prov.ListContainerKeysCalled).To(BeFalse())
+				prov.ListContainerKeysError = provider.ErrContainerNotRunning
+				doRequest()
+				Expect(prov.ListContainerKeysCalled).To(BeTrue())
+				Expect(res.Code).To(Equal(http.StatusConflict))
+				Expect(res.Body.String()).To(MatchJSON(`{"error":"Container should be running to perform this operation"}`))
+			})
+		})
 	})
 
 	Describe("POST /volumes", func() {
