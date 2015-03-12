@@ -40,6 +40,7 @@ import (
 const (
 	DigitalOceanProvider = "digitalocean"
 	AmazonProvider       = "amazon"
+	DockerProvider       = "docker"
 )
 
 var (
@@ -718,6 +719,8 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			return config, fmt.Errorf("invalid size for config %v", config)
 		}
 		config["storage_size"] = size
+	case DockerProvider:
+		// no special config required
 	default:
 		return nil, ErrUnknownProvider
 	}
