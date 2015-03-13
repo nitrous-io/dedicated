@@ -715,23 +715,16 @@ func (c *client) ListContainerKeys(id string) ([]*ContainerKey, error) {
 	}
 	defer resp.Body.Close()
 
-	// handle 404 not found
-	if resp.StatusCode == http.StatusNotFound {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// Success, do nothing.
+	case http.StatusNotFound:
 		return nil, ErrContainerNotFound
-	}
-
-	// handle 400 bad request
-	if resp.StatusCode == http.StatusBadRequest {
+	case http.StatusBadRequest:
 		return nil, ErrPubKeyOpsNotSupported
-	}
-
-	// handle 409 conflict
-	if resp.StatusCode == http.StatusConflict {
+	case http.StatusConflict:
 		return nil, ErrContainerNotRunning
-	}
-
-	// handle any other non OK statuses
-	if resp.StatusCode != http.StatusOK {
+	default:
 		return nil, statusError(resp)
 	}
 

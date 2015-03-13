@@ -133,6 +133,31 @@ var _ = Describe("controllers/containerkeys", func() {
 			Expect(j.Keys[0].Key).To(Equal(key0))
 			Expect(j.Keys[0].Fingerprint).To(Equal(fn0))
 		})
+
+		Context("when container is not running", func() {
+			It("should return container not running error", func() {
+				mockClient.ListContainerKeysError = freighterclient.ErrContainerNotRunning
+				doRequest("valid-token")
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("container_not_running"))
+				Expect(errDesc).To(Equal("container should be running to perform this operation"))
+			})
+		})
+
+		Context("when pub key ops are not supported", func() {
+			It("should return pub key ops are not supported error", func() {
+				mockClient.ListContainerKeysError = freighterclient.ErrPubKeyOpsNotSupported
+				doRequest("valid-token")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("pub_key_ops_not_supported"))
+				Expect(errDesc).To(Equal("public key operations are not supported"))
+			})
+		})
+
 	})
 
 	Describe("POST /api/v0/containers/{container}/container_keys/github", func() {

@@ -382,14 +382,12 @@ func (s *Server) listContainerKeys(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case provider.ErrContainerNotRunning:
 			s.respond(w, http.StatusConflict, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			return
 		case provider.ErrPubKeyOpsNotSupported:
 			s.respond(w, http.StatusBadRequest, []byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			return
 		default:
 			s.handleError(w, err)
-			return
 		}
+		return
 	}
 
 	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"container_keys": allPubKeys})
