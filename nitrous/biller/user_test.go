@@ -227,7 +227,25 @@ var _ = Describe("biller/user", func() {
 			Expect(items).To(BeEmpty())
 		})
 
-		It("should return no charge and a invoice item if the host was already terminated", func() {
+		It("should return no charge and empty items if the host lacks any running transitions", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			createHostTransition(db, hs1.H.ID, "orphan", "terminated", startTime)
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(ch).To(Equal(int64(0)))
+			Expect(items).To(BeEmpty())
+		})
+
+		It("should return no charge and empty invoice items if the host was already terminated", func() {
 			hs1, err := CreateHostStack(db, &HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
@@ -245,10 +263,7 @@ var _ = Describe("biller/user", func() {
 			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
-			Expect(items).To(HaveLen(1))
-			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
-			Expect(items[0].Hours).To(Equal(sql.NullInt64{0, true}))
-			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{2000, true}))
+			Expect(items).To(HaveLen(0))
 		})
 
 		It("should collate all running and stopped usage", func() {

@@ -95,6 +95,10 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		i.Hours.Int64 += int64(hrs)
 	}
 
+	if i.Hours.Int64 == 0 {
+		return 0, []invoiceitem.InvoiceItem{}, nil
+	}
+
 	applyRulesToInvoiceItem(&i, l)
 	items := []invoiceitem.InvoiceItem{i}
 	totalCharge := i.TotalCharge(&plan.Plan{Price: h.PlanPrice})
