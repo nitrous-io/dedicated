@@ -7,6 +7,11 @@ App.IdeGoToLineDialogView = App.IdeModalDialogView.extend
     @set('content.line', null)
     @_super()
 
+  click: (e) ->
+    if $(e.target).is(@$())
+      @hide()
+    e.stopPropagation()
+
   keyDown: (e) ->
     switch e.which
       when 13 # Enter
