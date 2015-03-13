@@ -90,6 +90,8 @@ window.NitrousTerminal =
       Terminal.focus = null
       @term.redrawCursor()
 
+    document.body.addEventListener('copy', @handleCopy, false)
+
   open: (nobeforeopen) ->
     @conn.binaryMode = @binaryMode
 
@@ -120,6 +122,28 @@ window.NitrousTerminal =
 
   clear: ->
     @term.write '\x1b[r\x1b[H\x1b[J'
+
+  handleCopy: ->
+    sel = window.getSelection?()
+    range = sel.getRangeAt?(0)
+    text = sel.toString?()
+    tempEl = document.createElement('pre')
+    # return if browser required features are missing
+    return true unless sel && sel.selectAllChildren && sel.removeAllRanges && sel.addRange && range && text && tempEl.textContent?
+    # make temp element invisible
+    tempEl.style.whiteSpace = 'pre'
+    tempEl.style.position = 'fixed'
+    tempEl.style.left = '100%'
+    tempEl.style.opacity = '0'
+    # strip trailing whitespaces
+    tempEl.textContent = text.replace(/\s+$/gm, '')
+    document.body.appendChild(tempEl)
+    sel.selectAllChildren(tempEl)
+    window.setTimeout(->
+      tempEl.parentNode.removeChild(tempEl)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    , 10)
 
   handleData: (data) ->
     window.clearTimeout(@bufferTimeout)
