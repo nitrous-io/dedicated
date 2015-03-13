@@ -4,6 +4,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/announcements"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
@@ -118,6 +119,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images":               r("images.Index", images.Index),
 				"/hosts/{slug}":                      r("hosts.Show", mw.HostViaPath("slug", hosts.Show)),
 				"/hosts/{slug}/stats":                r("hosts.Stats", mw.HostViaPath("slug", hosts.Stats)),
+				"/hosts/{slug}/announcements":        r("hosts.Stats", mw.HostViaPath("slug", hosts.Announcements)),
 				"/hosts/{slug}/volumes":              r("volumes.Index", mw.HostViaPath("slug", volumes.Index)),
 				"/hosts/{slug}/volumes/{vslug}":      r("volumes.Show", mw.HostViaPath("slug", volumes.Show)),
 				"/hosts/{slug}/volumes/{vslug}/info": r("volumes.Info", mw.HostViaPath("slug", volumes.Info)),
@@ -130,6 +132,8 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/container_keys":  r("containerkeys.Index", containerkeys.Index, EventContainerKeyListed),
 				"/billing/invoices":                  r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
+				"/admin/announcements/global":        r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
+				"/admin/announcements/all":           r("announcements.ShowAll", announcements.ShowAll),
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),
@@ -162,6 +166,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
 				"/feedback":                                r("feedback.Send", feedback.Send),
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice),
+				"/admin/announcements/new":                 r("announcements.SendAnnouncement", announcements.SendAnnouncement),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),

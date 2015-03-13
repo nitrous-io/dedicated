@@ -2565,6 +2565,32 @@ var _ = Describe("client", func() {
 			})
 		})
 
+		Context("when the response is HTTP 409 Conflict", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusConflict
+			})
+
+			It("returns ErrContainerNotRunning", func() {
+				keys, err := cl.ListContainerKeys("deadbeef")
+				Expect(err).To(Equal(freighterclient.ErrContainerNotRunning))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(keys).To(BeNil())
+			})
+		})
+
+		Context("when the response is HTTP 400 Bad Request", func() {
+			BeforeEach(func() {
+				statusCode = http.StatusBadRequest
+			})
+
+			It("returns ErrPubKeyOpsNotSupported", func() {
+				keys, err := cl.ListContainerKeys("deadbeef")
+				Expect(err).To(Equal(freighterclient.ErrPubKeyOpsNotSupported))
+				Expect(server.ReceivedRequests()).To(HaveLen(1))
+				Expect(keys).To(BeNil())
+			})
+		})
+
 		Context("when the response is not HTTP 200 OK nor HTTP 404 Not Found", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError

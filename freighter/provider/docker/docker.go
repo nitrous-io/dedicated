@@ -475,6 +475,9 @@ func (p *DockerProvider) ListContainerKeys(containerId string) ([]string, error)
 	if err != nil {
 		return nil, err
 	}
+	if !container.State.Running {
+		return nil, provider.ErrContainerNotRunning
+	}
 	userName, exists := p.appUser(container)
 	if !exists {
 		return nil, provider.ErrPubKeyOpsNotSupported

@@ -44,6 +44,9 @@
               a href='#' click='switchUser target="view"'
                 | Switch User
             li
+              = link-to 'admin.announcements'
+                | Announcements
+            li
               = link-to 'provider-templates'
                 | Provider Templates
             li

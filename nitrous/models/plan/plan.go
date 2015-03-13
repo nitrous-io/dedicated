@@ -13,6 +13,7 @@ type Plan struct {
 	Slug          string     `db:"slug"`
 	MaxContainers int64      `db:"max_containers"`
 	Price         int64      `db:"price"`
+	BasePrice     int64      `db:"base_price"`
 	CPU           string     `db:"cpu"`
 	Memory        string     `db:"memory"`
 	Storage       string     `db:"storage"`
@@ -20,6 +21,11 @@ type Plan struct {
 	MostPopular   bool       `db:"most_popular"`
 	CreatedAt     *time.Time `db:"created_at"`
 	UpdatedAt     *time.Time `db:"updated_at"`
+}
+
+type PlanPricing struct {
+	Price     int64 `db:"price"`
+	BasePrice int64 `db:"base_price"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
@@ -54,19 +60,20 @@ func Enabled(d db.QueryReceiver) ([]*Plan, error) {
 	return pls, nil
 }
 
-func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]int64, error) {
+func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing, error) {
 	type planHost struct {
-		HostID    int64 `db:"host_id"`
-		PlanPrice int64 `db:"plan_price"`
+		HostID        int64 `db:"host_id"`
+		PlanPrice     int64 `db:"plan_price"`
+		PlanBasePrice int64 `db:"base_plan_price"`
 	}
 	pHs := []*planHost{}
-	if err := d.Select(&pHs, `SELECT hosts.id AS host_id, plans.price AS plan_price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, userID); err != nil {
+	if err := d.Select(&pHs, `SELECT hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, userID); err != nil {
 		return nil, err
 	}
 
-	mapping := make(map[int64]int64)
+	mapping := make(map[int64]PlanPricing)
 	for _, pH := range pHs {
-		mapping[pH.HostID] = pH.PlanPrice
+		mapping[pH.HostID] = PlanPricing{Price: pH.PlanPrice, BasePrice: pH.PlanBasePrice}
 	}
 	return mapping, nil
 }
@@ -84,8 +91,8 @@ func EnabledForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, cpu, memory, storage, disabled, most_popular)
-		VALUES (:slug, :name, :max_containers, :price, :cpu, :memory, :storage, :disabled, :most_popular)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular)
 		RETURNING *;`)
 	if err != nil {
 		return err

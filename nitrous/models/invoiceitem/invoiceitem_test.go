@@ -81,31 +81,52 @@ var _ = Describe("models/invoiceitem", func() {
 			inv = &invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{900, true},
 				HourlyPrice: sql.NullInt64{1231, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 		})
 
 		It("should describe the host usage", func() {
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 1.231c/hour"))
 		})
 
 		It("should be able to display terminated state", func() {
 			inv.Terminated = true
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) compute - 900 hours at 1.231c/hour"))
 		})
 
 		It("should handle up to 3 decimal places precision", func() {
 			inv.HourlyPrice = sql.NullInt64{1, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 0.001c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 0.001c/hour"))
 		})
 
 		It("should trim to 2 decimal points if needed", func() {
 			inv.HourlyPrice = sql.NullInt64{100, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' 900 hours at 0.10c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 0.10c/hour"))
 		})
 
 		It("should be a credit description when the item is a Credit", func() {
+			inv.ItemType = invoiceitem.ItemTypeCredit
 			inv.Credit = sql.NullInt64{900, true}
 			Expect(invoiceitem.ItemDescription(inv, nil)).To(Equal("Credit of $9.00"))
+		})
+
+		It("should describe the base price", func() {
+			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.Hours = sql.NullInt64{invoiceitem.MaxHours, true}
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' base - 672 hours at 1.231c/hour"))
+		})
+
+		It("should include the pro rata in the base price if the hours are lower", func() {
+			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.Hours = sql.NullInt64{90, true}
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' base - 90 hours at 1.231c/hour"))
+		})
+
+		It("should the terminated state in the base price description", func() {
+			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.Hours = sql.NullInt64{90, true}
+			inv.Terminated = true
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) base - 90 hours at 1.231c/hour"))
 		})
 	})
 
@@ -121,30 +142,49 @@ var _ = Describe("models/invoiceitem", func() {
 	Describe("TotalCharge()", func() {
 		It("should be negative form of the Credit value", func() {
 			inv := &invoiceitem.InvoiceItem{
-				Credit: sql.NullInt64{900, true},
+				ItemType: invoiceitem.ItemTypeCredit,
+				Credit:   sql.NullInt64{900, true},
 			}
 			Expect(inv.TotalCharge(nil)).To(Equal(int64(-900)))
 		})
-
-		It("should be the original cost if under the plan price", func() {
+		It("should be the original cost if under the plan price for a Compute type", func() {
 			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeCompute,
 				Hours:       sql.NullInt64{2, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 			}
 			Expect(inv.TotalCharge(&plan.Plan{Price: 9})).To(Equal(int64(4)))
 		})
-		It("should be the capped to the cost of the plan", func() {
+		It("should be the capped to the cost of the plan for a Compute type", func() {
 			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeCompute,
 				Hours:       sql.NullInt64{20, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 			}
 			Expect(inv.TotalCharge(&plan.Plan{Price: 9})).To(Equal(int64(9)))
+		})
+		It("should be the original cost if under the base price plan price for a BaseEBS type", func() {
+			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeBaseEBS,
+				Hours:       sql.NullInt64{2, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(inv.TotalCharge(&plan.Plan{BasePrice: 8})).To(Equal(int64(4)))
+		})
+		It("should be the capped to the cost of the base price plan for a BaseEBS type", func() {
+			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeBaseEBS,
+				Hours:       sql.NullInt64{20, true},
+				HourlyPrice: sql.NullInt64{2000, true},
+			}
+			Expect(inv.TotalCharge(&plan.Plan{BasePrice: 8})).To(Equal(int64(8)))
 		})
 	})
 
 	Describe("UncappedTotalCharge", func() {
 		It("should multiply and convert to cents", func() {
 			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeCompute,
 				Hours:       sql.NullInt64{2, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 			}
@@ -153,6 +193,7 @@ var _ = Describe("models/invoiceitem", func() {
 
 		It("should round up to the nearest cent", func() {
 			inv := &invoiceitem.InvoiceItem{
+				ItemType:    invoiceitem.ItemTypeCompute,
 				Hours:       sql.NullInt64{1, true},
 				HourlyPrice: sql.NullInt64{500, true},
 			}
@@ -161,7 +202,8 @@ var _ = Describe("models/invoiceitem", func() {
 
 		It("should be negative form of the Credit value", func() {
 			inv := &invoiceitem.InvoiceItem{
-				Credit: sql.NullInt64{900, true},
+				ItemType: invoiceitem.ItemTypeCredit,
+				Credit:   sql.NullInt64{900, true},
 			}
 			Expect(inv.UncappedTotalCharge()).To(Equal(int64(-900)))
 		})
@@ -180,6 +222,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err := i1.Insert(db)
 			Expect(err).To(BeNil())
@@ -189,6 +232,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err = i2.Insert(db)
 			Expect(err).To(BeNil())
@@ -206,6 +250,7 @@ var _ = Describe("models/invoiceitem", func() {
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 			err = n1.Insert(db)
 			Expect(err).To(BeNil())
@@ -220,6 +265,7 @@ var _ = Describe("models/invoiceitem", func() {
 		It("persists the invoice item in the database", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Terminated:  true,
 				Hours:       sql.NullInt64{24, true},
@@ -240,20 +286,20 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i).To(Equal(i2))
 		})
 
-		It("should expect a HostID or Credit is provided", func() {
+		It("should expect a ItemType is provided", func() {
 			i := &invoiceitem.InvoiceItem{
-				InvoiceID:   in.ID,
-				Hours:       sql.NullInt64{24, true},
-				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
-				StripeID:    sql.NullString{"Xcccs", true},
+				InvoiceID: in.ID,
+				ItemType:  "",
+				StripeID:  sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
-			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+			Expect(err).To(Equal(invoiceitem.ErrInvalidItemType))
 		})
 
-		It("should expect a Credit be greater than 0", func() {
+		It("should expect a Credit be greater than 0 if the type is a credit", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCredit,
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				Credit:      sql.NullInt64{-20, true},
@@ -263,9 +309,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
-		It("should expect Hours to be valid if HostID is valid", func() {
+		It("should expect Hours to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
@@ -274,9 +321,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+		It("should expect HourlyPrice to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID: in.ID,
+				ItemType:  invoiceitem.ItemTypeCompute,
 				HostID:    sql.NullInt64{h.ID, true},
 				Hours:     sql.NullInt64{24, true},
 				StripeID:  sql.NullString{"Xcccs", true},
@@ -288,6 +336,7 @@ var _ = Describe("models/invoiceitem", func() {
 		It("should expect Hours to be greater than zero", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{-1, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
@@ -297,9 +346,10 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
 		})
 
-		It("should expect Hours to be not negative", func() {
+		It("should expect Hours to be not negative if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{-1, true},
@@ -315,6 +365,7 @@ var _ = Describe("models/invoiceitem", func() {
 		BeforeEach(func() {
 			i = &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				Hours:       sql.NullInt64{24, true},
 				Terminated:  true,
@@ -355,39 +406,39 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(i3.Terminated).To(BeFalse())
 		})
 
-		It("should expect a HostID or Credit is provided", func() {
-			i.HostID = sql.NullInt64{}
-			i.Credit = sql.NullInt64{}
+		It("should expect a Type is provided", func() {
+			i.ItemType = ""
 			err := i.Update(db)
-			Expect(err).To(Equal(invoiceitem.ErrMissingHostIDCredit))
+			Expect(err).To(Equal(invoiceitem.ErrInvalidItemType))
 		})
 
-		It("should expect a Credit be greater than 0", func() {
+		It("should expect a Credit be greater than 0 if the type is a Credit", func() {
+			i.ItemType = invoiceitem.ItemTypeCredit
 			i.HostID = sql.NullInt64{}
 			i.Credit = sql.NullInt64{-8, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
-		It("should expect Hours to be valid if HostID is valid", func() {
+		It("should expect Hours to be valid if type is a Compute", func() {
 			i.Hours = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if HostID is valid", func() {
+		It("should expect HourlyPrice to be valid if type is a Compute", func() {
 			i.HourlyPrice = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
 		})
 
-		It("should expect Hours to be greater than zero", func() {
+		It("should expect Hours to be greater than zero if type is a Compute", func() {
 			i.Hours = sql.NullInt64{-1, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
 		})
 
-		It("should expect Hours to be not negative", func() {
+		It("should expect Hours to be not negative if type is a Compute", func() {
 			i.HourlyPrice = sql.NullInt64{-1, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))

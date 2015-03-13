@@ -20,8 +20,9 @@ var _ = Describe("invoice serializer", func() {
 			End:     t2,
 		}
 		var item1 = serializers.InvoiceItem{
-			ID:    12,
-			Usage: []*serializers.HostUsage{usage},
+			ID:       12,
+			ItemType: "compute",
+			Usage:    []*serializers.HostUsage{usage},
 		}
 
 		var model = &invoice.Invoice{
@@ -58,6 +59,7 @@ var _ = Describe("invoice serializer", func() {
         "items": [{
           "id": 12,
           "invoice_id": 0,
+          "item_type": "compute",
           "host_id": 0,
           "host_slug": "",
           "hours": 0,

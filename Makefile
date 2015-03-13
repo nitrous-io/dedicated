@@ -84,6 +84,7 @@ createdb:
 	sudo su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 compass_test || true
 	sudo su postgres -c "psql -d compass_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+.PHONY: createdb
 
 dropdb:
 	dropdb --if-exists nitrous_development
@@ -91,3 +92,8 @@ dropdb:
 	dropdb --if-exists nitrous_test
 	dropdb --if-exists tender_test
 	dropdb --if-exists compass_test
+.PHONY: dropdb
+
+dbseed: nitrous
+	forego run -e nitrous/.env build/dbseed
+.PHONY: dbseed

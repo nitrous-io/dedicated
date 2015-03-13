@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	githubapi "github.com/google/go-github/github"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
@@ -20,10 +21,12 @@ var (
 	// separated out for mocking
 	AddGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) = addGitHubKeys
 
-	errGitHubTokenEmpty    = httperror.New(http.StatusBadRequest, "github_token_empty", "connect your GitHub account")
-	errGitHubTokenNotValid = httperror.New(http.StatusBadRequest, "github_token_not_valid", "GitHub token is not valid")
-	ErrMultipleKeysExist   = httperror.New(http.StatusBadRequest, "multiple_keys_exist", "multiple container keys exist")
-	ErrKeyAlreadyExists    = httperror.New(http.StatusConflict, "key_already_exists", "key already exists")
+	errGitHubTokenEmpty      = httperror.New(http.StatusBadRequest, "github_token_empty", "connect your GitHub account")
+	errGitHubTokenNotValid   = httperror.New(http.StatusBadRequest, "github_token_not_valid", "GitHub token is not valid")
+	ErrMultipleKeysExist     = httperror.New(http.StatusBadRequest, "multiple_keys_exist", "multiple container keys exist")
+	ErrKeyAlreadyExists      = httperror.New(http.StatusConflict, "key_already_exists", "key already exists")
+	errContainerNotRunning   = httperror.New(http.StatusConflict, "container_not_running", "container should be running to perform this operation")
+	errPubKeyOpsNotSupported = httperror.New(http.StatusBadRequest, "pub_key_ops_not_supported", "public key operations are not supported")
 )
 
 // list returns a list of public keys in a given container
@@ -35,7 +38,14 @@ func list(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	}
 	keys, err := cl.ListContainerKeys(cn.CID)
 	if err != nil {
-		return err
+		switch err {
+		case freighterclient.ErrContainerNotRunning:
+			return errContainerNotRunning
+		case freighterclient.ErrPubKeyOpsNotSupported:
+			return errPubKeyOpsNotSupported
+		default:
+			return err
+		}
 	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

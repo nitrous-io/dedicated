@@ -36,6 +36,7 @@ App.EventMessageHandler = App.EventsSocket.extend
         host.set 'progress', null
 
     ['host.restarted', 'host.restarting', 'host.updated',
+      'host.stopping', 'host.stopped', 'host.starting', 'host.started',
       'host.upgrading', 'host.upgrade_failed'].forEach (evt) =>
       @on evt, (data) ->
         hostData = data.host

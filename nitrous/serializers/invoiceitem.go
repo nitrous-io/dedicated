@@ -7,6 +7,7 @@ import (
 type InvoiceItem struct {
 	ID          int64        `json:"id"`
 	InvoiceID   int64        `json:"invoice_id"`
+	ItemType    string       `json:"item_type"`
 	HostID      int64        `json:"host_id"`
 	HostSlug    string       `json:"host_slug"`
 	Hours       int64        `json:"hours"`
@@ -24,6 +25,7 @@ func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {
 	return &InvoiceItem{
 		ID:          i.ID,
 		InvoiceID:   i.InvoiceID,
+		ItemType:    i.ItemType,
 		HostID:      i.HostID.Int64,
 		Hours:       i.Hours.Int64,
 		Terminated:  i.Terminated,

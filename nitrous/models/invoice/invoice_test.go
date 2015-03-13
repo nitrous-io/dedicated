@@ -364,6 +364,33 @@ var _ = Describe("models/invoice", func() {
 			Expect(err).To(BeNil())
 			Expect(b.State).To(Equal(billingprofile.StatePaid))
 		})
+
+		It("should mark the billingprofile as state Paid if other unpaid invoices remain but have a total_charge of 0", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			other := &invoice.Invoice{
+				UserID:           u.ID,
+				TotalCharge:      0,
+				SuccessfulCharge: false,
+				Attempts:         23,
+				Deferred:         false,
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
+			}
+			err := other.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaymentDue, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StatePaid))
+		})
 	})
 
 	Describe("PaymentFailed", func() {

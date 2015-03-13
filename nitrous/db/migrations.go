@@ -915,5 +915,42 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN region_identifier character varying(255);
 			`,
 		},
+		{
+			Version: "820",
+			Up: `
+				CREATE TABLE announcements (
+					id bigserial PRIMARY KEY NOT NULL,
+					subject_template text NOT NULL,
+					message_template text NOT NULL,
+					show_to_all boolean NOT NULL,
+					expires_at timestamp without time zone DEFAULT now(),
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE TABLE announcement_host (
+					id bigserial PRIMARY KEY NOT NULL,
+					announcement_id bigint REFERENCES announcements(id) NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL
+				);
+
+				CREATE UNIQUE INDEX index_announcement_id_host_id ON announcement_host USING btree (announcement_id, host_id);
+				`,
+		},
+		{
+			Version: "830",
+			Up: `
+				ALTER TABLE plans ADD COLUMN base_price bigint DEFAULT 0 NOT NULL;
+			`,
+		},
+		{
+			Version: "831",
+			Up: `
+				ALTER TABLE invoice_items ADD COLUMN item_type character varying(255);
+				UPDATE invoice_items SET item_type = 'credit' WHERE credit > 0;
+				UPDATE invoice_items SET item_type = 'compute' WHERE item_type IS NULL;
+				ALTER TABLE invoice_items ALTER COLUMN item_type SET NOT NULL;
+			`,
+		},
 	}
 }

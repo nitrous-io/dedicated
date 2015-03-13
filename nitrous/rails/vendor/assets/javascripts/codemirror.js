@@ -1,1 +1,1 @@
-../../codemirror-4.3/lib/codemirror.js
+../../codemirror-5.0/lib/codemirror.js

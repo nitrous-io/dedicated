@@ -102,6 +102,13 @@ var _ = Describe("biller", func() {
 						Slug:        "my-host-1",
 						HourlyPrice: 2000,
 					},
+					P: &plan.Plan{
+						Slug:          "hs1Plan",
+						Name:          "hs1Plan",
+						MaxContainers: 1,
+						Price:         500,
+						BasePrice:     500, // plan base price should be .745c/hr (745 millicents)
+					},
 					U: u,
 				})
 				Expect(err).To(BeNil())
@@ -135,6 +142,9 @@ var _ = Describe("biller", func() {
 				})
 				Expect(err).To(BeNil())
 				h3 = hs3.H
+
+				_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(-24*time.Hour), startTime.Add(2*time.Hour), h1.ID)
+				Expect(err).To(BeNil())
 
 				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", startTime, startTime.Add(2*time.Hour))
 				Expect(err).To(BeNil())
@@ -190,10 +200,11 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 
 				// h1 running for 2hrs = 4c
+				// h1 base price for 2hrs = 1490 milli-cents = 1.49c = 2c
 				// h2 running for full month - 2hrs = 744 - 2 = capped to 672 = 336c
 				// h2 running for full month = 672 = 2501c = $25.01 (plan capped to $25.00)
-				// total = 2840c
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(2840)))
+				// total = 2842c
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(2842)))
 			})
 
 			It("should discount the total cost of the invoice if there are credits available", func() {
@@ -206,7 +217,7 @@ var _ = Describe("biller", func() {
 
 				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{8, true}))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(8)))
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(2832)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(2834)))
 
 				c := &credit.Credit{}
 				err = db.QueryRowx("SELECT * FROM credits WHERE user_id = $1 AND invoice_id = $2", u.ID, i.Invoice.ID).StructScan(c)
@@ -218,26 +229,39 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
-				Expect(i.Items).To(HaveLen(3))
+				Expect(i.Items).To(HaveLen(4))
 
-				var item1 invoiceitem.InvoiceItem
-				var item2 invoiceitem.InvoiceItem
-				var item3 invoiceitem.InvoiceItem
+				var item1, item2, item3 invoiceitem.InvoiceItem
+				var ebsItem1 invoiceitem.InvoiceItem
 				for _, it := range i.Items {
 					if it.HostID.Int64 == h1.ID {
-						item1 = it
+						if it.ItemType == invoiceitem.ItemTypeCompute {
+							item1 = it
+						} else {
+							ebsItem1 = it
+						}
 					} else if it.HostID.Int64 == h2.ID {
 						item2 = it
 					} else {
 						item3 = it
 					}
 				}
+				Expect(item1.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 				Expect(item1.Terminated).To(BeTrue())
 				Expect(item1.Hours.Int64).To(Equal(int64(2)))
 				Expect(item1.HourlyPrice.Int64).To(Equal(int64(2000)))
+
+				Expect(ebsItem1.ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+				Expect(ebsItem1.Terminated).To(BeTrue())
+				Expect(ebsItem1.Hours).To(Equal(sql.NullInt64{2, true}))
+				Expect(ebsItem1.HourlyPrice).To(Equal(sql.NullInt64{745, true}))
+
+				Expect(item3.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 				Expect(item2.Terminated).To(BeFalse())
 				Expect(item2.Hours.Int64).To(Equal(int64(672)))
 				Expect(item2.HourlyPrice.Int64).To(Equal(int64(500)))
+
+				Expect(item3.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 				Expect(item3.Terminated).To(BeFalse())
 				Expect(item3.Hours.Int64).To(Equal(int64(672)))
 				Expect(item3.HourlyPrice.Int64).To(Equal(int64(3722)))
@@ -250,7 +274,7 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
-				Expect(i.Items).To(HaveLen(4))
+				Expect(i.Items).To(HaveLen(5))
 
 				var credit invoiceitem.InvoiceItem
 				for _, it := range i.Items {
@@ -278,7 +302,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(2840)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(2842)))
 			})
 
 			It("should cover additional credits if the total has increased", func() {
@@ -301,7 +325,7 @@ var _ = Describe("biller", func() {
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
 				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
-				Expect(i.Invoice.TotalCharge).To(Equal(int64(2830)))
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(2832)))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
 				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{10, true}))
 			})
@@ -322,6 +346,7 @@ var _ = Describe("biller", func() {
 					InvoiceID:   inv.ID,
 					Hours:       sql.NullInt64{92, true},
 					HourlyPrice: sql.NullInt64{30, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
 				}
 
 				err = invItem.Insert(db)
@@ -341,6 +366,12 @@ var _ = Describe("biller", func() {
 
 				Expect(invItem2.Hours.Int64).To(Equal(int64(2)))
 				Expect(invItem2.HourlyPrice.Int64).To(Equal(int64(2000)))
+
+				ebsItem := &invoiceitem.InvoiceItem{}
+				err = db.QueryRowx("SELECT * FROM invoice_items WHERE host_id = $1 AND item_type = $2", h1.ID, invoiceitem.ItemTypeBaseEBS).StructScan(ebsItem)
+				Expect(err).To(BeNil())
+				Expect(ebsItem.Hours.Int64).To(Equal(int64(2)))
+				Expect(ebsItem.HourlyPrice.Int64).To(Equal(int64(745)))
 			})
 
 			It("should insert additional credit invoice items to cover new credit", func() {
@@ -361,6 +392,7 @@ var _ = Describe("biller", func() {
 				invItem := &invoiceitem.InvoiceItem{
 					InvoiceID: inv.ID,
 					Credit:    sql.NullInt64{2, true},
+					ItemType:  invoiceitem.ItemTypeCredit,
 				}
 
 				err = invItem.Insert(db)
@@ -386,7 +418,7 @@ var _ = Describe("biller", func() {
 				i1, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i1).ToNot(BeNil())
-				Expect(i1.Items).To(HaveLen(4))
+				Expect(i1.Items).To(HaveLen(5))
 
 				i2, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
@@ -424,11 +456,13 @@ var _ = Describe("biller", func() {
 			item1 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{92, true},
 				HourlyPrice: sql.NullInt64{1000, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 
 			item2 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{672, true},
 				HourlyPrice: sql.NullInt64{3722, true},
+				ItemType:    invoiceitem.ItemTypeCompute,
 			}
 
 			i = &biller.InvoiceResult{
@@ -562,11 +596,11 @@ var _ = Describe("biller", func() {
 
 					Expect(rr[0]["amount"]).To(Equal("92"))
 					Expect(rr[0]["customer"]).To(Equal("St17"))
-					Expect(rr[0]["desc"]).To(Equal("Workspace 'my-host-1' 92 hours at 1.00c/hour"))
+					Expect(rr[0]["desc"]).To(Equal("Workspace 'my-host-1' compute - 92 hours at 1.00c/hour"))
 
 					Expect(rr[1]["amount"]).To(Equal("2500"))
 					Expect(rr[1]["customer"]).To(Equal("St17"))
-					Expect(rr[1]["desc"]).To(Equal("Workspace 'my-host-2' 672 hours at 3.722c/hour"))
+					Expect(rr[1]["desc"]).To(Equal("Workspace 'my-host-2' compute - 672 hours at 3.722c/hour"))
 
 					type s struct {
 						ID string `db:"stripe_id"`
@@ -596,6 +630,7 @@ var _ = Describe("biller", func() {
 					itm3 := invoiceitem.InvoiceItem{
 						InvoiceID: i.Invoice.ID,
 						Credit:    sql.NullInt64{20, true},
+						ItemType:  invoiceitem.ItemTypeCredit,
 					}
 					Expect(itm3.Insert(db)).To(BeNil())
 					i.Items = append(i.Items, itm3)
@@ -758,11 +793,11 @@ var _ = Describe("biller", func() {
 								PeriodEnd:   &e1,
 							}
 							Expect(oInv1.Insert(db)).To(BeNil())
-							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv1.ID, h1.ID, 90, 1500, "INV1")
+							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv1.ID, h1.ID, 90, 1500, "INV1", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv1.ID, h2.ID, 20, 1000, "INV2")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv1.ID, h2.ID, 20, 1000, "INV2", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
 
 							oInv2 = &invoice.Invoice{
@@ -772,11 +807,11 @@ var _ = Describe("biller", func() {
 								StripeID:    sql.NullString{"oInv2", true},
 							}
 							Expect(oInv2.Insert(db)).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv2.ID, h1.ID, 90, 1500, "INV3")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv2.ID, h1.ID, 90, 1500, "INV3", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
-							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id) values ($1, $2, $3, $4, $5);",
-								oInv2.ID, h2.ID, 20, 1000, "INV4")
+							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
+								oInv2.ID, h2.ID, 20, 1000, "INV4", invoiceitem.ItemTypeCompute)
 							Expect(err).To(BeNil())
 						})
 

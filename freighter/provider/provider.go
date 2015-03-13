@@ -24,6 +24,7 @@ var (
 	ErrTimeout                 = errors.New("Operation timed out")
 	ErrCmdConfig               = errors.New("Container command not specified")
 	ErrPubKeyOpsNotSupported   = errors.New("Public key operations are not supported on this container")
+	ErrContainerNotRunning     = errors.New("Container should be running to perform this operation")
 	ErrImageNotFound           = errors.New("Image does not exist")
 	ErrImageShared             = errors.New("Image is shared across multiple tags")
 	ErrImageInUse              = errors.New("Image is being used by one or more containers")

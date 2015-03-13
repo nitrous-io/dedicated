@@ -265,9 +265,12 @@ func (h *Host) Destroy() error {
 		return mh.Error(err, label)
 	}
 
-	// release elastic IP
-	if _, err := h.provider.ReleasePublicAddress(h.instance.PublicIpAddress); err != nil {
-		err = fmt.Errorf("amazon: failed to release ElasticIP for %s, err %v", h.instance.InstanceId, err)
+	// release elastic IP stored in the client. We cant use
+	// h.instance.PublicIPAddress because it's not guaranteed to be
+	// the correct IP when the instance is stopped
+	if _, err := h.provider.ReleasePublicAddress(h.Config.IPAddress); err != nil {
+		err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
+			h.Config.IPAddress, h.instance.InstanceId, err)
 		return mh.Error(err, label)
 	}
 
