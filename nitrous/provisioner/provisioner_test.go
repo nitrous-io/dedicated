@@ -1,6 +1,7 @@
 package provisioner_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -80,7 +82,7 @@ var _ = Describe("provisioner", func() {
 				Message: `
 				{"stream":"starting: creating host"}
 				{"stream":"finished: creating host"}
-				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"dummy", "freighterd_port":65333}`,
+				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"docker", "freighterd_port":65333}`,
 				Status: http.StatusOK,
 			}
 			hb.Client.Client.Transport = rt
@@ -91,7 +93,8 @@ var _ = Describe("provisioner", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				PT: &providertemplate.ProviderTemplate{
 					PreprovisionMax: 1,
-					Provider:        "dummy",
+					Provider:        "docker",
+					Config:          hstore.Hstore{Map: map[string]sql.NullString{"region_id": {"sgp", true}}},
 				},
 			})
 			Expect(err).To(BeNil())
@@ -121,7 +124,7 @@ var _ = Describe("provisioner", func() {
 				H: &host.Host{Preprovisioned: true},
 				PT: &providertemplate.ProviderTemplate{
 					PreprovisionMax: 1,
-					Provider:        "dummy",
+					Provider:        "docker",
 				},
 			})
 			Expect(err).To(BeNil())
@@ -183,7 +186,7 @@ var _ = Describe("provisioner", func() {
 				H: &host.Host{Preprovisioned: true},
 				PT: &providertemplate.ProviderTemplate{
 					PreprovisionMax: 1,
-					Provider:        "dummy",
+					Provider:        "docker",
 				},
 			})
 			Expect(err).To(BeNil())
@@ -238,7 +241,7 @@ var _ = Describe("provisioner", func() {
 
 		It("does not pre-provision hosts in a region that is disabled", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
-				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
+				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "docker"},
 			})
 			Expect(err).To(BeNil())
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
