@@ -1328,6 +1328,208 @@ var _ = Describe("host/amazon", func() {
 			Expect(inst.State.Name).To(Equal("terminated"))
 		})
 	})
+
+	Describe("List()", func() {
+		var scndSvr *ghttp.Server
+		var allServers []*ghttp.Server
+		var originalRegions map[string]aws.Region
+
+		BeforeEach(func() {
+			scndSvr = ghttp.NewServer()
+			scndRegion := aws.Region{
+				Name:        "pluto1North",
+				EC2Endpoint: scndSvr.URL(),
+			}
+			region := aws.Region{
+				Name:        "mars1East",
+				EC2Endpoint: server.URL(),
+			}
+
+			originalRegions = amazon.KnownRegions
+			amazon.KnownRegions = map[string]aws.Region{
+				"test":  region,
+				"otest": scndRegion,
+			}
+			allServers = []*ghttp.Server{
+				server,
+				scndSvr,
+			}
+		})
+
+		AfterEach(func() {
+			if originalRegions != nil {
+				amazon.KnownRegions = originalRegions
+			}
+		})
+
+		It("should filter by the environment", func() {
+			instResp := ec2.InstancesResp{
+				RequestId: "instanceT1",
+			}
+			output, err := xml.MarshalIndent(instResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			for _, svr := range allServers {
+				svr.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/"),
+						func(w http.ResponseWriter, req *http.Request) {
+							Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+							Expect(req.FormValue("Filter.1.Name")).To(Equal("tag:dedicated"))
+							Expect(req.FormValue("Filter.1.Value.1")).To(Equal("test"))
+						},
+						ghttp.RespondWith(http.StatusOK, string(output)),
+					),
+				)
+			}
+
+			infos, err := h.List()
+			Expect(err).To(BeNil())
+			Expect(infos).To(BeEmpty())
+			for _, svr := range allServers {
+				Expect(svr.ReceivedRequests()).To(HaveLen(1))
+			}
+		})
+
+		It("should collate all instances from the regions", func() {
+			instMars := []ec2.Instance{
+				ec2.Instance{
+					InstanceId:      "instance1",
+					PublicIpAddress: "127.89.2.49",
+					State: ec2.InstanceState{
+						Name: "running",
+						Code: 1901,
+					},
+				},
+				ec2.Instance{
+					InstanceId:      "instance2",
+					PublicIpAddress: "10.1.2.5",
+					State: ec2.InstanceState{
+						Name: "stopping",
+						Code: 1901,
+					},
+				},
+			}
+
+			instPluto := []ec2.Instance{
+				ec2.Instance{
+					InstanceId:      "instance3",
+					PublicIpAddress: "19.1.1.8",
+					State: ec2.InstanceState{
+						Name: "stopped",
+						Code: 1901,
+					},
+				},
+			}
+
+			instPluto2 := []ec2.Instance{
+				ec2.Instance{
+					InstanceId:      "instance4",
+					PublicIpAddress: "19.2.1.8",
+					State: ec2.InstanceState{
+						Name: "pending",
+						Code: 1901,
+					},
+				},
+			}
+
+			marsResp := ec2.InstancesResp{
+				RequestId: "TEST1",
+				Reservations: []ec2.Reservation{
+					ec2.Reservation{
+						Instances: instMars,
+					},
+				},
+			}
+
+			plutoResp := ec2.InstancesResp{
+				RequestId: "TEST2",
+				Reservations: []ec2.Reservation{
+					ec2.Reservation{
+						Instances: instPluto,
+					},
+					ec2.Reservation{
+						Instances: instPluto2,
+					},
+				},
+			}
+
+			marsOutput, err := xml.MarshalIndent(marsResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			plutoOutput, err := xml.MarshalIndent(plutoResp, "  ", "    ")
+			Expect(err).To(BeNil())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+						Expect(req.FormValue("Filter.1.Name")).To(Equal("tag:dedicated"))
+						Expect(req.FormValue("Filter.1.Value.1")).To(Equal("test"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(marsOutput)),
+				),
+			)
+
+			scndSvr.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+						Expect(req.FormValue("Filter.1.Name")).To(Equal("tag:dedicated"))
+						Expect(req.FormValue("Filter.1.Value.1")).To(Equal("test"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(plutoOutput)),
+				),
+			)
+
+			infos, err := h.List()
+			Expect(err).To(BeNil())
+			Expect(infos).To(HaveLen(4))
+			for _, svr := range allServers {
+				Expect(svr.ReceivedRequests()).To(HaveLen(1))
+			}
+
+			var i1, i2, i3, i4 *host.Info
+			for _, info := range infos {
+				switch info.ID {
+				case "instance1":
+					i1 = info
+				case "instance2":
+					i2 = info
+				case "instance3":
+					i3 = info
+				case "instance4":
+					i4 = info
+				default:
+					Fail("Unexpected instance")
+				}
+			}
+
+			Expect(i1.IPAddress).To(Equal("127.89.2.49"))
+			Expect(i1.State).To(Equal(state.Running))
+			Expect(i1.Provider).To(Equal("amazon"))
+			Expect(i1.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(i1.Region).To(Equal("mars1East"))
+
+			Expect(i2.IPAddress).To(Equal("10.1.2.5"))
+			Expect(i2.State).To(Equal(state.Stopping))
+			Expect(i2.Provider).To(Equal("amazon"))
+			Expect(i2.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(i2.Region).To(Equal("mars1East"))
+
+			Expect(i3.IPAddress).To(Equal("19.1.1.8"))
+			Expect(i3.State).To(Equal(state.Stopped))
+			Expect(i3.Provider).To(Equal("amazon"))
+			Expect(i3.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(i3.Region).To(Equal("pluto1North"))
+
+			Expect(i4.IPAddress).To(Equal("19.2.1.8"))
+			Expect(i4.State).To(Equal(state.Starting))
+			Expect(i4.Provider).To(Equal("amazon"))
+			Expect(i4.FreighterdPort).To(Equal(uint16(65333)))
+			Expect(i4.Region).To(Equal("pluto1North"))
+		})
+	})
 })
 
 func createInstanceResponse(ins ec2.Instance) ec2.InstancesResp {
