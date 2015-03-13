@@ -1,8 +1,10 @@
 package amazon_test
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -48,6 +50,7 @@ var _ = Describe("host/amazon", func() {
 		h, err = amazon.NewHost(map[string]string{
 			"access_key": "amz_access_key",
 			"secret_key": "amz_secret_key",
+			"env":        "test",
 		}, config)
 		Expect(err).To(BeNil())
 	})
@@ -56,12 +59,39 @@ var _ = Describe("host/amazon", func() {
 		server.Close()
 	})
 
-	respondWithXmlStruct := func(str interface{}) {
+	respondWithXmlStruct := func(str interface{}, instID, action string, params ...map[string]string) {
 		output, err := xml.MarshalIndent(str, "  ", "    ")
 		Expect(err).To(BeNil())
 		server.AppendHandlers(
 			ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/"),
+				func(w http.ResponseWriter, req *http.Request) {
+					Expect(req.FormValue("Action")).To(Equal(action))
+					Expect(req.FormValue("InstanceId.1")).To(Equal(instID))
+					if len(params) > 0 {
+						for k, v := range params[0] {
+							Expect(req.FormValue(k)).To(Equal(v))
+						}
+					}
+				},
+				ghttp.RespondWith(http.StatusOK, string(output)),
+			),
+		)
+	}
+
+	respondWithEmptyInstances := func(instID string) {
+		instResp := ec2.InstancesResp{
+			RequestId: "instanceT1",
+		}
+		output, err := xml.MarshalIndent(instResp, "  ", "    ")
+		Expect(err).To(BeNil())
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/"),
+				func(w http.ResponseWriter, req *http.Request) {
+					Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+					Expect(req.FormValue("InstanceId.1")).To(Equal(instID))
+				},
 				ghttp.RespondWith(http.StatusOK, string(output)),
 			),
 		)
@@ -80,6 +110,7 @@ var _ = Describe("host/amazon", func() {
 				"secret_key": "amz_secret_key",
 			}, config)
 			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&json.SyntaxError{}))
 			Expect(ah).To(BeNil())
 		})
 
@@ -106,26 +137,28 @@ var _ = Describe("host/amazon", func() {
 					ghttp.VerifyRequest("GET", "/"),
 					func(w http.ResponseWriter, req *http.Request) {
 						Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
-						Expect(req.FormValue("InstanceId.1")).To(Equal("ABC"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
 					},
 					ghttp.RespondWith(http.StatusUnauthorized, ``),
 				),
 			)
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).ToNot(BeNil())
+			Expect(ah.ReloadInstance("instanceT1")).ToNot(BeNil())
 			Expect(ah.GetInstance()).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
 		})
 
 		It("should return ErrInstanceNotFound if no Reservations are found", func() {
 			instResp := ec2.InstancesResp{
 				RequestId: "TEST1",
 			}
-			respondWithXmlStruct(instResp)
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(ah.ReloadInstance("instanceT1")).To(Equal(amazon.ErrInstanceNotFound))
 			Expect(ah.GetInstance()).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
 		})
 
 		It("should return ErrInstanceNotFound if the first Reservation lacks any Intances", func() {
@@ -135,23 +168,25 @@ var _ = Describe("host/amazon", func() {
 					ec2.Reservation{},
 				},
 			}
-			respondWithXmlStruct(instResp)
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(ah.ReloadInstance("instanceT1")).To(Equal(amazon.ErrInstanceNotFound))
 			Expect(ah.GetInstance()).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
 		})
 
 		It("should assign the instance on success", func() {
 			instResp := createInstanceResponse(ec2.Instance{
 				InstanceId: "instanceT1",
 			})
-			respondWithXmlStruct(instResp)
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).To(BeNil())
+			Expect(ah.ReloadInstance("instanceT1")).To(BeNil())
 			Expect(ah.GetInstance()).ToNot(BeNil())
 			Expect(ah.GetInstance().InstanceId).To(Equal("instanceT1"))
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
 		})
 	})
 
@@ -171,10 +206,10 @@ var _ = Describe("host/amazon", func() {
 					Code: 1901,
 				},
 			})
-			respondWithXmlStruct(instResp)
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).To(BeNil())
+			Expect(ah.ReloadInstance("instanceT1")).To(BeNil())
 
 			inf, err := h.Info()
 			Expect(err).To(BeNil())
@@ -186,6 +221,7 @@ var _ = Describe("host/amazon", func() {
 			Expect(inf.FreighterdPort).To(Equal(uint16(65333)))
 			Expect(inf.Region).To(Equal("mars1East"))
 			Expect(inf.State).To(Equal(state.Running))
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
 		})
 
 		It("should expose all the available states", func() {
@@ -205,10 +241,10 @@ var _ = Describe("host/amazon", func() {
 						Code: 1901,
 					},
 				})
-				respondWithXmlStruct(instResp)
+				respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 				ah := h.(*amazon.Host)
-				Expect(ah.ReloadInstance("ABC")).To(BeNil())
+				Expect(ah.ReloadInstance("instanceT1")).To(BeNil())
 
 				inf, err := h.Info()
 				Expect(err).To(BeNil())
@@ -227,16 +263,1069 @@ var _ = Describe("host/amazon", func() {
 					Code: 1901,
 				},
 			})
-			respondWithXmlStruct(instResp)
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
 
 			ah := h.(*amazon.Host)
-			Expect(ah.ReloadInstance("ABC")).To(BeNil())
+			Expect(ah.ReloadInstance("instanceT1")).To(BeNil())
 
 			inf, err := h.Info()
 			Expect(err).To(BeNil())
 			Expect(inf).ToNot(BeNil())
 
 			Expect(inf.State).To(Equal(state.Unknown))
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+	})
+
+	Describe("Update()", func() {
+		BeforeEach(func() {
+			ah := h.(*amazon.Host)
+			ah.Config = &amazon.HostConfig{
+				ID:   "instanceT1",
+				Name: "MyNewName",
+			}
+		})
+
+		It("should pass through the error if it was unable to reload the instance", func() {
+			respondWithEmptyInstances("instanceT1")
+
+			inf, err := h.Update(ioutil.Discard)
+			Expect(err).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should associate tags", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			// verify the CreateTags request
+			resp := ec2.SimpleResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("CreateTags"))
+						Expect(req.FormValue("ResourceId.1")).To(Equal("instanceT1"))
+						Expect(req.FormValue("Tag.1.Key")).To(Equal("Name"))
+						Expect(req.FormValue("Tag.1.Value")).To(Equal("MyNewName"))
+						Expect(req.FormValue("Tag.2.Key")).To(Equal("dedicated"))
+						Expect(req.FormValue("Tag.2.Value")).To(Equal("test"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			inf, err := h.Update(ioutil.Discard)
+			Expect(err).To(BeNil())
+			inf2, err := h.Info()
+			Expect(err).To(BeNil())
+			Expect(inf).To(Equal(inf2))
+			Expect(server.ReceivedRequests()).To(HaveLen(2))
+		})
+
+		It("should swallow the endpoint failing", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("CreateTags"))
+						Expect(req.FormValue("ResourceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			inf, err := h.Update(ioutil.Discard)
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			inf2, err := h.Info()
+			Expect(err).To(BeNil())
+			Expect(inf).To(Equal(inf2))
+			Expect(server.ReceivedRequests()).To(HaveLen(2))
+		})
+	})
+
+	Describe("Stop()", func() {
+		BeforeEach(func() {
+			ah := h.(*amazon.Host)
+			ah.Config = &amazon.HostConfig{
+				ID:   "instanceT1",
+				Name: "MyNewName",
+			}
+		})
+
+		It("should pass through the error if it was unable to reload the instance", func() {
+			respondWithEmptyInstances("instanceT1")
+
+			inf, err := h.Stop()
+			Expect(err).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should request the instance be stopped, returning a failure", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("StopInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, string(output)),
+				),
+			)
+
+			inf, err := h.Stop()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(2))
+		})
+
+		It("should return an error if the host entered into an unexpected state", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StopInstances")
+
+			// respond with bad state
+			termResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "terminated",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(termResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Stop()
+			Expect(err).To(MatchError(errors.New(`unexpected state "terminated", wanted target "stopped"`)))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(3))
+		})
+
+		It("should return the instance when host enters into a stopped state", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StopInstances")
+
+			// respond with an intermediate state
+			stoppingResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "stopping",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppingResp, "instanceT1", "DescribeInstances")
+
+			// respond with the final state state
+			stoppedResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "stopped",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Stop()
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			Expect(inf.State).To(Equal(state.Stopped))
+			Expect(inf.IPAddress).To(Equal("192.168.1.51"))
+			Expect(inf.ID).To(Equal("instanceT1"))
+			Expect(server.ReceivedRequests()).To(HaveLen(4))
+		})
+
+		It("should wait for the operation to transition from pending states", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StopInstances")
+
+			// respond with transitions
+			stoppedResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "pending",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "stopping",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "stopped",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Stop()
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			Expect(inf.State).To(Equal(state.Stopped))
+			Expect(inf.IPAddress).To(Equal("192.168.1.51"))
+			Expect(inf.ID).To(Equal("instanceT1"))
+			Expect(server.ReceivedRequests()).To(HaveLen(7))
+		})
+	})
+
+	Describe("Start()", func() {
+		BeforeEach(func() {
+			ah := h.(*amazon.Host)
+			ah.Config = &amazon.HostConfig{
+				ID:        "instanceT1",
+				Name:      "MyNewName",
+				IPAddress: "10.1.1.250",
+			}
+		})
+
+		It("should pass through the error if it was unable to reload the instance", func() {
+			respondWithEmptyInstances("instanceT1")
+
+			inf, err := h.Start()
+			Expect(err).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should request the instance be stopped, returning a failure", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("StartInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			inf, err := h.Start()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(2))
+		})
+
+		It("should return an error if the host entered into an unexpected state", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("StartInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			// respond with the struct needed for reload
+			termResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "terminated",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(termResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Start()
+			Expect(err).To(MatchError(errors.New(`unexpected state "terminated", wanted target "running"`)))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(3))
+		})
+
+		It("should return an error if it failed to associate addresses", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StartInstances")
+
+			// respond with the struct needed for reload
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("AssociateAddress"))
+						Expect(req.FormValue("InstanceId")).To(Equal("instanceT1"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+						Expect(req.FormValue("AllowReassociation")).To(BeEmpty())
+					},
+					ghttp.RespondWith(http.StatusForbidden, ``),
+				),
+			)
+
+			inf, err := h.Start()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(4))
+		})
+
+		It("should return an error if the final reload failed", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StartInstances")
+
+			// respond with the struct needed for reload
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			assocResp := ec2.AssociateAddressResp{
+				RequestId: "S2",
+				Return:    true,
+			}
+			output, err := xml.MarshalIndent(assocResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("AssociateAddress"))
+						Expect(req.FormValue("InstanceId")).To(Equal("instanceT1"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+						Expect(req.FormValue("AllowReassociation")).To(BeEmpty())
+					},
+					ghttp.RespondWith(http.StatusOK, output),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusForbidden, ``),
+				),
+			)
+
+			inf, err := h.Start()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(5))
+		})
+
+		It("should return the reloaded instance on a successful start", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StartInstances")
+
+			// respond with the struct needed for reload
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			assocResp := ec2.AssociateAddressResp{
+				RequestId: "S2",
+				Return:    true,
+			}
+			output, err := xml.MarshalIndent(assocResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("AssociateAddress"))
+						Expect(req.FormValue("InstanceId")).To(Equal("instanceT1"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+						Expect(req.FormValue("AllowReassociation")).To(BeEmpty())
+					},
+					ghttp.RespondWith(http.StatusOK, output),
+				),
+			)
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Start()
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			Expect(inf.ID).To(Equal("instanceT1"))
+			Expect(inf.IPAddress).To(Equal("1.1.1.8"))
+			Expect(server.ReceivedRequests()).To(HaveLen(5))
+		})
+
+		It("should wait for the operation to transition from pending states", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StartInstances")
+
+			// respond with transitions
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "stopped",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "pending",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			assocResp := ec2.AssociateAddressResp{
+				RequestId: "S2",
+				Return:    true,
+			}
+			output, err := xml.MarshalIndent(assocResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("AssociateAddress"))
+						Expect(req.FormValue("InstanceId")).To(Equal("instanceT1"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+						Expect(req.FormValue("AllowReassociation")).To(BeEmpty())
+					},
+					ghttp.RespondWith(http.StatusOK, output),
+				),
+			)
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Start()
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			Expect(inf.ID).To(Equal("instanceT1"))
+			Expect(inf.IPAddress).To(Equal("1.1.1.8"))
+			Expect(server.ReceivedRequests()).To(HaveLen(7))
+		})
+	})
+
+	Describe("Restart()", func() {
+		BeforeEach(func() {
+			ah := h.(*amazon.Host)
+			ah.Config = &amazon.HostConfig{
+				ID:        "instanceT1",
+				Name:      "MyNewName",
+				IPAddress: "10.1.1.250",
+			}
+		})
+
+		It("should return an error if it fails get info about the instance", func() {
+			respondWithEmptyInstances("instanceT1")
+
+			inf, err := h.Restart()
+			Expect(err).To(Equal(amazon.ErrInstanceNotFound))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should request the instance be stopped, waiting for it to be stopped", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StopInstances")
+
+			// respond with transitions
+			stoppedResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			termResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "terminated",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(termResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Restart()
+			Expect(err).To(MatchError(errors.New(`unexpected state "terminated", wanted target "stopped"`)))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(4))
+		})
+
+		It("should attempt to start the container after successfully stopping, returning failure", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(resp, "instanceT1", "StopInstances")
+
+			// respond with transitions
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "stopped",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			// Start() beings
+
+			// respond with the struct needed for reload
+			instResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("StartInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			inf, err := h.Restart()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(inf).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(6))
+		})
+
+		It("should attempt to start the container after successfully stopping, associating the IP address", func() {
+			// respond with the struct needed for reload
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			stopResp := ec2.StopInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(stopResp, "instanceT1", "StopInstances")
+
+			// respond with transitions
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "192.168.1.51",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			stoppedResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "stopped",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(stoppedResp, "instanceT1", "DescribeInstances")
+
+			// Start() beings
+
+			// respond with the struct needed for reload
+			instResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			startResp := ec2.StartInstanceResp{
+				RequestId: "S1",
+			}
+			respondWithXmlStruct(startResp, "instanceT1", "StartInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "pending",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			assocResp := ec2.AssociateAddressResp{
+				RequestId: "S2",
+				Return:    true,
+			}
+			output, err := xml.MarshalIndent(assocResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("AssociateAddress"))
+						Expect(req.FormValue("InstanceId")).To(Equal("instanceT1"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+						Expect(req.FormValue("AllowReassociation")).To(BeEmpty())
+					},
+					ghttp.RespondWith(http.StatusOK, output),
+				),
+			)
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			inf, err := h.Restart()
+			Expect(err).To(BeNil())
+			Expect(inf).ToNot(BeNil())
+			Expect(inf.ID).To(Equal("instanceT1"))
+			Expect(inf.IPAddress).To(Equal("1.1.1.8"))
+			Expect(server.ReceivedRequests()).To(HaveLen(10))
+		})
+	})
+
+	Describe("Destroy()", func() {
+		BeforeEach(func() {
+			ah := h.(*amazon.Host)
+			ah.Config = &amazon.HostConfig{
+				ID:        "instanceT1",
+				Name:      "MyNewName",
+				IPAddress: "10.1.1.250",
+			}
+		})
+
+		It("should not return an error if the instance already does nor exist", func() {
+			respondWithEmptyInstances("instanceT1")
+
+			err := h.Destroy()
+			Expect(err).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should forward an error if reload fails", func() {
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("DescribeInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			err := h.Destroy()
+			Expect(err).ToNot(BeNil())
+			Expect(err).To(BeAssignableToTypeOf(&ec2.Error{}))
+			Expect(server.ReceivedRequests()).To(HaveLen(1))
+		})
+
+		It("should request the IP Address of the instance be released, feeding back failure", func() {
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("ReleaseAddress"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			err := h.Destroy()
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("amazon: failed to release ElasticIP 10.1.1.250 for instanceT1"))
+			Expect(server.ReceivedRequests()).To(HaveLen(2))
+		})
+
+		It("should request the instance be terminated, feeding back failure", func() {
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.SimpleResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("ReleaseAddress"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("TerminateInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusUnauthorized, ``),
+				),
+			)
+
+			err = h.Destroy()
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("amazon: failed to terminate instance instanceT1"))
+			Expect(server.ReceivedRequests()).To(HaveLen(3))
+		})
+
+		It("should wait for the state, returning a failure if state was unexpected", func() {
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.SimpleResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("ReleaseAddress"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			termResp := ec2.TerminateInstancesResp{
+				RequestId: "S1",
+			}
+			output, err = xml.MarshalIndent(termResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("TerminateInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "swapping",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			err = h.Destroy()
+			Expect(err).To(Equal(errors.New(`unexpected state "swapping", wanted target "terminated"`)))
+			Expect(server.ReceivedRequests()).To(HaveLen(5))
+		})
+
+		It("should return nil when the instance terminates", func() {
+			instResp := createInstanceResponse(ec2.Instance{
+				InstanceId: "instanceT1",
+			})
+			respondWithXmlStruct(instResp, "instanceT1", "DescribeInstances")
+
+			resp := ec2.SimpleResp{
+				RequestId: "S1",
+			}
+			output, err := xml.MarshalIndent(resp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("ReleaseAddress"))
+						Expect(req.FormValue("PublicIp")).To(Equal("10.1.1.250"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			termResp := ec2.TerminateInstancesResp{
+				RequestId: "S1",
+			}
+			output, err = xml.MarshalIndent(termResp, "  ", "    ")
+			Expect(err).To(BeNil())
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/"),
+					func(w http.ResponseWriter, req *http.Request) {
+						Expect(req.FormValue("Action")).To(Equal("TerminateInstances"))
+						Expect(req.FormValue("InstanceId.1")).To(Equal("instanceT1"))
+					},
+					ghttp.RespondWith(http.StatusOK, string(output)),
+				),
+			)
+
+			runningResp := createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "running",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "shutting-down",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			runningResp = createInstanceResponse(ec2.Instance{
+				InstanceId:      "instanceT1",
+				PublicIpAddress: "1.1.1.8",
+				State: ec2.InstanceState{
+					Name: "terminated",
+					Code: 1901,
+				},
+			})
+			respondWithXmlStruct(runningResp, "instanceT1", "DescribeInstances")
+
+			err = h.Destroy()
+			Expect(err).To(BeNil())
+			Expect(server.ReceivedRequests()).To(HaveLen(6))
+
+			ah := h.(*amazon.Host)
+			inst := ah.GetInstance()
+			Expect(inst.State.Name).To(Equal("terminated"))
 		})
 	})
 })
