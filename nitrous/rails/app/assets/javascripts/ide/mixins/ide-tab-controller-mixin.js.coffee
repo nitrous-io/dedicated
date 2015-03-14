@@ -24,7 +24,7 @@ App.IdeTabControllerMixin = Em.Mixin.create
   isActiveTabNotAnEditor: (->
     contentType = @get 'activeTab.contentType'
     !contentType || contentType != "text"
-  ).property 'activeTab'
+  ).property 'activeTab.contentType'
 
   nextTab: (->
     activeTabIndex = @get 'activeTabIndex'
