@@ -1,6 +1,8 @@
 $ = window.jQuery
 
 window.ui =
+  focusedBeforeModal: null
+
   clearDropdowns: (options) ->
     $('body').off 'click.ui-dropdown-bg'
     $dropdowns = $('.ui.dropdown')
@@ -41,6 +43,10 @@ window.ui =
       ui.openDropdown(evt, $(this))
 
   showModal: ($modal, cb) ->
+    # when doing e.g. Go To File, showModal is called twice. We want to restore
+    # in hideModal element focused during the first call
+    if !@focusedBeforeModal
+      @focusedBeforeModal = document.activeElement
     if !($modal instanceof jQuery)
       $modal = $($modal)
     $modal.addClass('flex')
@@ -55,7 +61,10 @@ window.ui =
     if !($modal instanceof jQuery)
       $modal = $($modal)
     $modal.removeClass('show')
-    window.setTimeout(->
+    window.setTimeout(=>
+      if @focusedBeforeModal
+        $(@focusedBeforeModal).focus()
+        @focusedBeforeModal = null
       $modal.addClass('hide')
       $modal.removeClass('flex')
       cb?()
