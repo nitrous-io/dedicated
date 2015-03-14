@@ -24,6 +24,9 @@ func (k *keypair) Create() error {
 		return err
 	}
 	block, _ := pem.Decode([]byte(key.KeyMaterial))
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM, result nil")
+	}
 	privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return fmt.Errorf("failed to parse a valid RSA private key, err: %v", err)

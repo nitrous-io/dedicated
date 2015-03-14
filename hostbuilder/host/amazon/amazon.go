@@ -206,7 +206,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			hlog(h, "ERROR: Failed in create host step: %v", err)
+			hlog(h, "ERROR: Failed in create host step: '%s', err: %v", step.Description, err)
 			h.logFailed()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
