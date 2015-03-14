@@ -123,8 +123,8 @@ App.IdeDocumentView = Em.View.extend
 
   jumpToLine: (->
     if line = @get 'document.gotoLine'
-      if editor = @get('editor')
-        editor.gotoLine(line)
+      @set 'document.gotoLine', null
+      @get('editor')?.gotoLine(line)
   ).observes 'document.gotoLine'
 
   splitSelectionIntoLines: (->

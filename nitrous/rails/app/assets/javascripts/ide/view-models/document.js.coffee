@@ -17,6 +17,8 @@ App.Document = App.TabContent.extend
   toggleCommentTrigger: null
   splitSelectionIntoLinesTrigger: null
 
+  gotoLine: null
+
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"
   ).property 'path.name'

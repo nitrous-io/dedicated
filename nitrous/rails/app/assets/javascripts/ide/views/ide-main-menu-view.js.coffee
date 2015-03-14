@@ -149,6 +149,11 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.fileRefreshTree()
         separator
+        menuItem 'Go to Line...',
+          macKey: ['command+l'], pcKey: ['ctrl+l']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.fileGoToLine()
         menuItem 'Go to File...',
           macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
           disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
