@@ -16,6 +16,7 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
     @_super()
     if pollerKey = @get('pollerKey')
       Ember.run.cancel(pollerKey)
+    @get('controller.controllers.ideEditor.activeTab')?.set 'focused', true
 
   click: (e) ->
     if $(e.target).is(@$())

@@ -23,8 +23,6 @@ App.IdeDocumentView = Em.View.extend
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
-  gotoLine: null # changes to this trigger line movement in CodeMirror
-
   init: ->
     this.documentPathDidChange()
     @_super.apply this, arguments

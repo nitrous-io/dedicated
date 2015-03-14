@@ -1,4 +1,4 @@
-App.IdeGoToLineController = Em.Controller.extend
+App.IdeGotoLineController = Em.Controller.extend
   needs: ['ide', 'ideEditor']
 
   goToLineDialog: null

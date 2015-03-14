@@ -1,7 +1,7 @@
 containerStoppedMessage = 'Container is not running. Please start your container first.'
 
 App.IdeController = Em.ObjectController.extend
-  needs: ['ideFindInProject', 'ideFileFinder', 'ideGoToLine']
+  needs: ['ideFindInProject', 'ideFileFinder', 'ideGotoLine']
 
   eventsSocket: null
   opsSocket: null
