@@ -16,7 +16,7 @@ App.IdeTabControllerMixin = Em.Mixin.create
   hasNoTab: (->
     content = @get 'content'
     !content || content.get('length') == 0
-  ).property 'content', 'content.length'
+  ).property 'content.length'
 
   # return false if active tab is a text editor instance
   # return true otherwise (there are no tabs or active tab is e.g. an image editor)
