@@ -35,6 +35,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nitrous-io/dedicated/pkg/finder"
 )
@@ -104,10 +105,17 @@ func doFileFind(msg *Message, resp chan *Message) chan *Message {
 		}
 
 		for _, match := range matches {
+			relativePath := match.FilePath
+			if strings.HasPrefix(relativePath, dir) {
+				relativePath = relativePath[len(dir):]
+				if strings.HasPrefix(relativePath, "/") {
+					relativePath = relativePath[1:]
+				}
+			}
 			sendMessage(resp, msg, "file_find.output", FileFindResponse{
 				Term:  term,
 				Root:  dir,
-				Paths: []string{match.FilePath},
+				Paths: []string{relativePath},
 			})
 		}
 		sendFinalMessage(resp, msg, "file_find.completed", FileFindResponse{
