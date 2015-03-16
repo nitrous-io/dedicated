@@ -24,6 +24,7 @@ type dummyIPProvider struct {
 	calls     []fn
 
 	associateErr error
+	releaseErr   error
 }
 
 func (p *dummyIPProvider) Addresses(publicIps []string, allocationIds []string, filter *ec2.Filter) (resp *ec2.DescribeAddressesResp, err error) {
@@ -63,6 +64,9 @@ func (p *dummyIPProvider) DisassociateAddress(id string) (resp *ec2.SimpleResp, 
 
 func (p *dummyIPProvider) ReleaseAddress(id string) (resp *ec2.SimpleResp, err error) {
 	p.calls = append(p.calls, fn{"ReleaseAddress", []interface{}{id}})
+	if p.releaseErr != nil {
+		return nil, p.releaseErr
+	}
 	return new(ec2.SimpleResp), nil
 }
 
@@ -163,6 +167,25 @@ var _ = Describe("assignAddress", func() {
 		Expect(p.calls[2].name).To(Equal("ReleaseAddress"))
 		Expect(p.calls[2].args[0].(string)).To(Equal("eip-alloc-001"))
 	})
+
+	It("includes release error if release fails on failure to associate address", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:     "10.0.0.1",
+					AllocationId: "eip-alloc-001",
+					Domain:       "vpc",
+				},
+			},
+			associateErr: errors.New("association failed"),
+			releaseErr:   errors.New("release failed"),
+		}
+
+		_, err := assignAddress(p, "i-322", true)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("association failed"))
+		Expect(err.Error()).To(ContainSubstring("release failed"))
+	})
 })
 
 var _ = Describe("releaseAddress", func() {
@@ -206,7 +229,7 @@ var _ = Describe("releaseAddress", func() {
 				},
 			},
 		}
-		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "falied to release address")
+		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "failed to release address")
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 		Expect(p.calls[1].name).To(Equal("DisassociateAddress"))
 		Expect(p.calls[1].args[0].(string)).To(Equal("eip-asso-001"))
@@ -225,7 +248,7 @@ var _ = Describe("releaseAddress", func() {
 				},
 			},
 		}
-		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "falied to release address")
+		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "failed to release address")
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 		Expect(p.calls[1].name).To(Equal("ReleaseAddress"))
 		Expect(p.calls[1].args[0].(string)).To(Equal("eip-001"))

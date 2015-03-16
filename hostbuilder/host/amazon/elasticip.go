@@ -1,6 +1,10 @@
 package amazon
 
-import "github.com/mitchellh/goamz/ec2"
+import (
+	"fmt"
+
+	"github.com/mitchellh/goamz/ec2"
+)
 
 // interface of elastic IP provider
 type ipProvider interface {
@@ -45,11 +49,15 @@ func assignAddress(provider ipProvider, instanceID string, vpc bool) (*elasticIP
 	}
 	associationResp, err := provider.AssociateAddress(associateReq)
 	if err != nil {
+		var relerr error
 		// if failed to associate the ElasticIp with the instance, we remove it
 		if vpc {
-			provider.ReleaseAddress(allocateResp.AllocationId)
+			_, relerr = provider.ReleaseAddress(allocateResp.AllocationId)
 		} else {
-			provider.ReleasePublicAddress(allocateResp.PublicIp)
+			_, relerr = provider.ReleasePublicAddress(allocateResp.PublicIp)
+		}
+		if relerr != nil {
+			return nil, fmt.Errorf("error associating: %s; error releasing: %s", err, relerr)
 		}
 		return nil, err
 	}
