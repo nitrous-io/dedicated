@@ -127,6 +127,19 @@ type Server struct {
 	Router *mux.Router
 }
 
+// Return a copy of the original provider config
+// for safe local mutation
+func (s *Server) providerConfig(provider string) map[string]string {
+	config := s.Config.Providers[provider]
+	configCopy := make(map[string]string)
+	if config != nil {
+		for k, v := range config {
+			configCopy[k] = v
+		}
+	}
+	return configCopy
+}
+
 // createHost streams progress data to the output. For example
 //
 // In success case:
@@ -148,11 +161,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
-	if providerConfig == nil {
-		providerConfig = make(map[string]string)
-	}
-
+	providerConfig := s.providerConfig(provider)
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 
 	configJson := r.Form.Get("config")
@@ -260,7 +269,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
+	providerConfig := s.providerConfig(provider)
 	configJson := r.Form.Get("config")
 
 	h, err := InitHost(provider, providerConfig, configJson)
@@ -289,7 +298,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
+	providerConfig := s.providerConfig(provider)
 	configJson := r.Form.Get("config")
 
 	h, err := InitHost(provider, providerConfig, configJson)
@@ -427,10 +436,7 @@ func (s *Server) hostFromRequest(r *http.Request, customConfig map[string]string
 		return nil, err
 	}
 	provider := r.Form.Get("provider")
-	providerConfig := s.Config.Providers[provider]
-	if providerConfig == nil {
-		providerConfig = make(map[string]string)
-	}
+	providerConfig := s.providerConfig(provider)
 	for k, v := range customConfig {
 		providerConfig[k] = v
 	}
