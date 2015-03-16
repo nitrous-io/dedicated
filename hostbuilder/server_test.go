@@ -1,4 +1,4 @@
-package hostbuilder_test
+package hostbuilder
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 
@@ -54,6 +53,26 @@ var _ = Describe("hostbuilder", func() {
 
 	AfterEach(func() {
 		ts.Close()
+	})
+
+	Describe("Provider config", func() {
+		It("Should make copy of provider config instead of returning shared copy", func() {
+			provider := "dummy"
+
+			s.Config.Providers = map[string]providerConfig{
+				"dummy": providerConfig{
+					"foo": "bar",
+				},
+			}
+
+			originalConfig := s.Config.Providers[provider]
+
+			gotConfig := s.providerConfig(provider)
+			Expect(gotConfig["foo"]).To(Equal("bar"))
+
+			gotConfig["foo"] = "baz"
+			Expect(originalConfig["foo"]).To(Equal("bar"))
+		})
 	})
 
 	Describe("Creating a host", func() {
