@@ -105,9 +105,11 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	}
 }
 
+type providerConfig map[string]string
+
 type config struct {
-	Address   string                       `json:"address"`
-	Providers map[string]map[string]string `json:"providers"`
+	Address   string                    `json:"address"`
+	Providers map[string]providerConfig `json:"providers"`
 
 	// librato settings
 	LibratoUser  string `json:"librato_user"`
