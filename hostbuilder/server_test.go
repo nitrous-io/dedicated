@@ -56,6 +56,26 @@ var _ = Describe("hostbuilder", func() {
 		ts.Close()
 	})
 
+	Describe("Server test", func() {
+		It("Should make copy of provider config instead of returning shared copy", func() {
+			provider := "dummy"
+
+			s.Config.Providers = map[string]map[string]string{
+				"dummy": map[string]string{
+					"foo": "bar",
+				},
+			}
+
+			originalConfig := s.Config.Providers[provider]
+
+			gotConfig := s.ProviderConfig(provider)
+			Expect(gotConfig["foo"]).To(Equal("bar"))
+
+			gotConfig["foo"] = "baz"
+			Expect(originalConfig["foo"]).To(Equal("bar"))
+		})
+	})
+
 	Describe("Creating a host", func() {
 		It("should successfully create a host and respond with host's info", func() {
 			h := &dummy.Host{

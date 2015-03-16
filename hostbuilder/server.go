@@ -105,11 +105,9 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	}
 }
 
-type providerConfig map[string]string
-
 type config struct {
-	Address   string                    `json:"address"`
-	Providers map[string]providerConfig `json:"providers"`
+	Address   string                       `json:"address"`
+	Providers map[string]map[string]string `json:"providers"`
 
 	// librato settings
 	LibratoUser  string `json:"librato_user"`
@@ -132,10 +130,8 @@ type Server struct {
 func (s *Server) providerConfig(provider string) map[string]string {
 	config := s.Config.Providers[provider]
 	configCopy := make(map[string]string)
-	if config != nil {
-		for k, v := range config {
-			configCopy[k] = v
-		}
+	for k, v := range config {
+		configCopy[k] = v
 	}
 	return configCopy
 }
