@@ -3,8 +3,8 @@ server <--> client
 
 The message is json-encoded with type
 
---> m|{type: "fs.list", cid: callbackID, args: ["path"]} // list a directory
-<-- m|{type: "fs.list", cid: callbackID, args: ["dir1", "dir2]} // reply a message with some response
+--> d|{type: "fs.list", cid: callbackID, args: ["path"]} // list a directory
+<-- d|{type: "fs.list", cid: callbackID, args: ["dir1", "dir2]} // reply a message with some response
 <-- c|we will be back // close message
 --> h // heartbeat message
 
@@ -15,27 +15,25 @@ package msgproto
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
+
+	"github.com/nitrous-io/nitrous-common/wsconn"
+)
+
+const (
+	DataMessage  = 0
+	CloseMessage = 1
 )
 
 var (
 	dataMsg      = []byte("d|")
 	closeMsg     = []byte("c|")
 	heartbeatMsg = []byte("h")
-
-	InvalidMessage = errors.New("invalid message")
 )
 
 type Message fmt.Stringer
-
-// InvalidMsg is returned whenever the client sends a message with a invalid
-// protocol that we dont recognize
-type InvalidMsg struct{ msg string }
-
-func (m *InvalidMsg) String() string { return m.msg }
 
 // CloseMsg is the close msg that client sends before closing the connection
 type CloseMsg struct{ msg string }
@@ -60,6 +58,35 @@ type Reader struct {
 
 func NewReader(ws websocketReader, ch chan Message, t int) io.Reader {
 	return &Reader{socket: ws, msgChan: ch, MessageType: t}
+}
+
+// returns type (DataMessage or CloseMessage)
+func ReadAndDecodeMessage(ws *wsconn.Conn) (int, []byte, error) {
+	for {
+		_, d, err := ws.ReadMessage()
+		if err != nil {
+			return 0, nil, err
+		}
+
+		n := len(d)
+		if n == 1 && d[0] == 'h' {
+			// ignore heartbeat message
+			continue
+		}
+		if n > 2 {
+			if bytes.Equal(d[:2], dataMsg) {
+				d = d[2:]
+				log.Printf("ReadAndDecodeMessage(): data msg %d bytes: '%s'", len(d), string(d))
+				return DataMessage, d, nil
+			}
+			if bytes.Equal(d[:2], closeMsg) {
+				d = d[2:]
+				log.Printf("ReadAndDecodeMessage(): close msg %d bytes: '%s'", len(d), string(d))
+				return CloseMessage, d, nil
+			}
+		}
+		log.Printf("ReadAndDecodeMessage(): invalid message: %d bytes, '%s'", len(d), string(d))
+	}
 }
 
 func (s *Reader) Read(p []byte) (int, error) {
@@ -98,6 +125,8 @@ func (s *Reader) Read(p []byte) (int, error) {
 	if newMessage && n > 2 {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
+			d := buf[2:n]
+			log.Printf("msgproto.Reader.Read(): %d bytes: '%s'", len(d), string(d))
 			i := copy(p, buf[2:n])
 			return i, err
 		}
@@ -112,6 +141,7 @@ func (s *Reader) Read(p []byte) (int, error) {
 	// if this is not a new message, this is a fragment message and we just
 	// copy it over without caring about the prefix
 	if !newMessage {
+		log.Printf("msgproto.Reader.Read() !new: %d bytes: '%s'", len(buf), string(buf))
 		copy(p, buf)
 		return n, err
 	}

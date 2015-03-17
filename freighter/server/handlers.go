@@ -564,15 +564,12 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("container ops: failed to upgrade websocket: %v", err)
 	}
-	stream := NewWebSocketConnection(conn, binary)
-	defer stream.Close()
+	ws := NewWebSocketConnection(conn, binary)
+	defer ws.Close()
 
-	msgCh := make(chan msgproto.Message, messageQueueSize)
-	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
-
-	done, quit, msgs, err := cops.Start(id, stdin)
+	done, quit, msgs, err := cops.Start(id, ws)
 	if err != nil {
-		stream.Close()
+		ws.Close()
 		return err
 	}
 	ActiveCops.AddChannel(id, quit)
@@ -581,7 +578,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		case err := <-done:
 			log.Printf("container ops: exited with err %v", err)
 			ActiveCops.RemoveChannel(id, quit)
-			stream.Close() // inform client that server has closed connection.
+			ws.Close() // inform client that server has closed connection.
 			return nil
 		case msg := <-msgs:
 			d, err := json.Marshal(msg)
@@ -589,7 +586,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 				log.Printf("json.Marshal() of %v failed with %s\n", msg, err)
 			} else {
 				log.Printf("wsContainerOps(): sending %s", string(d))
-				_, err = msgproto.WriteMsg(d, stream)
+				_, err = msgproto.WriteMsg(d, ws)
 				if err != nil {
 					log.Printf("msgproto.WriteMsg() failed with '%s'\n", err)
 				}
@@ -597,11 +594,6 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 
 			if err != nil {
 				done <- err
-			}
-		case msg := <-msgCh:
-			switch msg := msg.(type) {
-			default:
-				log.Println("container ops: got unknown msg ", msg)
 			}
 		}
 	}

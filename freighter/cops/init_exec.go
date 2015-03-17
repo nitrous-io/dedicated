@@ -15,7 +15,9 @@ import (
 	"syscall"
 
 	"github.com/go-fsnotify/fsnotify"
+	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 const execCommandName = "cops-exec"
@@ -234,8 +236,8 @@ func (oh *OpsHandler) copsMessageLoop() {
 			case "get":
 				oh.sendFeatures(msg)
 			default:
-				// TODO: this should be error log
 				log.Printf("copsMessageLoop() unknown event '%s' in namespace 'features'", msg.Event)
+				oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 			}
 		case "finder":
 			go oh.runHandler(finderHandler, msg)
@@ -243,8 +245,8 @@ func (oh *OpsHandler) copsMessageLoop() {
 			// on unknown messages we send an error back. this allows IDE to work
 			// with older versions of freighter (as long as it sensibly handles this
 			// message)
+			log.Printf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
 			oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
-			return
 		}
 	}
 }
@@ -253,7 +255,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 // chroot-d process for that container and proxy data in/out of the chrooted
 // process.
 // This is run in the parent process
-func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan map[string]interface{}, err error) {
+func Start(id string, ws *wsconn.Conn) (done chan error, quit chan error, msg chan map[string]interface{}, err error) {
 	initPID, err := GetContainerPID(id)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
@@ -303,7 +305,21 @@ func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan m
 		quit <- err
 	}()
 	go func() {
-		_, err := io.Copy(stdin, r)
+		for {
+			msgType, d, err := msgproto.ReadAndDecodeMessage(ws)
+			if err != nil {
+				break
+			}
+			if msgType == msgproto.CloseMessage {
+				break
+			}
+			log.Printf("data msg: %d bytes, '%s'", len(d), string(d))
+			_, err = stdin.Write(d)
+			if err != nil {
+				log.Printf("cops.Start(): stdin.Write() failed with %s", err)
+				break
+			}
+		}
 		quit <- err
 	}()
 	// listen to quit and kill the commmand whenever the pipes are closed
