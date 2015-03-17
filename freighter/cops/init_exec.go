@@ -20,6 +20,10 @@ import (
 
 const execCommandName = "cops-exec"
 
+var (
+	enableDebugLogs = true
+)
+
 func init() {
 	reexec.Register(execCommandName, execInit)
 }
@@ -86,6 +90,10 @@ func (oh *OpsHandler) waitFinished() error {
 }
 
 func (oh *OpsHandler) sendReply(msg *Message) error {
+	if enableDebugLogs {
+		s, _ := json.MarshalIndent(msg, "", "  ")
+		log.Printf("sendReply: %s\n", s)
+	}
 	oh.mu.Lock()
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
@@ -105,15 +113,26 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 	oh.sendReply(msg)
 }
 
-func (oh *OpsHandler) sendFeatures() {
-	fmt.Printf("sendFeatures()\n")
+func (oh *OpsHandler) sendFeatures(orig *Message) {
+	log.Printf("sendFeatures()\n")
 	features := map[string]interface{}{
 		"saveFileWithCmd": true,
 	}
 	msg := &Message{
-		Namespace: "features",
-		Event:     "features.output",
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
 		Args:      []interface{}{features},
+	}
+	oh.sendReply(msg)
+}
+
+func (oh *OpsHandler) replyWithError(orig *Message, errMsg string) {
+	msg := &Message{
+		Namespace: orig.Namespace,
+		Event:     orig.Event,
+		CID:       orig.CID,
+		Error:     errMsg,
 	}
 	oh.sendReply(msg)
 }
@@ -186,6 +205,11 @@ func (oh *OpsHandler) copsMessageLoop() {
 			return
 		}
 
+		if enableDebugLogs {
+			s, _ := json.MarshalIndent(msg, "", "  ")
+			log.Printf("copsMessageLoop() got: %s", s)
+		}
+
 		// handle operations in a separate goroutine to not block the
 		// message pipeline
 		switch msg.Namespace {
@@ -208,15 +232,18 @@ func (oh *OpsHandler) copsMessageLoop() {
 		case "features2":
 			switch msg.Event {
 			case "get":
-				oh.sendFeatures()
+				oh.sendFeatures(msg)
 			default:
 				// TODO: this should be error log
-				fmt.Printf("copsMessageLoop: unknown event '%s' for 'features'\n", msg.Event)
+				log.Printf("copsMessageLoop() unknown event '%s' in namespace 'features'", msg.Event)
 			}
 		case "finder":
 			go oh.runHandler(finderHandler, msg)
 		default:
-			oh.stopWithError(fmt.Errorf("invalid operation %s", msg.Namespace))
+			// on unknown messages we send an error back. this allows IDE to work
+			// with older versions of freighter (as long as it sensibly handles this
+			// message)
+			oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 			return
 		}
 	}
@@ -226,7 +253,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 // chroot-d process for that container and proxy data in/out of the chrooted
 // process.
 // This is run in the parent process
-func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan interface{}, err error) {
+func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan map[string]interface{}, err error) {
 	initPID, err := GetContainerPID(id)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
@@ -255,7 +282,7 @@ func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan i
 	}
 	child.Close()
 
-	msgs := make(chan interface{})
+	msgs := make(chan map[string]interface{})
 	// copy data in and out of the child process
 	// input goes to stdin
 	// output comes from the pipe, not stdout because stdout/stderr may
@@ -266,7 +293,7 @@ func Start(id string, r io.Reader) (done chan error, quit chan error, msg chan i
 		dec := json.NewDecoder(parent)
 		var err error
 		for {
-			var msg interface{}
+			var msg map[string]interface{}
 			if err = dec.Decode(&msg); err == nil {
 				msgs <- msg
 			} else {
