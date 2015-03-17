@@ -10,6 +10,7 @@ App.IdeController = Em.ObjectController.extend
   opsTimeoutAlert: null
   repository: null
   errorDialog: null
+  freighterFeatures: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
@@ -106,6 +107,11 @@ App.IdeController = Em.ObjectController.extend
           if !App.localStorage.get(cacheKey)
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
+      socket = @get('opsSocket')
+      socket.getFeatures (err, features) ->
+        console.log "onFreighterFeatures ", err, features
+        if !err
+          @set 'freighterFeatures', features
   ).observes 'opsSocketReady'
 
   warnWhenOffline: (->

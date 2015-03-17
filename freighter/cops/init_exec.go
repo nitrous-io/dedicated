@@ -105,6 +105,19 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 	oh.sendReply(msg)
 }
 
+func (oh *OpsHandler) sendFeatures() {
+	fmt.Printf("sendFeatures()\n")
+	features := map[string]interface{}{
+		"saveFileWithCmd": true,
+	}
+	msg := &Message{
+		Namespace: "features",
+		Event:     "features.output",
+		Args:      []interface{}{features},
+	}
+	oh.sendReply(msg)
+}
+
 func shouldNotifyAboutEvent(e fsnotify.Event) bool {
 	if e.Op&fsnotify.Create == fsnotify.Create {
 		return true
@@ -192,6 +205,14 @@ func (oh *OpsHandler) copsMessageLoop() {
 				oh.fileWatcher.Remove(dir)
 			}
 			go oh.runHandler(fsHandler, msg)
+		case "features2":
+			switch msg.Event {
+			case "get":
+				oh.sendFeatures()
+			default:
+				// TODO: this should be error log
+				fmt.Printf("copsMessageLoop: unknown event '%s' for 'features'\n", msg.Event)
+			}
 		case "finder":
 			go oh.runHandler(finderHandler, msg)
 		default:
