@@ -4,6 +4,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/amazon"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/announcements"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
@@ -134,6 +135,7 @@ func (s *Server) drawRoutes() {
 				"/billing/current_usage":             r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/announcements/global":        r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":           r("announcements.ShowAll", announcements.ShowAll),
+				"/admin/amazon/hosts":                r("amazon.Hosts", amazon.Hosts),
 				"/admin/hosts":                       r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":          r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":   r("providertemplates.Show", providertemplates.Show),

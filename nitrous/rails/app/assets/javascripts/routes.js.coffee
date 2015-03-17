@@ -39,6 +39,7 @@ App.Router.map ->
     @resource 'provider-template', path: '/provider-templates/:ptid'
 
     @resource 'admin', path: '/admin', ->
+      @route 'amazon-hosts', path: '/amazon/hosts'
       @route 'hosts', path: '/hosts/:provider'
       @route 'templates', path: '/templates'
       @route 'templates-new', path: '/templates/new'
