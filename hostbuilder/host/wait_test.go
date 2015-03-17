@@ -31,11 +31,15 @@ var _ = Describe("WaitForServer", func() {
 
 		attemptTimes := []time.Duration{50 * time.Millisecond, 50 * time.Millisecond}
 
-		Expect(host.WaitForServer(server.URL(), 100*time.Millisecond, attemptTimes)).To(BeTrue())
+		Expect(host.WaitForServer(server.URL(), 200*time.Millisecond, attemptTimes)).To(BeTrue())
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 	})
 
-	It("should return false if the server times out", func() {
+	// The following tests are marked as Pending to avoid the tests failing during high CI load
+	// due to resource contention. When modifying `WaitForServer` remove the Pending state and
+	// test yourself.
+
+	PIt("should return false if the server times out", func() {
 		clientTimeout := 50 * time.Millisecond
 		serverTimeout := 100 * time.Millisecond
 
@@ -60,7 +64,7 @@ var _ = Describe("WaitForServer", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(2))
 	})
 
-	It("should return false if the server is up but does not return 200", func() {
+	PIt("should return false if the server is up but does not return 200", func() {
 		unavailableHandler := ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", "/"),
 			ghttp.RespondWith(http.StatusServiceUnavailable, ""),
