@@ -639,9 +639,9 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("json.Marshal() of %v failed with %s\n", msg, err)
 			} else {
-				_, err = msgproto.WriteMsg(d, ws)
+				_, err = msgproto.WriteDataMessage(d, ws)
 				if err != nil {
-					log.Printf("msgproto.WriteMsg() failed with '%s'\n", err)
+					log.Printf("msgproto.WriteDataMessage() failed with '%s'\n", err)
 				}
 			}
 

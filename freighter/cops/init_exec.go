@@ -21,10 +21,6 @@ import (
 
 const execCommandName = "cops-exec"
 
-var (
-	enableDebugLogs = false
-)
-
 func init() {
 	reexec.Register(execCommandName, execInit)
 }
@@ -91,10 +87,6 @@ func (oh *OpsHandler) waitFinished() error {
 }
 
 func (oh *OpsHandler) sendReply(msg *Message) error {
-	if enableDebugLogs {
-		s, _ := json.MarshalIndent(msg, "", "  ")
-		log.Printf("sendReply: %s\n", s)
-	}
 	oh.mu.Lock()
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
@@ -115,9 +107,9 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 }
 
 func (oh *OpsHandler) sendFeatures(orig *Message) {
-	log.Printf("sendFeatures()\n")
 	features := map[string]interface{}{
-		"saveFileWithCmd": true,
+	// for every optional feature freighter provides, add entry mapping to true:
+	// "thisFeatureIsAvailable" : true,
 	}
 	msg := &Message{
 		Namespace: orig.Namespace,
@@ -204,11 +196,6 @@ func (oh *OpsHandler) copsMessageLoop() {
 		if err != nil {
 			oh.stopWithError(fmt.Errorf("failed to decode msg %s", err))
 			return
-		}
-
-		if enableDebugLogs {
-			s, _ := json.MarshalIndent(msg, "", "  ")
-			log.Printf("copsMessageLoop() got: %s", s)
 		}
 
 		// handle operations in a separate goroutine to not block the
