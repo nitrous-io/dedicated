@@ -75,14 +75,10 @@ func ReadAndDecodeMessage(ws *wsconn.Conn) (int, []byte, error) {
 		}
 		if n > 2 {
 			if bytes.Equal(d[:2], dataMsg) {
-				d = d[2:]
-				log.Printf("ReadAndDecodeMessage(): data msg %d bytes: '%s'", len(d), string(d))
-				return DataMessage, d, nil
+				return DataMessage, d[2:], nil
 			}
 			if bytes.Equal(d[:2], closeMsg) {
-				d = d[2:]
-				log.Printf("ReadAndDecodeMessage(): close msg %d bytes: '%s'", len(d), string(d))
-				return CloseMessage, d, nil
+				return CloseMessage, d[2:], nil
 			}
 		}
 		log.Printf("ReadAndDecodeMessage(): invalid message: %d bytes, '%s'", len(d), string(d))
