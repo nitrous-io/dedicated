@@ -15,6 +15,7 @@ var dbStructure = []string{
 	`DROP TABLE IF EXISTS containers;`,
 	`DROP TABLE IF EXISTS hosts;`,
 	`DROP TABLE IF EXISTS regions;`,
+	`DROP TABLE IF EXISTS provider_templates;`,
 	`CREATE TABLE regions (
 		id int PRIMARY KEY NOT NULL,
 		slug character varying(255) NOT NULL);`,
@@ -24,8 +25,15 @@ var dbStructure = []string{
 	`CREATE TABLE hosts (
 		id bigserial PRIMARY KEY NOT NULL,
 		region_id int NOT NULL,
+		provider_template_id int NOT NULL,
 		slug character varying(255) NOT NULL);`,
 	`CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);`,
+	`CREATE TABLE provider_templates (
+		id bigserial PRIMARY KEY NOT NULL,
+		provider character varying(255) NOT NULL);`,
+	`CREATE UNIQUE INDEX index_provider_templates_on_provider ON provider_templates USING btree (provider);`,
+	`INSERT INTO provider_templates (id, provider) VALUES (1, 'digitalocean');`,
+	`INSERT INTO provider_templates (id, provider) VALUES (2, 'amazon');`,
 	`CREATE TABLE containers (
 		id bigserial PRIMARY KEY NOT NULL,
 		slug character varying(255) NOT NULL,
@@ -34,9 +42,9 @@ var dbStructure = []string{
 }
 
 var fixtures = []*Container{
-	{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp"},
-	{Slug: "md-box", RegionID: 1, RegionSlug: "sgp"},
-	{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc"},
+	{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp", ProviderID: 2},
+	{Slug: "md-box", RegionID: 1, RegionSlug: "sgp", ProviderID: 1},
+	{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc", ProviderID: 2},
 }
 
 func testNavigator(domain string) n.Navigator {
@@ -64,8 +72,8 @@ func insertContainer(db *sql.DB, containers []*Container) error {
 	for i, c := range containers {
 		var hostID int
 		var err error
-		err = db.QueryRow(`INSERT INTO hosts (slug, region_id) VALUES ($1, $2) RETURNING ID`,
-			fmt.Sprintf("host-%d", i), c.RegionID).Scan(&hostID)
+		err = db.QueryRow(`INSERT INTO hosts (slug, region_id, provider_template_id) VALUES ($1, $2, $3) RETURNING ID`,
+			fmt.Sprintf("host-%d", i), c.RegionID, c.ProviderID).Scan(&hostID)
 		if err != nil {
 			return err
 		}
@@ -101,8 +109,9 @@ func TestFind(t *testing.T) {
 func TestLookup(t *testing.T) {
 	nav := testNavigator("nitrousbox.com.").(*Navigator)
 	f := fixtures[0]
+	h, err := nav.find(f.Slug)
 	r, err := nav.Lookup(f.Slug + ".nitrousbox.com.")
-	cname := fmt.Sprintf("%s.%s.", f.Slug, nav.config[f.RegionSlug])
+	cname := fmt.Sprintf("%s.%s.", h.Provider, nav.config[f.RegionSlug])
 	if err != nil || r[0].(*dns.CNAME).Target != cname {
 		t.Errorf("unexpected dns record, got %v, expected DNS CNAME: %s", r[0], cname)
 	}
@@ -119,12 +128,13 @@ func TestLookup(t *testing.T) {
 func TestLookupCaseInsensitive(t *testing.T) {
 	nav := testNavigator("nitrousbox.com.").(*Navigator)
 	f := fixtures[0]
+	h, err := nav.find(f.Slug)
 	slug := strings.ToUpper(f.Slug)
 	r, err := nav.Lookup(slug + ".nitrousbox.com.")
 	if err != nil {
 		t.Fatalf("Unexpected lookup error: %v", err)
 	}
-	cname := fmt.Sprintf("%s.%s.", f.Slug, nav.config[f.RegionSlug])
+	cname := fmt.Sprintf("%s.%s.", h.Provider, nav.config[f.RegionSlug])
 	if r[0].(*dns.CNAME).Target != cname {
 		t.Fatalf("Expected CNAME %s but got %v", cname, r[0])
 	}

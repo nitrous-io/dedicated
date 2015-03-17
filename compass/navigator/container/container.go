@@ -23,6 +23,8 @@ type Container struct {
 	Slug       string
 	RegionID   int
 	RegionSlug string
+	ProviderID int
+	Provider   string
 }
 
 type Navigator struct {
@@ -59,7 +61,7 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	}
 	domain = endsWithDot(domain)
 
-	cname := fmt.Sprintf("%s.%s", c.Slug, domain)
+	cname := fmt.Sprintf("%s.%s", c.Provider, domain)
 	return []dns.RR{
 		&dns.CNAME{
 			Hdr: dns.RR_Header{
@@ -76,12 +78,13 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 func (n *Navigator) find(slug string) (*Container, error) {
 	c := new(Container)
 	err := n.db.QueryRow(
-		`SELECT containers.id, containers.slug, regions.id, regions.slug
+		`SELECT containers.id, containers.slug, regions.id, regions.slug, provider_templates.provider
 		FROM containers
 		INNER JOIN hosts ON containers.host_id = hosts.id
 		INNER JOIN regions ON hosts.region_id = regions.id
+		INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
 		WHERE containers.slug = $1 LIMIT 1`, slug).
-		Scan(&c.Id, &c.Slug, &c.RegionID, &c.RegionSlug)
+		Scan(&c.Id, &c.Slug, &c.RegionID, &c.RegionSlug, &c.Provider)
 	if err != nil {
 		return nil, err
 	}
