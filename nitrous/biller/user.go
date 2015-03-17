@@ -17,17 +17,22 @@ type InvoiceItemsResult struct {
 	Items       []invoiceitem.InvoiceItem
 }
 
+type idRes struct {
+	Id int64 `db:"id"`
+}
+
 func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, start, end time.Time) (InvoiceItemsResult, error) {
 	res := InvoiceItemsResult{}
 
-	var ids []int64
+	var ids []idRes
+
 	err := d.Select(&ids, `SELECT id FROM hosts WHERE user_id = $1 AND (terminated_at IS NULL OR terminated_at >= $2);`, userID, start)
 	if err != nil {
 		return res, err
 	}
 
 	for _, id := range ids {
-		charge, hItems, err := invoicesItemsForHost(d, l, id, start, end)
+		charge, hItems, err := invoicesItemsForHost(d, l, id.Id, start, end)
 		if err != nil {
 			return res, err
 		}
