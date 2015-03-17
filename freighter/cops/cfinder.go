@@ -105,13 +105,9 @@ func doFileFind(msg *Message, resp chan *Message) chan *Message {
 		}
 
 		for _, match := range matches {
-			relativePath := match.FilePath
-			if strings.HasPrefix(relativePath, dir) {
-				relativePath = relativePath[len(dir):]
-				if strings.HasPrefix(relativePath, "/") {
-					relativePath = relativePath[1:]
-				}
-			}
+			relativePath := strings.TrimPrefix(match.FilePath, dir)
+			// dir might or might not include "/" at the end
+			relativePath = strings.TrimPrefix(relativePath, "/")
 			sendMessage(resp, msg, "file_find.output", FileFindResponse{
 				Term:  term,
 				Root:  dir,
