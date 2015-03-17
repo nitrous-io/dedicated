@@ -113,7 +113,6 @@ App.Editor = klass = Em.Object.extend
     if cm = @get 'codeMirror'
       cm.setCursor(parseInt(line) - 1, 0, scroll: true)
       cm.scrollIntoView() # above {scroll: true} option does not work as advertised
-      cm.focus()
 
   toggleComment: ->
     if cm = @get 'codeMirror'

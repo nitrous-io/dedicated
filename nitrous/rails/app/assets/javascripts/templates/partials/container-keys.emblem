@@ -5,29 +5,37 @@
   p.hint-text
    | Public keys on your container. Add these to external services to allow access to them from your container
 
-  if containerKeys.loaded
-    if containerKeys.length
-      table.ui.table
-        tbody
-          each key in containerKeys
-            tr
-              td
-                h4
-                  = key.name
-              td.right
-                if App.userProfile.authorizedGitHubUserName
-                  if saving
-                    button.ui.btn disabled='disabled'
-                      i.spinner
-                      | Adding to GitHub...
-                  else
-                    button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+  if error
+    p.error-text
+      i.fa.fa-exclamation-circle
+      if notRunningError
+        | Please start this container to view its public keys
+      else
+        | Error loading container public keys
+  else
+    if containerKeys.loaded
+      if containerKeys.length
+        table.ui.table
+          tbody
+            each key in containerKeys
+              tr
+                td
+                  h4
+                    = key.name
+                td.right
+                  if App.userProfile.authorizedGitHubUserName
+                    if saving
+                      button.ui.btn disabled='disabled'
+                        i.spinner
+                        | Adding to GitHub...
+                    else
+                      button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
 
+      else
+        p.hint-text
+          i.fa.fa-info-circle
+          | There aren't any container keys.
     else
       p.hint-text
-        i.fa.fa-exclamation-circle
-        | There aren't any container keys.
-  else
-    p.hint-text
-      i.spinner
-      | Loading...
+        i.spinner
+        | Loading...

@@ -4,6 +4,16 @@ App.ContainerKeysController = Lib.RecordListController.extend
 
   saving: false
 
+  error: false
+  notRunningError: false
+
+  clear: ->
+    @_super.apply this, arguments
+    @setProperties
+      error: false
+      notRunningError: false
+      saving: false
+
   actions:
     add: ->
       @transitionToRoute 'container.keys-new'

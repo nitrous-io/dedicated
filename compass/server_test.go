@@ -1,8 +1,11 @@
 package compass
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -13,7 +16,7 @@ var testData = map[string]string{
 	"hello.example.com.": "127.0.0.1",
 }
 
-func testServer() (*Server, string) {
+func testServer() (*Server, string, error) {
 	addr := fmt.Sprintf("localhost:%d", testPort)
 	config := &Config{
 		Addr: fmt.Sprintf("localhost:%d", testPort),
@@ -28,7 +31,20 @@ func testServer() (*Server, string) {
 	s, _ := NewServer(config)
 	go s.ListenAndServe()
 	testPort += 1
-	return s, addr
+	timeout := time.After(500 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			return s, addr, errors.New("timed out starting server")
+		default:
+			_, err := net.DialTimeout("udp", addr, 10*time.Millisecond)
+			if err == nil {
+				return s, addr, nil
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}
+	return s, addr, nil
 }
 
 type dnsTestCase struct {
@@ -66,8 +82,11 @@ func assertAnswers(t *testing.T, got []dns.RR, expected []dns.RR) {
 }
 
 func TestServeQuestions(t *testing.T) {
-	s, addr := testServer()
+	s, addr, err := testServer()
 	defer s.Stop()
+	if err != nil {
+		t.Fatal("failed to start server", err)
+	}
 
 	testCases := []dnsTestCase{
 		{
@@ -96,8 +115,11 @@ func TestServeQuestions(t *testing.T) {
 }
 
 func TestServeUnhandledDomain(t *testing.T) {
-	s, addr := testServer()
+	s, addr, err := testServer()
 	defer s.Stop()
+	if err != nil {
+		t.Fatal("failed to start server", err)
+	}
 
 	c := new(dns.Client)
 	m := new(dns.Msg)

@@ -16,6 +16,7 @@ var dbStructure = []string{
 	`CREATE TABLE hosts (
 		id bigserial PRIMARY KEY NOT NULL,
 		region_id int NOT NULL,
+		provider_template_id int NOT NULL,
 		slug character varying(255) NOT NULL);`,
 	`CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);`,
 	`DROP TABLE IF EXISTS regions;`,
@@ -23,14 +24,21 @@ var dbStructure = []string{
 		id int PRIMARY KEY NOT NULL,
 		slug character varying(255) NOT NULL);`,
 	`CREATE UNIQUE INDEX index_regions_on_slug ON regions USING btree (slug);`,
+	`DROP TABLE IF EXISTS provider_templates;`,
+	`CREATE TABLE provider_templates (
+		id bigserial PRIMARY KEY NOT NULL,
+		provider character varying(255) NOT NULL);`,
+	`CREATE UNIQUE INDEX index_provider_templates_on_provider ON provider_templates USING btree (provider);`,
+	`INSERT INTO provider_templates (id, provider) VALUES (1, 'digitalocean');`,
+	`INSERT INTO provider_templates (id, provider) VALUES (2, 'amazon');`,
 	`INSERT INTO regions (id, slug) VALUES (1, 'sgp');`,
 	`INSERT INTO regions (id, slug) VALUES (2, 'nyc');`,
 }
 
 var fixtures = []*Host{
-	{Slug: "daniel-box", RegionID: 1},
-	{Slug: "md-box", RegionID: 1},
-	{Slug: "dqminh-box", RegionID: 2},
+	{Slug: "daniel-box", RegionID: 1, ProviderID: 2},
+	{Slug: "md-box", RegionID: 1, ProviderID: 1},
+	{Slug: "dqminh-box", RegionID: 2, ProviderID: 2},
 }
 
 func testNavigator(domain string) n.Navigator {
@@ -55,13 +63,13 @@ func testNavigator(domain string) n.Navigator {
 }
 
 func insertHost(db *sql.DB, values []*Host) error {
-	stm, err := db.Prepare(`INSERT INTO hosts (slug, region_id)
-		VALUES ($1, $2) RETURNING ID`)
+	stm, err := db.Prepare(`INSERT INTO hosts (slug, region_id, provider_template_id)
+		VALUES ($1, $2, $3) RETURNING ID`)
 	if err != nil {
 		return fmt.Errorf("stm error %v", err)
 	}
 	for _, b := range values {
-		err := stm.QueryRow(b.Slug, b.RegionID).Scan(&b.Id)
+		err := stm.QueryRow(b.Slug, b.RegionID, b.ProviderID).Scan(&b.Id)
 		if err != nil {
 			return err
 		}
@@ -80,8 +88,8 @@ func TestFind(t *testing.T) {
 	nav := testNavigator("exampleproxy.com.").(*Navigator)
 	bh := fixtures[0]
 	host, err := nav.find(bh.Slug)
-	if err != nil || host.Slug != "daniel-box" || host.RegionID != 1 || host.RegionSlug != "sgp" {
-		t.Fatalf("Host(%#v), expected daniel-box with region sgp", host)
+	if err != nil || host.Slug != "daniel-box" || host.RegionID != 1 || host.RegionSlug != "sgp" || host.Provider != "amazon" {
+		t.Fatalf("Host(%#v), expected daniel-box with region sgp and provider amazon", host)
 	}
 	_, err = nav.find("invalid-box")
 	if err == nil {
@@ -96,7 +104,7 @@ func TestLookup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to find host, err: %v", err)
 	}
-	cname := fmt.Sprintf("%s.%s.", h.Slug, nav.config[host.RegionSlug])
+	cname := fmt.Sprintf("%s.%s.", host.Provider, nav.config[host.RegionSlug])
 	r, err := nav.Lookup(fmt.Sprintf("%s.exampleproxy.com", h.Slug))
 	if err != nil || r[0].(*dns.CNAME).Target != cname {
 		t.Fatal("Failed to get correct dns record")
@@ -124,7 +132,7 @@ func TestLookupCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected lookup error: %v", err)
 	}
-	cname := fmt.Sprintf("%s.%s.", h.Slug, nav.config[host.RegionSlug])
+	cname := fmt.Sprintf("%s.%s.", host.Provider, nav.config[host.RegionSlug])
 	if r[0].(*dns.CNAME).Target != cname {
 		t.Fatalf("Expected CNAME %s but got %v", cname, r[0])
 	}

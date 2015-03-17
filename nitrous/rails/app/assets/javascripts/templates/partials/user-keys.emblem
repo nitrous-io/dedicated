@@ -23,7 +23,7 @@
                   = dateabbr key.createdAt
     else
       p.hint-text
-        i.fa.fa-exclamation-circle
+        i.fa.fa-info-circle
         | There aren't any user public keys registered.
   else
     p.hint-text

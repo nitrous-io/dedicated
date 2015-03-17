@@ -98,6 +98,9 @@ type HostConfig struct {
 	SecurityGroupID string `json:"security_group_id"`
 	IPAddress       string `json:"ip_address"`
 
+	// VPC specific settings
+	SubnetID string `json:"subnet_id"`
+
 	// StorageSize is used to calculate total storage of the root device.
 	// TotalStorage = StorageSize * storageUnit
 	StorageSize int `json:"storage_size"`
@@ -268,7 +271,7 @@ func (h *Host) Destroy() error {
 	// release elastic IP stored in the client. We cant use
 	// h.instance.PublicIPAddress because it's not guaranteed to be
 	// the correct IP when the instance is stopped
-	if _, err := h.provider.ReleasePublicAddress(h.Config.IPAddress); err != nil {
+	if err := releaseAddress(h.provider, h.Config.IPAddress, isVPC(h.instance)); err != nil {
 		err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
 			h.Config.IPAddress, h.instance.InstanceId, err)
 		return mh.Error(err, label)
@@ -358,17 +361,22 @@ func (h *Host) Start() (*host.Info, error) {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
-		InstanceId:         h.instance.InstanceId,
-		PublicIp:           h.Config.IPAddress,
-		AllowReassociation: false,
-	}); err != nil {
-		return nil, mh.Error(err, label)
-	}
+	// if this is a VPC instance, we dont have to reassociate ElasticIP because
+	// it will be persisted after stop by default.
+	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
+	if !isVPC(h.instance) {
+		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
+			InstanceId:         h.instance.InstanceId,
+			PublicIp:           h.Config.IPAddress,
+			AllowReassociation: false,
+		}); err != nil {
+			return nil, mh.Error(err, label)
+		}
 
-	// reload the instance to get a new public IP address
-	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
-		return nil, mh.Error(err, label)
+		// reload the instance to get a new public IP address
+		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+			return nil, mh.Error(err, label)
+		}
 	}
 
 	return h.Info()
@@ -629,6 +637,10 @@ func createInstance(ctx *host.HostContext) error {
 			},
 		},
 	}
+	// assigned subnet ID for VPC instance
+	if h.Config.SubnetID != "" {
+		opts.SubnetId = h.Config.SubnetID
+	}
 	resp, err := h.provider.RunInstances(opts)
 	if err != nil || len(resp.Instances) == 0 {
 		return mh.Error(fmt.Errorf("amazon: failed to create new instance %v", err), label)
@@ -658,21 +670,8 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	label := h.metricsLabel("allocate_ip")
 	defer mh.UpdateSince(label, time.Now())
 
-	allocateResp, err := h.provider.AllocateAddress(&ec2.AllocateAddress{
-		Domain: "standard",
-	})
+	_, err := assignAddress(h.provider, h.instance.InstanceId, isVPC(h.instance))
 	if err != nil {
-		return mh.Error(err, label)
-	}
-	_, err = h.provider.AssociateAddress(&ec2.AssociateAddress{
-		InstanceId:         h.instance.InstanceId,
-		PublicIp:           allocateResp.PublicIp,
-		AllocationId:       allocateResp.AllocationId,
-		AllowReassociation: false,
-	})
-	if err != nil {
-		// if failed to associate the ElasticIp with the instance, we remove it
-		h.provider.ReleasePublicAddress(allocateResp.PublicIp)
 		return mh.Error(err, label)
 	}
 
@@ -882,4 +881,9 @@ func getState(instance *ec2.Instance) state.State {
 		return state.Stopped
 	}
 	return state.Unknown
+}
+
+// isVPC checks if an instance is a EC2-VPC instance
+func isVPC(i *ec2.Instance) bool {
+	return i != nil && i.SubnetId != ""
 }
