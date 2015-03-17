@@ -1,95 +1,103 @@
-.card-header.bordered
-  h2 Admin &mdash; Hosts
+.ui.card
+  .card-header.bordered
+    h2 Admin &mdash; Amazon Hosts
 
-.card-body
-
-  h3
-    ' Unaccounted
-    i.fa.fa-question-circle title="in Hostbuilder but not in DB"
-    ' :
-    = model.unaccounted.length
   .card-body.bordered
-    = if model.unaccounted.length
+    h3
+      ' Unaccounted
+      i.fa.fa-question-circle title="in Hostbuilder but not in DB"
+      ' :
+      = hosts.unaccounted_hosts.length
+    .card-body.bordered
       table.ui.table
         tbody
           tr
-            th ID
+            th PID
             th State
             th IP Address
             th Freighterd Port
-            th Actions
 
-          = each model.unaccounted
+          = each host in hosts.unaccounted_hosts
             tr
               td title=id
-                a href=providerUrl
-                  = truncate id 12
-              td = state
-              td = ipAddress
-              td = freighterdPort
-              td.actions
-                button.ui.btn.raised click='showTerminateUnaccountedDialog this' Terminate
-    = else
-      p.note No hosts.
+                = host.id
+              td = host.state
+              td = host.ip_address
+              td = host.freighterd_port
 
-  h3
-    ' Dangling
-    i.fa.fa-question-circle title="in DB but not in Hostbuilder"
-    ' :
-    = model.dangling.length
-  = render 'admin/host' model.dangling
+    h3
+      ' Dangling
+      i.fa.fa-question-circle title="in DB but not in Hostbuilder"
+      ' :
+      = hosts.dangling_hosts.length
 
-  h3
-    ' OK:
-    = model.ok.length
-  h4
-    ' Assigned:
-    = model.assigned.length
-  = render 'admin/host' model.assigned
-  button.ui.btn.raised click='updateHosts model.assigned target="view"' Update Hosts
-  h4
-    ' Preprovisioned:
-    = model.preprovisioned.length
-  = render 'admin/host' model.preprovisioned
-  button.ui.btn.raised click='updateHosts model.preprovisioned target="view"' Update Hosts
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th DB State
+            th Region
+            th Plan
 
-#terminate-modal-dialog.ui.modal
-  .ui.card
-    h2.card-header
-      | Are you ABSOLUTELY sure?
-    .card-body
-      p
-        | This action&nbsp;
-        strong CANNOT
-        | &nbsp;be undone!
-      p
-        | This will permanently delete the host&nbsp;
-        strong
-          | &ldquo;
-          if terminateTargetHost.slug
-            = terminateTargetHost.slug
-          if terminateTargetHost.id
-            = truncate terminateTargetHost.id 12
-          | &rdquo;
-        | &nbsp; and all services, images, volumes, and archives within the host.
-    .card-footer
-      .right
-        button.ui.btn click='cancelTerminate' Cancel
-        button.ui.btn.danger.terminate-btn click='confirmTerminate' Terminate
+          = each host in hosts.dangling_hosts
+            tr
+              td.id = host.id
+              td.id = host.provider_identifier
+              td.slug = host.slug
+              td.state = host.state
+              td.region = host.region_id
+              td.plan = host.plan_id
 
-#restart-modal-dialog.ui.modal
-  .ui.card
-    h2.card-header
-      | Are you ABSOLUTELY sure?
-    .card-body
-      p
-        | This will restart the host&nbsp;
-        strong
-          | &ldquo;
-          = restartTargetHost.slug
-          | &rdquo;
-          | .
-    .card-footer
-      .right
-        button.ui.btn click='cancelRestart' Cancel
-        button.ui.btn.danger.terminate-btn click='confirmRestart' Restart
+    h3
+      ' Inconsistent:
+      i.fa.fa-question-circle title="State in DB different from actual running state"
+      = hosts.inconsistent_hosts.length
+    
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th DB State
+            th Live State
+            th Region
+            th Plan
+
+          = each entry in hosts.inconsistent_hosts
+            tr
+              td.id = entry.db_host.id
+              td.id = entry.live_host.id
+              td.slug = entry.db_host.slug
+              td.state = entry.db_host.state
+              td.state = entry.live_host.state
+              td.region = entry.db_host.region_id
+              td.plan = entry.db_host.plan_id
+
+    h3
+      ' Healthy:
+      = hosts.healthy_hosts.length
+
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th State
+            th Region
+            th Plan
+
+          = each entry in hosts.healthy_hosts
+            tr
+              td.id = entry.db_host.id
+              td.id = entry.live_host.id
+              td.slug = entry.db_host.slug
+              td.state = entry.db_host.state
+              td.region = entry.db_host.region_id
+              td.plan = entry.db_host.plan_id

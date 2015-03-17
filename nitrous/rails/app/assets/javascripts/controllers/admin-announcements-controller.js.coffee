@@ -14,5 +14,4 @@ App.AdminAnnouncementsController = Em.Controller.extend
       headers: { Authorization: "Bearer #{App.get 'token'}" }
     )
     .then (data) =>
-      console.log('got announcements', data)
       @set 'announcements', data.announcements
