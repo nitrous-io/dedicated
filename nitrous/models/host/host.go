@@ -100,8 +100,8 @@ type Host struct {
 	UpgradeAvailable      string
 }
 
-func FindAllByProvider(db *db.Database, provider string) ([]Host, error) {
-	hosts := []Host{}
+func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
+	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.* FROM hosts
 		INNER JOIN provider_templates pt
 		  ON hosts.provider_template_id = pt.id
