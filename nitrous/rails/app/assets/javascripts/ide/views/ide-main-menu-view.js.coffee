@@ -163,22 +163,22 @@ App.IdeMainMenuView = Em.View.extend
       menu 'Edit', [
         menuItem 'Find',
           macKey: ['command+f'], pcKey: ['ctrl+f']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editFind()
         menuItem 'Find Next',
           macKey: ['command+g'], pcKey: ['ctrl+g']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editFindNext()
         menuItem 'Select Next',
           macKey: ['command+d'], pcKey: ['ctrl+d']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editSelectNext()
         menuItem 'Find Previous',
           macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editFindPrevious()
         menuItem 'Find in Project...',
@@ -190,12 +190,12 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Replace',
           macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editReplace()
         menuItem 'Replace All',
           macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editReplaceAll()
         separator
@@ -206,22 +206,22 @@ App.IdeMainMenuView = Em.View.extend
             controller.editGoToLine()
         separator
         menuItem 'Fold',
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editFoldCode()
         menuItem 'Unfold',
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editUnfoldCode()
         separator
         menuItem 'Toggle Comment',
           macKey: ['command+/'], pcKey: ['ctrl+/']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editToggleComment()
         menuItem 'Split Selection into Lines',
           macKey: ['shift+ctrl+l'], pcKey: ['shift+ctrl+l']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editSplitSelectionIntoLines()
         separator
