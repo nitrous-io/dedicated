@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"sync"
 )
 
 var (
@@ -119,68 +118,10 @@ func (s *Reader) Read(p []byte) (int, error) {
 	return 0, nil
 }
 
-// Writer takes data written to it and writes it as a data message of the
-// form "d|server_output".
-type Writer struct {
-	writer io.Writer
-}
-
-// NewWriter creates a new Writer that satisfies io.WriteCloser.
-// It is the caller's responsibility to call Close on the WriteCloser when done.
-func NewWriter(w io.Writer) io.WriteCloser {
-	return &Writer{writer: w}
-}
-
 func WriteMsg(p []byte, w io.Writer) (int, error) {
 	l := len(p)
 	buf := make([]byte, l+len(dataMsg))
 	copy(buf[0:2], dataMsg)
 	copy(buf[2:], p)
 	return w.Write(buf)
-}
-
-func (w *Writer) Write(p []byte) (int, error) {
-	_, err := WriteMsg(p, w.writer)
-	return len(p), err
-}
-
-var maxBufferSize = 3 * 1024 * 1024 // 3 megabytes
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		buf := make([]byte, maxBufferSize)
-		return &buf
-	},
-}
-
-// We implement ReadFrom so that io.Copy() will use this method to do the copy.
-// We do this because we want to have a large enough buffer to contain a data
-// message in a single write.
-func (w *Writer) ReadFrom(r io.Reader) (int64, error) {
-	bufp := bufferPool.Get().(*[]byte)
-	defer bufferPool.Put(bufp)
-	buf := *bufp
-
-	var totalRead int64
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			totalRead += int64(n)
-			if _, err := w.Write(buf[0:n]); err != nil {
-				return totalRead, err
-			}
-		}
-		if err != nil {
-			if err == io.EOF {
-				return totalRead, nil
-			}
-			return totalRead, err
-		}
-	}
-}
-
-// Close sends a close message to the client, but does not close the underlying
-// io.Writer.
-func (w *Writer) Close() error {
-	_, err := w.writer.Write(closeMsg)
-	return err
 }

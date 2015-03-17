@@ -79,33 +79,3 @@ func TestReadFragmentedMessages(t *testing.T) {
 		t.Errorf("expect %s but got %v", expected, buf.String())
 	}
 }
-
-func TestNewWriter(t *testing.T) {
-	testCases := []struct {
-		msg      string
-		expected string
-	}{
-		{`action@foobar`, `d|action@foobar`},
-	}
-
-	for _, tc := range testCases {
-		w := bytes.NewBuffer(nil)
-		s := NewWriter(w)
-
-		r := bytes.NewBufferString(tc.msg)
-		io.Copy(s, r)
-
-		if w.String() != tc.expected {
-			t.Errorf("expect %s to be written but got %s", tc.expected, w.String())
-		}
-	}
-}
-
-func TestShellWriterClose(t *testing.T) {
-	w := bytes.NewBuffer(nil)
-	s := NewWriter(w)
-	s.Close()
-	if w.String() != `c|` {
-		t.Errorf("expect close message to be written but got %s", w.String())
-	}
-}
