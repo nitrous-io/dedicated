@@ -31,6 +31,9 @@ type InvoiceItem struct {
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
+
+	PlanStorage sql.NullString `db:"plan_storage"`
+	PlanMemory  sql.NullString `db:"plan_memory"`
 }
 
 const (
