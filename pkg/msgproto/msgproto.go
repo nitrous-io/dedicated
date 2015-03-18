@@ -17,8 +17,6 @@ import (
 	"bytes"
 	"io"
 	"log"
-
-	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 const (
@@ -32,8 +30,12 @@ var (
 	heartbeatMsg = []byte("h")
 )
 
+type messageReader interface {
+	ReadMessage() (int, []byte, error)
+}
+
 // returns type (DataMessage or CloseMessage)
-func ReadAndDecodeMessage(ws *wsconn.Conn) (int, []byte, error) {
+func ReadAndDecodeMessage(ws messageReader) (int, []byte, error) {
 	for {
 		_, d, err := ws.ReadMessage()
 		if err != nil {
