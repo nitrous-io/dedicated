@@ -46,14 +46,14 @@ func SerializeLiveHosts(liveHosts []*hostbuilder.Response) []*LiveHost {
 	return res
 }
 
-func SerializeHostEntry(entry *amazon.HostEntry) *HostEntry {
+func SerializeHostEntry(entry *groupedhosts.HostEntry) *HostEntry {
 	return &HostEntry{
 		LiveHost: SerializeLiveHost(entry.LiveHost),
 		DBHost:   SerializeAdminHost(entry.DBHost),
 	}
 }
 
-func SerializeHostEntries(entries []*amazon.HostEntry) []*HostEntry {
+func SerializeHostEntries(entries []*groupedhosts.HostEntry) []*HostEntry {
 	res := make([]*HostEntry, len(entries))
 	for i, entry := range entries {
 		res[i] = SerializeHostEntry(entry)
@@ -61,7 +61,7 @@ func SerializeHostEntries(entries []*amazon.HostEntry) []*HostEntry {
 	return res
 }
 
-func SerializeHostList(list *amazon.HostList) *HostList {
+func SerializeHostList(list *groupedhosts.HostList) *HostList {
 	return &HostList{
 		AllHosts:          SerializeHostEntries(list.AllHosts),
 		HealthyHosts:      SerializeHostEntries(list.HealthyHosts),

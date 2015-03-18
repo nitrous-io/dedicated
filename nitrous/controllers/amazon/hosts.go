@@ -6,7 +6,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	. "github.com/nitrous-io/dedicated/nitrous/models/amazon"
+	"github.com/nitrous-io/dedicated/nitrous/models/amazon"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -24,7 +24,7 @@ func init() {
 }
 
 func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	hostList, err := ListHosts(env.DB, HostbuilderClient)
+	hostList, err := groupedhosts.ListHosts(env.DB, HostbuilderClient)
 	if err != nil {
 		return err
 	}
