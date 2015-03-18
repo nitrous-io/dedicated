@@ -109,9 +109,7 @@ func mapHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) *HostList
 	return list
 }
 
-func ListHosts(db *dbLib.Database, client *hostbuilderclient.Hostbuilder) (*HostList, error) {
-	provider := "amazon"
-
+func ListHosts(db *dbLib.Database, client *hostbuilderclient.Hostbuilder, provider string) (*HostList, error) {
 	dbHosts, err := host.FindAllByProvider(db, provider)
 	if err != nil {
 		return nil, err

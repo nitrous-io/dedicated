@@ -2,7 +2,7 @@ package serializers
 
 import (
 	"github.com/nitrous-io/dedicated/hostbuilder"
-	"github.com/nitrous-io/dedicated/nitrous/models/amazon"
+	"github.com/nitrous-io/dedicated/nitrous/models/groupedhosts"
 )
 
 type LiveHost struct {
