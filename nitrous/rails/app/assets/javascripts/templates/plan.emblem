@@ -2,7 +2,7 @@ h4
   = plan.name
 h3
   ' $
-  = plan.priceInDollars
+  = plan.totalPriceInDollars
   '
   span
     | / mo.
