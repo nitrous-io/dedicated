@@ -36,8 +36,15 @@ func decorate(s string, match *finder.FileNameMatch) string {
 	res := ""
 	prevEnd := 0
 	positions := ""
+	if flgPositions {
+		for _, m := range matches {
+			positions += fmt.Sprintf("[%d %d] ", m.Pos, m.Len)
+		}
+		fmt.Printf("s: %s\n", s)
+		fmt.Printf("pos: %s\n", positions)
+	}
+
 	for _, m := range matches {
-		positions = fmt.Sprintf("%s[%d %d] ", positions, m.Pos, m.Len)
 		res += s[prevEnd:m.Pos]
 		res += colorMatch
 		prevEnd = m.Pos + m.Len
@@ -45,9 +52,6 @@ func decorate(s string, match *finder.FileNameMatch) string {
 		res += colorReset
 	}
 	res += s[prevEnd:len(s)]
-	if flgPositions {
-		res = res + " : " + positions
-	}
 	if flgScore {
 		res += fmt.Sprintf(" score: %g", match.Score)
 	}

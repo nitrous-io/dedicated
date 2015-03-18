@@ -66,18 +66,31 @@ type MatchPos struct {
 	Len int
 }
 
-type matchPosByPos []MatchPos
+func (p MatchPos) String() string {
+	return fmt.Sprintf("[%d,%d]", p.Pos, p.Len)
+}
 
-func (s matchPosByPos) Len() int {
+// sort by Pos. if position is the same, match by inverse Len (i.e. bigger first)
+type MatchPosByPosInvLen []MatchPos
+
+func (s MatchPosByPosInvLen) Len() int {
 	return len(s)
 }
 
-func (s matchPosByPos) Swap(i, j int) {
+func (s MatchPosByPosInvLen) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func (s matchPosByPos) Less(i, j int) bool {
+func (s MatchPosByPosInvLen) Less(i, j int) bool {
+	if s[i].Pos == s[j].Pos {
+		return s[i].Len > s[j].Len
+	}
 	return s[i].Pos < s[j].Pos
+}
+
+type MatchTerm struct {
+	term              string
+	fuzzyPathMatching bool
 }
 
 type FileNameMatch struct {
@@ -237,26 +250,32 @@ func collectDirInfos(dir string) ([]*DirInfo, error) {
 	return res, nil
 }
 
-func strInArray(s string, a []string) bool {
-	for _, str := range a {
-		if s == str {
+func matchTermInArray(term MatchTerm, a []MatchTerm) bool {
+	for _, t := range a {
+		if term.term == t.term {
 			return true
 		}
 	}
 	return false
 }
 
+func NewMatchTerm(term string) MatchTerm {
+	return MatchTerm{
+		// matching is always case insensitive
+		term:              strings.ToLower(term),
+		fuzzyPathMatching: strings.Contains(term, "/"),
+	}
+}
+
 // split by space and lower case
-func parseSearchTerm(term string) []string {
-	var terms []string
-	parts := strings.Split(term, " ")
-	for _, term := range parts {
-		if len(term) == 0 {
+func parseSearchTerm(term string) []MatchTerm {
+	var terms []MatchTerm
+	for _, termStr := range strings.Split(term, " ") {
+		if len(termStr) == 0 {
 			continue
 		}
-		// matching is always case insensitive
-		term = strings.ToLower(term)
-		if strInArray(term, terms) {
+		term := NewMatchTerm(termStr)
+		if matchTermInArray(term, terms) {
 			continue
 		}
 		terms = append(terms, term)
@@ -267,31 +286,131 @@ func parseSearchTerm(term string) []string {
 	return terms
 }
 
+func matchPathParts(pathParts, termParts []string) []MatchPos {
+	var matchesBuf [8]MatchPos // perf: avoid allocation when no matches
+	matches := matchesBuf[0:0]
+
+	currTermPart := 0
+	termLen := len(termParts)
+	pathLen := len(pathParts)
+	for currPathPart := 0; currPathPart < pathLen; currPathPart++ {
+		// we match from the end
+		term := termParts[termLen-currTermPart-1]
+		pathEl := pathParts[pathLen-currPathPart-1]
+		if idx := strings.Index(pathEl, term); idx != -1 {
+			pos := idx
+			for i := 0; i < pathLen-currPathPart-1; i++ {
+				pos += len(pathParts[i]) + 1
+			}
+			currTermPart++
+			matches = append(matches, MatchPos{Pos: pos, Len: len(term)})
+			if currTermPart == termLen {
+				// all term parts matched
+				return matches
+			}
+		}
+	}
+	// we have unmatched term parts but ran out of path parts to try => no match
+	return nil
+}
+
+// examples:
+// "a/foo" matches "abba/foo.txt"
+// "f/b/foo", "o/r/.txt", "a/oo.txt" matches "foo/bar/foo.txt"
+func matchPathFuzzy(path string, term MatchTerm) []MatchPos {
+	if !term.fuzzyPathMatching {
+		return nil
+	}
+	termParts := strings.Split(term.term, "/")
+	pathParts := strings.Split(path, "/")
+
+	for len(termParts) <= len(pathParts) {
+		if matches := matchPathParts(pathParts, termParts); matches != nil {
+			return matches
+		}
+		pathParts = pathParts[:len(pathParts)-1]
+	}
+	return nil
+}
+
+// if regions p1 and p2 overlap, return true and a region representing merged
+// p1 and p2
+func mergeRegions(p1, p2 MatchPos) (bool, MatchPos) {
+	if p1.Pos > p2.Pos {
+		p1, p2 = p2, p1
+	}
+	if p1.Len+p1.Pos < p2.Pos {
+		return false, MatchPos{}
+	}
+	pos := p1.Pos
+	end := p1.Pos + p1.Len
+	if p2.Pos+p2.Len > end {
+		end = p2.Pos + p2.Len
+	}
+	return true, MatchPos{
+		Pos: pos,
+		Len: end - pos,
+	}
+}
+
+// when match positions overlap, we want to merge them to make it easy to
+// highlight matches
+func mergeOverlappingRegions(a []MatchPos) []MatchPos {
+	if len(a) < 2 {
+		return a
+	}
+	// sort by position so that we only need to do a single pass
+	sort.Sort(MatchPosByPosInvLen(a))
+	i := 0
+	for {
+		didMerge, mergedPos := mergeRegions(a[i], a[i+1])
+		if didMerge {
+			// replace current element with merged value and delete the one after
+			a[i] = mergedPos
+			a = append(a[:i+1], a[i+2:]...)
+		} else {
+			i++
+		}
+		if i+1 >= len(a) {
+			return a
+		}
+	}
+}
+
 // returns nil if no match
-// our scoring:
+// our scoring is based on points:
 // - file match scores higher than dir match
-//   - we give 200 points for file match
+//   - 200 points for file match
 //   - 100 points for dir match
+//   - 50 points for fuzzy path match
 // - we favor relatively larger file matches i.e. "foo" in "foo" scores higher
 //   than "foo" in "foobar". We allocate 40 points * $matchStrength
 //   where $matchStrength is 1..0, where 1 means "all letters match",
 //   0.5 means "matched part is half of the matched string"
-func exactMatch(dir, name string, terms []string) *FileNameMatch {
+func fileNameMatch(dir, name string, terms []MatchTerm) *FileNameMatch {
 	nameLower := strings.ToLower(name)
 	pathLower := filepath.Join(strings.ToLower(dir), nameLower)
-	var positions [maxTerms * 2]MatchPos // *2 because both file and dir might match
+	var positionsBuf [maxTerms * 3]MatchPos // perf: minimize allocations for no-match cases
+	positions := positionsBuf[0:0]
 
 	posFileAdjust := 0
 	if len(dir) > 0 {
 		posFileAdjust = len(dir) + 1 // +1 for "/"
 	}
 	var score float64
-	nPos := 0
 	for _, term := range terms {
-		posFile := strings.Index(nameLower, term)
-		posPath := strings.Index(pathLower, term)
+		termStr := term.term
+		posFile := strings.Index(nameLower, termStr)
+		posPath := strings.Index(pathLower, termStr)
+
+		pathMatched := false
+		// only try fuzzy match if we don't have exact match
 		if posFile == -1 && posPath == -1 {
-			return nil
+			pathMatches := matchPathFuzzy(pathLower, term)
+			if pathMatches == nil {
+				return nil
+			}
+			positions = append(positions, pathMatches...)
 		}
 
 		// if only file matches, it'll match in path as well, don't count it twice
@@ -300,31 +419,27 @@ func exactMatch(dir, name string, terms []string) *FileNameMatch {
 		}
 		if posPath != -1 {
 			score += 100
-			positions[nPos].Pos = posPath
-			positions[nPos].Len = len(term)
-			nPos++
+			positions = append(positions, MatchPos{Pos: posPath, Len: len(termStr)})
 		}
 		if posFile != -1 {
 			score += 200
-			scoreAdj := (40 * len(term)) / len(name)
+			scoreAdj := (40 * len(termStr)) / len(name)
 			score += float64(scoreAdj)
-			positions[nPos].Pos = posFile + posFileAdjust
-			positions[nPos].Len = len(term)
-			nPos++
+			positions = append(positions, MatchPos{Pos: posFile + posFileAdjust, Len: len(termStr)})
+		}
+		if pathMatched {
+			score += 50
+			positions = append(positions, MatchPos{Pos: 0, Len: len(pathLower)})
 		}
 	}
 
-	matchPositions := make([]MatchPos, nPos, nPos)
-	for i := 0; i < nPos; i++ {
-		matchPositions[i] = positions[i]
-	}
-	sort.Sort(matchPosByPos(matchPositions))
-
+	positions = mergeOverlappingRegions(positions)
 	match := &FileNameMatch{
 		FilePath: filepath.Join(dir, name),
 		Score:    score,
-		Matches:  matchPositions,
+		Matches:  positions,
 	}
+
 	return match
 }
 
@@ -359,7 +474,9 @@ func FindFiles(dir string, term string) ([]*FileNameMatch, error) {
 	for _, di := range dirs {
 		nTotalFiles += di.nFiles
 		for i := 0; i < di.nFiles; i++ {
-			match := exactMatch(di.dir, di.GetFile(i), terms)
+			match := fileNameMatch(di.dir, di.GetFile(i), terms)
+			// we might have used file names cached in memory so avoid false positives
+			// by rejecting matches for files that no longer exist on disk
 			if match != nil && fileStillExists(match) {
 				matches = append(matches, match)
 			}

@@ -107,7 +107,57 @@ func TestFindFiles(t *testing.T) {
 	testMatches(t, root, "foo", []string{"foo.txt", "bar/foo/xyz.go"})
 	testMatches(t, root, "foo y", []string{"bar/foo/xyz.go"})
 	testMatches(t, root, ".go", []string{"bar/foo/xyz.go", "dist/test.go", "daemon/container.go"})
+	testMatches(t, root, "b/o/.go", []string{"bar/foo/xyz.go"})
+	testMatches(t, root, "a/yz", []string{"bar/foo/xyz.go"})
+	testMatches(t, root, "r/oo/yz", []string{"bar/foo/xyz.go"})
+	testMatches(t, root, "r/oo", []string{"bar/foo/xyz.go"})
 	testMatches(t, root, "daa", []string{})
 	testMatches(t, root, "bar xyz lo", []string{})
 	testCachedDir(t, root)
+}
+
+func TestMergeRegions(t *testing.T) {
+	// each test case is 6 numbers, 2 numbers per MatchPos specifying (pos, len)
+	// first 2 MatchPos are args to mergeRegions(), 3rd is expected result
+	merged := []int{
+		0, 1, 0, 3, 0, 3,
+		0, 3, 0, 1, 0, 3,
+		1, 8, 3, 1, 1, 8,
+		3, 1, 1, 8, 1, 8,
+		0, 108, 106, 2, 0, 108,
+		106, 2, 0, 108, 0, 108,
+	}
+	n := len(merged) / 6
+	for i := 0; i < n; i++ {
+		p1 := MatchPos{Pos: merged[i*6], Len: merged[i*6+1]}
+		p2 := MatchPos{Pos: merged[i*6+2], Len: merged[i*6+3]}
+		exp := MatchPos{Pos: merged[i*6+4], Len: merged[i*6+5]}
+		didMerge, got := mergeRegions(p1, p2)
+		if !didMerge {
+			t.Errorf("mergeRegions() didn't merge %#v and %#v", p1, p2)
+		} else {
+			if got.Len != exp.Len || got.Pos != exp.Pos {
+				t.Errorf("mergeRegions() got: %s exp: %s, p1: %s, p2: %s", got, exp, p1, p2)
+			}
+		}
+	}
+	// each test case is 4 numbers, 2 numbers per MatchPos specifying (pos, len)
+	// we send 2 MatchPos and check that they do not overlap
+	nonMerged := []int{
+		0, 0, 1, 1,
+		1, 1, 0, 0,
+		0, 5, 6, 1,
+		6, 1, 0, 5,
+		3, 4, 8, 3,
+		8, 3, 3, 4,
+	}
+	n = len(nonMerged) / 4
+	for i := 0; i < n; i++ {
+		p1 := MatchPos{Pos: nonMerged[i*4], Len: nonMerged[i*4+1]}
+		p2 := MatchPos{Pos: nonMerged[i*4+2], Len: nonMerged[i*4+3]}
+		didMerge, got := mergeRegions(p1, p2)
+		if didMerge {
+			t.Errorf("mergeRegions() unexpectedly merged p1: %s, p2: %s into %s", p1, p2, got)
+		}
+	}
 }
