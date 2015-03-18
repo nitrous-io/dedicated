@@ -23,7 +23,6 @@ type Container struct {
 	Slug       string
 	RegionID   int
 	RegionSlug string
-	ProviderID int
 	Provider   string
 }
 
