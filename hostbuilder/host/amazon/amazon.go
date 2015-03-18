@@ -26,13 +26,14 @@ const (
 	DefaultPort uint16 = 65333
 	sshPort     uint16 = 65100
 
-	// represents 10gb of storage
-	storageUnit = 10
-	// minimum storage size. This is the size of standard root disk used in AMI
+	// represents 1gb of storage
+	storageUnit = 1
+	// minimum storage size in GB. This is the size of standard root disk used in AMI
 	minStorageSize = 4
-	// represents 1TB of storage, also the maximum size of a single EBS volume
+	// maximum storage size in GB. This is also the maximum size of a single
+	// EBS volume
 	// http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EbsBlockDevice.html
-	maxStorageSize = 100
+	maxStorageSize = 1024
 
 	GeneralVolumeType  = "gp2"
 	IOPSVolumeType     = "io1"
@@ -611,12 +612,12 @@ func createInstance(ctx *host.HostContext) error {
 		mh.UpdateSince(label, start)
 	}(time.Now())
 
-	if h.Config.StorageSize > maxStorageSize {
-		h.Config.StorageSize = maxStorageSize
-	} else if h.Config.StorageSize < minStorageSize {
-		h.Config.StorageSize = minStorageSize
-	}
 	storageSize := int64(h.Config.StorageSize * storageUnit)
+	if storageSize > maxStorageSize {
+		storageSize = maxStorageSize
+	} else if storageSize < minStorageSize {
+		storageSize = minStorageSize
+	}
 
 	hlog(h, "amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.Name)
