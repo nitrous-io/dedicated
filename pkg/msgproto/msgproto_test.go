@@ -1,6 +1,7 @@
 package msgproto
 
 import (
+	"bytes"
 	"io"
 	"testing"
 )
@@ -66,5 +67,25 @@ func TestReadAndDecodeMessage(t *testing.T) {
 		if exp[i] != got[i] {
 			t.Errorf("exp[%d]='%s' != got[%d]='%s'", i, exp[i], i, got[i])
 		}
+	}
+}
+
+func TestWriteDataMessage(t *testing.T) {
+	data := []string{"", "s1", "d", "asdfasfd", "d|"}
+	var expBuf bytes.Buffer
+	var gotBuf bytes.Buffer
+	for _, s := range data {
+		expBuf.Write([]byte("d|"))
+		expBuf.Write([]byte(s))
+		_, err := WriteDataMessage([]byte(s), &gotBuf)
+		if err != nil {
+			t.Errorf("WriteDataMessage() failed with %s", err)
+			return
+		}
+	}
+	exp := string(expBuf.Bytes())
+	got := string(gotBuf.Bytes())
+	if exp != got {
+		t.Errorf("'%s' != '%s'", exp, got)
 	}
 }
