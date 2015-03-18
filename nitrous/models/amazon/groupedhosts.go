@@ -94,6 +94,12 @@ func mapHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) *HostList
 	list := &HostList{}
 
 	index, danglingHosts := indexHosts(liveHosts, dbHosts)
+
+	for _, danglingHost := range danglingHosts {
+		list.AllHosts = append(list.AllHosts, &HostEntry{
+			DBHost: danglingHost,
+		})
+	}
 	list.DanglingHosts = danglingHosts
 
 	for _, entry := range index {

@@ -15,8 +15,8 @@ type LiveHost struct {
 }
 
 type HostEntry struct {
-	DBHost   *AdminHost `json:"db_host"`
-	LiveHost *LiveHost  `json:"live_host"`
+	DBHost   *AdminHost `json:"db_host,omitempty"`
+	LiveHost *LiveHost  `json:"live_host,omitempty"`
 }
 
 type HostList struct {
@@ -28,6 +28,10 @@ type HostList struct {
 }
 
 func SerializeLiveHost(h *hostbuilder.Response) *LiveHost {
+	if h == nil {
+		return nil
+	}
+
 	return &LiveHost{
 		Provider:       h.Provider,
 		ID:             h.ID,
