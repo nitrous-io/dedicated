@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -75,8 +74,8 @@ var _ = Describe("controllers/amazon", func() {
 	})
 
 	Describe("GET /api/v0/admin/amazon/hosts", func() {
-		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/amazon/hosts", params)
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/amazon/hosts", nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -85,16 +84,13 @@ var _ = Describe("controllers/amazon", func() {
 
 		Context("when the requester is not an admin", func() {
 			It("responds with 404 Not Found", func() {
-				res := doRequest(t, nil)
+				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 
 		Context("when the requester is an admin", func() {
-			var (
-				hs1, hs2, hs3 *test.HostStack
-				provider      = "amazon"
-			)
+			var hs1, hs2, hs3 *test.HostStack
 
 			BeforeEach(func() {
 				var err error
@@ -109,7 +105,7 @@ var _ = Describe("controllers/amazon", func() {
 						Slug:               "healthy-host-1",
 					},
 					PT: &providertemplate.ProviderTemplate{
-						Provider: provider,
+						Provider: "amazon",
 						Name:     "ec2-sgp-512mb",
 					},
 					U: u,
@@ -146,33 +142,33 @@ var _ = Describe("controllers/amazon", func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
 				rt := &test.FakeRoundTripper{
 					Message: `{
-            "hosts": [
-              {
-                "provider": "amazon",
-                "id": "ec2-healthy-1",
-                "name": "i-am-healthy",
-                "ip_address": "1.2.3.4",
-                "freighterd_port": 65333,
-                "state": "Running"
-              },
-              {
-                "provider": "amazon",
-                "id": "ec2-unaccounted-1",
-                "name": "not-in-db",
-                "ip_address": "2.4.6.8",
-                "freighterd_port": 65333,
-                "state": "Running"
-              },
-              {
-                "provider": "amazon",
-                "id": "ec2-inconsistent-1",
-                "name": "running-or-upgrading",
-                "ip_address": "1.6.6.6",
-                "freighterd_port": 65334,
-                "state": "Running"
-              }
-            ]
-          }`,
+						"hosts": [
+							{
+								"provider": "amazon",
+								"id": "ec2-healthy-1",
+								"name": "i-am-healthy",
+								"ip_address": "1.2.3.4",
+								"freighterd_port": 65333,
+								"state": "Running"
+							},
+							{
+								"provider": "amazon",
+								"id": "ec2-unaccounted-1",
+								"name": "not-in-db",
+								"ip_address": "2.4.6.8",
+								"freighterd_port": 65333,
+								"state": "Running"
+							},
+							{
+								"provider": "amazon",
+								"id": "ec2-inconsistent-1",
+								"name": "running-or-upgrading",
+								"ip_address": "1.6.6.6",
+								"freighterd_port": 65334,
+								"state": "Running"
+							}
+						]
+					}`,
 					Status: http.StatusOK,
 				}
 				hb.Client.Client.Transport = rt
@@ -180,9 +176,7 @@ var _ = Describe("controllers/amazon", func() {
 			})
 
 			It("responds with list of grouped hosts", func() {
-				p := &url.Values{}
-				p.Set("provider", provider)
-				res := doRequest(t, p)
+				res := doRequest()
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
