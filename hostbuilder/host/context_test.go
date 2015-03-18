@@ -64,7 +64,7 @@ var _ = Describe("context", func() {
 			var counter int
 			err := hctx.Run(host.Step{
 				Func: func(*host.HostContext) error {
-					time.Sleep(30 * time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 					counter++
 					return nil
 				},
@@ -84,7 +84,7 @@ var _ = Describe("context", func() {
 			var counter int
 			err := hctx.Run(host.Step{
 				Func: func(*host.HostContext) error {
-					time.Sleep(30 * time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 					counter++
 					return nil
 				},

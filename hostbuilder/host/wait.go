@@ -12,9 +12,6 @@ import (
 // to len(attempts) times, waiting attempts[n-1] duration after attempt n.
 // Note that the final element of attempts can be any value, since sleeping
 // after is unnecessary.
-// Due to CI contention (test box resources under load) making timeout testing hard
-// tests located in `wait_test.go` have been marked as Pending. If you modify this func
-// please remove the P and run the tests yourself.
 func WaitForServer(url string, clientTimeout time.Duration, attempts []time.Duration) bool {
 	if len(attempts) == 0 {
 		return true

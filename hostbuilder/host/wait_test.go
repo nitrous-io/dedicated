@@ -30,18 +30,15 @@ var _ = Describe("WaitForServer", func() {
 		)
 
 		attemptTimes := []time.Duration{50 * time.Millisecond, 50 * time.Millisecond}
+		timeout := 500 * time.Millisecond // Give server more than enough time to respond.
 
-		Expect(host.WaitForServer(server.URL(), 200*time.Millisecond, attemptTimes)).To(BeTrue())
+		Expect(host.WaitForServer(server.URL(), timeout, attemptTimes)).To(BeTrue())
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 	})
 
-	// The following tests are marked as Pending to avoid the tests failing during high CI load
-	// due to resource contention. When modifying `WaitForServer` remove the Pending state and
-	// test yourself.
-
-	PIt("should return false if the server times out", func() {
+	It("should return false if the server times out", func() {
 		clientTimeout := 50 * time.Millisecond
-		serverTimeout := 100 * time.Millisecond
+		serverTimeout := 200 * time.Millisecond // Set this high enough so that server never responds.
 
 		timeoutHandler := ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", "/"),
@@ -54,17 +51,22 @@ var _ = Describe("WaitForServer", func() {
 		defer server.Close()
 		server.AppendHandlers(timeoutHandler, timeoutHandler)
 
-		attemptTimes := []time.Duration{10 * time.Millisecond, 10 * time.Second}
+		delay1 := 50 * time.Millisecond
+		delay2 := 10 * time.Second
+		attemptTimes := []time.Duration{delay1, delay2}
 
 		start := time.Now()
 		Expect(host.WaitForServer(server.URL(), clientTimeout, attemptTimes)).To(BeFalse())
 		since := time.Since(start)
-		Expect(since).To(BeNumerically(">=", 2*clientTimeout+10*time.Millisecond))
-		Expect(since).To(BeNumerically("<=", 2*clientTimeout+10*time.Millisecond+10*time.Second))
-		Expect(server.ReceivedRequests()).To(HaveLen(2))
+		Expect(since).To(BeNumerically(">=", 2*clientTimeout+delay1))
+		Expect(since).To(BeNumerically("<=", 2*clientTimeout+delay1+delay2))
+
+		Eventually(func() int {
+			return len(server.ReceivedRequests())
+		}, 2*serverTimeout+delay1).Should(Equal(2))
 	})
 
-	PIt("should return false if the server is up but does not return 200", func() {
+	It("should return false if the server is up but does not return 200", func() {
 		unavailableHandler := ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", "/"),
 			ghttp.RespondWith(http.StatusServiceUnavailable, ""),
@@ -75,8 +77,9 @@ var _ = Describe("WaitForServer", func() {
 		server.AppendHandlers(unavailableHandler, unavailableHandler)
 
 		attemptTimes := []time.Duration{50 * time.Millisecond, 50 * time.Millisecond}
+		timeout := 500 * time.Millisecond // Give server more than enough time to respond.
 
-		Expect(host.WaitForServer(server.URL(), 100*time.Millisecond, attemptTimes)).To(BeFalse())
+		Expect(host.WaitForServer(server.URL(), timeout, attemptTimes)).To(BeFalse())
 		Expect(server.ReceivedRequests()).To(HaveLen(2))
 	})
 })
