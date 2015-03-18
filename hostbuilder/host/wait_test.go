@@ -60,10 +60,6 @@ var _ = Describe("WaitForServer", func() {
 		since := time.Since(start)
 		Expect(since).To(BeNumerically(">=", 2*clientTimeout+delay1))
 		Expect(since).To(BeNumerically("<=", 2*clientTimeout+delay1+delay2))
-
-		Eventually(func() int {
-			return len(server.ReceivedRequests())
-		}, 2*serverTimeout+delay1).Should(Equal(2))
 	})
 
 	It("should return false if the server is up but does not return 200", func() {
