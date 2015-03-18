@@ -48,8 +48,10 @@
               td.id = host.provider_identifier
               td.slug = host.slug
               td.state = host.state
-              td.region = host.region_id
-              td.plan = host.plan_id
+              td.region 
+                = region-slug host.region_id
+              td.plan 
+                = plan-slug host.plan_id
 
     h3
       ' Inconsistent:
@@ -75,8 +77,10 @@
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
               td.state = entry.live_host.state
-              td.region = entry.db_host.region_id
-              td.plan = entry.db_host.plan_id
+              td.region 
+                = region-slug entry.db_host.region_id
+              td.plan 
+                = plan-slug entry.db_host.plan_id
 
     h3
       ' Healthy:
@@ -99,5 +103,7 @@
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
-              td.region = entry.db_host.region_id
-              td.plan = entry.db_host.plan_id
+              td.region 
+                = region-slug entry.db_host.region_id
+              td.plan 
+                = plan-slug entry.db_host.plan_id

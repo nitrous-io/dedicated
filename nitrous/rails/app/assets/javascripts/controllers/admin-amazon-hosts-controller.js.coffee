@@ -9,5 +9,4 @@ App.AdminAmazonHostsController = Em.Controller.extend
       headers: { Authorization: "Bearer #{App.get 'token'}" }
     )
     .then (data) =>
-      console.log('got hosts:', data.hosts)
       @set 'hosts', data.hosts

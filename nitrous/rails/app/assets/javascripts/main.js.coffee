@@ -42,6 +42,26 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
+  regionIndex: (->
+    regions = @get('regions')
+
+    index = {}
+    for region in regions.get('content')
+      index[region.get('id')] = region
+
+    return index
+  ).property 'regions'
+
+  planIndex: (->
+    plans = @get('plans')
+
+    index = {}
+    for plan in plans.get('content')
+      index[plan.get('id')] = plan
+
+    return index
+  ).property 'plans'
+
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
   ).property 'billingProfile', 'billingProfile.cardRequired'
