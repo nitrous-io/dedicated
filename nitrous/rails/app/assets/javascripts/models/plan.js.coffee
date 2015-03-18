@@ -7,6 +7,7 @@ App.Plan = klass = App.Model.extend
   name: attr()
   maxContainers: attr('number', as: 'max_containers')
   price: attr('number')
+  basePrice: attr('number', as: 'base_price')
   cpu: attr()
   memory: attr()
   storage: attr()
@@ -27,13 +28,15 @@ App.Plan = klass = App.Model.extend
       "#{name} - #{memory} ram / #{storage} ssd / #{cpu} cpu"
   ).property 'name', 'price', 'cpu', 'memory', 'storage'
 
-  priceInDollars: (->
-    if price = @get 'price'
-      priceDollars = price / 100
-      if priceDollars != Math.floor(priceDollars)
-        priceDollars = priceDollars.toFixed(2)
-      priceDollars.toString()
-  ).property 'price'
+  totalPriceInDollars: (->
+    if cp = @get 'price'
+      if bp = @get 'basePrice'
+        cp = cp + bp
+      cpDollars = cp / 100
+      if cpDollars != Math.floor(cpDollars)
+        cpDollars = cpDollars.toFixed(2)
+      cpDollars.toString()
+  ).property 'price', 'basePrice'
 
 klass.reopenClass
   url: '/plans'
