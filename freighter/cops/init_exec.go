@@ -21,6 +21,13 @@ import (
 
 const execCommandName = "cops-exec"
 
+var (
+	copsFeatures = map[string]interface{}{
+	// for every optional feature cops provides, add entry mapping to true:
+	// "thisFeatureIsAvailable" : true,
+	}
+)
+
 func init() {
 	reexec.Register(execCommandName, execInit)
 }
@@ -107,15 +114,11 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 }
 
 func (oh *OpsHandler) sendFeatures(orig *Message) {
-	features := map[string]interface{}{
-	// for every optional feature freighter provides, add entry mapping to true:
-	// "thisFeatureIsAvailable" : true,
-	}
 	msg := &Message{
 		Namespace: orig.Namespace,
 		Event:     orig.Event,
 		CID:       orig.CID,
-		Args:      []interface{}{features},
+		Args:      []interface{}{copsFeatures},
 	}
 	oh.sendReply(msg)
 }
@@ -231,7 +234,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 			// on unknown messages we send an error back. this allows IDE to work
 			// with older versions of freighter (as long as it sensibly handles this
 			// message)
-			log.Printf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
+			log.Printf("copsMessageLoop() invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
 			oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 		}
 	}
