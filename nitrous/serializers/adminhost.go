@@ -20,10 +20,10 @@ func SerializeAdminHost(h *host.Host) *AdminHost {
 	}
 }
 
-func SerializeAdminHosts(hosts []host.Host) []*AdminHost {
+func SerializeAdminHosts(hosts []*host.Host) []*AdminHost {
 	ret := make([]*AdminHost, len(hosts))
 	for i, h := range hosts {
-		ret[i] = SerializeAdminHost(&h)
+		ret[i] = SerializeAdminHost(h)
 	}
 	return ret
 }

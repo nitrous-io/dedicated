@@ -1,0 +1,109 @@
+.ui.card
+  .card-header.bordered
+    h2 Admin &mdash; Amazon Hosts
+
+  .card-body.bordered
+    h3
+      ' Unaccounted
+      i.fa.fa-question-circle title="in Hostbuilder but not in DB"
+      ' :
+      = hosts.unaccounted_hosts.length
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th PID
+            th State
+            th IP Address
+            th Freighterd Port
+
+          = each host in hosts.unaccounted_hosts
+            tr
+              td title=id
+                = host.id
+              td = host.state
+              td = host.ip_address
+              td = host.freighterd_port
+
+    h3
+      ' Dangling
+      i.fa.fa-question-circle title="in DB but not in Hostbuilder"
+      ' :
+      = hosts.dangling_hosts.length
+
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th DB State
+            th Region
+            th Plan
+
+          = each host in hosts.dangling_hosts
+            tr
+              td.id = host.id
+              td.id = host.provider_identifier
+              td.slug = host.slug
+              td.state = host.state
+              td.region 
+                = region-slug host.region_id
+              td.plan 
+                = plan-slug host.plan_id
+
+    h3
+      ' Inconsistent:
+      i.fa.fa-question-circle title="State in DB different from actual running state"
+      = hosts.inconsistent_hosts.length
+    
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th DB State
+            th Live State
+            th Region
+            th Plan
+
+          = each entry in hosts.inconsistent_hosts
+            tr
+              td.id = entry.db_host.id
+              td.id = entry.live_host.id
+              td.slug = entry.db_host.slug
+              td.state = entry.db_host.state
+              td.state = entry.live_host.state
+              td.region 
+                = region-slug entry.db_host.region_id
+              td.plan 
+                = plan-slug entry.db_host.plan_id
+
+    h3
+      ' Healthy:
+      = hosts.healthy_hosts.length
+
+    .card-body.bordered
+      table.ui.table
+        tbody
+          tr
+            th HID
+            th PID
+            th Slug
+            th State
+            th Region
+            th Plan
+
+          = each entry in hosts.healthy_hosts
+            tr
+              td.id = entry.db_host.id
+              td.id = entry.live_host.id
+              td.slug = entry.db_host.slug
+              td.state = entry.db_host.state
+              td.region 
+                = region-slug entry.db_host.region_id
+              td.plan 
+                = plan-slug entry.db_host.plan_id
