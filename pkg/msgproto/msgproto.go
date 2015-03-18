@@ -25,9 +25,9 @@ const (
 )
 
 var (
-	dataMsg      = []byte("d|")
-	closeMsg     = []byte("c|")
-	heartbeatMsg = []byte("h")
+	dataMsgPrefix       = []byte("d|")
+	closeMsgPrefix      = []byte("c|")
+	heartbeatMsg   byte = 'h'
 )
 
 type messageReader interface {
@@ -43,15 +43,15 @@ func ReadAndDecodeMessage(ws messageReader) (int, []byte, error) {
 		}
 
 		n := len(d)
-		if n == 1 && d[0] == 'h' {
+		if n == 1 && d[0] == heartbeatMsg {
 			// ignore heartbeat message
 			continue
 		}
 		if n > 2 {
-			if bytes.Equal(d[:2], dataMsg) {
+			if bytes.Equal(d[:2], dataMsgPrefix) {
 				return DataMessage, d[2:], nil
 			}
-			if bytes.Equal(d[:2], closeMsg) {
+			if bytes.Equal(d[:2], closeMsgPrefix) {
 				return CloseMessage, d[2:], nil
 			}
 		}
@@ -61,8 +61,8 @@ func ReadAndDecodeMessage(ws messageReader) (int, []byte, error) {
 
 func WriteDataMessage(p []byte, w io.Writer) (int, error) {
 	l := len(p)
-	buf := make([]byte, l+len(dataMsg))
-	copy(buf[0:2], dataMsg)
+	buf := make([]byte, l+len(dataMsgPrefix))
+	copy(buf[0:2], dataMsgPrefix)
 	copy(buf[2:], p)
 	return w.Write(buf)
 }
