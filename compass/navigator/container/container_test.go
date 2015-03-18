@@ -41,10 +41,15 @@ var dbStructure = []string{
 	`CREATE UNIQUE INDEX index_containers_on_slug ON containers USING btree (slug);`,
 }
 
-var fixtures = []*Container{
-	{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp", ProviderID: 2},
-	{Slug: "md-box", RegionID: 1, RegionSlug: "sgp", ProviderID: 1},
-	{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc", ProviderID: 2},
+type fixture struct {
+	Container
+	providerTemplateID int64
+}
+
+var fixtures = []fixture{
+	{Container: Container{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp"}, providerTemplateID: 2},
+	{Container: Container{Slug: "md-box", RegionID: 1, RegionSlug: "sgp"}, providerTemplateID: 1},
+	{Container: Container{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc"}, providerTemplateID: 2},
 }
 
 func testNavigator(domain string) n.Navigator {
@@ -57,28 +62,27 @@ func testNavigator(domain string) n.Navigator {
 		log.Println("failed to create navigator", err)
 	}
 	for _, s := range dbStructure {
-		_, err = b.(*Navigator).db.Exec(s)
-		if err != nil {
+		if _, err := b.(*Navigator).db.Exec(s); err != nil {
 			log.Println("failed to set db structure", err, s)
 		}
 	}
-	if err := insertContainer(b.(*Navigator).db, fixtures); err != nil {
+	if err := insertContainers(b.(*Navigator).db, fixtures); err != nil {
 		log.Println("failed to set db fixtures", err)
 	}
 	return b
 }
 
-func insertContainer(db *sql.DB, containers []*Container) error {
-	for i, c := range containers {
+func insertContainers(db *sql.DB, fixtures []fixture) error {
+	for i, f := range fixtures {
 		var hostID int
 		var err error
 		err = db.QueryRow(`INSERT INTO hosts (slug, region_id, provider_template_id) VALUES ($1, $2, $3) RETURNING ID`,
-			fmt.Sprintf("host-%d", i), c.RegionID, c.ProviderID).Scan(&hostID)
+			fmt.Sprintf("host-%d", i), f.RegionID, f.providerTemplateID).Scan(&hostID)
 		if err != nil {
 			return err
 		}
 		err = db.QueryRow(`INSERT INTO containers (slug, host_id) VALUES ($1, $2) RETURNING ID`,
-			c.Slug, hostID).Scan(&c.Id)
+			f.Slug, hostID).Scan(&f.Container.Id)
 		if err != nil {
 			return err
 		}
