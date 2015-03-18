@@ -347,6 +347,7 @@ var _ = Describe("biller", func() {
 					Hours:       sql.NullInt64{92, true},
 					HourlyPrice: sql.NullInt64{30, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"1GB", true},
 				}
 
 				err = invItem.Insert(db)
@@ -457,12 +458,14 @@ var _ = Describe("biller", func() {
 				Hours:       sql.NullInt64{92, true},
 				HourlyPrice: sql.NullInt64{1000, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 
 			item2 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{672, true},
 				HourlyPrice: sql.NullInt64{3722, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"19 GB", true},
 			}
 
 			i = &biller.InvoiceResult{

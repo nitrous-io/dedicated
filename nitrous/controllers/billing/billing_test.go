@@ -358,6 +358,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{24, true},
 					HourlyPrice: sql.NullInt64{2000, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"1 TB", true},
 				}
 				Expect(itm1.Insert(db)).To(BeNil())
 				itm2 := invoiceitem.InvoiceItem{
@@ -366,6 +367,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{48, true},
 					HourlyPrice: sql.NullInt64{1000, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"1 TB", true},
 				}
 				Expect(itm2.Insert(db)).To(BeNil())
 
@@ -375,6 +377,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{10, true},
 					HourlyPrice: sql.NullInt64{3000, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"6 GB", true},
 				}
 				Expect(itm3.Insert(db)).To(BeNil())
 
@@ -384,6 +387,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{8, true},
 					HourlyPrice: sql.NullInt64{1000, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"2 GB", true},
 				}
 				Expect(itm4.Insert(db)).To(BeNil())
 				itm5 := invoiceitem.InvoiceItem{
@@ -392,6 +396,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{12, true},
 					HourlyPrice: sql.NullInt64{500, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"12 MB", true},
 				}
 				Expect(itm5.Insert(db)).To(BeNil())
 				itm6 := invoiceitem.InvoiceItem{
@@ -400,6 +405,7 @@ var _ = Describe("controllers/billing", func() {
 					Hours:       sql.NullInt64{6, true},
 					HourlyPrice: sql.NullInt64{37210, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"1 GB", true},
 				}
 				Expect(itm6.Insert(db)).To(BeNil())
 				itm7 := invoiceitem.InvoiceItem{

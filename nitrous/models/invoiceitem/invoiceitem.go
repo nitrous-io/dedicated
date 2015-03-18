@@ -53,6 +53,8 @@ var (
 	ErrHourlyPriceNegative = errors.New("HourlyPrice must not be a negative")
 	ErrHoursExceedMaxHours = errors.New("Hours must be less than/equal to MaxHours")
 	ErrInvalidItemType     = errors.New("ItemType must be valid")
+	ErrPlanStorageMissing  = errors.New("PlanStorage must be specified for base_ebs")
+	ErrPlanMemoryMissing   = errors.New("PlanMemory must be specified for compute")
 )
 
 func ItemDescription(i *InvoiceItem, hst *host.Host) string {
@@ -119,8 +121,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type)
-    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type)
+    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory)
+    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -133,8 +135,8 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, updated_at)
-    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, now())
+    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory, updated_at)
+    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -149,6 +151,14 @@ func (i *InvoiceItem) validate() error {
 			return ErrCreditInvalid
 		}
 		return nil
+	}
+
+	if i.ItemType == ItemTypeCompute && !i.PlanMemory.Valid {
+		return ErrPlanMemoryMissing
+	}
+
+	if i.ItemType == ItemTypeBaseEBS && !i.PlanStorage.Valid {
+		return ErrPlanStorageMissing
 	}
 
 	if i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeBaseEBS {

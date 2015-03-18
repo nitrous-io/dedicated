@@ -223,6 +223,7 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 			err := i1.Insert(db)
 			Expect(err).To(BeNil())
@@ -233,6 +234,7 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"4 GB", true},
 			}
 			err = i2.Insert(db)
 			Expect(err).To(BeNil())
@@ -251,6 +253,7 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"3 GB", true},
 			}
 			err = n1.Insert(db)
 			Expect(err).To(BeNil())
@@ -266,6 +269,7 @@ var _ = Describe("models/invoiceitem", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"1 GB", true},
 				HostID:      sql.NullInt64{h.ID, true},
 				Terminated:  true,
 				Hours:       sql.NullInt64{24, true},
@@ -309,7 +313,7 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
-		It("should expect Hours to be valid if the type is a Compute", func() {
+		It("should require PlanMemory to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
 				ItemType:    invoiceitem.ItemTypeCompute,
@@ -318,16 +322,30 @@ var _ = Describe("models/invoiceitem", func() {
 				StripeID:    sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrPlanMemoryMissing))
+		})
+
+		It("should require Hours to be valid if the type is a Compute", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeCompute,
+				HostID:      sql.NullInt64{h.ID, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+				PlanMemory:  sql.NullString{"1 GB", true},
+			}
+			err := i.Insert(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if the type is a Compute", func() {
+		It("should require HourlyPrice to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
-				InvoiceID: in.ID,
-				ItemType:  invoiceitem.ItemTypeCompute,
-				HostID:    sql.NullInt64{h.ID, true},
-				Hours:     sql.NullInt64{24, true},
-				StripeID:  sql.NullString{"Xcccs", true},
+				InvoiceID:  in.ID,
+				ItemType:   invoiceitem.ItemTypeCompute,
+				HostID:     sql.NullInt64{h.ID, true},
+				Hours:      sql.NullInt64{24, true},
+				StripeID:   sql.NullString{"Xcccs", true},
+				PlanMemory: sql.NullString{"1 GB", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
@@ -341,12 +359,13 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{-1, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursNotPositive))
 		})
 
-		It("should expect Hours to be not negative if the type is a Compute", func() {
+		It("should expect HourlyPrice to be not negative if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
 				ItemType:    invoiceitem.ItemTypeCompute,
@@ -354,9 +373,40 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{-1, true},
 				StripeID:    sql.NullString{"Xcccs", true},
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))
+		})
+
+		It("should require PlanStorage to be valid if the type is a Base EBS", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID: in.ID,
+				ItemType:  invoiceitem.ItemTypeBaseEBS,
+				HostID:    sql.NullInt64{h.ID, true},
+				StripeID:  sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrPlanStorageMissing))
+		})
+
+		It("should insert a Base EBS if it has a valid storage value", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeBaseEBS,
+				HostID:      sql.NullInt64{h.ID, true},
+				Hours:       sql.NullInt64{24, true},
+				HourlyPrice: sql.NullInt64{2, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+				PlanStorage: sql.NullString{"200 DB", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
+
+			i2 := &invoiceitem.InvoiceItem{}
+			err = db.QueryRowx("SELECT * FROM invoice_items WHERE id = $1", i.ID).StructScan(i2)
+			Expect(err).To(BeNil())
+			Expect(i).To(Equal(i2))
 		})
 	})
 
@@ -372,6 +422,7 @@ var _ = Describe("models/invoiceitem", func() {
 				Credit:      sql.NullInt64{20, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -420,13 +471,19 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrCreditInvalid))
 		})
 
+		It("should require PlanMemory to be valid if the type is a Compute", func() {
+			i.PlanMemory = sql.NullString{"", false}
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrPlanMemoryMissing))
+		})
+
 		It("should expect Hours to be valid if type is a Compute", func() {
 			i.Hours = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
 		})
 
-		It("should expect HourlyPrice to be valid if type is a Compute", func() {
+		It("should require HourlyPrice to be valid if type is a Compute", func() {
 			i.HourlyPrice = sql.NullInt64{}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
@@ -442,6 +499,12 @@ var _ = Describe("models/invoiceitem", func() {
 			i.HourlyPrice = sql.NullInt64{-1, true}
 			err := i.Update(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceNegative))
+		})
+
+		It("should require PlanStorage to be valid if the type is a Base EBS", func() {
+			i.ItemType = invoiceitem.ItemTypeBaseEBS
+			err := i.Update(db)
+			Expect(err).To(Equal(invoiceitem.ErrPlanStorageMissing))
 		})
 	})
 

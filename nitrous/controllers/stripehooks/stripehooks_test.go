@@ -217,6 +217,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"2 GB", true},
 			}
 			Expect(itm1.Insert(db)).To(BeNil())
 
@@ -290,6 +291,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				Hours:       sql.NullInt64{24, true},
 				HourlyPrice: sql.NullInt64{2000, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"2 GB", true},
 			}
 			Expect(itm1.Insert(db)).To(BeNil())
 			itm2 = &invoiceitem.InvoiceItem{
@@ -305,6 +307,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				HourlyPrice: sql.NullInt64{1000, true},
 				Terminated:  true,
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 			Expect(itm3.Insert(db)).To(BeNil())
 		})

@@ -46,11 +46,19 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
 	type pHost struct {
 		host.Host
-		PlanPrice     int64 `db:"plan_price"`
-		PlanBasePrice int64 `db:"plan_base_price"`
+		PlanPrice     int64  `db:"plan_price"`
+		PlanBasePrice int64  `db:"plan_base_price"`
+		PlanStorage   string `db:"plan_storage"`
+		PlanMemory    string `db:"plan_memory"`
 	}
 	h := &pHost{}
-	err := d.Get(h, "SELECT hosts.*, plans.price plan_price, plans.base_price plan_base_price FROM hosts INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1", hostID)
+	err := d.Get(h, `SELECT
+		hosts.*,
+		plans.price plan_price,
+		plans.base_price plan_base_price,
+		plans.storage plan_storage,
+		plans.memory plan_memory
+		FROM hosts INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1`, hostID)
 	if err != nil {
 		return 0, []invoiceitem.InvoiceItem{}, err
 	}
@@ -84,6 +92,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		HostID:      sql.NullInt64{hostID, true},
 		Terminated:  h.TerminatedAt != nil,
 		ItemType:    invoiceitem.ItemTypeCompute,
+		PlanMemory:  sql.NullString{h.PlanMemory, true},
 	}
 
 	for _, row := range rows {
@@ -122,6 +131,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 			HostID:      sql.NullInt64{hostID, true},
 			Terminated:  h.TerminatedAt != nil,
 			ItemType:    invoiceitem.ItemTypeBaseEBS,
+			PlanStorage: sql.NullString{h.PlanStorage, true},
 		}
 		applyRulesToInvoiceItem(&ebsI, l)
 		totalCharge += ebsI.TotalCharge(&plan.Plan{BasePrice: h.PlanBasePrice})

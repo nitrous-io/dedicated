@@ -95,6 +95,8 @@ var _ = Describe("biller/user", func() {
 					MaxContainers: 1,
 					Price:         2500,
 					BasePrice:     900, // base price should be 1.34c/hr (1340 milli cents)
+					Storage:       "25 GB",
+					Memory:        "1 GB",
 				},
 				U: u,
 			})
@@ -138,21 +140,25 @@ var _ = Describe("biller/user", func() {
 			Expect(i1.Terminated).To(BeTrue())
 			Expect(i1.HourlyPrice).To(Equal(sql.NullInt64{2000, true}))
 			Expect(i1.Hours).To(Equal(sql.NullInt64{2, true}))
+			Expect(i1.PlanMemory).To(Equal(sql.NullString{"512 MB", true}))
 
 			Expect(i2.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i2.Terminated).To(BeFalse())
 			Expect(i2.HourlyPrice).To(Equal(sql.NullInt64{500, true}))
 			Expect(i2.Hours).To(Equal(sql.NullInt64{672, true}))
+			Expect(i2.PlanMemory).To(Equal(sql.NullString{"512 MB", true}))
 
 			Expect(i3.ItemType).To(Equal(invoiceitem.ItemTypeCompute))
 			Expect(i3.Terminated).To(BeTrue())
 			Expect(i3.HourlyPrice).To(Equal(sql.NullInt64{3722, true}))
 			Expect(i3.Hours).To(Equal(sql.NullInt64{672, true}))
+			Expect(i3.PlanMemory).To(Equal(sql.NullString{"1 GB", true}))
 
 			Expect(ebsItem3.ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
 			Expect(ebsItem3.Terminated).To(BeTrue())
 			Expect(ebsItem3.HourlyPrice).To(Equal(sql.NullInt64{1340, true}))
 			Expect(ebsItem3.Hours).To(Equal(sql.NullInt64{6, true}))
+			Expect(ebsItem3.PlanStorage).To(Equal(sql.NullString{"25 GB", true}))
 		})
 
 		It("should not incur charges to the user for stopped instances", func() {
