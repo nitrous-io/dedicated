@@ -110,7 +110,6 @@ App.IdeController = Em.ObjectController.extend
 
       socket = @get('opsSocket')
       socket.getFeatures (err, features) ->
-        console.log "onFreighterFeatures ", err, features
         if !err
           @set 'freighterFeatures', features
   ).observes 'opsSocketReady'
