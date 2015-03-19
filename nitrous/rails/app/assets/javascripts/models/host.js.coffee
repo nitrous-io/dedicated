@@ -69,8 +69,9 @@ App.Host = klass = App.Model.extend
   ).property 'id'
 
   topAnnouncement: (->
-    @get 'announcements.firstObject'
-  ).property 'announcements.firstObject'
+    if an = @get 'announcements'
+      an.sortBy('createdAt').reverse()[0]
+  ).property 'announcements.@each'
 
   region: (->
     if regionId = @get('regionId')
@@ -124,7 +125,10 @@ App.Host = klass = App.Model.extend
     @get 'images'
     @get 'registries'
     @get 'volumes'
-    @get 'announcements'
+    if (an = @get 'announcements') && an.get('loaded')
+      an.reload()
+    else
+      @get 'announcements'
     true
 
   fetchStats: ->
