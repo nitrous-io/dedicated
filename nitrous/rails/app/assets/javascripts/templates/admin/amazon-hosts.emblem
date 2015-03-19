@@ -14,6 +14,7 @@
           tr
             th PID
             th State
+            th EC2 Region
             th IP Address
             th Freighterd Port
 
@@ -22,6 +23,7 @@
               td title=id
                 = host.id
               td = host.state
+              td = host.region
               td = host.ip_address
               td = host.freighterd_port
 
@@ -67,6 +69,7 @@
             th Slug
             th DB State
             th Live State
+            th EC2 Region
             th Region
             th Plan
 
@@ -77,6 +80,7 @@
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
               td.state = entry.live_host.state
+              td.region = entry.live_host.region
               td.region 
                 = region-slug entry.db_host.region_id
               td.plan 
@@ -94,6 +98,7 @@
             th PID
             th Slug
             th State
+            th EC2 Region
             th Region
             th Plan
 
@@ -103,6 +108,7 @@
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
+              td.region = entry.live_host.region
               td.region 
                 = region-slug entry.db_host.region_id
               td.plan 
