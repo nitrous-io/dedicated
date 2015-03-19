@@ -71,6 +71,10 @@ func (m *CloseMsg) String() string {
 	return fmt.Sprintf("close: %s", m.msg)
 }
 
+type DataMsg struct {
+	Msg string
+}
+
 type websocketReader interface {
 	NextReader() (messageType int, r io.Reader, err error)
 }
@@ -183,4 +187,38 @@ func (s *ShellWriter) Write(p []byte) (int, error) {
 func (s *ShellWriter) Close() error {
 	_, err := s.writer.Write(closeMsg)
 	return err
+}
+
+type messageReader interface {
+	// matching websocket.ReadMessage
+	ReadMessage() (int, []byte, error)
+}
+
+func ReadAndDecodeMessage(ws messageReader) (interface{}, error) {
+	for {
+		_, d, err := ws.ReadMessage()
+		if err != nil {
+			return nil, err
+		}
+		n := len(d)
+		if n == 1 && d[0] == 'h' {
+			//ignore heartbeat message
+			continue
+		}
+
+		if n >= 2 {
+			if bytes.Equal(d[:2], dataMsg) {
+				return &DataMsg{Msg: string(d[2:])}, nil
+			}
+			if bytes.Equal(d[:2], closeMsg) {
+				return &CloseMsg{string(d[2:])}, nil
+			}
+			if bytes.Equal(d[:2], resizeMsg) {
+				return NewResizeMsg(d[2:]), nil
+			}
+		}
+
+		log.Printf("ReadAndDecodeMessage(): invalid message: %d bytes, '%s'", len(d), string(d))
+		// ignore invalid messages
+	}
 }

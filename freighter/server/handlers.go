@@ -510,21 +510,47 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("failed to upgrade websocket: %v", err)
 	}
-	stream := NewWebSocketConnection(conn, binary)
-	defer stream.Close()
+	ws := NewWebSocketConnection(conn, binary)
+	defer ws.Close()
 
 	// given the shell an ID so we can multiplex the shell IO later given its
 	// id i.e. gomux style
 	shellID := randomString()
 	s.shells[shellID] = sh
 
+	shellStdinReader, shellStdinWriter, err := os.Pipe()
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
-	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-	stdout := shell.NewShellWriter(stream)
+
+	//stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
+
+	stdout := shell.NewShellWriter(ws)
 
 	attached := make(chan struct{}, 1)
-	ch := sh.Attach(stdin, stdout, attached)
+	ch := sh.Attach(shellStdinReader, stdout, attached)
+
+	go func() {
+		for {
+			msg, err := shell.ReadAndDecodeMessage(ws)
+			if err != nil {
+				log.Printf("wsNewShell: shell.ReadAndDecodeMessage() failed with %s", err)
+				ch <- err
+				return
+			}
+			switch msg := msg.(type) {
+			case *shell.ResizeMsg:
+				sh.Resize(msg.Width, msg.Height)
+
+			case *shell.DataMsg:
+				_, err := shellStdinWriter.Write([]byte(msg.Msg))
+				if err != nil {
+					log.Printf("wsNewShell: shellStdinWriter.Write() failed with %s", err)
+					ch <- err
+					return
+				}
+			}
+		}
+	}()
 
 	for {
 		select {
