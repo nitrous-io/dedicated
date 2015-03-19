@@ -538,7 +538,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 				sh.Resize(msg.Width, msg.Height)
 
 			case *shell.DataMsg:
-				n, err := shellStdinWriter.Write(msg.Data)
+				_, err := shellStdinWriter.Write(msg.Data)
 				if err != nil {
 					log.Printf("wsNewShell: shellStdinWriter.Write() failed with %s", err)
 					ch <- err
