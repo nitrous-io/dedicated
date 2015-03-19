@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	DataMessage  = 0
-	CloseMessage = 1
+	DataMessage = iota
+	CloseMessage
 )
 
 var (
