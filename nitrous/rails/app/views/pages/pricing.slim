@@ -1,50 +1,203 @@
 - @title = 'Pricing · Nitrous'
-- @html_class = 'pricing'
+- @html_class = 'dark'
+- @body_id = 'pricing'
 
 - content_for :body_after
   javascript:
     pages.Pricing.init();
 
-.seo-aid
-  h2 Pricing
-  p You are billed per workspace, so if you spin up one $25/mo workspace and one $50/mo workspace, you get billed $75/mo.
 
-  h3 Workspace Size
-  ul
-    li
-      h4 Shift
-      ul
-        li Up to 2 Containers
-        li 1 Core Processor
-        li 1 GB Memory
-        li 20 GB Storage
-        li Root Access
-        li Dedicated Resources
-    li
-      h4 Turbo
-      ul
-        li Up to 5 Containers
-        li 2 Core Processor
-        li 2 GB Memory
-        li 30 GB Storage
-        li Root Access
-        li Dedicated Resources
-    li
-      h4 Turbo
-      ul
-        li Up to 10 Containers
-        li 2 Core Processor
-        li 4 GB Memory
-        li 50 GB Storage
-        li Root Access
-        li Dedicated Resources
-  h4 All plans also come with:
-  ul
-    li Always On
-    li SSH Access
-    li Desktop Sync (Mac/Windows/Linux)
-    li Custom Domains
-    li SSL Protection
-    li Web IDE
-    li Snapshots
-    li Custom Container Management
+.page
+  .page-hero.no-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'pricing' }
+      .hero-copy
+        h2
+          | Plans &amp; Pricing
+        h3
+          | Flexible pricing, based on the amount of resources you use
+
+
+  article.pricing.attached-bottom
+    .container
+      .pricing-container
+        .left
+
+          .pricing-block.paid.workspaces
+            h3 Workspaces
+            ul.trio
+              li.selectable.ripple data-slug='basic' data-ripple-color='#0099ED'
+                span.title Basic
+                span.focus
+                  strong 25
+                  | GB
+                span.details
+                  strong $5.00
+                  | /mo.
+              li.selectable.ripple data-slug='standard' data-ripple-color='#0099ED'
+                span.title Standard
+                span.focus
+                  strong 50
+                  | GB
+                span.details
+                  strong $10.00
+                  | /mo.
+              li.selectable.ripple data-slug='pro' data-ripple-color='#0099ED'
+                span.title Pro
+                span.focus
+                  strong 250
+                  | GB
+                span.details
+                  strong $50.00
+                  | /mo.
+
+            p Nitrous Workspaces are Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
+
+
+          .pricing-block.paid.compute
+            h3 Compute Resources
+            ul.duo
+              li
+                span.title Memory
+                .range
+                  input type="range" data-idx="1" max="4" min="0" step="1" value="0"
+
+                span.details
+                  strong 1 GB - $0.03
+                  | /hour
+              li
+                span.title Average Weekly Usage
+                .range
+                  input type="range" data-idx="2" max="168" min="0" step="8" value="0"
+
+                span.details
+                  strong 24 hours
+                  | /w.
+
+            p Compute Resources are Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
+
+
+          .or
+            span or
+
+
+          .pricing-block
+            ul.single
+              li.selectable.ripple data-slug='free' data-ripple-color='#0099ED'
+                .col
+                  span.title Free plan
+                .col.workspaces
+                  span.focus title="5 GB of storage"
+                    strong 5
+                    | GB
+                .col.compute
+                  span.focus title="1 GB of RAM"
+                    strong 1
+                    | GB
+                .col
+                  span.focus title="Shutsdown after 30min of inactivity"
+                    strong 30
+                    | min
+                .col.text
+                  span.focus
+                    strong No
+                    | SSH access
+                .col.text
+                  span.focus
+                    strong No
+                    | Desktop sync
+
+            p The free plan Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Expires after 7 days of inactivity.
+
+
+
+        .right.sticky
+          .pricing-sheet
+            .inner
+              .nitrous-badge
+
+              .details
+                .item
+                  span.title Workspaces
+                  ul
+                    li 50GB
+                  span#p1.price $0
+                .item
+                  span.title Compute Resources
+                  ul
+                    li 1GB
+                    li 24 h/w.
+                  span#p2.price $0
+
+              .total
+                span Total
+                .item
+                  strong#total-price $
+                  small Estimated monthly cost
+
+              a.btn.blue.ripple data-ripple-color='rgba(0,0,0,.2)' href="#" Sign up
+
+          .for-teams
+            p Looking for a higher level of control over applications and teams?
+            a.btn.grey.ripple data-ripple-color='rgba(255,255,255,.2)' href="#" Nitrous for teams
+
+
+  article.qa.darker
+    .container
+      h3.big-title Questions and Answers
+      .columns
+        .item
+          h4 When is my credit card billed?
+          p We will charge your credit card on the last day of the month at midnight UTC. We will email you with an invoice and a detailed summary of your usage and charges.
+        .item
+          h4 Why was my first bill cheaper than the other ones?
+          p Since we run billing on the last day of the month, we will perform a pro-rata hourly calculation at the end of the month. This means if you create a new workspace on the 15th of the month right at the middle of the month, you will be invoiced for 50% of the monthly price on the last day of the month.
+        .item
+          h4 Is there a threshold billing amount?
+          p We will only bill your card once your account balance hits or exceeds $4.00.
+        .item
+          h4 Am I charged when I enter a credit card?
+          p No — when you enter a card, we only run an authorization charge of $1.23. This authorization is refunded back to your card by your bank in no more than 30 days. Your card is charged at the end of the monthly billing cycle.
+        .item
+          h4 What forms of payment do you accept?
+          p We accept Visa, MasterCard, American Express, and Discover cards.
+        .item
+          h4 Do you offer refunds?
+          p
+            | We do not offer refunds. If you have had a problem with the service, please&nbsp;
+            a href="mailto:support@nitrous.io" contact our support team
+            | .
+
+
+      .centered
+        | Have more questions? Please feel free to&nbsp;
+        a href="#" send us a message
+        | .
+
+
+
+  article
+    .container
+      .box-wrapper.three
+        .box.ssl
+          h3.with-icon SSL Data Encryption
+          p All of your information is encrypted and transmitted securely using the Secure Sockets Layer (SSL) protocol.
+
+        .box.backup
+          h3.with-icon Backup &amp; Redundancy
+          p Nullam id dolor id nibh ultricies vehicula ut id elit. Vestibulum id ligula porta felis euismod semper.
+
+        .box.secure
+          h3.with-icon Your data, secured
+          p Nitrous is built on an extremely scalable, highly reliable platform that enables our users to deploy applications and data quickly and securely.
+
+      .centered
+        a href="/features"
+          | More features
+          i.fa.fa-chevron-right
+
+
+  = render 'layouts/companies'
+
+= render partial: 'layouts/footer', locals: { active: 'pricing' }
+
