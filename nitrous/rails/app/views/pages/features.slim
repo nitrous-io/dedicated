@@ -1,0 +1,196 @@
+- @title = 'Features · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'features'
+
+- content_for :body_after
+  javascript:
+    pages.Features.init();
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'features' }
+      .hero-copy
+        h2
+          | The future of development
+        h3
+          | The cloud IDE that works for you, not against you
+
+
+
+  article.featurette.extra-padding.anywhere
+    .container
+
+      .full-visual
+        = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
+
+      h3.big-title Work from anywhere
+      h4
+        | Be productive on any machine, and any operating system – you're just
+        br
+        | a Web browser away from your dedicated development box
+
+      .box-wrapper.four
+        .box
+          p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.osx Mac OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
+
+
+
+
+  article.featurette.attached-bottom
+    .container
+
+      h3.big-title A full-featured IDE in your browser
+      h4
+        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
+        br
+        | Run web servers, databases, caches and more, right from your Web browser
+
+
+
+  article.featurette
+    .container
+
+      .box-wrapper.three
+        .box.terminal
+          h3.with-icon Built-in Terminal
+          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+
+        .box.code
+          h3.with-icon Zero-to-code in seconds
+          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+
+        .box.containers
+          h3.with-icon Powerful Containers
+          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+
+      .box-wrapper.three
+        .box.collaboration
+          h3.with-icon Collaboration
+          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+
+        .box.github
+          h3.with-icon GitHub integration
+          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+
+        .box.snapshots
+          h3.with-icon Snapshots
+          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot and revert to it at any time.
+
+      .box-wrapper.three
+        .box.go-to-file
+          h3.with-icon Go to file
+          p Quickly jump between files with only a few keystrokes, just as you would on your favorite desktop editor.
+
+        .box.split-editing
+          h3.with-icon Split Editing
+          p Get the most out of your screen real-estate with split editing support. Edit files side by side.
+
+        .box.ssh
+          h3.with-icon Full SSH access
+          p
+            | Access your development container directly with SSH&sup1;.
+            sup &sup1;Only available on paid plans
+
+      .box-wrapper.three
+        .box.ssl
+          h3.with-icon SSL Data Encryption
+          p All of your information is encrypted and transmitted securely using the Secure Sockets Layer (SSL) protocol.
+
+        .box.backup
+          h3.with-icon Backup &amp; Redundancy
+          p Nullam id dolor id nibh ultricies vehicula ut id elit. Vestibulum id ligula porta felis euismod semper.
+
+        .box.secure
+          h3.with-icon Your data, secured
+          p Nitrous is built on an extremely scalable, highly reliable platform that enables our users to deploy applications and data quickly and securely.
+
+
+
+  article.featurette.darker
+    .container
+      h3.big-title Customizable Editor
+      h4 Choose from carefully selected color schemes that control the editor's syntax highlighting
+
+
+  article.featurette.dashboard
+    .container
+      h3.big-title Self-service Dashboard
+      h4
+        | Easily create and manage containers in your workspace, or create
+        br
+        | your own custom containers with Docker images
+
+      .full-visual
+        = image_tag 'home/dashboard-featurette.png', width: '940px', height: '501px', alt: 'Self-service Dashboard'
+
+
+  article.featurette
+    .container
+      h3.big-title One-click install stacks
+      h4
+        | Nitrous offers a wide range of stacks that contain pre-configured
+        br
+        | software dependencies (languages, databases and other components)
+
+      ul.stacks
+        li.stack
+          a.ruby.ripple href="/stacks/ruby"
+          span Ruby
+        li.stack
+          a.php.ripple href="/stacks/php"
+          span PHP
+        li.stack
+          a.python.ripple href="/stacks/python"
+          span Python
+        li.stack
+          a.meteor.ripple href="/stacks/meteor"
+          span Meteor
+        li.stack
+          a.java.ripple href="/stacks/java"
+          span Java
+        li.stack
+          a.asp.ripple href="/stacks/asp"
+          span ASP.net
+        li.stack
+          a.html5.ripple href="/stacks/html5"
+          span HTML5
+        li.stack
+          a.node.ripple href="/stacks/node"
+          span Node.js
+        li.stack
+          a.rails.ripple href="/stacks/rails"
+          span Rails
+        li.stack
+          a.go.ripple href="/stacks/go"
+          span Go
+        li.stack
+          a.wordpress.ripple href="/stacks/wordpress"
+          span Wordpress
+        li.stack
+          a.iojs.ripple href="/stacks/iojs"
+          span io.js
+        li.stack
+          a.django.ripple href="/stacks/django"
+          span Django
+        li.stack
+          a.laravel.ripple href="/stacks/laravel"
+          span Laravel
+        li.stack
+          a.ubuntu.ripple href="/stacks/ubuntu"
+          span Ubuntu
+
+
+
+  = render 'layouts/companies'
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'features' }

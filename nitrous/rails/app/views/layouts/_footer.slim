@@ -1,22 +1,83 @@
-#pages-footer.page-footer
+footer
   .container
-    .left
-      p
-        | &copy; 2012-2015 Nitrous, Inc.
+    .footer-item
+      h4
+        | Resources
       ul
         li
-          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+          a href='http://docs.nitrous.io/v1.0/docs/nitrous-pro-overview' Getting Started
         li
-          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+          a href='http://docs.nitrous.io/v1.0/docs/connect-to-github' SSH Keys
         li
-          a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
-    .right
+          a href='http://docs.nitrous.io/v1.0/docs/nitrous-sync' Nitrous Desktop
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/port-configuration' Port Configuration
+        li
+          a href='http://help.nitrous.io/categories/tutorials/' Tutorials
+        li
+          a href='http://help.nitrous.io/categories/deployment/' Deployment
+
+    .footer-item
+      h4
+        | About
       ul
         li
-          a href='http://status.nitrous.io/' Status
+          a class=('active' if active == 'features') href='/features' Features
         li
-          a href='mailto:support@nitrous.io?subject=Nitrous%20Pro%20Feedback' Support
+          a class=('active' if active == 'company') href='/company' Company
         li
-          a href='http://blog.nitrous.io/' Blog
+          a class=('active' if active == 'press') href='/press' Press
         li
-          a href='http://docs.nitrous.io/v1.0/blog' Updates
+          a href='/contact' Contact us
+        li
+          a class=('active' if active == 'jobs') href='/jobs' Jobs
+        li
+          a href='/business' For business
+
+    .footer-item
+      h4
+        | Connect
+      ul
+        li
+          a href='https://twitter.com/nitrousio' target="_blank" Twitter
+        li
+          a href='https://github.com/nitrous-io' target="_blank" Github
+        li
+          a href='https://www.facebook.com/NitrousIO' target="_blank" Facebook
+        li
+          a href='https://www.facebook.com/NitrousIO' target="_blank" Google+
+        li
+          a href='https://angel.co/nitrous' target="_blank" Angel.co
+        li
+          a href='https://www.crunchbase.com/organization/nitrous-io' target="_blank" CrunchBase
+
+    .footer-item.blog
+      h4
+        | From our Blog
+      ul
+        li
+          a href='/#' 'Coding on iPad – The Possibilities of NitrousIO'
+        li
+          a href='/#' 'Pair Programming - Boon or Bane?'
+        li
+          a href='/#' 'HOUR OF CODE - What happens in the second hour?'
+        li
+          a.more-articles href='/#'
+            | More articles
+            i.fa.fa-chevron-right
+
+    .copyright
+      .copy-wrapper
+        p
+          | &copy; 2012-2015 Nitrous, Inc.
+        ul
+          li
+            a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+          li
+            a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+          li
+            a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
+          li
+            a href='http://status.nitrous.io/' Status
+
+      a.logomark.alt href='/' alt="Nitrous.io"
