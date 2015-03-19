@@ -5,6 +5,11 @@
   form submit='sendAnnouncement'
     .card-body
       .card-body.bordered
+        .notice-text
+          i.fa.fa-info
+            '
+            | Emails automatically include the Hello header and Thanks footer, there is no need to include these.
+
         .ui.input-group
           label.field-label for='subject-template'
             | Subject Template

@@ -362,10 +362,17 @@ func SendToOwner(ann *Announcement, owner *HostOwner) error {
 		return err
 	}
 
+	uName := owner.Fullname
+	if uName == "" {
+		uName = owner.Username
+	}
+
+	msgBody := fmt.Sprintf("Hello %s,\n\n%s\n\nThanks,\nThe Nitrous Team", uName, message)
+
 	from := emailAddress("Nitrous Mailer", "mailer@nitrous.io")
 	to := emailAddress(owner.Fullname, owner.Email)
 
-	if err := sendEmail(from, to, subject, message); err != nil {
+	if err := sendEmail(from, to, subject, msgBody); err != nil {
 		return err
 	}
 
