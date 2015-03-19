@@ -518,16 +518,11 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	shellID := randomString()
 	s.shells[shellID] = sh
 
-	shellStdinReader, shellStdinWriter, err := os.Pipe()
-	// create stdin/stdout stream with the shell protocol
-	msgCh := make(chan shell.Message, messageQueueSize)
-
-	//stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
-
-	stdout := shell.NewShellWriter(ws)
+	shellStdinReader, shellStdinWriter := io.Pipe()
+	shellStdoutReader, shellStdoutWriter := io.Pipe()
 
 	attached := make(chan struct{}, 1)
-	ch := sh.Attach(shellStdinReader, stdout, attached)
+	ch := sh.Attach(shellStdinReader, shellStdoutWriter, attached)
 
 	go func() {
 		for {
@@ -539,16 +534,37 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			}
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
+				log.Printf("servers says: resize to (%d,%d)\n", msg.Width, msg.Height)
 				sh.Resize(msg.Width, msg.Height)
 
 			case *shell.DataMsg:
-				_, err := shellStdinWriter.Write([]byte(msg.Msg))
+				n, err := shellStdinWriter.Write(msg.Data)
 				if err != nil {
 					log.Printf("wsNewShell: shellStdinWriter.Write() failed with %s", err)
 					ch <- err
 					return
 				}
+				log.Printf("sent %d bytes ide => shell\n", n)
 			}
+		}
+	}()
+
+	go func() {
+		var buf [32 * 1024]byte
+		for {
+			n, err := shellStdoutReader.Read(buf[:])
+			if err != nil {
+				log.Printf("wsNewShell: shellStdoutReader.Read() failed with %s", err)
+				ch <- err
+				return
+			}
+			n, err = shell.WriteMsg(buf[:n], ws)
+			if err != nil {
+				log.Printf("wsNewShell: shell.WriteMsg() failed with %s", err)
+				ch <- err
+				return
+			}
+			log.Printf("sent %d bytes shell => ide\n", n)
 		}
 	}()
 
@@ -556,19 +572,12 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 		select {
 		case err := <-ch:
 			log.Printf("exited with err %v", err)
-			stdout.Close() // Inform client that server has closed connection.
+			shellStdinReader.Close() // Inform client that server has closed connection.
 			return nil
 		case <-attached:
 			// when the client first attached, resize immediately with the
 			// current width and height
 			sh.Resize(width, height)
-		case msg := <-msgCh:
-			switch msg := msg.(type) {
-			case *shell.ResizeMsg:
-				sh.Resize(msg.Width, msg.Height)
-			default:
-				log.Println("shell: got unknown msg ", msg)
-			}
 		}
 	}
 }

@@ -72,7 +72,7 @@ func (m *CloseMsg) String() string {
 }
 
 type DataMsg struct {
-	Msg string
+	Data []byte
 }
 
 type websocketReader interface {
@@ -173,12 +173,17 @@ func NewShellWriter(w io.Writer) *ShellWriter {
 	return &ShellWriter{writer: w}
 }
 
-func (s *ShellWriter) Write(p []byte) (int, error) {
+func WriteMsg(p []byte, w io.Writer) (int, error) {
 	l := len(p)
 	buf := make([]byte, l+len(dataMsg))
 	copy(buf[0:2], dataMsg)
 	copy(buf[2:], p)
-	_, err := s.writer.Write(buf)
+	return w.Write(buf)
+}
+
+func (s *ShellWriter) Write(p []byte) (int, error) {
+	l := len(p)
+	_, err := WriteMsg(p, s.writer)
 	return l, err
 }
 
@@ -208,7 +213,7 @@ func ReadAndDecodeMessage(ws messageReader) (interface{}, error) {
 
 		if n >= 2 {
 			if bytes.Equal(d[:2], dataMsg) {
-				return &DataMsg{Msg: string(d[2:])}, nil
+				return &DataMsg{Data: d[2:]}, nil
 			}
 			if bytes.Equal(d[:2], closeMsg) {
 				return &CloseMsg{string(d[2:])}, nil
