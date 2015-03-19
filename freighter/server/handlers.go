@@ -524,7 +524,10 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	attached := make(chan struct{}, 1)
 	ch := sh.Attach(shellStdinReader, shellStdoutWriter, attached)
 
-	log.Printf("wsSHell: started new session\n")
+	log.Printf("wsShell: started new session\n")
+	defer func() {
+		log.Printf("wsShell: session ended\n")
+	}()
 
 	go func() {
 		for {
@@ -546,7 +549,10 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 					ch <- err
 					return
 				}
-				//log.Printf("sent %d bytes ide => shell\n", n)
+			//log.Printf("sent %d bytes ide => shell\n", n)
+			case *shell.CloseMsg:
+				log.Printf("wsNewShell: ide asked us to end session")
+				ch <- nil
 			}
 		}
 	}()
