@@ -183,12 +183,12 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Timeout:     5 * time.Minute,
 		},
 		{
-			Description: "Assigning network address",
-			Func:        allocateElasticIP,
-		},
-		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
