@@ -534,7 +534,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			}
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
-				log.Printf("servers says: resize to (%d,%d)\n", msg.Width, msg.Height)
+				//log.Printf("servers says: resize to (%d,%d)\n", msg.Width, msg.Height)
 				sh.Resize(msg.Width, msg.Height)
 
 			case *shell.DataMsg:
@@ -544,7 +544,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 					ch <- err
 					return
 				}
-				log.Printf("sent %d bytes ide => shell\n", n)
+				//log.Printf("sent %d bytes ide => shell\n", n)
 			}
 		}
 	}()
@@ -564,7 +564,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 				ch <- err
 				return
 			}
-			log.Printf("sent %d bytes shell => ide\n", n)
+			//log.Printf("sent %d bytes shell => ide\n", n)
 		}
 	}()
 
