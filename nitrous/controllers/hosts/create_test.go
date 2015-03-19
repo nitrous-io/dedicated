@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -606,6 +607,40 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			params.Set("name", "host-unique")
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusConflict))
+		})
+
+		It("ignores provider param if provided by non-admin", func() {
+			params.Set("provider", "rackspace")
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].ProviderTemplateID).To(Equal(hs.PT.ID))
+		})
+
+		It("uses provider param if provided by admin", func() {
+			pt2 := &providertemplate.ProviderTemplate{
+				Name:     "default-1",
+				Provider: "rackspace",
+				RegionID: hs.PT.RegionID,
+				PlanID:   hs.PT.PlanID,
+			}
+			err := pt2.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET admin = true WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			params.Set("provider", pt2.Provider)
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].ProviderTemplateID).To(Equal(pt2.ID))
 		})
 	})
 

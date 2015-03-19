@@ -40,7 +40,8 @@ var (
 type createOpts struct {
 	Size               string `json:"size"`
 	Region             string `json:"region"`
-	Slug               string `json:"slug"` // slug provided by client request will be overriden by a generated slug based on name
+	Provider           string `json:"provider"` // only used to allow admins to test other providers
+	Slug               string `json:"slug"`     // slug provided by client request will be overriden by a generated slug based on name
 	Name               string `json:"name"`
 	Async              bool   `json:"async"`
 	BypassPreprovision bool   `json:"bypass_preprovision"`
@@ -73,7 +74,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	template, err := findTemplate(db, plan, region, defaultProvider)
+	provider := defaultProvider
+	if options.Provider != "" && env.User.Admin {
+		provider = options.Provider
+	}
+	template, err := findTemplate(db, plan, region, provider)
 	if err != nil {
 		return err
 	}
@@ -225,10 +230,11 @@ func buildCreateOptions(r *http.Request) (*createOpts, error) {
 
 	} else {
 		opts := &createOpts{
-			Size:   r.FormValue("size"),
-			Region: r.FormValue("region"),
-			Slug:   slugbuilder.Build(r.FormValue("name")),
-			Name:   r.FormValue("name"),
+			Size:     r.FormValue("size"),
+			Region:   r.FormValue("region"),
+			Slug:     slugbuilder.Build(r.FormValue("name")),
+			Name:     r.FormValue("name"),
+			Provider: r.FormValue("provider"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
@@ -261,8 +267,8 @@ func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error)
 	return r, nil
 }
 
-func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, defaultProvider string) (*providertemplate.ProviderTemplate, error) {
-	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, defaultProvider)
+func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provider string) (*providertemplate.ProviderTemplate, error) {
+	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, provider)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errProvidertemplateNotFound
