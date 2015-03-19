@@ -100,7 +100,14 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 
 	if hs.P == nil {
-		hs.P = &plan.Plan{Slug: makeUnique("plan"), Name: makeUnique("desc"), MaxContainers: 1, Price: 500}
+		hs.P = &plan.Plan{
+			Slug:          makeUnique("plan"),
+			Name:          makeUnique("desc"),
+			MaxContainers: 1,
+			Price:         500,
+			Storage:       "4 GB",
+			Memory:        "512 MB",
+		}
 	}
 	if hs.P.ID == 0 {
 		err = hs.P.Insert(tx)
