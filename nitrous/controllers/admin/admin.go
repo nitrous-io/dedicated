@@ -125,7 +125,8 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 
 	region := r.FormValue("region")
 	if region != "" {
-		config["region"] = region
+		env.Logger.Infof("got region %s\n", region)
+		config["region_id"] = region
 	}
 
 	var count int
