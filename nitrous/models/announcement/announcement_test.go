@@ -121,7 +121,7 @@ var _ = Describe("models/announcement", func() {
 	Describe("Insert global announcement", func() {
 		var (
 			subjectTemplate = "Global announcement for {{ .Slug }}"
-			messageTemplate = "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} tomorrow."
+			messageTemplate = "We will be upgrading your host {{ .Slug }} tomorrow."
 		)
 
 		BeforeEach(func() {
@@ -155,7 +155,7 @@ var _ = Describe("models/announcement", func() {
 
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
-			Expect(message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 tomorrow."))
+			Expect(message).To(Equal("We will be upgrading your host elixir-web-1 tomorrow."))
 		})
 
 		It("Should be found in h2", func() {
@@ -177,7 +177,7 @@ var _ = Describe("models/announcement", func() {
 
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
-			Expect(message).To(Equal("Hello foo, We will be upgrading your host elixir-web-2 tomorrow."))
+			Expect(message).To(Equal("We will be upgrading your host elixir-web-2 tomorrow."))
 		})
 
 		It("Should be found in h3", func() {
@@ -199,14 +199,14 @@ var _ = Describe("models/announcement", func() {
 
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
-			Expect(message).To(Equal("Hello bar, We will be upgrading your host gopher-bar-1 tomorrow."))
+			Expect(message).To(Equal("We will be upgrading your host gopher-bar-1 tomorrow."))
 		})
 	})
 
 	Describe("Insert host announcement", func() {
 		var (
 			subjectTemplate = "Host announcement for {{ .Slug }}"
-			messageTemplate = "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} next week."
+			messageTemplate = "We will be upgrading your host {{ .Slug }} next week."
 		)
 
 		BeforeEach(func() {
@@ -242,7 +242,7 @@ var _ = Describe("models/announcement", func() {
 
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
-			Expect(message).To(Equal("Hello foo, We will be upgrading your host elixir-web-1 next week."))
+			Expect(message).To(Equal("We will be upgrading your host elixir-web-1 next week."))
 		})
 
 		It("Should not found in h2", func() {
@@ -271,7 +271,7 @@ var _ = Describe("models/announcement", func() {
 
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
-			Expect(message).To(Equal("Hello bar, We will be upgrading your host gopher-bar-1 next week."))
+			Expect(message).To(Equal("We will be upgrading your host gopher-bar-1 next week."))
 		})
 	})
 
@@ -310,7 +310,7 @@ var _ = Describe("models/announcement", func() {
 		Context("Global Announcement", func() {
 			var (
 				subjectTemplate = "Global announcement for {{ .Slug }}"
-				messageTemplate = "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} tomorrow."
+				messageTemplate = "We will be upgrading your host {{ .Slug }} tomorrow."
 
 				ann = &announcement.Announcement{
 					SubjectTemplate: subjectTemplate,
@@ -327,17 +327,17 @@ var _ = Describe("models/announcement", func() {
 					{
 						to:      "<foo@example.org>",
 						subject: "Global announcement for elixir-web-1",
-						message: "Hello foo, We will be upgrading your host elixir-web-1 tomorrow.",
+						message: "Hello foo,\n\nWe will be upgrading your host elixir-web-1 tomorrow.\n\nThanks,\nThe Nitrous Team",
 					},
 					{
 						to:      "<foo@example.org>",
 						subject: "Global announcement for elixir-web-2",
-						message: "Hello foo, We will be upgrading your host elixir-web-2 tomorrow.",
+						message: "Hello foo,\n\nWe will be upgrading your host elixir-web-2 tomorrow.\n\nThanks,\nThe Nitrous Team",
 					},
 					{
 						to:      "<bar@example.org>",
 						subject: "Global announcement for gopher-bar-1",
-						message: "Hello bar, We will be upgrading your host gopher-bar-1 tomorrow.",
+						message: "Hello bar,\n\nWe will be upgrading your host gopher-bar-1 tomorrow.\n\nThanks,\nThe Nitrous Team",
 					},
 				}
 			})
@@ -389,18 +389,18 @@ var _ = Describe("models/announcement", func() {
 		Context("Host Announcement", func() {
 			var (
 				subjectTemplate = "Host announcement for {{ .Slug }}"
-				messageTemplate = "Hello {{ .Username }}, We will be upgrading your host {{ .Slug }} next week."
+				messageTemplate = "We will be upgrading your host {{ .Slug }} next week."
 
 				expectedSentMails = []*sentMailStruct{
 					{
 						to:      "<foo@example.org>",
 						subject: "Host announcement for elixir-web-2",
-						message: "Hello foo, We will be upgrading your host elixir-web-2 next week.",
+						message: "Hello foo,\n\nWe will be upgrading your host elixir-web-2 next week.\n\nThanks,\nThe Nitrous Team",
 					},
 					{
 						to:      "<bar@example.org>",
 						subject: "Host announcement for gopher-bar-1",
-						message: "Hello bar, We will be upgrading your host gopher-bar-1 next week.",
+						message: "Hello bar,\n\nWe will be upgrading your host gopher-bar-1 next week.\n\nThanks,\nThe Nitrous Team",
 					},
 				}
 			)

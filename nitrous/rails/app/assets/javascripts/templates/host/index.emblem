@@ -14,10 +14,16 @@
           | There are updates available for this workspace. Please stop your containers before updating.
 
   if topAnnouncement
-    .notice-text
+    .notice-text.multi-line
       i.fa.fa-warning
       '
-      = topAnnouncement.message
+      .group
+        each msg in topAnnouncement.splitMessage
+          .part
+            if msg.break
+              br
+            else
+              = msg.text
 
   table.ui.table.horizontal
     tr

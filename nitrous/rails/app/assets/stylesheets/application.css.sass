@@ -132,6 +132,9 @@ i.spinner
   font-weight: 500
   text-transform: uppercase
 
+  &.no-caps
+    text-transform: none
+
   i
     margin-right: 5px
 
@@ -233,6 +236,14 @@ ul.space-separated
   box-shadow: 0 1px 0 $n2oGray850
   color: black
   font-size: $fontSizeSmall
+
+  &.multi-line
+    display: flex
+    flex-direction: row
+    align-items: center
+
+    .group
+      padding: 0 0 0 4px
 
   h5
     margin: 0

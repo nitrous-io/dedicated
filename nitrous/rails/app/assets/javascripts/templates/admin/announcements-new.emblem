@@ -5,16 +5,25 @@
   form submit='sendAnnouncement'
     .card-body
       .card-body.bordered
+        .notice-text
+          i.fa.fa-info
+            '
+            | Emails automatically include the Hello header and Thanks footer, there is no need to include these.
+
         .ui.input-group
           label.field-label for='subject-template'
-            | Subject Template 
+            | Subject Template
           = input type='text' id='subject-template' name='subject-template' required=true disabled=saving value=subjectTemplate
+          p.hint-text.no-caps
+            | Variables supported: .Username, .Fullname, .Email, .Slug
 
         .ui.input-group
           label.field-label for='message-template'
-            | Message template 
+            | Message template
           = textarea type='text' id='message-template' name='message-template' rows='5' required=true disabled=saving value=messageTemplate
-   
+          p.hint-text.no-caps
+            | Variables supported: .Username, .Fullname, .Email, .Slug
+
         .ui.input-group
           label.field-label for='expires-at'
             | Expires At
@@ -23,12 +32,12 @@
             | (
             = simpledate expiryDate
             | )
-   
+
         .ui.input-group
           label.field-label for='slugs'
-            | Host Slugs 
+            | Host Slugs
           = input type='text' id='template-slug' name='slugs' required=true disabled=slugsDisabled value=slugs
-        
+
         .ui.input-group
           ul.ui.checkbox-group
             li
@@ -43,5 +52,5 @@
             button.ui.btn disabled='disabled'
               i.spinner
               | Sending...
-          else 
+          else
             input.ui.btn.primary type='submit' disabled={saving} value='Create'
