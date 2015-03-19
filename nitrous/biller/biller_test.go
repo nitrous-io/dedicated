@@ -599,11 +599,11 @@ var _ = Describe("biller", func() {
 
 					Expect(rr[0]["amount"]).To(Equal("92"))
 					Expect(rr[0]["customer"]).To(Equal("St17"))
-					Expect(rr[0]["desc"]).To(Equal("Workspace 'my-host-1' compute - 92 hours at 1.00c/hour"))
+					Expect(rr[0]["desc"]).To(Equal("'my-host-1' compute (1 GB memory) - 92 hours at 1.00c/hour"))
 
 					Expect(rr[1]["amount"]).To(Equal("2500"))
 					Expect(rr[1]["customer"]).To(Equal("St17"))
-					Expect(rr[1]["desc"]).To(Equal("Workspace 'my-host-2' compute - 672 hours at 3.722c/hour"))
+					Expect(rr[1]["desc"]).To(Equal("'my-host-2' compute (19 GB memory) - 672 hours at 3.722c/hour"))
 
 					type s struct {
 						ID string `db:"stripe_id"`

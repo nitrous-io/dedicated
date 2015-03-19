@@ -82,26 +82,27 @@ var _ = Describe("models/invoiceitem", func() {
 				Hours:       sql.NullInt64{900, true},
 				HourlyPrice: sql.NullInt64{1231, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"2 GB", true},
 			}
 		})
 
 		It("should describe the host usage", func() {
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 1.231c/hour"))
 		})
 
 		It("should be able to display terminated state", func() {
 			inv.Terminated = true
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) compute - 900 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 1.231c/hour (terminated)"))
 		})
 
 		It("should handle up to 3 decimal places precision", func() {
 			inv.HourlyPrice = sql.NullInt64{1, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 0.001c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 0.001c/hour"))
 		})
 
 		It("should trim to 2 decimal points if needed", func() {
 			inv.HourlyPrice = sql.NullInt64{100, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' compute - 900 hours at 0.10c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 0.10c/hour"))
 		})
 
 		It("should be a credit description when the item is a Credit", func() {
@@ -112,21 +113,24 @@ var _ = Describe("models/invoiceitem", func() {
 
 		It("should describe the base price", func() {
 			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.PlanStorage = sql.NullString{"20 GB", true}
 			inv.Hours = sql.NullInt64{invoiceitem.MaxHours, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' base - 672 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' base (20 GB storage) - 672 hours at 1.231c/hour"))
 		})
 
 		It("should include the pro rata in the base price if the hours are lower", func() {
 			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.PlanStorage = sql.NullString{"20 GB", true}
 			inv.Hours = sql.NullInt64{90, true}
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' base - 90 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' base (20 GB storage) - 90 hours at 1.231c/hour"))
 		})
 
 		It("should the terminated state in the base price description", func() {
 			inv.ItemType = invoiceitem.ItemTypeBaseEBS
+			inv.PlanStorage = sql.NullString{"20 GB", true}
 			inv.Hours = sql.NullInt64{90, true}
 			inv.Terminated = true
-			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("Workspace 'ABCDEF' (terminated) base - 90 hours at 1.231c/hour"))
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' base (20 GB storage) - 90 hours at 1.231c/hour (terminated)"))
 		})
 	})
 

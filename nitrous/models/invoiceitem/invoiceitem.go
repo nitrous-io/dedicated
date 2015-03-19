@@ -67,11 +67,13 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 		state = " (terminated)"
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
-	descType := "compute"
+	var descType string
 	if i.ItemType == ItemTypeBaseEBS {
-		descType = "base"
+		descType = fmt.Sprintf("base (%s storage)", i.PlanStorage.String)
+	} else {
+		descType = fmt.Sprintf("compute (%s memory)", i.PlanMemory.String)
 	}
-	return fmt.Sprintf("Workspace '%s'%s %s - %d hours at %sc/hour", hst.Slug, state, descType, i.Hours.Int64, prcnt)
+	return fmt.Sprintf("'%s' %s - %d hours at %sc/hour%s", hst.Slug, descType, i.Hours.Int64, prcnt, state)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {
