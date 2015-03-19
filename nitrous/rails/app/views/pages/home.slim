@@ -1,5 +1,6 @@
 - @title = 'Nitrous Pro'
-- @html_class = 'home'
+- @html_class = 'dark'
+- @body_id = 'home'
 
 - content_for :body_before
   javascript:
@@ -13,150 +14,231 @@
     pages.Home.init();
 
 
-#home
-  = render 'layouts/topnav'
-  .page
-    .masthead
-      .bg
+.page
+  .hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'home' }
+      .hero-copy
+        h2
+          | Development Environments Without the Pain
+        h3
+          | Cloud-based code editor with collaboration, one-click installs and snapshots
 
-      .container
-        .home-copy
-          h2
-            | Set Up Development Environments Painlessly
-          h3
-            | Create Powerful Web Applications in Record Time
+        .form-wrapper
+          form action="/pricing"
+            input id="hero-email" type="text" placeholder="Email address"
+            a.btn.blue.ripple.submit href='/pricing' data-ripple-color='rgba(0,0,0,.2)' Get started
 
-        .get-started
-          form id="get-started" action='/app/#/signup' method="GET"
-            .ui.input-group
-              input.email-field type='email' placeholder='Email Address' name='email' required=true
-              input.ui.btn.primary.raised type='submit' value='Get Started'
+        - if false
+          a.btn.blue.ripple href='/pricing' data-ripple-color='rgba(0,0,0,.2)' Get started
 
-        .overviews
-          .overview.ide.fadeout
-            .screen.first
-              .titlebar
-                .button.close
-                .button.minimize
-                .button.zoom
-                | Nitrous - Web Browser
-              .screenshot
-            .annotations.right
-              .annotation.first
+      .shadows
+      .patternshadows
+
+      .logo-pattern
+        .inner
+
+
+  .notice
+    .container
+      p
+        a href='/pricing#free'
+          span.free Free
+          strong Try out Nitrous.
+          | Free plan available with the ability to upgrade later.
+          span.link Let's go
+          i.fa.fa-chevron-right
+
+
+  article.featurette.ide.attached-bottom
+    .container
+      h3.big-title A full-featured IDE in your browser
+      h4
+        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
+        br
+        | Run web servers, databases, caches and more, right from your Web browser.
+      .full-visual
+        = image_tag 'home/ide-featurette@2x.png', width: '970px', height: '567px', alt: 'A full-featured IDE in your browser'
+        .annotation-dot.tooltip.blue.zoom data-id="1" data-tooltip="Browse, upload, manage files and folders, just as you would on your desktop"
+          .target
+        .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
+          .target
+        .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers will full root-enabled shell access"
+          .target
+
+
+  article.features
+    .container
+      h3.big-title Why you'll love Nitrous
+      .box-wrapper.three.centered
+        .box
+          .visual
+            = image_tag 'home/featurette-terminal.svg', width: '58px', height: '51px', class: 'visual', alt: 'Built-in Terminal'
+          h3.section-title Built-in Terminal
+          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+
+        .box
+          .visual
+            = image_tag 'home/featurette-code.svg', width: '58px', height: '45px', class: 'visual', alt: 'Code on Nitrous'
+          h3.section-title Zero-to-code in seconds
+          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+
+        .box
+          .visual
+            = image_tag 'home/featurette-workspaces.svg', width: '58px', height: '57px', class: 'visual', alt: 'Powerful Containers'
+          h3.section-title Powerful Containers
+          p Create &amp; develop on multiple containers within a workspace, or create custom containers using Docker images.
+
+
+      .box-wrapper.three.centered
+        .box
+          .visual
+            = image_tag 'home/featurette-github.svg', width: '58px', height: '58px', class: 'visual', alt: 'Github integration'
+          h3.section-title GitHub integration
+          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+
+        .box
+          .visual
+            = image_tag 'home/featurette-collab.svg', width: '58px', height: '58px', class: 'visual', alt: 'Collaboration'
+          h3.section-title Collaboration
+          p Code collaboratively with anyone. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+
+        .box
+          .visual
+            = image_tag 'home/featurette-snapshots.svg', width: '58px', height: '50px', class: 'visual', alt: 'Nitrous Snapshots'
+          h3.section-title Snapshots
+          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot and revert to it at any time.
+
+
+      .centered
+        a href="/features"
+          | Learn more about the features
+          i.fa.fa-chevron-right
+
+
+      - if false
+        .box-wrapper.three.centered
+          .box
+            .visual
+              = image_tag 'home/featurette-gotofile.svg', width: '58px', height: '58px', class: 'visual', alt: 'Code on Nitrous'
+            h3.section-title Go to file
+            p Quickly jump between files with only a few keystrokes, just as you would on your favorite desktop editor.
+
+          .box
+            .visual
+              = image_tag 'home/featurette-splitediting.svg', width: '58px', height: '45px', class: 'visual', alt: 'Code on Nitrous'
+            h3.section-title Split Editing
+            p Get the most out of your screen real-estate with split editing support. Edit files side by side.
+
+          .box
+            .visual
+              = image_tag 'home/featurette-sshaccess.svg', width: '58px', height: '59px', class: 'visual', alt: 'Code on Nitrous'
+            h3.section-title Full SSH access
+            p Access your development container directly with SSH.
+
+
+
+  article.lighter
+    .container
+      .pull-wrapper
+        .pull-left
+          a href="#"
+            = image_tag 'home/nitrous-desktop-featurette.png', alt: 'Nitrous Desktop'
+            = image_tag 'home/nitrous-desktop-icon.png', class: 'app-icon', alt: 'Nitrous Desktop'
+
+        .pull-right
+          h3.section-title Nitrous Sync
+
+          .item
+            h4 Manage cloud environments
+            p
+              a href="#" Nitrous Sync&nbsp;
+              | (available for Windows and Mac OS X) lets you manage your Nitrous boxes running in the cloud. Shutdown boxes, restart them, or SSH directly into them in just a click.
+
+          .item
+            h4 Use your favorite editor
+            p
+              | Sync files between your Nitrous boxes and desktop computer, allowing you to edit code using
+              a href="https://atom.io/" target="_blank" &nbsp;Atom&nbsp;
+              |,
+              a href="http://www.sublimetext.com/" target="_blank" &nbsp;Sublime Text&nbsp;
+              |,
+              a href="http://macromates.com/" target="_blank" &nbsp;Textmate&nbsp;
+              | or your favorite desktop text editor if you want to.
+
+
+  article.quotes
+    .carousel
+      .carousel-inner
+
+        input type="radio" id="carousel-1" class="carousel-open" name="carousel" aria-hidden="true" hidden="" checked="checked"
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
                 p
-                  | Runs entirely in the cloud;
-                  br
-                  | no installation required
+                  | I know how to administer a computer well enough.&nbsp;
+                  strong But I don't want to
+                  | . Nitrous.IO allows me to just say "I want to code some Rails now, kthx" and not have to worry about getting all the details straight. Sometimes, I care about the details, but most of the time, I don't.
+                cite - Steve Klabnik
 
-              .annotation.second
-                p
-                  | Powerful code-editor
-                  br
-                  | in the browser, with
-                  br
-                  | rich language support
+        input type="radio" id="carousel-2" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.three
+              .box
+                blockquote
+                  p
+                    | You don't have to install anything so&nbsp;
+                    strong you save time
+                    |. Plus the students have a text editor and terminal in the same screen, and don't have to switch all the time, which also makes it less confusing.
+                  cite - Andreas Tiefenthaler, Rails Girls Instructor
+              .box
+                blockquote
+                  p
+                    | The online code editor is the bees knees. It provides me a simple interface into my app's code&nbsp;
+                    strong from anywhere
+                    | &nbsp;I have an internet connection.
+                  cite - Miles Smith, Freelance Ruby/JS Developer
+              .box
+                blockquote
+                  p
+                    | I love that I can spin up a new box in seconds and start developing proof of concepts in minutes. Another sweet feature that I've used a lot is the ability to provide a&nbsp;
+                    strong public preview link
+                    | &nbsp;of my app.
+                  cite - Shaun McAvinney, Engineer at RJMetrics
 
-              .annotation.third
-                p
-                  | Dedicated Linux containers
-                  br
-                  | with full root-enabled
-                  br
-                  | shell access
+        label for="carousel-2" class="carousel-control prev control-1"
+          i.fa.fa-chevron-left
+        label for="carousel-2" class="carousel-control next control-1"
+          i.fa.fa-chevron-right
+        label for="carousel-1" class="carousel-control prev control-2"
+          i.fa.fa-chevron-left
+        label for="carousel-1" class="carousel-control next control-2"
+          i.fa.fa-chevron-right
 
-          .overview.main.fadeout
-            .screen.first
-              .titlebar
-                .button.close
-                .button.minimize
-                .button.zoom
-                | Nitrous - Web Browser
-              .screenshot
-            .annotations.left
-              .annotation.first
-                p
-                  | Create &amp; develop on
-                  br
-                  | multiple containers
-                  br
-                  | in a workspace
 
-              .annotation.second
-                p
-                  | Create custom containers
-                  br
-                  | with Docker images
-                  br
-                  | (Advanced Option)
 
-          .overview.desktop.fadeout
-            .screen.first
-              .titlebar
-                .button.close
-                .button.minimize
-                .button.zoom
-                | Nitrous Sync
-              .screenshot
-            .screen.second
-              .titlebar
-                .button.close
-                .button.minimize
-                .button.zoom
-                | Finder
-              .screenshot
-            .screen.third
-              .titlebar
-                .button.close
-                .button.minimize
-                .button.zoom
-                | SSH
-              .screenshot
-            .annotations.right
-              .annotation.first
-                p
-                  | Synchronize your codebase
-                  br
-                  | between Nitrous Cloud and
-                  br
-                  | your local file system.
+  article.for-everyone.lighter
+    .container
+      .box-wrapper.four
+        .box
+          h3.larger For Teams
+          p Work collaboratively on applications and private repos. Leverage Nitrous's cutting-edge cloud IDE to stay productive wherever you are.
+        .box
+          h3.larger For Agencies
+          p Setup environments in minutes for each of your projects, and work collaboratively on them. Create snapshots so you never have to worry again about conflicts.
+        .box
+          h3.larger For Developers
+          p Stop wasting time on system setup and maintenance. Go straight to what you do best: coding. Spin up boxes, build apps, deploy, and start again.
+        .box
+          h3.larger For Students
+          p Work on your projects from Chromebooks, Windows machines, or school computer. Your development environment follows you wherever you are.
 
-              .annotation.second
-                p
-                  | View and edit your
-                  br
-                  | code using your favorite
-                  br
-                  | desktop text editor.
 
-              .annotation.third
-                p
-                  | Access your development containers
-                  br
-                  | directly with SSH
-          .pages
-            .page data-page='0'
-            .page data-page='1'
-            .page data-page='2'
 
-    .companies
-      .container
-        h4 Trusted By Developers At These Amazing Organizations
+  = render 'layouts/companies'
 
-        .logos
-          .row
-            = image_tag 'home/sendgrid.svg',   class: 'sendgrid',   alt: 'Sendgrid'
-            = image_tag 'home/shopify.svg',    class: 'shopify',    alt: 'Shopify'
-            = image_tag 'home/thoughtbot.svg', class: 'thoughtbot', alt: 'thoughtbot'
-            = image_tag 'home/balanced.png',   class: 'balanced',   alt: 'Balanced'
-            = image_tag 'home/zendesk.svg',    class: 'zendesk',    alt: 'Zendesk'
-            = image_tag 'home/harvard.png',    class: 'harvard',    alt: 'Harvard University'
-          .row
-            = image_tag 'home/heroku.svg',     class: 'heroku',     alt: 'Heroku'
-            = image_tag 'home/visa.svg',       class: 'visa',       alt: 'Visa'
-            = image_tag 'home/tilde.png',      class: 'tilde',      alt: 'Tilde'
-            = image_tag 'home/ibm.svg',        class: 'ibm',        alt: 'IBM'
-            = image_tag 'home/tencent.svg',    class: 'tencent',    alt: 'Tencent'
-            = image_tag 'home/emc.svg',        class: 'emc',        alt: 'EMC'
-            = image_tag 'home/mit.png',        class: 'mit',        alt: 'MIT'
+  = render 'layouts/cta'
 
-  = render 'layouts/footer'
+= render partial: 'layouts/footer', locals: { active: 'home' }

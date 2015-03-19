@@ -4,4 +4,8 @@ class PagesController < ApplicationController
 
   def pricing
   end
+
+  def stack
+    p params[:stack]
+  end
 end

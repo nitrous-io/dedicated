@@ -1,0 +1,64 @@
+- @title = 'Stacks · Nitrous'
+- @html_class = 'light'
+- @body_id = 'stack'
+- @body_class = 'stack-'+params[:stack]
+
+- content_for :body_after
+  javascript:
+    pages.Stack.init();
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'stacks' }
+      .hero-copy
+        - if params[:stack] == 'node'
+          h2 Node.js
+        - elsif params[:stack] == 'ruby'
+          h2 Ruby
+        - elsif params[:stack] == 'python'
+          h2 Python
+        - elsif params[:stack] == 'django'
+          h2 Django
+        - elsif params[:stack] == 'rails'
+          h2 Ruby on Rails
+        - elsif params[:stack] == 'go'
+          h2 Go
+        - elsif params[:stack] == 'html5'
+          h2 HTML5
+
+
+  article.darker
+    .container
+      .box-wrapper.two
+        .box
+          - if params[:stack] == 'node'
+            h3 About Node.js
+            p Node.js&reg; is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices.
+          - if params[:stack] == 'rails'
+            h3 About Ruby on Rails
+            p Ruby on Rails&reg; is an open-source web framework that's optimized for programmer happiness and sustainable productivity. It lets you write beautiful code by favoring convention over configuration.
+          - if params[:stack] == 'html5'
+            h3 About HTML5
+            p Node.js&reg; is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices.
+
+        .box
+          h3 About Nitrous.io
+          p Nitrous provides a lightning fast way to set up development environments and code in the cloud. Nitrous allows developers to collaborate on their projects in real-time, deploy to production servers with one-click, and to version dev environments with ease.
+
+  article.featurette
+    .container
+      - if params[:stack] == 'node'
+        h3.big-title Gettings started with Node.js and Nitrous
+        h4
+          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
+      - if params[:stack] == 'rails'
+        h3.big-title Gettings started with Ruby on Rails and Nitrous
+        h4
+          | Donec ullamcorper nulla non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
+
+
+
+
+= render partial: 'layouts/footer', locals: { active: 'stacks' }
