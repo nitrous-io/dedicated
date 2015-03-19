@@ -524,6 +524,8 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	attached := make(chan struct{}, 1)
 	ch := sh.Attach(shellStdinReader, shellStdoutWriter, attached)
 
+	log.Printf("wsSHell: started new session\n")
+
 	go func() {
 		for {
 			msg, err := shell.ReadAndDecodeMessage(ws)
