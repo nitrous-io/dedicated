@@ -121,6 +121,13 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errProviderIdentifierRequired
 	}
 
+	config := hostbuilderclient.Config{"id": provID}
+
+	region := r.FormValue("region")
+	if region != "" {
+		config["region"] = region
+	}
+
 	var count int
 	err := env.DB.QueryRow(`
 		SELECT COUNT(*) FROM hosts
@@ -140,7 +147,7 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 
 	// FIXME: this will not work with EC2 and GCE as they require the host's
 	// region.
-	resp, err := HostbuilderClient.Delete(provider, hostbuilderclient.Config{"id": provID}, map[string]string{constants.NitrousUUIDHeader: env.UUID})
+	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID})
 	if err != nil {
 		return err
 	}

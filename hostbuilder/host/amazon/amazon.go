@@ -425,14 +425,24 @@ func (h *Host) List() ([]*host.Info, error) {
 			mu.Lock()
 			for _, reservation := range instancesResp.Reservations {
 				for _, instance := range reservation.Instances {
-					infos = append(infos, &host.Info{
+					info := &host.Info{
 						Provider:       h.DriverName(),
 						ID:             instance.InstanceId,
 						IPAddress:      instance.PublicIpAddress,
 						FreighterdPort: DefaultPort,
 						State:          getState(&instance),
 						Region:         region.Name,
-					})
+					}
+
+					// Get EC2 instance name
+					for _, tag := range instance.Tags {
+						if tag.Key == "Name" {
+							info.Name = tag.Value
+							break
+						}
+					}
+
+					infos = append(infos, info)
 				}
 			}
 			mu.Unlock()

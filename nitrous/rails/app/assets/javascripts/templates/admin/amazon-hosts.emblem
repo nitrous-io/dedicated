@@ -13,19 +13,24 @@
         tbody
           tr
             th PID
+            th Slug
             th State
             th EC2 Region
             th IP Address
             th Freighterd Port
+            th Actions
 
           = each host in hosts.unaccounted_hosts
             tr
               td title=id
                 = host.id
+              td = host.name
               td = host.state
               td = host.region
               td = host.ip_address
               td = host.freighterd_port
+              td.actions
+                button.ui.btn.raised click='terminateUnaccounted host' Terminate
 
     h3
       ' Dangling
@@ -56,8 +61,9 @@
                 = plan-slug host.plan_id
 
     h3
-      ' Inconsistent:
+      ' Inconsistent
       i.fa.fa-question-circle title="State in DB different from actual running state"
+      ' :
       = hosts.inconsistent_hosts.length
     
     .card-body.bordered
