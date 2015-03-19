@@ -598,14 +598,18 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}
 
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
+
+	if hostinfo != nil {
+		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
+		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
+	}
+
 	if err != nil {
 		err = &HostbuilderError{Err: err}
 		return nil, err
 	}
 
-	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
-	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	h.State = host.StateRunning
 	h.HourlyPrice = opts.Plan.HourlyPrice()

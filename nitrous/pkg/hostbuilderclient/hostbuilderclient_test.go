@@ -73,24 +73,28 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			}))
 		})
 
-		It("returns error when the build failed", func() {
+		It("returns error when the build failed, including the original response", func() {
 			response := `
 			{"stream":"starting: create ssh key"}
 			{"stream":"finished: create ssh key"}
 			{"stream":"starting: create droplet"}
 			{"stream":"failed: create droplet"}
-			{"error":"failed to create droplet because of some reason"}
+			{"error":"failed to create droplet because of some reason", "provider": "digitalocean"}
 			`
 			prepareHandlers("POST", "/hosts", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
-			_, err := hb.Create("digitalocean", hostbuilderclient.Config{
+			info, err := hb.Create("digitalocean", hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
 			}, ioutil.Discard, map[string]string{
 				"NITROUS": "IS_FAST",
 			})
 			Expect(err).ToNot(BeNil(), "failed to return error when the build failed")
+			Expect(info).To(Equal(&hostbuilder.Response{
+				Provider: "digitalocean",
+				Error:    "failed to create droplet because of some reason",
+			}))
 		})
 	})
 
@@ -121,22 +125,26 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			}))
 		})
 
-		It("returns error when the update fails", func() {
+		It("returns error when the update fails, including the original response", func() {
 			response := `
 			{"stream":"starting: renaming host"}
 			{"stream":"failed: renaming host"}
 			{"stream":"failed: renaming host"}
-			{"error":"failed to rename host because reasons"}
+			{"error":"failed to rename host because reasons", "id": "i-232x"}
 			`
 			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
-			_, err := hb.Update("digitalocean", hostbuilderclient.Config{
+			info, err := hb.Update("digitalocean", hostbuilderclient.Config{
 				"name": "doublerainbow",
 			}, ioutil.Discard, map[string]string{
 				"NITROUS": "IS_FAST",
 			})
 			Expect(err).ToNot(BeNil())
+			Expect(info).To(Equal(&hostbuilder.Response{
+				ID:    "i-232x",
+				Error: "failed to rename host because reasons",
+			}))
 		})
 	})
 
