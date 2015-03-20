@@ -564,43 +564,89 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("container ops: failed to upgrade websocket: %v", err)
 	}
-	stream := NewWebSocketConnection(conn, binary)
-	defer stream.Close()
+	ws := NewWebSocketConnection(conn, binary)
+	defer ws.Close()
 
-	msgCh := make(chan msgproto.Message, messageQueueSize)
-	stdin := msgproto.NewReader(conn, msgCh, stream.MessageType)
-
-	done, quit, msgs, err := cops.Start(id, stdin)
+	cmd, copsStdin, copsStdout, err := cops.Start(id)
 	if err != nil {
-		stream.Close()
 		return err
 	}
+
+	msgsFromCops := make(chan map[string]interface{})
+	quit := make(chan error, 2)
+
+	// read json messages from cops process
+	go func() {
+		dec := json.NewDecoder(copsStdout)
+		for {
+			var msg map[string]interface{}
+			if err := dec.Decode(&msg); err == nil {
+				msgsFromCops <- msg
+			} else {
+				log.Printf("wsContainerOps: dec.Decode() failed with %s", err)
+				quit <- err
+				return
+			}
+		}
+	}()
+
+	// read ws message from client and send them to cops process
+	// the assumption is that messages are json, which serves as a message
+	// framing mechanism (json.Decoder handles such stream of json messages)
+	go func() {
+		var err error
+		var msgType int
+		var d []byte
+		for {
+			msgType, d, err = msgproto.ReadAndDecodeMessage(ws)
+			if err != nil {
+				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() failed with %s", err)
+				break
+			}
+			if msgType == msgproto.CloseMessage {
+				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() received msgproto.CloseMessge")
+				break
+			}
+			if _, err = copsStdin.Write(d); err != nil {
+				log.Printf("cops.Start(): stdin.Write() failed with %s", err)
+				break
+			}
+		}
+		quit <- err
+	}()
+
+	// wait for process to exit
+	go func() {
+		err := cmd.Wait()
+		quit <- err
+	}()
+
 	ActiveCops.AddChannel(id, quit)
 	for {
 		select {
-		case err := <-done:
+		case err := <-quit:
 			log.Printf("container ops: exited with err %v", err)
 			ActiveCops.RemoveChannel(id, quit)
-			stream.Close() // inform client that server has closed connection.
+			ws.Close() // inform client that server has closed connection.
+			if cmd.Process != nil {
+				log.Printf("wsContainerOps: killing cops process")
+				cmd.Process.Kill()
+			}
 			return nil
-		case msg := <-msgs:
+
+		case msg := <-msgsFromCops:
 			d, err := json.Marshal(msg)
 			if err != nil {
-				fmt.Printf("json.Marshal() of %v failed with %s\n", msg, err)
+				log.Printf("json.Marshal() of %v failed with %s\n", msg, err)
 			} else {
-				_, err = msgproto.WriteMsg(d, stream)
+				_, err = msgproto.WriteDataMessage(d, ws)
 				if err != nil {
-					log.Printf("msgproto.WriteMsg() failed with '%s'\n", err)
+					log.Printf("msgproto.WriteDataMessage() failed with '%s'\n", err)
 				}
 			}
 
 			if err != nil {
-				done <- err
-			}
-		case msg := <-msgCh:
-			switch msg := msg.(type) {
-			default:
-				log.Println("container ops: got unknown msg ", msg)
+				quit <- err
 			}
 		}
 	}

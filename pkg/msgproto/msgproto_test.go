@@ -3,109 +3,89 @@ package msgproto
 import (
 	"bytes"
 	"io"
-	"reflect"
 	"testing"
-	"time"
-
-	"github.com/gorilla/websocket"
 )
 
-type wsReader struct {
-	io.Reader
+type FakeWebSocket struct {
+	messages [][]byte
+	currMsg  int
 }
 
-func (ws wsReader) NextReader() (int, io.Reader, error) {
-	return websocket.BinaryMessage, ws.Reader, nil
-}
-
-func TestNewShellReader(t *testing.T) {
-	testCases := []struct {
-		msg         string
-		expected    string
-		expectedMsg Message
-	}{
-		{`d|whoami`, `whoami`, nil},
-		{`d|ls`, `ls`, nil},
-		{`r|80 20`, ``, nil}, // ignore unsupported message
-		{`c|good bye`, ``, &CloseMsg{msg: `good bye`}},
+func (f *FakeWebSocket) ReadMessage() (int, []byte, error) {
+	if f.currMsg >= len(f.messages) {
+		return 0, nil, io.EOF
 	}
+	d := f.messages[f.currMsg]
+	f.currMsg++
+	return 0, d, nil
+}
 
-	for _, tc := range testCases {
-		in := bytes.NewBufferString(tc.msg)
-		ch := make(chan Message, 1)
-		s := NewReader(wsReader{Reader: in}, ch, websocket.BinaryMessage)
+func strArrToBytesArr(a []string) [][]byte {
+	n := len(a)
+	res := make([][]byte, n, n)
+	for i, s := range a {
+		res[i] = []byte(s)
+	}
+	return res
+}
 
-		buf := make([]byte, 100)
-		n, _ := s.Read(buf)
-		if n != len(tc.expected) {
-			t.Errorf("expect to read %d bytes but got %d bytes", len(tc.msg), n)
-		}
-
-		if tc.expectedMsg != nil {
-			select {
-			case msg := <-ch:
-				if !reflect.DeepEqual(msg, tc.expectedMsg) {
-					t.Errorf("expect msg %v but got %v", tc.expectedMsg, msg)
-				}
-			case <-time.After(10 * time.Millisecond):
-				t.Errorf("timed out while waiting for %v", tc.expectedMsg)
+func TestReadAndDecodeMessage(t *testing.T) {
+	msgs := []string{"d|t", "d|hey", "d|d|", "c|lola"}
+	exp := []string{"t", "hey", "d|", "lola"}
+	fake := &FakeWebSocket{
+		messages: strArrToBytesArr(msgs),
+	}
+	got := make([]string, 0)
+	for {
+		msgType, d, err := ReadAndDecodeMessage(fake)
+		if err != nil {
+			if err != io.EOF {
+				t.Errorf("ReadAndDecodeMessage() returned err other than io.EOF: %s", err)
+				return
 			}
+			break
 		}
-
-		out := string(buf[:n])
-		if out != tc.expected {
-			t.Errorf("expect output %s but got %s", tc.expected, out)
+		got = append(got, string(d))
+		n := len(got)
+		switch msgType {
+		case DataMessage:
+			if n > 3 {
+				t.Errorf("got DataMessage from non-data packet '%s'", msgs[n-1])
+				return
+			}
+		case CloseMessage:
+			if n != 4 {
+				t.Errorf("got CloseMessage from non-close packet '%s'", msgs[n-1])
+				return
+			}
+		default:
+			t.Errorf("unknown message type %d", msgType)
+			return
 		}
 	}
-}
-
-func TestReadFragmentedMessages(t *testing.T) {
-	r, w := io.Pipe()
-	s := NewReader(wsReader{Reader: r}, make(chan Message), websocket.BinaryMessage)
-
-	go func() {
-		w.Write([]byte(`d|hello-`))
-		w.Write([]byte(`fragmented-message`))
-		w.CloseWithError(io.ErrClosedPipe)
-	}()
-
-	buf := bytes.NewBuffer(nil)
-	_, err := io.Copy(buf, s)
-	if err != io.ErrClosedPipe {
-		t.Errorf("expect err %v but got %v", io.ErrClosedPipe, err)
-	}
-	expected := "hello-fragmented-message"
-	if buf.String() != expected {
-		t.Errorf("expect %s but got %v", expected, buf.String())
-	}
-}
-
-func TestNewWriter(t *testing.T) {
-	testCases := []struct {
-		msg      string
-		expected string
-	}{
-		{`action@foobar`, `d|action@foobar`},
-	}
-
-	for _, tc := range testCases {
-		w := bytes.NewBuffer(nil)
-		s := NewWriter(w)
-
-		r := bytes.NewBufferString(tc.msg)
-		io.Copy(s, r)
-
-		if w.String() != tc.expected {
-			t.Errorf("expect %s to be written but got %s", tc.expected, w.String())
+	for i, _ := range exp {
+		if exp[i] != got[i] {
+			t.Errorf("exp[%d]='%s' != got[%d]='%s'", i, exp[i], i, got[i])
 		}
 	}
 }
 
-func TestShellWriterClose(t *testing.T) {
-	w := bytes.NewBuffer(nil)
-	s := NewWriter(w)
-	s.Close()
-	if w.String() != `c|` {
-		t.Errorf("expect close message to be written but got %s", w.String())
+func TestWriteDataMessage(t *testing.T) {
+	data := []string{"", "s1", "d", "asdfasfd", "d|"}
+	var expBuf bytes.Buffer
+	var gotBuf bytes.Buffer
+	for _, s := range data {
+		expBuf.Write([]byte("d|"))
+		expBuf.Write([]byte(s))
+		_, err := WriteDataMessage([]byte(s), &gotBuf)
+		if err != nil {
+			t.Errorf("WriteDataMessage() failed with %s", err)
+			return
+		}
+	}
+	exp := string(expBuf.Bytes())
+	got := string(gotBuf.Bytes())
+	if exp != got {
+		t.Errorf("'%s' != '%s'", exp, got)
 	}
 }
