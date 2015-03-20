@@ -235,6 +235,10 @@
 			"Rev": "dee209f2455f101a5e4e593dea94872d2c62d85d"
 		},
 		{
+			"ImportPath": "github.com/rcrowley/goagain",
+			"Rev": "f2f192b5d1a96e21dd4026ce67cda85e49659a48"
+		},
+		{
 			"ImportPath": "github.com/sendgrid/sendgrid-go",
 			"Comment": "v1.0.0",
 			"Rev": "b39babe65a69ba2179f9854cf621ce834e9775da"
