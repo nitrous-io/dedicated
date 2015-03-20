@@ -140,7 +140,7 @@ func SendActivationEmail(d *db.Database, u user.User) (err error) {
 		targetEmail = u.Email
 	}
 
-	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
+	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: tmplData.Name, Address: targetEmail}).String()
 
 	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Activate your Nitrous account", txtBuf.String(), htmlBuf.String())
@@ -261,7 +261,7 @@ func SendGetStartedEmail(d *db.Database, u user.User) (err error) {
 		targetEmail = u.Email
 	}
 
-	from := (&mail.Address{Name: "Nitrous Mailer", Address: "mailer@nitrous.io"}).String()
+	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
 	to := (&mail.Address{Name: tmplData.Name, Address: targetEmail}).String()
 
 	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, "Nitrous: $5 Credit to Get Started", txtBuf.String(), htmlBuf.String())

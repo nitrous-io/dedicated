@@ -83,7 +83,9 @@ func mapHost(list *HostList, entry *HostEntry) {
 		}
 
 	case liveHost != nil && dbHost == nil:
-		list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
+		if liveHost.State != "Terminated" {
+			list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
+		}
 
 	case liveHost == nil && dbHost != nil:
 		list.DanglingHosts = append(list.DanglingHosts, dbHost)
