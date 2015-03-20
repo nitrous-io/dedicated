@@ -1,4 +1,4 @@
-package host
+package main
 
 import (
 	"database/sql"
@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
-var dbStructure = []string{
+var dbStructureHost = []string{
 	`DROP TABLE IF EXISTS hosts;`,
 	`CREATE TABLE hosts (
 		id bigserial PRIMARY KEY NOT NULL,
@@ -19,27 +18,27 @@ var dbStructure = []string{
 	`CREATE UNIQUE INDEX index_hosts_on_slug ON hosts USING btree (slug);`,
 }
 
-var fixtures = []*Host{
+var fixturesHost = []*Host{
 	{Slug: "daniel-box", IpAddress: "10.0.0.1"},
 	{Slug: "md-box", IpAddress: "10.0.0.2"},
 	{Slug: "dqminh-box", IpAddress: "10.0.0.3"},
 }
 
-func testNavigator(domain string) n.Navigator {
+func testHostNavigator(domain string) *HostNavigator {
 	config := map[string]string{
 		"database_url": "host=/var/run/postgresql dbname=compass_test sslmode=disable",
 	}
-	b, err := New(domain, config)
+	b, err := NewHostNavigator(domain, config)
 	if err != nil {
 		log.Println("failed to create boxhost", err)
 	}
-	for _, s := range dbStructure {
-		_, err = b.(*Navigator).db.Exec(s)
+	for _, s := range dbStructureHost {
+		_, err = b.db.Exec(s)
 		if err != nil {
 			log.Println("failed to set db structure", err, s)
 		}
 	}
-	if err := insertHost(b.(*Navigator).db, fixtures); err != nil {
+	if err := insertHost(b.db, fixturesHost); err != nil {
 		log.Println("failed to set db fixtures", err)
 	}
 	return b
@@ -60,16 +59,16 @@ func insertHost(db *sql.DB, values []*Host) error {
 	return nil
 }
 
-func TestName(t *testing.T) {
-	n := testNavigator("nitrousbox.com.").(*Navigator)
+func TestHostName(t *testing.T) {
+	n := testHostNavigator("nitrousbox.com.")
 	if n.Name() != "host" {
 		t.Fatal("a navigator should have a name.")
 	}
 }
 
-func TestFind(t *testing.T) {
-	nav := testNavigator("example.com.").(*Navigator)
-	bh := fixtures[0]
+func TestHostFind(t *testing.T) {
+	nav := testHostNavigator("example.com.")
+	bh := fixturesHost[0]
 	host, err := nav.find(bh.Slug)
 	if err != nil || host.Slug != "daniel-box" || host.IpAddress != "10.0.0.1" {
 		t.Fatal("Failed to find host")
@@ -80,9 +79,9 @@ func TestFind(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
-	nav := testNavigator("example.com.").(*Navigator)
-	h := fixtures[0]
+func TestHostLookup(t *testing.T) {
+	nav := testHostNavigator("example.com.")
+	h := fixturesHost[0]
 	r, err := nav.Lookup(fmt.Sprintf("%s.example.com", h.Slug))
 	if err != nil || r[0].(*dns.A).A.String() != h.IpAddress {
 		t.Fatal("Failed to get correct dns record")
@@ -97,8 +96,8 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func TestLookupCaseInsensitive(t *testing.T) {
-	nav := testNavigator("example.com.").(*Navigator)
+func TestHostLookupCaseInsensitive(t *testing.T) {
+	nav := testHostNavigator("example.com.")
 	r, err := nav.Lookup("Daniel-BOX.Example.Com")
 	if err != nil {
 		t.Fatalf("Unexpected lookup error: %v", err)

@@ -1,24 +1,16 @@
-package proxy
+package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/miekg/dns"
-	nav "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
-const defaultTTL = uint32(300)
-
-var (
-	ErrNotFound = errors.New("RecordNotFound")
-)
-
-type Host struct {
+type ProxyHost struct {
 	Id         int
 	Slug       string
 	RegionID   int
@@ -27,18 +19,18 @@ type Host struct {
 	Provider   string
 }
 
-type Navigator struct {
+type ProxyNavigator struct {
 	domain string
 	db     *sql.DB
 	config map[string]string
 }
 
-func (n *Navigator) Name() string {
+func (n *ProxyNavigator) Name() string {
 	return "proxy"
 }
 
-func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
-	if !nav.SameRootDomain(name, n.domain) {
+func (n *ProxyNavigator) Lookup(name string) ([]dns.RR, error) {
+	if !SameRootDomain(name, n.domain) {
 		return nil, fmt.Errorf("Cant handle domain %v", name)
 	}
 	labels := dns.SplitDomainName(name)
@@ -59,7 +51,7 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if len(domain) == 0 {
 		return nil, fmt.Errorf("Empty proxy for region '%s', please check the config.", h.RegionSlug)
 	}
-	domain = endsWithDot(domain)
+	domain = ensureEndsWithDot(domain)
 
 	cname := fmt.Sprintf("%s.%s", h.Provider, domain)
 	return []dns.RR{
@@ -75,8 +67,8 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	}, nil
 }
 
-func (n *Navigator) find(slug string) (*Host, error) {
-	h := new(Host)
+func (n *ProxyNavigator) find(slug string) (*ProxyHost, error) {
+	var h ProxyHost
 	err := n.db.QueryRow(
 		`SELECT hosts.id, hosts.slug, regions.id, regions.slug, provider_templates.id, provider_templates.provider
 		FROM hosts, regions, provider_templates WHERE hosts.slug = $1 AND hosts.region_id = regions.id
@@ -85,10 +77,10 @@ func (n *Navigator) find(slug string) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	return h, nil
+	return &h, nil
 }
 
-func (n *Navigator) NewSOA() []dns.RR {
+func (n *ProxyNavigator) NewSOA() []dns.RR {
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: n.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -103,8 +95,8 @@ func (n *Navigator) NewSOA() []dns.RR {
 	}
 }
 
-func New(domain string, config map[string]string) (nav.Navigator, error) {
-	domainDot := endsWithDot(domain)
+func NewProxyNavigator(domain string, config map[string]string) (*ProxyNavigator, error) {
+	domainDot := ensureEndsWithDot(domain)
 	db, err := sql.Open("postgres", config["database_url"])
 	if err != nil {
 		return nil, fmt.Errorf("Boxhost: failed to get db connection %v", err)
@@ -112,21 +104,9 @@ func New(domain string, config map[string]string) (nav.Navigator, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("Boxhost: failed to get db connection %v", err)
 	}
-	return &Navigator{
+	return &ProxyNavigator{
 		domain: domainDot,
 		db:     db,
 		config: config,
 	}, nil
-}
-
-func endsWithDot(domain string) string {
-	if strings.HasSuffix(domain, ".") {
-		return domain
-	} else {
-		return fmt.Sprintf("%s.", domain)
-	}
-}
-
-func init() {
-	nav.Navigators["proxy"] = New
 }

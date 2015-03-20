@@ -1,4 +1,4 @@
-package dummy
+package main
 
 import (
 	"fmt"
@@ -6,21 +6,18 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
-const defaultTTL = uint32(300)
-
-type Dummy struct {
+type DummyNavigator struct {
 	domain string
 	data   map[string]string
 }
 
-func (d *Dummy) Name() string {
+func (d *DummyNavigator) Name() string {
 	return "dummy"
 }
 
-func (d *Dummy) Lookup(name string) ([]dns.RR, error) {
+func (d *DummyNavigator) Lookup(name string) ([]dns.RR, error) {
 	ip, ok := d.data[name]
 	if !ok {
 		return nil, fmt.Errorf("InvalidRecord: %v", name)
@@ -39,7 +36,7 @@ func (d *Dummy) Lookup(name string) ([]dns.RR, error) {
 	return records, nil
 }
 
-func (d *Dummy) NewSOA() []dns.RR {
+func (d *DummyNavigator) NewSOA() []dns.RR {
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: d.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -54,10 +51,6 @@ func (d *Dummy) NewSOA() []dns.RR {
 	}
 }
 
-func NewNavigator(domain string, config map[string]string) (n.Navigator, error) {
-	return &Dummy{domain, config}, nil
-}
-
-func init() {
-	n.Navigators["dummy"] = NewNavigator
+func NewDummyNavigator(domain string, config map[string]string) (*DummyNavigator, error) {
+	return &DummyNavigator{domain, config}, nil
 }

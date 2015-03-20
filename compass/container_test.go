@@ -1,4 +1,4 @@
-package container
+package main
 
 import (
 	"database/sql"
@@ -8,10 +8,9 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
-var dbStructure = []string{
+var dbStructureContainer = []string{
 	`DROP TABLE IF EXISTS containers;`,
 	`DROP TABLE IF EXISTS hosts;`,
 	`DROP TABLE IF EXISTS regions;`,
@@ -41,38 +40,38 @@ var dbStructure = []string{
 	`CREATE UNIQUE INDEX index_containers_on_slug ON containers USING btree (slug);`,
 }
 
-type fixture struct {
+type fixtureContainer struct {
 	Container
 	providerTemplateID int64
 }
 
-var fixtures = []fixture{
+var fixturesContainer = []fixtureContainer{
 	{Container: Container{Slug: "daniel-box", RegionID: 1, RegionSlug: "sgp"}, providerTemplateID: 2},
 	{Container: Container{Slug: "md-box", RegionID: 1, RegionSlug: "sgp"}, providerTemplateID: 1},
 	{Container: Container{Slug: "dqminh-box", RegionID: 2, RegionSlug: "nyc"}, providerTemplateID: 2},
 }
 
-func testNavigator(domain string) n.Navigator {
+func testContainerNavigator(domain string) *ContainerNavigator {
 	config := map[string]string{
 		"database_url": "host=/var/run/postgresql dbname=compass_test sslmode=disable",
 		"sgp":          "exampleproxy-sgp.com",
 	}
-	b, err := New(domain, config)
+	b, err := NewContainerNavigator(domain, config)
 	if err != nil {
 		log.Println("failed to create navigator", err)
 	}
-	for _, s := range dbStructure {
-		if _, err := b.(*Navigator).db.Exec(s); err != nil {
+	for _, s := range dbStructureContainer {
+		if _, err := b.db.Exec(s); err != nil {
 			log.Println("failed to set db structure", err, s)
 		}
 	}
-	if err := insertContainers(b.(*Navigator).db, fixtures); err != nil {
+	if err := insertContainers(b.db, fixturesContainer); err != nil {
 		log.Println("failed to set db fixtures", err)
 	}
 	return b
 }
 
-func insertContainers(db *sql.DB, fixtures []fixture) error {
+func insertContainers(db *sql.DB, fixtures []fixtureContainer) error {
 	for i, f := range fixtures {
 		var hostID int
 		var err error
@@ -90,18 +89,18 @@ func insertContainers(db *sql.DB, fixtures []fixture) error {
 	return nil
 }
 
-func TestName(t *testing.T) {
-	n := testNavigator("nitrousbox.com.").(*Navigator)
+func TestContainerName(t *testing.T) {
+	n := testContainerNavigator("nitrousbox.com.")
 	if n.Name() != "container" {
 		t.Fatal("a navigator should have a name.")
 	}
 }
 
-func TestFind(t *testing.T) {
-	n := testNavigator("nitrousbox.com.").(*Navigator)
-	c, err := n.find(fixtures[0].Slug)
-	if err != nil || c.Slug != fixtures[0].Slug || c.RegionID != fixtures[0].RegionID ||
-		c.RegionSlug != fixtures[0].RegionSlug {
+func TestContainerFind(t *testing.T) {
+	n := testContainerNavigator("nitrousbox.com.")
+	c, err := n.find(fixturesContainer[0].Slug)
+	if err != nil || c.Slug != fixturesContainer[0].Slug || c.RegionID != fixturesContainer[0].RegionID ||
+		c.RegionSlug != fixturesContainer[0].RegionSlug {
 		t.Fatal("Failed to find a container with valid slug")
 	}
 	_, err = n.find("invalid-box")
@@ -110,9 +109,9 @@ func TestFind(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
-	nav := testNavigator("nitrousbox.com.").(*Navigator)
-	f := fixtures[0]
+func TestContainerLookup(t *testing.T) {
+	nav := testContainerNavigator("nitrousbox.com.")
+	f := fixturesContainer[0]
 	h, err := nav.find(f.Slug)
 	r, err := nav.Lookup(f.Slug + ".nitrousbox.com.")
 	cname := fmt.Sprintf("%s.%s.", h.Provider, nav.config[f.RegionSlug])
@@ -129,9 +128,9 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func TestLookupCaseInsensitive(t *testing.T) {
-	nav := testNavigator("nitrousbox.com.").(*Navigator)
-	f := fixtures[0]
+func TestContainerLookupCaseInsensitive(t *testing.T) {
+	nav := testContainerNavigator("nitrousbox.com.")
+	f := fixturesContainer[0]
 	h, err := nav.find(f.Slug)
 	slug := strings.ToUpper(f.Slug)
 	r, err := nav.Lookup(slug + ".nitrousbox.com.")

@@ -1,20 +1,43 @@
-package compass
+package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/dedicated/compass/navigator"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 )
+
+const defaultTTL = uint32(300)
+
+var (
+	ErrNotFound = errors.New("RecordNotFound")
+)
+
+// will be injected with the build process
+var version string
+
+type Navigator interface {
+	Name() string // tell us what type of navigator you are.
+
+	// Lookup returns DNS records for the given DNS name. Callers must ensure
+	// that any Unicode characters outside of the ASCII set are converted to
+	// Punycode.
+	Lookup(name string) ([]dns.RR, error)
+
+	NewSOA() []dns.RR
+}
 
 type NavigatorConfig struct {
 	Name   string            `json:"name"`
@@ -34,12 +57,8 @@ type Server struct {
 	db         *sql.DB
 	mux        *dns.ServeMux
 	wg         *sync.WaitGroup
-	navigators map[string]n.Navigator
+	navigators map[string]Navigator
 }
-
-const (
-	defaultTTL = uint32(300)
-)
 
 func (s *Server) ListenAndServe() error {
 	s.mux = dns.NewServeMux()
@@ -132,8 +151,21 @@ func (s *Server) allSOA() []dns.RR {
 	return records
 }
 
+func NewNavigator(provider, domain string, config map[string]string) (Navigator, error) {
+	switch provider {
+	case "dummy":
+		return NewDummyNavigator(domain, config)
+	case "container":
+		return NewContainerNavigator(domain, config)
+	case "host":
+		return NewHostNavigator(domain, config)
+	default:
+		return nil, fmt.Errorf("unknown provider '%s'", provider)
+	}
+}
+
 func NewServer(config *Config) (*Server, error) {
-	navigators := map[string]n.Navigator{}
+	navigators := map[string]Navigator{}
 	for _, c := range config.NavigatorConfigs {
 		if n, ok := navigators[c.Domain]; ok {
 			return nil, fmt.Errorf("ERROR: cannot register navigator %s for domain %s because navigator %s is already registered", c.Name, c.Domain, n.Name())
@@ -177,4 +209,37 @@ func NewServer(config *Config) (*Server, error) {
 	}
 
 	return server, nil
+}
+
+func main() {
+	flVersion := flag.Bool("v", false, "current version")
+	flConfigPath := flag.String("c", "config.json", "config path")
+	flag.Parse()
+	if *flVersion {
+		fmt.Printf("Compass: revision %s\n", version)
+		os.Exit(0)
+		return
+	}
+	configData, err := ioutil.ReadFile(*flConfigPath)
+	if err != nil {
+		fatal("Missing config file", *flConfigPath)
+	}
+	config := new(Config)
+	err = json.Unmarshal(configData, &config)
+	if err != nil {
+		fatal("Invalid config file at ./config.json", err)
+	}
+	s, err := NewServer(config)
+	if err != nil {
+		fatal("Failed to start compass server:", err)
+	}
+	log.Println("compass: Name serving since 1978")
+	if err := s.ListenAndServe(); err != nil {
+		fatal("compass exited with error:", err)
+	}
+}
+
+func fatal(a ...interface{}) {
+	log.Println(a...)
+	os.Exit(1)
 }

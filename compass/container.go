@@ -1,21 +1,13 @@
-package container
+package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/miekg/dns"
-	nav "github.com/nitrous-io/dedicated/compass/navigator"
-)
-
-const defaultTTL = uint32(300)
-
-var (
-	ErrNotFound = errors.New("RecordNotFound")
 )
 
 type Container struct {
@@ -26,18 +18,18 @@ type Container struct {
 	Provider   string
 }
 
-type Navigator struct {
+type ContainerNavigator struct {
 	domain string
 	db     *sql.DB
 	config map[string]string
 }
 
-func (n *Navigator) Name() string {
+func (n *ContainerNavigator) Name() string {
 	return "container"
 }
 
-func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
-	if !nav.SameRootDomain(name, n.domain) {
+func (n *ContainerNavigator) Lookup(name string) ([]dns.RR, error) {
+	if !SameRootDomain(name, n.domain) {
 		return nil, fmt.Errorf("cant handle domain %v", name)
 	}
 	labels := dns.SplitDomainName(name)
@@ -58,7 +50,7 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	if len(domain) == 0 {
 		return nil, fmt.Errorf("Empty proxy for region '%s', please check the config.", c.RegionSlug)
 	}
-	domain = endsWithDot(domain)
+	domain = ensureEndsWithDot(domain)
 
 	cname := fmt.Sprintf("%s.%s", c.Provider, domain)
 	return []dns.RR{
@@ -74,7 +66,7 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	}, nil
 }
 
-func (n *Navigator) find(slug string) (*Container, error) {
+func (n *ContainerNavigator) find(slug string) (*Container, error) {
 	c := new(Container)
 	err := n.db.QueryRow(
 		`SELECT containers.id, containers.slug, regions.id, regions.slug, provider_templates.provider
@@ -90,7 +82,7 @@ func (n *Navigator) find(slug string) (*Container, error) {
 	return c, nil
 }
 
-func (n *Navigator) NewSOA() []dns.RR {
+func (n *ContainerNavigator) NewSOA() []dns.RR {
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: n.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -105,7 +97,7 @@ func (n *Navigator) NewSOA() []dns.RR {
 	}
 }
 
-func New(domain string, config map[string]string) (nav.Navigator, error) {
+func NewContainerNavigator(domain string, config map[string]string) (*ContainerNavigator, error) {
 	db, err := sql.Open("postgres", config["database_url"])
 	if err != nil {
 		return nil, fmt.Errorf("Box: failed to get db connection %v", err)
@@ -113,21 +105,9 @@ func New(domain string, config map[string]string) (nav.Navigator, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("Box: failed to ping db %v", err)
 	}
-	return &Navigator{
+	return &ContainerNavigator{
 		domain: domain,
 		db:     db,
 		config: config,
 	}, nil
-}
-
-func endsWithDot(domain string) string {
-	if strings.HasSuffix(domain, ".") {
-		return domain
-	} else {
-		return fmt.Sprintf("%s.", domain)
-	}
-}
-
-func init() {
-	nav.Navigators["container"] = New
 }
