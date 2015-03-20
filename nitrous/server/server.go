@@ -107,8 +107,7 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-// debugHandler prints out debug information in json format. This should work
-// only for admin user
+// debugHandler prints out debug information in json format.
 func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	psInfo := s.Events.Info()
 	env.Status = http.StatusOK
@@ -119,6 +118,16 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 		"num_goroutine": runtime.NumGoroutine(),
 	}
 	return nil
+}
+
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
+	var duration int
+	if d := r.FormValue("duration"); d != "" {
+		duration, _ = strconv.Atoi(d)
+	}
+	s.logger.Debugf("sleeping for %d seconds", duration)
+	time.Sleep(time.Duration(duration) * time.Second)
+	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
 func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {

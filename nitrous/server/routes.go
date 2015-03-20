@@ -78,6 +78,7 @@ func (s *Server) drawRoutes() {
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
 		s.routeJSON("/debug", s.debugHandler, "GET")
+		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {
