@@ -1,19 +1,13 @@
 #= require ./model
+#= require ../mixins/grouped-invoice-items-mixin
 attr = SM.attr
 
-App.BillingUsage = klass = App.Model.extend
+App.BillingUsage = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   totalCharge: attr('number', as: 'total_charge')
   availableCreditsDollars: attr('number', as: 'available_credits_dollars')
 
   _usage: attr('object', as: 'usage')
   _items: attr('object', as: 'items')
-  items: (->
-    @get('_items').map (item)=>
-      inv = App.InvoiceItem.create()
-      inv.load item
-      inv
-    .sortBy('ranking', 'id').reverse()
-  ).property '_items'
 
   totalChargeDollars: (->
     @get('totalCharge') / 100.0
