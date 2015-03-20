@@ -27,7 +27,7 @@
         ul
           li.tooltip.team.blue.zoom data-tooltip="AJ loves baseball, surfing, and networked home appliances. He studied economics at Harvard and is obsessed with microformats"
             = image_tag 'home/aj.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
-          li.tooltip.team.blue.zoom data-tooltip="Pete started programming at the age of 8, when most kids were still picking their nose. He likes riding his fixed gear bicycle and shooting airsoft guns"
+          li.tooltip.team.blue.zoom data-tooltip="Pete started programming at the age of 8, when most kids were still picking their nose. He likes cycling and playing airsoft games"
             = image_tag 'home/pete.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
           li.tooltip.team.blue.zoom data-tooltip="Andi is multilingual, a world traveller, and is the glue that keeps the team organized. From awesome events to projects and payroll, she does it all"
             = image_tag 'home/andi.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
@@ -85,17 +85,15 @@
       h3.big-title Our investors
       ul
         li
-          a href="http://www.bvp.com/" target="_blank" class="bvp"
+          a.bvp href="http://www.bvp.com/" target="_blank"
         li
-          a href="http://500.co/" target="_blank" class="five-hundred-startups"
+          a.five-hundred-startups href="http://500.co/" target="_blank"
         li
-          a href="http://goldengate.vc/" target="_blank" class="goldengate-ventures"
+          a.goldengate-ventures href="http://goldengate.vc/" target="_blank"
         li
-          a href="https://www.crunchbase.com/organization/crunchfund" target="_blank" class="crunchfund"
+          a.crunchfund href="https://www.crunchbase.com/organization/crunchfund" target="_blank"
         li
-          a href="http://drapercompany.com/" target="_blank" class="draper-associates"
-
-
+          a.draper-associates href="http://drapercompany.com/" target="_blank"
 
   article.advisors
     .container
@@ -133,15 +131,14 @@
   article.maps
     .map
       .address
-        span 300 Brannan St., San Francisco
-        a.mail href="mailto:hello@nitrous.io" hello@nitrous.io
+        | 300 Brannan St. Ste 201
+        span San Francisco
       .pin
     .map
       .address
-        span 1a Trengganu St., Singapore
-        a.mail href="mailto:singapore@nitrous.io" singapore@nitrous.io
+        | 1A Trengganu St. 2nd Floor
+        span Singapore
       .pin
-
 
 
 = render partial: 'layouts/footer', locals: { active: 'company' }

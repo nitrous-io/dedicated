@@ -13,7 +13,6 @@
   javascript:
     pages.Home.init();
 
-
 .page
   .hero
     .container
@@ -25,12 +24,7 @@
           | Cloud-based code editor with collaboration, one-click installs and snapshots
 
         .form-wrapper
-          form action="/pricing"
-            input id="hero-email" type="text" placeholder="Email address"
-            a.btn.blue.ripple.submit href='/pricing' data-ripple-color='rgba(0,0,0,.2)' Get started
-
-        - if false
-          a.btn.blue.ripple href='/pricing' data-ripple-color='rgba(0,0,0,.2)' Get started
+          = render 'layouts/cta_form'
 
       .shadows
       .patternshadows
@@ -115,29 +109,6 @@
           | Learn more about the features
           i.fa.fa-chevron-right
 
-
-      - if false
-        .box-wrapper.three.centered
-          .box
-            .visual
-              = image_tag 'home/featurette-gotofile.svg', width: '58px', height: '58px', class: 'visual', alt: 'Code on Nitrous'
-            h3.section-title Go to file
-            p Quickly jump between files with only a few keystrokes, just as you would on your favorite desktop editor.
-
-          .box
-            .visual
-              = image_tag 'home/featurette-splitediting.svg', width: '58px', height: '45px', class: 'visual', alt: 'Code on Nitrous'
-            h3.section-title Split Editing
-            p Get the most out of your screen real-estate with split editing support. Edit files side by side.
-
-          .box
-            .visual
-              = image_tag 'home/featurette-sshaccess.svg', width: '58px', height: '59px', class: 'visual', alt: 'Code on Nitrous'
-            h3.section-title Full SSH access
-            p Access your development container directly with SSH.
-
-
-
   article.lighter
     .container
       .pull-wrapper
@@ -171,7 +142,7 @@
     .carousel
       .carousel-inner
 
-        input type="radio" id="carousel-1" class="carousel-open" name="carousel" aria-hidden="true" hidden="" checked="checked"
+        input#carousel-1.carousel-open type="radio" name="carousel" aria-hidden="true" hidden="" checked="checked"
         .carousel-item
           .container
             .box-wrapper.one
@@ -182,7 +153,7 @@
                   | . Nitrous.IO allows me to just say "I want to code some Rails now, kthx" and not have to worry about getting all the details straight. Sometimes, I care about the details, but most of the time, I don't.
                 cite - Steve Klabnik
 
-        input type="radio" id="carousel-2" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
         .carousel-item
           .container
             .box-wrapper.three
@@ -208,16 +179,14 @@
                     | &nbsp;of my app.
                   cite - Shaun McAvinney, Engineer at RJMetrics
 
-        label for="carousel-2" class="carousel-control prev control-1"
+        label.carousel-control.prev.control-1 for="carousel-2"
           i.fa.fa-chevron-left
-        label for="carousel-2" class="carousel-control next control-1"
+        label.carousel-control.next.control-1 for="carousel-2"
           i.fa.fa-chevron-right
-        label for="carousel-1" class="carousel-control prev control-2"
+        label.carousel-control.prev.control-2 for="carousel-1"
           i.fa.fa-chevron-left
-        label for="carousel-1" class="carousel-control next control-2"
+        label.carousel-control.next.control-2 for="carousel-1"
           i.fa.fa-chevron-right
-
-
 
   article.for-everyone.lighter
     .container
@@ -234,8 +203,6 @@
         .box
           h3.larger For Students
           p Work on your projects from Chromebooks, Windows machines, or school computer. Your development environment follows you wherever you are.
-
-
 
   = render 'layouts/companies'
 
