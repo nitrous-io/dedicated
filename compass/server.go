@@ -62,7 +62,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	q := r.Question[0]
 	log.Printf("Question: %s", q.String())
 
-	m := new(dns.Msg)
+	var m dns.Msg
 	m.SetReply(r)
 	m.Authoritative = true
 	m.Answer = make([]dns.RR, 0, 10)
@@ -74,7 +74,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				r.Header().Ttl = uint32(defaultTTL)
 			}
 		}
-		w.WriteMsg(m)
+		w.WriteMsg(&m)
 	}()
 
 	switch q.Qtype {
@@ -86,7 +86,8 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	case dns.TypeA:
 		start := time.Now()
-		for _, navigator := range s.navigators {
+		navigator, ok := s.navigators[strings.ToLower(q.Name)]
+		if ok {
 			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
 			r, err := navigator.Lookup(q.Name)
 			if err == nil {
