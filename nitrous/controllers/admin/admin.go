@@ -123,13 +123,11 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 
 	config := hostbuilderclient.Config{"id": provID}
 
-	region := r.FormValue("region")
-	if region != "" {
+	if region := r.FormValue("region"); region != "" {
 		config["region_id"] = region
 	}
 
-	ip := r.FormValue("ip_address")
-	if ip != "" {
+	if ip := r.FormValue("ip_address"); ip != "" {
 		config["ip_address"] = ip
 	}
 
@@ -150,8 +148,6 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errHostIsNotUnaccounted
 	}
 
-	// FIXME: this will not work with EC2 and GCE as they require the host's
-	// region.
 	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID})
 	if err != nil {
 		return err
