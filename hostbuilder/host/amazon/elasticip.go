@@ -2,8 +2,17 @@ package amazon
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mitchellh/goamz/ec2"
+)
+
+var (
+	// wait X*(num attempts) milliseconds between each try to associate address
+	AssociateBackoff = 3000
+
+	// max attempts to associate if allocation not found
+	AssociateMaxAttempts = 3
 )
 
 // interface of elastic IP provider
@@ -47,7 +56,8 @@ func assignAddress(provider ipProvider, instanceID string, vpc bool) (*elasticIP
 	} else {
 		associateReq.PublicIp = allocateResp.PublicIp
 	}
-	associationResp, err := provider.AssociateAddress(associateReq)
+
+	associationResp, err := tryAssociateAddress(provider, associateReq)
 	if err != nil {
 		var relerr error
 		// if failed to associate the ElasticIp with the instance, we remove it
@@ -116,4 +126,29 @@ func releaseAddress(provider ipProvider, ipAddress string, vpc bool) error {
 		}
 	}
 	return nil
+}
+
+// tryAssociateAddress attempts associate address multiple times with linear backoff,
+// since there are situations when the allocated address is not ready yet
+func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.AssociateAddressResp, error) {
+	var (
+		resp *ec2.AssociateAddressResp
+		err  error
+	)
+	for i := 0; i < AssociateMaxAttempts; i++ {
+		time.Sleep(time.Duration(AssociateBackoff*i) * time.Millisecond)
+		resp, err = provider.AssociateAddress(opts)
+		switch assocErr := err.(type) {
+		case nil:
+			return resp, nil
+		case *ec2.Error:
+			if assocErr.Code == "InvalidAllocationID.NotFound" {
+				continue
+			}
+			return nil, err
+		default:
+			return nil, err
+		}
+	}
+	return resp, err // persistent InvalidAllocationID.NotFound errors
 }

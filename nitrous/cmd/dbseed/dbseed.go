@@ -21,7 +21,7 @@ import (
 
 const (
 	DigitalOceanImageID = "5714430"
-	AmazonImageID       = "ami-5d98b86d" // for us-west-2
+	AmazonImageID       = "ami-030f2333" // for us-west-2
 )
 
 var (
@@ -34,94 +34,94 @@ var (
 	amazonConfig = map[string]map[string]string{
 		"sfo": map[string]string{
 			"1gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "4",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"2gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "5",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"4gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "6",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 		},
 		"nyc": map[string]string{
 			"1gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "4",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"2gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "5",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"4gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "6",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 		},
 		"ams": map[string]string{
 			"1gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "4",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"2gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "5",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"4gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "6",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 		},
 		"sgp": map[string]string{
 			"1gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "4",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"2gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "5",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 			"4gb": `{
-				"source_ami": "ami-5d98b86d",
-				"instance_type": "t1.micro",
+				"source_ami": "ami-030f2333",
+				"instance_type": "t2.micro",
 				"region_id": "us-west-2",
 				"storage_size": "6",
-				"security_group_id": "sg-c4b2f0f7"
+				"security_group_id": "sg-491c282c"
 			}`,
 		},
 	}

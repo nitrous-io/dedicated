@@ -44,7 +44,7 @@ if App.billingUsage
         tbody
           = each item in App.billingUsage.items
             tr
-              td
+              td class={item.isCompute:compute}
                 if item.isCompute
                   .title
                     a href="#" click='toggleItems target="view"'
@@ -143,7 +143,7 @@ if App.billingUsage
         tbody
           = each item in invoice.items
             tr
-              td
+              td class={item.isCompute:compute}
                 if item.isCompute
                   .title
                     a href="#" click='toggleItems target="view"'

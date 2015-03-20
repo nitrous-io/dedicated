@@ -132,6 +132,9 @@ i.spinner
   font-weight: 500
   text-transform: uppercase
 
+  &.no-caps
+    text-transform: none
+
   i
     margin-right: 5px
 
@@ -234,6 +237,14 @@ ul.space-separated
   color: black
   font-size: $fontSizeSmall
 
+  &.multi-line
+    display: flex
+    flex-direction: row
+    align-items: center
+
+    .group
+      padding: 0 0 0 4px
+
   h5
     margin: 0
     font-size: 12px
@@ -255,35 +266,3 @@ ul.space-separated
   font-size: $fontSizeSmall
   line-height: 25px
   color: $n2oGray400
-
-// olark
-#habla_beta_container_do_not_rely_on_div_classes_or_names
-  #habla_window_div
-    margin-right: 80px !important
-
-    #habla_both_div, #habla_expanded_div
-      font-family: $mainFont
-
-    #habla_topbar_div
-      border: 1px solid $n2oGray900
-      border-bottom: none
-      padding: 6px 10px
-
-    #habla_expanded_div
-      background: $n2oGray700
-      border: 1px solid $n2oGray900
-      border-bottom: none
-
-    #habla_oplink_a
-      font-size: 12px !important
-      text-transform: uppercase
-      letter-spacing: 0.5px
-
-    #habla_middle_wrapper_div
-      border-bottom: none
-
-    #habla_offline_message_span, #habla_pre_chat_span
-      color: $n2oGray300
-
-    .hbl_txt_wrapper
-      background: $n2oGray850

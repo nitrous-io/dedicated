@@ -27,6 +27,10 @@ type dummyIPProvider struct {
 	releaseErr   error
 }
 
+func init() {
+	AssociateBackoff = 1 // ms, reduce delay between AssociateAddress attempts
+}
+
 func (p *dummyIPProvider) Addresses(publicIps []string, allocationIds []string, filter *ec2.Filter) (resp *ec2.DescribeAddressesResp, err error) {
 	p.calls = append(p.calls, fn{"Addresses", []interface{}{publicIps, allocationIds, filter}})
 	return &ec2.DescribeAddressesResp{
@@ -148,6 +152,27 @@ var _ = Describe("assignAddress", func() {
 		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).AllocationId).To(Equal("eip-alloc-001"))
 		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).PublicIp).To(BeEmpty())
 
+	})
+
+	It("attempts multiple times when it cannot find allocated address", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:     "10.0.0.1",
+					AllocationId: "eip-alloc-001",
+					Domain:       "vpc",
+				},
+			},
+			associateErr: &ec2.Error{Code: "InvalidAllocationID.NotFound"},
+		}
+
+		_, err := assignAddress(p, "i-322", true)
+		Expect(err).To(HaveOccurred())
+		Expect(p.calls[0].name).To(Equal("AllocateAddress"))
+		for i := 1; i <= AssociateMaxAttempts; i++ {
+			Expect(p.calls[i].name).To(Equal("AssociateAddress"))
+		}
+		Expect(p.calls[AssociateMaxAttempts+1].name).To(Equal("ReleaseAddress"))
 	})
 
 	It("rollbacks the vpc address when it fails to associate the address", func() {

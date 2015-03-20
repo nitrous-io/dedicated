@@ -2,6 +2,7 @@ package hosts_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -666,6 +667,29 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.Slug).To(HavePrefix(params.Get("name")))
 			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.State).To(Equal(host.StateOrphan))
+		})
+
+		It("should update host provider identifier and ip address if available regardless of error", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			replaceTransport(hb, &FakeRoundTripper{
+				Message: `{"id": "i-67263","ip_address":"127.0.0.1","error":"some error occurred"}`,
+				Status:  http.StatusBadRequest,
+			})
+
+			hosts.HostbuilderClient = hb
+
+			doRequest(params)
+			hosts := []host.Host{}
+			err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE ORDER BY id;", u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.Slug).To(HavePrefix(params.Get("name")))
+			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
+			Expect(h.State).To(Equal(host.StateOrphan))
+			Expect(h.ProviderIdentifier).To(Equal(sql.NullString{"i-67263", true}))
+			Expect(h.IPAddress).To(Equal(sql.NullString{"127.0.0.1", true}))
 		})
 	})
 

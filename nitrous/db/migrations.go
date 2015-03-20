@@ -952,5 +952,18 @@ func init() {
 				ALTER TABLE invoice_items ALTER COLUMN item_type SET NOT NULL;
 			`,
 		},
+		{
+			Version: "840",
+			Up: `
+				ALTER TABLE invoice_items ADD COLUMN plan_storage character varying(255) DEFAULT NULL;
+				ALTER TABLE invoice_items ADD COLUMN plan_memory character varying(255) DEFAULT NULL;
+				UPDATE invoice_items SET plan_storage = p.storage FROM (
+					SELECT hosts.id host_id, storage FROM plans INNER JOIN hosts ON hosts.plan_id = plans.id
+				) p WHERE p.host_id = invoice_items.host_id AND invoice_items.item_type = 'base_ebs';
+				UPDATE invoice_items SET plan_memory = p.memory FROM (
+					SELECT hosts.id host_id, memory FROM plans INNER JOIN hosts ON hosts.plan_id = plans.id
+				) p WHERE p.host_id = invoice_items.host_id AND invoice_items.item_type = 'compute';
+			`,
+		},
 	}
 }

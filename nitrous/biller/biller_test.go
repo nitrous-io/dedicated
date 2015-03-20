@@ -347,6 +347,7 @@ var _ = Describe("biller", func() {
 					Hours:       sql.NullInt64{92, true},
 					HourlyPrice: sql.NullInt64{30, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"1GB", true},
 				}
 
 				err = invItem.Insert(db)
@@ -457,12 +458,14 @@ var _ = Describe("biller", func() {
 				Hours:       sql.NullInt64{92, true},
 				HourlyPrice: sql.NullInt64{1000, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"1 GB", true},
 			}
 
 			item2 := invoiceitem.InvoiceItem{
 				Hours:       sql.NullInt64{672, true},
 				HourlyPrice: sql.NullInt64{3722, true},
 				ItemType:    invoiceitem.ItemTypeCompute,
+				PlanMemory:  sql.NullString{"19 GB", true},
 			}
 
 			i = &biller.InvoiceResult{
@@ -596,11 +599,11 @@ var _ = Describe("biller", func() {
 
 					Expect(rr[0]["amount"]).To(Equal("92"))
 					Expect(rr[0]["customer"]).To(Equal("St17"))
-					Expect(rr[0]["desc"]).To(Equal("Workspace 'my-host-1' compute - 92 hours at 1.00c/hour"))
+					Expect(rr[0]["desc"]).To(Equal("'my-host-1' compute (1 GB memory) - 92 hours at 1.00c/hour"))
 
 					Expect(rr[1]["amount"]).To(Equal("2500"))
 					Expect(rr[1]["customer"]).To(Equal("St17"))
-					Expect(rr[1]["desc"]).To(Equal("Workspace 'my-host-2' compute - 672 hours at 3.722c/hour"))
+					Expect(rr[1]["desc"]).To(Equal("'my-host-2' compute (19 GB memory) - 672 hours at 3.722c/hour"))
 
 					type s struct {
 						ID string `db:"stripe_id"`

@@ -184,7 +184,7 @@ func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.W
 			return nil, fmt.Errorf("hostbuilder: failed to decode stream: %s", err)
 		}
 		if msg.Error != "" {
-			return nil, fmt.Errorf("hostbuilder: failed with error: %s", msg.Error)
+			return msg, fmt.Errorf("hostbuilder: failed with error: %s", msg.Error)
 		}
 		if msg.ID != "" {
 			return msg, nil

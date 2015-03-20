@@ -1,5 +1,5 @@
 parseSlugs = (slugText) ->
-  slugText.split(',').map((slug) -> 
+  slugText.split(',').map((slug) ->
     slug.trim())
 
 App.AdminAnnouncementsNewController = Em.Controller.extend
@@ -37,7 +37,7 @@ App.AdminAnnouncementsNewController = Em.Controller.extend
 
       @set 'saving', true
 
-      announcement = 
+      announcement =
         subject_template: subjectTemplate
         message_template: messageTemplate
         show_to_all: showToAll
@@ -46,7 +46,7 @@ App.AdminAnnouncementsNewController = Em.Controller.extend
       unless showToAll
         announcement.slugs = slugs
 
-      payload = 
+      payload =
         announcement: announcement
 
       App.Model.adapter.ajax('POST', '/admin/announcements/new', JSON.stringify(payload),

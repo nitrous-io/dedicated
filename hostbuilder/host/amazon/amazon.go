@@ -183,12 +183,12 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Timeout:     5 * time.Minute,
 		},
 		{
-			Description: "Assigning network address",
-			Func:        allocateElasticIP,
-		},
-		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
@@ -212,10 +212,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		if err := hctx.Run(step); err != nil {
 			hlog(h, "ERROR: Failed in create host step: %v", err)
 			h.logFailed()
+			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
-				return nil, ErrCreateTimeout
+				return inf, ErrCreateTimeout
 			}
-			return nil, err
+			return inf, err
 		}
 	}
 
