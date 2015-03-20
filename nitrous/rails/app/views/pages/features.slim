@@ -114,10 +114,55 @@
 
 
 
-  article.featurette.darker
+  article.featurette.themes.darker
     .container
-      h3.big-title Customizable Editor
-      h4 Choose from carefully selected color schemes that control the editor's syntax highlighting
+      h3.big-title The text editor you've been waiting for
+      h4 Choose from Nitrous's selection of color schemes that control the editor's syntax highlighting
+
+    .carousel
+      .carousel-inner
+
+        input type="radio" id="carousel-1" class="carousel-open" name="carousel" aria-hidden="true" hidden="" checked="checked"
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-1.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input type="radio" id="carousel-2" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-2.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input type="radio" id="carousel-3" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-3.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input type="radio" id="carousel-4" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-4.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        / input type="radio" id="carousel-5" class="carousel-open" name="carousel" aria-hidden="true" hidden=""
+        / .carousel-item
+        /   .container
+        /     .full-visual
+        /       = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+
+
+        label for="carousel-1" class="carousel-bullet control-1"
+          .theme-preview
+        label for="carousel-2" class="carousel-bullet control-2"
+          .theme-preview
+        label for="carousel-3" class="carousel-bullet control-3"
+          .theme-preview
+        label for="carousel-4" class="carousel-bullet control-4"
+          .theme-preview
+        / label for="carousel-5" class="carousel-bullet control-5"
+        /   .theme-preview
 
 
   article.featurette.dashboard
@@ -129,65 +174,11 @@
         | your own custom containers with Docker images
 
       .full-visual
-        = image_tag 'home/dashboard-featurette.png', width: '940px', height: '501px', alt: 'Self-service Dashboard'
+        = image_tag 'home/dashboard-featurette.png', width: '860px', height: '502px', alt: 'Self-service Dashboard'
 
 
-  article.featurette
-    .container
-      h3.big-title One-click install stacks
-      h4
-        | Nitrous offers a wide range of stacks that contain pre-configured
-        br
-        | software dependencies (languages, databases and other components)
 
-      ul.stacks
-        li.stack
-          a.ruby.ripple href="/stacks/ruby"
-          span Ruby
-        li.stack
-          a.php.ripple href="/stacks/php"
-          span PHP
-        li.stack
-          a.python.ripple href="/stacks/python"
-          span Python
-        li.stack
-          a.meteor.ripple href="/stacks/meteor"
-          span Meteor
-        li.stack
-          a.java.ripple href="/stacks/java"
-          span Java
-        li.stack
-          a.asp.ripple href="/stacks/asp"
-          span ASP.net
-        li.stack
-          a.html5.ripple href="/stacks/html5"
-          span HTML5
-        li.stack
-          a.node.ripple href="/stacks/node"
-          span Node.js
-        li.stack
-          a.rails.ripple href="/stacks/rails"
-          span Rails
-        li.stack
-          a.go.ripple href="/stacks/go"
-          span Go
-        li.stack
-          a.wordpress.ripple href="/stacks/wordpress"
-          span Wordpress
-        li.stack
-          a.iojs.ripple href="/stacks/iojs"
-          span io.js
-        li.stack
-          a.django.ripple href="/stacks/django"
-          span Django
-        li.stack
-          a.laravel.ripple href="/stacks/laravel"
-          span Laravel
-        li.stack
-          a.ubuntu.ripple href="/stacks/ubuntu"
-          span Ubuntu
-
-
+  = render 'layouts/stacks'
 
   = render 'layouts/companies'
 

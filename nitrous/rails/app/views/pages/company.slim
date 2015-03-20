@@ -75,35 +75,20 @@
             | We offer competitive salaries, office exchange programs between our two officies, free lunches, Health, Vision and Dental insurance, flexible vacations, team outings, and a referral bonus program
 
 
-  article.photos
-    .cover-photo
-    .cover-photo
-
-
   article.investors.attached-bottom
     .container
       h3.big-title Our investors
       ul
         li
-          a href="#"
-            = image_tag 'home/', width: '62px', height: '62px', alt: 'Nitrous investor', class: 'zoom'
-            span Bessemer Venture Partners
+          a href="http://www.bvp.com/" target="_blank" class="bvp"
         li
-          a href="#"
-            = image_tag 'home/', width: '62px', height: '62px', alt: 'Nitrous investor', class: 'zoom'
-            span 500 Startups
+          a href="http://500.co/" target="_blank" class="five-hundred-startups"
         li
-          a href="#"
-            = image_tag 'home/', width: '62px', height: '62px', alt: 'Nitrous investor', class: 'zoom'
-            span GoldenGate Ventures
+          a href="http://goldengate.vc/" target="_blank" class="goldengate-ventures"
         li
-          a href="#"
-            = image_tag 'home/', width: '62px', height: '62px', alt: 'Nitrous investor', class: 'zoom'
-            span CrunchFund
+          a href="https://www.crunchbase.com/organization/crunchfund" target="_blank" class="crunchfund"
         li
-          a href="#"
-            = image_tag 'home/', width: '62px', height: '62px', alt: 'Nitrous investor', class: 'zoom'
-            span Draper Associates
+          a href="http://drapercompany.com/" target="_blank" class="draper-associates"
 
 
 
@@ -136,10 +121,6 @@
             = image_tag 'home/arun-thampi.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
             span Arun Thampi
 
-
-
-  = render 'layouts/cta'
-
   article.maps
     .map
       .address
@@ -152,6 +133,7 @@
         a.mail href="mailto:singapore@nitrous.io" singapore@nitrous.io
       .pin
 
+  = render 'layouts/cta'
 
 
 = render partial: 'layouts/footer', locals: { active: 'company' }
