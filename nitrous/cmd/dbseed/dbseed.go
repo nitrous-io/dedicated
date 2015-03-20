@@ -31,99 +31,39 @@ var (
 	// default configuration for amazon provider
 	// FIXME: replace this with proper configuration once the AMIs/security
 	// groups for all supported regions are in place
+	amazonRegionConfig = map[string]string{
+		"1gb": `{
+			"source_ami": "ami-030f2333",
+			"instance_type": "t2.micro",
+			"region_id": "us-west-2",
+			"storage_size": "8",
+			"security_group_id": "sg-491c282c",
+			"subnet_id": "subnet-3e0e045c"
+		}`,
+		"2gb": `{
+			"source_ami": "ami-030f2333",
+			"instance_type": "t2.micro",
+			"region_id": "us-west-2",
+			"storage_size": "8",
+			"security_group_id": "sg-491c282c",
+			"subnet_id": "subnet-3e0e045c"
+		}`,
+		"4gb": `{
+			"source_ami": "ami-030f2333",
+			"instance_type": "t2.micro",
+			"region_id": "us-west-2",
+			"storage_size": "8",
+			"security_group_id": "sg-491c282c",
+			"subnet_id": "subnet-3e0e045c"
+		}`,
+	}
+
+	// Point every region to use us-west-2 in dev
 	amazonConfig = map[string]map[string]string{
-		"sfo": map[string]string{
-			"1gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "4",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"2gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "5",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"4gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "6",
-				"security_group_id": "sg-491c282c"
-			}`,
-		},
-		"nyc": map[string]string{
-			"1gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "4",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"2gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "5",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"4gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "6",
-				"security_group_id": "sg-491c282c"
-			}`,
-		},
-		"ams": map[string]string{
-			"1gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "4",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"2gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "5",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"4gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "6",
-				"security_group_id": "sg-491c282c"
-			}`,
-		},
-		"sgp": map[string]string{
-			"1gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "4",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"2gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "5",
-				"security_group_id": "sg-491c282c"
-			}`,
-			"4gb": `{
-				"source_ami": "ami-030f2333",
-				"instance_type": "t2.micro",
-				"region_id": "us-west-2",
-				"storage_size": "6",
-				"security_group_id": "sg-491c282c"
-			}`,
-		},
+		"sfo": amazonRegionConfig,
+		"nyc": amazonRegionConfig,
+		"ams": amazonRegionConfig,
+		"sgp": amazonRegionConfig,
 	}
 )
 
@@ -305,6 +245,7 @@ func providertemplates(d db.QueryReceiver) error {
 						"region_id":         {cfg["region_id"], true},
 						"storage_size":      {cfg["storage_size"], true},
 						"security_group_id": {cfg["security_group_id"], true},
+						"subnet_id":         {cfg["subnet_id"], true},
 					},
 				}
 			}
