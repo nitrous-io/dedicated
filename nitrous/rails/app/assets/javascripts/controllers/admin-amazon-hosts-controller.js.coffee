@@ -2,14 +2,37 @@ hostActions =
   update:
     name: 'Update'
     progressName: 'Updating'
-    description: 'this will update and restart the host.'
+    description: 'This will update the host and may restart freighter and/or docker.'
     successMessage: 'Successfully updated host'
     failureMessage: 'Failed to update host!'
     perform: (host) ->
-      console.log('updating host', host)
       Em.$.ajax
         type: 'POST'
         url: "/api/v0/hosts/#{host.slug}/upgrade"
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  start:
+    name: 'Start'
+    progressName: 'Starting'
+    description: 'This will start the host.'
+    successMessage: 'Successfully started the host'
+    failureMessage: 'Failed to start host!'
+    perform: (host) ->
+      Em.$.ajax
+        type: 'POST'
+        url: "/api/v0/hosts/#{host.slug}/start"
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  stop:
+    name: 'Stop'
+    progressName: 'Stopping'
+    description: 'This will stop the host.'
+    successMessage: 'Successfully stopped the host'
+    failureMessage: 'Failed to stop host!'
+    perform: (host) ->
+      Em.$.ajax
+        type: 'POST'
+        url: "/api/v0/hosts/#{host.slug}/stop"
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   restart:
@@ -19,7 +42,6 @@ hostActions =
     successMessage: 'Successfully restarted the host'
     failureMessage: 'Failed to restart host!'
     perform: (host) ->
-      console.log('restarting host', host)
       Em.$.ajax
         type: 'POST'
         url: "/api/v0/hosts/#{host.slug}/restart"
@@ -32,7 +54,6 @@ hostActions =
     successMessage: 'Successfully terminated host'
     failureMessage: 'Failed to terminate host!'
     perform: (host) ->
-      console.log('terminating host', host)
       Em.$.ajax
         type: 'DELETE'
         url: "/api/v0/hosts/#{host.slug}"
@@ -45,14 +66,18 @@ hostActions =
     successMessage: 'Successfully terminated host'
     failureMessage: 'Failed to terminate host!'
     perform: (host) ->
-      console.log('terminating unaccounted host', host)
       hostId = host.id
       hostRegion = host.region
       ip = host.ip_address
 
       Em.$.ajax(
         type: 'DELETE'
-        url: "/api/v0/admin/terminate_unaccounted_host?provider=amazon&provider_identifier=#{hostId}&region=#{hostRegion}&ip_address=#{ip}"
+        url: '/api/v0/admin/terminate_unaccounted_host'
+        data:
+          provider: 'amazon'
+          provider_identifier: hostId
+          region: hostRegion
+          ip_address: ip
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).then =>
         App.snackbar.post('Unaccounted host was successfully terminated.')
@@ -99,7 +124,10 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @fetchHosts()
 
     showHealthyHostDialog: (host) ->
-      @showActionDialog(host, [hostActions.update, hostActions.restart, hostActions.terminate])
+      if host.state == 'running'
+        @showActionDialog(host, [hostActions.update, hostActions.restart, hostActions.stop, hostActions.terminate])
+      else if host.state == 'stopped'
+        @showActionDialog(host, [hostActions.start, hostActions.terminate])
 
     showProblemHostDialog: (host) ->
       @showActionDialog(host, [hostActions.terminate])
