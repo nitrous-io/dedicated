@@ -4,31 +4,34 @@
 
   .card-body.bordered
     h3
-      ' Unaccounted
-      i.fa.fa-question-circle title="in Hostbuilder but not in DB"
-      ' :
+      ' Unaccounted :
       = hosts.unaccounted_hosts.length
     .card-body.bordered
       table.ui.table
         tbody
           tr
             th PID
+            th Slug
             th State
+            th EC2 Region
             th IP Address
             th Freighterd Port
+            th Actions
 
           = each host in hosts.unaccounted_hosts
             tr
               td title=id
                 = host.id
+              td = host.name
               td = host.state
+              td = host.region
               td = host.ip_address
               td = host.freighterd_port
+              td.actions
+                button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
 
     h3
-      ' Dangling
-      i.fa.fa-question-circle title="in DB but not in Hostbuilder"
-      ' :
+      ' Dangling :
       = hosts.dangling_hosts.length
 
     .card-body.bordered
@@ -41,6 +44,7 @@
             th DB State
             th Region
             th Plan
+            th Actions
 
           = each host in hosts.dangling_hosts
             tr
@@ -52,10 +56,11 @@
                 = region-slug host.region_id
               td.plan 
                 = plan-slug host.plan_id
+              th.actions
+                button.ui.btn.raised click='showProblemHostDialog host' Actions
 
     h3
-      ' Inconsistent:
-      i.fa.fa-question-circle title="State in DB different from actual running state"
+      ' Inconsistent :
       = hosts.inconsistent_hosts.length
     
     .card-body.bordered
@@ -67,8 +72,10 @@
             th Slug
             th DB State
             th Live State
+            th EC2 Region
             th Region
             th Plan
+            th Actions
 
           = each entry in hosts.inconsistent_hosts
             tr
@@ -77,10 +84,13 @@
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
               td.state = entry.live_host.state
+              td.region = entry.live_host.region
               td.region 
                 = region-slug entry.db_host.region_id
               td.plan 
                 = plan-slug entry.db_host.plan_id
+              th.actions
+                button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
 
     h3
       ' Healthy:
@@ -94,8 +104,10 @@
             th PID
             th Slug
             th State
+            th EC2 Region
             th Region
             th Plan
+            th Actions
 
           = each entry in hosts.healthy_hosts
             tr
@@ -103,7 +115,58 @@
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
+              td.region = entry.live_host.region
               td.region 
                 = region-slug entry.db_host.region_id
               td.plan 
                 = plan-slug entry.db_host.plan_id
+              th.actions
+                button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
+
+    .card-body.bordered
+      unless fetchingHosts
+        button.ui.btn.raised click='refreshHosts' Refresh
+      else
+        button.ui.btn.raised disabled=true Refreshing..
+
+#action-modal-dialog.ui.modal
+  .ui.card
+    unless selectedAction
+      h2.card-header
+        | Perform Action
+      .card-body
+        p
+          | Select action to perform on 
+          = targetHost.slug
+      .card-footer
+        .right
+          button.ui.btn click='cancelAction' Cancel
+
+          each action in availableActions
+            button.ui.btn click='selectAction action'
+              = action.name
+
+    else
+      h2.card-header
+        | Confirm 
+        = selectedAction.name
+
+      .card-body
+        p
+          | Are you ABSOLUTELY sure you want to 
+          = selectedAction.name
+          ' ?
+        p
+          = selectedAction.description
+
+      .card-footer
+        .right
+          unless inProgress
+            button.ui.btn click='cancelAction' Cancel
+            button.ui.btn.danger.terminate-btn click='confirmAction'
+              | Confirm 
+              = selectedAction.name
+          else
+            button.ui.btn disabled=true
+              = selectedAction.progressName
+              | ...
