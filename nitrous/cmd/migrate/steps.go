@@ -24,6 +24,13 @@ func allHosts() []namedConn {
 	return []namedConn{{srcHost, "SRC"}, {destHost, "DEST"}}
 }
 
+func homePathForUser(user string) string {
+	if user == "root" {
+		return "/root"
+	}
+	return fmt.Sprintf("/home/%s", user)
+}
+
 func verifyCommunication() {
 	for _, hst := range allHosts() {
 		out, err := hst.conn.CombinedOutput("uname -a")
@@ -60,22 +67,27 @@ func setSSHKeys() {
 	pubRd := bytes.NewReader(pubkey)
 	privRd := bytes.NewReader(prikey)
 
+	dHome := homePathForUser(destHost.Config.User)
+	sHome := homePathForUser(srcHost.Config.User)
+
 	logr.Info("[DEST] Uploading private key")
-	destHost.CombinedOutput(fmt.Sprintf("mkdir -p '/home/%s/.ssh'", destHost.Config.User))
-	loc := fmt.Sprintf("/home/%s/.ssh/id_rsa", destHost.Config.User)
+	destHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", dHome))
+	loc := fmt.Sprintf("%s/.ssh/id_rsa", dHome)
 	if err := destHost.Upload(loc, privRd); err != nil {
 		logr.FatalfExit("DEST] Error uploading private key: %v", err)
 	}
 	destHost.CombinedOutput(fmt.Sprintf("chmod 0600 %s", loc))
 
 	logr.Info("[SRC] Uploading temporary public key for appending")
-	loc = fmt.Sprintf("/home/%s/.ssh/authorized_keys.tmp", srcHost.Config.User)
+	srcHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
+	loc = fmt.Sprintf("%s/.ssh/authorized_keys.tmp", sHome)
 	if err := srcHost.Upload(loc, pubRd); err != nil {
 		logr.FatalfExit("[SRC] Error uploading temporary public key: %v", err)
 	}
 
 	logr.Info("[SRC] Appending temporary public key")
-	out, err := srcHost.CombinedOutput(fmt.Sprintf("cat %s >> '/home/%s/.ssh/authorized_keys'", loc, srcHost.Config.User))
+	srcHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
+	out, err := srcHost.CombinedOutput(fmt.Sprintf("cat %s >> '%s/.ssh/authorized_keys'", loc, sHome))
 	if err != nil {
 		logr.FatalfExit("[SRC] Error appending temporary public key: %s err: %v", out, err)
 	}
@@ -148,9 +160,11 @@ func backupDestDirectories(dirs []string) {
 }
 
 func syncDirectories(dirs []string) {
+	dHome := homePathForUser(destHost.Config.User)
+
 	for _, dir := range dirs {
 		parts := strings.Split(srcHost.Client.RemoteAddr().String(), ":")
-		cmd := fmt.Sprintf(`sudo rsync -az --rsync-path="sudo rsync" -e "ssh -i '/home/%s/.ssh/id_rsa' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -p %s" %s@%s:%s/ %s`, destHost.Config.User, parts[1], srcHost.Config.User, parts[0], dir, dir)
+		cmd := fmt.Sprintf(`sudo rsync -az --rsync-path="sudo rsync" -e "ssh -i '%s/.ssh/id_rsa' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -p %s" %s@%s:%s/ %s`, dHome, parts[1], srcHost.Config.User, parts[0], dir, dir)
 		logr.Debugf("[DEST] Running %s", cmd)
 		out, err := destHost.CombinedOutput(cmd)
 		if err != nil {
@@ -184,13 +198,13 @@ func sanityCheck() bool {
 		}
 	}()
 
-	dstPs, err := destHost.CombinedOutput(`docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
+	dstPs, err := destHost.CombinedOutput(`sudo docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
 	if err != nil {
 		logr.Fatalf("[DEST] Could not obtain docker ps -a. %s err: %v", dstPs, err)
 		return false
 	}
 
-	srcPs, err := srcHost.CombinedOutput(`docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
+	srcPs, err := srcHost.CombinedOutput(`sudo docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
 	if err != nil {
 		logr.Fatalf("[SRC] Could not obtain docker ps -a. %s err: %v", srcPs, err)
 		return false
