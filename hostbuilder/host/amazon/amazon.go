@@ -270,13 +270,16 @@ func (h *Host) Destroy() error {
 		return mh.Error(err, label)
 	}
 
-	// release elastic IP stored in the client. We cant use
-	// h.instance.PublicIPAddress because it's not guaranteed to be
-	// the correct IP when the instance is stopped
-	if err := releaseAddress(h.provider, h.Config.IPAddress, isVPC(h.instance)); err != nil {
-		err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-			h.Config.IPAddress, h.instance.InstanceId, err)
-		return mh.Error(err, label)
+	ip := h.Config.IPAddress
+	if ip != "" {
+		// release elastic IP stored in the client. We cant use
+		// h.instance.PublicIPAddress because it's not guaranteed to be
+		// the correct IP when the instance is stopped
+		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+			err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
+				h.Config.IPAddress, h.instance.InstanceId, err)
+			return mh.Error(err, label)
+		}
 	}
 
 	// terminate the instance
@@ -891,6 +894,8 @@ func getState(instance *ec2.Instance) state.State {
 		return state.Stopping
 	case "stopped":
 		return state.Stopped
+	case "terminated":
+		return state.Terminated
 	}
 	return state.Unknown
 }
