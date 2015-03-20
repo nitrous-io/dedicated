@@ -108,10 +108,11 @@ App.IdeController = Em.ObjectController.extend
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
 
-      socket = @get('opsSocket')
-      socket.getFeatures (err, features) ->
-        if !err
-          @set 'freighterFeatures', features
+      # FIXME comment back in when freighter >=0.4.0 is guaranteed on all hosts
+      # socket = @get('opsSocket')
+      # socket.getFeatures (err, features) ->
+      #   if !err
+      #     @set 'freighterFeatures', features
   ).observes 'opsSocketReady'
 
   warnWhenOffline: (->
