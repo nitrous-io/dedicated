@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/mailgun/manners"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -68,7 +69,43 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) Start(host string, port uint16) error {
+type listener struct {
+	net.Listener
+	closed chan struct{}
+}
+
+var ErrClosed = errors.New("listener has been gracefully closed")
+
+func newListener(ln net.Listener) net.Listener {
+	return &listener{Listener: ln, closed: make(chan struct{})}
+}
+
+func (ln *listener) Accept() (net.Conn, error) {
+	for {
+		select {
+		case <-ln.closed:
+			return nil, ErrClosed
+		default:
+		}
+
+		// Set a deadline so Accept doesn't block forever, which gives us an
+		// opportunity to stop gracefully.
+		ln.Listener.(tcpKeepAliveListener).SetDeadline(time.Now().Add(100 * time.Millisecond))
+
+		c, err := ln.Listener.Accept()
+		if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+			continue
+		}
+		return c, err
+	}
+}
+
+func (ln *listener) Close() error {
+	close(ln.closed)
+	return nil
+}
+
+func (s *Server) Start(ln net.Listener) error {
 	if err := s.Provisioner.Start(); err != nil {
 		switch err {
 		case provisioner.ErrPreprovisionerNotConfigured:
@@ -78,27 +115,18 @@ func (s *Server) Start(host string, port uint16) error {
 		}
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	srv := &http.Server{
-		Addr:    addr,
+	ln = tcpKeepAliveListener{ln.(*net.TCPListener)}
+	srv := manners.NewWithServer(&http.Server{
 		Handler: s.router,
-	}
-
-	// TODO Support graceful stop/restart.
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("nitrous/server: Failed to listen on %q, error: %q", addr, err)
-	}
-	s.listener = tcpKeepAliveListener{ln.(*net.TCPListener)}
+	})
+	s.listener = manners.NewListener(newListener(ln))
 
 	return srv.Serve(s.listener)
 }
 
 func (s *Server) Stop() {
 	s.Provisioner.Stop()
-	if s.listener != nil {
-		s.listener.Close()
-	}
+	s.listener.Close()
 }
 
 func (s *Server) namespace(ns string, f func()) {

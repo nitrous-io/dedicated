@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
-	"os/signal"
 	"strings"
 	"time"
 
 	"github.com/kardianos/osext"
-
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -21,6 +20,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/rcrowley/goagain"
 	"github.com/stripe/stripe-go"
 )
 
@@ -32,9 +32,18 @@ var (
 	libratoUser    string
 	libratoToken   string
 	disableLibrato bool
+
+	// StopTimeout is the duration before we stop waiting for existing
+	// connections to complete.
+	stopTimeout = 1 * time.Minute
 )
 
 func init() {
+	// The Double strategy is Upstart-compatible. The parent forks a child, the
+	// child execs, the child signals the parent, the parent execs, and finally
+	// the parent kills the child.
+	goagain.Strategy = goagain.Double
+
 	libratoUser = envvars.LibratoUser
 	libratoToken = envvars.LibratoToken
 
@@ -110,7 +119,6 @@ func main() {
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
-
 		go librato.Librato(metrics.DefaultRegistry,
 			libratoInterval,  // interval
 			libratoUser,      // account owner email address
@@ -130,23 +138,69 @@ func main() {
 	if err != nil {
 		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())
 	}
-	conf := &provisioner.Config{
-		Username: pu,
-		Interval: interval,
+	conf := &provisioner.Config{Username: pu, Interval: interval}
+	pid := os.Getpid()
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
+
+	done := make(chan struct{})
+	serve := func(ln net.Listener) {
+		svr.Start(ln)
+		close(done)
 	}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()),
-		dbConn, logr, conf)
-	pid := os.Getpid()
-	host := "0.0.0.0"
-	port := uint16(3333)
-	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	go svr.Start(host, port)
+	listener, err := goagain.Listener()
+	if err != nil {
+		// If there's an error, it means that there isn't an existing listener,
+		// so we create one.
+		addr := "0.0.0.0:3333"
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			logr.FatalfExit("nitrousd: failed to listen on %q, error: %q", addr, err)
+		}
 
-	ch := make(chan os.Signal)
-	signal.Notify(ch, os.Interrupt, os.Kill)
-	s := <-ch
-	logr.Infof("nitrousd (pid: %v) got signal %v. Terminating.", pid, s)
+		logr.Infof("nitrousd %s (pid: %v) listening on %v", version, pid, listener.Addr())
+		go serve(listener)
+
+	} else {
+		logr.Infof("nitrousd: resuming listening on %v", listener.Addr())
+
+		logr.Infof("nitrousd %s (pid: %v) listening on %v", version, pid, listener.Addr())
+		go serve(listener)
+
+		// If this is the child, send the parent SIGUSR2. If this is the parent,
+		// send the child SIGQUIT.
+		if err := goagain.Kill(); err != nil {
+			logr.FatalfExit("nitrousd: failed to signal parent/child, error: %q", err)
+		}
+	}
+
+	// Wait for signals.
+	sig, err := goagain.Wait(listener)
+	if err != nil {
+		logr.FatalfExit("nitrousd: error waiting for signals in main goroutine, error: %q", err)
+	}
+
+	logr.Infof("nitrousd (pid: %v) got signal %q. Stopping.", pid, sig)
 	svr.Stop()
-	logr.Infof("nitrousd (pid: %v) terminated.", pid)
+	logr.Infof("nitrousd (pid: %v) stopped.", pid)
+
+	// Stop gracefully on SIGQUIT or SIGUSR2.
+	if sig == goagain.SIGQUIT || sig == goagain.SIGUSR2 {
+		logr.Infof("nitrousd: received %q, will stop gracefully", goagain.SIGUSR2)
+		// Wait for existing connections to complete.
+		select {
+		case <-done:
+			logr.Info("nitrousd: all existing connections have completed")
+		case <-time.After(stopTimeout):
+			logr.Info("nitrousd: timed out waiting for all existing connections to complete")
+		}
+	}
+
+	// If we received SIGUSR2, re-exec the parent process.
+	if sig == goagain.SIGUSR2 {
+		logr.Infof("nitrousd: received SIGUSR2, will restart gracefully")
+		if err := goagain.Exec(listener); err != nil {
+			logr.FatalfExit("nitrousd: failed to re-exec with the same listener, error: %q", err)
+		}
+	}
 }
