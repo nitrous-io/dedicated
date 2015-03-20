@@ -177,10 +177,27 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	info, err := h.Create(pw)
+
+	// include any information about the host
+	// even if an error occurs
+	baseResp := &Response{}
+	if info != nil {
+		baseResp.StatusCode = http.StatusCreated
+		baseResp.Status = "created"
+		baseResp.Provider = info.Provider
+		baseResp.ID = info.ID
+		baseResp.Name = info.Name
+		baseResp.IPAddress = info.IPAddress
+		baseResp.FreighterdPort = info.FreighterdPort
+		baseResp.Region = info.Region
+		baseResp.State = info.State.String()
+	}
+
 	if err != nil {
 		mh.Error(err, label)
 		log.Printf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
-		pw.WriteError(fmt.Errorf("failed to create a host on %s", provider))
+		baseResp.Error = fmt.Sprintf("failed to create a host on %s", provider)
+		pw.WriteResponse(baseResp)
 		return nil
 	}
 	log.Printf("uuid=%s Created host: %+v", providerConfig["uuid"], info)
@@ -190,18 +207,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		pingHost(info, pw)
 	})
 
-	resp := &Response{
-		StatusCode:     http.StatusCreated,
-		Status:         "created",
-		Provider:       info.Provider,
-		ID:             info.ID,
-		Name:           info.Name,
-		IPAddress:      info.IPAddress,
-		FreighterdPort: info.FreighterdPort,
-		Region:         info.Region,
-		State:          info.State.String(),
-	}
-	pw.WriteResponse(resp)
+	pw.WriteResponse(baseResp)
 
 	return nil
 }
