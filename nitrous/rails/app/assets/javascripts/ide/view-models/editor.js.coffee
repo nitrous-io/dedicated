@@ -27,6 +27,11 @@ App.Editor = klass = Em.Object.extend
     'Shift-Cmd-Enter': 'insertLineBefore'
     'Ctrl-M': 'goMatchingBracket'
     'Cmd-D': 'selectNext'
+    'Shift-Ctrl-D': 'duplicateLine'
+    'Shift-Ctrl-K': 'deleteLine'
+    'Cmd-Ctrl-Up': 'swapLineUp'
+    'Cmd-Ctrl-Down': 'swapLineDown'
+
   pcExtraKeys:
     'Tab': 'smartTab'
     'Ctrl-Space': 'autocomplete'
@@ -35,6 +40,10 @@ App.Editor = klass = Em.Object.extend
     'Shift-Ctrl-Enter': 'insertLineBefore'
     'Ctrl-M': 'goMatchingBracket'
     'Ctrl-D': 'selectNext'
+    'Shift-Ctrl-D': 'duplicateLine'
+    'Shift-Ctrl-K': 'deleteLine'
+    'Shift-Ctrl-Up': 'swapLineUp'
+    'Shift-Ctrl-Down': 'swapLineDown'
 
   # keybindings in codemirror default keymap that we use in menu
   macOverrideKeys: ['Cmd-D']
@@ -59,6 +68,14 @@ App.Editor = klass = Em.Object.extend
   on: ->
     if cm = @get 'codeMirror'
       cm.on.apply cm, arguments
+
+  duplicateLine: ->
+    if cm = @get('codeMirror')
+      cm.execCommand('duplicateLine')
+
+  deleteLine: ->
+    if cm = @get('codeMirror')
+      cm.execCommand('deleteLine')
 
   isClean: ->
     if cm = @get('codeMirror')
@@ -121,6 +138,14 @@ App.Editor = klass = Em.Object.extend
   splitSelectionIntoLines: ->
     if cm = @get 'codeMirror'
       cm.execCommand('splitSelectionByLine')
+
+  swapLineDown: ->
+    if cm = @get('codeMirror')
+      cm.swapLineDown()
+
+  swapLineUp: ->
+    if cm = @get('codeMirror')
+      cm.swapLineUp()
 
   modeDidChange: (->
     if cm = @get 'codeMirror'
