@@ -1,4 +1,4 @@
-package proxy
+package main
 
 import (
 	"database/sql"
@@ -8,10 +8,9 @@ import (
 	"testing"
 
 	"github.com/miekg/dns"
-	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
 
-var dbStructure = []string{
+var dbStructureProxy = []string{
 	`DROP TABLE IF EXISTS hosts;`,
 	`CREATE TABLE hosts (
 		id bigserial PRIMARY KEY NOT NULL,
@@ -35,34 +34,34 @@ var dbStructure = []string{
 	`INSERT INTO regions (id, slug) VALUES (2, 'nyc');`,
 }
 
-var fixtures = []*Host{
+var fixturesProxy = []*ProxyHost{
 	{Slug: "daniel-box", RegionID: 1, ProviderID: 2},
 	{Slug: "md-box", RegionID: 1, ProviderID: 1},
 	{Slug: "dqminh-box", RegionID: 2, ProviderID: 2},
 }
 
-func testNavigator(domain string) n.Navigator {
+func testProxyNavigator(domain string) *ProxyNavigator {
 	config := map[string]string{
 		"database_url": "host=/var/run/postgresql dbname=compass_test sslmode=disable",
 		"sgp":          "exampleproxy-sgp.com",
 	}
-	b, err := New(domain, config)
+	b, err := NewProxyNavigator(domain, config)
 	if err != nil {
 		log.Println("failed to create boxhost", err)
 	}
-	for _, s := range dbStructure {
-		_, err = b.(*Navigator).db.Exec(s)
+	for _, s := range dbStructureProxy {
+		_, err = b.db.Exec(s)
 		if err != nil {
 			log.Println("failed to set db structure", err, s)
 		}
 	}
-	if err := insertHost(b.(*Navigator).db, fixtures); err != nil {
+	if err := insertProxyHost(b.db, fixturesProxy); err != nil {
 		log.Println("failed to set db fixtures", err)
 	}
 	return b
 }
 
-func insertHost(db *sql.DB, values []*Host) error {
+func insertProxyHost(db *sql.DB, values []*ProxyHost) error {
 	stm, err := db.Prepare(`INSERT INTO hosts (slug, region_id, provider_template_id)
 		VALUES ($1, $2, $3) RETURNING ID`)
 	if err != nil {
@@ -77,16 +76,16 @@ func insertHost(db *sql.DB, values []*Host) error {
 	return nil
 }
 
-func TestName(t *testing.T) {
-	n := testNavigator("nitrousbox.com.").(*Navigator)
+func TestProxyName(t *testing.T) {
+	n := testProxyNavigator("nitrousbox.com.")
 	if n.Name() != "proxy" {
 		t.Fatal("a navigator should have a name.")
 	}
 }
 
-func TestFind(t *testing.T) {
-	nav := testNavigator("exampleproxy.com.").(*Navigator)
-	bh := fixtures[0]
+func TestProxyFind(t *testing.T) {
+	nav := testProxyNavigator("exampleproxy.com.")
+	bh := fixturesProxy[0]
 	host, err := nav.find(bh.Slug)
 	if err != nil || host.Slug != "daniel-box" || host.RegionID != 1 || host.RegionSlug != "sgp" || host.Provider != "amazon" {
 		t.Fatalf("Host(%#v), expected daniel-box with region sgp and provider amazon", host)
@@ -97,9 +96,9 @@ func TestFind(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
-	nav := testNavigator("exampleproxy.com.").(*Navigator)
-	h := fixtures[1]
+func TestProxyLookup(t *testing.T) {
+	nav := testProxyNavigator("exampleproxy.com.")
+	h := fixturesProxy[1]
 	host, err := nav.find(h.Slug)
 	if err != nil {
 		t.Fatalf("Failed to find host, err: %v", err)
@@ -121,9 +120,9 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func TestLookupCaseInsensitive(t *testing.T) {
-	nav := testNavigator("exampleproxy.com.").(*Navigator)
-	h := fixtures[1]
+func TestProxyLookupCaseInsensitive(t *testing.T) {
+	nav := testProxyNavigator("exampleproxy.com.")
+	h := fixturesProxy[1]
 	host, err := nav.find(h.Slug)
 	if err != nil {
 		t.Fatalf("Failed to find host, err: %v", err)

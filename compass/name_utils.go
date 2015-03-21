@@ -1,4 +1,4 @@
-package navigator
+package main
 
 import (
 	"strings"
@@ -18,4 +18,11 @@ func SameRootDomain(request string, expected string) bool {
 		return false
 	}
 	return strings.EqualFold(r[lr-1], e[le-1]) && strings.EqualFold(r[lr-2], e[le-2])
+}
+
+func ensureEndsWithDot(domain string) string {
+	if strings.HasSuffix(domain, ".") {
+		return domain
+	}
+	return domain + "."
 }

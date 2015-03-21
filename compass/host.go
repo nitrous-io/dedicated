@@ -1,8 +1,7 @@
-package host
+package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -10,13 +9,6 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/miekg/dns"
-	nav "github.com/nitrous-io/dedicated/compass/navigator"
-)
-
-const defaultTTL = uint32(300)
-
-var (
-	ErrNotFound = errors.New("RecordNotFound")
 )
 
 type Host struct {
@@ -25,18 +17,18 @@ type Host struct {
 	IpAddress string
 }
 
-type Navigator struct {
+type HostNavigator struct {
 	domain string
 	db     *sql.DB
 }
 
-func (n *Navigator) Name() string {
+func (n *HostNavigator) Name() string {
 	return "host"
 }
 
-func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
-	if !nav.SameRootDomain(name, n.domain) {
-		return nil, fmt.Errorf("cant handle domain %v", name)
+func (n *HostNavigator) Lookup(name string) ([]dns.RR, error) {
+	if !SameRootDomain(name, n.domain) {
+		return nil, fmt.Errorf("can't handle domain %v, mine is: '%s'", name, n.domain)
 	}
 	labels := dns.SplitDomainName(name)
 	llabel := len(labels)
@@ -64,7 +56,7 @@ func (n *Navigator) Lookup(name string) ([]dns.RR, error) {
 	}, nil
 }
 
-func (n *Navigator) find(slug string) (*Host, error) {
+func (n *HostNavigator) find(slug string) (*Host, error) {
 	h := new(Host)
 	err := n.db.QueryRow(
 		"SELECT id, slug, ip_address FROM hosts WHERE slug = $1 LIMIT 1",
@@ -75,7 +67,7 @@ func (n *Navigator) find(slug string) (*Host, error) {
 	return h, nil
 }
 
-func (n *Navigator) NewSOA() []dns.RR {
+func (n *HostNavigator) NewSOA() []dns.RR {
 	return []dns.RR{
 		&dns.SOA{
 			Hdr:     dns.RR_Header{Name: n.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
@@ -90,7 +82,7 @@ func (n *Navigator) NewSOA() []dns.RR {
 	}
 }
 
-func New(domain string, config map[string]string) (nav.Navigator, error) {
+func NewHostNavigator(domain string, config map[string]string) (*HostNavigator, error) {
 	db, err := sql.Open("postgres", config["database_url"])
 	if err != nil {
 		return nil, fmt.Errorf("Boxhost: failed to get db connection %v", err)
@@ -98,12 +90,8 @@ func New(domain string, config map[string]string) (nav.Navigator, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("Boxhost: failed to get db connection %v", err)
 	}
-	return &Navigator{
+	return &HostNavigator{
 		domain: domain,
 		db:     db,
 	}, nil
-}
-
-func init() {
-	nav.Navigators["host"] = New
 }
