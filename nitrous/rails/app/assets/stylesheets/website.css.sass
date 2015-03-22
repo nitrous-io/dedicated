@@ -304,6 +304,21 @@ nav
     i
       color: $blueLink
 
+    ul
+      text-align: center
+      padding: 0
+      li
+        display: inline-block
+        margin: 0 6px
+        a
+          padding: 0 16px
+
+    .more
+      span
+        padding: 0 6px 0 0
+      i
+        color: rgba(0,0,0,.6)
+
   span.free
     position: relative
     top: -1px
@@ -487,11 +502,11 @@ nav
       visibility: hidden
       display: block
       clear: both
-    input, .btn.blue
+    input[type="text"], input[type="email"], .btn.blue, input[type="submit"]
       float: left
       margin: 0
       border-radius: 4px 0 0 4px
-    input
+    input[type="text"], input[type="email"]
       width: 228px
       height: 42px
       padding: 0 22px
@@ -500,13 +515,17 @@ nav
       font-size: 16px
       -webkit-appearance: none
       outline: none
-    .btn.blue
+    .btn.blue, input[type="submit"]
       width: 140px
       height: 42px
       padding: 0
       text-align: center
+      border: 0
+      font-size: 13px
       line-height: 43px
       border-radius: 0 4px 4px 0
+      outline: none
+      box-shadow: 0 0 0 transparent
       &:hover
         box-shadow: 0 0 0 transparent
 
@@ -1628,9 +1647,15 @@ h4 + .box-wrapper
     top: 88px
     text-align: center
     +webkitFix
-
     span
       font-size: 22px
+      
+    .address-1
+      font-size: 22px
+      padding-bottom: 8px
+    .address-2
+      font-size: 18px
+      
     span, a
       display: block
       line-height: 22px
@@ -1680,6 +1705,10 @@ h4 + .box-wrapper
     margin: 0 auto
     padding: 40px 0 20px 0
     text-align: center
+    
+    &.angels
+      padding-top: 20px
+    
   li
     display: inline-block
     margin: 0 14px
@@ -1700,11 +1729,12 @@ h4 + .box-wrapper
 
 
 .investors
-  ul
+  ul.investor-logos
     width: 100%
-  li
-    margin: 0 18px
-
+  
+    li
+      margin: 0 22px
+      
     a
       display: block
       background: image_url('home/investors-logos.png') 0 0 no-repeat
