@@ -77,8 +77,8 @@
 
   article.investors.attached-bottom
     .container
-      h3.big-title Our investors
-      ul
+      h3.big-title Our investors &amp; angels
+      ul.investor-logos
         li
           a.bvp href="http://www.bvp.com/" target="_blank"
         li
@@ -89,6 +89,22 @@
           a.crunchfund href="https://www.crunchbase.com/organization/crunchfund" target="_blank"
         li
           a.draper-associates href="http://drapercompany.com/" target="_blank"
+          
+      ul.angels
+        li
+          a href="https://twitter.com/tobi" target="_blank"
+            = image_tag 'home/tobi-lutke.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Eduardo Saverin
+
+        li
+          a href="https://twitter.com/jamesjyu" target="_blank"
+            = image_tag 'home/james-yu.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Razmig Hovaghimian
+
+        li
+          a href="https://twitter.com/joestump" target="_blank"
+            = image_tag 'home/joe-stump.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Prosper Nwankpa
 
   article.advisors
     .container
@@ -122,13 +138,13 @@
   article.maps
     .map
       .address
-        | 300 Brannan St. Ste 201
-        span San Francisco
+        .address-1 300 Brannan St. Ste 201
+        .address-2 San Francisco
       .pin
     .map
       .address
-        | 1A Trengganu St. 2nd Floor
-        span Singapore
+        .address-1 1A Trengganu St. 2nd Floor
+        .address-2 Singapore
       .pin
 
   = render 'layouts/cta'
