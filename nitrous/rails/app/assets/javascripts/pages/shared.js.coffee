@@ -40,9 +40,7 @@ pages.Shared =
       window.setTimeout (->
         $div.remove()
         if $this.is('input[type="submit"]')
-          alert("submit")
           $(this).parents("form").submit()
-          false
         else if href
           window.location = href
           false
