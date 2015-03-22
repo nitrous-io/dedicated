@@ -1,4 +1,19 @@
-- @title = 'Stacks · Nitrous'
+- if params[:stack] == 'node'
+  - @title = 'Node.js on Nitrous'
+- elsif params[:stack] == 'ruby'
+  - @title = 'Ruby on Nitrous'
+- elsif params[:stack] == 'python'
+  - @title = 'Python on Nitrous'
+- elsif params[:stack] == 'django'
+  - @title = 'Django on Nitrous'
+- elsif params[:stack] == 'rails'
+  - @title = 'Rails on Nitrous'
+- elsif params[:stack] == 'go'
+  - @title = 'Go on Nitrous'
+- elsif params[:stack] == 'html5'
+  - @title = 'HTML5 on Nitrous'
+- else
+  - @title = 'Stacks · Nitrous'
 - @html_class = 'light'
 - @body_id = 'stack'
 - @body_class = 'stack-'+params[:stack]
@@ -28,6 +43,31 @@
         - elsif params[:stack] == 'html5'
           h2 HTML5
 
+  .notice
+    .container
+      ul
+        li
+          a href="/stacks/ruby" Ruby
+        li
+          a href="/stacks/rails" Rails
+        li
+          a href="/stacks/python" Python
+        li
+          a href="/stacks/django" Django
+        li
+          a href="/stacks/node" Node.js
+        li
+          a href="/stacks/meteor" Meteor
+        li
+          a href="/stacks/php" PHP
+        li
+          a href="/stacks/html5" HTML5
+        li
+          a href="/stacks/go" Go
+        li
+          a.more href="#"
+            span More
+            i.fa.fa-bars
 
   article.darker
     .container
