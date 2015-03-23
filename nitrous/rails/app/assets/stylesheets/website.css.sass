@@ -65,6 +65,22 @@ $n2oGray1000: #1f252a
 
 $placeholder: rgba(0,0,0,.4)
 
+$ruby: #BC1412
+$rails: #981C24
+$python: #75A8D3
+$django: #0F4A33
+$nodejs: #82BB22
+$meteor: #26262A
+$html5: #E14D2F
+$php: #8893BE
+$go: #3960A9
+$java: #E76F00
+$wordpress: #22272C
+$iojs: #F5DA4E
+$laravel: #F36562
+$ubuntu: #DD4814
+$asp: #0054A3
+
 
 // --------------------------------------
 // Mixins
@@ -314,10 +330,29 @@ nav
           padding: 0 16px
 
     .more
+      position: relative
       span
         padding: 0 6px 0 0
       i
         color: rgba(0,0,0,.6)
+
+    ul li:hover
+      ol
+        display: block
+
+    ol
+      position: absolute
+      top: 100%
+      left: -22px
+      display: none
+      background: #FFF
+      border-radius: 0 0 4px 4px
+      box-shadow: 0 1px 3px rgba(0,0,0,.2)
+      text-align: left
+      li
+        text-align: left
+
+
 
   span.free
     position: relative
@@ -967,35 +1002,35 @@ h4 + .box-wrapper
     &:hover
       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
     &.ruby
-      background: #BC1412
-    &.php
-      background: #505C91
-    &.python
-      background: #3A77A9
-    &.meteor
-      background: #28272C
-    &.java
-      background: #BF743A
-    &.asp
-      background: #68217A
-    &.html5
-      background: #E6643E
-    &.node
-      background: #80BD23
+      background: $ruby
     &.rails
-      background: #981C24
-    &.go
-      background: #3960A9
-    &.wordpress
-      background: #999999
-    &.iojs
-      background: #F6DB4E
+      background: $rails
+    &.python
+      background: $python
     &.django
-      background: #123228
+      background: $django
+    &.node
+      background: $nodejs
+    &.meteor
+      background: $meteor
+    &.html5
+      background: $html5
+    &.java
+      background: $java
+    &.asp
+      background: $asp
+    &.php
+      background: $php
     &.laravel
-      background: #F27370
+      background: $laravel
+    &.go
+      background: $go
+    &.wordpress
+      background: $wordpress
+    &.iojs
+      background: $iojs
     &.ubuntu
-      background: #DB4922
+      background: $ubuntu
 
   span
     width: 94px
@@ -1649,13 +1684,13 @@ h4 + .box-wrapper
     +webkitFix
     span
       font-size: 22px
-      
+
     .address-1
       font-size: 22px
       padding-bottom: 8px
     .address-2
       font-size: 18px
-      
+
     span, a
       display: block
       line-height: 22px
@@ -1705,10 +1740,10 @@ h4 + .box-wrapper
     margin: 0 auto
     padding: 40px 0 20px 0
     text-align: center
-    
+
     &.angels
       padding-top: 20px
-    
+
   li
     display: inline-block
     margin: 0 14px
@@ -1731,10 +1766,10 @@ h4 + .box-wrapper
 .investors
   ul.investor-logos
     width: 100%
-  
+
     li
       margin: 0 22px
-      
+
     a
       display: block
       background: image_url('home/investors-logos.png') 0 0 no-repeat
@@ -2201,7 +2236,6 @@ input[type="range"]
     animation-iteration-count: 1
 
   .patternshadows
-    // background-image: radial-gradient(ellipse at center, rgba(40,50,58,0) 0%,rgba(40,50,58,.2) 78%,rgba(40,50,58,1) 100%), radial-gradient(ellipse at center, rgba(48,60,71,0) 0%,rgba(48,60,71,1) 68%)
     background-image: radial-gradient(ellipse at center, rgba(48,60,71,0) 0%,rgba(48,60,71,1) 68%)
 
 
@@ -2228,18 +2262,32 @@ input[type="range"]
 
 // --------------------------------------
 // Stacks
-.stack-node .page-hero
-  background: #82BB22
 .stack-ruby .page-hero
-  background: #AB0000
+  background: $ruby
 .stack-rails .page-hero
-  background: #A70004
+  background: $rails
+.stack-node .page-hero
+  background: $nodejs
 .stack-meteor .page-hero
-  background: #373A49
+  background: $meteor
+.stack-python .page-hero
+  background: $python
 .stack-django .page-hero
-  background: #0C4B33
+  background: $django
 .stack-html5 .page-hero
-  background: #E6643E
+  background: $html5
+.stack-php .page-hero
+  background: $php
+.stack-go .page-hero
+  background: $go
+.stack-wordpress .page-hero
+  background: $wordpress
+.stack-asp .page-hero
+  background: $asp
+.stack-laravel .page-hero
+  background: $laravel
+.stack-iojs .page-hero
+  background: $iojs
 
 
 // --------------------------------------
