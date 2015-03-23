@@ -22,6 +22,10 @@
   - @title = 'Wordpress on Nitrous'
 - elsif params[:stack] == 'iojs'
   - @title = 'io.js on Nitrous'
+- elsif params[:stack] == 'java'
+  - @title = 'Java on Nitrous'
+- elsif params[:stack] == 'ubuntu'
+  - @title = 'Ubuntu on Nitrous'
 - else
   - @title = 'Stacks · Nitrous'
 - @html_class = 'light'
@@ -62,6 +66,10 @@
           h2 Laravel
         - elsif params[:stack] == 'iojs'
           h2 io.js
+        - elsif params[:stack] == 'java'
+          h2 Java
+        - elsif params[:stack] == 'ubuntu'
+          h2 Ubuntu
 
   .notice
     .container
@@ -94,6 +102,10 @@
               a href="/stacks/laravel" Laravel
             li
               a href="/stacks/iojs" io.js
+            li
+              a href="/stacks/java" Java
+            li
+              a href="/stacks/ubuntu" Ubuntu
 
   article.darker
     .container
@@ -135,6 +147,12 @@
           - if params[:stack] == 'iojs'
             h3 About io.js
             p io.js is a JavaScript platform built on Chrome's V8 runtime. This project began as a fork of Joyent's Node.js&trade; and is compatible with the npm ecosystem.
+          - if params[:stack] == 'java'
+            h3 About Java
+            p Java is the foundation for virtually every type of networked application and is the global standard for developing and delivering embedded and mobile applications, games, Web-based content, and enterprise software.
+          - if params[:stack] == 'ubuntu'
+            h3 About Ubuntu
+            p Whether you’re a mobile app developer, an engineering manager, a music or video editor or a financial analyst with large-scale models to run ‐ in fact, anyone in need of a powerful machine for your work ‐ Ubuntu is the ideal platform.
 
         .box
           h3 About Nitrous.io
@@ -190,9 +208,17 @@
         h3.big-title Gettings started with io.js and Nitrous
         h4
           | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
+      - if params[:stack] == 'java'
+        h3.big-title Gettings started with Java and Nitrous
+        h4
+          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
+      - if params[:stack] == 'ubuntu'
+        h3.big-title Gettings started with Ubuntu and Nitrous
+        h4
+          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
 
 
 
-
+  / = render partial: 'layouts/cta_hack'
 
 = render partial: 'layouts/footer', locals: { active: 'stacks' }
