@@ -64,14 +64,14 @@ hostActions =
     progressName: 'Terminating...'
     description: 'This will permanently delete the host and all services, images, volumes, and archives within the host.'
     successMessage: 'Successfully terminated host'
-    failureMessage: 'Failed to terminate host!'
+    failureMessage: 'Failed to terminated unaccounted host!'
     perform: (host) ->
       hostId = host.id
       hostRegion = host.region
       ip = host.ip_address
 
-      Em.$.ajax(
-        type: 'DELETE'
+      Em.$.ajax
+        type: 'POST'
         url: '/api/v0/admin/terminate_unaccounted_host'
         data:
           provider: 'amazon'
@@ -79,9 +79,6 @@ hostActions =
           region: hostRegion
           ip_address: ip
         headers: { Authorization: "Bearer #{App.get 'token'}" }
-      ).then =>
-        App.snackbar.post('Unaccounted host was successfully terminated.')
-        @fetchHosts()
 
 App.AdminAmazonHostsController = Em.Controller.extend
   clear: ->
