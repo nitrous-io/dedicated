@@ -25,3 +25,24 @@ func TestSameRootDomain(t *testing.T) {
 		}
 	}
 }
+
+func TestRootDomain(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"test.nitrous.io.", "nitrous.io."},
+		{"foo.test.nitrous.io.", "nitrous.io."},
+		{"test.nitrous.io", "nitrous.io."},
+		{"foo.test.nitrous.io", "nitrous.io."},
+		{"nitrous.io.", "nitrous.io."},
+		{"io.", ""},
+		{".", ""},
+	}
+
+	for _, tc := range testCases {
+		if output := RootDomain(tc.input); output != tc.expected {
+			t.Fatalf("expected RootDomain of %q to be %q but got %q", tc.input, tc.expected, output)
+		}
+	}
+}

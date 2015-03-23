@@ -16,6 +16,20 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var usage = `Usage: migrate <source host> <destination host>
+
+Prerequisites:
+- if this is a user host, they must have been notified prior to the migration
+- create a new host to act as the destination
+- AES_KEY and NITROUS_PG_URL environment variables need to be set
+
+After successful migration:
+- source host will still be around with terminated_at set
+- source host *will* appear in host admin unaccounted hosts
+- check dest host to see if data is preserved
+- delete source host from provider using host admin page
+`
+
 var (
 	aesKey string
 	dbURL  string
@@ -48,7 +62,7 @@ func init() {
 
 func main() {
 	if len(os.Args) < 3 {
-		logr.Fatalf("%s SRC_HOST DEST_HOST", os.Args[0])
+		fmt.Println(usage)
 		return
 	}
 
