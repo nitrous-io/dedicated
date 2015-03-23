@@ -102,14 +102,8 @@ App.AdminAmazonHostsController = Em.Controller.extend
   closeDialog: ->
     @set('targetHost', null)
     @set('selectedAction', null)
-    @set('inProgress', false)
     @set('availableActions', [])
     ui.hideModal('#action-modal-dialog')
-
-  closeDialogWithMessage: (message) ->
-    @fetchHosts()
-    @closeDialog()
-    App.snackbar.post(message)
 
   showActionDialog: (host, actions) ->
     @set('targetHost', host)
@@ -141,12 +135,15 @@ App.AdminAmazonHostsController = Em.Controller.extend
     confirmAction: ->
       host = @get('targetHost')
       action = @get('selectedAction')
-      console.log('performing action ', action, ' on host', host)
-      @set('inProgress', true)
+      
+      App.snackbar.post("#{action.progressName} #{host.slug}...")
+      @closeDialog()
 
       action.perform(host)
       .then(=>
-        @closeDialogWithMessage(action.successMessage)
+        App.snackbar.post(action.successMessage)
+        @fetchHosts()
       , =>
-        @closeDialogWithMessage(action.failureMessage)
+        App.snackbar.post(action.failureMessage)
+        @fetchHosts()
       )

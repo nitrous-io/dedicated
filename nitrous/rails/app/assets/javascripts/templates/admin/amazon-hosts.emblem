@@ -155,18 +155,15 @@
         p
           | Are you ABSOLUTELY sure you want to 
           = selectedAction.name
+          '
+          = targetHost.slug
           ' ?
         p
           = selectedAction.description
 
       .card-footer
         .right
-          unless inProgress
-            button.ui.btn click='cancelAction' Cancel
-            button.ui.btn.danger.terminate-btn click='confirmAction'
-              | Confirm 
-              = selectedAction.name
-          else
-            button.ui.btn disabled=true
-              = selectedAction.progressName
-              | ...
+          button.ui.btn click='cancelAction' Cancel
+          button.ui.btn.danger.terminate-btn click='confirmAction'
+            | Confirm 
+            = selectedAction.name
