@@ -43,33 +43,75 @@
       = render partial: 'layouts/webnav', locals: { active: 'stacks' }
       .hero-copy
         - if params[:stack] == 'ruby'
-          h2 Ruby
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.ruby Ruby
         - elsif params[:stack] == 'rails'
-          h2 Ruby on Rails
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.rails Ruby on Rails
         - elsif params[:stack] == 'python'
-          h2 Python
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.python Python
         - elsif params[:stack] == 'django'
-          h2 Django
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.django Django
         - elsif params[:stack] == 'node'
-          h2 Node.js
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.node Node.js
         - elsif params[:stack] == 'meteor'
-          h2 Meteor
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.meteor Meteor
         - elsif params[:stack] == 'html5'
-          h2 HTML5
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.html5 HTML5
         - elsif params[:stack] == 'php'
-          h2 PHP
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.php PHP
         - elsif params[:stack] == 'go'
-          h2 Go
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.go Go
         - elsif params[:stack] == 'wordpress'
-          h2 Wordpress
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.wordpress Wordpress
         - elsif params[:stack] == 'laravel'
-          h2 Laravel
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.laravel Laravel
         - elsif params[:stack] == 'iojs'
-          h2 io.js
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.iojs io.js
         - elsif params[:stack] == 'java'
-          h2 Java
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.java Java
         - elsif params[:stack] == 'ubuntu'
-          h2 Ubuntu
+          h2
+            span.stack-lang.nitrous Nitrous
+            span.plus +
+            span.stack-lang.ubuntu Ubuntu
 
   .notice
     .container
