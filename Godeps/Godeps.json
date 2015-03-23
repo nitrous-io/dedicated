@@ -148,6 +148,11 @@
 			"Rev": "ae7391529ced9c12f06bf01eae33dadb4c70e49f"
 		},
 		{
+			"ImportPath": "github.com/mailgun/manners",
+			"Comment": "0.3.1-22-g439abb1",
+			"Rev": "439abb10d384a9ca69a511be39f29580ee5009c6"
+		},
+		{
 			"ImportPath": "github.com/miekg/dns",
 			"Rev": "812ab5e75584410c0c25e5a15b60d46db0f1f38e"
 		},
