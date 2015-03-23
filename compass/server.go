@@ -86,7 +86,8 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	case dns.TypeA:
 		start := time.Now()
-		for _, navigator := range s.navigators {
+		navigator, ok := s.navigatorForA(q)
+		if ok {
 			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
 			r, err := navigator.Lookup(q.Name)
 			if err == nil {
@@ -122,6 +123,12 @@ func (s *Server) createServer(net, addr string) {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (s *Server) navigatorForA(qn dns.Question) (n.Navigator, bool) {
+	rootDomain := n.RootDomain(strings.ToLower(qn.Name))
+	n, ok := s.navigators[rootDomain]
+	return n, ok
 }
 
 func (s *Server) allSOA() []dns.RR {
