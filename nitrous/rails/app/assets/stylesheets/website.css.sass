@@ -1025,41 +1025,58 @@ h4 + .box-wrapper
     border: 0
     user-select: none
     border-radius: 3px
+    background-image: image_url("home/lang-logos.png")
+    background-repeat: no-repeat
+    background-size: 94px 1316px
     +transition(.2s ease-out)
     +webkitFix
 
     &:hover
       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
     &.ruby
-      background: $ruby
+      background-color: $ruby
+      background-position: 0 0
     &.rails
-      background: $rails
+      background-color: $rails
+      background-position: 0 -94px
     &.python
-      background: $python
+      background-color: $python
+      background-position: 0 (-94px*2)
     &.django
-      background: $django
+      background-color: $django
+      background-position: 0 (-94px*3)
     &.node
-      background: $nodejs
+      background-color: $nodejs
+      background-position: 0 (-94px*4)
     &.meteor
-      background: $meteor
+      background-color: $meteor
+      background-position: 0 (-94px*5)
     &.html5
-      background: $html5
-    &.java
-      background: $java
-    &.asp
-      background: $asp
+      background-color: $html5
+      background-position: 0 (-94px*6)
     &.php
-      background: $php
-    &.laravel
-      background: $laravel
+      background-color: $php
+      background-position: 0 (-94px*7)
     &.go
-      background: $go
+      background-color: $go
+      background-position: 0 (-94px*8)
     &.wordpress
-      background: $wordpress
+      background-color: $wordpress
+      background-position: 0 (-94px*9)
+    &.laravel
+      background-color: $laravel
+      background-position: 0 (-94px*10)
     &.iojs
-      background: $iojs
+      background-color: $iojs
+      background-position: 0 (-94px*11)
+    &.java
+      background-color: $java
+      background-position: 0 (-94px*12)
     &.ubuntu
-      background: $ubuntu
+      background-color: $ubuntu
+      background-position: 0 (-94px*13)
+    // &.asp
+    //   background-color: $asp
 
   span
     width: 94px
