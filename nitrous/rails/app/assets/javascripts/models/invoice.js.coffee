@@ -1,7 +1,8 @@
 #= require ./model
+#= require ../mixins/grouped-invoice-items-mixin
 attr = SM.attr
 
-App.Invoice = klass = App.Model.extend
+App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   id: attr('number', serialize: false)
   userId: attr()
   totalCharge: attr('number', as: 'total_charge')
@@ -45,14 +46,6 @@ App.Invoice = klass = App.Model.extend
     return false if @get('successfulCharge') || @get('deferred')
     @get('failed') || @get('attempted')
   ).property 'failed', 'successfulCharge', 'attempted'
-
-  items: (->
-    @get('_items').map (item)->
-      inv = App.InvoiceItem.create()
-      inv.load item
-      inv
-    .sortBy('ranking', 'id').reverse()
-  ).property '_items'
 
   pay: ->
     new Em.RSVP.Promise (resolve, reject) =>

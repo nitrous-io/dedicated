@@ -42,36 +42,9 @@ if App.billingUsage
     .invoice-item
       table.ui.table.horizontal
         tbody
-          = each item in App.billingUsage.items
-            tr
-              td class={item.isCompute:compute}
-                if item.isCompute
-                  .title
-                    a href="#" click='toggleItems target="view"'
-                      = item.description
-                  .items
-                    table
-                      tbody
-                        = each usage in item.usage
-                          tr
-                            td.hours
-                              | Running (
-                              = toFixed usage.hours 2
-                              '
-                              = plural usage.hours 'hour' 'hours'
-                              | )
-                            td.time
-                              = basicdatetime usage.startAt
-                              '
-                              | -
-                              '
-                              = basicdatetime usage.endAt
-                else
-                  .title
-                    = item.description
-              td.charge
-                | $
-                = currency item.totalChargeDollars
+          = each group in App.billingUsage.groupedItems
+            = each item in group.items
+              App.InvoiceItemView item=item
         tr
           td.gap
 
@@ -141,36 +114,9 @@ if App.billingUsage
                     | Unpaid
       table.ui.table.horizontal
         tbody
-          = each item in invoice.items
-            tr
-              td class={item.isCompute:compute}
-                if item.isCompute
-                  .title
-                    a href="#" click='toggleItems target="view"'
-                      = item.description
-                  .items
-                    table
-                      tbody
-                        = each usage in item.usage
-                          tr
-                            td.hours
-                              | Running (
-                              = toFixed usage.hours 2
-                              '
-                              = plural usage.hours 'hour' 'hours'
-                              | )
-                            td.time
-                              = basicdatetime usage.startAt
-                              '
-                              | -
-                              '
-                              = basicdatetime usage.endAt
-                else
-                  .title
-                    = item.description
-              td.charge
-                | $
-                = currency item.totalChargeDollars
+          = each group in invoice.groupedItems
+            = each item in group.items
+              App.InvoiceItemView item=item
         tr
           td.gap
 
