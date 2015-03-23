@@ -126,6 +126,8 @@ App.AdminAmazonHostsController = Em.Controller.extend
     showUnaccountedHostDialog: (host) ->
       @showActionDialog(host, [hostActions.terminateUnaccounted])
 
+    showBulkHostDialog: ->
+
     cancelAction: ->
       @closeDialog()
 
