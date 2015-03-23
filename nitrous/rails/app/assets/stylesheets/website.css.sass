@@ -142,7 +142,7 @@ a
   -webkit-tap-highlight-color: transparent
   cursor: pointer
 
-  &.blue, &.grey
+  &.blue, &.grey, &.hack
     display: inline-block
     text-align: center
     // padding: 13px 44px
@@ -166,6 +166,31 @@ a
     background: #A5B3BE
     font-size: 12px
     font-weight: 400
+
+  &.hack
+    margin-top: 12px
+    padding-right: 30px
+    color: #000
+    font-family: $boldFont
+    text-indent: 20px
+    background-color: #F6F6F6
+    // background-image: linear-gradient(90deg, #BEBEBE 50%, transparent 50%)
+    background-image: linear-gradient(90deg, rgba(0,0,0,.1) 50%, transparent 50%)
+    background-repeat: no-repeat
+    background-size: 80px 50px
+    border: 1px solid #C5C5C5
+
+    &:after
+      content: ""
+      position: absolute
+      top: 0
+      left: 0
+      right: 0
+      bottom: 0
+      display: block
+      background: linear-gradient(top, rgba(255,255,255,.4) 0%, rgba(255,255,255,0) 100%)
+      border-radius: 4px
+
 
 // --------------------------------------
 // Navigation
@@ -334,7 +359,7 @@ nav
       span
         padding: 0 6px 0 0
       i
-        color: rgba(0,0,0,.6)
+        color: rgba(0,0,0,.5)
 
     ul li:hover
       ol
@@ -1742,7 +1767,11 @@ h4 + .box-wrapper
     text-align: center
 
     &.angels
+      width: 900px
       padding-top: 20px
+
+      li
+        min-width: 150px
 
   li
     display: inline-block
@@ -2288,6 +2317,10 @@ input[type="range"]
   background: $laravel
 .stack-iojs .page-hero
   background: $iojs
+.stack-java .page-hero
+  background: $java
+.stack-ubuntu .page-hero
+  background: $ubuntu
 
 
 // --------------------------------------
