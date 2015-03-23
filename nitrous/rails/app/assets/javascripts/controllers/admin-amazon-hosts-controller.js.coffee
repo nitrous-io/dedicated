@@ -80,11 +80,31 @@ hostActions =
           ip_address: ip
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
+healthyHostActions = (host) ->
+  if host.state == 'running'
+    [hostActions.update, hostActions.restart, hostActions.stop, hostActions.terminate]
+  else if host.state == 'stopped'
+    [hostActions.start, hostActions.terminate]
+  else
+    [hostActions.terminate]
+
+healthyHostBulkActions = [hostActions.terminate]
+problemHostActions = [hostActions.terminate]
+unaccountedHostActions = [hostActions.terminateUnaccounted]
+
+getHostSlug = (host) ->
+  host.slug || host.id || 'unknown-host'
+
+selectedHosts = (hosts) ->
+  hosts.filter (host) ->
+    host.get('selected')
+
 App.AdminAmazonHostsController = Em.Controller.extend
   clear: ->
-    @fetchHosts()
+    @set('selectedHosts', {})
+    @refreshHosts()
 
-  fetchHosts: ->
+  refreshHosts: ->
     @set('fetchingHosts', true)
 
     Em.$.ajax(
@@ -99,34 +119,62 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @set('fetchingHosts', false)
     )
 
+  targetHostSlugs: (->
+    @get('targetHosts')?.map(getHostSlug).join(', ')
+  ).property 'targetHosts'
+
   closeDialog: ->
-    @set('targetHost', null)
+    @set('targetHosts', [])
     @set('selectedAction', null)
     @set('availableActions', [])
     ui.hideModal('#action-modal-dialog')
 
-  showActionDialog: (host, actions) ->
-    @set('targetHost', host)
+  showActionDialog: (hosts, actions) ->
+    @set('targetHosts', hosts)
     @set('availableActions', actions)
     ui.showModal('#action-modal-dialog')
 
+  performActionOnHosts: (action, hosts) ->
+    if hosts.length == 0
+      App.snackbar.post('Action have been performed on all selected hosts')
+      return
+
+    host = hosts[0]
+    restHosts = hosts.slice(1)
+
+    App.snackbar.post("#{action.progressName} #{getHostSlug(host)}...")
+
+    action.perform(host)
+    .then(=>
+      action.successMessage
+    , =>
+      action.failureMessage
+    ).then((message) =>
+      App.snackbar.post(message)
+      @refreshHosts()
+      @performActionOnHosts(action, restHosts)
+    )
+
   actions:
     refreshHosts: ->
-      @fetchHosts()
+      @refreshHosts()
 
     showHealthyHostDialog: (host) ->
-      if host.state == 'running'
-        @showActionDialog(host, [hostActions.update, hostActions.restart, hostActions.stop, hostActions.terminate])
-      else if host.state == 'stopped'
-        @showActionDialog(host, [hostActions.start, hostActions.terminate])
+      @showActionDialog([host], healthyHostActions(host))
 
     showProblemHostDialog: (host) ->
-      @showActionDialog(host, [hostActions.terminate])
+      @showActionDialog([host], problemHostActions)
 
     showUnaccountedHostDialog: (host) ->
-      @showActionDialog(host, [hostActions.terminateUnaccounted])
+      @showActionDialog([host], unaccountedHostActions)
 
-    showBulkHostDialog: ->
+    showHealthyHostBulkDialog: ->
+      healthyHosts = @get('hosts').healthy_hosts
+      console.log('bulk dialog', healthyHosts)
+      selected = selectedHosts(healthyHosts)
+
+      if selected.length > 0
+        @showActionDialog(selected, healthyHostBulkActions)
 
     cancelAction: ->
       @closeDialog()
@@ -135,17 +183,8 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @set('selectedAction', action)
 
     confirmAction: ->
-      host = @get('targetHost')
       action = @get('selectedAction')
+      hosts = @get('targetHosts')
       
-      App.snackbar.post("#{action.progressName} #{host.slug}...")
       @closeDialog()
-
-      action.perform(host)
-      .then(=>
-        App.snackbar.post(action.successMessage)
-        @fetchHosts()
-      , =>
-        App.snackbar.post(action.failureMessage)
-        @fetchHosts()
-      )
+      @performActionOnHosts(action, hosts)

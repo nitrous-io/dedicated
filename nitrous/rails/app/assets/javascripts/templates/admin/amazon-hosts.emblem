@@ -152,8 +152,9 @@
         | Perform Action
       .card-body
         p
-          | Select action to perform on 
-          = targetHost.slug
+          | Select action to perform on the following hosts:
+        p
+          = targetHostSlugs
       .card-footer
         .right
           button.ui.btn click='cancelAction' Cancel
@@ -171,9 +172,9 @@
         p
           | Are you ABSOLUTELY sure you want to 
           = selectedAction.name
-          ' the following host:
+          ' the following host(s):
         p
-          = targetHost.slug
+          = targetHostSlugs
         p
           = selectedAction.description
 
