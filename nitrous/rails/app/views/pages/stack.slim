@@ -1,267 +1,75 @@
-- if params[:stack] == 'ruby'
-  - @title = 'Ruby on Nitrous'
-- elsif params[:stack] == 'rails'
-  - @title = 'Rails on Nitrous'
-- elsif params[:stack] == 'python'
-  - @title = 'Python on Nitrous'
-- elsif params[:stack] == 'django'
-  - @title = 'Django on Nitrous'
-- elsif params[:stack] == 'node'
-  - @title = 'Node.js on Nitrous'
-- elsif params[:stack] == 'meteor'
-  - @title = 'Meteor on Nitrous'
-- elsif params[:stack] == 'html5'
-  - @title = 'HTML5 on Nitrous'
-- elsif params[:stack] == 'php'
-  - @title = 'PHP on Nitrous'
-- elsif params[:stack] == 'go'
-  - @title = 'Go on Nitrous'
-- elsif params[:stack] == 'laravel'
-  - @title = 'Laravel on Nitrous'
-- elsif params[:stack] == 'wordpress'
-  - @title = 'Wordpress on Nitrous'
-- elsif params[:stack] == 'iojs'
-  - @title = 'io.js on Nitrous'
-- elsif params[:stack] == 'java'
-  - @title = 'Java on Nitrous'
-- elsif params[:stack] == 'ubuntu'
-  - @title = 'Ubuntu on Nitrous'
-- else
-  - @title = 'Stacks · Nitrous'
+- @title = "#{@stack['name']} on Nitrous"
 - @html_class = 'light'
 - @body_id = 'stack'
-- @body_class = 'stack-'+params[:stack]
+- @body_class = "stack-#{@stack['slug']}"
 
 - content_for :body_after
   javascript:
     pages.Stack.init();
-
 
 .page
   .page-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'stacks' }
       .hero-copy
-        - if params[:stack] == 'ruby'
           h2
             span.stack-lang.nitrous Nitrous
             span.plus +
-            span.stack-lang.ruby Ruby
-        - elsif params[:stack] == 'rails'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.rails Ruby on Rails
-        - elsif params[:stack] == 'python'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.python Python
-        - elsif params[:stack] == 'django'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.django Django
-        - elsif params[:stack] == 'node'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.node Node.js
-        - elsif params[:stack] == 'meteor'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.meteor Meteor
-        - elsif params[:stack] == 'html5'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.html5 HTML5
-        - elsif params[:stack] == 'php'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.php PHP
-        - elsif params[:stack] == 'go'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.go Go
-        - elsif params[:stack] == 'wordpress'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.wordpress Wordpress
-        - elsif params[:stack] == 'laravel'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.laravel Laravel
-        - elsif params[:stack] == 'iojs'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.iojs io.js
-        - elsif params[:stack] == 'java'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.java Java
-        - elsif params[:stack] == 'ubuntu'
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang.ubuntu Ubuntu
-
+            span.stack-lang *{:class => @stack['slug']}
+              = @stack['name']
   .notice
     .container
       ul
-        li
-          a href="/stacks/ruby" Ruby
-        li
-          a href="/stacks/rails" Rails
-        li
-          a href="/stacks/python" Python
-        li
-          a href="/stacks/django" Django
-        li
-          a href="/stacks/node" Node.js
-        li
-          a href="/stacks/meteor" Meteor
-        li
-          a href="/stacks/html5" HTML5
-        li
-          a href="/stacks/php" PHP
-        li
-          a href="/stacks/go" Go
+        - @stacks[0..9].each do |k,v|
+          li
+            a href="/stacks/#{v['slug']}" 
+              ="#{v['name']}"
+            
         li.more
           span More
           i.fa.fa-bars
           ol
-            li
-              a href="/stacks/wordpress" Wordpress
-            li
-              a href="/stacks/laravel" Laravel
-            li
-              a href="/stacks/iojs" io.js
-            li
-              a href="/stacks/java" Java
-            li
-              a href="/stacks/ubuntu" Ubuntu
+            - @stacks[10..@stacks.length].each do |k,v|
+              li
+                a href="/stacks/#{v['slug']}" 
+                  ="#{v['name']}"
 
   article.darker
     .container
       .box-wrapper.two
         .box
-          - if params[:stack] == 'ruby'
-            h3 About Ruby
-            p Ruby is a dynamic, open source programming language with a focus on simplicity and productivity. It has an elegant syntax that is natural to read and easy to write.
-          - if params[:stack] == 'rails'
-            h3 About Ruby on Rails
-            p Ruby on Rails&reg; is an open-source web framework that's optimized for programmer happiness and sustainable productivity. It lets you write beautiful code by favoring convention over configuration.
-          - if params[:stack] == 'python'
-            h3 About Python
-            p Python is a programming language that lets you work more quickly and integrate your systems more effectively. It is powerful, fast, fast, plays well with others, runs everywhere, is friendly & easy to learn, and is Open.
-          - if params[:stack] == 'django'
-            h3 About Django
-            p Django is a high-level Python Web framework that encourages rapid development and clean, pragmatic design. Built by experienced developers, it takes care of much of the hassle of Web development, so you can focus on writing your app without needing to reinvent the wheel. It’s free and open source.
-          - if params[:stack] == 'node'
-            h3 About Node.js
-            p Node.js&reg; is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices.
-          - if params[:stack] == 'meteor'
-            h3 About Meteor
-            p Meteor is a complete open source platform for building web and mobile apps in pure JavaScript.
-          - if params[:stack] == 'html5'
-            h3 About HTML5
-            p HTML5 is a core technology markup language of the Internet used for structuring and presenting content for the World Wide Web.
-          - if params[:stack] == 'php'
-            h3 About PHP
-            p PHP (recursive acronym for PHP: Hypertext Preprocessor) is a widely-used open source general-purpose scripting language that is especially suited for web development and can be embedded into HTML.
-          - if params[:stack] == 'go'
-            h3 About Go
-            p The Go programming language is an open source project to make programmers more productive. It's a fast, statically typed, compiled language that feels like a dynamically typed, interpreted language.
-          - if params[:stack] == 'wordpress'
-            h3 About Wordpress
-            p WordPress is web software you can use to create a beautiful website or blog. We like to say that WordPress is both free and priceless at the same time.
-          - if params[:stack] == 'laravel'
-            h3 About Laravel
-            p Laravel is a free, open source PHP web application framework, designed for the development of model–view–controller (MVC) web applications.
-          - if params[:stack] == 'iojs'
-            h3 About io.js
-            p io.js is a JavaScript platform built on Chrome's V8 runtime. This project began as a fork of Joyent's Node.js&trade; and is compatible with the npm ecosystem.
-          - if params[:stack] == 'java'
-            h3 About Java
-            p Java is the foundation for virtually every type of networked application and is the global standard for developing and delivering embedded and mobile applications, games, Web-based content, and enterprise software.
-          - if params[:stack] == 'ubuntu'
-            h3 About Ubuntu
-            p Whether you’re a mobile app developer, an engineering manager, a music or video editor or a financial analyst with large-scale models to run ‐ in fact, anyone in need of a powerful machine for your work ‐ Ubuntu is the ideal platform.
+          h3 
+            | About 
+            =@stack['name']
+          p 
+            =@stack['about']
 
         .box
           h3 About Nitrous.io
           p Nitrous provides a lightning fast way to set up development environments and code in the cloud. Nitrous allows developers to collaborate on their projects in real-time, deploy to production servers with one-click, and to version dev environments with ease.
 
-  article.featurette
+  article.featurette.stack-steps
     .container
-      - if params[:stack] == 'ruby'
-        h3.big-title Gettings started with Ruby and Nitrous
-        h4
-          | Donec ullamcorper nulla non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'rails'
-        h3.big-title Gettings started with Ruby on Rails and Nitrous
-        h4
-          | Donec ullamcorper nulla non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'python'
-        h3.big-title Gettings started with Python and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'django'
-        h3.big-title Gettings started with Django and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'node'
-        h3.big-title Gettings started with Node.js and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'meteor'
-        h3.big-title Gettings started with Meteor and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'html5'
-        h3.big-title Gettings started with HTML5 and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'php'
-        h3.big-title Gettings started with PHP and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'go'
-        h3.big-title Gettings started with Go and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'wordpress'
-        h3.big-title Gettings started with Wordpress and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'laravel'
-        h3.big-title Gettings started with Laravel and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'iojs'
-        h3.big-title Gettings started with io.js and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'java'
-        h3.big-title Gettings started with Java and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
-      - if params[:stack] == 'ubuntu'
-        h3.big-title Gettings started with Ubuntu and Nitrous
-        h4
-          | Donec ullamcorper ruby non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.
+      h3.big-title="Getting started with #{@stack['name']} and Nitrous"
+      ol
+        // TODO: only if not signed in
+        li.step1 *{:class => @stack['slug']}
+          h2
+            span.step 1
+            | Sign up for your Free Nitrous Account
+            
+          // = render 'layouts/cta_form'
+          
+        li.step2 *{:class => @stack['slug']}
+          h2
+           span.step 2
+           ="Select the #{@stack['name']} template in the New Container screen."          
+             
+        li.step3 *{:class => @stack['slug']}
+          h2
+            span.step 3
+            ="Start coding on your new #{@stack['name']} environment in just seconds!"
+          
 
-
-
-  / = render partial: 'layouts/cta_hack'
   = render partial: 'layouts/cta', locals: { theme: 'lighter' }
-
 = render partial: 'layouts/footer', locals: { active: 'stacks' }

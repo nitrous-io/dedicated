@@ -1,0 +1,56 @@
+ruby:
+  name: 'Ruby'
+  slug: 'ruby'
+  about: "Ruby is a dynamic, open source programming language with a focus on simplicity and productivity. It has an elegant syntax that is natural to read and easy to write."
+rails:
+  name: 'Rails'
+  slug: 'rails'
+  about: "Ruby on Rails&reg; is an open-source web framework that's optimized for programmer happiness and sustainable productivity. It lets you write beautiful code by favoring convention over configuration."
+python:
+  name: 'Python'
+  slug: 'python'
+  about: "Python is a programming language that lets you work more quickly and integrate your systems more effectively. It is powerful, fast, fast, plays well with others, runs everywhere, is friendly & easy to learn, and is Open."
+django:
+  name: 'Django'
+  slug: 'django'
+  about: "Django is a high-level Python Web framework that encourages rapid development and clean, pragmatic design. Built by experienced developers, it takes care of much of the hassle of Web development, so you can focus on writing your app without needing to reinvent the wheel. It’s free and open source."
+node:
+  name: 'Node.js'
+  slug: 'node'
+  about: "Node.js&reg; is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices."
+meteor:
+  name: 'Meteor'
+  slug: 'meteor'
+  about: "Meteor is a complete open source platform for building web and mobile apps in pure JavaScript."
+html5:
+  name: 'HTML5'
+  slug: 'html5'
+  about: "HTML5 is a core technology markup language of the Internet used for structuring and presenting content for the World Wide Web."
+php:
+  name: 'PHP'
+  slug: 'php'
+  about: "PHP (recursive acronym for PHP: Hypertext Preprocessor) is a widely-used open source general-purpose scripting language that is especially suited for web development and can be embedded into HTML."
+go:
+  name: 'Go'
+  slug: 'go'
+  about: "The Go programming language is an open source project to make programmers more productive. It's a fast, statically typed, compiled language that feels like a dynamically typed, interpreted language."
+laravel:
+  name: 'Laravel'
+  slug: 'laravel'
+  about: "Laravel is a free, open source PHP web application framework, designed for the development of model–view–controller (MVC) web applications."
+wordpress:
+  name: 'Wordpress'
+  slug: 'wordpress'
+  about: "WordPress is web software you can use to create a beautiful website or blog. We like to say that WordPress is both free and priceless at the same time."
+iojs:
+  name: 'io.js'
+  slug: 'iojs'
+  about: "io.js is a JavaScript platform built on Chrome's V8 runtime. This project began as a fork of Joyent's Node.js&trade; and is compatible with the npm ecosystem."
+java:
+  name: 'Java'
+  slug: 'java'
+  about: "Java is the foundation for virtually every type of networked application and is the global standard for developing and delivering embedded and mobile applications, games, Web-based content, and enterprise software."
+ubuntu:
+  name: 'Ubuntu'
+  slug: 'ubuntu'
+  about: "Whether you’re a mobile app developer, an engineering manager, a music or video editor or a financial analyst with large-scale models to run ‐ in fact, anyone in need of a powerful machine for your work ‐ Ubuntu is the ideal platform."
