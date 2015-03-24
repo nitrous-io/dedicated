@@ -1,5 +1,42 @@
 footer
   .container
+  
+    .footer-item.copyright
+      a.nitrous-logo href="/"
+      .copy-wrapper
+        p
+          | &copy; 2012-2015 Nitrous, Inc.
+      ul
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
+        li
+          a href='http://status.nitrous.io/' Status
+    
+    .footer-item
+      h4
+        | About
+      ul
+        li
+          a class=('active' if active == 'features') href='/features' Features
+        li
+          a class=('active' if active == 'pricing') href='/pricing' Pricing
+        li
+          a class=('active' if active == 'company') href='/company' Company
+        // li
+          a class=('active' if active == 'press') href='/press' Press
+        // li
+          a href='/contact' Contact us
+        // li
+          a class=('active' if active == 'jobs') href='/jobs' Jobs
+        li
+          a href='https://www.nitrous.io/business' target="_blank" For business
+        li
+          a href='http://blog.nitrous.io/' target="_blank" Blog
+          
     .footer-item
       h4
         | Resources
@@ -19,23 +56,6 @@ footer
 
     .footer-item
       h4
-        | About
-      ul
-        li
-          a class=('active' if active == 'features') href='/features' Features
-        li
-          a class=('active' if active == 'company') href='/company' Company
-        // li
-          a class=('active' if active == 'press') href='/press' Press
-        // li
-          a href='/contact' Contact us
-        // li
-          a class=('active' if active == 'jobs') href='/jobs' Jobs
-        li
-          a href='https://www.nitrous.io/business' target="_blank" For business
-
-    .footer-item
-      h4
         | Connect
       ul
         li
@@ -45,7 +65,7 @@ footer
         li
           a href='https://www.facebook.com/NitrousIO' target="_blank" Facebook
         li
-          a href='https://www.facebook.com/NitrousIO' target="_blank" Google+
+          a href='https://plus.google.com/110996223974353490028/posts' target="_blank" Google+
         li
           a href='https://angel.co/nitrous' target="_blank" Angel.co
         li
@@ -57,17 +77,17 @@ footer
         | Stacks
       ul
         li
-          a href='/stacks/rails' Ruby on Rails
+          a class=('active' if active == 'rails') href='/stacks/rails' Ruby on Rails
         li
-          a href='/stacks/meteor' Meteor
+          a class=('active' if active == 'meteor') href='/stacks/meteor' Meteor
         li
-          a href='/stacks/php' PHP
+          a class=('active' if active == 'php') href='/stacks/php' PHP
         li
-          a href='/stacks/node' Node.js
+          a class=('active' if active == 'node') href='/stacks/node' Node.js
         li
-          a href='/stacks/java' Java
+          a class=('active' if active == 'java') href='/stacks/java' Java
         li
-          a href='/stacks/django' Django
+          a class=('active' if active == 'django') href='/stacks/django' Django
 
     / .footer-item.blog
     /   h4
@@ -84,18 +104,6 @@ footer
     /         | More articles
     /         i.fa.fa-chevron-right
 
-    .footer-item.copyright
-      .copy-wrapper
-        p
-          | &copy; 2012-2015 Nitrous, Inc.
-      ul
-        li
-          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
-        li
-          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
-        li
-          a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
-        li
-          a href='http://status.nitrous.io/' Status
+ 
 
-  a.logomark.alt href='/' alt="Nitrous.io"
+  / a.logomark.alt href='/' alt="Nitrous.io"
