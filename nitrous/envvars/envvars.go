@@ -19,7 +19,6 @@ var (
 	HostHostname       string
 	MixpanelToken      string
 	NitrousPgUrl       string
-	NoSSLVerify        string
 	ProxyHostname      string
 	PreviewHostname    string
 	WebHostname        string
