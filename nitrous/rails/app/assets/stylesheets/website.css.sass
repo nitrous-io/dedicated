@@ -84,6 +84,7 @@ $asp: #0054A3
 
 // --------------------------------------
 // Mixins
+@import mixins
 =grayscale-font-smoothing
   -webkit-font-smoothing: antialiased
   -moz-osx-font-smoothing: grayscale
@@ -1017,7 +1018,6 @@ h4 + .box-wrapper
   padding-top: 10px
   padding-bottom: 20px
 
-
 .stacks
   padding: 20px
   text-align: center
@@ -1042,36 +1042,8 @@ h4 + .box-wrapper
 
     &:hover
       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
-    &.ruby
-      background-color: $ruby
-    &.rails
-      background-color: $rails
-    &.python
-      background-color: $python
-    &.django
-      background-color: $django
-    &.node
-      background-color: $nodejs
-    &.meteor
-      background-color: $meteor
-    &.html5
-      background-color: $html5
-    &.php
-      background-color: $php
-    &.go
-      background-color: $go
-    &.wordpress
-      background-color: $wordpress
-    &.laravel
-      background-color: $laravel
-    &.iojs
-      background-color: $iojs
-    &.java
-      background-color: $java
-    &.ubuntu
-      background-color: $ubuntu
-    // &.asp
-    //   background-color: $asp
+    
+    +stack-colors
 
   span
     width: 94px
@@ -1082,6 +1054,29 @@ h4 + .box-wrapper
     line-height: 34px
     font-family: $boldFont
 
+#stack
+  .stack-steps
+    padding: 32px 0
+    ol
+      margin: 32px 60px 0
+      li
+        padding: 12px
+        border-radius: 4px
+        margin: 0 0 32px
+        &:last-child 
+          margin-bottom: 0
+        h2
+          color: #5B666F
+          text-align: left
+          font-size: 16px
+          font-weight: 600
+        .step    
+          border: 3px solid #5B666F
+          display: inline-block
+          border-radius: 24px
+          width: 24px
+          text-align: center
+          margin-right: 24px
 
 .stack-lang
   width: 94px
@@ -1125,7 +1120,7 @@ h4 + .box-wrapper
     background-image: image_url("home/nitrous-logo.png")
     background-size: 206px 24px
     background-position: center center
-
+            
 .plus
   position: relative
   padding: 0 10px 0 20px
