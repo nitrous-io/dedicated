@@ -49,7 +49,7 @@ hostActions =
 
   terminate:
     name: 'Terminate'
-    progressName: 'Terminating...'
+    progressName: 'Terminating'
     description: 'This will permanently delete the host and all services, images, volumes, and archives within the host.'
     successMessage: 'Successfully terminated host'
     failureMessage: 'Failed to terminate host!'
@@ -61,10 +61,10 @@ hostActions =
 
   terminateUnaccounted:
     name: 'Terminate'
-    progressName: 'Terminating...'
+    progressName: 'Terminating'
     description: 'This will permanently delete the host and all services, images, volumes, and archives within the host.'
     successMessage: 'Successfully terminated host'
-    failureMessage: 'Failed to terminated unaccounted host!'
+    failureMessage: 'Failed to terminate unaccounted host!'
     perform: (host) ->
       hostId = host.id
       hostRegion = host.region
@@ -88,20 +88,35 @@ healthyHostActions = (host) ->
   else
     [hostActions.terminate]
 
-healthyHostBulkActions = [hostActions.terminate]
+healthyHostBulkActions = [hostActions.terminate, hostActions.restart]
 problemHostActions = [hostActions.terminate]
 unaccountedHostActions = [hostActions.terminateUnaccounted]
 
 getHostSlug = (host) ->
   host.slug || host.id || 'unknown-host'
 
-selectedHosts = (hosts) ->
-  hosts.filter (host) ->
-    host.get('selected')
+selectedHosts = (entries) ->
+  entries.filter (entry) ->
+    entry.uiState.get('selected')
+
+selectedDbHosts = (entries) ->
+  selectedHosts(entries).map (entry) ->
+    entry.db_host
+
+attachState = (entries) ->
+  entries.forEach (entry) ->
+    entry.uiState = Em.Object.create({
+      selected: false
+    })
+
+attachStateToAll = (hostList) ->
+  attachState(hostList.unaccounted_hosts)
+  attachState(hostList.dangling_hosts)
+  attachState(hostList.inconsistent_hosts)
+  attachState(hostList.healthy_hosts)
 
 App.AdminAmazonHostsController = Em.Controller.extend
   clear: ->
-    @set('selectedHosts', {})
     @refreshHosts()
 
   refreshHosts: ->
@@ -113,7 +128,10 @@ App.AdminAmazonHostsController = Em.Controller.extend
       headers: { Authorization: "Bearer #{App.get 'token'}" }
     )
     .then((data) =>
-      @set 'hosts', data.hosts
+      hosts = data.hosts
+      attachStateToAll(hosts)
+
+      @set('hosts', hosts)
       @set('fetchingHosts', false)
     , =>
       @set('fetchingHosts', false)
@@ -130,18 +148,14 @@ App.AdminAmazonHostsController = Em.Controller.extend
     ui.hideModal('#action-modal-dialog')
 
   showActionDialog: (hosts, actions) ->
+    if hosts.length == 0
+      return
+
     @set('targetHosts', hosts)
     @set('availableActions', actions)
     ui.showModal('#action-modal-dialog')
 
-  performActionOnHosts: (action, hosts) ->
-    if hosts.length == 0
-      App.snackbar.post('Action have been performed on all selected hosts')
-      return
-
-    host = hosts[0]
-    restHosts = hosts.slice(1)
-
+  performActionOnHost: (action, host) ->
     App.snackbar.post("#{action.progressName} #{getHostSlug(host)}...")
 
     action.perform(host)
@@ -152,8 +166,13 @@ App.AdminAmazonHostsController = Em.Controller.extend
     ).then((message) =>
       App.snackbar.post(message)
       @refreshHosts()
-      @performActionOnHosts(action, restHosts)
     )
+
+  performActionOnHosts: (action, hosts) ->
+    Em.RSVP.Promise.all(hosts.map (host) =>
+      @performActionOnHost(action, host)
+    ).then =>
+      App.snackbar.post('Action have been performed on all selected hosts')
 
   actions:
     refreshHosts: ->
@@ -169,12 +188,25 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @showActionDialog([host], unaccountedHostActions)
 
     showHealthyHostBulkDialog: ->
-      healthyHosts = @get('hosts').healthy_hosts
-      console.log('bulk dialog', healthyHosts)
-      selected = selectedHosts(healthyHosts)
+      hosts = @get('hosts').healthy_hosts
+      selected = selectedDbHosts(hosts)
+      @showActionDialog(selected, healthyHostBulkActions)
 
-      if selected.length > 0
-        @showActionDialog(selected, healthyHostBulkActions)
+    showInconsistentHostBulkDialog: ->
+      hosts = @get('hosts').inconsistent_hosts
+      selected = selectedDbHosts(hosts)
+      @showActionDialog(selected, problemHostActions)
+
+    showDanglingHostBulkDialog: ->
+      hosts = @get('hosts').dangling_hosts
+      selected = selectedHosts(hosts)
+      @showActionDialog(selected, problemHostActions)
+
+    showUnaccountedHostBulkDialog: ->
+      hosts = @get('hosts').unaccounted_hosts
+      selected = selectedHosts(hosts)
+      console.log('selecting unaccounted hosts', hosts, selected)
+      @showActionDialog(selected, unaccountedHostActions)
 
     cancelAction: ->
       @closeDialog()
@@ -185,6 +217,9 @@ App.AdminAmazonHostsController = Em.Controller.extend
     confirmAction: ->
       action = @get('selectedAction')
       hosts = @get('targetHosts')
-      
       @closeDialog()
-      @performActionOnHosts(action, hosts)
+
+      if hosts.length == 1
+        @performActionOnHost(action, hosts[0])
+      else
+        @performActionOnHosts(action, hosts)
