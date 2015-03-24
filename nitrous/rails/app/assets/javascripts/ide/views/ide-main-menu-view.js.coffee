@@ -29,13 +29,19 @@ themesMenu = menu 'Themes', _.map [
   # NOTE: keep these menu items sorted alphabetically within dark/light categories
   { name: 'solarized dark', label: 'Solarized Dark' }
   { name: 'vibrant-ink', label: 'Vibrant Ink' }
+  { name: 'monokai-dark-soda', label: 'Monokai Dark Soda'}
   { name: 'base16-dark', label: 'Base16 Dark' }
-  { name: 'tomorrow-night-eighties', label: 'Tomorrow Night Eighties' }
+  { name: 'base16-eighties-dark', label: 'Base16 Eighties Dark' }
+  { name: 'base16-ocean-dark', label: 'Base16 Ocean Dark' }
   { name: '---' }
   { name: 'solarized light', label: 'Solarized Light' }
+  { name: 'github', label: 'Github' }
+  # { name: '3024-day', label: '3024 Day' }
+  # { name: 'paraiso-light', label: 'Paraiso Light' }
+  { name: 'visual-studio', label: 'Visual Studio'}
   { name: 'base16-light', label: 'Base16 Light' }
-  { name: '3024-day', label: '3024 Day' }
-  { name: 'paraiso-light', label: 'Paraiso Light' }
+  { name: 'base16-eighties-light', label: 'Base16 Eighties Light' }
+  { name: 'base16-ocean-light', label: 'Base16 Ocean Light' }
 ], (theme) ->
   if theme.name == '---'
     separator

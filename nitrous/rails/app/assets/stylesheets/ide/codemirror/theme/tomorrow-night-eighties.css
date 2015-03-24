@@ -8,9 +8,11 @@
 
 */
 
+.cm-s-tomorrow-night-eighties {line-height: 1.45em; color-profile: sRGB; rendering-intent: auto;}
+
 .cm-s-tomorrow-night-eighties.CodeMirror {background: #000000; color: #CCCCCC;}
 .cm-s-tomorrow-night-eighties div.CodeMirror-selected {background: #2D2D2D !important;}
-.cm-s-tomorrow-night-eighties .CodeMirror-gutters {background: #000000; border-right: 0px;}
+.cm-s-tomorrow-night-eighties .CodeMirror-gutters {background: #000000; border-right: 1px solid transparent !important;}
 .cm-s-tomorrow-night-eighties .CodeMirror-linenumber {color: #515151;}
 .cm-s-tomorrow-night-eighties .CodeMirror-cursor {border-left: 1px solid #6A6A6A !important;}
 

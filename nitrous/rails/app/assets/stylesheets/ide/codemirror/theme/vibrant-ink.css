@@ -1,9 +1,12 @@
 /* Taken from the popular Visual Studio Vibrant Ink Schema */
 
-.cm-s-vibrant-ink.CodeMirror { background: black; color: white; }
+
+.cm-s-vibrant-ink {line-height: 1.45em; color-profile: sRGB; rendering-intent: auto;}
+
+.cm-s-vibrant-ink.CodeMirror { background: #000; color: white; }
 .cm-s-vibrant-ink .CodeMirror-selected { background: #35493c !important; }
 
-.cm-s-vibrant-ink .CodeMirror-gutters { background: #002240; border-right: 1px solid #aaa; }
+.cm-s-vibrant-ink .CodeMirror-gutters { background: #000; border-right: 1px solid rgba(255,255,255,.1); }
 .cm-s-vibrant-ink .CodeMirror-linenumber { color: #d0d0d0; }
 .cm-s-vibrant-ink .CodeMirror-cursor { border-left: 1px solid white !important; }
 
