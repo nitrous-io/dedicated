@@ -1,3 +1,9 @@
+###
+hostActions abstracts out different types of admin actions
+we want to perform on a host. This allows us to create generic
+modal dialog that shows different actions that can be performed
+on selected hosts.
+###
 hostActions =
   update:
     name: 'Update'
@@ -80,6 +86,8 @@ hostActions =
           ip_address: ip
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
+# Actions available to a healthy host depends on
+# the current state of the host
 healthyHostActions = (host) ->
   if host.state == 'running'
     [hostActions.update, hostActions.restart, hostActions.stop, hostActions.terminate]
@@ -88,21 +96,27 @@ healthyHostActions = (host) ->
   else
     [hostActions.terminate]
 
-healthyHostBulkActions = [hostActions.terminate, hostActions.restart]
+# Put other types of common collection of host actions into array
+healthyHostBulkActions = [hostActions.update, hostActions.terminate]
 problemHostActions = [hostActions.terminate]
 unaccountedHostActions = [hostActions.terminateUnaccounted]
 
+# For displaying identifier of a host
+# Use host.slug if it is a DB host
+# and host.id if it is a live host
 getHostSlug = (host) ->
   host.slug || host.id || 'unknown-host'
 
-selectedHosts = (entries) ->
-  entries.filter (entry) ->
-    entry.uiState.get('selected')
+###
+Because our host entries are all plain objects,
+we need some hack to allow the Ember checkboxes to
+store the checked state in some Ember object.
 
-selectedDbHosts = (entries) ->
-  selectedHosts(entries).map (entry) ->
-    entry.db_host
+The way we workaround this is to attach a uiState
+Ember object on each entry to store UI states.
 
+The entry here can be either db host, live host, or both
+###
 attachState = (entries) ->
   entries.forEach (entry) ->
     entry.uiState = Em.Object.create({
@@ -115,10 +129,26 @@ attachStateToAll = (hostList) ->
   attachState(hostList.inconsistent_hosts)
   attachState(hostList.healthy_hosts)
 
+# Find out which entries are selected by the checkboxes
+# We don't care what type the host entry is because
+# all UI states are stored at the root attribute
+selectedHosts = (entries) ->
+  entries.filter (entry) ->
+    entry.uiState.get('selected')
+
+# Used for double db+live entries. After filtering out 
+# the selected hosts we extract out the db_host field 
+# to get the DB host entry
+selectedDbHosts = (entries) ->
+  selectedHosts(entries).map (entry) ->
+    entry.db_host
+
 App.AdminAmazonHostsController = Em.Controller.extend
   clear: ->
     @refreshHosts()
 
+  # Fetch the latest host list from the server.
+  # This will uncheck all checkbox states.
   refreshHosts: ->
     @set('fetchingHosts', true)
 
@@ -137,6 +167,8 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @set('fetchingHosts', false)
     )
 
+  # Use for displaying list of selected hosts
+  # concatenated into a comma-separated string.
   targetHostSlugs: (->
     @get('targetHosts')?.map(getHostSlug).join(', ')
   ).property 'targetHosts'
@@ -147,6 +179,8 @@ App.AdminAmazonHostsController = Em.Controller.extend
     @set('availableActions', [])
     ui.hideModal('#action-modal-dialog')
 
+  # Generic way of showing an action dialog
+  # with available host actions to perform on provided hosts.
   showActionDialog: (hosts, actions) ->
     if hosts.length == 0
       return
@@ -155,6 +189,9 @@ App.AdminAmazonHostsController = Em.Controller.extend
     @set('availableActions', actions)
     ui.showModal('#action-modal-dialog')
 
+  # Perform a host action on selected host.
+  # Always succeeds and action failure will 
+  # be posted to the snackbar and then ignored.
   performActionOnHost: (action, host) ->
     App.snackbar.post("#{action.progressName} #{getHostSlug(host)}...")
 
@@ -168,7 +205,14 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @refreshHosts()
     )
 
+  # Bulk perform a host action on list of selected hosts.
+  # The action is performed in parallel to all hosts.
+  # After all actions completed a snackbar is posted to 
+  # inform the completion
   performActionOnHosts: (action, hosts) ->
+    if hosts.length == 1
+      return @performActionOnHost(action, hosts[0])
+
     Em.RSVP.Promise.all(hosts.map (host) =>
       @performActionOnHost(action, host)
     ).then =>
@@ -205,7 +249,6 @@ App.AdminAmazonHostsController = Em.Controller.extend
     showUnaccountedHostBulkDialog: ->
       hosts = @get('hosts').unaccounted_hosts
       selected = selectedHosts(hosts)
-      console.log('selecting unaccounted hosts', hosts, selected)
       @showActionDialog(selected, unaccountedHostActions)
 
     cancelAction: ->
@@ -218,8 +261,4 @@ App.AdminAmazonHostsController = Em.Controller.extend
       action = @get('selectedAction')
       hosts = @get('targetHosts')
       @closeDialog()
-
-      if hosts.length == 1
-        @performActionOnHost(action, hosts[0])
-      else
-        @performActionOnHosts(action, hosts)
+      @performActionOnHosts(action, hosts)
