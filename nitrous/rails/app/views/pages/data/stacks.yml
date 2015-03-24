@@ -1,12 +1,12 @@
-rails:
+ruby-on-rails:
   name: 'Rails'
-  about: "Ruby on Rails&reg; is an open-source web framework that's optimized for programmer happiness and sustainable productivity. It lets you write beautiful code by favoring convention over configuration."
+  about: "Ruby on Rails is an open-source web framework that's optimized for programmer happiness and sustainable productivity. It lets you write beautiful code by favoring convention over configuration."
 django:
   name: 'Django'
   about: "Django is a high-level Python Web framework that encourages rapid development and clean, pragmatic design. Built by experienced developers, it takes care of much of the hassle of Web development, so you can focus on writing your app without needing to reinvent the wheel. It’s free and open source."
-node:
+nodejs:
   name: 'Node.js'
-  about: "Node.js&reg; is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices."
+  about: "Node.js is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices."
 meteor:
   name: 'Meteor'
   about: "Meteor is a complete open source platform for building web and mobile apps in pure JavaScript."
@@ -22,7 +22,7 @@ ruby:
 python:
   name: 'Python'
   about: "Python is a programming language that lets you work more quickly and integrate your systems more effectively. It is powerful, fast, fast, plays well with others, runs everywhere, is friendly & easy to learn, and is Open."
-go:
+golang:
   name: 'Go'
   about: "The Go programming language is an open source project to make programmers more productive. It's a fast, statically typed, compiled language that feels like a dynamically typed, interpreted language."
 java:

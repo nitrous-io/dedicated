@@ -66,14 +66,14 @@ $n2oGray1000: #1f252a
 $placeholder: rgba(0,0,0,.4)
 
 $ruby: #BC1412
-$rails: #981C24
+$ruby-on-rails: #981C24
 $python: #75A8D3
 $django: #0F4A33
 $nodejs: #82BB22
 $meteor: #373A49
 $html5: #E14D2F
 $php: #8893BE
-$go: #3960A9
+$golang: #3960A9
 $java: #E76F00
 $wordpress: #22272C
 $iojs: #F5DA4E
@@ -494,7 +494,7 @@ nav
         background-position: -68px 0
       &.python
         background-position: (-68px*2) 0
-      &.node
+      &.nodejs
         background-position: (-68px*3) 0
       &.ubuntu
         background-position: (-68px*4) 0
@@ -1042,7 +1042,7 @@ h4 + .box-wrapper
 
     &:hover
       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
-    
+
     +stack-colors
 
   span
@@ -1063,14 +1063,14 @@ h4 + .box-wrapper
         padding: 12px
         border-radius: 4px
         margin: 0 0 32px
-        &:last-child 
+        &:last-child
           margin-bottom: 0
         h2
           color: #5B666F
           text-align: left
           font-size: 16px
           font-weight: 600
-        .step    
+        .step
           border: 3px solid #5B666F
           display: inline-block
           border-radius: 24px
@@ -1089,13 +1089,13 @@ h4 + .box-wrapper
 
   &.ruby
     background-position: 0 0
-  &.rails
+  &.ruby-on-rails
     background-position: 0 -94px
   &.python
     background-position: 0 (-94px*2)
   &.django
     background-position: 0 (-94px*3)
-  &.node
+  &.nodejs
     background-position: 0 (-94px*4)
   &.meteor
     background-position: 0 (-94px*5)
@@ -1103,7 +1103,7 @@ h4 + .box-wrapper
     background-position: 0 (-94px*6)
   &.php
     background-position: 0 (-94px*7)
-  &.go
+  &.golang
     background-position: 0 (-94px*8)
   &.wordpress
     background-position: 0 (-94px*9)
@@ -1120,7 +1120,7 @@ h4 + .box-wrapper
     background-image: image_url("home/nitrous-logo.png")
     background-size: 206px 24px
     background-position: center center
-            
+
 .plus
   position: relative
   padding: 0 10px 0 20px
@@ -2519,9 +2519,9 @@ input[type="range"]
 // Stacks
 .stack-ruby .page-hero
   background: $ruby
-.stack-rails .page-hero
-  background: $rails
-.stack-node .page-hero
+.stack-ruby-on-rails .page-hero
+  background: $ruby-on-rails
+.stack-nodejs .page-hero
   background: $nodejs
 .stack-meteor .page-hero
   background: $meteor
@@ -2533,8 +2533,8 @@ input[type="range"]
   background: $html5
 .stack-php .page-hero
   background: $php
-.stack-go .page-hero
-  background: $go
+.stack-golang .page-hero
+  background: $golang
 .stack-wordpress .page-hero
   background: $wordpress
 .stack-asp .page-hero

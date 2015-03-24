@@ -1,15 +1,13 @@
-@import 'variables'
-
 =stack-colors($lighten: 0%)
   &.ruby
     background-color: lighten($ruby, $lighten)
-  &.rails
-    background-color: lighten($rails, $lighten)
+  &.ruby-on-rails
+    background-color: lighten($ruby-on-rails, $lighten)
   &.python
     background-color: lighten($python, $lighten)
   &.django
     background-color: lighten($django, $lighten)
-  &.node
+  &.nodejs
     background-color: lighten($nodejs, $lighten)
   &.meteor
     background-color: lighten($meteor, $lighten)
@@ -17,8 +15,8 @@
     background-color: lighten($html5, $lighten)
   &.php
     background-color: lighten($php, $lighten)
-  &.go
-    background-color: lighten($go, $lighten)
+  &.golang
+    background-color: lighten($golang, $lighten)
   &.wordpress
     background-color: lighten($wordpress, $lighten)
   &.laravel
@@ -31,7 +29,6 @@
     background-color: lighten($ubuntu, $lighten)
   // &.asp
   //   background-color: lighten($asp, $lighten)
-  
 
 =truncate
   white-space: nowrap
