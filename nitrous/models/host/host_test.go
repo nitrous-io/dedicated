@@ -155,6 +155,13 @@ var _ = Describe("models/host", func() {
 				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
 				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "orphan")
 			Expect(err).To(BeNil())
+
+			// insert a migrating host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, terminated_at, state)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8);`,
+				u1.ID, "my-host-4", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, "migrating")
+			Expect(err).To(BeNil())
 		})
 
 		Context("when the given user has host records", func() {
