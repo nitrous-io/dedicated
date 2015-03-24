@@ -200,8 +200,9 @@ func getArgAsStrArray(arg interface{}) ([]string, bool) {
 		return nil, false
 	}
 	n := len(a)
+	// empty array is valid
 	if n == 0 {
-		return nil, false
+		return nil, true
 	}
 	res := make([]string, n, n)
 	for i := 0; i < n; i++ {
@@ -228,6 +229,11 @@ func doRun(msg *Message, ch chan *Message) {
 	if !ok {
 		log.Printf("doRun: msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
 		sendErr(ch, msg, errors.New("invalid cmd argument"))
+		return
+	}
+	if len(cmdWithArgs) == 0 {
+		log.Printf("doRun: msg.Args[0] is an empty list")
+		sendErr(ch, msg, errors.New("empty cmd argument"))
 		return
 	}
 	var args []string
