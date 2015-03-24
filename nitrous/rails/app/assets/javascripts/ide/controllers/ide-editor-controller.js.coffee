@@ -54,6 +54,31 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         userSettings[k.underscore()] = @get(k)
       userSettings.save()
 
+  testRun: ->
+    return unless @get 'opsSocketReady'
+    if opsSocket = @get 'opsSocket'
+      env = ["MYPATH=foo", "YOURPATH=bar"]
+      cmd = ["ls", "-lah"]
+      cwd = "/home"
+      console.log "testRun starting"
+      opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+        console.log "testRun finished"
+        if err
+          App.set 'flashMessage', { type: 'alert-error', text: "Error running cmd '#{{cmd}}'"}
+          return
+        s = "cmd '#{cmd}'"
+        if cmdErr
+          s = s + " returned error #{cmdErr}"
+        if stdout != ''
+          s = s + "\nstdout:\n#{stdout}\n"
+        if stderr != ''
+          s = s + "\nstderr:\n#{stderr}\n"
+
+        @createTab(
+          content: s
+          contentType: "text/plain"
+        , App.Document)
+
   removeTab: (tab, forceRemove = false) ->
     tab = @get 'activeTab' unless tab
     if tab.get('clean') || forceRemove

@@ -27,6 +27,10 @@ App.IdeMainMenuController = Em.Controller.extend
     if sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshAll()
 
+  fileTestRun: ->
+    if editorController = @get 'controllers.ideEditor'
+      editorController.testRun()
+
   editFind: ->
     activeDocumentSet 'findTrigger', true
 

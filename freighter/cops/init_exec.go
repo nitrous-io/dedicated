@@ -1,7 +1,9 @@
 package cops
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -23,8 +25,9 @@ const execCommandName = "cops-exec"
 
 var (
 	copsFeatures = map[string]interface{}{
-	// for every optional feature cops provides, add entry mapping to true:
-	// "thisFeatureIsAvailable" : true,
+		// for every optional feature cops provides, add entry mapping to true:
+		// "thisFeatureIsAvailable" : true,
+		"hasCmdRun": true,
 	}
 )
 
@@ -187,11 +190,118 @@ func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
 	}
 }
 
+type CmdHandler struct {
+}
+
+func getArgAsStrArray(arg interface{}) ([]string, bool) {
+	a, ok := arg.([]interface{})
+	if !ok {
+		log.Printf("getArgAsStrArray: %#v of type %T is not of type []interface{}", a, a)
+		return nil, false
+	}
+	n := len(a)
+	// empty array is valid
+	if n == 0 {
+		return nil, true
+	}
+	res := make([]string, n, n)
+	for i := 0; i < n; i++ {
+		res[i], ok = a[i].(string)
+		if !ok {
+			log.Printf("getArgAsStrArray: a[%d] (value: '%#v', type: %T) is not of type string", i, a[i], a[i])
+			return nil, false
+		}
+	}
+	return res, true
+}
+
+// arguments:
+// - 1st is a list of strings that is a command to execute with arguments e.g. ["ls", "-lah"]
+// - 2nd is current workding directory or empty string to use what we have
+// - 3rd is a list of additional environment strings e.g. ["MYPATH=foo", "YOURPATH=bar"].
+//   can be an empty list
+func doRun(msg *Message, ch chan *Message) {
+	if len(msg.Args) != 3 {
+		sendErr(ch, msg, errors.New("invalid number of arguments, expects 3"))
+		return
+	}
+	cmdWithArgs, ok := getArgAsStrArray(msg.Args[0])
+	if !ok {
+		log.Printf("doRun: msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
+		sendErr(ch, msg, errors.New("invalid cmd argument"))
+		return
+	}
+	if len(cmdWithArgs) == 0 {
+		log.Printf("doRun: msg.Args[0] is an empty list")
+		sendErr(ch, msg, errors.New("empty cmd argument"))
+		return
+	}
+	var args []string
+	cmdName := cmdWithArgs[0]
+	if len(cmdWithArgs) > 0 {
+		args = cmdWithArgs[1:]
+	}
+	cmd := exec.Command(cmdName, args...)
+
+	cwd, ok := msg.Args[1].(string)
+	if !ok {
+		log.Printf("doRun: msg.Args[1] (%#v) is not a string", msg.Args[1])
+		sendErr(ch, msg, errors.New("invalid cwd argument"))
+		return
+	}
+	cmd.Dir = strings.TrimSpace(cwd)
+
+	env, ok := getArgAsStrArray(msg.Args[2])
+	if !ok {
+		log.Printf("doRun: msg.Args[2] (%#v) is not a list of strings", msg.Args[2])
+		sendErr(ch, msg, errors.New("invalid env argument"))
+		return
+	}
+
+	// our env is additive and cmd.Env replaces, so we create a superset ourselves
+	if len(env) > 0 {
+		envAll := os.Environ()
+		for _, e := range env {
+			envAll = append(envAll, e)
+		}
+		cmd.Env = envAll
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	go func() {
+		errMsg := ""
+		err := cmd.Run()
+		stdoutStr := string(stdout.Bytes())
+		stderrStr := string(stderr.Bytes())
+		if err != nil {
+			errMsg = err.Error()
+			log.Printf("doRun: cmd: '%s' args: '%#v' failed with '%s'", cmdName, args, err)
+		}
+		args := []interface{}{errMsg, stdoutStr, stderrStr}
+		sendFinalReply(ch, msg, args)
+	}()
+}
+
+func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
+	resp := make(chan *Message, chanSize)
+	switch msg.Event {
+	case "run":
+		go doRun(msg, resp)
+	default:
+		log.Printf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
+		return sendErr(resp, msg, fmt.Errorf("unkown event '%s'", msg.Event))
+	}
+	return resp
+}
+
 // messageLoop runs inside a chroot environment and processes container requests
 func (oh *OpsHandler) copsMessageLoop() {
 	// cache handlers
 	fsHandler := NewFsHandler()
 	finderHandler := NewFinderHandler()
+	cmdHandler := &CmdHandler{}
 
 	for {
 		msg := &Message{}
@@ -230,6 +340,8 @@ func (oh *OpsHandler) copsMessageLoop() {
 			}
 		case "finder":
 			go oh.runHandler(finderHandler, msg)
+		case "cmd":
+			go oh.runHandler(cmdHandler, msg)
 		default:
 			// on unknown messages we send an error back. this allows IDE to work
 			// with older versions of freighter (as long as it sensibly handles this

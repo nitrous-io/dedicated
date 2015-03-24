@@ -159,6 +159,10 @@ App.IdeMainMenuView = Em.View.extend
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
           callback: (controller) ->
             controller.fileClose()
+        menuItem 'Test Run',
+          disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
+          callback: (controller) ->
+            controller.fileTestRun()
       ]
       menu 'Edit', [
         menuItem 'Find',
