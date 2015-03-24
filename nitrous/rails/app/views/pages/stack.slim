@@ -1,7 +1,11 @@
-- @title = "#{@stack['name']} on Nitrous"
-- @html_class = 'light'
-- @body_id = 'stack'
-- @body_class = "stack-#{@stack['slug']}"
+ruby:
+  stacks = YAML.load(File.read(File.join(File.dirname(__FILE__), 'data', 'stacks.yml')))
+  stack = OpenStruct.new(stacks[params[:stack]])
+
+  @title = "#{stack.name} on Nitrous"
+  @html_class = 'light'
+  @body_id = 'stack'
+  @body_class = "stack-#{stack.slug}"
 
 - content_for :body_after
   javascript:
@@ -12,64 +16,65 @@
     .container
       = render partial: 'layouts/webnav', locals: { active: 'stacks' }
       .hero-copy
-          h2
-            span.stack-lang.nitrous Nitrous
-            span.plus +
-            span.stack-lang *{:class => @stack['slug']}
-              = @stack['name']
+        h2
+          span.stack-lang.nitrous Nitrous
+          span.plus +
+          span.stack-lang class=(stack.slug)
+            = stack.name
   .notice
     .container
       ul
-        - @stacks[0..9].each do |k,v|
+        - stacks.first(10).each do |slug, st|
           li
-            a href="/stacks/#{v['slug']}" 
-              ="#{v['name']}"
-            
+            a href="/stacks/#{slug}"
+              = st['name']
+
         li.more
           span More
           i.fa.fa-bars
           ol
-            - @stacks[10..@stacks.length].each do |k,v|
+            - stacks.drop(10).each do |slug, st|
               li
-                a href="/stacks/#{v['slug']}" 
-                  ="#{v['name']}"
+                a href="/stacks/#{slug}"
+                  = st['name']
 
   article.darker
     .container
       .box-wrapper.two
         .box
-          h3 
-            | About 
-            =@stack['name']
-          p 
-            =@stack['about']
+          h3
+            ' About
+            = stack.name
+          p
+            = stack.about
 
         .box
-          h3 About Nitrous.io
+          h3 About Nitrous
           p Nitrous provides a lightning fast way to set up development environments and code in the cloud. Nitrous allows developers to collaborate on their projects in real-time, deploy to production servers with one-click, and to version dev environments with ease.
 
   article.featurette.stack-steps
     .container
-      h3.big-title="Getting started with #{@stack['name']} and Nitrous"
+      h3.big-title
+        | Getting started with #{stack.name} and Nitrous
       ol
         // TODO: only if not signed in
-        li.step1 *{:class => @stack['slug']}
+        li.step1 class=(stack.slug)
           h2
             span.step 1
             | Sign up for your Free Nitrous Account
-            
+
           // = render 'layouts/cta_form'
-          
-        li.step2 *{:class => @stack['slug']}
+
+        li.step2 class=(stack.slug)
           h2
            span.step 2
-           ="Select the #{@stack['name']} template in the New Container screen."          
-             
-        li.step3 *{:class => @stack['slug']}
+           | Select the #{stack.name} template in the New Container screen.
+
+        li.step3 class=(stack.slug)
           h2
             span.step 3
-            ="Start coding on your new #{@stack['name']} environment in just seconds!"
-          
+            | Start coding on your new #{stack.name} environment in just seconds!
+
 
   = render partial: 'layouts/cta', locals: { theme: 'lighter' }
 = render partial: 'layouts/footer', locals: { active: 'stacks' }
