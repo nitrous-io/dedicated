@@ -546,6 +546,7 @@ nav
   width: 420px
   margin: 0 auto
   padding-top: 46px
+
   form
     width: 412px
     border-radius: 4px
@@ -588,6 +589,17 @@ nav
       box-shadow: 0 0 0 transparent
       &:hover
         box-shadow: 0 0 0 transparent
+
+
+.light
+  .form-wrapper
+    form
+      border: 1px solid rgba(0,0,0,.2)
+      border-radius: 5px
+
+      &:hover, &.focused
+        box-shadow: 0 0 0 transparent
+
 
 
 
@@ -2054,6 +2066,14 @@ footer
   color: $n2oGray100
   padding-bottom: 40px
 
+  .container
+    display: flex
+    flex-direction: row
+    flex-wrap: nowrap
+    justify-content: center
+    align-content: flex-start
+    align-items: flex-start
+
   a
     color: #A5B3BE
 
@@ -2066,10 +2086,12 @@ footer
       cursor: default
 
 .footer-item
-  width: 200px
-  margin: 0 40px 0 0
-  float: left
+  margin: 0
+  // float: left
   line-height: 32px
+  flex-grow: 1
+  flex-shrink: 0
+  flex-basis: 200px
 
   h4
     font-size: 16px
@@ -2098,24 +2120,16 @@ footer
           color: $blueLink
 
 .copyright
-  clear: both
   color: #4E5862
 
-  .copy-wrapper
-    padding-top: 60px
-    padding-bottom: 30px
-    text-align: center
-
-  p, ul, li
-    display: inline-block
-
-  li
-    margin: 0 0 0 20px
+.copy-wrapper
+  height: 44px
 
 .logomark
   width: 66px
   height: 74px
-  margin: 0 auto 40px auto
+  clear: both
+  margin: 60px auto 40px auto
   background: image_url('home/footer-logomark.png') 0 0 no-repeat
   background-size: 66px 74px
 
