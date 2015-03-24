@@ -267,14 +267,14 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return true, nil
 	}
 
-	// continue ONLY if the user is a paid, free or payment_due user
+	// continue ONLY if the user is a paid, exempt or payment_due user
 	paymentState, err := u.paymentState(d)
 	if err != nil {
 		return false, err
 	}
 	if !(paymentState == billingprofile.StatePaid ||
 		paymentState == billingprofile.StatePaymentDue ||
-		paymentState == billingprofile.StateFree) {
+		paymentState == billingprofile.StateExempt) {
 		return false, nil
 	}
 

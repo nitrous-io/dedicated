@@ -637,7 +637,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("returns false, for non paid users", func() {
-			_, err := db.Exec(`UPDATE billing_profiles SET state = 'free' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			// add 2 hosts, so we know it's not the MAX_HOSTS check lets him in.
@@ -732,9 +732,9 @@ var _ = Describe("models/user", func() {
 			ItPerformsAdditionalChecks()
 		})
 
-		Context("for a free user account", func() {
+		Context("for a exempt user account", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = 'free' WHERE user_id = $1;`, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 

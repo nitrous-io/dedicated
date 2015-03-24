@@ -19,13 +19,13 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'paid' || @get('state') == 'payment_due'
   ).property 'state'
 
-  free: (->
-    @get('state') == 'free'
+  exempt: (->
+    @get('state') == 'exempt'
   ).property 'state'
 
   active: (->
-    @get('paid') || @get('free')
-  ).property 'paid', 'free'
+    @get('paid') || @get('exempt')
+  ).property 'paid', 'exempt'
 
   expiry: (->
     "#{@get 'expMonth'}/#{@get 'expYear'}"

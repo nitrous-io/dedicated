@@ -23,7 +23,7 @@ var (
 
 const (
 	StateNoCard     = "no_card"
-	StateFree       = "free"
+	StateExempt     = "exempt"
 	StatePaid       = "paid"
 	StatePaymentDue = "payment_due"
 	StateDelinquent = "delinquent"
@@ -32,7 +32,7 @@ const (
 type BillingProfile struct {
 	ID                int64          `db:"id"`
 	UserID            int64          `db:"user_id"`
-	State             string         `db:"state"` // possible states: 'free', 'paid', 'payment_due', 'delinquent', 'no_card'
+	State             string         `db:"state"` // possible states: 'exempt', 'paid', 'payment_due', 'delinquent', 'no_card'
 	StripeID          sql.NullString `db:"stripe_id"`
 	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
 	LastFour          sql.NullString `db:"last_four"`
@@ -40,6 +40,7 @@ type BillingProfile struct {
 	ExpMonth          sql.NullInt64  `db:"exp_month"`
 	ExpYear           sql.NullInt64  `db:"exp_year"`
 	PendingActivation bool           `db:"pending_activation"` // not activated yet
+	MaxHours          sql.NullInt64  `db:"max_hours"`
 	CreatedAt         *time.Time     `db:"created_at"`
 	UpdatedAt         *time.Time     `db:"updated_at"`
 }
@@ -62,8 +63,8 @@ func Create(tx *sqlx.Tx, userID int64) error {
 // To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
-		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, updated_at)
-		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, now())
+		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, max_hours, updated_at)
+		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, :max_hours, now())
 		WHERE user_id = :user_id
 		RETURNING *;`)
 	if err != nil {
