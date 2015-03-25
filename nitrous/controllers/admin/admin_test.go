@@ -357,9 +357,9 @@ var _ = Describe("controllers/admin", func() {
 		})
 	})
 
-	Describe("DELETE /api/v0/admin/terminate_unaccounted_host", func() {
+	Describe("POST /api/v0/admin/terminate_unaccounted_host", func() {
 		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "DELETE", "/api/v0/admin/terminate_unaccounted_host", params)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/admin/terminate_unaccounted_host", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)

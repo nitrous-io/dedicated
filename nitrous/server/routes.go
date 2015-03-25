@@ -172,6 +172,7 @@ func (s *Server) drawRoutes() {
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
+				"/admin/terminate_unaccounted_host":        r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),
@@ -184,15 +185,14 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                     r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
-				"/hosts/{slug}/registries/{rslug}":  r("registries.Logout", registries.Logout, EventRegistryRemoved),
-				"/hosts/{slug}/volumes/{vslug}":     r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy), EventVolumeRemoved),
-				"/hosts/{slug}/images/{image:.*}":   r("images.Remove", mw.HostViaPath("slug", images.Remove), EventImageRemoved),
-				"/containers/{slug}":                r("containers.Destroy", containers.Destroy, EventContainerTerminated),
-				"/containers/{slug}/keys/{kslug}":   r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
-				"/containers/{slug}/keys":           r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
-				"/admin/terminate_unaccounted_host": r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
-				"/logout":                           r("tokens.Logout", tokens.Logout),
+				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
+				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout, EventRegistryRemoved),
+				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy), EventVolumeRemoved),
+				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove), EventImageRemoved),
+				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, EventContainerTerminated),
+				"/containers/{slug}/keys/{kslug}":  r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
+				"/containers/{slug}/keys":          r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
+				"/logout":                          r("tokens.Logout", tokens.Logout),
 			},
 		}
 
