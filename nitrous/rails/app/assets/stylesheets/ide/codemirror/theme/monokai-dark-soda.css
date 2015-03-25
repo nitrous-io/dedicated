@@ -28,7 +28,7 @@
 .cm-s-monokai-dark-soda .cm-attribute{color:#a7ec21}
 .cm-s-monokai-dark-soda .cm-matchhighlight:not(.CodeMirror-selectedtext){background-color:#616161;color:#fff}
 .cm-s-monokai-dark-soda .cm-matchhighlight{background-color:#0CF;color:#242424}
-.cm-s-monokai-dark-soda .CodeMirror-matchingbracket{color:#a7ec21;font-weight:700}
+.cm-s-monokai-dark-soda .CodeMirror-matchingbracket{color:#a7ec21;}
 .cm-s-monokai-dark-soda .CodeMirror-searching{color:#242424;background-color:#ffe69d!important}
 .CodeMirror-activeline .CodeMirror-gutter-elt{color:#eee}
 
