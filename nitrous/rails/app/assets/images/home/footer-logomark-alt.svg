@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="62px" height="62px" viewBox="0 0 62 62" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+    <!-- Generator: Sketch 3.2.2 (9983) - http://www.bohemiancoding.com/sketch -->
+    <title>footer-logomark 3@1x</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M31,62 C48.1208272,62 62,48.1208272 62,31 C62,13.8791728 48.1208272,0 31,0 C13.8791728,0 0,13.8791728 0,31 C0,48.1208272 13.8791728,62 31,62 Z M16.0048634,43 C15.4498927,43 15,42.5525308 15,41.9993054 L15,20.0006946 C15,19.4480262 15.4515426,19 15.9908919,19 L25.174927,19 C25.7221815,19 26.4376304,19.3501079 26.7769323,19.7871471 L39.1620301,35.7398238 C39.4995387,36.1745532 39.7731434,36.0761044 39.7731434,35.5344267 L39.7731434,19.9925443 C39.7731434,19.4443772 40.2252157,19 40.7780069,19 L45.9951366,19 C46.5501073,19 47,19.4474692 47,20.0006946 L47,41.9993054 C47,42.5519738 46.544508,43 46.0004414,43 L36.7360795,43 C36.1840385,43 35.4666602,42.6538706 35.1209336,42.2104338 L22.8424439,26.4617654 C22.5024644,26.0257 22.2268566,26.1179423 22.2268566,26.678712 L22.2268566,41.9934872 C22.2268566,42.5493688 21.7747843,43 21.2219931,43 L16.0048634,43 Z" id="path-1"></path>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+        <g id="footer-logomark-3" sketch:type="MSLayerGroup">
+            <mask id="mask-2" sketch:name="Oval 208" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Oval-208" fill="#434D55" sketch:type="MSShapeGroup" xlink:href="#path-1"></use>
+        </g>
+    </g>
+</svg>
