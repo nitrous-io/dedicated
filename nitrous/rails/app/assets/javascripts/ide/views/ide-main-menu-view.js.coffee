@@ -247,6 +247,8 @@ App.IdeMainMenuView = Em.View.extend
           ).property 'App.router.ideEditorController.keybindings'
       ]
       menu 'View', [
+        menuItem 'Themes', submenu: themesMenu
+        separator
         menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
           controller.viewSelectNextTab()
         menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
@@ -274,8 +276,7 @@ App.IdeMainMenuView = Em.View.extend
         menuItem 'Close Editor Pane', macKey: "shift+ctrl+'", pcKey: "shift+ctrl+'", callback: (controller) ->
           controller.viewCloseEditorPane()
         separator
-        menuItem 'Themes', submenu: themesMenu
-        separator
+        menuItem 'Ruler', submenu: rulerMenu
         menuItem 'Show Trailing Whitespace',
           callback: (controller) ->
             controller.viewToggleTrailingSpace()
@@ -296,7 +297,6 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.viewToggleWrapLines()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
-        menuItem 'Ruler', submenu: rulerMenu
       ]
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')
