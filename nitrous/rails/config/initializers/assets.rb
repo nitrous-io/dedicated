@@ -11,4 +11,5 @@ Rails.application.config.assets.precompile += %w(
   pages.js
   ide.css
   ide/main.js
+  website.css
 )

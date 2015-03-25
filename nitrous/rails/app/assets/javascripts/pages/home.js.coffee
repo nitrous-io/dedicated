@@ -1,39 +1,37 @@
-pages.Home =
-  screens: ['ide', 'main', 'desktop']
-  page: 0
-  interval: null
+HERO_LOGOS = 'nitrous github python node ubuntu rails meteor html5 wordpress code element cloud boxes react laravel php'
 
+pages.Home =
   init: ->
     pages.activePageName = 'Home'
 
-    $('.pages .page').click (e) =>
-      $page = $(e.target)
-      @page = parseInt($page.attr('data-page'), 10)
-      @startTransitions()
-      false
+    # Hero Logos
+    $pattern = $('.logo-pattern')
+    heroLogos = HERO_LOGOS.split(' ').map((o) ->
+      "<span class='logo #{o}'></span>"
+    ).join('')
+    $heroLogosTarget = $('.logo-pattern .inner')
+    $pattern.css(opacity: 0)
 
-    $("#get-started").submit (event) ->
-      event.preventDefault()
-      url = '/app/#/signup'
-      if email = $(event.target).find("[name='email']").val()
-        url += "?email=#{encodeURIComponent(email)}"
-      # set href instead of replace to preserve history (navigate instead of redirect)
-      window.location.href = url
+    $.fn.shuffle = ->
+      j = undefined
+      i = 0
+      while i < @length
+        j = Math.floor(Math.random() * @length)
+        $(@[i]).before $(@[j])
+        i++
+      this
 
-    $ =>
-      @startTransitions()
+    for i in [0...18]
+      $col = $('<div class="col"></div>').attr('id',"logo-col-#{i}")
+      $col.appendTo($heroLogosTarget)
+      $col.append($(heroLogos))
+      $("#logo-col-#{i} .logo").shuffle()
 
-  startTransitions: ->
-    window.clearInterval(@interval)
-    @interval = window.setInterval(=>
-      @transition()
-    , 10000)
-    @transition()
+    window.setTimeout ->
+      $pattern.css(opacity: 1)
+      $pattern.addClass('fadeIn')
+    , 250
 
-  transition: ->
-    screen = @screens[@page]
-    $(".overview").addClass('fadeout')
-    $(".overview.#{screen}").removeClass('fadeout')
-    $(".pages .page").removeClass('active')
-    $(".pages .page[data-page='#{@page}']").addClass('active')
-    @page = (@page + 1) % 3
+    # Webkit only
+    if (navigator.userAgent.indexOf('AppleWebKit') != -1)
+      $heroLogosTarget.addClass('heroMatrix')

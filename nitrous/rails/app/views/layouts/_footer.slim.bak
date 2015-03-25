@@ -1,0 +1,22 @@
+#pages-footer.page-footer
+  .container
+    .left
+      p
+        | &copy; 2012-2015 Nitrous, Inc.
+      ul
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
+    .right
+      ul
+        li
+          a href='http://status.nitrous.io/' Status
+        li
+          a href='mailto:support@nitrous.io?subject=Nitrous%20Pro%20Feedback' Support
+        li
+          a href='http://blog.nitrous.io/' Blog
+        li
+          a href='http://docs.nitrous.io/v1.0/blog' Updates
