@@ -231,6 +231,13 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		}
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state exempt", b.user.ID)
 	}
+	if bp.State == billingprofile.StateFree {
+		inv.State = invoice.StateNotPayable
+		if err := inv.Update(b.db); err != nil {
+			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
+		}
+		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID)
+	}
 	if bp.StripeID.String == "" {
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d lacks StripeID", b.user.ID)
 	}

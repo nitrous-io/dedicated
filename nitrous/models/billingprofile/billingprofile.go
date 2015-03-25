@@ -22,17 +22,24 @@ var (
 )
 
 const (
-	StateNoCard     = "no_card"
-	StateExempt     = "exempt"
-	StatePaid       = "paid"
+	// User with no card added (initial state)
+	StateNoCard = "no_card"
+	// Exempted users from paying
+	StateExempt = "exempt"
+	// User under free tier
+	StateFree = "free"
+	// User pays for usage
+	StatePaid = "paid"
+	// User with payment due
 	StatePaymentDue = "payment_due"
+	// User who has failed to pay invoices
 	StateDelinquent = "delinquent"
 )
 
 type BillingProfile struct {
 	ID                int64          `db:"id"`
 	UserID            int64          `db:"user_id"`
-	State             string         `db:"state"` // possible states: 'exempt', 'paid', 'payment_due', 'delinquent', 'no_card'
+	State             string         `db:"state"` // possible states: 'free', 'exempt', 'paid', 'payment_due', 'delinquent', 'no_card'
 	StripeID          sql.NullString `db:"stripe_id"`
 	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
 	LastFour          sql.NullString `db:"last_four"`

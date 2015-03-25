@@ -521,6 +521,16 @@ var _ = Describe("biller", func() {
 			Expect(i.Invoice.State).To(Equal(invoice.StateNotPayable))
 		})
 
+		It("should throw an error if the billing profile is in free state", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+
+			err = b.ProcessStripe(i)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("biller: skipping stripe, billing profile for user %d is in state free", u.ID)))
+			Expect(i.Invoice.State).To(Equal(invoice.StateNotPayable))
+		})
+
 		It("should throw an error if the billing profile exists but without a StripeID", func() {
 			_, err := db.Exec("UPDATE billing_profiles SET state = $1, stripe_id = '' WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
 			Expect(err).To(BeNil())
