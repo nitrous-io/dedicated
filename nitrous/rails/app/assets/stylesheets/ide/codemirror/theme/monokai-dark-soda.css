@@ -34,3 +34,4 @@
 
 .cm-s-monokai-dark-soda .CodeMirror-gutters {background: #2d2d2d; border-right: 1px solid transparent !important;}
 .cm-s-monokai-dark-soda .CodeMirror-activeline-background {background: #444444 !important;}
+.cm-s-monokai-dark-soda .CodeMirror-ruler {border-color: rgba(255,255,255,.2) !important;}
