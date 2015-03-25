@@ -723,6 +723,10 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			return config, fmt.Errorf("invalid size for config %v", config)
 		}
 		config["storage_size"] = size
+		// convert disable_eip to format accepted by hostbuilder
+		// if disable_eip is invalid, it will be set to false
+		disableEIP, _ := strconv.ParseBool(config["disable_eip"].(string))
+		config["disable_eip"] = disableEIP
 	case DockerProvider:
 		// no special config required
 	default:

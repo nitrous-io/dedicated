@@ -6,12 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,7 +35,17 @@ var _ = Describe("models/host", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		hs, err = test.CreateHostStack(db, nil)
+		hs, err = test.CreateHostStack(db, &test.HostStack{
+			PT: &providertemplate.ProviderTemplate{
+				Name:     "default-1",
+				Provider: "amazon",
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"disable_eip": sql.NullString{"true", true},
+					},
+				},
+			},
+		})
 		Expect(err).To(BeNil())
 	})
 
@@ -365,6 +377,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns an error when the matching record does not belong to the user", func() {
@@ -398,6 +411,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns an error when matching record does not belong to the user", func() {
@@ -436,8 +450,8 @@ var _ = Describe("models/host", func() {
 			It("returns the host with the given ID", func() {
 				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
 				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns pre-provisioned host with the given ID", func() {
@@ -463,8 +477,8 @@ var _ = Describe("models/host", func() {
 			It("returns the host with the given slug", func() {
 				h, err := host.FindByIdentifier(db, hs.H.Slug)
 				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
 				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns pre-provisioned host with the given slug", func() {
@@ -930,6 +944,55 @@ var _ = Describe("models/host", func() {
 			defer func() { envvars.ProxyHostname = prev }()
 			h := &host.Host{Slug: "world"}
 			Expect(h.ProxyHostname()).To(Equal("world.n2otestproxy.com"))
+		})
+	})
+
+	Describe(".MachineConfig", func() {
+		It("returns configuration for the actual machine", func() {
+			testCases := map[*host.Host]hostbuilderclient.Config{
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": false,
+				},
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderTemplate:   &host.ProviderTemplate{},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": false,
+				},
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderTemplate: &host.ProviderTemplate{
+						Config: hstore.Hstore{
+							Map: map[string]sql.NullString{
+								"disable_eip": sql.NullString{"true", true},
+							},
+						},
+					},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": true,
+				},
+			}
+
+			for h, cfg := range testCases {
+				Expect(h.MachineConfig()).To(Equal(cfg))
+			}
 		})
 	})
 })
