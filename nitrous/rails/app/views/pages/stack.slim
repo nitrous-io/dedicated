@@ -61,17 +61,17 @@ ruby:
       ol
         // TODO: only if not signed in
         li.step1 class=(stack.slug)
-          h2
+          h4
             span.step 1
             | Sign up for your Free Nitrous Account
 
         li.step2 class=(stack.slug)
-          h2
+          h4
            span.step 2
            | Select the #{stack.name} template in the New Container screen
 
         li.step3 class=(stack.slug)
-          h2
+          h4
             span.step 3
             | Start coding on your new #{stack.name} environment in just seconds
 
@@ -88,7 +88,15 @@ ruby:
         .box
           h4 Project 3
       
+  article.quotes
+    .container
+      .box-wrapper.one
+        blockquote
+          p
+            | I know how to administer a computer well enough.&nbsp;
+            strong But I don't want to
+            | . Nitrous.IO allows me to just say "I want to code some Rails now, kthx" and not have to worry about getting all the details straight. Sometimes, I care about the details, but most of the time, I don't.
+          cite - Max Schoening
 
-
-  = render partial: 'layouts/cta', locals: { theme: 'lighter' }
+  = render partial: 'layouts/cta', locals: { theme: 'darker' }
 = render partial: 'layouts/footer', locals: { active: stack.slug }
