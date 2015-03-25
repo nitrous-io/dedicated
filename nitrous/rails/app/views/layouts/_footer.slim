@@ -1,8 +1,11 @@
-#pages-footer.page-footer
+footer
   .container
-    .left
-      p
-        | &copy; 2012-2015 Nitrous, Inc.
+
+    .footer-item.copyright
+      a.nitrous-logo href="/"
+      .copy-wrapper
+        p
+          | &copy; 2012-2015 Nitrous, Inc.
       ul
         li
           a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
@@ -10,13 +13,97 @@
           a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
         li
           a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
-    .right
-      ul
         li
           a href='http://status.nitrous.io/' Status
+
+    .footer-item
+      h4
+        | About
+      ul
         li
-          a href='mailto:support@nitrous.io?subject=Nitrous%20Pro%20Feedback' Support
+          a class=('active' if active == 'features') href='/features' Features
         li
-          a href='http://blog.nitrous.io/' Blog
+          a class=('active' if active == 'pricing') href='/pricing' Pricing
         li
-          a href='http://docs.nitrous.io/v1.0/blog' Updates
+          a class=('active' if active == 'company') href='/company' Company
+        // li
+          a class=('active' if active == 'press') href='/press' Press
+        // li
+          a href='/contact' Contact us
+        // li
+          a class=('active' if active == 'jobs') href='/jobs' Jobs
+        li
+          a href='https://www.nitrous.io/business' target="_blank" For business
+        li
+          a href='http://blog.nitrous.io/' target="_blank" Blog
+
+    .footer-item
+      h4
+        | Resources
+      ul
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/nitrous-pro-overview' Getting Started
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/connect-to-github' SSH Keys
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/nitrous-sync' Nitrous Desktop
+        li
+          a href='http://docs.nitrous.io/v1.0/docs/port-configuration' Port Configuration
+        li
+          a href='http://help.nitrous.io/categories/tutorials/' Tutorials
+        li
+          a href='http://help.nitrous.io/categories/deployment/' Deployment
+
+    .footer-item
+      h4
+        | Connect
+      ul
+        li
+          a href='https://twitter.com/nitrousio' target="_blank" Twitter
+        li
+          a href='https://github.com/nitrous-io' target="_blank" Github
+        li
+          a href='https://www.facebook.com/NitrousIO' target="_blank" Facebook
+        li
+          a href='https://plus.google.com/110996223974353490028/posts' target="_blank" Google+
+        li
+          a href='https://angel.co/nitrous' target="_blank" Angel.co
+        li
+          a href='https://www.crunchbase.com/organization/nitrous-io' target="_blank" CrunchBase
+
+
+    .footer-item
+      h4
+        | Stacks
+      ul
+        li
+          a class=('active' if active == 'ruby-on-rails') href='/stacks/ruby-on-rails' Ruby on Rails
+        li
+          a class=('active' if active == 'django') href='/stacks/django' Django
+        li
+          a class=('active' if active == 'nodejs') href='/stacks/nodejs' Node.js
+        li
+          a class=('active' if active == 'meteor') href='/stacks/meteor' Meteor
+        li
+          a class=('active' if active == 'php') href='/stacks/php' PHP
+        li
+          a class=('active' if active == 'java') href='/stacks/java' Java
+
+    / .footer-item.blog
+    /   h4
+    /     | From our Blog
+    /   ul
+    /     li
+    /       a href='/#' 'Coding on iPad – The Possibilities of NitrousIO'
+    /     li
+    /       a href='/#' 'Pair Programming - Boon or Bane?'
+    /     li
+    /       a href='/#' 'HOUR OF CODE - What happens in the second hour?'
+    /     li
+    /       a.more-articles href='/#'
+    /         | More articles
+    /         i.fa.fa-chevron-right
+
+
+
+  / a.logomark.alt href='/' alt="Nitrous.io"

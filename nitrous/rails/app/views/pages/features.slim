@@ -1,0 +1,186 @@
+- @title = 'Features · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'features'
+
+- content_for :body_after
+  javascript:
+    pages.Features.init();
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'features' }
+      .hero-copy
+        h2
+          | The future of development
+        h3
+          | Get your team, students, or workshop all on the same page in seconds.
+
+
+
+  article.featurette.extra-padding.anywhere
+    .container
+
+      .full-visual
+        = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
+
+      h3.big-title Work from anywhere
+      h4
+        | Be productive on any machine and any operating system – you're just
+        br
+        | a Web browser away from a predictable and consistent development box
+
+      .box-wrapper.four
+        .box
+          p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.osx Mac OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
+        .box
+          p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
+
+
+
+
+  article.featurette.attached-bottom
+    .container
+
+      h3.big-title A full-featured IDE in your browser
+      h4
+        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
+        br
+        | Run web servers, databases, caches and more, right from your Web browser
+
+
+
+  article.featurette
+    .container
+
+      .box-wrapper.three
+        .box.terminal
+          h3.with-icon Built-in Terminal
+          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+
+        .box.code
+          h3.with-icon Zero-to-code in seconds
+          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+
+        .box.containers
+          h3.with-icon Powerful Containers
+          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+
+      .box-wrapper.three
+        .box.collaboration
+          h3.with-icon Collaboration
+          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+
+        .box.github
+          h3.with-icon GitHub integration
+          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+
+        .box.snapshots
+          h3.with-icon Snapshots
+          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot to preserve the state of your project's environment at any time.
+
+      .box-wrapper.three
+        .box.go-to-file
+          h3.with-icon Go to file
+          p Quickly jump between files with only a few keystrokes, just like your favorite desktop editor.
+
+        .box.split-editing
+          h3.with-icon Split Editing
+          p Get the most out of your screen real-estate with split editing support. Edit files side by side.
+
+        .box.ssh
+          h3.with-icon Full SSH access
+          p
+            | Access your development container directly with SSH&sup1;.
+            sup &sup1;Only available on paid plans
+
+      .box-wrapper.three
+        .box.ssl
+          h3.with-icon SSL Data Encryption
+          p All of your information is encrypted and transmitted securely using the Secure Sockets Layer (SSL) protocol.
+
+        .box.backup
+          h3.with-icon Backup &amp; Redundancy
+          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your project resides in the cloud in military-grade secure facilities.
+
+        .box.secure
+          h3.with-icon Your data, secured
+          p Every user operates within their own isolated environment and cannot interact with other applications or areas of the system.
+
+
+  article.featurette.themes.darker
+    .container
+      h3.big-title A code editor you'll love
+      h4 Choose from Nitrous's selection of color schemes that control the editor's syntax highlighting
+
+    .carousel
+      .carousel-inner
+
+        input#carousel-1.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-1.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-2.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input#carousel-3.carousel-open type="radio" name="carousel" aria-hidden="true" hidden="" checked="checked"
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-3.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input#carousel-4.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-4.png', width: '970px', alt: 'Nitrous Editor themes'
+
+        input#carousel-5.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .full-visual
+              = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+
+
+        label.carousel-bullet.control-1 for="carousel-1"
+          .theme-preview
+        label.carousel-bullet.control-2 for="carousel-2"
+          .theme-preview
+        label.carousel-bullet.control-3 for="carousel-3"
+          .theme-preview
+        label.carousel-bullet.control-4 for="carousel-4"
+          .theme-preview
+        label.carousel-bullet.control-5 for="carousel-5"
+          .theme-preview
+
+
+  article.featurette.dashboard
+    .container
+      h3.big-title Self-service Dashboard
+      h4
+        | Easily create and manage containers in your workspace, or create
+        br
+        | your own custom containers with Docker images
+
+      .full-visual
+        = image_tag 'home/dashboard-featurette.png', width: '860px', height: '502px', alt: 'Self-service Dashboard'
+
+
+
+  = render 'layouts/stacks'
+
+  = render 'layouts/companies'
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'features' }

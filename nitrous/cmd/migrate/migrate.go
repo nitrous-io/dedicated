@@ -87,18 +87,45 @@ func main() {
 
 	verifyCommunication()
 	setSSHKeys()
-	stopServices()
+	markSourceServer()
 
-	dirs := getTransferrableDirectories()
-	backupDestDirectories(dirs)
-	syncDirectories(dirs)
+	defer func() {
+		if err != nil {
+			fmt.Println(err.Error())
+			fmt.Println("Will now restore source server")
+			if err := restoreSourceServer(); err != nil {
+				fmt.Println(err.Error())
+			}
+			return
+		}
+		fmt.Println("Success!")
+	}()
 
-	if !sanityCheck() {
-		logr.FatalExit("sanityCheck() failed, exiting.....")
+	err = stopServices()
+	if err != nil {
+		return
 	}
 
-	updateRecords()
-	startServices()
+	dirs := getTransferrableDirectories()
+	err = backupDestDirectories(dirs)
+	if err != nil {
+		return
+	}
+	err = syncDirectories(dirs)
+	if err != nil {
+		return
+	}
+
+	err = sanityCheck()
+	if err != nil {
+		return
+	}
+
+	err = updateRecords()
+	if err != nil {
+		return
+	}
+	err = startServices()
 }
 
 func newConn(slug string) (*sshutil.Conn, error) {

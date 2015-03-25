@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="38px" height="44px" viewBox="0 0 38 44" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+    <!-- Generator: Sketch 3.2.2 (9983) - http://www.bohemiancoding.com/sketch -->
+    <title>Polygon 12 + Polygon 13</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <polygon id="path-1" points="21 0 39.1865335 10.5 39.1865335 31.5 21 42 2.81346652 31.5 2.81346652 10.5 "></polygon>
+        <polygon id="path-3" points="21 -20 39.1865335 -9.5 39.1865335 11.5 21 22 2.81346652 11.5 2.81346652 -9.5 "></polygon>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+        <g id="pricing-v2r1" sketch:type="MSLayerGroup" transform="translate(-183.000000, -266.000000)">
+            <g id="pricing-(new)" transform="translate(180.000000, 257.000000)">
+                <g id="Group" transform="translate(1.000000, 10.000000)">
+                    <g id="section-title">
+                        <g id="Polygon-12-+-Polygon-13">
+                            <mask id="mask-2" sketch:name="Polygon 12" fill="white">
+                                <use xlink:href="#path-1"></use>
+                            </mask>
+                            <g id="Polygon-12" stroke-linecap="round" stroke-linejoin="round">
+                                <use stroke="#A5B3BE" sketch:type="MSShapeGroup" xlink:href="#path-1"></use>
+                                <use stroke-opacity="0.1" stroke="#000000" xlink:href="#path-1"></use>
+                            </g>
+                            <g id="Polygon-13" stroke-linecap="round" stroke-linejoin="round">
+                                <use stroke="#A5B3BE" sketch:type="MSShapeGroup" mask="url(#mask-2)" xlink:href="#path-3"></use>
+                                <use stroke-opacity="0.1" stroke="#000000" xlink:href="#path-3"></use>
+                            </g>
+                            <rect id="Rectangle-238" fill="#94A0AA" sketch:type="MSShapeGroup" mask="url(#mask-2)" x="20.5" y="22" width="1" height="20"></rect>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

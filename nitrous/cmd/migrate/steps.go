@@ -31,28 +31,29 @@ func homePathForUser(user string) string {
 	return fmt.Sprintf("/home/%s", user)
 }
 
-func verifyCommunication() {
+func verifyCommunication() error {
 	for _, hst := range allHosts() {
 		out, err := hst.conn.CombinedOutput("uname -a")
 		if err != nil {
-			handleFatalError(err, hst)
+			return handleFatalError(err, hst)
 		}
 		handleOutput(out, hst)
 	}
+	return nil
 }
 
 // setSSHKeys() will generate a SSH keypair, send the private key to the destination
 // and the public key to the source. This allows the destination to rsync directly with
 // the source machine
-func setSSHKeys() {
+func setSSHKeys() error {
 	priv, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		logr.FatalfExit("Error calling GenerateKey: %v", err)
+		return fmt.Errorf("Error calling GenerateKey: %v", err)
 	}
 
 	data, err := ssh.NewPublicKey(&priv.PublicKey)
 	if err != nil {
-		logr.FatalfExit("Error calling NewPublicKey: %v", err)
+		return fmt.Errorf("Error calling NewPublicKey: %v", err)
 	}
 	pubkey := ssh.MarshalAuthorizedKey(data)
 
@@ -74,7 +75,7 @@ func setSSHKeys() {
 	destHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", dHome))
 	loc := fmt.Sprintf("%s/.ssh/id_rsa", dHome)
 	if err := destHost.Upload(loc, privRd); err != nil {
-		logr.FatalfExit("DEST] Error uploading private key: %v", err)
+		return fmt.Errorf("DEST] Error uploading private key: %v", err)
 	}
 	destHost.CombinedOutput(fmt.Sprintf("chmod 0600 %s", loc))
 
@@ -82,14 +83,14 @@ func setSSHKeys() {
 	srcHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
 	loc = fmt.Sprintf("%s/.ssh/authorized_keys.tmp", sHome)
 	if err := srcHost.Upload(loc, pubRd); err != nil {
-		logr.FatalfExit("[SRC] Error uploading temporary public key: %v", err)
+		return fmt.Errorf("[SRC] Error uploading temporary public key: %v", err)
 	}
 
 	logr.Info("[SRC] Appending temporary public key")
 	srcHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
 	out, err := srcHost.CombinedOutput(fmt.Sprintf("cat %s >> '%s/.ssh/authorized_keys'", loc, sHome))
 	if err != nil {
-		logr.FatalfExit("[SRC] Error appending temporary public key: %s err: %v", out, err)
+		return fmt.Errorf("[SRC] Error appending temporary public key: %s err: %v", out, err)
 	}
 
 	logr.Info("[DEST] Testing SSH comms with SRC")
@@ -97,15 +98,82 @@ func setSSHKeys() {
 	cmd := fmt.Sprintf(`ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null %s@%s -p %s 'echo "welcome!"'`, srcHost.Config.User, parts[0], parts[1])
 	out, err = destHost.CombinedOutput(cmd)
 	if err != nil {
-		logr.FatalfExit("[DEST] Error testing comms with SRC: %s err: %v", out, err)
+		return fmt.Errorf("[DEST] Error testing comms with SRC: %s err: %v", out, err)
 	}
 	if !strings.Contains(string(out), "welcome!") {
-		logr.FatalfExit("[DEST] Error looking for `welcome!`: %s", out)
+		return fmt.Errorf("[DEST] Error looking for `welcome!`: %s", out)
 	}
 	logr.Info("[DEST] Test succeeded!")
+
+	return nil
 }
 
-func stopServices() {
+func markSourceServer() error {
+	tx, err := dbConn.Beginx()
+	if err != nil {
+		return fmt.Errorf("Unable to begin transaction for record updates. err: %v", err)
+	}
+
+	sHost, err := host.FindByIdentifier(dbConn, srcHostSlug)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[SRC] Unable to locate host record. err: %v", err)
+	}
+
+	_, err = tx.Exec("UPDATE hosts SET state = 'migrating' WHERE id = $1", sHost.ID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[DEST] Unable to remove existing shared volumes. err: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("Unable to commit transaction for record updates. err: %v", err)
+	}
+
+	return nil
+}
+
+func restoreSourceServer() error {
+	tx, err := dbConn.Beginx()
+	if err != nil {
+		return fmt.Errorf("Unable to begin transaction for record updates. err: %v", err)
+	}
+
+	sHost, err := host.FindByIdentifier(dbConn, srcHostSlug)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[SRC] Unable to locate host record. err: %v", err)
+	}
+
+	_, err = tx.Exec("UPDATE hosts SET state = 'running' WHERE id = $1", sHost.ID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[SRC] Unable to database values. err: %v", err)
+	}
+
+	logr.Info("[SRC] Starting docker")
+	out, err := srcHost.CombinedOutput("sudo service docker start")
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[SRC] Could not start Docker. %s err: %v", out, err)
+	}
+
+	logr.Info("[SRC] Starting freighterd")
+	out, err = srcHost.CombinedOutput("sudo service freighterd start")
+	if err != nil {
+		return fmt.Errorf("[SRC] Could not start Freighter. %s err: %v", out, err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("Unable to commit transaction for record updates. err: %v", err)
+	}
+
+	return nil
+}
+
+func stopServices() error {
 	logr.Info("[ALL] Stopping freighter & docker services on DEST & SRC...")
 	for _, hst := range allHosts() {
 		for _, c := range []string{"freighterd", "docker"} {
@@ -117,17 +185,19 @@ func stopServices() {
 
 			handleOutput(out, hst)
 			if err != nil {
-				handleFatalError(err, hst)
+				return handleFatalError(err, hst)
 			}
 
 			cmd = fmt.Sprintf("sudo service %s stop", c)
 			out, err = hst.conn.CombinedOutput(cmd)
 			handleOutput(out, hst)
 			if err != nil {
-				handleFatalError(err, hst)
+				return handleFatalError(err, hst)
 			}
 		}
 	}
+
+	return nil
 }
 
 func getTransferrableDirectories() []string {
@@ -143,23 +213,25 @@ func getTransferrableDirectories() []string {
 	return dirs
 }
 
-func backupDestDirectories(dirs []string) {
+func backupDestDirectories(dirs []string) error {
 	for _, dir := range dirs {
 		logr.Infof("[DEST] Backing up %s", dir)
 		cmd := fmt.Sprintf("sudo mv %s{,.bak}", dir)
 		out, err := destHost.CombinedOutput(cmd)
 		if err != nil {
-			logr.FatalfExit("[DEST] Failed to backup `%s`: %s err: %v", dir, out, err)
+			return fmt.Errorf("[DEST] Failed to backup `%s`: %s err: %v", dir, out, err)
 		}
 
 		chk, _ := destHost.CombinedOutput(fmt.Sprintf("ls -la %s.bak", dir))
 		if strings.Contains(string(chk), "No such file or directory") {
-			logr.FatalfExit("[DEST] %s.bak could not be located", dir)
+			return fmt.Errorf("[DEST] %s.bak could not be located", dir)
 		}
 	}
+
+	return nil
 }
 
-func syncDirectories(dirs []string) {
+func syncDirectories(dirs []string) error {
 	dHome := homePathForUser(destHost.Config.User)
 
 	for _, dir := range dirs {
@@ -168,23 +240,25 @@ func syncDirectories(dirs []string) {
 		logr.Debugf("[DEST] Running %s", cmd)
 		out, err := destHost.CombinedOutput(cmd)
 		if err != nil {
-			logr.FatalfExit("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
+			return fmt.Errorf("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
 		}
 
 		chk, _ := destHost.CombinedOutput(fmt.Sprintf("ls -la %s", dir))
 		if strings.Contains(string(chk), "No such file or directory") {
-			logr.FatalfExit("[DEST] %s could not be located after rsync", dir)
+			return fmt.Errorf("[DEST] %s could not be located after rsync", dir)
 		}
 		logr.Infof("[DEST] Successfully rsynced %s", dir)
 	}
+
+	return nil
 }
 
-func sanityCheck() bool {
+func sanityCheck() error {
 	for _, hst := range allHosts() {
 		out, err := hst.conn.CombinedOutput("sudo service docker start && sleep 2")
 		if err != nil {
 			handleOutput(out, hst)
-			handleFatalError(err, hst)
+			return handleFatalError(err, hst)
 		}
 	}
 
@@ -198,49 +272,47 @@ func sanityCheck() bool {
 		}
 	}()
 
-	dstPs, err := destHost.CombinedOutput(`sudo docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
+	// get the IDs of the containers, reverse to get the size (which is last)
+	cmd := `sudo docker ps -a -s | sed -n '1!p' | sed "s/[[:space:]][[:space:]]\+/|/g" | sort -nr | while read -r i; do size=` + "`echo $i | rev | cut -d\" | \" -f1 | rev`" + `; crucial=` + "`echo $i | cut -d\" | \" -f1,2,3`" + `; echo "$crucial $size"; done`
+
+	dstPs, err := destHost.CombinedOutput(cmd)
 	if err != nil {
-		logr.Fatalf("[DEST] Could not obtain docker ps -a. %s err: %v", dstPs, err)
-		return false
+		return fmt.Errorf("[DEST] Could not obtain docker ps -a. %s err: %v", dstPs, err)
 	}
 
-	srcPs, err := srcHost.CombinedOutput(`sudo docker ps -a -s | sed "s/[[:space:]][[:space:]]\+/|/g" | cut -d"|" -f1,2,3,6,7,8`)
+	srcPs, err := srcHost.CombinedOutput(cmd)
 	if err != nil {
-		logr.Fatalf("[SRC] Could not obtain docker ps -a. %s err: %v", srcPs, err)
-		return false
+		return fmt.Errorf("[SRC] Could not obtain docker ps -a. %s err: %v", srcPs, err)
 	}
 
 	if string(srcPs) != string(dstPs) {
-		logr.Fatalf("[ALL] docker ps -a -s does not match")
-		logr.Fatalf("[SRC] %s", srcPs)
-		logr.Fatalf("[DEST] %s", dstPs)
-		return false
+		return fmt.Errorf("[ALL] docker ps -a -s does not match\n[SRC] %s\n[DEST] %s", srcPs, dstPs)
 	}
 
-	return true
+	return nil
 }
 
-func updateRecords() {
+func updateRecords() error {
 	tx, err := dbConn.Beginx()
 	if err != nil {
-		logr.FatalfExit("Unable to begin transaction for record updates. err: %v", err)
+		return fmt.Errorf("Unable to begin transaction for record updates. err: %v", err)
 	}
 	dHost, err := host.FindByIdentifier(dbConn, destHostSlug)
 	if err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[DEST] Unable to locate host record. err: %v", err)
+		return fmt.Errorf("[DEST] Unable to locate host record. err: %v", err)
 	}
 
 	sHost, err := host.FindByIdentifier(dbConn, srcHostSlug)
 	if err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[SRC] Unable to locate host record. err: %v", err)
+		return fmt.Errorf("[SRC] Unable to locate host record. err: %v", err)
 	}
 
 	_, err = tx.Exec("DELETE FROM volumes WHERE host_id = $1 AND slug = 'shared';", dHost.ID)
 	if err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[DEST] Unable to remove existing shared volumes. err: %v", err)
+		return fmt.Errorf("[DEST] Unable to remove existing shared volumes. err: %v", err)
 	}
 
 	for _, tbl := range []string{"containers", "volumes", "images"} {
@@ -249,8 +321,14 @@ func updateRecords() {
 		_, err := tx.Exec(qry, dHost.ID, sHost.ID)
 		if err != nil {
 			tx.Rollback()
-			logr.FatalfExit("Unable to update %s table. err: %v", tbl, err)
+			return fmt.Errorf("Unable to update %s table. err: %v", tbl, err)
 		}
+	}
+
+	_, err = tx.Exec("UPDATE hosts SET state = 'running' WHERE id = $1;", dHost.ID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[DEST] Unable to set state. err: %v", err)
 	}
 
 	sHost.Slug = fmt.Sprintf("migrated-%s", srcHostSlug)
@@ -261,13 +339,13 @@ func updateRecords() {
 	}
 	if err := sHost.Update(tx); err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[SRC] Unable to update slug/name. err: %v", sHost.Slug, err)
+		return fmt.Errorf("[SRC] Unable to update slug/name. err: %v", sHost.Slug, err)
 	}
 
 	_, err = tx.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", sHost.ID)
 	if err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[SRC] Unable to set terminated_at state. err: %v", err)
+		return fmt.Errorf("[SRC] Unable to set terminated_at state. err: %v", err)
 	}
 
 	dHost.Slug = srcHostSlug
@@ -277,20 +355,21 @@ func updateRecords() {
 	}
 	if err := dHost.Update(tx); err != nil {
 		tx.Rollback()
-		logr.FatalfExit("[DEST] Unable to update slug to %s. err: %v", dHost.Slug, err)
+		return fmt.Errorf("[DEST] Unable to update slug to %s. err: %v", dHost.Slug, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		logr.FatalfExit("Unable to commit transaction for record updates. err: %v", err)
+		return fmt.Errorf("Unable to commit transaction for record updates. err: %v", err)
 	}
+	return nil
 }
 
-func startServices() {
+func startServices() error {
 	logr.Info("[DEST] Starting docker")
 	out, err := destHost.CombinedOutput("sudo service docker start && sleep 2")
 	if err != nil {
-		logr.FatalfExit("[DEST] Could not start Docker. %s err: %v", out, err)
+		return fmt.Errorf("[DEST] Could not start Docker. %s err: %v", out, err)
 	}
 
 	chk, _ := destHost.CombinedOutput("sudo docker ps -a")
@@ -299,12 +378,13 @@ func startServices() {
 	logr.Info("[DEST] Starting freighterd")
 	out, err = destHost.CombinedOutput("sudo service freighterd start")
 	if err != nil {
-		logr.FatalfExit("[DEST] Could not start Freighter. %s err: %v", out, err)
+		return fmt.Errorf("[DEST] Could not start Freighter. %s err: %v", out, err)
 	}
+	return nil
 }
 
-func handleFatalError(err error, w namedConn) {
-	logr.FatalfExit("[%s] Err: %v", w.name, err)
+func handleFatalError(err error, w namedConn) error {
+	return fmt.Errorf("[%s] Err: %v", w.name, err)
 }
 
 func handleOutput(out []byte, w namedConn) {

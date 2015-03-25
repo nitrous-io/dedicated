@@ -1,0 +1,169 @@
+- @title = 'Company · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'company'
+
+- content_for :body_after
+  javascript:
+    pages.Company.init();
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'company' }
+      .hero-copy
+        h2
+          | Our Company
+        h3
+          | Building the future of development environments
+
+
+  article.centered.attached-bottom
+    .container
+      p.big
+        | Nitrous is developed and maintained by an experienced team based out of San Francisco and Singapore. We focus on building the best tools for developers and teams around the world.
+
+      .people
+        ul
+          li.tooltip.team.blue.zoom data-tooltip="AJ loves baseball, surfing, and networked home appliances. He studied economics at Harvard and is obsessed with microformats"
+            = image_tag 'home/aj.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Pete started programming at the age of 8, when most kids were still picking their nose. He likes cycling and playing airsoft games"
+            = image_tag 'home/pete.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Andi is multilingual, a world traveller, and is the glue that keeps the team organized. From awesome events to projects and payroll, she does it all"
+            = image_tag 'home/andi.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Greg works with customers and code to ensure that Nitrous offers everything a developer could ever ask for"
+            = image_tag 'home/greg.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Marshall spends all of his time thinking of ways to find amazing people to join team Nitrous"
+            = image_tag 'home/marshall.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Betty is an accomplished financial and operations professional. Finance and accounting are her passion"
+            = image_tag 'home/betty.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Eric is a college intern from Singapore - he’s one of the few on the team who prefers writing prose to writing code. We plan to change that, eventually"
+            = image_tag 'home/eric.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Chu Yeow likes: Miyo (his tortoiseshell cat), Japan, anime. Dislikes: trailing whitespace, tabs"
+            = image_tag 'home/cheah.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="RJ likes table. RJ likes pen. RJ likes you. RJ. RJ. RJ!!!"
+            = image_tag 'home/rj.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Daniel is such a nice guy, he gives away all the code he writes to open source"
+            = image_tag 'home/daniel.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Tim is a frenzy of keyboard activity in multiplexed terminals. Sometimes sounds pretentious, often actually is"
+            = image_tag 'home/timothy.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Justin works with customers and partners to grow Nitrous and constantly improve the Nitrous experience. He studied at Oxford, London and Imperial. He joins Nitrous from StreamBase after it was acquired by TIBCO"
+            = image_tag 'home/justin.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Shannon deals with the messy stuff. He tests hunches and finds patterns within the abysses of our data to make sure everyone loves our site"
+            = image_tag 'home/shannon.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Callum enjoys helping build great products for people. While he cannot play any musical instrument, he enjoys discovering new music and new sources of great music. Previously Callum has worked building apps for schools and music lovers"
+            = image_tag 'home/callum.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Soares is a JS guy coding in Go at Nitrous. He loves to talk about software architecture and try out new programming languages and technology"
+            = image_tag 'home/soares.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Krzysztof is a Senior Dabbler in Programming Arts. His Erdös number is +∞. He's currently working on improving his Weissman score"
+            = image_tag 'home/krzysztof.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+          li.tooltip.team.blue.zoom data-tooltip="Max is Nitrous's very own product designer and French touch. He was previously working at Facebook"
+            = image_tag 'home/max.png', width: '92px', height: '92px', alt: 'Nitrous', class: 'zoom'
+
+
+  article.life-at
+    .container
+      .box-wrapper.two.centered
+        .box
+          h3.section-title.big-title Life at Nitrous
+          p
+            | Our employees enjoy access to the best tools available, an open and collaborative work environment, and come to work each day knowing they are having a tangible impact on the lives of developers worldwide
+
+        .box
+          h3.section-title.big-title Perks &amp; benefits
+          p
+            | We offer competitive salaries, office exchange programs between our two officies, free lunches, Health, Vision and Dental insurance, flexible vacations, team outings, and a referral bonus program
+
+
+  article.investors.attached-bottom
+    .container
+      h3.big-title Our investors
+      ul.investor-logos
+        li
+          a.bvp href="http://www.bvp.com/" target="_blank"
+        li
+          a.five-hundred-startups href="http://500.co/" target="_blank"
+        li
+          a.goldengate-ventures href="http://goldengate.vc/" target="_blank"
+        li
+          a.crunchfund href="https://www.crunchbase.com/organization/crunchfund" target="_blank"
+        li
+          a.draper-associates href="http://drapercompany.com/" target="_blank"
+        li
+          a.tibco href="http://www.tibco.com/" target="_blank"
+
+
+  article.investors.attached-bottom
+    .container
+      h3.big-title Our angels
+      ul.angels
+        li
+          a href="https://angel.co/saverin" target="_blank"
+            = image_tag 'home/eduardo-saverin.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
+            span Eduardo Saverin
+
+        li
+          a href="http://en.wikipedia.org/wiki/Bill_Ackman" target="_blank"
+            = image_tag 'home/bill-ackman.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
+            span Bill Ackman
+
+        li
+          a href="https://angel.co/prospern" target="_blank"
+            = image_tag 'home/prosper-nwankpa.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
+            span Prosper Nwankpa
+
+        li
+          a href="https://angel.co/razmig-hovaghimian" target="_blank"
+            = image_tag 'home/razmig-hovaghimian.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
+            span Razmig Hovaghimian
+
+        li
+          a href="https://www.linkedin.com/pub/larry-link/3/112/301" target="_blank"
+            = image_tag 'home/larry-link.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
+            span Larry Link
+
+
+  article.advisors
+    .container
+      h3.big-title Our advisors
+      ul
+        li
+          a href="https://twitter.com/tobi" target="_blank"
+            = image_tag 'home/tobi-lutke.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Tobi Lutke
+
+        li
+          a href="https://twitter.com/jamesjyu" target="_blank"
+            = image_tag 'home/james-yu.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span James Yu
+
+        li
+          a href="https://twitter.com/joestump" target="_blank"
+            = image_tag 'home/joe-stump.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Joe Stump
+
+        li
+          a href="https://twitter.com/andrewchen" target="_blank"
+            = image_tag 'home/andrew-chen.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Andrew Chen
+
+        li
+          a href="https://twitter.com/iamclovin" target="_blank"
+            = image_tag 'home/arun-thampi.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
+            span Arun Thampi
+
+  article.maps
+    .map
+      .address
+        .address-1 300 Brannan St. Ste 201
+        .address-2 San Francisco
+      .pin
+    .map
+      .address
+        .address-1 1A Trengganu St. 2nd Floor
+        .address-2 Singapore
+      .pin
+
+  = render 'layouts/cta', locals: { style: 'darker' }
+
+= render partial: 'layouts/footer', locals: { active: 'company' }
