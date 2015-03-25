@@ -132,6 +132,11 @@ var _ = Describe("models/invoiceitem", func() {
 			inv.Terminated = true
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' base (20 GB storage) - 90 hours at 1.231c/hour (terminated)"))
 		})
+
+		It("should strip migrated- prefix from a host slug", func() {
+			hst.Slug = "migrated-ABCDEF"
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 1.231c/hour"))
+		})
 	})
 
 	Describe("HourlyCents()", func() {
