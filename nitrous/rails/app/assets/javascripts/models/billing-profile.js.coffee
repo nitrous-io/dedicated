@@ -19,13 +19,9 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'paid' || @get('state') == 'payment_due'
   ).property 'state'
 
-  free: (->
-    @get('state') == 'free'
-  ).property 'state'
-
   active: (->
-    @get('paid') || @get('free')
-  ).property 'paid', 'free'
+    @get('paid') || @get('isExempted')
+  ).property 'paid', 'isExempted'
 
   expiry: (->
     "#{@get 'expMonth'}/#{@get 'expYear'}"
@@ -38,6 +34,10 @@ App.BillingProfile = klass = App.Model.extend
   requiresAttention: (->
     @get('state') == 'payment_due' || @get('state') == 'delinquent'
   ).property 'state'
+
+  isExempted: (->
+    @get('state') == 'exempt'
+  ).property('state')
 
   isNoCardState: (->
     @get('state') == 'no_card'
