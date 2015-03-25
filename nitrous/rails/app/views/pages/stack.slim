@@ -53,6 +53,7 @@ ruby:
           h3 About Nitrous
           p Nitrous provides a lightning fast way to set up development environments and code in the cloud. Nitrous allows developers to collaborate on their projects in real-time, deploy to production servers with one-click, and to version dev environments with ease.
 
+
   article.featurette.stack-steps
     .container
       h3.big-title
@@ -64,17 +65,29 @@ ruby:
             span.step 1
             | Sign up for your Free Nitrous Account
 
-          // = render 'layouts/cta_form'
-
         li.step2 class=(stack.slug)
           h2
            span.step 2
-           | Select the #{stack.name} template in the New Container screen.
+           | Select the #{stack.name} template in the New Container screen
 
         li.step3 class=(stack.slug)
           h2
             span.step 3
-            | Start coding on your new #{stack.name} environment in just seconds!
+            | Start coding on your new #{stack.name} environment in just seconds
+
+
+  article.featurette
+    .container
+      h3.big-title Built with #{stack.name}
+
+      .box-wrapper.three
+        .box
+          h4 Project 1
+        .box
+          h4 Project 2
+        .box
+          h4 Project 3
+      
 
 
   = render partial: 'layouts/cta', locals: { theme: 'lighter' }
