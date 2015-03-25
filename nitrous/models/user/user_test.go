@@ -732,9 +732,9 @@ var _ = Describe("models/user", func() {
 			ItPerformsAdditionalChecks()
 		})
 
-		Context("for a free user account", func() {
+		Context("for an exempted account", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = 'free' WHERE user_id = $1;`, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 

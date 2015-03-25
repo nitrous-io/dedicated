@@ -22,10 +22,22 @@ var (
 )
 
 const (
-	StateNoCard     = "no_card"
-	StateFree       = "free"
-	StatePaid       = "paid"
+	// Paid user with no card information
+	StateNoCard = "no_card"
+
+	// Exempted users have unlimited usage without paying
+	StateExempt = "exempt"
+
+	// Free tier can create limited number of workspaces
+	StateFreeTier = "free_tier"
+
+	// Paid user pays for what they use
+	StatePaid = "paid"
+
+	// Paid user with payment due
 	StatePaymentDue = "payment_due"
+
+	// Bad user who don't pay the bill
 	StateDelinquent = "delinquent"
 )
 

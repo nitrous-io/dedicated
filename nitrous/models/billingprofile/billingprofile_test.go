@@ -265,7 +265,7 @@ var _ = Describe("models/billingprofile", func() {
 	Describe("IsCardRequired()", func() {
 		It("should be false if the state is Free", func() {
 			bp := &billingprofile.BillingProfile{
-				State: billingprofile.StateFree,
+				State: billingprofile.StateExempt,
 			}
 			Expect(bp.IsCardRequired()).To(BeFalse())
 		})

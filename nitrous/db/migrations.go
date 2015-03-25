@@ -965,5 +965,11 @@ func init() {
 				) p WHERE p.host_id = invoice_items.host_id AND invoice_items.item_type = 'compute';
 			`,
 		},
+		{
+			Version: "850",
+			Up: `
+				UPDATE billing_profiles SET state='exempt' WHERE state='free';
+			`,
+		},
 	}
 }

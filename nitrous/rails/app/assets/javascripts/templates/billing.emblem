@@ -34,11 +34,11 @@ if App.billingUsage
     h2 Current Usage
 
   .card-body
-    if App.billingProfile.free
+    if App.billingProfile.isExempted
       .notice-text
         i.fa.fa-info
           '
-          | You are using a free Nitrous account. The charges below are for informational purposes only.
+          | You are exempted from billing payment. The charges below are for informational purposes only.
     .invoice-item
       table.ui.table.horizontal
         tbody
@@ -74,11 +74,11 @@ if App.billingUsage
 
 .card-body
   if App.invoices.content
-    if App.billingProfile.free
+    if App.billingProfile.isExempted
       .notice-text
         i.fa.fa-info
           '
-          | You are using a free Nitrous account. The invoices below are for informational purposes only.
+          | You are exempted from billing payment. The invoices below are for informational purposes only.
   else
     p.hint-text
       i.fa.fa-exclamation-circle
@@ -90,7 +90,7 @@ if App.billingUsage
           = simpledate invoice.periodStart
           '  -
           = simpledate invoice.periodEnd
-        unless App.billingProfile.free
+        unless App.billingProfile.isExempted
           .payment-status class={invoice.unpaid:unpaid}
             if invoice.awaitingUpdate
               i.spinner
