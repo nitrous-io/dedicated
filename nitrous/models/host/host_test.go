@@ -6,13 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,15 +27,25 @@ func Test(t *testing.T) {
 var _ = Describe("models/host", func() {
 	var (
 		db *ndb.Database
-		hs *HostStack
+		hs *test.HostStack
 	)
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, nil)
+		hs, err = test.CreateHostStack(db, &test.HostStack{
+			PT: &providertemplate.ProviderTemplate{
+				Name:     "default-1",
+				Provider: "amazon",
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"disable_eip": sql.NullString{"true", true},
+					},
+				},
+			},
+		})
 		Expect(err).To(BeNil())
 	})
 
@@ -60,7 +72,7 @@ var _ = Describe("models/host", func() {
 				Email:    "arunthampi@gmail.com",
 				Password: "teh interview is osom",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
@@ -79,7 +91,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
@@ -93,7 +105,7 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			// Create a host belonging to a different provider.
-			_, err = CreateHostStack(db, &HostStack{
+			_, err = test.CreateHostStack(db, &test.HostStack{
 				H:  &host.Host{Slug: "other-1"},
 				PT: &providertemplate.ProviderTemplate{Provider: "some-other-provider"},
 			})
@@ -124,7 +136,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -132,7 +144,7 @@ var _ = Describe("models/host", func() {
 				Email:    "bar@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			// insert a valid running host
@@ -201,7 +213,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -209,7 +221,7 @@ var _ = Describe("models/host", func() {
 				Email:    "bar@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -250,7 +262,7 @@ var _ = Describe("models/host", func() {
 	})
 
 	Describe("CountPreprovisioned()", func() {
-		var hs2 *HostStack
+		var hs2 *test.HostStack
 
 		BeforeEach(func() {
 			var err error
@@ -261,7 +273,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -280,7 +292,7 @@ var _ = Describe("models/host", func() {
 				u.ID, "preprovisioned-host-3", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, time.Now())
 			Expect(err).To(BeNil())
 
-			hs2, err = CreateHostStack(db, nil)
+			hs2, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned)
@@ -303,7 +315,7 @@ var _ = Describe("models/host", func() {
 	})
 
 	Describe("CountPreprovisionedOrphans()", func() {
-		var hs2 *HostStack
+		var hs2 *test.HostStack
 		fv := "1.0.69-deadbeef-88"
 		dv := "1.4.1-nitrous"
 
@@ -314,7 +326,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -328,7 +340,7 @@ var _ = Describe("models/host", func() {
 				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 
-			hs2, err = CreateHostStack(db, nil)
+			hs2, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
@@ -365,6 +377,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns an error when the matching record does not belong to the user", func() {
@@ -373,7 +386,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, strconv.FormatInt(hs.H.ID, 10))
@@ -398,6 +411,7 @@ var _ = Describe("models/host", func() {
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns an error when matching record does not belong to the user", func() {
@@ -406,7 +420,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, hs.H.Slug)
@@ -436,8 +450,8 @@ var _ = Describe("models/host", func() {
 			It("returns the host with the given ID", func() {
 				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
 				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns pre-provisioned host with the given ID", func() {
@@ -463,8 +477,8 @@ var _ = Describe("models/host", func() {
 			It("returns the host with the given slug", func() {
 				h, err := host.FindByIdentifier(db, hs.H.Slug)
 				Expect(err).To(BeNil())
-				Expect(h).NotTo(BeNil())
 				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
 			It("returns pre-provisioned host with the given slug", func() {
@@ -497,7 +511,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -527,7 +541,7 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("does not find the host if there are no pre-provisioned hosts in the given region and plan", func() {
-			hs2, err := CreateHostStack(db, nil)
+			hs2, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h, err := host.FindPreprovisioned(db, hs2.R, hs2.P)
@@ -551,7 +565,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			h = &host.Host{
@@ -755,7 +769,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			err = h.Reassign(db, u)
@@ -930,6 +944,55 @@ var _ = Describe("models/host", func() {
 			defer func() { envvars.ProxyHostname = prev }()
 			h := &host.Host{Slug: "world"}
 			Expect(h.ProxyHostname()).To(Equal("world.n2otestproxy.com"))
+		})
+	})
+
+	Describe(".MachineConfig", func() {
+		It("returns configuration for the actual machine", func() {
+			testCases := map[*host.Host]hostbuilderclient.Config{
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": false,
+				},
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderTemplate:   &host.ProviderTemplate{},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": false,
+				},
+				&host.Host{
+					ProviderIdentifier: sql.NullString{"i-123456", true},
+					RegionIdentifier:   sql.NullString{"us-west-2", true},
+					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderTemplate: &host.ProviderTemplate{
+						Config: hstore.Hstore{
+							Map: map[string]sql.NullString{
+								"disable_eip": sql.NullString{"true", true},
+							},
+						},
+					},
+				}: hostbuilderclient.Config{
+					"id":          "i-123456",
+					"region_id":   "us-west-2",
+					"ip_address":  "10.0.0.1",
+					"disable_eip": true,
+				},
+			}
+
+			for h, cfg := range testCases {
+				Expect(h.MachineConfig()).To(Equal(cfg))
+			}
 		})
 	})
 })
