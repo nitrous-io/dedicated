@@ -1,9 +1,12 @@
 /* Taken from the popular Visual Studio Vibrant Ink Schema */
 
-.cm-s-vibrant-ink.CodeMirror { background: black; color: white; }
+
+.cm-s-vibrant-ink {line-height: 1.45em; color-profile: sRGB; rendering-intent: auto;}
+
+.cm-s-vibrant-ink.CodeMirror { background: #000; color: white; }
 .cm-s-vibrant-ink .CodeMirror-selected { background: #35493c !important; }
 
-.cm-s-vibrant-ink .CodeMirror-gutters { background: #002240; border-right: 1px solid #aaa; }
+.cm-s-vibrant-ink .CodeMirror-gutters { background: #000; border-right: 1px solid rgba(255,255,255,.1); }
 .cm-s-vibrant-ink .CodeMirror-linenumber { color: #d0d0d0; }
 .cm-s-vibrant-ink .CodeMirror-cursor { border-left: 1px solid white !important; }
 
@@ -14,7 +17,7 @@
 .cm-s-vibrant-ink span.cm-variable-2, .cm-s-vibrant span.cm-tag { color: #FFC66D }
 .cm-s-vibrant-ink span.cm-variable-3, .cm-s-vibrant span.cm-def { color: #FFC66D }
 .cm-s-vibrant-ink .cm-operator { color: #888; }
-.cm-s-vibrant-ink .cm-comment { color: gray; font-weight: bold; }
+.cm-s-vibrant-ink .cm-comment { color: gray; }
 .cm-s-vibrant-ink .cm-string { color:  #A5C25C }
 .cm-s-vibrant-ink .cm-string-2 { color: red }
 .cm-s-vibrant-ink .cm-meta { color: #D8FA3C; }
