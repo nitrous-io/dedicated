@@ -205,6 +205,7 @@ var _ = Describe("biller", func() {
 				// h2 running for full month = 672 = 2501c = $25.01 (plan capped to $25.00)
 				// total = 2842c
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(2842)))
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 			})
 
 			It("should discount the total cost of the invoice if there are credits available", func() {
@@ -218,6 +219,7 @@ var _ = Describe("biller", func() {
 				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{8, true}))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(8)))
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(2834)))
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 
 				c := &credit.Credit{}
 				err = db.QueryRowx("SELECT * FROM credits WHERE user_id = $1 AND invoice_id = $2", u.ID, i.Invoice.ID).StructScan(c)
@@ -229,6 +231,7 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i.Items).To(HaveLen(4))
 
 				var item1, item2, item3 invoiceitem.InvoiceItem
@@ -274,6 +277,7 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i.Items).To(HaveLen(5))
 
 				var credit invoiceitem.InvoiceItem
@@ -286,13 +290,24 @@ var _ = Describe("biller", func() {
 				Expect(credit.Credit.Int64).To(Equal(int64(8)))
 			})
 
+			It("should set the state as not payable if the total charge is zero", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 3000);", u.ID)
+				Expect(err).To(BeNil())
+
+				i, err := b.CreateOrUpdateInvoice()
+				Expect(err).To(BeNil())
+				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.TotalCharge).To(Equal(int64(0)))
+				Expect(i.Invoice.State).To(Equal(invoice.StateNotPayable))
+			})
+
 			It("should update an invoice if it exists for the same period", func() {
 				inv := &invoice.Invoice{
-					UserID:           u.ID,
-					TotalCharge:      67,
-					PeriodStart:      &startTime,
-					PeriodEnd:        &endTime,
-					SuccessfulCharge: false,
+					UserID:      u.ID,
+					TotalCharge: 67,
+					PeriodStart: &startTime,
+					PeriodEnd:   &endTime,
+					State:       invoice.StateUnpaid,
 				}
 				err := inv.Insert(db)
 				Expect(err).To(BeNil())
@@ -301,7 +316,7 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
-				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(2842)))
 			})
 
@@ -310,12 +325,12 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 
 				inv := &invoice.Invoice{
-					UserID:           u.ID,
-					TotalCharge:      0,
-					CreditAmount:     2,
-					PeriodStart:      &startTime,
-					PeriodEnd:        &endTime,
-					SuccessfulCharge: false,
+					UserID:       u.ID,
+					TotalCharge:  0,
+					CreditAmount: 2,
+					PeriodStart:  &startTime,
+					PeriodEnd:    &endTime,
+					State:        invoice.StateUnpaid,
 				}
 				err = inv.Insert(db)
 				Expect(err).To(BeNil())
@@ -324,7 +339,7 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
 				Expect(i.Invoice.ID).To(Equal(inv.ID))
-				Expect(i.Invoice.SuccessfulCharge).To(BeFalse())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i.Invoice.TotalCharge).To(Equal(int64(2832)))
 				Expect(i.Invoice.CreditAmount).To(Equal(int64(10)))
 				Expect(i.Invoice.AvailableCredit).To(Equal(sql.NullInt64{10, true}))
@@ -332,11 +347,11 @@ var _ = Describe("biller", func() {
 
 			It("should update an invoice item if it exists", func() {
 				inv := &invoice.Invoice{
-					UserID:           u.ID,
-					TotalCharge:      67,
-					PeriodStart:      &startTime,
-					PeriodEnd:        &endTime,
-					SuccessfulCharge: false,
+					UserID:      u.ID,
+					TotalCharge: 67,
+					PeriodStart: &startTime,
+					PeriodEnd:   &endTime,
+					State:       invoice.StateUnpaid,
 				}
 				err := inv.Insert(db)
 				Expect(err).To(BeNil())
@@ -356,6 +371,7 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 
 				var invItem2 invoiceitem.InvoiceItem
 				for _, item := range i.Items {
@@ -380,12 +396,12 @@ var _ = Describe("biller", func() {
 				Expect(err).To(BeNil())
 
 				inv := &invoice.Invoice{
-					UserID:           u.ID,
-					TotalCharge:      0,
-					CreditAmount:     2,
-					PeriodStart:      &startTime,
-					PeriodEnd:        &endTime,
-					SuccessfulCharge: false,
+					UserID:       u.ID,
+					TotalCharge:  0,
+					CreditAmount: 2,
+					PeriodStart:  &startTime,
+					PeriodEnd:    &endTime,
+					State:        invoice.StateUnpaid,
 				}
 				err = inv.Insert(db)
 				Expect(err).To(BeNil())
@@ -402,6 +418,7 @@ var _ = Describe("biller", func() {
 				i, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i).ToNot(BeNil())
+				Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 
 				var credit invoiceitem.InvoiceItem
 				for _, it := range i.Items {
@@ -419,11 +436,13 @@ var _ = Describe("biller", func() {
 				i1, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i1).ToNot(BeNil())
+				Expect(i1.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i1.Items).To(HaveLen(5))
 
 				i2, err := b.CreateOrUpdateInvoice()
 				Expect(err).To(BeNil())
 				Expect(i2).ToNot(BeNil())
+				Expect(i2.Invoice.State).To(Equal(invoice.StateUnpaid))
 				Expect(i2.Invoice.ID).To(Equal(i1.Invoice.ID))
 				Expect(i2.Invoice.TotalCharge).To(Equal(i1.Invoice.TotalCharge))
 				Expect(i2.Invoice.CreditAmount).To(Equal(i1.Invoice.CreditAmount))
@@ -452,6 +471,7 @@ var _ = Describe("biller", func() {
 				UserID:      u.ID,
 				PeriodStart: &startTime,
 				PeriodEnd:   &endTime,
+				State:       invoice.StateUnpaid,
 			}
 
 			item1 := invoiceitem.InvoiceItem{
@@ -498,6 +518,7 @@ var _ = Describe("biller", func() {
 			err = b.ProcessStripe(i)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("biller: skipping stripe, billing profile for user %d is in state exempt", u.ID)))
+			Expect(i.Invoice.State).To(Equal(invoice.StateNotPayable))
 		})
 
 		It("should throw an error if the billing profile exists but without a StripeID", func() {
@@ -711,7 +732,7 @@ var _ = Describe("biller", func() {
 					Expect(r["customer"]).To(Equal("St17"))
 
 					Expect(i.Invoice.StripeID.String).To(BeEmpty())
-					Expect(i.Invoice.Deferred).To(BeTrue())
+					Expect(i.Invoice.State).To(Equal(invoice.StateDeferred))
 				})
 
 				It("should continue to submit an invoice if the pending amount is greater", func() {
@@ -730,7 +751,7 @@ var _ = Describe("biller", func() {
 					Expect(r["customer"]).To(Equal("St17"))
 
 					Expect(i.Invoice.StripeID.String).To(Equal("ID1"))
-					Expect(i.Invoice.Deferred).To(BeFalse())
+					Expect(i.Invoice.State).To(Equal(invoice.StateUnpaid))
 				})
 
 				Context("invoice is over threshold", func() {
@@ -794,6 +815,7 @@ var _ = Describe("biller", func() {
 								UserID:      u.ID,
 								PeriodStart: &s1,
 								PeriodEnd:   &e1,
+								State:       invoice.StateUnpaid,
 							}
 							Expect(oInv1.Insert(db)).To(BeNil())
 							_, err := db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
@@ -808,6 +830,7 @@ var _ = Describe("biller", func() {
 								PeriodStart: &s2,
 								PeriodEnd:   &e2,
 								StripeID:    sql.NullString{"oInv2", true},
+								State:       invoice.StateUnpaid,
 							}
 							Expect(oInv2.Insert(db)).To(BeNil())
 							_, err = db.Exec("INSERT INTO invoice_items (invoice_id, host_id, hours, hourly_price, stripe_id, item_type) values ($1, $2, $3, $4, $5, $6);",
@@ -856,6 +879,7 @@ var _ = Describe("biller", func() {
 								UserID:      u.ID,
 								PeriodStart: &s3,
 								PeriodEnd:   &e3,
+								State:       invoice.StateUnpaid,
 							}
 							Expect(oInv3.Insert(db)).To(BeNil())
 							oInv1.CoveredBy = sql.NullInt64{oInv3.ID, true}

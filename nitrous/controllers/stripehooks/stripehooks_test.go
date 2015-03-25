@@ -85,6 +85,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			UserID:      u.ID,
 			TotalCharge: 900,
 			Attempts:    23,
+			State:       invoice.StatePaid,
 			StripeID:    sql.NullString{"Xcccs", true},
 			PeriodStart: &start,
 			PeriodEnd:   &end,

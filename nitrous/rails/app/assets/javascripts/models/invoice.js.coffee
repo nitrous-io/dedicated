@@ -8,9 +8,7 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   totalCharge: attr('number', as: 'total_charge')
   periodStart: attr('date', as: 'period_start')
   periodEnd: attr('date', as: 'period_end')
-  successfulCharge: attr('boolean', as:'successful_charge')
-  deferred: attr('boolean', as: 'deferred')
-  failed: attr('boolean', as: 'failed')
+  state: attr()
   attempted: attr('boolean', as: 'attempted')
   totalCredit: attr('number', as: 'total_credit')
   creditAvailable: attr('number', as: 'available_credit')
@@ -41,6 +39,22 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   totalChargeDollars: (->
     @get('totalCharge') / 100.0
   ).property 'totalCharge'
+
+  deferred: (->
+    @get('state') == 'deferred'
+  ).property 'state'
+
+  successfulCharge: (->
+    @get('state') == 'paid'
+  ).property 'state'
+
+  failed: (->
+    @get('state') == 'failed'
+  ).property 'state'
+
+  payable: (->
+    @get('state') != 'not_payable'
+  ).property 'state'
 
   manuallyPayable: (->
     return false if @get('successfulCharge') || @get('deferred')

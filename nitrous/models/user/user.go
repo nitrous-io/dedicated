@@ -294,14 +294,14 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 }
 
 func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
-	var b bool
-	if err := d.QueryRowx(`SELECT failed FROM invoices WHERE user_id = $1 AND failed = TRUE LIMIT 1;`, u.ID).Scan(&b); err != nil {
+	var count int
+	if err := d.QueryRowx(`SELECT COUNT(*) FROM invoices WHERE user_id = $1 AND state = 'failed';`, u.ID).Scan(&count); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
 		return false, err
 	}
-	return b, nil
+	return count > 0, nil
 }
 
 func (u *User) CanLogin() bool {

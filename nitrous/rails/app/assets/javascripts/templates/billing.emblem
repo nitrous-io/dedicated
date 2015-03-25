@@ -90,28 +90,29 @@ if App.billingUsage
           = simpledate invoice.periodStart
           '  -
           = simpledate invoice.periodEnd
-        unless App.billingProfile.exempt
-          .payment-status class={invoice.unpaid:unpaid}
-            if invoice.awaitingUpdate
-              i.spinner
-              | Verifying
-            else
-              if invoice.manuallyPayable
-                .payment-pay-now-action
-                  button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
-                    if invoice.paying
-                      i.spinner
-                      | Processing
-                    else
-                      | Pay Now
+        if invoice.payable
+          unless App.billingProfile.exempt
+            .payment-status class={invoice.unpaid:unpaid}
+              if invoice.awaitingUpdate
+                i.spinner
+                | Verifying
               else
-                if invoice.successfulCharge
-                  | Paid
+                if invoice.manuallyPayable
+                  .payment-pay-now-action
+                    button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
+                      if invoice.paying
+                        i.spinner
+                        | Processing
+                      else
+                        | Pay Now
                 else
-                  if invoice.deferred
-                    | Deferred
+                  if invoice.successfulCharge
+                    | Paid
                   else
-                    | Unpaid
+                    if invoice.deferred
+                      | Deferred
+                    else
+                      | Unpaid
       table.ui.table.horizontal
         tbody
           = each group in invoice.groupedItems

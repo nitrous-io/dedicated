@@ -134,12 +134,18 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 			UserID:      b.user.ID,
 			PeriodStart: b.periodStart,
 			PeriodEnd:   b.periodEnd,
+			State:       invoice.StateUnpaid,
 			Attempts:    0,
 		}
-	} else if i.SuccessfulCharge {
+	} else if i.State == invoice.StatePaid {
 		return nil, fmt.Errorf("biller: cannot touch invoice %d, already paid", i.ID)
 	}
 	i.TotalCharge = (itemResult.TotalCharge - i.CreditAmount) // reconcile with existing credited amount
+	if i.TotalCharge == 0 {
+		i.State = invoice.StateNotPayable
+	} else {
+		i.State = invoice.StateUnpaid
+	}
 
 	if isNew {
 		err = i.Insert(tx)
@@ -162,6 +168,9 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 		i.AvailableCredit = sql.NullInt64{cr.Available + i.CreditAmount, true}
 		i.TotalCharge += cr.Consumed
 		i.CreditAmount -= cr.Consumed
+		if i.TotalCharge == 0 {
+			i.State = invoice.StateNotPayable
+		}
 		if err = i.Update(tx); err != nil {
 			return nil, fmt.Errorf("biller: failure deducting %d credits (of %d) from invoice %d for user %d, err: %v", cr.Consumed, cr.Available, i.ID, i.UserID, err)
 		}
@@ -183,8 +192,8 @@ func (b *Biller) submitRecentlyDeferred() error {
 	b.logger.Debugf("biller: looking for deferred invoices to submit for user %d", b.user.ID)
 
 	inv := &invoice.Invoice{}
-	err := b.db.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND deferred = TRUE ORDER BY id DESC LIMIT 1`,
-		b.user.ID)
+	err := b.db.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND state = $2 ORDER BY id DESC LIMIT 1`,
+		b.user.ID, invoice.StateDeferred)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -216,6 +225,10 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state no_card", b.user.ID)
 	}
 	if bp.State == billingprofile.StateExempt {
+		inv.State = invoice.StateNotPayable
+		if err := inv.Update(b.db); err != nil {
+			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
+		}
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state exempt", b.user.ID)
 	}
 	if bp.StripeID.String == "" {
@@ -263,7 +276,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		}
 	} else {
 		if inv.TotalCharge != 0 {
-			inv.Deferred = true
+			inv.State = invoice.StateDeferred
 			if err := inv.Update(b.db); err != nil {
 				return fmt.Errorf("biller: failure updating invoice %d as deferred, err: %v", inv.ID, err)
 			}

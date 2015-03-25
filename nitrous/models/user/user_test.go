@@ -763,9 +763,9 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should be false if no invoices have failed", func() {
-			_, err := db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '2 hours', now());", u.ID)
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '2 hours', now());", u.ID)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '4 hours', now() - interval '3 hours');", u.ID)
+			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '4 hours', now() - interval '3 hours');", u.ID)
 			Expect(err).To(BeNil())
 
 			state, err := u.HasFailedPayments(db)
@@ -774,11 +774,11 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should be true if any invoices have failed", func() {
-			_, err := db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, TRUE, now() - interval '2 hours', now());", u.ID)
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'failed', now() - interval '2 hours', now());", u.ID)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '4 hours', now() - interval '3 hours');", u.ID)
+			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '4 hours', now() - interval '3 hours');", u.ID)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO invoices (user_id, failed, period_start, period_end) values ($1, FALSE, now() - interval '8 hours', now() - interval '6 hours');", u.ID)
+			_, err = db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end) values ($1, 'unpaid', now() - interval '8 hours', now() - interval '6 hours');", u.ID)
 			Expect(err).To(BeNil())
 
 			state, err := u.HasFailedPayments(db)
