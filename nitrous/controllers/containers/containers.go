@@ -77,7 +77,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var err error
 
 	hSlug := r.FormValue("host")
-	hosts := []host.Host{}
+	hosts := []*host.Host{}
 	containersResp := []*serializers.Container{}
 
 	// If no host is provided, then get all hosts belonging to the user
@@ -90,7 +90,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
-		hosts = []host.Host{*h}
+		hosts = []*host.Host{h}
 	} else {
 		hosts, err = host.FindAllByUser(db, env.User)
 		if err != nil {
@@ -101,7 +101,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	errorMessages := []string{}
 
 	for _, h := range hosts {
-		liveContainers, freighterErr := freighterList(db, &h, env)
+		liveContainers, freighterErr := freighterList(db, h, env)
 
 		savedContainers, err := container.FindAllByHostID(db, h.ID)
 		if err != nil {
@@ -138,9 +138,9 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			var cn *container.Container
 			if savedContainer != nil {
-				cn = hydrateContainer(savedContainer, lc, &h)
+				cn = hydrateContainer(savedContainer, lc, h)
 			} else {
-				cn = mkContainer(lc, &h)
+				cn = mkContainer(lc, h)
 			}
 
 			containersResp = append(containersResp, serializers.SerializeContainer(cn))
