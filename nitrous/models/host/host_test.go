@@ -12,7 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,15 +25,15 @@ func Test(t *testing.T) {
 var _ = Describe("models/host", func() {
 	var (
 		db *ndb.Database
-		hs *HostStack
+		hs *test.HostStack
 	)
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, nil)
+		hs, err = test.CreateHostStack(db, nil)
 		Expect(err).To(BeNil())
 	})
 
@@ -60,7 +60,7 @@ var _ = Describe("models/host", func() {
 				Email:    "arunthampi@gmail.com",
 				Password: "teh interview is osom",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
@@ -79,7 +79,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
@@ -93,7 +93,7 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 
 			// Create a host belonging to a different provider.
-			_, err = CreateHostStack(db, &HostStack{
+			_, err = test.CreateHostStack(db, &test.HostStack{
 				H:  &host.Host{Slug: "other-1"},
 				PT: &providertemplate.ProviderTemplate{Provider: "some-other-provider"},
 			})
@@ -124,7 +124,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -132,7 +132,7 @@ var _ = Describe("models/host", func() {
 				Email:    "bar@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			// insert a valid running host
@@ -201,7 +201,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u1.Insert)
+			err = test.WrapInTransaction(db, u1.Insert)
 			Expect(err).To(BeNil())
 
 			u2 = &user.User{
@@ -209,7 +209,7 @@ var _ = Describe("models/host", func() {
 				Email:    "bar@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u2.Insert)
+			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -250,7 +250,7 @@ var _ = Describe("models/host", func() {
 	})
 
 	Describe("CountPreprovisioned()", func() {
-		var hs2 *HostStack
+		var hs2 *test.HostStack
 
 		BeforeEach(func() {
 			var err error
@@ -261,7 +261,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -280,7 +280,7 @@ var _ = Describe("models/host", func() {
 				u.ID, "preprovisioned-host-3", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, time.Now())
 			Expect(err).To(BeNil())
 
-			hs2, err = CreateHostStack(db, nil)
+			hs2, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned)
@@ -303,7 +303,7 @@ var _ = Describe("models/host", func() {
 	})
 
 	Describe("CountPreprovisionedOrphans()", func() {
-		var hs2 *HostStack
+		var hs2 *test.HostStack
 		fv := "1.0.69-deadbeef-88"
 		dv := "1.4.1-nitrous"
 
@@ -314,7 +314,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -328,7 +328,7 @@ var _ = Describe("models/host", func() {
 				u.ID, "preprovisioned-host-2", hs.R.ID, hs.P.ID, fv, dv, hs.PT.ID, true, host.StateRunning)
 			Expect(err).To(BeNil())
 
-			hs2, err = CreateHostStack(db, nil)
+			hs2, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, freighterd_version, docker_version, provider_template_id, preprovisioned, state)
@@ -373,7 +373,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, strconv.FormatInt(hs.H.ID, 10))
@@ -406,7 +406,7 @@ var _ = Describe("models/host", func() {
 					Email:    "barbaz@example.com",
 					Password: "123456",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				h, err := host.Find(db, u, hs.H.Slug)
@@ -497,7 +497,7 @@ var _ = Describe("models/host", func() {
 				Email:    "pp@example.com",
 				Password: "pp1234",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO hosts
@@ -527,7 +527,7 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("does not find the host if there are no pre-provisioned hosts in the given region and plan", func() {
-			hs2, err := CreateHostStack(db, nil)
+			hs2, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h, err := host.FindPreprovisioned(db, hs2.R, hs2.P)
@@ -551,7 +551,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			h = &host.Host{
@@ -755,7 +755,7 @@ var _ = Describe("models/host", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err = WrapInTransaction(db, u.Insert)
+			err = test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			err = h.Reassign(db, u)
