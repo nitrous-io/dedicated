@@ -280,8 +280,8 @@ func fetchHosts(db *db.Database, user *user.User) (map[int64]*host.Host, error) 
 		return nil, err
 	}
 	hMap := make(map[int64]*host.Host)
-	for indx, host := range hosts {
-		hMap[host.ID] = &hosts[indx]
+	for _, host := range hosts {
+		hMap[host.ID] = host
 	}
 	return hMap, nil
 }

@@ -567,7 +567,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				Expect(msgs[4]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(&h),
+						"host": serializers.SerializeHost(h),
 					},
 				}), "unexpected event, wanted EventHostCreated")
 			}
@@ -772,7 +772,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					hosts, err := host.FindAllByUser(db, u)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
-					h := &hosts[0]
+					h := hosts[0]
 
 					Expect(msgs[0]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreating,

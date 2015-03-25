@@ -300,9 +300,9 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planH
 	}
 	for _, invI := range items {
 		var matchingHost *host.Host
-		for indx, hst := range hosts {
+		for _, hst := range hosts {
 			if hst.ID == invI.HostID.Int64 {
-				matchingHost = &hosts[indx]
+				matchingHost = hst
 				break
 			}
 		}
