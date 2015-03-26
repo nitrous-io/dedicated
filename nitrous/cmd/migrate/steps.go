@@ -291,8 +291,14 @@ func sanityCheck() error {
 		}
 	}()
 
-	// get the IDs of the containers, reverse to get the size (which is last)
-	cmd := `sudo docker ps -a -s | sed -n '1!p' | sed "s/[[:space:]][[:space:]]\+/|/g" | sort -nr | while read -r i; do size=` + "`echo $i | rev | cut -d\" | \" -f1 | rev`" + `; crucial=` + "`echo $i | cut -d\" | \" -f1,2,3`" + `; echo "$crucial $size"; done`
+	// output of docker ps -a -s looks like
+	// CONTAINER ID        IMAGE                                       COMMAND                CREATED             STATUS                      PORTS                                            NAMES               SIZE
+	// 82a32f8fda1e        quay.io/nitrous/golang:latest               "/sbin/init --defaul   5 days ago          Exited (0) 18 minutes ago   0.0.0.0:49167->22/tcp, 0.0.0.0:49168->6060/tcp   terra-4791          254 MB
+
+	// after cmd pipeline, above should look like:
+	// 82a32f8fda1e quay.io/nitrous/golang:latest terra-4791 254MB
+
+	cmd := `sudo docker ps -a -s | tail -n +2 | sort -n | awk '{ print $1, $2, $(NF-2), $(NF-1)$NF }'`
 
 	dstPs, err := destSSHHost.CombinedOutput(cmd)
 	if err != nil {
