@@ -98,16 +98,6 @@ var _ = Describe("models/region", func() {
 		})
 	})
 
-	Describe("All()", func() {
-		It("returns all regions, ordered by rank", func() {
-			rs, err := region.All(db)
-			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(3))
-			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug}).To(Equal([]string{"useast", "apse1", "vegas"}))
-			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name}).To(Equal([]string{"US East", "Southeast Asia", "Vegas"}))
-		})
-	})
-
 	Describe("AllForProvider()", func() {
 		It("returns all regions for the given provider, ordered by rank", func() {
 			// Add associated provider templates for the regions in the database.

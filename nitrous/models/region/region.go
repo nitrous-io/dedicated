@@ -33,14 +33,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Region, error) {
 	return r, nil
 }
 
-func All(d db.QueryReceiver) ([]*Region, error) {
-	rs := []*Region{}
-	if err := d.Select(&rs, `SELECT * FROM regions WHERE disabled_at IS NULL OR disabled_at > now() ORDER BY rank`); err != nil {
-		return nil, err
-	}
-	return rs, nil
-}
-
 func AllForProvider(d db.QueryReceiver, provider string) ([]*Region, error) {
 	rs := []*Region{}
 	if err := d.Select(&rs, `SELECT * FROM regions
