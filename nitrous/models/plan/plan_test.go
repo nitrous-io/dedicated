@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -27,7 +27,7 @@ var _ = Describe("models/plan", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
@@ -160,10 +160,10 @@ var _ = Describe("models/plan", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			hs1, err := CreateHostStack(db, &HostStack{
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 2000,
@@ -182,7 +182,7 @@ var _ = Describe("models/plan", func() {
 			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			hs2, err := CreateHostStack(db, &HostStack{
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-2",
 					HourlyPrice: 500,
