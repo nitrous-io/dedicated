@@ -23,12 +23,13 @@ var (
  * an embedded struct for host announcement.
  */
 type HostOwner struct {
-	HostID   int64  `db:"host_id"`
-	UserID   int64  `db:"user_id"`
-	Username string `db:"username"`
-	Fullname string `db:"fullname"`
-	Email    string `db:"email"`
-	Slug     string `db:"slug"`
+	HostID        int64       `db:"host_id"`
+	HostCreatedAt pq.NullTime `db:"host_created_at"`
+	UserID        int64       `db:"user_id"`
+	Username      string      `db:"username"`
+	Fullname      string      `db:"fullname"`
+	Email         string      `db:"email"`
+	Slug          string      `db:"slug"`
 }
 
 /*
@@ -91,7 +92,8 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
 	err := db.Get(owner, `SELECT
-		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email
+		hosts.id AS host_id, hosts.created_at AS host_created_at,
+		users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
 		WHERE hosts.id=$1;
 	`, hostID)
@@ -115,7 +117,8 @@ func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, er
 	}
 
 	query := fmt.Sprintf(`SELECT
-		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email
+		hosts.id AS host_id, hosts.created_at AS host_created_at,
+		users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
 		WHERE hosts.slug IN (%s);`, strings.Join(placeholders, ", "))
 
@@ -173,14 +176,18 @@ func FindByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error)
 		return nil, err
 	}
 
-	hostAnnouncements := make([]*HostAnnouncement, len(announcements))
+	var hostAnnouncements []*HostAnnouncement
 
 	// Manually join the same owner to each announcement to form HostAnnouncement
-	for i, ann := range announcements {
-		hostAnnouncements[i] = &HostAnnouncement{
+	for _, ann := range announcements {
+		// exclude hosts created after announcement
+		if owner.HostCreatedAt.Valid && ann.CreatedAt.Valid && owner.HostCreatedAt.Time.After(ann.CreatedAt.Time) {
+			continue
+		}
+		hostAnnouncements = append(hostAnnouncements, &HostAnnouncement{
 			Announcement: ann,
 			HostOwner:    owner,
-		}
+		})
 	}
 
 	return hostAnnouncements, nil
