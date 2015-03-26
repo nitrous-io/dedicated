@@ -156,19 +156,20 @@ func restoreServers() error {
 		return fmt.Errorf("Unable to begin transaction for record updates. err: %v", err)
 	}
 
-	for _, nm := range allDBHosts() {
-		nm.host.State = "running"
-		_, err = tx.Exec("UPDATE hosts SET state = $1 WHERE id = $2", nm.host.State, nm.host.ID)
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("[%s] Unable to database values. err: %v", nm.name, err)
-		}
+	logr.Info("[SRC] Setting state to running")
+	// leave DST state in migrating so users don't see it
+	nm := namedDB{srcDBHost, "SRC"}
+	nm.host.State = "running"
+	_, err = tx.Exec("UPDATE hosts SET state = $1 WHERE id = $2", nm.host.State, nm.host.ID)
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[%s] Unable to database values. err: %v", nm.name, err)
+	}
 
-		err = hosttransition.Record(tx, nm.host, "migrating", time.Now())
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("[%s] Unable to transition host. err: %v", nm.name, err)
-		}
+	err = hosttransition.Record(tx, nm.host, "migrating", time.Now())
+	if err != nil {
+		tx.Rollback()
+		return fmt.Errorf("[%s] Unable to transition host. err: %v", nm.name, err)
 	}
 
 	logr.Info("[SRC] Starting docker")
