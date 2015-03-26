@@ -58,12 +58,21 @@ var (
 		"1gb": "ebs-small",
 		"2gb": "ebs-medium",
 		"4gb": "ebs-large",
+		// support ec2->ec2
+		"ebs-small":  "ebs-small",
+		"ebs-medium": "ebs-medium",
+		"ebs-large":  "ebs-large",
 	}
 	regionMap = map[string]string{
 		"sfo": "usw2",
 		"nyc": "use1",
 		"ams": "euw1",
 		"sgp": "apse1",
+		// support ec2->ec2
+		"usw2":  "usw2",
+		"use1":  "use1",
+		"euw1":  "euw1",
+		"apse1": "apse1",
 	}
 )
 
