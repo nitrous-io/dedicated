@@ -16,6 +16,7 @@ type ProviderTemplate struct {
 	Config            hstore.Hstore `db:"config"`
 	PreprovisionMax   int           `db:"preprovision_max"`
 	SupportsStopStart bool          `db:"supports_start_stop"`
+	Disabled          bool          `db:"disabled"`
 	CreatedAt         *time.Time    `db:"created_at"`
 	UpdatedAt         *time.Time    `db:"updated_at"`
 }
@@ -57,8 +58,8 @@ func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, 
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
-		(region_id, plan_id, name, provider, config, preprovision_max)
-		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max)
+		(region_id, plan_id, name, provider, config, preprovision_max, disabled)
+		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max, :disabled)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -68,8 +69,8 @@ func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 
 func (pt *ProviderTemplate) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE provider_templates
-		SET (name, provider, config, preprovision_max, updated_at)
-		= (:name, :provider, :config, :preprovision_max, now())
+		SET (name, provider, config, preprovision_max, disabled, updated_at)
+		= (:name, :provider, :config, :preprovision_max, :disabled, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
