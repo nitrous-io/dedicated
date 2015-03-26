@@ -35,7 +35,7 @@ App.ImagesPullController = Em.Controller.extend
         repo = repo.replace /:?$/, ':latest'
       @set 'repo', repo
 
-      App.Image.pull(@get('selectedHost'), repo, false).then (image) =>
+      App.Image.pull(@get('selectedHostSlug'), repo, false).then (image) =>
         @set 'image', image
 
         onImagePullFailed = (data) =>

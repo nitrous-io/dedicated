@@ -26,7 +26,7 @@ App.HostImagesController = Lib.RecordListController.extend
 
       fns = selected.map (record) ->
         (cb) ->
-          App.Image.pull host, record.get('repo'), (resp) ->
+          App.Image.pull host.get('slug'), record.get('repo'), (resp) ->
             cb(null)
           , (jqxhr) -> # record.ajax
             App.postError(jqxhr.responseJSON, 'Failed to update image!')

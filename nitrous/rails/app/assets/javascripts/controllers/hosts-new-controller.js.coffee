@@ -1,4 +1,7 @@
 App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
+  queryParams: ['pendingContainer']
+  pendingContainer: false
+
   canSelectPlan: true
   name: null
   selectedRegion: null
@@ -20,10 +23,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       host: null
       saving: false
       bypassPreprovision: false
+    if @get('hasPendingContainer')
+      @set('name', App.get('pendingContainerData.name'))
 
-  canCancel: (->
-    !App.get('noHost')
-  ).property 'App.noHost'
+  hasPendingContainer: (->
+    @get('pendingContainer') && App.get('pendingContainerData')
+  ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
     unless @get('selectedPlan')
@@ -43,11 +48,20 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       @transitionToRoute 'home.index'
       false
 
+    goBack: ->
+      if App.get('pendingContainerData')
+        App.set('pendingContainerData', null)
+        @transitionToRoute 'containers.new'
+        return
+      @transitionToRoute 'home.index'
+
     create: (host) ->
       if !host
         host = App.Host.create
           regionSlug: @get('selectedRegion.slug')
+          regionId: @get('selectedRegion.id')
           planSlug: @get('selectedPlan.slug')
+          planId: @get('selectedPlan.id')
           name: @get 'name'
       @set 'host', host
 
@@ -72,8 +86,15 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         return unless hostData.id == host.get('id')
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
-        @transitionToRoute 'host.index', host.get('slug')
-        App.snackbar.post("Your new workspace “#{host.get('slug')}” was created successfully.", sticky: true)
+
+        # Check if there's a pending container that we should now create.
+        if pendingContainerData = App.get('pendingContainerData')
+          pendingContainerData.set('selectedHostSlug', host.get('slug'))
+          @transitionToRoute 'containers.new', queryParams: { runCreate: true }
+        else
+          @transitionToRoute 'host.index', host.get('slug')
+          App.snackbar.post("Your new workspace “#{host.get('slug')}” was created successfully.", sticky: true)
+
         @set 'saving', false
 
       events.on 'host.create_failed', onHostCreateFailed
