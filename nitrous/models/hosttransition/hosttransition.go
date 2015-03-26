@@ -48,22 +48,53 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 	return hT, err
 }
 
-func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
-	times := []*HostUsage{}
-	sHostIDs := []string{}
-	for _, hID := range hostIDs {
-		sHostIDs = append(sHostIDs, strconv.FormatInt(hID, 10))
+func joinInts(ids []int64) string {
+	sids := make([]string, len(ids))
+	for i, id := range ids {
+		sids[i] = strconv.FormatInt(id, 10)
 	}
+	return strings.Join(sids, ", ")
+}
+
+// Find the total running time of all provided hosts
+func UsageTimeForHosts(d db.QueryReceiver, hostIDs []int64) (int64, error) {
+	query := fmt.Sprintf(`SELECT 
+		sum(ceiling(
+			cast(
+				EXTRACT(
+					EPOCH FROM 
+					LEAST(ended_at, now()) 
+					- created_at
+				) 
+				AS integer
+			) / 60.0
+		)) minutes
+		FROM host_transitions
+		WHERE host_id IN (%s)
+		AND state = 'running';
+	`, joinInts(hostIDs))
+
+	res := struct {
+		Minutes int64 `db:"minutes"`
+	}{}
+
+	err := d.Get(&res, query)
+	return res.Minutes, err
+}
+
+func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
 	query := fmt.Sprintf(`SELECT host_id,
-			ceiling(cast((EXTRACT(EPOCH FROM LEAST(COALESCE(ended_at, $2), $2) - GREATEST(created_at, $1))) as integer) / 60.0) minutes,
-			GREATEST(created_at, $1) start_at,
-			LEAST(COALESCE(ended_at, $2), $2) end_at
-			FROM host_transitions
-			WHERE host_id IN (%s)
-			AND state = 'running'
-			AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($1, $2)
-			ORDER BY id ASC;
-			`, strings.Join(sHostIDs, ","))
+		ceiling(cast((EXTRACT(EPOCH FROM LEAST(COALESCE(ended_at, $2), $2) - GREATEST(created_at, $1))) as integer) / 60.0) minutes,
+		GREATEST(created_at, $1) start_at,
+		LEAST(COALESCE(ended_at, $2), $2) end_at
+		FROM host_transitions
+		WHERE host_id IN (%s)
+		AND state = 'running'
+		AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($1, $2)
+		ORDER BY id ASC;
+	`, joinInts(hostIDs))
+
+	times := []*HostUsage{}
 	if err := d.Select(&times, query, start, end); err != nil {
 		return nil, err
 	}

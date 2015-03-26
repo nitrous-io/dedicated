@@ -102,6 +102,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	err = CheckCreateHostPermission(db, u, pl)
+	if err != nil {
+		return err
+	}
+
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
 	if err := t.Insert(db); err != nil {
 		return err
