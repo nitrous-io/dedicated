@@ -96,7 +96,7 @@ func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState con
 		if err == errContainerLocked {
 			logger.Infof("Failed to lock container: container is already locked. %+v", cn)
 		} else {
-			logger.Errorf("Error in container transition state %s for container %+v: %s", cn, tempState, err)
+			logger.Errorf("Error in container transition state %s for container %+v: %s", tempState, cn, err)
 		}
 	}
 }

@@ -88,12 +88,12 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	}
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
-		env.Logger.Errorf("Error looking up user %d for invoice %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		env.Logger.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
 	sInv, err := serializeInvoice(env.DB, inv, env.Logger)
 	if err != nil {
-		env.Logger.Errorf("Error serializing invoice %d for user %d pubsub %s, err: %+v", inv.UserID, inv.ID, err)
+		env.Logger.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
 	env.Events.Publish(
