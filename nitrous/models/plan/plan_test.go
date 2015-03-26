@@ -126,23 +126,6 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("Enabled()", func() {
-		It("returns all enabled plans", func() {
-			// Add a disabled plan.
-			_, err := db.Exec(`INSERT INTO plans
-				(slug, name, max_containers, price, cpu, memory, storage, disabled)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				"3gb", "Medium", 4, 4995, "6", "3 GB", "40 GB", true)
-			Expect(err).To(BeNil())
-
-			pls, err := plan.Enabled(db)
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
-			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
-			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
-		})
-	})
-
 	Describe("PlanPricingHostMap()", func() {
 		It("returns a mapping of host IDs to plan prices for a user", func() {
 			u := &user.User{

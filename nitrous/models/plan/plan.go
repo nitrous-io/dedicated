@@ -44,14 +44,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	return plan, nil
 }
 
-func Enabled(d db.QueryReceiver) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans WHERE disabled = false ORDER BY (price, max_containers, name);`); err != nil {
-		return nil, err
-	}
-	return pls, nil
-}
-
 func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing, error) {
 	type planHost struct {
 		HostID        int64 `db:"host_id"`
