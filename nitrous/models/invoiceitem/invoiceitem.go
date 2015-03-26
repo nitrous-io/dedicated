@@ -40,6 +40,8 @@ const (
 	ItemTypeCredit  = "credit"
 	ItemTypeCompute = "compute"
 	ItemTypeBaseEBS = "base_ebs"
+
+	ItemTypeFreeCompute = "free_compute"
 )
 
 const MaxHours = 28 * 24
@@ -161,7 +163,7 @@ func (i *InvoiceItem) validate() error {
 		return nil
 	}
 
-	if i.ItemType == ItemTypeCompute && !i.PlanMemory.Valid {
+	if (i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeFreeCompute) && !i.PlanMemory.Valid {
 		return ErrPlanMemoryMissing
 	}
 
@@ -169,7 +171,9 @@ func (i *InvoiceItem) validate() error {
 		return ErrPlanStorageMissing
 	}
 
-	if i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeBaseEBS {
+	if i.ItemType == ItemTypeCompute ||
+		i.ItemType == ItemTypeBaseEBS ||
+		i.ItemType == ItemTypeFreeCompute {
 		if !i.Hours.Valid {
 			return ErrHoursInvalid
 		}
@@ -179,6 +183,11 @@ func (i *InvoiceItem) validate() error {
 		if i.Hours.Int64 > MaxHours {
 			return ErrHoursExceedMaxHours
 		}
+
+		if i.ItemType == ItemTypeFreeCompute {
+			return nil
+		}
+
 		if !i.HourlyPrice.Valid {
 			return ErrHourlyPriceInvalid
 		}
