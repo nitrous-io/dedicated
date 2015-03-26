@@ -126,16 +126,6 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("All()", func() {
-		It("returns all plans", func() {
-			pls, err := plan.All(db)
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
-			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
-			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
-		})
-	})
-
 	Describe("Enabled()", func() {
 		It("returns all enabled plans", func() {
 			// Add a disabled plan.

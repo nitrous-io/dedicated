@@ -44,14 +44,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	return plan, nil
 }
 
-func All(d db.QueryReceiver) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans ORDER BY (price, max_containers, name)`); err != nil {
-		return nil, err
-	}
-	return pls, nil
-}
-
 func Enabled(d db.QueryReceiver) ([]*Plan, error) {
 	pls := []*Plan{}
 	if err := d.Select(&pls, `SELECT * FROM plans WHERE disabled = false ORDER BY (price, max_containers, name);`); err != nil {
