@@ -99,6 +99,10 @@ type HostConfig struct {
 	SecurityGroupID string `json:"security_group_id"`
 	IPAddress       string `json:"ip_address"`
 
+	// DisableEIP disables the allocation of Elastic IP for the current host
+	// When this happens, the returned IP will be the host's public IP.
+	DisableEIP bool `json:"disable_eip"`
+
 	// VPC specific settings
 	SubnetID string `json:"subnet_id"`
 
@@ -270,15 +274,17 @@ func (h *Host) Destroy() error {
 		return mh.Error(err, label)
 	}
 
-	ip := h.Config.IPAddress
-	if ip != "" {
-		// release elastic IP stored in the client. We cant use
-		// h.instance.PublicIPAddress because it's not guaranteed to be
-		// the correct IP when the instance is stopped
-		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
-			err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-				h.Config.IPAddress, h.instance.InstanceId, err)
-			return mh.Error(err, label)
+	// if eip is disabled for this host, we dont need to release it
+	if !h.Config.DisableEIP {
+		if ip := h.Config.IPAddress; ip != "" {
+			// release elastic IP stored in the client. We cant use
+			// h.instance.PublicIPAddress because it's not guaranteed to be
+			// the correct IP when the instance is stopped
+			if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+				err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
+					h.Config.IPAddress, h.instance.InstanceId, err)
+				return mh.Error(err, label)
+			}
 		}
 	}
 
@@ -369,7 +375,7 @@ func (h *Host) Start() (*host.Info, error) {
 	// if this is a VPC instance, we dont have to reassociate ElasticIP because
 	// it will be persisted after stop by default.
 	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
-	if !isVPC(h.instance) {
+	if !isVPC(h.instance) && !h.Config.DisableEIP {
 		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
 			InstanceId:         h.instance.InstanceId,
 			PublicIp:           h.Config.IPAddress,
@@ -651,6 +657,7 @@ func createInstance(ctx *host.HostContext) error {
 				DeleteOnTermination: true,
 			},
 		},
+		AssociatePublicIpAddress: true,
 	}
 	// assigned subnet ID for VPC instance
 	if h.Config.SubnetID != "" {
@@ -674,6 +681,10 @@ func createInstance(ctx *host.HostContext) error {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
+	if h.instance.PublicIpAddress == "" {
+		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceId)
+	}
+
 	return nil
 }
 
@@ -682,6 +693,10 @@ func createInstance(ctx *host.HostContext) error {
 // when it's stopped/restarted
 func allocateElasticIP(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
+	// if eip is disabled on this host, we dont want to allocate it
+	if h.Config.DisableEIP {
+		return nil
+	}
 	label := h.metricsLabel("allocate_ip")
 	defer mh.UpdateSince(label, time.Now())
 

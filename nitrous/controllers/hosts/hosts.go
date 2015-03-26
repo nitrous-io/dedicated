@@ -84,7 +84,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(&h)
+		hostsResp[i] = serializers.SerializeHost(h)
 	}
 
 	env.Status = http.StatusOK

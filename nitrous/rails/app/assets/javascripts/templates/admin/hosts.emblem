@@ -2,7 +2,6 @@
   h2 Admin &mdash; Hosts
 
 .card-body
-
   h3
     ' Unaccounted
     i.fa.fa-question-circle title="in Hostbuilder but not in DB"

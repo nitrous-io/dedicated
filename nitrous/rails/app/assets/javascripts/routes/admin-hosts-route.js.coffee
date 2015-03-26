@@ -27,9 +27,12 @@ App.AdminHostsRoute = App.AdminRoute.extend App.PerformActionMixin,
 
     terminateUnaccounted: (host) ->
       Em.$.ajax(
-        type: 'DELETE'
-        url: "/api/v0/admin/terminate_unaccounted_host?provider=#{@get('provider')}&provider_identifier=#{host.get('id')}"
+        type: 'POST'
+        url: '/api/v0/admin/terminate_unaccounted_host'
         cache: false
+        data:
+          provider: @get('provider')
+          provider_identifier: host.get('id')
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).then =>
         App.snackbar.post('Unaccounted host was successfully terminated.')

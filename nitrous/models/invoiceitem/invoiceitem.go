@@ -73,7 +73,8 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	} else {
 		descType = fmt.Sprintf("compute (%s memory)", i.PlanMemory.String)
 	}
-	return fmt.Sprintf("'%s' %s - %d hours at %sc/hour%s", hst.Slug, descType, i.Hours.Int64, prcnt, state)
+	slug := strings.TrimPrefix(hst.Slug, "migrated-")
+	return fmt.Sprintf("'%s' %s - %d hours at %sc/hour%s", slug, descType, i.Hours.Int64, prcnt, state)
 }
 
 func FindAllForInvoice(d db.QueryReceiver, iID int64) ([]InvoiceItem, error) {

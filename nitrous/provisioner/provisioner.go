@@ -602,6 +602,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
+		h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	}
 
 	if err != nil {
@@ -610,7 +611,6 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}
 
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
-	h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	h.State = host.StateRunning
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 
@@ -723,6 +723,15 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 			return config, fmt.Errorf("invalid size for config %v", config)
 		}
 		config["storage_size"] = size
+
+		// convert disable_eip to format accepted by hostbuilder
+		// if disable_eip is invalid, it will be set to false
+		if disableEIPconf, ok := config["disable_eip"]; ok {
+			disableEIP, _ := strconv.ParseBool(disableEIPconf.(string))
+			config["disable_eip"] = disableEIP
+		} else {
+			config["disable_eip"] = false
+		}
 	case DockerProvider:
 		// no special config required
 	default:

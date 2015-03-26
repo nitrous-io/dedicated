@@ -56,7 +56,7 @@
           .target
         .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
           .target
-        .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers will full root-enabled shell access"
+        .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers with full root-enabled shell access"
           .target
         .annotation-dot.tooltip.blue.zoom data-id="4" data-tooltip="Edit files side by side with Nitrous's new Split Editing mode"
           .target
@@ -114,9 +114,8 @@
     .container
       .pull-wrapper
         .pull-left
-          a href="#"
-            = image_tag 'home/nitrous-desktop-featurette.png', alt: 'Nitrous Desktop'
-            = image_tag 'home/nitrous-desktop-icon.png', class: 'app-icon', alt: 'Nitrous Desktop'
+          = image_tag 'home/nitrous-desktop-featurette.png', alt: 'Nitrous Desktop'
+          = image_tag 'home/nitrous-desktop-icon.png', class: 'app-icon', alt: 'Nitrous Desktop'
 
         .pull-right
           h3.section-title Nitrous Sync
@@ -125,7 +124,7 @@
             h4 Manage cloud environments
             p
               a href="#" Nitrous Sync&nbsp;
-              | (available for Windows and Mac OS X) lets you manage your Nitrous boxes running in the cloud.
+              | (available for Windows, OS X, and Linux) lets you manage your Nitrous boxes running in the cloud.
 
           .item
             h4 Use your favorite editor
@@ -137,6 +136,11 @@
               ' ,
               a href="http://macromates.com/" target="_blank" Textmate
               | &nbsp;or your favorite desktop text editor.
+              
+            .download-btns
+              a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
+              a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
+              a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
 
 
   article.quotes

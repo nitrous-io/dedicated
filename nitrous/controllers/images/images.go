@@ -43,7 +43,7 @@ var (
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	hSlug := mux.Vars(r)["slug"]
 	var (
-		hosts      []host.Host
+		hosts      []*host.Host
 		hostFilter *host.Host
 		db         = env.DB
 		user       = env.User
@@ -69,7 +69,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	} else {
-		hosts = []host.Host{*hostFilter}
+		hosts = []*host.Host{hostFilter}
 	}
 
 	dbImgs, err := image.FindAll(db, user, hostFilter)
@@ -117,10 +117,10 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func findImagesInHosts(db db.QueryReceiver, hosts []host.Host, env *middleware.Env) ([]*freighterclient.Image, error) {
+func findImagesInHosts(db db.QueryReceiver, hosts []*host.Host, env *middleware.Env) ([]*freighterclient.Image, error) {
 	var allImgs []*freighterclient.Image
 	for _, h := range hosts {
-		cl, err := controllers.NewFreighterClient(db, &h, env.UUID)
+		cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 		if err != nil {
 			return nil, err
 		}

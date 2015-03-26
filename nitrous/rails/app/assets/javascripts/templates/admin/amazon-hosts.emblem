@@ -10,16 +10,22 @@
       table.ui.table
         tbody
           tr
+            th.checkbox
+            th.actions Actions
             th PID
             th Slug
             th State
             th EC2 Region
             th IP Address
             th Freighterd Port
-            th Actions
 
           = each host in hosts.unaccounted_hosts
             tr
+              td.ui.checkbox
+                = input type='checkbox' checked=host.uiState.selected
+                label
+              td.actions
+                button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
               td title=id
                 = host.id
               td = host.name
@@ -27,8 +33,9 @@
               td = host.region
               td = host.ip_address
               td = host.freighterd_port
-              td.actions
-                button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
+
+    .actions
+      button.ui.btn.raised click='showUnaccountedHostBulkDialog' Bulk Unaccounted Host Actions
 
     h3
       ' Dangling :
@@ -38,16 +45,22 @@
       table.ui.table
         tbody
           tr
+            th.checkbox
+            th.actions Actions
             th HID
             th PID
             th Slug
             th DB State
             th Region
             th Plan
-            th Actions
 
           = each host in hosts.dangling_hosts
             tr
+              td.ui.checkbox
+                = input type='checkbox' checked=host.uiState.selected
+                label
+              td.actions
+                button.ui.btn.raised click='showProblemHostDialog host' Actions
               td.id = host.id
               td.id = host.provider_identifier
               td.slug = host.slug
@@ -56,8 +69,9 @@
                 = region-slug host.region_id
               td.plan 
                 = plan-slug host.plan_id
-              th.actions
-                button.ui.btn.raised click='showProblemHostDialog host' Actions
+
+    .actions
+      button.ui.btn.raised click='showDanglingHostBulkDialog' Bulk Dangling Host Actions
 
     h3
       ' Inconsistent :
@@ -67,6 +81,8 @@
       table.ui.table
         tbody
           tr
+            th.checkbox
+            th.actions Actions
             th HID
             th PID
             th Slug
@@ -75,10 +91,14 @@
             th EC2 Region
             th Region
             th Plan
-            th Actions
 
           = each entry in hosts.inconsistent_hosts
             tr
+              td.ui.checkbox
+                = input type='checkbox' checked=entry.uiState.selected
+                label
+              td.actions
+                button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
               td.id = entry.db_host.id
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
@@ -89,8 +109,9 @@
                 = region-slug entry.db_host.region_id
               td.plan 
                 = plan-slug entry.db_host.plan_id
-              th.actions
-                button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
+
+    .actions
+      button.ui.btn.raised click='showInconsistentHostBulkDialog' Bulk Inconsistent Host Actions
 
     h3
       ' Healthy:
@@ -100,6 +121,8 @@
       table.ui.table
         tbody
           tr
+            th.checkbox
+            th.actions Actions
             th HID
             th PID
             th Slug
@@ -107,10 +130,14 @@
             th EC2 Region
             th Region
             th Plan
-            th Actions
 
           = each entry in hosts.healthy_hosts
             tr
+              td.ui.checkbox
+                = input type='checkbox' checked=entry.uiState.selected
+                label
+              td.actions
+                button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
               td.id = entry.db_host.id
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
@@ -120,8 +147,9 @@
                 = region-slug entry.db_host.region_id
               td.plan 
                 = plan-slug entry.db_host.plan_id
-              th.actions
-                button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
+
+    .actions
+      button.ui.btn.raised click='showHealthyHostBulkDialog' Bulk Healthy Host Actions
 
     .card-body.bordered
       unless fetchingHosts
@@ -136,8 +164,9 @@
         | Perform Action
       .card-body
         p
-          | Select action to perform on 
-          = targetHost.slug
+          | Select action to perform on the following hosts:
+        p
+          = targetHostSlugs
       .card-footer
         .right
           button.ui.btn click='cancelAction' Cancel
@@ -155,18 +184,15 @@
         p
           | Are you ABSOLUTELY sure you want to 
           = selectedAction.name
-          ' ?
+          ' the following host(s):
+        p
+          = targetHostSlugs
         p
           = selectedAction.description
 
       .card-footer
         .right
-          unless inProgress
-            button.ui.btn click='cancelAction' Cancel
-            button.ui.btn.danger.terminate-btn click='confirmAction'
-              | Confirm 
-              = selectedAction.name
-          else
-            button.ui.btn disabled=true
-              = selectedAction.progressName
-              | ...
+          button.ui.btn click='cancelAction' Cancel
+          button.ui.btn.danger.terminate-btn click='confirmAction'
+            | Confirm 
+            = selectedAction.name

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -27,8 +28,9 @@ var (
 )
 
 type ProviderTemplate struct {
-	Provider          string `db:"provider"`
-	SupportsStopStart bool   `db:"supports_start_stop"`
+	Provider          string        `db:"provider"`
+	SupportsStopStart bool          `db:"supports_start_stop"`
+	Config            hstore.Hstore `db:"config"`
 }
 
 const (
@@ -114,8 +116,8 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
-	hosts := []Host{}
+func FindAllByUser(db *db.Database, user *user.User) ([]*Host, error) {
+	hosts := []*Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND state NOT IN ($2, $3) ORDER BY id;", user.ID, StateOrphan, StateMigrating)
 	if err != nil {
 		return nil, err
@@ -123,8 +125,8 @@ func FindAllByUser(db *db.Database, user *user.User) ([]Host, error) {
 	return hosts, nil
 }
 
-func FindAllWithTerminated(db *db.Database, user *user.User) ([]Host, error) {
-	hosts := []Host{}
+func FindAllWithTerminated(db *db.Database, user *user.User) ([]*Host, error) {
+	hosts := []*Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", user.ID)
 	if err != nil {
 		return nil, err
@@ -154,8 +156,8 @@ func CountPreprovisionedOrphans(db *db.Database, r *region.Region) (int, error) 
 	return count, nil
 }
 
-// Find will return a Host scoped by User.
-// identifier can be either an ID or a slug.
+// Find will return a Host scoped by User. Identifier can be either an ID or a slug.
+// It also returns some data about the host's provider template.
 func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	host := &Host{}
 
@@ -163,16 +165,16 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
 			FROM hosts
-			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.user_id = $1 AND hosts.slug = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
 			FROM hosts
-			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.user_id = $1 AND hosts.id = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
 	}
@@ -186,6 +188,7 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 
 // FindByIdentifier returns a host identified by its ID or slug.
 // It does not scope to a user and includes pre-provisioned hosts.
+// It also returns some data about the host's provider template
 func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	host := &Host{}
 
@@ -193,16 +196,16 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
 			FROM hosts
-			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.slug = $1
 			AND terminated_at IS NULL;`, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, provider_templates.provider, provider_templates.supports_start_stop
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
 			FROM hosts
-			INNER JOIN provider_templates ON hosts.provider_template_id = provider_templates.id
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.id = $1
 			AND terminated_at IS NULL;`, id)
 	}
@@ -324,10 +327,19 @@ func (h *Host) Validate() error {
 // MachineConfig returns the configuration that hostbuilder can use to
 // identify the host and manipulate it.
 func (h *Host) MachineConfig() hostbuilderclient.Config {
+	var disableEIP bool
+	// if the host's provider template set disable_eip
+	// then we can use that value. Otherwise we assume that disableEIP is false
+	if h.ProviderTemplate != nil {
+		if val, ok := h.ProviderTemplate.Config.Map["disable_eip"]; ok {
+			disableEIP, _ = strconv.ParseBool(val.String)
+		}
+	}
 	return hostbuilderclient.Config{
-		"id":         h.ProviderIdentifier.String,
-		"region_id":  h.RegionIdentifier.String,
-		"ip_address": h.IPAddress.String,
+		"id":          h.ProviderIdentifier.String,
+		"region_id":   h.RegionIdentifier.String,
+		"ip_address":  h.IPAddress.String,
+		"disable_eip": disableEIP,
 	}
 }
 
