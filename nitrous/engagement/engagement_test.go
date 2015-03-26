@@ -70,7 +70,7 @@ var _ = Describe("engagement", func() {
 	})
 
 	Describe("ActivationEmailCandidates", func() {
-		It("should include only 12hr+ old confirmed users with a free billing profile", func() {
+		It("should include only 12hr+ old confirmed users with a no card billing profile", func() {
 			u2 := createUser("foo2")
 			u3 := createUser("foo3")
 			u4 := createUser("foo4")

@@ -260,33 +260,33 @@ var _ = Describe("controllers/billing", func() {
 				pS1 := time.Now()
 				pE1 := pS1.Add(-2 * time.Minute)
 				i1 = &invoice.Invoice{
-					UserID:           u.ID,
-					SuccessfulCharge: false,
-					PeriodStart:      &pS1,
-					PeriodEnd:        &pE1,
-					TotalCharge:      290,
+					UserID:      u.ID,
+					State:       invoice.StateUnpaid,
+					PeriodStart: &pS1,
+					PeriodEnd:   &pE1,
+					TotalCharge: 290,
 				}
 				Expect(i1.Insert(db)).To(BeNil())
 
 				pS2 := time.Now().Add(10 * time.Minute)
 				pE2 := pS1.Add(-2 * time.Minute)
 				i2 = &invoice.Invoice{
-					UserID:           u.ID,
-					SuccessfulCharge: true,
-					PeriodStart:      &pS2,
-					PeriodEnd:        &pE2,
-					TotalCharge:      300,
+					UserID:      u.ID,
+					State:       invoice.StatePaid,
+					PeriodStart: &pS2,
+					PeriodEnd:   &pE2,
+					TotalCharge: 300,
 				}
 				Expect(i2.Insert(db)).To(BeNil())
 
 				pS3 := time.Now().Add(10 * time.Minute)
 				pE3 := pS3.Add(15 * time.Minute)
 				i3 = &invoice.Invoice{
-					UserID:           u.ID,
-					SuccessfulCharge: false,
-					PeriodStart:      &pS3,
-					PeriodEnd:        &pE3,
-					TotalCharge:      100,
+					UserID:      u.ID,
+					State:       invoice.StateUnpaid,
+					PeriodStart: &pS3,
+					PeriodEnd:   &pE3,
+					TotalCharge: 100,
 				}
 				Expect(i3.Insert(db)).To(BeNil())
 			})
@@ -303,21 +303,21 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[0].UserID).To(Equal(i3.UserID))
 				Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
 				Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
-				Expect(invoices[0].SuccessfulCharge).To(Equal(i3.SuccessfulCharge))
+				Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
 				Expect(invoices[0].Items).To(BeEmpty())
 
 				Expect(invoices[1].ID).To(Equal(i2.ID))
 				Expect(invoices[1].UserID).To(Equal(i2.UserID))
 				Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
 				Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
-				Expect(invoices[1].SuccessfulCharge).To(Equal(i2.SuccessfulCharge))
+				Expect(invoices[1].State).To(Equal(invoice.StatePaid))
 				Expect(invoices[1].Items).To(BeEmpty())
 
 				Expect(invoices[2].ID).To(Equal(i1.ID))
 				Expect(invoices[2].UserID).To(Equal(i1.UserID))
 				Expect(invoices[2].PeriodStart.Unix()).To(Equal(i1.PeriodStart.Unix()))
 				Expect(invoices[2].PeriodEnd.Unix()).To(Equal(i1.PeriodEnd.Unix()))
-				Expect(invoices[2].SuccessfulCharge).To(Equal(i1.SuccessfulCharge))
+				Expect(invoices[2].State).To(Equal(invoice.StateUnpaid))
 				Expect(invoices[2].Items).To(BeEmpty())
 			})
 
@@ -338,7 +338,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[0].UserID).To(Equal(i3.UserID))
 				Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
 				Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
-				Expect(invoices[0].SuccessfulCharge).To(Equal(i3.SuccessfulCharge))
+				Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
 				Expect(invoices[0].Items).To(BeEmpty())
 				Expect(invoices[0].AvailableCredit).To(Equal(int64(200)))
 
@@ -346,7 +346,7 @@ var _ = Describe("controllers/billing", func() {
 				Expect(invoices[1].UserID).To(Equal(i2.UserID))
 				Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
 				Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
-				Expect(invoices[1].SuccessfulCharge).To(Equal(i2.SuccessfulCharge))
+				Expect(invoices[1].State).To(Equal(invoice.StatePaid))
 				Expect(invoices[1].Items).To(BeEmpty())
 				Expect(invoices[1].AvailableCredit).To(Equal(int64(90)))
 			})
@@ -506,6 +506,7 @@ var _ = Describe("controllers/billing", func() {
 				UserID:      u.ID,
 				PeriodStart: &start,
 				PeriodEnd:   &end,
+				State:       invoice.StateUnpaid,
 			}
 			Expect(in.Insert(db)).To(BeNil())
 
@@ -540,6 +541,7 @@ var _ = Describe("controllers/billing", func() {
 				UserID:      u2.ID,
 				PeriodStart: &start,
 				PeriodEnd:   &end,
+				State:       invoice.StateUnpaid,
 			}
 			Expect(in2.Insert(db)).To(BeNil())
 
@@ -556,7 +558,7 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("should return a not payable error if the invoice is deferred", func() {
-			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = TRUE WHERE id = $1", in.ID)
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1 WHERE id = $2", invoice.StateDeferred, in.ID)
 			Expect(err).To(BeNil())
 
 			res := doRequest(in.ID)
@@ -567,7 +569,7 @@ var _ = Describe("controllers/billing", func() {
 		})
 
 		It("should return a error if the invoice is already paid", func() {
-			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = FALSE, successful_charge = TRUE WHERE id = $1", in.ID)
+			_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1, successful_charge = TRUE WHERE id = $2", invoice.StatePaid, in.ID)
 			Expect(err).To(BeNil())
 
 			res := doRequest(in.ID)
@@ -579,7 +581,7 @@ var _ = Describe("controllers/billing", func() {
 
 		Describe("with payable invoice", func() {
 			BeforeEach(func() {
-				_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', deferred = FALSE, successful_charge = FALSE WHERE id = $1", in.ID)
+				_, err := db.Exec("UPDATE invoices SET stripe_id = 'SSS', state = $1 WHERE id = $2", invoice.StateUnpaid, in.ID)
 				Expect(err).To(BeNil())
 			})
 

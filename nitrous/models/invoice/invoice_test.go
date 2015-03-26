@@ -60,16 +60,16 @@ var _ = Describe("models/invoice", func() {
 			attempt := start.Add(1 * time.Minute)
 			lAttempt := attempt.Add(2 * time.Minute)
 			i := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				CreditAmount:     120,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
-				SuccessfulCharge: true,
-				FirstAttemptAt:   &attempt,
-				LastAttemptAt:    &lAttempt,
-				Attempts:         23,
-				StripeID:         sql.NullString{"Xcccs", true},
+				UserID:         u.ID,
+				TotalCharge:    900,
+				CreditAmount:   120,
+				PeriodStart:    &start,
+				PeriodEnd:      &end,
+				State:          invoice.StateUnpaid,
+				FirstAttemptAt: &attempt,
+				LastAttemptAt:  &lAttempt,
+				Attempts:       23,
+				StripeID:       sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -91,13 +91,13 @@ var _ = Describe("models/invoice", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			i := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: true,
-				Attempts:         23,
-				StripeID:         sql.NullString{"Xcccs", true},
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StatePaid,
+				Attempts:    23,
+				StripeID:    sql.NullString{"Xcccs", true},
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -115,16 +115,15 @@ var _ = Describe("models/invoice", func() {
 			attempt := start.Add(1 * time.Minute)
 			lAttempt := attempt.Add(2 * time.Minute)
 			i := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
-				SuccessfulCharge: true,
-				FirstAttemptAt:   &attempt,
-				LastAttemptAt:    &lAttempt,
-				Attempts:         23,
-				Deferred:         true,
-				StripeID:         sql.NullString{"Xcccs", true},
+				UserID:         u.ID,
+				TotalCharge:    900,
+				PeriodStart:    &start,
+				PeriodEnd:      &end,
+				State:          invoice.StatePaid,
+				FirstAttemptAt: &attempt,
+				LastAttemptAt:  &lAttempt,
+				Attempts:       23,
+				StripeID:       sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -145,19 +144,37 @@ var _ = Describe("models/invoice", func() {
 			attempt := start.Add(1 * time.Minute)
 			lAttempt := attempt.Add(2 * time.Minute)
 			i := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      -1,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
-				SuccessfulCharge: true,
-				FirstAttemptAt:   &attempt,
-				LastAttemptAt:    &lAttempt,
-				Attempts:         23,
-				Deferred:         true,
-				StripeID:         sql.NullString{"Xcccs", true},
+				UserID:         u.ID,
+				TotalCharge:    -1,
+				PeriodStart:    &start,
+				PeriodEnd:      &end,
+				State:          invoice.StatePaid,
+				FirstAttemptAt: &attempt,
+				LastAttemptAt:  &lAttempt,
+				Attempts:       23,
+				StripeID:       sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(Equal(invoice.ErrNegativeTotalCharge))
+		})
+
+		It("should not allow an empty state", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			attempt := start.Add(1 * time.Minute)
+			lAttempt := attempt.Add(2 * time.Minute)
+			i := &invoice.Invoice{
+				UserID:         u.ID,
+				TotalCharge:    -1,
+				PeriodStart:    &start,
+				PeriodEnd:      &end,
+				FirstAttemptAt: &attempt,
+				LastAttemptAt:  &lAttempt,
+				Attempts:       23,
+				StripeID:       sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoice.ErrEmptyState))
 		})
 	})
 
@@ -169,16 +186,15 @@ var _ = Describe("models/invoice", func() {
 			attempt := start.Add(1 * time.Minute)
 			lAttempt := attempt.Add(2 * time.Minute)
 			i = &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
-				SuccessfulCharge: false,
-				FirstAttemptAt:   &attempt,
-				LastAttemptAt:    &lAttempt,
-				Attempts:         23,
-				Deferred:         false,
-				StripeID:         sql.NullString{"Xcccs", true},
+				UserID:         u.ID,
+				TotalCharge:    900,
+				PeriodStart:    &start,
+				PeriodEnd:      &end,
+				State:          invoice.StateUnpaid,
+				FirstAttemptAt: &attempt,
+				LastAttemptAt:  &lAttempt,
+				Attempts:       23,
+				StripeID:       sql.NullString{"Xcccs", true},
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -189,14 +205,12 @@ var _ = Describe("models/invoice", func() {
 			err := db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
 
-			Expect(i2.Deferred).To(BeFalse())
-			Expect(i2.SuccessfulCharge).To(BeFalse())
+			Expect(i2.State).To(Equal(invoice.StateUnpaid))
 			Expect(i2.TotalCharge).To(Equal(int64(900)))
 			Expect(i2.StripeID.String).To(Equal("Xcccs"))
-			i2.SuccessfulCharge = true
+			i2.State = invoice.StateFailed
 			i2.TotalCharge = 93
 			i2.StripeID.String = "Ok"
-			i2.Deferred = true
 
 			err = i2.Update(db)
 			Expect(err).To(BeNil())
@@ -205,7 +219,7 @@ var _ = Describe("models/invoice", func() {
 			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i3)
 			Expect(err).To(BeNil())
 
-			Expect(i3.SuccessfulCharge).To(BeTrue())
+			Expect(i3.State).To(Equal(invoice.StateFailed))
 			Expect(i3.TotalCharge).To(Equal(int64(93)))
 			Expect(i3.StripeID.String).To(Equal("Ok"))
 		})
@@ -216,6 +230,13 @@ var _ = Describe("models/invoice", func() {
 			err := i.Update(db)
 			Expect(err).To(Equal(invoice.ErrNegativeTotalCharge))
 		})
+
+		It("should not allow an empty state", func() {
+			i.State = ""
+
+			err := i.Update(db)
+			Expect(err).To(Equal(invoice.ErrEmptyState))
+		})
 	})
 
 	Describe("PaymentSucceeded", func() {
@@ -224,23 +245,23 @@ var _ = Describe("models/invoice", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			i = &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				StripeID:         sql.NullString{"Xcccs", true},
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StateUnpaid,
+				Attempts:    23,
+				StripeID:    sql.NullString{"Xcccs", true},
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
-		It("should set SuccessfulCharge as true", func() {
+		It("should set State to Paid", func() {
 			err := i.PaymentSucceeded(db)
 			Expect(err).To(BeNil())
 
-			Expect(i.SuccessfulCharge).To(BeTrue())
+			Expect(i.State).To(Equal(invoice.StatePaid))
 			Expect(i.FirstAttemptAt).ToNot(BeNil())
 			Expect(i.LastAttemptAt).ToNot(BeNil())
 			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
@@ -255,19 +276,18 @@ var _ = Describe("models/invoice", func() {
 			i2 := &invoice.Invoice{}
 			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
-			Expect(i2.SuccessfulCharge).To(BeTrue())
+			Expect(i.State).To(Equal(invoice.StatePaid))
 			Expect(i2.FirstAttemptAt.Unix()).To(Equal(t.Unix()))
 			Expect(i2.LastAttemptAt).ToNot(BeNil())
 			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
 		})
 
-		It("should clear Failed state", func() {
-			i.Failed = true
+		It("should clear other states", func() {
+			i.State = invoice.StateFailed
 			err := i.PaymentSucceeded(db)
 			Expect(err).To(BeNil())
 
-			Expect(i.SuccessfulCharge).To(BeTrue())
-			Expect(i.Failed).To(BeFalse())
+			Expect(i.State).To(Equal(invoice.StatePaid))
 			Expect(i.FirstAttemptAt).ToNot(BeNil())
 			Expect(i.LastAttemptAt).ToNot(BeNil())
 			Expect(i.FirstAttemptAt.Unix()).To(Equal(i.LastAttemptAt.Unix()))
@@ -277,14 +297,13 @@ var _ = Describe("models/invoice", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				Deferred:         true,
-				CoveredBy:        sql.NullInt64{i.ID, true},
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StateDeferred,
+				Attempts:    23,
+				CoveredBy:   sql.NullInt64{i.ID, true},
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -295,7 +314,7 @@ var _ = Describe("models/invoice", func() {
 			other2 := &invoice.Invoice{}
 			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", other.ID).StructScan(other2)
 			Expect(err).To(BeNil())
-			Expect(other2.SuccessfulCharge).To(BeTrue())
+			Expect(other2.State).To(Equal(invoice.StatePaid))
 		})
 
 		It("should mark the billingprofile as state Paid if no other unpaid invoices remain", func() {
@@ -315,13 +334,12 @@ var _ = Describe("models/invoice", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				Deferred:         false,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StateUnpaid,
+				Attempts:    23,
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -338,44 +356,16 @@ var _ = Describe("models/invoice", func() {
 			Expect(b.State).To(Equal(billingprofile.StatePaymentDue))
 		})
 
-		It("should mark the billingprofile as state Paid if other unpaid invoices remain but are deferred", func() {
-			start := time.Now()
-			end := start.Add(2 * time.Hour)
-			other := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				Deferred:         true,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
-			}
-			err := other.Insert(db)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaymentDue, u.ID)
-			Expect(err).To(BeNil())
-
-			err = i.PaymentSucceeded(db)
-			Expect(err).To(BeNil())
-
-			b := &billingprofile.BillingProfile{}
-			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
-			Expect(err).To(BeNil())
-			Expect(b.State).To(Equal(billingprofile.StatePaid))
-		})
-
 		It("should mark the billingprofile as state Paid if other unpaid invoices remain but have a total_charge of 0", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			other := &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      0,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				Deferred:         false,
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 0,
+				State:       invoice.StateNotPayable,
+				Attempts:    23,
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := other.Insert(db)
 			Expect(err).To(BeNil())
@@ -399,13 +389,13 @@ var _ = Describe("models/invoice", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			i = &invoice.Invoice{
-				UserID:           u.ID,
-				TotalCharge:      900,
-				SuccessfulCharge: false,
-				Attempts:         23,
-				StripeID:         sql.NullString{"Xcccs", true},
-				PeriodStart:      &start,
-				PeriodEnd:        &end,
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StateUnpaid,
+				Attempts:    23,
+				StripeID:    sql.NullString{"Xcccs", true},
+				PeriodStart: &start,
+				PeriodEnd:   &end,
 			}
 			err := i.Insert(db)
 			Expect(err).To(BeNil())
@@ -427,13 +417,11 @@ var _ = Describe("models/invoice", func() {
 			i2 := &invoice.Invoice{}
 			err = db.QueryRowx("SELECT * FROM invoices WHERE id = $1", i.ID).StructScan(i2)
 			Expect(err).To(BeNil())
-			Expect(i2.SuccessfulCharge).To(BeFalse())
+			Expect(i2.State).To(Equal(invoice.StateUnpaid))
 			Expect(i2.FirstAttemptAt).ToNot(BeNil())
 			Expect(i2.LastAttemptAt).ToNot(BeNil())
 			Expect(i2.FirstAttemptAt.Unix()).To(Equal(i2.LastAttemptAt.Unix()))
-			Expect(i2.SuccessfulCharge).To(BeFalse())
 			Expect(i2.Attempts).To(Equal(2))
-			Expect(i2.Failed).To(BeFalse())
 
 			b := &billingprofile.BillingProfile{}
 			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
@@ -492,7 +480,7 @@ var _ = Describe("models/invoice", func() {
 			Expect(i2.FirstAttemptAt.Unix()).To(Equal(t.Unix()))
 			Expect(i2.LastAttemptAt).ToNot(BeNil())
 			Expect(i2.FirstAttemptAt).ToNot(Equal(i2.LastAttemptAt))
-			Expect(i2.Failed).To(BeTrue())
+			Expect(i2.State).To(Equal(invoice.StateFailed))
 
 			b := &billingprofile.BillingProfile{}
 			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)

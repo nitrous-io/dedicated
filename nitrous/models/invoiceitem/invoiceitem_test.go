@@ -58,6 +58,7 @@ var _ = Describe("models/invoiceitem", func() {
 			UserID:      u.ID,
 			PeriodStart: &start,
 			PeriodEnd:   &end,
+			State:       invoice.StateUnpaid,
 		}
 		err = in.Insert(db)
 		Expect(err).To(BeNil())
@@ -252,6 +253,7 @@ var _ = Describe("models/invoiceitem", func() {
 				UserID:      u.ID,
 				PeriodStart: in.PeriodStart,
 				PeriodEnd:   in.PeriodEnd,
+				State:       invoice.StateUnpaid,
 			}
 			err = in2.Insert(db)
 			Expect(err).To(BeNil())

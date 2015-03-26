@@ -26,15 +26,13 @@ var _ = Describe("invoice serializer", func() {
 		}
 
 		var model = &invoice.Invoice{
-			ID:               23,
-			UserID:           29,
-			TotalCharge:      329,
-			PeriodStart:      &t1,
-			PeriodEnd:        &t2,
-			SuccessfulCharge: false,
-			Deferred:         true,
-			Failed:           true,
-			Attempts:         1,
+			ID:          23,
+			UserID:      29,
+			TotalCharge: 329,
+			PeriodStart: &t1,
+			PeriodEnd:   &t2,
+			State:       invoice.StatePaid,
+			Attempts:    1,
 		}
 
 		It("serializes to JSON", func() {
@@ -50,9 +48,7 @@ var _ = Describe("invoice serializer", func() {
         "total_charge": 329,
         "period_start": "1970-01-01T00:00:20Z",
         "period_end": "1970-01-01T01:00:20Z",
-        "successful_charge": false,
-        "deferred": true,
-        "failed": true,
+        "state": "paid",
         "attempted": true,
         "total_credit": 100,
         "available_credit": 200,
