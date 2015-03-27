@@ -45,14 +45,16 @@ type hostCreateRequest struct {
 
 // createOpts described options that can be used to customize a host
 type createOpts struct {
-	Size               string `json:"size"`
-	Region             string `json:"region"`
-	Provider           string `json:"provider"` // only used to allow admins to test other providers
-	Slug               string `json:"slug"`     // slug provided by client request will be overriden by a generated slug based on name
-	Name               string `json:"name"`
-	Async              bool   `json:"async"`
-	BypassPreprovision bool   `json:"bypass_preprovision"` // only available to admin
-	TemplateName       string `json:"template_name"`       // only available to admin to customize provider_template
+	Size   string `json:"size"`
+	Region string `json:"region"`
+	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
+	Name   string `json:"name"`
+	Async  bool   `json:"async"`
+
+	// the following fields are only available to admin for now
+	Provider           string `json:"provider"`            // use to change provider. Also look at TemplateName
+	BypassPreprovision bool   `json:"bypass_preprovision"` // use to ignore pre-provisioned host
+	TemplateName       string `json:"template_name"`       // use to manually set provider_template
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
