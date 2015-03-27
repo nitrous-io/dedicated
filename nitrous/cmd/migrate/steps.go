@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -163,7 +164,7 @@ func restoreServers() error {
 	_, err = tx.Exec("UPDATE hosts SET state = $1 WHERE id = $2", nm.host.State, nm.host.ID)
 	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("[%s] Unable to database values. err: %v", nm.name, err)
+		return fmt.Errorf("[%s] Unable to update host state. err: %v", nm.name, err)
 	}
 
 	err = hosttransition.Record(tx, nm.host, "migrating", time.Now())
@@ -312,7 +313,23 @@ func sanityCheck() error {
 	}
 
 	if string(srcPs) != string(dstPs) {
-		return fmt.Errorf("[ALL] docker ps -a -s does not match\n[SRC] %s\n[DEST] %s", srcPs, dstPs)
+		// sometimes there can be small discrepancies in size, so prompt user
+		// to check
+		fmt.Printf("[ALL] docker ps -a -s does not match:\n[SRC]\n%s\n[DEST]\n%s\n",
+			srcPs, dstPs)
+		var in string
+		for {
+			fmt.Printf("Please check the destination host then type T to continue with the migration: ")
+			if _, err := fmt.Scanln(&in); err != nil {
+				fmt.Printf("Error in input: %s\n", err)
+			} else {
+				break
+			}
+		}
+		resume, _ := strconv.ParseBool(in)
+		if !resume {
+			return fmt.Errorf("[ALL] docker ps -a -s does not match\n[SRC] %s\n[DEST] %s", srcPs, dstPs)
+		}
 	}
 
 	return nil
@@ -361,7 +378,7 @@ func updateRecords() error {
 	}
 	if err := srcDBHost.Update(tx); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("[SRC] Unable to update slug/name. err: %v", srcDBHost.Slug, err)
+		return fmt.Errorf("[SRC] Unable to update slug/name '%s'. err: %v", srcDBHost.Slug, err)
 	}
 
 	_, err = tx.Exec("UPDATE hosts SET state = 'terminated', terminated_at = now() WHERE id = $1", srcDBHost.ID)
