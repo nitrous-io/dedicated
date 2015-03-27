@@ -153,6 +153,9 @@ func main() {
 			if err := restoreServers(); err != nil {
 				fmt.Println(err.Error())
 			}
+			if refreshFn != nil {
+				refreshFn()
+			}
 			return
 		}
 		fmt.Println("Success!")
