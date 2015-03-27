@@ -67,6 +67,7 @@ var _ = Describe("buildCreateOptions", func() {
 		data := url.Values{}
 		data.Set("size", "1gb")
 		data.Set("region", "us-west-2")
+		data.Set("name", "windows XP")
 		data.Set("bypass_preprovision", "true")
 		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -78,10 +79,11 @@ var _ = Describe("buildCreateOptions", func() {
 		Expect(opts.BypassPreprovision).To(BeTrue())
 	})
 
-	It("rejects empty size or region", func() {
+	It("rejects empty size or region or name", func() {
 		// empty size
 		data := url.Values{}
 		data.Set("region", "us-west-2")
+		data.Set("name", "windows XP")
 		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -91,10 +93,21 @@ var _ = Describe("buildCreateOptions", func() {
 		// empty region
 		data = url.Values{}
 		data.Set("size", "1gb")
+		data.Set("name", "windows XP")
 		r, _ = http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		_, err = buildCreateOptions(r, &user.User{})
 		Expect(err).To(Equal(errRegionRequired))
+
+		// empty name
+		data = url.Values{}
+		data.Set("size", "1gb")
+		data.Set("region", "us-west-2")
+		r, _ = http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		_, err = buildCreateOptions(r, &user.User{})
+		Expect(err).To(Equal(errNameRequired))
 	})
 })

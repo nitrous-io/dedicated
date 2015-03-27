@@ -63,10 +63,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if options.Slug == "" {
-		return errNameRequired
-	}
-
 	region, err := findRegion(db, options.Region)
 	if err != nil {
 		return err
@@ -234,6 +230,9 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 	}
 	if opts.Region == "" {
 		return nil, errRegionRequired
+	}
+	if opts.Name == "" {
+		return nil, errNameRequired
 	}
 
 	// ignore user-provided slug. Use generated slug from name instead
