@@ -19,6 +19,15 @@ import (
 var (
 	Mailer                 mailer.Mailer
 	ErrNegativeTotalCharge = errors.New("Negative TotalCharge")
+	ErrEmptyState          = errors.New("state must be provided")
+)
+
+const (
+	StateUnpaid     = "unpaid"
+	StatePaid       = "paid"
+	StateFailed     = "failed"
+	StateDeferred   = "deferred"
+	StateNotPayable = "not_payable"
 )
 
 func init() {
@@ -37,14 +46,13 @@ type Invoice struct {
 	PeriodStart *time.Time `db:"period_start"`
 	PeriodEnd   *time.Time `db:"period_end"`
 
-	// indicates Stripe was able to charge the user
-	SuccessfulCharge bool `db:"successful_charge"`
+	// TODO: Remove after satisfied with migration
+	NSuccessfulCharge bool `db:"successful_charge"`
+	NDeferred         bool `db:"deferred"`
+	NFailed           bool `db:"failed"`
 
-	// indicates Stripe failed (and gave up) charging the user
-	Failed bool `db:"failed"`
-
-	// indicates we didn't charge for this invoice and rolled into a following month's invoice
-	Deferred bool `db:"deferred"`
+	// current state of invoice
+	State string `db:"state"`
 
 	// indicates another invoice included the total for this invoice
 	CoveredBy sql.NullInt64 `db:"covered_by"`
@@ -82,12 +90,10 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
-    (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
-      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
-      deferred, covered_by)
-    VALUES (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :successful_charge,
-      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
-      :deferred, :covered_by)
+    (user_id, total_charge, credit_amount, period_start, period_end, state,
+      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, covered_by)
+    VALUES (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
+      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :covered_by)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -100,12 +106,10 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoices
-    SET (user_id, total_charge, credit_amount, period_start, period_end, successful_charge,
-      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, failed,
-      deferred, covered_by, updated_at)
-    = (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :successful_charge,
-      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :failed,
-      :deferred, :covered_by, now())
+    SET (user_id, total_charge, credit_amount, period_start, period_end, state,
+      available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, covered_by, updated_at)
+    = (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
+      :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :covered_by, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -115,6 +119,9 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 }
 
 func (i *Invoice) validate() error {
+	if i.State == "" {
+		return ErrEmptyState
+	}
 	if i.TotalCharge < 0 {
 		return ErrNegativeTotalCharge
 	}
@@ -122,8 +129,7 @@ func (i *Invoice) validate() error {
 }
 
 func (i *Invoice) PaymentSucceeded(d *db.Database) error {
-	i.SuccessfulCharge = true
-	i.Failed = false
+	i.State = StatePaid
 	t := time.Now()
 	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
 		i.FirstAttemptAt = &t
@@ -132,7 +138,7 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	if err := i.Update(d); err != nil {
 		return err
 	}
-	_, err := d.Exec("UPDATE invoices SET successful_charge = TRUE, failed = FALSE, last_attempt_at = now() WHERE covered_by = $1;", i.ID)
+	_, err := d.Exec("UPDATE invoices SET state = $1, last_attempt_at = now() WHERE covered_by = $2;", StatePaid, i.ID)
 	if err != nil {
 		return err
 	}
@@ -148,11 +154,11 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 		AND NOT EXISTS (
 			SELECT id FROM invoices
 				WHERE user_id = $2
-				AND deferred IS FALSE
-				AND successful_charge IS FALSE
+				AND state != $3
+				AND state != $4
 				AND total_charge > 0 -- invoices that are fully covered by credits have a 0 total_charge
 			FOR UPDATE)`,
-		billingprofile.StatePaid, i.UserID)
+		billingprofile.StatePaid, i.UserID, StateNotPayable, StatePaid)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -161,21 +167,23 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 }
 
 func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, attemptsExhausted bool) error {
-	if i.SuccessfulCharge {
+	if i.State == StatePaid {
 		return errors.New("This invoice has already been charged")
 	}
-	i.SuccessfulCharge = false
+	i.State = StateUnpaid
 	t := time.Now()
 	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
 		i.FirstAttemptAt = &t
 	}
 	i.LastAttemptAt = &t
 	i.Attempts = attemptCount
-	i.Failed = attemptsExhausted
+	if attemptsExhausted {
+		i.State = StateFailed
+	}
 	if err := i.Update(d); err != nil {
 		return err
 	}
-	return i.handlePaymentFailed(d, i.Failed)
+	return i.handlePaymentFailed(d, attemptsExhausted)
 }
 
 func (i *Invoice) handlePaymentFailed(d db.QueryReceiver, final bool) error {

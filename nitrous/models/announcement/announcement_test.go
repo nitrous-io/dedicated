@@ -201,6 +201,15 @@ var _ = Describe("models/announcement", func() {
 			Expect(err).To(BeNil())
 			Expect(message).To(Equal("We will be upgrading your host gopher-bar-1 tomorrow."))
 		})
+
+		It("is not found when host is created after announcement", func() {
+			_, err := db.Exec(`UPDATE hosts SET created_at= now() + interval '1 day' WHERE id=$1;`, h3.ID)
+			Expect(err).To(BeNil())
+
+			anns, err := announcement.FindByHostID(db, h3.ID)
+			Expect(err).To(BeNil())
+			Expect(len(anns)).To(Equal(0))
+		})
 	})
 
 	Describe("Insert host announcement", func() {
@@ -272,6 +281,15 @@ var _ = Describe("models/announcement", func() {
 			message, err := ann.Message()
 			Expect(err).To(BeNil())
 			Expect(message).To(Equal("We will be upgrading your host gopher-bar-1 next week."))
+		})
+
+		It("is not found when host is created after announcement", func() {
+			_, err := db.Exec(`UPDATE hosts SET created_at= now() + interval '1 day' WHERE id=$1;`, h3.ID)
+			Expect(err).To(BeNil())
+
+			anns, err := announcement.FindByHostID(db, h3.ID)
+			Expect(err).To(BeNil())
+			Expect(len(anns)).To(Equal(0))
 		})
 	})
 

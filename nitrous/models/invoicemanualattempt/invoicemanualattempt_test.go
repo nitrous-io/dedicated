@@ -57,6 +57,7 @@ var _ = Describe("models/invoiceitem", func() {
 			UserID:      u.ID,
 			PeriodStart: &start,
 			PeriodEnd:   &end,
+			State:       invoice.StatePaid,
 		}
 		err = in.Insert(db)
 		Expect(err).To(BeNil())

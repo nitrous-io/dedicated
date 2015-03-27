@@ -232,11 +232,11 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	if !inv.StripeID.Valid || inv.Deferred {
+	if !inv.StripeID.Valid || inv.State == invoice.StateDeferred {
 		return errInvoiceNotPayable
 	}
 
-	if inv.SuccessfulCharge {
+	if inv.State == invoice.StatePaid {
 		return errInvoicePaid
 	}
 

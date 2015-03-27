@@ -965,5 +965,24 @@ func init() {
 				) p WHERE p.host_id = invoice_items.host_id AND invoice_items.item_type = 'compute';
 			`,
 		},
+		{
+			Version: "850",
+			Up: `
+				UPDATE billing_profiles SET state='exempt' WHERE state='free';
+				ALTER TABLE billing_profiles ADD COLUMN max_hours bigint DEFAULT NULL;
+			`,
+		},
+		{
+			Version: "851",
+			Up: `
+				ALTER TABLE invoices ADD COLUMN state character varying(255) DEFAULT 'unpaid';
+				UPDATE invoices SET state = 'failed' WHERE failed = true;
+				UPDATE invoices SET state = 'deferred' WHERE deferred = true;
+				UPDATE invoices SET state = 'paid' WHERE successful_charge = true;
+				UPDATE invoices SET state = 'not_payable' WHERE total_charge = 0;
+				ALTER TABLE invoices ALTER COLUMN state SET DEFAULT NULL;
+				ALTER TABLE invoices ALTER COLUMN state SET NOT NULL;
+			`,
+		},
 	}
 }
