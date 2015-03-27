@@ -182,53 +182,64 @@ var _ = Describe("models/plan", func() {
 
 	Describe("EnabledForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
+			sfo := &region.Region{Slug: "sfo", Name: "US West"}
+			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
+			for _, r := range []*region.Region{sfo, azure} {
+				Expect(r.Insert(db)).To(BeNil(), "failed to insert %s", r.Slug)
+			}
+
 			// Add associated provider templates for the plans in the database.
 			var ids []int64
-			err := db.Select(&ids, `SELECT id FROM plans;`)
-			Expect(err).To(BeNil())
-			Expect(ids).To(HaveLen(2))
-			r := region.Region{
-				Slug: "sfo",
-				Name: "US West",
-			}
-			Expect(r.Insert(db)).To(BeNil())
+			db.Select(&ids, `SELECT id FROM plans;`)
 			for _, id := range ids {
 				t := providertemplate.ProviderTemplate{
 					PlanID:   id,
-					RegionID: r.ID,
+					RegionID: sfo.ID,
 					Provider: "digitalocean",
 				}
 				Expect(t.Insert(db)).To(BeNil())
 			}
 
+			var (
+				p  *plan.Plan
+				pt *providertemplate.ProviderTemplate
+			)
+
 			// Add a plan belonging to a different provider - it should not be returned.
-			p := &plan.Plan{
+			p = &plan.Plan{
 				Slug:          "ultimate",
 				Name:          "Ultimate Edition SP1",
 				MaxContainers: 1,
-				Disabled:      false,
 			}
 			Expect(p.Insert(db)).To(BeNil())
-			r = region.Region{
-				Slug: "sfo-azure",
-				Name: "Azure West",
-			}
-			Expect(r.Insert(db)).To(BeNil())
-			t := providertemplate.ProviderTemplate{
+			pt = &providertemplate.ProviderTemplate{
 				PlanID:   p.ID,
-				RegionID: r.ID,
+				RegionID: azure.ID,
 				Provider: "windows-azure",
 			}
-			Expect(t.Insert(db)).To(BeNil())
+			Expect(pt.Insert(db)).To(BeNil())
 
-			pls, err := plan.EnabledForProvider(db, "digitalocean")
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
+			// Add a plan belonging to a disabled provider template - it should
+			// not be returned
+			p = &plan.Plan{
+				Slug:          "ultimate-disabled",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 1,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+			pt = &providertemplate.ProviderTemplate{
+				PlanID:   p.ID,
+				RegionID: azure.ID,
+				Provider: "digitalocean",
+				Disabled: true,
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+
+			pls, _ := plan.EnabledForProvider(db, "digitalocean")
 			slugs := []string{}
 			for _, pl := range pls {
 				slugs = append(slugs, pl.Slug)
 			}
-			Expect(slugs).ToNot(ContainElement("ultimate"))
 			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
 		})
 	})
