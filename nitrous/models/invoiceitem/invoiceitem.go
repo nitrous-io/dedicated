@@ -64,7 +64,11 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	state := ""
 	// FIXME: handle future states such as suspended (snapshot/resume)
 	if i.Terminated {
-		state = " (terminated)"
+		if strings.HasPrefix(hst.Slug, "migrated-") {
+			state = " (previous)"
+		} else {
+			state = " (terminated)"
+		}
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
 	var descType string
@@ -73,6 +77,7 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	} else {
 		descType = fmt.Sprintf("compute (%s memory)", i.PlanMemory.String)
 	}
+
 	slug := strings.TrimPrefix(hst.Slug, "migrated-")
 	return fmt.Sprintf("'%s' %s - %d hours at %sc/hour%s", slug, descType, i.Hours.Int64, prcnt, state)
 }
