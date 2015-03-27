@@ -407,6 +407,30 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("POST /api/v0/hosts/refresh", func() {
+		doRequest := func() {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/hosts/refresh", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("publishes hosts refreshed events", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest()
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for hosts refreshed event")
+			case msg := <-ch:
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(controllers.EventHostsRefreshed))
+			}
+		})
+	})
+
 	Describe("PUT /api/v0/hosts/{slug}", func() {
 		var hs *test.HostStack
 

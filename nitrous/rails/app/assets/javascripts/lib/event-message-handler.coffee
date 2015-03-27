@@ -19,7 +19,7 @@ App.EventMessageHandler = App.EventsSocket.extend
           container.load(containerData)
           container.loadConfig()
 
-    ['host.created', 'host.create_failed', 'host.destroyed'].forEach (evt) =>
+    ['hosts.refreshed', 'host.created', 'host.create_failed', 'host.destroyed'].forEach (evt) =>
       @on evt, (data) ->
         findAllHosts()?.reload()
 

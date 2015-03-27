@@ -58,12 +58,21 @@ var (
 		"1gb": "ebs-small",
 		"2gb": "ebs-medium",
 		"4gb": "ebs-large",
+		// support ec2->ec2
+		"ebs-small":  "ebs-small",
+		"ebs-medium": "ebs-medium",
+		"ebs-large":  "ebs-large",
 	}
 	regionMap = map[string]string{
 		"sfo": "usw2",
 		"nyc": "use1",
 		"ams": "euw1",
 		"sgp": "apse1",
+		// support ec2->ec2
+		"usw2":  "usw2",
+		"use1":  "use1",
+		"euw1":  "euw1",
+		"apse1": "apse1",
 	}
 )
 
@@ -101,10 +110,12 @@ func main() {
 	}
 	logr.Infof("Connected to %s", srcHostSlug)
 
+	var refreshFn func()
+
 	if len(os.Args) >= 3 {
 		destHostSlug = os.Args[2]
 	} else {
-		destHostSlug = provisionDestHost()
+		destHostSlug, refreshFn = provisionDestHost()
 	}
 
 	logr.Infof("Connecting to %s", destHostSlug)
@@ -123,6 +134,9 @@ func main() {
 	verifyCommunication()
 	setSSHKeys()
 	markServers()
+	if refreshFn != nil {
+		refreshFn()
+	}
 
 	restorable := true
 
@@ -179,6 +193,10 @@ func main() {
 	err = stopDestination()
 	if err != nil {
 		return
+	}
+
+	if refreshFn != nil {
+		refreshFn()
 	}
 
 	fmt.Println("Process complete!")
@@ -241,7 +259,7 @@ func newConn(slug string) (*sshutil.Conn, *host.Host, error) {
 	return wait, h, err
 }
 
-func provisionDestHost() string {
+func provisionDestHost() (string, func()) {
 	uID := srcDBHost.UserID
 
 	u, err := user.FindByID(dbConn, uID)
@@ -304,5 +322,14 @@ func provisionDestHost() string {
 		logr.FatalfExit("Error fetching final host, err: %v", err)
 	}
 
-	return slug
+	refreshFn := func() {
+		fmt.Println("Refreshing hosts")
+		cmd = exec.Command("curl", "-X", "POST", "-H", bearer, fmt.Sprintf("https://pro.nitrous.io/api/v0/hosts/refresh"))
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+		cmd.Wait()
+	}
+
+	return slug, refreshFn
 }
