@@ -1,16 +1,13 @@
-package hosts
+package freetier
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
@@ -25,60 +22,49 @@ var (
 		"you have exceeded the free time limit allowed")
 )
 
-func CheckCreateHostPermission(d *db.Database, u *user.User, p *plan.Plan) error {
-	bp, err := billingprofile.Find(d, u.ID)
-	if err != nil {
-		return err
+func HasNonTerminatedHost(hs []*host.Host) bool {
+	for _, h := range hs {
+		if h.TerminatedAt != nil {
+			return true
+		}
 	}
+	return false
+}
 
-	// Pass all non-free tier users for now
-	if bp.State != billingprofile.StateFree {
-		return nil
-	}
-
+func CreateHostPermission(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan) error {
 	// Free tier users cannot create hosts with paid plan
 	if p.Price != 0 {
 		return errPaidPlanNotAllowed
 	}
 
-	hs, err := host.FindAllWithTerminated(d, u)
+	hs, err := host.FindAllWithTerminated(d, bp.UserID)
 	if err != nil {
 		return err
 	}
 
-	hostCount := len(hs)
-
-	// Allow if user have not created any host
-	if hostCount == 0 {
-		return nil
+	if HasNonTerminatedHost(hs) {
+		return errMaxFreeHostReached
 	}
 
-	hostIDs := make([]int64, hostCount)
-
-	for i, h := range hs {
-		hostIDs[i] = h.ID
-
-		// Error if any of the host is active (non-terminated)
-		// because only one max host is allowed
-		if h.TerminatedAt != nil {
-			return errMaxFreeHostReached
-		}
-	}
-
-	start := now.BeginningOfMonth()
-	end := time.Now()
-
-	// All of the user's hosts have been terminated
-	// Checking if the total time usage is more than
-	// the time limit.
-	usage, err := hosttransition.TotalUsageForHosts(d, hostIDs, start, end)
+	usage, err := hosttransition.CurrentMonthUsageForHosts(d, host.HostsToHostIDs(hs))
 	if err != nil {
 		return err
 	}
 
-	maxMinutes := bp.MaxHours.Int64 * 60
+	if usage >= bp.MaxMinutes() {
+		return errFreeTimeLimitExceeded
+	}
 
-	if usage >= maxMinutes {
+	return nil
+}
+
+func StartHostPermission(d *db.Database, bp *billingprofile.BillingProfile) error {
+	usage, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID)
+	if err != nil {
+		return err
+	}
+
+	if usage >= bp.MaxMinutes() {
 		return errFreeTimeLimitExceeded
 	}
 

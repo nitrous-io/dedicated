@@ -310,7 +310,7 @@ func (b *Biller) billStripeInvoice(bp *billingprofile.BillingProfile, i *invoice
 }
 
 func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planHostMap map[int64]plan.PlanPricing, i *invoice.Invoice, items []invoiceitem.InvoiceItem) error {
-	hosts, err := host.FindAllWithTerminated(b.db, b.user)
+	hosts, err := host.FindAllWithTerminated(b.db, b.user.ID)
 	if err != nil {
 		return err
 	}

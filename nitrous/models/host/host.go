@@ -103,6 +103,18 @@ type Host struct {
 	UpgradeAvailable      string
 }
 
+func HostsToHostIDs(hs []*Host) []int64 {
+	hostIDs := make([]int64, len(hs))
+	for i, h := range hs {
+		hostIDs[i] = h.ID
+	}
+	return hostIDs
+}
+
+func (h *Host) IsFreeTier() bool {
+	return h.HourlyPrice == 0
+}
+
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.* FROM hosts
@@ -125,9 +137,9 @@ func FindAllByUser(db *db.Database, user *user.User) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllWithTerminated(db *db.Database, user *user.User) ([]*Host, error) {
+func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", user.ID)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", userID)
 	if err != nil {
 		return nil, err
 	}

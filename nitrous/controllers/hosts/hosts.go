@@ -14,8 +14,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -251,6 +253,19 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errHostStartInvalidState
 	}
 
+	db := env.DB
+	bp, err := billingprofile.Find(db, h.UserID)
+	if err != nil {
+		return err
+	}
+
+	if bp.IsFreeTier() {
+		err = freetier.StartHostPermission(db, bp)
+		if err != nil {
+			return err
+		}
+	}
+
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -276,7 +291,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
-		tx, err := env.DB.Beginx()
+		tx, err := db.Beginx()
 		if err != nil {
 			return err
 		}
@@ -300,7 +315,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	tx, err = env.DB.Beginx()
+	tx, err = db.Beginx()
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jinzhu/now"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -111,6 +112,22 @@ func TotalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Tim
 	}
 
 	return totalTime, nil
+}
+
+func CurrentMonthUsageForHosts(d db.QueryReceiver, hostIDs []int64) (int64, error) {
+	start := now.BeginningOfMonth()
+	end := time.Now()
+
+	return TotalUsageForHosts(d, hostIDs, start, end)
+}
+
+func CurrentMonthUsageForUser(d *db.Database, userID int64) (int64, error) {
+	hs, err := host.FindAllWithTerminated(d, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return CurrentMonthUsageForHosts(d, host.HostsToHostIDs(hs))
 }
 
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {

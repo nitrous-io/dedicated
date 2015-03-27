@@ -18,7 +18,9 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -102,9 +104,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = CheckCreateHostPermission(db, u, pl)
+	bp, err := billingprofile.Find(db, u.ID)
 	if err != nil {
 		return err
+	}
+
+	if bp.IsFreeTier() {
+		err = freetier.CreateHostPermission(db, bp, pl)
+		if err != nil {
+			return err
+		}
 	}
 
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
