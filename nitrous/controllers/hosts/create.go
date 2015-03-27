@@ -64,18 +64,42 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	region, err := findRegion(db, options.Region)
-	if err != nil {
-		return err
+	var (
+		reg      *region.Region
+		pl       *plan.Plan
+		template *providertemplate.ProviderTemplate
+	)
+
+	// if template name is specified, we use it to locate the correct plan,
+	// region and provider template. This is an admin-only option.
+	if options.TemplateName != "" {
+		template, err = providertemplate.FindByName(db, options.TemplateName)
+		if err != nil {
+			return err
+		}
+		reg, err = region.FindByID(db, template.RegionID)
+		if err != nil {
+			return err
+		}
+		pl, err = plan.FindByID(db, template.PlanID)
+		if err != nil {
+			return err
+		}
+	} else {
+		reg, err = findRegion(db, options.Region)
+		if err != nil {
+			return err
+		}
+		pl, err = findPlan(db, options.Size)
+		if err != nil {
+			return err
+		}
+		template, err = findTemplate(db, pl, reg, options.Provider)
+		if err != nil {
+			return err
+		}
 	}
-	plan, err := findPlan(db, options.Size)
-	if err != nil {
-		return err
-	}
-	template, err := findTemplate(db, plan, region, options.Provider)
-	if err != nil {
-		return err
-	}
+
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
 	if err := t.Insert(db); err != nil {
 		return err
@@ -123,8 +147,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Name:               options.Name,
 		User:               u,
 		Token:              t,
-		Region:             region,
-		Plan:               plan,
+		Region:             reg,
+		Plan:               pl,
 		Template:           template,
 		ProvisionFailedFn:  publishProvisionFailure,
 		UUID:               env.UUID,
@@ -171,8 +195,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	env.AddEventData(map[string]interface{}{
-		"plan":   plan.Slug,
-		"region": region.Slug,
+		"plan":   pl.Slug,
+		"region": reg.Slug,
 	})
 
 	return nil

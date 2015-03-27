@@ -40,6 +40,15 @@ func FindByID(d db.QueryReceiver, id int64) (*ProviderTemplate, error) {
 	return pt, nil
 }
 
+// FindByName returns the provider template with the specified name if found
+func FindByName(d db.QueryReceiver, name string) (*ProviderTemplate, error) {
+	pt := &ProviderTemplate{}
+	if err := d.Get(pt, "SELECT * FROM provider_templates WHERE name = $1", name); err != nil {
+		return nil, err
+	}
+	return pt, nil
+}
+
 func All(d db.QueryReceiver) ([]*ProviderTemplate, error) {
 	pts := []*ProviderTemplate{}
 	err := d.Select(&pts, "SELECT * FROM provider_templates ORDER BY id")

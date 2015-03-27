@@ -643,6 +643,29 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ProviderTemplateID).To(Equal(pt2.ID))
 		})
+
+		It("uses a custom template if provided by admin", func() {
+			_, err := db.Exec(`UPDATE users SET admin = true WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			stack, err := test.CreateHostStack(db, &test.HostStack{
+				R:  &region.Region{Slug: "us-west-2"},
+				P:  &plan.Plan{Slug: "huge", Price: 500},
+				PT: &providertemplate.ProviderTemplate{Name: "usw2-huge-disabled", Disabled: true},
+			})
+			Expect(err).To(BeNil())
+
+			params.Set("template_name", "usw2-huge-disabled")
+			doRequest(params)
+
+			hosts, _ := host.FindAllByUser(db, u)
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].ProviderTemplateID).To(Equal(stack.PT.ID))
+			Expect(hosts[0].RegionID).To(Equal(stack.R.ID), "failed to override supplied region")
+			Expect(hosts[0].RegionID).ToNot(Equal(hs.R.ID), "failed to override supplied region")
+			Expect(hosts[0].PlanID).To(Equal(stack.P.ID), "failed to override supplied plan")
+			Expect(hosts[0].PlanID).ToNot(Equal(hs.P.ID), "failed to override supplied plan")
+		})
 	})
 
 	Context("when hostbuilder fails to create the host", func() {

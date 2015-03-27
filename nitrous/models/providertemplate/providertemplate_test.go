@@ -134,6 +134,19 @@ var _ = Describe("models/providertemplate", func() {
 		})
 	})
 
+	Describe("FindByName()", func() {
+		It("finds the template by its name", func() {
+			pt, err := providertemplate.FindByName(db, "do-512MB")
+			Expect(err).To(BeNil())
+
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Name).To(Equal("do-512MB"))
+			Expect(pt.Provider).To(Equal("digitalocean"))
+		})
+	})
+
 	Describe("Insert()", func() {
 		var pt *providertemplate.ProviderTemplate
 
