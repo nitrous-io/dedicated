@@ -7,7 +7,7 @@ separator = App.MenuItem.create(separator: true)
 rulerMenu = menu 'Ruler', [
   menuItem 'None',
     callback: (controller) ->
-      controller.viewSetRulerColumn null
+      controller.viewSetRulerColumn(0)
     checked: (->
       !App.get('router.ideEditorController.rulerColumn')
     ).property 'App.router.ideEditorController.rulerColumn'

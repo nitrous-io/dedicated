@@ -196,8 +196,9 @@ App.Editor = klass = Em.Object.extend
 
   rulerColumnDidChange: (->
     if cm = @get 'codeMirror'
-      if @get('rulerColumn')
-        cm.setOption 'rulers', [{ column: @get('rulerColumn') }]
+      col = @get('rulerColumn')
+      if col > 0
+        cm.setOption 'rulers', [{ column: col }]
       else
         cm.setOption 'rulers', null
   ).observes 'rulerColumn'
