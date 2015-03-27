@@ -115,7 +115,7 @@ func logErrorHelper(callerNo int, format string, arg ...interface{}) {
 	if pc, _, _, ok := runtime.Caller(callerNo); ok {
 		s = functionFromPC(pc) + ": " + s
 	}
-	log.Printf(s)
+	log.Print(s)
 }
 
 // logs error message with file name + line number of the function one level

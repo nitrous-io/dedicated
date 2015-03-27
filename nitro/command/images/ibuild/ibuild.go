@@ -146,7 +146,7 @@ func (c *Command) buildImage(host, fpath, slug string, out io.Writer, termFd uin
 			defer pw.Close()
 			errCh := uploadBuildContext(writer, params, r)
 			if err := <-errCh; err != nil {
-				log.Printf(err.Error())
+				log.Print(err.Error())
 			}
 			return
 		}()
