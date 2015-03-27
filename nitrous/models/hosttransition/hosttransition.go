@@ -56,35 +56,18 @@ func joinInts(ids []int64) string {
 	return strings.Join(sids, ", ")
 }
 
-// Find the total running time of all provided hosts
-func UsageTimeForHosts(d db.QueryReceiver, hostIDs []int64) (int64, error) {
-	query := fmt.Sprintf(`SELECT 
-		sum(ceiling(
+func UsageListForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) ([]*HostUsage, error) {
+	query := fmt.Sprintf(`SELECT host_id,
+		ceiling(
 			cast(
 				EXTRACT(
 					EPOCH FROM 
-					LEAST(ended_at, now()) 
-					- created_at
+						LEAST(COALESCE(ended_at, $2), $2) 
+						- GREATEST(created_at, $1)
 				) 
-				AS integer
+				as integer
 			) / 60.0
-		)) minutes
-		FROM host_transitions
-		WHERE host_id IN (%s)
-		AND state = 'running';
-	`, joinInts(hostIDs))
-
-	res := struct {
-		Minutes int64 `db:"minutes"`
-	}{}
-
-	err := d.Get(&res, query)
-	return res.Minutes, err
-}
-
-func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
-	query := fmt.Sprintf(`SELECT host_id,
-		ceiling(cast((EXTRACT(EPOCH FROM LEAST(COALESCE(ended_at, $2), $2) - GREATEST(created_at, $1))) as integer) / 60.0) minutes,
+		) minutes,
 		GREATEST(created_at, $1) start_at,
 		LEAST(COALESCE(ended_at, $2), $2) end_at
 		FROM host_transitions
@@ -94,16 +77,40 @@ func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (m
 		ORDER BY id ASC;
 	`, joinInts(hostIDs))
 
-	times := []*HostUsage{}
-	if err := d.Select(&times, query, start, end); err != nil {
+	usageList := []*HostUsage{}
+	if err := d.Select(&usageList, query, start, end); err != nil {
+		return nil, err
+	}
+
+	return usageList, nil
+}
+
+func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (map[int64][]*HostUsage, error) {
+	usageList, err := UsageListForHosts(d, hostIDs, start, end)
+	if err != nil {
 		return nil, err
 	}
 
 	res := make(map[int64][]*HostUsage)
-	for _, r := range times {
+	for _, r := range usageList {
 		res[r.HostID] = append(res[r.HostID], r)
 	}
 	return res, nil
+}
+
+// Find total usage time for list of hosts
+func TotalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (int64, error) {
+	usageList, err := UsageListForHosts(d, hostIDs, start, end)
+	if err != nil {
+		return 0, err
+	}
+
+	var totalTime int64 = 0
+	for _, usage := range usageList {
+		totalTime += usage.Minutes
+	}
+
+	return totalTime, nil
 }
 
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {

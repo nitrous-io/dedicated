@@ -2,7 +2,9 @@ package hosts
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -11,9 +13,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
-
-// Free-tier time limit should be 10 hour / 600 minutes
-const freeTimeLimit = 600
 
 var (
 	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed",
@@ -60,20 +59,26 @@ func CheckCreateHostPermission(d *db.Database, u *user.User, p *plan.Plan) error
 		hostIDs[i] = h.ID
 
 		// Error if any of the host is active (non-terminated)
+		// because only one max host is allowed
 		if h.TerminatedAt != nil {
 			return errMaxFreeHostReached
 		}
 	}
 
+	start := now.BeginningOfMonth()
+	end := time.Now()
+
 	// All of the user's hosts have been terminated
 	// Checking if the total time usage is more than
 	// the time limit.
-	usage, err := hosttransition.UsageTimeForHosts(d, hostIDs)
+	usage, err := hosttransition.TotalUsageForHosts(d, hostIDs, start, end)
 	if err != nil {
 		return err
 	}
 
-	if usage > freeTimeLimit {
+	maxMinutes := bp.MaxHours.Int64 * 60
+
+	if usage >= maxMinutes {
 		return errFreeTimeLimitExceeded
 	}
 
