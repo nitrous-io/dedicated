@@ -141,9 +141,8 @@ App.IdeDocumentView = Em.View.extend
     settings.text = @get 'document.content'
     editor = App.Editor.create(settings)
 
-    line = @get('document.currentLine') || 1
-    col = @get('document.currentCharacter') || 0
-    editor.gotoLine line, col
+    if selections = @get('document.selections')
+      editor.setSelections(selections)
 
     editor.on 'change', =>
       unless @isDestroyed
@@ -160,10 +159,11 @@ App.IdeDocumentView = Em.View.extend
       if @get 'document.focused'
         @set 'document.focused', false
 
-    editor.on 'cursorActivity', (cm)=>
-      if cursor = cm.getCursor()
-        @set 'document.currentLine', cursor.line + 1
-        @set 'document.currentCharacter', cursor.ch
+    editor.on 'cursorActivity', (cm) =>
+      # Save selections so that we can restore them when document tab is dragged
+      # and dropped.
+      if selections = cm.listSelections()
+        @set 'document.selections', selections
 
     @set 'editor', editor
 
@@ -254,8 +254,6 @@ App.IdeDocumentView = Em.View.extend
       if focused = @get 'document.focused'
         editor.refresh()
         editor.focus()
-      #else
-        #@$('textarea')[0].blur()
   ).observes 'document.focused'
 
   documentPathDidChange: (->

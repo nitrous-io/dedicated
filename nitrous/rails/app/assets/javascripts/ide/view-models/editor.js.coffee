@@ -132,6 +132,10 @@ App.Editor = klass = Em.Object.extend
       cm.setCursor(parseInt(line) - 1, cursor, scroll: true)
       cm.scrollIntoView() # above {scroll: true} option does not work as advertised
 
+  setSelections: (selections) ->
+    if cm = @get 'codeMirror'
+      cm.setSelections(selections, 0, scroll: true)
+
   toggleComment: ->
     if cm = @get 'codeMirror'
       cm.execCommand('toggleComment')
