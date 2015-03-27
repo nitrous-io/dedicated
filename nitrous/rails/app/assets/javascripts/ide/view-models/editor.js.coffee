@@ -65,6 +65,7 @@ App.Editor = klass = Em.Object.extend
       cm.off 'blur'
       cm.off 'gutterClick'
       cm.off 'cursorActivity'
+      cm.off 'scroll'
 
   on: ->
     if cm = @get 'codeMirror'
@@ -135,6 +136,10 @@ App.Editor = klass = Em.Object.extend
   setSelections: (selections) ->
     if cm = @get 'codeMirror'
       cm.setSelections(selections, 0, scroll: true)
+
+  scrollTo: (opts) ->
+    if cm = @get 'codeMirror'
+      cm.scrollTo(opts.left, opts.top)
 
   toggleComment: ->
     if cm = @get 'codeMirror'

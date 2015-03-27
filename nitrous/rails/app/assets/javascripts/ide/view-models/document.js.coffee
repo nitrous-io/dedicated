@@ -19,6 +19,7 @@ App.Document = App.TabContent.extend
 
   gotoLine: null
   selections: null
+  scrollPosition: null
 
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"

@@ -144,6 +144,9 @@ App.IdeDocumentView = Em.View.extend
     if selections = @get('document.selections')
       editor.setSelections(selections)
 
+    if scroll = @get('document.scrollPosition')
+      editor.scrollTo(scroll)
+
     editor.on 'change', =>
       unless @isDestroyed
         if @get('document.content') != (content = editor.get('text'))
@@ -164,6 +167,10 @@ App.IdeDocumentView = Em.View.extend
       # and dropped.
       if selections = cm.listSelections()
         @set 'document.selections', selections
+
+    editor.on 'scroll', (cm) =>
+      if scroll = cm.getScrollInfo()
+        @set 'document.scrollPosition', {left: scroll.left, top: scroll.top}
 
     @set 'editor', editor
 
