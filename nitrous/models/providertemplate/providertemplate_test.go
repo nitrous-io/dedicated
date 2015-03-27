@@ -108,35 +108,29 @@ var _ = Describe("models/providertemplate", func() {
 		})
 	})
 
-	Describe("FindByRegionAndPlanAndProvider()", func() {
-		Context("when a provider template record with a given region ID, plan ID and provider exists", func() {
-			It("returns the provider template record", func() {
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, p1.ID, "digitalocean")
-				Expect(err).To(BeNil())
+	Describe("Find()", func() {
+		It("returns the first matched provider template record", func() {
+			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(err).To(BeNil())
 
-				Expect(pt.ID).NotTo(BeZero())
-				Expect(pt.RegionID).To(Equal(r.ID))
-				Expect(pt.PlanID).To(Equal(p1.ID))
-				Expect(pt.Name).To(Equal("do-512MB"))
-				Expect(pt.Provider).To(Equal("digitalocean"))
-			})
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Name).To(Equal("do-512MB"))
+			Expect(pt.Provider).To(Equal("digitalocean"))
 		})
 
-		Context("when a provider template record with a given region ID and plan ID does not exist", func() {
-			It("returns an error", func() {
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
-				Expect(err).To(MatchError(sql.ErrNoRows))
-				Expect(pt).To(BeNil())
-			})
+		It("returns an error when wanted provider template record does not exist", func() {
+			pt, err := providertemplate.Find(db, &region.Region{ID: 9001}, &plan.Plan{ID: 9002}, "digitalocean")
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(pt).To(BeNil())
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
-				Expect(pt).To(BeNil())
-				Expect(err).NotTo(BeNil())
-			})
+		It("returns encountered error", func() {
+			db.Close()
+			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(pt).To(BeNil())
+			Expect(err).NotTo(BeNil())
 		})
 	})
 

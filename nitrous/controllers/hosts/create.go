@@ -274,7 +274,7 @@ func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error)
 }
 
 func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provider string) (*providertemplate.ProviderTemplate, error) {
-	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, provider)
+	pt, err := providertemplate.Find(db, rg, pl, provider)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errProvidertemplateNotFound

@@ -5,6 +5,8 @@ import (
 
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 )
 
 type ProviderTemplate struct {
@@ -47,9 +49,12 @@ func All(d db.QueryReceiver) ([]*ProviderTemplate, error) {
 	return pts, nil
 }
 
-func FindByRegionAndPlanAndProvider(d db.QueryReceiver, regionID, planID int64, provider string) (*ProviderTemplate, error) {
+// Find is the recommended way to get a provider template that satisfies the
+// provider, region and plan.
+func Find(d db.QueryReceiver, region *region.Region, plan *plan.Plan, provider string) (*ProviderTemplate, error) {
 	pt := &ProviderTemplate{}
-	err := d.Get(pt, "SELECT * FROM provider_templates WHERE region_id = $1 AND plan_id = $2 AND provider = $3", regionID, planID, provider)
+	err := d.Get(pt, `SELECT * FROM provider_templates
+	WHERE region_id = $1 AND plan_id = $2 AND provider = $3`, region.ID, plan.ID, provider)
 	if err != nil {
 		return nil, err
 	}
