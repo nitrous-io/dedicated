@@ -36,11 +36,16 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
         if App.user.admin
-          .ui.checkbox-group
+          .notice-text The following settings are available for admin
+          .ui.input-group
             .ui.checkbox
               = input type='checkbox' id='bypass-preprovision' checked=bypassPreprovision
               label
             label for='bypass-preprovision' &nbsp; Bypass Preprovision
+
+          .ui.input-group
+            label.field-label for='hosts-new-template-name' Template Name
+            = input type='text' id='hosts-new-template-name' name='template-name' disabled=saving value=templateName
 
       .card-body.bordered
         .credit-message class='show'
