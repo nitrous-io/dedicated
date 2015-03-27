@@ -65,6 +65,8 @@ var _ = Describe("buildCreateOptions", func() {
 
 	It("rejects bypass provision when user is not admin", func() {
 		data := url.Values{}
+		data.Set("size", "1gb")
+		data.Set("region", "us-west-2")
 		data.Set("bypass_preprovision", "true")
 		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -74,5 +76,25 @@ var _ = Describe("buildCreateOptions", func() {
 
 		opts, _ = buildCreateOptions(r, &user.User{Admin: true})
 		Expect(opts.BypassPreprovision).To(BeTrue())
+	})
+
+	It("rejects empty size or region", func() {
+		// empty size
+		data := url.Values{}
+		data.Set("region", "us-west-2")
+		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		_, err := buildCreateOptions(r, &user.User{})
+		Expect(err).To(Equal(errSizeRequired))
+
+		// empty region
+		data = url.Values{}
+		data.Set("size", "1gb")
+		r, _ = http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		_, err = buildCreateOptions(r, &user.User{})
+		Expect(err).To(Equal(errRegionRequired))
 	})
 })

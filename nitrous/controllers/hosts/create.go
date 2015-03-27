@@ -63,12 +63,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if options.Size == "" {
-		return errSizeRequired
-	}
-	if options.Region == "" {
-		return errRegionRequired
-	}
 	if options.Slug == "" {
 		return errNameRequired
 	}
@@ -233,6 +227,13 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
+	}
+
+	if opts.Size == "" {
+		return nil, errSizeRequired
+	}
+	if opts.Region == "" {
+		return nil, errRegionRequired
 	}
 
 	// ignore user-provided slug. Use generated slug from name instead
