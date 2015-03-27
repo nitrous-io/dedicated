@@ -71,11 +71,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	provider := defaultProvider
-	if options.Provider != "" && env.User.Admin {
-		provider = options.Provider
-	}
-	template, err := findTemplate(db, plan, region, provider)
+	template, err := findTemplate(db, plan, region, options.Provider)
 	if err != nil {
 		return err
 	}
@@ -240,6 +236,10 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 	// if user is not admin, always enforce bypass_preprovision
 	if !u.Admin {
 		opts.BypassPreprovision = false
+	}
+	// if user is not admin, rejects the custom provider
+	if opts.Provider == "" || !u.Admin {
+		opts.Provider = defaultProvider
 	}
 	return opts, nil
 }
