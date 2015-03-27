@@ -12,7 +12,7 @@ var (
 	AssociateBackoff = 3000
 
 	// max attempts to associate if allocation not found
-	AssociateMaxAttempts = 3
+	AssociateMaxAttempts = 10
 )
 
 // interface of elastic IP provider
