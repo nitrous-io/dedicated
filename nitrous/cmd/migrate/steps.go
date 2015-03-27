@@ -252,6 +252,19 @@ func backupDestDirectories(dirs []string) error {
 	return nil
 }
 
+func removeBackupDestDirectories(dirs []string) error {
+	for _, dir := range dirs {
+		bdir := fmt.Sprintf("%s.bak", dir)
+		logr.Infof("[DEST] Removing %s", bdir)
+		cmd := fmt.Sprintf("sudo rm -r %s", bdir)
+		out, err := destSSHHost.CombinedOutput(cmd)
+		if err != nil {
+			return fmt.Errorf("[DEST] Failed to remove `%s`: %s err: %v", dir, out, err)
+		}
+	}
+	return nil
+}
+
 func syncDirectories(dirs []string) error {
 	dHome := homePathForUser(destSSHHost.Config.User)
 
@@ -348,7 +361,7 @@ func updateRecords() error {
 	}
 
 	for _, tbl := range []string{"containers", "volumes", "images"} {
-		logr.Infof("[DEST] Updating table %s from host_id=%d to host_id=%d", tbl, destDBHost.ID, srcDBHost.ID)
+		logr.Infof("[DEST] Updating table %s to host_id=%d from host_id=%d", tbl, destDBHost.ID, srcDBHost.ID)
 		qry := fmt.Sprintf("UPDATE %s SET host_id = $1 WHERE host_id = $2;", tbl)
 		_, err := tx.Exec(qry, destDBHost.ID, srcDBHost.ID)
 		if err != nil {

@@ -188,6 +188,11 @@ func main() {
 
 	restorable = false
 
+	err = removeBackupDestDirectories(dirs)
+	if err != nil {
+		return
+	}
+
 	err = startServices()
 	if err != nil {
 		return
