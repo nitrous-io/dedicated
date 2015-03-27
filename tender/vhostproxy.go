@@ -2,6 +2,7 @@ package tender
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -21,10 +22,17 @@ func (s *VhostServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// also in compass/navigator/name_utils.go
 func sameRootDomain(request string, expected string) bool {
 	r := dns.SplitDomainName(request)
 	lr := len(r)
+	if lr < 2 {
+		return false
+	}
 	e := dns.SplitDomainName(expected)
 	le := len(e)
-	return r[lr-1] == e[le-1] && r[lr-2] == e[le-2]
+	if le < 2 {
+		return false
+	}
+	return strings.EqualFold(r[lr-1], e[le-1]) && strings.EqualFold(r[lr-2], e[le-2])
 }
