@@ -29,6 +29,7 @@ const (
 	EventHostUpgrading              EventName = "host.upgrading"
 	EventHostUpgraded               EventName = "host.upgraded"
 	EventHostUpgradeFailed          EventName = "host.upgrade_failed"
+	EventHostsRefreshed             EventName = "hosts.refreshed"
 	EventImageCreated               EventName = "image.created"
 	EventImageUpdated               EventName = "image.updated"
 	EventImageBuilding              EventName = "image.building"
