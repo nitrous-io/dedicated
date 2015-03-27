@@ -78,6 +78,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       @set 'selectedOption', null
       $('input[name=option]').removeAttr('checked')
       @set 'controller.privileged', selectedTemplate.get('privileged')
+      @set 'controller.name', selectedTemplate.get('name')
   ).observes 'selectedTemplate'
 
   hostsDidChange: (->
