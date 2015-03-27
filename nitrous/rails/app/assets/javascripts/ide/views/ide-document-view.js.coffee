@@ -141,6 +141,10 @@ App.IdeDocumentView = Em.View.extend
     settings.text = @get 'document.content'
     editor = App.Editor.create(settings)
 
+    line = @get('document.currentLine') || 1
+    col = @get('document.currentCharacter') || 0
+    editor.gotoLine line, col
+
     editor.on 'change', =>
       unless @isDestroyed
         if @get('document.content') != (content = editor.get('text'))
@@ -155,6 +159,11 @@ App.IdeDocumentView = Em.View.extend
     editor.on 'blur', =>
       if @get 'document.focused'
         @set 'document.focused', false
+
+    editor.on 'cursorActivity', (cm)=>
+      if cursor = cm.getCursor()
+        @set 'document.currentLine', cursor.line + 1
+        @set 'document.currentCharacter', cursor.ch
 
     @set 'editor', editor
 

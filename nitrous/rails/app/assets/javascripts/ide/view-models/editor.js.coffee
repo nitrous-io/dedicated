@@ -64,6 +64,7 @@ App.Editor = klass = Em.Object.extend
       cm.off 'focus'
       cm.off 'blur'
       cm.off 'gutterClick'
+      cm.off 'cursorActivity'
 
   on: ->
     if cm = @get 'codeMirror'
@@ -126,9 +127,9 @@ App.Editor = klass = Em.Object.extend
     if cm = @get 'codeMirror'
       cm.execCommand('unfold')
 
-  gotoLine: (line) ->
+  gotoLine: (line, cursor = 0) ->
     if cm = @get 'codeMirror'
-      cm.setCursor(parseInt(line) - 1, 0, scroll: true)
+      cm.setCursor(parseInt(line) - 1, cursor, scroll: true)
       cm.scrollIntoView() # above {scroll: true} option does not work as advertised
 
   toggleComment: ->

@@ -18,6 +18,8 @@ App.Document = App.TabContent.extend
   splitSelectionIntoLinesTrigger: null
 
   gotoLine: null
+  currentLine: 1
+  currentCharacter: 0
 
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"
