@@ -37,6 +37,12 @@ var (
 	CreateVolumeFn = volumes.CreateVolume
 )
 
+// hostCreateRequest describes the JSON request used to create a host
+type hostCreateRequest struct {
+	Opts *createOpts `json:"host"`
+}
+
+// createOpts described options that can be used to customize a host
 type createOpts struct {
 	Size               string `json:"size"`
 	Region             string `json:"region"`
@@ -216,30 +222,26 @@ func recordTransition(env *middleware.Env, h *host.Host) error {
 	return tx.Commit()
 }
 
-func buildCreateOptions(r *http.Request) (*createOpts, error) {
+func buildCreateOptions(r *http.Request) (opts *createOpts, err error) {
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		var j struct {
-			Opts createOpts `json:"host"`
-		}
+		j := &hostCreateRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 			return nil, err
 		}
-
-		j.Opts.Slug = slugbuilder.Build(j.Opts.Name)
-		return &j.Opts, nil
-
+		opts = j.Opts
 	} else {
-		opts := &createOpts{
+		opts = &createOpts{
 			Size:     r.FormValue("size"),
 			Region:   r.FormValue("region"),
-			Slug:     slugbuilder.Build(r.FormValue("name")),
 			Name:     r.FormValue("name"),
 			Provider: r.FormValue("provider"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
-		return opts, nil
 	}
+
+	opts.Slug = slugbuilder.Build(opts.Name)
+	return opts, nil
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
