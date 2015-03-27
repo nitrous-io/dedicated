@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -26,7 +28,7 @@ var _ = Describe("buildCreateOptions", func() {
 		`))
 		r.Header.Set("Content-Type", "application/json")
 
-		opts, _ := buildCreateOptions(r)
+		opts, _ := buildCreateOptions(r, &user.User{})
 
 		Expect(opts.Size).To(Equal("1gb"))
 		Expect(opts.Region).To(Equal("us-west-2"))
@@ -49,7 +51,7 @@ var _ = Describe("buildCreateOptions", func() {
 		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-		opts, _ := buildCreateOptions(r)
+		opts, _ := buildCreateOptions(r, &user.User{})
 
 		Expect(opts.Size).To(Equal("1gb"))
 		Expect(opts.Region).To(Equal("us-west-2"))
@@ -59,5 +61,18 @@ var _ = Describe("buildCreateOptions", func() {
 
 		// slug is overridden
 		Expect(opts.Slug).ToNot(Equal("ultimate"))
+	})
+
+	It("rejects bypass provision when user is not admin", func() {
+		data := url.Values{}
+		data.Set("bypass_preprovision", "true")
+		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		opts, _ := buildCreateOptions(r, &user.User{})
+		Expect(opts.BypassPreprovision).To(BeFalse())
+
+		opts, _ = buildCreateOptions(r, &user.User{Admin: true})
+		Expect(opts.BypassPreprovision).To(BeTrue())
 	})
 })

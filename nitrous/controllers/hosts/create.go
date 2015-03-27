@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -57,7 +58,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
 
-	options, err := buildCreateOptions(r)
+	options, err := buildCreateOptions(r, u)
 	if err != nil {
 		return err
 	}
@@ -127,15 +128,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	provisioned := make(chan *host.Host, 1)
-
-	bypassPreprovision := false
-	if options.BypassPreprovision && env.User.Admin {
-		bypassPreprovision = true
-	}
-
 	h, err := prov.ProvisionHost(provisioner.ProvisionOptions{
 		Async:              options.Async,
-		BypassPreprovision: bypassPreprovision,
+		BypassPreprovision: options.BypassPreprovision,
 		OutputStream:       outstream,
 		Slug:               options.Slug,
 		Name:               options.Name,
@@ -222,7 +217,7 @@ func recordTransition(env *middleware.Env, h *host.Host) error {
 	return tx.Commit()
 }
 
-func buildCreateOptions(r *http.Request) (opts *createOpts, err error) {
+func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err error) {
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 		j := &hostCreateRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
@@ -240,7 +235,12 @@ func buildCreateOptions(r *http.Request) (opts *createOpts, err error) {
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
 	}
 
+	// ignore user-provided slug. Use generated slug from name instead
 	opts.Slug = slugbuilder.Build(opts.Name)
+	// if user is not admin, always enforce bypass_preprovision
+	if !u.Admin {
+		opts.BypassPreprovision = false
+	}
 	return opts, nil
 }
 
