@@ -51,7 +51,8 @@ type createOpts struct {
 	Slug               string `json:"slug"`     // slug provided by client request will be overriden by a generated slug based on name
 	Name               string `json:"name"`
 	Async              bool   `json:"async"`
-	BypassPreprovision bool   `json:"bypass_preprovision"`
+	BypassPreprovision bool   `json:"bypass_preprovision"` // only available to admin
+	TemplateName       string `json:"template_name"`       // only available to admin to customize provider_template
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -212,10 +213,11 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 		opts = j.Opts
 	} else {
 		opts = &createOpts{
-			Size:     r.FormValue("size"),
-			Region:   r.FormValue("region"),
-			Name:     r.FormValue("name"),
-			Provider: r.FormValue("provider"),
+			Size:         r.FormValue("size"),
+			Region:       r.FormValue("region"),
+			Name:         r.FormValue("name"),
+			Provider:     r.FormValue("provider"),
+			TemplateName: r.FormValue("template_name"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
@@ -233,9 +235,11 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 
 	// ignore user-provided slug. Use generated slug from name instead
 	opts.Slug = slugbuilder.Build(opts.Name)
-	// if user is not admin, always enforce bypass_preprovision
 	if !u.Admin {
+		// if user is not admin, always enforce bypass_preprovision
 		opts.BypassPreprovision = false
+		// if user is not admin, reject custom template name
+		opts.TemplateName = ""
 	}
 	// if user is not admin, rejects the custom provider
 	if opts.Provider == "" || !u.Admin {

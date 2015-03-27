@@ -93,6 +93,22 @@ var _ = Describe("buildCreateOptions", func() {
 		Expect(opts.Provider).To(Equal("clown-compute"))
 	})
 
+	It("rejects custom provider template name when user is not admin", func() {
+		data := url.Values{}
+		data.Set("size", "1gb")
+		data.Set("region", "us-west-2")
+		data.Set("name", "windows XP")
+		data.Set("template_name", "azure-sfo-1000GB")
+		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		opts, _ := buildCreateOptions(r, &user.User{})
+		Expect(opts.TemplateName).To(BeEmpty())
+
+		opts, _ = buildCreateOptions(r, &user.User{Admin: true})
+		Expect(opts.TemplateName).To(Equal("azure-sfo-1000GB"))
+	})
+
 	It("rejects empty size or region or name", func() {
 		// empty size
 		data := url.Values{}
