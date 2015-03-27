@@ -94,6 +94,19 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	env.Events.Publish(
+		controllers.NewEvent(controllers.EventHostsRefreshed, map[string]interface{}{
+		// no data necessary -- event used to trigger reload of all hosts
+		}),
+		env.User.Topic(),
+	)
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{}
+	return nil
+}
+
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var ver *freighterclient.HostVersions
 

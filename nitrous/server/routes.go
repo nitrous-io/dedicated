@@ -146,6 +146,7 @@ func (s *Server) drawRoutes() {
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
+				"/hosts/refresh":                           r("hosts.Refresh", hosts.Refresh),
 				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),
 				"/hosts/{slug}/registries":                 r("registries.Login", registries.Login, EventRegistryAdded),
 				"/hosts/{slug}/start":                      r("hosts.Start", mw.HostViaPath("slug", hosts.Start), EventHostStarted),
