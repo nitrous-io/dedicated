@@ -31,9 +31,19 @@ blockquote
   cite
     padding-top: 10px
     font-style: italic
+    a
+      color: rgba(0,0,0,.6)
   strong
-    background: rgba(255,255,255,.08)
     padding: 0 1px
+
+.dark
+  blockquote
+    strong
+      background: rgba(255,255,255,.08)
+.light
+  blockquote
+    strong
+      background: rgba(0,0,0,.04)
 
 hr
   height: 1px
@@ -357,7 +367,7 @@ nav
       padding: 0
       li
         display: inline-block
-        margin: 0 6px
+        margin: 0 10px
         a
           padding: 0 16px
 
@@ -601,11 +611,12 @@ nav
 .light
   .form-wrapper
     form
-      border: 1px solid rgba(0,0,0,.2)
+      border: 1px solid transparent
       border-radius: 5px
 
       &:hover, &.focused
         box-shadow: 0 0 0 transparent
+        border: 1px solid $blueLink
 
 
 
@@ -889,6 +900,15 @@ h4 + .box-wrapper
       font-size: 20px
       padding-top: 10px
 
+      img
+        width: 36px
+        height: 36px
+        position: relative
+        top: 10px
+        display: inline-block
+        margin-right: 10px
+        background: transparent
+
 .two
   padding: 0 60px
   .box
@@ -926,7 +946,6 @@ h4 + .box-wrapper
   font-family: $boldFont
   // font-weight: bold
   font-weight: 400
-
 
 
 
@@ -1039,7 +1058,7 @@ h4 + .box-wrapper
 
 .stack
   display: inline-block
-  margin: 10px 10px 40px 10px
+  margin: 10px 16px 40px 16px
   user-select: none
   position: relative
   +webkitFix
@@ -1071,19 +1090,25 @@ h4 + .box-wrapper
 #stack
   .stack-steps
     ol
-      margin: 32px 60px 0
+      margin: 32px 0 0
+      padding: 20px 0
       li
+        width: 100%
+        overflow: hidden
         padding: 12px
         border-radius: 4px
-        margin: 0 0 32px
+        margin: 0 0 50px
         &:last-child
           margin-bottom: 0
+
         h4
           color: #5B666F
           text-align: left
           font-size: 16px
           line-height: 24px
-        .step
+          padding-bottom: 10px
+
+        .step-num
           width: 24px
           height: 24px
           border: 1px solid #5B666F
@@ -1092,6 +1117,65 @@ h4 + .box-wrapper
           font-size: 13px
           text-align: center
           margin-right: 16px
+
+        p + p
+          padding-top: 20px
+
+    .left, .right
+      width: 50%
+      position: relative
+
+    .left
+      float: left
+      img
+        width: 460px
+        height: auto
+        border-radius: 4px
+
+        &.callout
+          width: 160px
+          height: 160px
+          position: absolute
+          background: transparent
+          bottom: 90px
+          right: 100px
+          border-radius: 160px
+          box-shadow: 0 6px 20px rgba(0,0,0,.3)
+
+    .right
+      float: right
+
+    .did-you-know
+      width: 90%
+      padding: 26px 0 0 0
+      font-size: 13px
+      line-height: 24px
+      color: #A5B3BE
+
+      & + .did-you-know
+        padding-top: 14px
+
+      span
+        color: #5B666F
+        font-size: 14px
+        display: block
+        font-family: $boldFont
+
+
+.stack-resources
+  .box
+    img
+      width: 100%
+      height: 140px
+      display: block
+      background: #FFF
+      margin-bottom: 20px
+    h3
+      margin-bottom: 6px
+
+    a:hover
+      h3
+        color: $blueLink
 
 .stack-lang
   width: 94px
@@ -1913,6 +1997,11 @@ h4 + .box-wrapper
       left: -28px
       font-size: 32px
 
+.light .quotes
+  .one p
+    &:before
+      color: #cfcfcf
+
 
 // --------------------------------------
 // Life at
@@ -2547,6 +2636,9 @@ input[type="range"]
 // --------------------------------------
 // Light
 .light
+
+  article p a
+    color: $blueLink
 
   .unread
     &:after
