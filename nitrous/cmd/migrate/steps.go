@@ -267,12 +267,23 @@ func removeBackupDestDirectories(dirs []string) error {
 
 func syncDirectories(dirs []string) error {
 	dHome := homePathForUser(destSSHHost.Config.User)
+	parts := strings.Split(srcSSHHost.Client.RemoteAddr().String(), ":")
+	remoteCmd := fmt.Sprintf(`ssh -i '%s/.ssh/id_rsa' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -p %s`, dHome, parts[1])
 
+	// run rsync with --ignore-existing --sparse first to handle sparse files,
+	// then run rsync with --inplace to update files in place.
+	// See http://serverfault.com/questions/66338/how-do-you-synchronise-huge-sparse-files-vm-disk-images-between-machines/435514#435514
 	for _, dir := range dirs {
-		parts := strings.Split(srcSSHHost.Client.RemoteAddr().String(), ":")
-		cmd := fmt.Sprintf(`sudo rsync -az --rsync-path="sudo rsync" -e "ssh -i '%s/.ssh/id_rsa' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -p %s" %s@%s:%s/ %s`, dHome, parts[1], srcSSHHost.Config.User, parts[0], dir, dir)
+		cmd := fmt.Sprintf(`sudo rsync --ignore-existing --sparse -az --rsync-path="sudo rsync" -e "%s" %s@%s:%s/ %s`, remoteCmd, srcSSHHost.Config.User, parts[0], dir, dir)
 		logr.Debugf("[DEST] Running %s", cmd)
 		out, err := destSSHHost.CombinedOutput(cmd)
+		if err != nil {
+			return fmt.Errorf("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
+		}
+
+		cmd = fmt.Sprintf(`sudo rsync --inplace -az --rsync-path="sudo rsync" -e "%s" %s@%s:%s/ %s`, remoteCmd, srcSSHHost.Config.User, parts[0], dir, dir)
+		logr.Debugf("[DEST] Running %s", cmd)
+		out, err = destSSHHost.CombinedOutput(cmd)
 		if err != nil {
 			return fmt.Errorf("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
 		}
