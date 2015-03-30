@@ -342,10 +342,35 @@ var _ = Describe("models/invoiceitem", func() {
 			Expect(err).To(Equal(invoiceitem.ErrPlanMemoryMissing))
 		})
 
+		It("should require PlanMemory to be valid if the type is a free Compute", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeFreeCompute,
+				HostID:      sql.NullInt64{h.ID, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrPlanMemoryMissing))
+		})
+
 		It("should require Hours to be valid if the type is a Compute", func() {
 			i := &invoiceitem.InvoiceItem{
 				InvoiceID:   in.ID,
 				ItemType:    invoiceitem.ItemTypeCompute,
+				HostID:      sql.NullInt64{h.ID, true},
+				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
+				StripeID:    sql.NullString{"Xcccs", true},
+				PlanMemory:  sql.NullString{"1 GB", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(Equal(invoiceitem.ErrHoursInvalid))
+		})
+
+		It("should require Hours to be valid if the type is a Free Compute", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:   in.ID,
+				ItemType:    invoiceitem.ItemTypeFreeCompute,
 				HostID:      sql.NullInt64{h.ID, true},
 				HourlyPrice: sql.NullInt64{h.HourlyPrice, true},
 				StripeID:    sql.NullString{"Xcccs", true},
@@ -366,6 +391,19 @@ var _ = Describe("models/invoiceitem", func() {
 			}
 			err := i.Insert(db)
 			Expect(err).To(Equal(invoiceitem.ErrHourlyPriceInvalid))
+		})
+
+		It("should not require HourlyPrice to be valid if the type is a Free Compute", func() {
+			i := &invoiceitem.InvoiceItem{
+				InvoiceID:  in.ID,
+				ItemType:   invoiceitem.ItemTypeFreeCompute,
+				HostID:     sql.NullInt64{h.ID, true},
+				Hours:      sql.NullInt64{24, true},
+				StripeID:   sql.NullString{"Xcccs", true},
+				PlanMemory: sql.NullString{"1 GB", true},
+			}
+			err := i.Insert(db)
+			Expect(err).To(BeNil())
 		})
 
 		It("should expect Hours to be greater than zero", func() {
