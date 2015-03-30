@@ -616,3 +616,17 @@ func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *
 
 	return nil
 }
+
+func CanCreateContainers(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	can, err := h.CanCreateMoreContainers(env.DB, env.User)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"can_create": can,
+	}
+
+	return nil
+}
