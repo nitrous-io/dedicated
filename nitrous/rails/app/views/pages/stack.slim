@@ -27,7 +27,7 @@ ruby:
       ul
         - stacks.first(10).each do |slug, st|
           li
-            a href="/stacks/#{slug}"
+            a href="/stacks/#{slug}" class=(stack.slug == slug ? 'active' : '')
               = st['name']
 
         li.more
@@ -36,7 +36,7 @@ ruby:
           ol
             - stacks.drop(10).each do |slug, st|
               li
-                a href="/stacks/#{slug}"
+                a href="/stacks/#{slug}" class=(stack.slug == slug ? 'active' : '')
                   = st['name']
 
   article.darker
@@ -59,7 +59,6 @@ ruby:
       h3.big-title
         | Getting started with #{stack.name} and Nitrous
       ol
-        // TODO: only if not signed in
         li.step class=(stack.slug)
           .left
             = image_tag 'home/stack-step-1.png', alt: 'Getting started with Nitrous'
@@ -110,7 +109,6 @@ ruby:
 
 
   = render partial: "stacks/resources_#{stack.slug.gsub('-','_')}"
-
   = render partial: "stacks/quote_#{stack.slug.gsub('-','_')}"
 
 
