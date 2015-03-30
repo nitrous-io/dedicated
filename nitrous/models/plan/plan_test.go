@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -27,7 +27,7 @@ var _ = Describe("models/plan", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
@@ -126,33 +126,6 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("All()", func() {
-		It("returns all plans", func() {
-			pls, err := plan.All(db)
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
-			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
-			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
-		})
-	})
-
-	Describe("Enabled()", func() {
-		It("returns all enabled plans", func() {
-			// Add a disabled plan.
-			_, err := db.Exec(`INSERT INTO plans
-				(slug, name, max_containers, price, cpu, memory, storage, disabled)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				"3gb", "Medium", 4, 4995, "6", "3 GB", "40 GB", true)
-			Expect(err).To(BeNil())
-
-			pls, err := plan.Enabled(db)
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
-			Expect([]string{pls[0].Slug, pls[1].Slug}).To(ConsistOf([]string{"1gb", "2gb"}))
-			Expect([]string{pls[0].Name, pls[1].Name}).To(ConsistOf([]string{"Micro", "Small"}))
-		})
-	})
-
 	Describe("PlanPricingHostMap()", func() {
 		It("returns a mapping of host IDs to plan prices for a user", func() {
 			u := &user.User{
@@ -160,10 +133,10 @@ var _ = Describe("models/plan", func() {
 				Email:    "foo@example.com",
 				Password: "123456",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			hs1, err := CreateHostStack(db, &HostStack{
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 2000,
@@ -182,7 +155,7 @@ var _ = Describe("models/plan", func() {
 			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			hs2, err := CreateHostStack(db, &HostStack{
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-2",
 					HourlyPrice: 500,
@@ -209,53 +182,64 @@ var _ = Describe("models/plan", func() {
 
 	Describe("EnabledForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
+			sfo := &region.Region{Slug: "sfo", Name: "US West"}
+			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
+			for _, r := range []*region.Region{sfo, azure} {
+				Expect(r.Insert(db)).To(BeNil(), "failed to insert %s", r.Slug)
+			}
+
 			// Add associated provider templates for the plans in the database.
 			var ids []int64
-			err := db.Select(&ids, `SELECT id FROM plans;`)
-			Expect(err).To(BeNil())
-			Expect(ids).To(HaveLen(2))
-			r := region.Region{
-				Slug: "sfo",
-				Name: "US West",
-			}
-			Expect(r.Insert(db)).To(BeNil())
+			db.Select(&ids, `SELECT id FROM plans;`)
 			for _, id := range ids {
 				t := providertemplate.ProviderTemplate{
 					PlanID:   id,
-					RegionID: r.ID,
+					RegionID: sfo.ID,
 					Provider: "digitalocean",
 				}
 				Expect(t.Insert(db)).To(BeNil())
 			}
 
+			var (
+				p  *plan.Plan
+				pt *providertemplate.ProviderTemplate
+			)
+
 			// Add a plan belonging to a different provider - it should not be returned.
-			p := &plan.Plan{
+			p = &plan.Plan{
 				Slug:          "ultimate",
 				Name:          "Ultimate Edition SP1",
 				MaxContainers: 1,
-				Disabled:      false,
 			}
 			Expect(p.Insert(db)).To(BeNil())
-			r = region.Region{
-				Slug: "sfo-azure",
-				Name: "Azure West",
-			}
-			Expect(r.Insert(db)).To(BeNil())
-			t := providertemplate.ProviderTemplate{
+			pt = &providertemplate.ProviderTemplate{
 				PlanID:   p.ID,
-				RegionID: r.ID,
+				RegionID: azure.ID,
 				Provider: "windows-azure",
 			}
-			Expect(t.Insert(db)).To(BeNil())
+			Expect(pt.Insert(db)).To(BeNil())
 
-			pls, err := plan.EnabledForProvider(db, "digitalocean")
-			Expect(err).To(BeNil())
-			Expect(pls).To(HaveLen(2))
+			// Add a plan belonging to a disabled provider template - it should
+			// not be returned
+			p = &plan.Plan{
+				Slug:          "ultimate-disabled",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 1,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+			pt = &providertemplate.ProviderTemplate{
+				PlanID:   p.ID,
+				RegionID: azure.ID,
+				Provider: "digitalocean",
+				Disabled: true,
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+
+			pls, _ := plan.EnabledForProvider(db, "digitalocean")
 			slugs := []string{}
 			for _, pl := range pls {
 				slugs = append(slugs, pl.Slug)
 			}
-			Expect(slugs).ToNot(ContainElement("ultimate"))
 			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
 		})
 	})

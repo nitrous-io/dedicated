@@ -33,7 +33,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 
 	. "github.com/onsi/ginkgo"
@@ -46,36 +46,36 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		svr             *server.Server
 		handler         *mux.Router
 		res             *httptest.ResponseRecorder
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 		params          *url.Values
 
 		mockClient *freighterclient.MockClient
 
 		u  *user.User
 		t  *token.Token
-		hs *HostStack
+		hs *test.HostStack
 	)
 
 	BeforeEach(func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		StubDefaultFreighterFn(mockClient)
+		test.StubDefaultFreighterFn(mockClient)
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = NewTestServer("", db, logger, NewFakeTracker())
+		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-		authTokenInputs = AuthTokenInputs{Handler: handler}
+		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
 			Username: "foo",
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
@@ -94,12 +94,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		if db != nil {
 			db.Close()
 		}
-		UnstubFreighterFn()
+		test.UnstubFreighterFn()
 	})
 
 	BeforeEach(func() {
 		var err error
-		hs, err = CreateHostStack(db, &HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			R: &region.Region{Slug: "use"},
 			P: &plan.Plan{Slug: "large", Price: 500},
 		})
@@ -113,7 +113,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 	type overrides map[string]string
 	doRequest := func(p *url.Values) *httptest.ResponseRecorder {
-		req, err := NewRequest("POST", "/api/v0/hosts", p)
+		req, err := test.NewRequest("POST", "/api/v0/hosts", p)
 		Expect(err).To(BeNil())
 		req.Header.Set("Authorization", "Bearer valid-token")
 		res := httptest.NewRecorder()
@@ -122,7 +122,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	}
 
 	doJsonRequest := func(jsonStr string) *httptest.ResponseRecorder {
-		req, err := NewBodyRequest("POST", "/api/v0/hosts", jsonStr)
+		req, err := test.NewBodyRequest("POST", "/api/v0/hosts", jsonStr)
 		Expect(err).To(BeNil())
 		req.Header.Set("Authorization", "Bearer valid-token")
 		req.Header.Set("Content-type", "application/json")
@@ -132,9 +132,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	}
 
 	It("should block if the user has billing issues", func() {
-		MarkDelinquentUser(db, u)
+		test.MarkDelinquentUser(db, u)
 		res = doRequest(params)
-		VerifyDelinquentUserResponse(res)
+		test.VerifyDelinquentUserResponse(res)
 	})
 
 	// tests for required params
@@ -147,7 +147,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal(p + " is required"))
 		})
@@ -159,7 +159,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("name is required"))
 	})
@@ -167,7 +167,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	It("should not send any analytics events if there are errors", func() {
 		params.Set("name", "")
 		doRequest(params)
-		t, ok := svr.Tracker.(*FakeTracker)
+		t, ok := svr.Tracker.(*test.FakeTracker)
 		Expect(ok).To(BeTrue())
 
 		Expect(t.Events[u.ID]).To(BeEmpty())
@@ -179,7 +179,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
@@ -195,7 +195,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching plan found for the given size"))
 	})
@@ -208,7 +208,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("region_disabled"))
 		Expect(errDesc).To(Equal("region is disabled"))
 	})
@@ -219,7 +219,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching region found for the given name"))
 	})
@@ -236,14 +236,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-		errType, errDesc := ErrorSlug(res.Body)
+		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
 	})
 
 	It("sends the host configs as json params", func() {
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
-		rt := &FakeRoundTripper{
+		rt := &test.FakeRoundTripper{
 			Message: fmt.Sprintf(`
 			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 			`, hs.PT.Name),
@@ -285,7 +285,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		}`
 
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
-		rt := &FakeRoundTripper{
+		rt := &test.FakeRoundTripper{
 			Message: fmt.Sprintf(`
 			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
 			`, hs.PT.Name),
@@ -316,11 +316,11 @@ var _ = Describe("POST /api/v0/hosts", func() {
 	})
 
 	Context("when hostbuilder successfully creates a host", func() {
-		var rt *FakeRoundTripper
+		var rt *test.FakeRoundTripper
 
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt = &FakeRoundTripper{
+			rt = &test.FakeRoundTripper{
 				Message: fmt.Sprintf(`
 				{"stream":"starting: create the droplet"}
 				{"stream":"finished: create the droplet"}
@@ -643,12 +643,35 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ProviderTemplateID).To(Equal(pt2.ID))
 		})
+
+		It("uses a custom template if provided by admin", func() {
+			_, err := db.Exec(`UPDATE users SET admin = true WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			stack, err := test.CreateHostStack(db, &test.HostStack{
+				R:  &region.Region{Slug: "us-west-2"},
+				P:  &plan.Plan{Slug: "huge", Price: 500},
+				PT: &providertemplate.ProviderTemplate{Name: "usw2-huge-disabled", Disabled: true},
+			})
+			Expect(err).To(BeNil())
+
+			params.Set("template_name", "usw2-huge-disabled")
+			doRequest(params)
+
+			hosts, _ := host.FindAllByUser(db, u)
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].ProviderTemplateID).To(Equal(stack.PT.ID))
+			Expect(hosts[0].RegionID).To(Equal(stack.R.ID), "failed to override supplied region")
+			Expect(hosts[0].RegionID).ToNot(Equal(hs.R.ID), "failed to override supplied region")
+			Expect(hosts[0].PlanID).To(Equal(stack.P.ID), "failed to override supplied plan")
+			Expect(hosts[0].PlanID).ToNot(Equal(hs.P.ID), "failed to override supplied plan")
+		})
 	})
 
 	Context("when hostbuilder fails to create the host", func() {
 		BeforeEach(func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			replaceTransport(hb, &FakeRoundTripper{
+			replaceTransport(hb, &test.FakeRoundTripper{
 				Message: errorResponse,
 				Status:  http.StatusBadRequest,
 			})
@@ -671,7 +694,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("should update host provider identifier and ip address if available regardless of error", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			replaceTransport(hb, &FakeRoundTripper{
+			replaceTransport(hb, &test.FakeRoundTripper{
 				Message: `{"id": "i-67263","ip_address":"127.0.0.1","error":"some error occurred"}`,
 				Status:  http.StatusBadRequest,
 			})
@@ -719,7 +742,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Context("when hostbuilder successfully creates a host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt := &FakeRoundTripper{
+				rt := &test.FakeRoundTripper{
 					Message: fmt.Sprintf(`{"id":"abcd1234","ip_address":"0.0.0.0","provider":"%s","freighterd_port":65333}`, hs.PT.Name),
 					Status:  http.StatusOK,
 				}
@@ -798,7 +821,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Context("when hostbuilder fails to create the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &FakeRoundTripper{
+				replaceTransport(hb, &test.FakeRoundTripper{
 					Message: `{"error":"some error occurred"}`,
 					Status:  http.StatusBadRequest,
 				})
@@ -867,14 +890,14 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 1 WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			_, err = CreateHostStack(db, &HostStack{U: u})
+			_, err = test.CreateHostStack(db, &test.HostStack{U: u})
 			Expect(err).To(BeNil())
 
 			res := doRequest(params)
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(ContainSubstring("not allowed"))
 		})
@@ -886,6 +909,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			authTokenInputs.Method = "POST"
 		})
 
-		ItRequiresAuthToken(&authTokenInputs)
+		test.ItRequiresAuthToken(&authTokenInputs)
 	})
 })

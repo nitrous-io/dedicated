@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -37,51 +38,70 @@ var (
 	CreateVolumeFn = volumes.CreateVolume
 )
 
+// hostCreateRequest describes the JSON request used to create a host
+type hostCreateRequest struct {
+	Opts *createOpts `json:"host"`
+}
+
+// createOpts described options that can be used to customize a host
 type createOpts struct {
-	Size               string `json:"size"`
-	Region             string `json:"region"`
-	Provider           string `json:"provider"` // only used to allow admins to test other providers
-	Slug               string `json:"slug"`     // slug provided by client request will be overriden by a generated slug based on name
-	Name               string `json:"name"`
-	Async              bool   `json:"async"`
-	BypassPreprovision bool   `json:"bypass_preprovision"`
+	Size   string `json:"size"`
+	Region string `json:"region"`
+	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
+	Name   string `json:"name"`
+	Async  bool   `json:"async"`
+
+	// the following fields are only available to admin for now
+	Provider           string `json:"provider"`            // use to change provider. Also look at TemplateName
+	BypassPreprovision bool   `json:"bypass_preprovision"` // use to ignore pre-provisioned host
+	TemplateName       string `json:"template_name"`       // use to manually set provider_template
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
 
-	options, err := buildCreateOptions(r)
+	options, err := buildCreateOptions(r, u)
 	if err != nil {
 		return err
 	}
 
-	if options.Size == "" {
-		return errSizeRequired
-	}
-	if options.Region == "" {
-		return errRegionRequired
-	}
-	if options.Slug == "" {
-		return errNameRequired
+	var (
+		reg      *region.Region
+		pl       *plan.Plan
+		template *providertemplate.ProviderTemplate
+	)
+
+	// if template name is specified, we use it to locate the correct plan,
+	// region and provider template. This is an admin-only option.
+	if options.TemplateName != "" {
+		template, err = providertemplate.FindByName(db, options.TemplateName)
+		if err != nil {
+			return err
+		}
+		reg, err = region.FindByID(db, template.RegionID)
+		if err != nil {
+			return err
+		}
+		pl, err = plan.FindByID(db, template.PlanID)
+		if err != nil {
+			return err
+		}
+	} else {
+		reg, err = findRegion(db, options.Region)
+		if err != nil {
+			return err
+		}
+		pl, err = findPlan(db, options.Size)
+		if err != nil {
+			return err
+		}
+		template, err = findTemplate(db, pl, reg, options.Provider)
+		if err != nil {
+			return err
+		}
 	}
 
-	region, err := findRegion(db, options.Region)
-	if err != nil {
-		return err
-	}
-	plan, err := findPlan(db, options.Size)
-	if err != nil {
-		return err
-	}
-	provider := defaultProvider
-	if options.Provider != "" && env.User.Admin {
-		provider = options.Provider
-	}
-	template, err := findTemplate(db, plan, region, provider)
-	if err != nil {
-		return err
-	}
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
 	if err := t.Insert(db); err != nil {
 		return err
@@ -121,22 +141,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	provisioned := make(chan *host.Host, 1)
-
-	bypassPreprovision := false
-	if options.BypassPreprovision && env.User.Admin {
-		bypassPreprovision = true
-	}
-
 	h, err := prov.ProvisionHost(provisioner.ProvisionOptions{
 		Async:              options.Async,
-		BypassPreprovision: bypassPreprovision,
+		BypassPreprovision: options.BypassPreprovision,
 		OutputStream:       outstream,
 		Slug:               options.Slug,
 		Name:               options.Name,
 		User:               u,
 		Token:              t,
-		Region:             region,
-		Plan:               plan,
+		Region:             reg,
+		Plan:               pl,
 		Template:           template,
 		ProvisionFailedFn:  publishProvisionFailure,
 		UUID:               env.UUID,
@@ -183,8 +197,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	env.AddEventData(map[string]interface{}{
-		"plan":   plan.Slug,
-		"region": region.Slug,
+		"plan":   pl.Slug,
+		"region": reg.Slug,
 	})
 
 	return nil
@@ -216,30 +230,48 @@ func recordTransition(env *middleware.Env, h *host.Host) error {
 	return tx.Commit()
 }
 
-func buildCreateOptions(r *http.Request) (*createOpts, error) {
+func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err error) {
 	if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
-		var j struct {
-			Opts createOpts `json:"host"`
-		}
+		j := &hostCreateRequest{}
 		if err := json.NewDecoder(r.Body).Decode(&j); err != nil {
 			return nil, err
 		}
-
-		j.Opts.Slug = slugbuilder.Build(j.Opts.Name)
-		return &j.Opts, nil
-
+		opts = j.Opts
 	} else {
-		opts := &createOpts{
-			Size:     r.FormValue("size"),
-			Region:   r.FormValue("region"),
-			Slug:     slugbuilder.Build(r.FormValue("name")),
-			Name:     r.FormValue("name"),
-			Provider: r.FormValue("provider"),
+		opts = &createOpts{
+			Size:         r.FormValue("size"),
+			Region:       r.FormValue("region"),
+			Name:         r.FormValue("name"),
+			Provider:     r.FormValue("provider"),
+			TemplateName: r.FormValue("template_name"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
-		return opts, nil
 	}
+
+	if opts.Size == "" {
+		return nil, errSizeRequired
+	}
+	if opts.Region == "" {
+		return nil, errRegionRequired
+	}
+	if opts.Name == "" {
+		return nil, errNameRequired
+	}
+
+	// ignore user-provided slug. Use generated slug from name instead
+	opts.Slug = slugbuilder.Build(opts.Name)
+	if !u.Admin {
+		// if user is not admin, always enforce bypass_preprovision
+		opts.BypassPreprovision = false
+		// if user is not admin, reject custom template name
+		opts.TemplateName = ""
+	}
+	// if user is not admin, rejects the custom provider
+	if opts.Provider == "" || !u.Admin {
+		opts.Provider = defaultProvider
+	}
+	return opts, nil
 }
 
 func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
@@ -268,7 +300,7 @@ func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error)
 }
 
 func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provider string) (*providertemplate.ProviderTemplate, error) {
-	pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, rg.ID, pl.ID, provider)
+	pt, err := providertemplate.Find(db, rg, pl, provider)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errProvidertemplateNotFound

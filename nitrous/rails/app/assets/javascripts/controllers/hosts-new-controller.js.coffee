@@ -11,6 +11,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   host: null
   saving: false
   bypassPreprovision: false
+  templateName: null
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
   clear: ->
@@ -23,6 +24,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       host: null
       saving: false
       bypassPreprovision: false
+      templateName: null
     if @get('hasPendingContainer')
       @set('name', App.get('pendingContainerData.name'))
 
@@ -103,6 +105,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       params =
         async: true
         bypass_preprovision: @get('bypassPreprovision')
+        template_name: @get('templateName')
 
       host.save(params, json: true).catch (jqxhr) => # host.save
         if errMsg = jqxhr.responseJSON?.error_description
