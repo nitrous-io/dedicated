@@ -1,9 +1,0 @@
-#!/bin/bash
-
-bundle install --gemfile=rails/Gemfile
-
-go get github.com/nitrous-io/goop
-goop install
-
-$*
-

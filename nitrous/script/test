@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-goop exec forego run ginkgo -r -trace -keepGoing $@
