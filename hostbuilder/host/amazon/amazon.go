@@ -211,7 +211,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Applying settings",
-			Func:        restartFreighterd,
+			Func: func(ctx *host.HostContext) error {
+				return host.RestartServices(h, h.conn, ctx.Done())
+			},
 		},
 	}
 	for _, step := range steps {
@@ -466,6 +468,29 @@ func (h *Host) List() ([]*host.Info, error) {
 
 func (h *Host) DriverName() string {
 	return "amazon"
+}
+
+// Logf logs the data together with the host uuid and droplet id if they are
+// avalaible
+func (h *Host) Logf(format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.instance != nil {
+		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+	}
+	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+}
+
+// MetricsLabel returns the label with the current host's region if possible
+func (h *Host) MetricsLabel(prefix string) string {
+	// region should be set for every requests because ec2 API requires it to
+	// find the instance id properly
+	if h.Config.RegionID != "" {
+		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
+	}
+	return fmt.Sprintf("%s.amazon", prefix)
 }
 
 // refreshInstance reload the current instance associated with this Host to the
@@ -871,22 +896,6 @@ func updateSoftware(ctx *host.HostContext) error {
 	}
 
 	hlog(h, "Updated freighterd package on %v", h.instance.PublicIpAddress)
-	return nil
-}
-
-// restartFreighterd restarts the remote freighterd server. This should be run
-// after updateSoftware to make sure that it has the latest settings.
-func restartFreighterd(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("restart_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Restarting freighterd")
-	if out, err := h.conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
-		err = fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
-		return mh.Error(err, label)
-	}
-	hlog(h, "Restarted freighterd on %s", h.instance.PublicIpAddress)
 	return nil
 }
 

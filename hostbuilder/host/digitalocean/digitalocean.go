@@ -127,7 +127,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Applying settings",
-			Func:        restartFreighterd,
+			Func: func(ctx *host.HostContext) error {
+				return host.RestartServices(h, h.conn, ctx.Done())
+			},
 		},
 	}
 
@@ -349,6 +351,31 @@ func (h *Host) Restart() (*host.Info, error) {
 
 func (h *Host) DriverName() string {
 	return "digitalocean"
+}
+
+// Logf logs the data together with the host uuid and droplet id if they are
+// avalaible
+func (h *Host) Logf(format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.droplet != nil {
+		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
+	}
+	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
+}
+
+// MetricsLabel returns the label with the current host's region if possible
+func (h *Host) MetricsLabel(prefix string) string {
+	var region string
+	if h.droplet != nil && h.droplet.Region != nil {
+		region = h.droplet.Region.Slug
+	}
+	if region != "" {
+		return fmt.Sprintf("%s.digitalocean.%s", prefix, region)
+	}
+	return fmt.Sprintf("%s.digitalocean", prefix)
 }
 
 func (h *Host) id() (int, error) {
@@ -700,20 +727,6 @@ func updateSoftware(ctx *host.HostContext) error {
 		return nil
 	}
 	hlog(h, "Updated freighterd package on %v", h.ipAddress())
-	return nil
-}
-
-func restartFreighterd(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("restart_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Restarting freighterd")
-	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
-		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
-		return mh.Error(e, label)
-	}
-	hlog(h, "Restarted freighterd on %v", h.ipAddress())
 	return nil
 }
 
