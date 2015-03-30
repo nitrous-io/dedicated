@@ -174,8 +174,7 @@ build_nitrous() {
   (build "nitrous/cmd/removeexpiredtokens")
   (build "nitrous/cmd/engagement")
   (build "nitrous/cmd/migrate")
-  # FIXME DO NOT COMMIT
-  #(build_assets)
+  (build_assets)
 }
 
 if [ "$IN_DOCKER" == "true" ]; then
