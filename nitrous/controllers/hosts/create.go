@@ -109,11 +109,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if bp.IsFreeTier() {
-		err = freetier.CreateHostPermission(db, bp, pl)
-		if err != nil {
-			return err
-		}
+	err = freetier.CreateHostPermission(db, bp, pl)
+	if err != nil {
+		return err
 	}
 
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
