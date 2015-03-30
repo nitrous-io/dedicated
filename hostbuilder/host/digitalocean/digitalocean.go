@@ -436,21 +436,6 @@ func (h *Host) logFailedDroplet() {
 	}
 }
 
-// mlabel returns provider.region which is probably helpful if we ever want to
-// differentiate between regions.
-//
-// The result will have a form of prefix.digitalocean<.region>
-func (h *Host) metricsLabel(prefix string) string {
-	var region string
-	if h.droplet != nil && h.droplet.Region != nil {
-		region = h.droplet.Region.Slug
-	}
-	if region != "" {
-		return fmt.Sprintf("%s.digitalocean.%s", prefix, region)
-	}
-	return fmt.Sprintf("%s.digitalocean", prefix)
-}
-
 // configFile is used to marshal/unmarshal /etc/freighter/config.json.
 type configFile struct {
 	DataPath  string       `json:"data_path"`
@@ -523,7 +508,7 @@ func init() {
 
 func createSSHKey(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_key")
+	label := h.MetricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Logf("generating temporary SSH key")
@@ -553,14 +538,13 @@ func createSSHKey(ctx *host.HostContext) error {
 
 func createDroplet(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
 		// inside defer block
-		mh.UpdateSince(h.metricsLabel("create_host"), start)
+		mh.UpdateSince(h.MetricsLabel("create_host"), start)
 	}(time.Now())
 
-	label := h.metricsLabel("create_host")
+	label := h.MetricsLabel("create_host")
 	config := h.Config
 	sshKey := h.sshKey
 
@@ -607,7 +591,7 @@ func createDroplet(ctx *host.HostContext) error {
 
 func waitForSSH(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("ssh_wait")
+	label := h.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Logf("Waiting for SSH to be ready")
@@ -667,7 +651,7 @@ func writeSettings(ctx *host.HostContext) error {
 }
 
 func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.metricsLabel("write_file")
+	label := h.MetricsLabel("write_file")
 	defer mh.UpdateSince(label, time.Now())
 	flist := []string{}
 	for dest, val := range files {
