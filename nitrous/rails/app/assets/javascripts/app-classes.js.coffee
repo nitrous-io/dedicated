@@ -8,6 +8,7 @@
 #= require_tree ./helpers
 #= require_tree ./templates
 #= require_tree ./routes
+#= require_tree ./shared
 #= require_self
 #= require routes
 

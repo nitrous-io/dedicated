@@ -16,6 +16,7 @@ App.HomeRoute = App.AuthedRoute.extend
     @render 'topnav', into: 'home', outlet: 'topnav',  controller: 'topnav'
     @render 'sidebar', into: 'home', outlet: 'sidebar', controller: 'sidebar'
     @render 'admin/dialogs', into: 'home', outlet: 'admin', controller: 'admin-dialogs'
+    @render 'feedback', into: 'home', outlet: 'feedback', controller: 'feedback'
 
   actions:
     downloadDesktopApp: ->
