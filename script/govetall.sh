@@ -4,4 +4,4 @@
 # error.
 # must be run from top-level dir (./scripts/govetall.sh)
 export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH
-go vet ./... |& grep --invert-match "unkeyed" |& grep -v "exit status"
+go vet ./... 2>&1 | grep --invert-match "unkeyed" | grep --invert-match "exit status"

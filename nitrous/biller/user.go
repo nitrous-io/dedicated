@@ -2,10 +2,12 @@ package biller
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -106,6 +108,20 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 
 	if i.Hours.Int64 == 0 {
 		return 0, []invoiceitem.InvoiceItem{}, nil
+	}
+
+	if h.HourlyPrice == 0 {
+		bp, err := billingprofile.Find(d, h.Host.UserID)
+		if err != nil {
+			return 0, []invoiceitem.InvoiceItem{}, err
+		}
+		if bp.State != billingprofile.StateFree {
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.HourlyPrice)
+		}
+		if bp.MaxHours.Valid && i.Hours.Int64 > bp.MaxHours.Int64 {
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d exceeds the maximum hours of the billing profile (%d vs %d)", h.HourlyPrice, i.Hours.Int64, bp.MaxHours.Int64)
+		}
+		i.ItemType = invoiceitem.ItemTypeFreeCompute
 	}
 
 	applyRulesToInvoiceItem(&i, l)

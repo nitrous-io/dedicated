@@ -29,7 +29,7 @@ var (
 	errNameRequired                        = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
 	errImageNotFound                       = httperror.New(http.StatusNotFound, "image_not_found", "image does not exist")
 	errMissingCmd                          = httperror.New(http.StatusBadRequest, "missing_cmd", "missing CMD in Docker image")
-	errMaxContainersReached                = httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")
+	errMaxContainersReached                = httperror.New(http.StatusBadRequest, "max_containers_reached", "workspace has exceeded the plan's maximum containers")
 	errMultipleContainerCreationNotAllowed = httperror.New(http.StatusConflict, "conflict", "another container creation request is currently being processed")
 )
 

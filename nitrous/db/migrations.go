@@ -984,5 +984,11 @@ func init() {
 				ALTER TABLE invoices ALTER COLUMN state SET NOT NULL;
 			`,
 		},
+		{
+			Version: "852",
+			Up: `
+				ALTER TABLE provider_templates ADD COLUMN disabled boolean NOT NULL default false;
+			`,
+		},
 	}
 }

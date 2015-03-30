@@ -501,6 +501,11 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 			return fmt.Errorf("biller: Could not locate plan for user %d host %d", b.user.ID, item.HostID.Int64)
 		}
 
+		if item.ItemType == invoiceitem.ItemTypeFreeCompute {
+			b.logger.Infof("InvoiceItem for host %d is free, no checking required", item.HostID)
+			continue
+		}
+
 		pl := &plan.Plan{Price: planPrice.Price, BasePrice: planPrice.BasePrice}
 		targetPrice := pl.Price
 		if item.ItemType == invoiceitem.ItemTypeBaseEBS {

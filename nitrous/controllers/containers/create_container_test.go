@@ -176,7 +176,7 @@ var _ = Describe("CreateContainer", func() {
 		res, err := containers.CreateContainer(h, params, env)
 		Expect(res).To(BeNil())
 
-		Expect(err).To(MatchError(httperror.New(http.StatusBadRequest, "max_containers_reached", "host has exceeded the plan's maximum containers")))
+		Expect(err).To(MatchError(httperror.New(http.StatusBadRequest, "max_containers_reached", "workspace has exceeded the plan's maximum containers")))
 	})
 
 	It("creates a new container record", func() {

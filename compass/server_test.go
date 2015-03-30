@@ -44,7 +44,6 @@ func testServer() (*Server, string, error) {
 			time.Sleep(time.Millisecond)
 		}
 	}
-	return s, addr, nil
 }
 
 type dnsTestCase struct {

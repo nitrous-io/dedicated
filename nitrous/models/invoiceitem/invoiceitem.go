@@ -40,6 +40,8 @@ const (
 	ItemTypeCredit  = "credit"
 	ItemTypeCompute = "compute"
 	ItemTypeBaseEBS = "base_ebs"
+
+	ItemTypeFreeCompute = "free_compute"
 )
 
 const MaxHours = 28 * 24
@@ -64,7 +66,11 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	state := ""
 	// FIXME: handle future states such as suspended (snapshot/resume)
 	if i.Terminated {
-		state = " (terminated)"
+		if strings.HasPrefix(hst.Slug, "migrated-") {
+			state = " (previous)"
+		} else {
+			state = " (terminated)"
+		}
 	}
 	prcnt := strings.TrimSuffix(fmt.Sprintf("%.3f", i.HourlyCents()), "0")
 	var descType string
@@ -73,6 +79,7 @@ func ItemDescription(i *InvoiceItem, hst *host.Host) string {
 	} else {
 		descType = fmt.Sprintf("compute (%s memory)", i.PlanMemory.String)
 	}
+
 	slug := strings.TrimPrefix(hst.Slug, "migrated-")
 	return fmt.Sprintf("'%s' %s - %d hours at %sc/hour%s", slug, descType, i.Hours.Int64, prcnt, state)
 }
@@ -156,7 +163,7 @@ func (i *InvoiceItem) validate() error {
 		return nil
 	}
 
-	if i.ItemType == ItemTypeCompute && !i.PlanMemory.Valid {
+	if (i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeFreeCompute) && !i.PlanMemory.Valid {
 		return ErrPlanMemoryMissing
 	}
 
@@ -164,7 +171,9 @@ func (i *InvoiceItem) validate() error {
 		return ErrPlanStorageMissing
 	}
 
-	if i.ItemType == ItemTypeCompute || i.ItemType == ItemTypeBaseEBS {
+	if i.ItemType == ItemTypeCompute ||
+		i.ItemType == ItemTypeBaseEBS ||
+		i.ItemType == ItemTypeFreeCompute {
 		if !i.Hours.Valid {
 			return ErrHoursInvalid
 		}
@@ -174,6 +183,11 @@ func (i *InvoiceItem) validate() error {
 		if i.Hours.Int64 > MaxHours {
 			return ErrHoursExceedMaxHours
 		}
+
+		if i.ItemType == ItemTypeFreeCompute {
+			return nil
+		}
+
 		if !i.HourlyPrice.Valid {
 			return ErrHourlyPriceInvalid
 		}

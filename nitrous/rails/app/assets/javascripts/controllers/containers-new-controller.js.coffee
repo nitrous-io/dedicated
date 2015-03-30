@@ -1,6 +1,10 @@
 App.ContainersNewController = Lib.ContainerConfigController.extend
-  queryParams: ['preselectHost']
+  queryParams: ['preselectHost', 'runCreate']
   preselectHost: null
+  # Flag to indicate whether we allow a container to be created immediately upon
+  # entering this route. This prevents unintended creates when the browser
+  # "Back" button is used.
+  runCreate: false
 
   selectedHostSlug: null
   name: null
@@ -32,7 +36,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   clear: ->
     @_super.apply this, arguments
     @setProperties
-      selectedHostSlug: null
+      selectedHostSlug: if App.get('singleHost') then App.get('hosts.firstObject.slug') else null
       name: null
       error: null
       invalidField: null
@@ -69,7 +73,6 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     @set 'saving', false
 
   createContainer: (name, repository, template) ->
-    # create container
     container = App.Container.create
       name: name
       image: repository
@@ -92,7 +95,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   pullImage: (repository, callback) ->
     @set 'pullingImage', true
     events = App.get 'eventsSocket'
-    App.Image.pull(@get('selectedHost'), repository, true).then (image) =>
+    App.Image.pull(@get('selectedHostSlug'), repository, true).then (image) =>
       @set 'image', image
 
       onImagePullFailed = (data) =>
@@ -142,7 +145,6 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       @set 'saving', true
 
       name = @get 'name'
-      slug = @get 'slug'
       selectedOption = @get 'selectedOption'
       selectedTemplate = @get 'selectedTemplate'
 
@@ -161,3 +163,17 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
         template = selectedTemplate.get 'slug'
         @pullImage img, =>
           @createContainer(name, img, template)
+
+    createWorkspaceFirst: (repository) ->
+      # Save data required to create container after creating workspace.
+      App.set 'pendingContainerData', Em.Object.create
+        name: @get 'name'
+        repository: repository
+        selectedOption: @get 'selectedOption'
+        selectedTemplate: @get 'selectedTemplate'
+        envVars: @get 'envVars'
+        portMappings: @get 'portMappings'
+        privileged: @get 'privileged'
+        publishAll: @get 'publishAll'
+
+      @transitionToRoute 'hosts.new', queryParams: { pendingContainer: true }

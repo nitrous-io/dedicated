@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,17 +25,23 @@ var _ = Describe("models/region", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "apse1", "Southeast Asia", 2)
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", "useast", "US East", 1)
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", "fiji", "Fiji", 1)
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now() + interval '1 hour');", "vegas", "Vegas", 3)
-		Expect(err).To(BeNil())
+		fixtures := []struct {
+			stmt string
+			args []interface{}
+		}{
+			{"INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", []interface{}{"apse1", "Southeast Asia", 2}},
+			{"INSERT INTO regions (slug, name, rank) values ($1, $2, $3);", []interface{}{"useast", "US East", 1}},
+			{"INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now());", []interface{}{"fiji", "Fiji", 1}},
+			{"INSERT INTO regions (slug, name, rank, disabled_at) values ($1, $2, $3, now()+ interval '1 hour');", []interface{}{"vegas", "Vegas", 3}},
+		}
+
+		for _, f := range fixtures {
+			_, err = db.Exec(f.stmt, f.args...)
+			Expect(err).To(BeNil(), "failed to execute %s with %v", f.stmt, f.args)
+		}
 	})
 
 	AfterEach(func() {
@@ -98,25 +104,14 @@ var _ = Describe("models/region", func() {
 		})
 	})
 
-	Describe("All()", func() {
-		It("returns all regions, ordered by rank", func() {
-			rs, err := region.All(db)
-			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(3))
-			Expect([]string{rs[0].Slug, rs[1].Slug, rs[2].Slug}).To(Equal([]string{"useast", "apse1", "vegas"}))
-			Expect([]string{rs[0].Name, rs[1].Name, rs[2].Name}).To(Equal([]string{"US East", "Southeast Asia", "Vegas"}))
-		})
-	})
-
 	Describe("AllForProvider()", func() {
 		It("returns all regions for the given provider, ordered by rank", func() {
-			// Add associated provider templates for the regions in the database.
-			var ids []int64
-			err := db.Select(&ids, `SELECT id FROM regions;`)
-			Expect(err).To(BeNil())
-			Expect(ids).To(HaveLen(4))
 			pl := plan.Plan{Slug: "Shift"}
 			Expect(pl.Insert(db)).To(BeNil())
+
+			// Add associated provider templates for the regions in the database.
+			var ids []int64
+			db.Select(&ids, `SELECT id FROM regions;`)
 			for _, id := range ids {
 				t := providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
@@ -126,24 +121,38 @@ var _ = Describe("models/region", func() {
 				Expect(t.Insert(db)).To(BeNil())
 			}
 
-			// Add a region belonging to another provider - it should not be returned.
-			r := region.Region{Slug: "azure-redmond"}
+			// Add a region belonging to a disabled provider template - it
+			// should not be returned
+			var (
+				r  *region.Region
+				pt *providertemplate.ProviderTemplate
+			)
+
+			r = &region.Region{Slug: "apse1-disabled"}
 			Expect(r.Insert(db)).To(BeNil())
-			t := providertemplate.ProviderTemplate{
+			pt = &providertemplate.ProviderTemplate{
+				PlanID:   pl.ID,
+				RegionID: r.ID,
+				Provider: "digitalocean",
+				Disabled: true,
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+
+			// Add a region belonging to another provider - it should not be returned.
+			r = &region.Region{Slug: "azure-redmond"}
+			Expect(r.Insert(db)).To(BeNil())
+			pt = &providertemplate.ProviderTemplate{
 				PlanID:   pl.ID,
 				RegionID: r.ID,
 				Provider: "windows-azure",
 			}
-			Expect(t.Insert(db)).To(BeNil())
+			Expect(pt.Insert(db)).To(BeNil())
 
-			rs, err := region.AllForProvider(db, "digitalocean")
-			Expect(err).To(BeNil())
-			Expect(rs).To(HaveLen(3))
+			rs, _ := region.AllForProvider(db, "digitalocean")
 			slugs := []string{}
 			for _, r := range rs {
 				slugs = append(slugs, r.Slug)
 			}
-			Expect(slugs).ToNot(ContainElement("azure-redmond"))
 			Expect(slugs).To(Equal([]string{"useast", "apse1", "vegas"}))
 		})
 	})

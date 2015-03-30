@@ -122,7 +122,7 @@ dotfiles  117.7M
 		for _, c2 := range cases {
 			c := c2
 			size := uint64(c.size)
-			It(fmt.Sprintf("converts %d to %s", c.size, c.output), func() {
+			It(fmt.Sprintf("converts %g to %s", c.size, c.output), func() {
 				Expect(inspect.HumanReadable(size)).To(Equal(c.output))
 				GinkgoRecover()
 			})

@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -28,7 +28,7 @@ var _ = Describe("models/providertemplate", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
@@ -108,35 +108,42 @@ var _ = Describe("models/providertemplate", func() {
 		})
 	})
 
-	Describe("FindByRegionAndPlanAndProvider()", func() {
-		Context("when a provider template record with a given region ID, plan ID and provider exists", func() {
-			It("returns the provider template record", func() {
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, r.ID, p1.ID, "digitalocean")
-				Expect(err).To(BeNil())
+	Describe("Find()", func() {
+		It("returns the first matched provider template record", func() {
+			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(err).To(BeNil())
 
-				Expect(pt.ID).NotTo(BeZero())
-				Expect(pt.RegionID).To(Equal(r.ID))
-				Expect(pt.PlanID).To(Equal(p1.ID))
-				Expect(pt.Name).To(Equal("do-512MB"))
-				Expect(pt.Provider).To(Equal("digitalocean"))
-			})
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Name).To(Equal("do-512MB"))
+			Expect(pt.Provider).To(Equal("digitalocean"))
 		})
 
-		Context("when a provider template record with a given region ID and plan ID does not exist", func() {
-			It("returns an error", func() {
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
-				Expect(err).To(MatchError(sql.ErrNoRows))
-				Expect(pt).To(BeNil())
-			})
+		It("returns an error when wanted provider template record does not exist", func() {
+			pt, err := providertemplate.Find(db, &region.Region{ID: 9001}, &plan.Plan{ID: 9002}, "digitalocean")
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(pt).To(BeNil())
 		})
 
-		Context("when some error happens", func() {
-			It("returns error", func() {
-				db.Close()
-				pt, err := providertemplate.FindByRegionAndPlanAndProvider(db, 9001, 9002, "digitalocean")
-				Expect(pt).To(BeNil())
-				Expect(err).NotTo(BeNil())
-			})
+		It("returns encountered error", func() {
+			db.Close()
+			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(pt).To(BeNil())
+			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Describe("FindByName()", func() {
+		It("finds the template by its name", func() {
+			pt, err := providertemplate.FindByName(db, "do-512MB")
+			Expect(err).To(BeNil())
+
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Name).To(Equal("do-512MB"))
+			Expect(pt.Provider).To(Equal("digitalocean"))
 		})
 	})
 

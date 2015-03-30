@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/nat"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 )
 
 var (

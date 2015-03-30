@@ -44,22 +44,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	return plan, nil
 }
 
-func All(d db.QueryReceiver) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans ORDER BY (price, max_containers, name)`); err != nil {
-		return nil, err
-	}
-	return pls, nil
-}
-
-func Enabled(d db.QueryReceiver) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans WHERE disabled = false ORDER BY (price, max_containers, name);`); err != nil {
-		return nil, err
-	}
-	return pls, nil
-}
-
 func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing, error) {
 	type planHost struct {
 		HostID        int64 `db:"host_id"`
@@ -81,9 +65,12 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 func EnabledForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	pls := []*Plan{}
 	if err := d.Select(&pls, `SELECT * FROM plans
-		WHERE disabled = false AND plans.id IN
-		(SELECT DISTINCT plan_id FROM provider_templates WHERE provider_templates.provider=$1)
-		ORDER BY (price, max_containers, name);`, provider); err != nil {
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		) ORDER BY (price, max_containers, name);`, provider); err != nil {
 		return nil, err
 	}
 	return pls, nil

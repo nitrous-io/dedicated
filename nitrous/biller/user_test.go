@@ -7,6 +7,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -272,6 +273,26 @@ var _ = Describe("biller/user", func() {
 			Expect(items).To(HaveLen(0))
 		})
 
+		It("should not allow an hourly price of 0 if the billing profile is not in free", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("has a 0 HourlyPrice but Billing profile state is incompatible"))
+		})
+
 		It("should collate all running and stopped usage", func() {
 			hs1, err := CreateHostStack(db, &HostStack{
 				H: &host.Host{
@@ -294,6 +315,57 @@ var _ = Describe("biller/user", func() {
 			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
 			Expect(items[0].Hours).To(Equal(sql.NullInt64{13, true}))
 			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{2000, true}))
+		})
+
+		It("should not allow the host hours to exceed that of the billing profile", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1, max_hours = 1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("exceeds the maximum hours of the billing profile (13 vs 1)"))
+		})
+
+		It("should set the item type to be of FreeCompute if HourlyPrice is 0", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(ch).To(Equal(int64(0)))
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{13, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{0, true}))
+			Expect(items[0].ItemType).To(Equal(invoiceitem.ItemTypeFreeCompute))
 		})
 
 		It("should cap the hours to 28 days", func() {

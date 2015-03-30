@@ -1,9 +1,9 @@
 App.HomeIndexView = Em.View.extend
   elementId: 'home-index-view'
 
-  redirectToNewHosts: (->
+  handleNoHost: (->
     if App.get 'noHost'
-      @get('controller').send 'redirectToNewHosts'
+      @get('controller').send 'handleNoHost'
   ).observes 'App.noHost'
 
   redirectToFirstHost: (->
@@ -13,5 +13,5 @@ App.HomeIndexView = Em.View.extend
 
   didInsertElement: ->
     @_super()
-    @redirectToNewHosts()
+    @handleNoHost()
     @redirectToFirstHost()

@@ -1,16 +1,24 @@
 .card-header.bordered
-  h2 New Workspace
+  if hasPendingContainer
+    h2 Select Your Plan
+  else
+    h2 New Workspace
 
 .screens
   .screen class={view.hideProgress::hide}
     form submit='create target="view"'
       .card-body
-        .notice-text
-          | Workspaces are private dedicated servers where you can create and work on multiple development containers.
         .ui.input-group
-          label.field-label for='hosts-new-name'
-            | Name
-          = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+          if hasPendingContainer
+            .spec
+              if App.pendingContainerData.selectedTemplate
+                img src={App.pendingContainerData.selectedTemplate.iconUrl} class='template'
+              .description
+                span = name
+          else
+            label.field-label for='hosts-new-name'
+              | Name
+            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
         .ui.input-group
           label.field-label for='hosts-new-region'
@@ -28,11 +36,16 @@
               App.PlanListItemView content=plan selected=selectedPlan
 
         if App.user.admin
-          .ui.checkbox-group
+          .notice-text The following settings are available for admin
+          .ui.input-group
             .ui.checkbox
               = input type='checkbox' id='bypass-preprovision' checked=bypassPreprovision
               label
             label for='bypass-preprovision' &nbsp; Bypass Preprovision
+
+          .ui.input-group
+            label.field-label for='hosts-new-template-name' Template Name
+            = input type='text' id='hosts-new-template-name' name='template-name' disabled=saving value=templateName
 
       .card-body.bordered
         .credit-message class='show'
@@ -85,7 +98,9 @@
               | Creating...
         else
           .right
-            input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value='Create'
+            if hasPendingContainer
+              button.ui.btn click='goBack' Back
+            input.ui.btn.primary.raised type='submit' disabled={view.submitButtonDisabled} value={view.submitButtonLabel}
 
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
 
@@ -117,5 +132,8 @@
               | Show Log
       else
         .right
-          a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+          if hasPendingContainer
+            button.ui.btn click='goBack' Back
+          a.ui.btn.primary.raised disabled={view.submitButtonDisabled} click='create target="view"'
+            = view.submitButtonLabel
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=host.progress.progressDetail.current max=host.progress.progressDetail.total
