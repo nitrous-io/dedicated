@@ -19,20 +19,6 @@
 
   .screen class={view.showImageScreen::hide}
     form submit='goNextOrCreate target="view"'
-      .card-body class={App.user.advanced:bordered}
-        .notice-text
-          | Containers are lightweight virtual environments that you can use to sandbox different development environments.
-        .ui.input-group
-          label.field-label
-            | Workspace
-          .ui.select
-            Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
-
-        .ui.input-group
-          label.field-label for='containers-new-name'
-            | Name
-          = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
-
       .card-body.bordered
         .ui.input-group
           label.field-label
@@ -63,17 +49,18 @@
         .card-body.bordered
           .ui.input-group.custom-image
             label.field-label
-              | Or, Use Custom Image
+              | Or, Use A Custom Image
 
-            ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
-              li
-                .ui.checkbox
-                  input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
-                  label
-                label for='containers-new-option-host-image' Use Image On This Workspace
+            unless App.noHost
+              ul.ui.checkbox-group class={view.hostImageOptionDisabled:disabled}
+                li
+                  .ui.checkbox
+                    input type='radio' id='containers-new-option-host-image' name='option' value='host-image' disabled={view.hostImageOptionDisabled}
+                    label
+                  label for='containers-new-option-host-image' Use Image On This Workspace
 
-            .ui.select.indent
-              Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
+              .ui.select.indent
+                Ember.Select class='option-input' name='containers-new-option-host-image' content=selectedHost.images optionValuePath='content.slugAndTag' optionLabelPath='content.slugAndTag' value=view.selectedHostImage disabled=view.hostImageOptionDisabled
 
             ul.ui.checkbox-group class={saving:disabled}
               li
@@ -84,6 +71,20 @@
 
             .indent
               = input type='text' class='option-input' name='containers-new-option-custom-image' placeholder='registry/repo:tag' pattern=App.Image.repoInputPattern title=App.Image.repoInputTitle value=view.customImage disabled=saving
+
+      .card-body.bordered
+        unless App.noHost
+          unless App.singleHost
+            .ui.input-group
+              label.field-label
+                | Workspace
+              .ui.select
+                Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
+
+        .ui.input-group
+          label.field-label for='containers-new-name'
+            | Name
+          = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name
 
 
       .card-footer.bordered
@@ -158,33 +159,34 @@
                 td
                   input.ui.btn.raised type='submit' disabled={view.addEnvVarButtonDisabled} value='Add'
 
-    .card-body.bordered
-      .ui.input-group
-        label.field-label
-          | Volume Mounts
+    unless App.noHost
+      .card-body.bordered
+        .ui.input-group
+          label.field-label
+            | Volume Mounts
 
-      ul.ui.chips
-        each volumeMount in volumeMounts
-          li
-            = volumeMount
-            a.close href='#' click='removeVolumeMount volumeMount' &times;
+        ul.ui.chips
+          each volumeMount in volumeMounts
+            li
+              = volumeMount
+              a.close href='#' click='removeVolumeMount volumeMount' &times;
 
-      form.container-config submit='addVolumeMount'
-        .ui.input-group.container-config-form
-          table.ui.table
-            thead
-              tr
-                th Volume
-                th colspan='2' Mount Point (Optional)
-            tbody
-              tr
-                td
-                  .ui.select
-                    Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=view.volumeDropdownDisabled
-                td
-                  = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
-                td
-                  input.ui.btn.raised type='submit' disabled={view.addVolumeMountButtonDisabled} value='Add'
+        form.container-config submit='addVolumeMount'
+          .ui.input-group.container-config-form
+            table.ui.table
+              thead
+                tr
+                  th Volume
+                  th colspan='2' Mount Point (Optional)
+              tbody
+                tr
+                  td
+                    .ui.select
+                      Ember.Select required=true name='containers-config-selected-volume' content=selectedHost.volumes optionValuePath='content.id' optionLabelPath='content.displayName' value=selectedVolumeId disabled=view.volumeDropdownDisabled
+                  td
+                    = input type='text' pattern=view.volumeMountpointInputPattern title=view.volumeMountpointInputTitle placeholder=selectedVolume.defaultMountpoint value=volumeMountpoint
+                  td
+                    input.ui.btn.raised type='submit' disabled={view.addVolumeMountButtonDisabled} value='Add'
 
     .card-body.bordered
       .ui.input-group
@@ -202,7 +204,8 @@
     .card-footer.bordered
       .right
         a.ui.btn href='#' click='goBack target="view"' Back
-        a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+        a.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"'
+          = view.advancedButtonLabel
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total
 
   .screen class={view.showProgressScreen::hide}
@@ -255,5 +258,6 @@
         else
           .right
             button.ui.btn click='goBack target="view"' Back
-            button.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"' Create
+            button.ui.btn.primary.raised disabled={view.createButtonDisabled} click='create target="view"'
+              = view.advancedButtonLabel
     = ui-progress hide=view.hideProgress indeterminate=view.indeterminateProgress value=image.progress.progressDetail.current max=image.progress.progressDetail.total

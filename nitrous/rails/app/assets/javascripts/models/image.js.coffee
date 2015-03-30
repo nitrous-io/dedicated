@@ -46,9 +46,9 @@ klass.reopenClass
   repoInputPattern: '(.*/)?[a-z0-9-_.]{1,30}(:[a-zA-Z0-9_][a-zA-Z0-9-_.]{1,29})?$'
   repoInputTitle: "Example:\n• repo\n• repo:tag\n• registry/repo:tag"
 
-  pull: (host, repository, update=true) ->
+  pull: (hostSlug, repository, update=true) ->
     promise = new Ember.RSVP.Promise (resolve, reject) =>
-      @adapter.ajax('POST', "/hosts/#{host.get 'slug'}/images/pull",
+      @adapter.ajax('POST', "/hosts/#{hostSlug}/images/pull",
         repository: repository
         update: update
         async: true

@@ -21,13 +21,12 @@
           | New
           .ui.dropdown-triangle
         ul.dropdown-menu
-          unless App.noHost
-            if App.canCreateContainers
-              li
-                link-to 'containers.new' | New Container...
-            else
-              li.disabled
-                a href='#' New Container...
+          if App.canCreateContainers
+            li
+              link-to 'containers.new' | New Container...
+          else
+            li.disabled
+              a href='#' New Container...
           if App.canCreateHosts
             li
               link-to 'hosts.new'| New Workspace...

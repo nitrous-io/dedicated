@@ -42,6 +42,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingHost: null
 
+  pendingContainerData: null
+
   regionIndex: (->
     regions = @get('regions')
 
@@ -103,6 +105,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
+  ).property 'hosts.loaded', 'hosts.length'
+
+  singleHost: (->
+    @get('hosts.loaded') && @get('hosts.length') == 1
   ).property 'hosts.loaded', 'hosts.length'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'

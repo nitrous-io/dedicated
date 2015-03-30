@@ -37,15 +37,22 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   ).property 'selectedOption', 'selectedHostImage', 'customImage', 'controller.hostImagesEmpty'
 
   firstScreenButtonLabel: (->
-    if App.get('user.advanced')
+    if App.get('user.advanced') || App.get('noHost')
       'Next'
     else
       'Create'
-  ).property 'App.user.advanced'
+  ).property 'App.user.advanced', 'App.noHost'
+
+  advancedButtonLabel: (->
+    if App.get('noHost')
+      'Next'
+    else
+      'Create'
+  ).property 'App.noHost'
 
   createButtonDisabled: (->
-    !(@get('controller.selectedHostSlug') && (@get('image') || @get('selectedTemplate')))
-  ).property 'controller.selectedHostSlug', 'image', 'selectedTemplate'
+    !(@get('image') || @get('selectedTemplate'))
+  ).property 'image', 'selectedTemplate'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
@@ -71,6 +78,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       @set 'selectedOption', null
       $('input[name=option]').removeAttr('checked')
       @set 'controller.privileged', selectedTemplate.get('privileged')
+      @set 'controller.name', selectedTemplate.get('name')
   ).observes 'selectedTemplate'
 
   hostsDidChange: (->
@@ -143,8 +151,13 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     create: ->
       @get('terminal')?.clear()
       @send 'goNext'
-      # should fetch latest image from registry if using custom image or using nitrous template
-      @get('controller').send('create', @get('image'))
+
+      # If user has no existing hosts, we need to create one first.
+      controller = @get('controller')
+      if App.get('noHost')
+        controller.send('createWorkspaceFirst', @get('image'))
+      else
+        controller.send('create', @get('image'))
 
     goNext: ->
       i = @get 'currentScreenIndex'
