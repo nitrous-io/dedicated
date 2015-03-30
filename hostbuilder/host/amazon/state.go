@@ -40,7 +40,7 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		resp, err := conn.Instances([]string{i.InstanceId}, ec2.NewFilter())
 		if err != nil {
-			if ec2err, ok := err.(*ec2.Error); ok && ec2err.Code == "InvalidInstanceID.NotFound" {
+			if ec2err, ok := err.(*ec2.Error); ok && (ec2err.Code == "InvalidInstanceID" || ec2err.Code == "InvalidInstanceID.NotFound") {
 				// Set this to nil as if we didn't find anything.
 				resp = nil
 			} else {
