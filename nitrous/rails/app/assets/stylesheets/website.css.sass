@@ -756,6 +756,8 @@ h4 + .box-wrapper
       line-height: 32px
       margin-bottom: 20px
       padding-left: 42px
+    &.no-icon
+      margin-bottom: 10px
 
   p
     color: #A5B3BE
@@ -763,6 +765,13 @@ h4 + .box-wrapper
   p.version
     font-size: 12px
     line-height: 16px
+
+  p
+    span.strikethrough
+      text-decoration: line-through
+      color: #f36c60 // $red300
+    span.new-plan
+      color: #259b24 // $green500
 
   .anywhere-logo
     height: 32px
@@ -778,7 +787,6 @@ h4 + .box-wrapper
       background-position: 0 (-32px*2)
     &.ubuntu
       background-position: 0 (-32px*3)
-
 
 .with-icon
   background: transparent image_url('home/small-featurettes.png') 0 0 no-repeat
