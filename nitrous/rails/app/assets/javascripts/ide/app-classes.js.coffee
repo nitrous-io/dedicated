@@ -13,6 +13,7 @@
 #= require ../templates/components/ui-connectivity-indicator
 #= require ../templates/snackbar
 #= require ../lib/event-message-handler
+#= require_tree ../shared
 #= require_tree ./routes
 #= require_self
 #= require ./routes
