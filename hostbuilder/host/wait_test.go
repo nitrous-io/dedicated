@@ -2,7 +2,6 @@ package host_test
 
 import (
 	"net/http"
-	"testing"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -10,11 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 )
-
-func TestDigitalOcean(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "host")
-}
 
 var _ = Describe("WaitForServer", func() {
 	It("should immediately return true if no attempts are required", func(done Done) {

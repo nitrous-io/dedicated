@@ -2,7 +2,6 @@ package host_test
 
 import (
 	"io/ioutil"
-	"testing"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -12,11 +11,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func TestContext(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "context")
-}
 
 var _ = Describe("context", func() {
 	Describe("Run", func() {
