@@ -57,7 +57,7 @@ func main() {
 		}
 	}()
 
-	conf := &server.Config{}
+	conf := &config.Config{}
 	// parse config file
 	confFile, err := os.Open(*flConfigPath)
 	if err != nil {

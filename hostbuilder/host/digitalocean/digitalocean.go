@@ -1,7 +1,6 @@
 package digitalocean
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
@@ -25,20 +24,10 @@ import (
 )
 
 const (
-	DefaultPort uint16 = 65333
-
 	sshPort uint16 = 65100
 )
 
 var (
-	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/root/.ssh/authorized_keys"
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-	ConfigLocation  = "/etc/freighterd/config.json"
-
 	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
@@ -49,22 +38,16 @@ var (
 	tenderDropletNameRegex *regexp.Regexp = regexp.MustCompile(`tender.[A-Za-z0-9\-]+.com`)
 )
 
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
 type HostConfig struct {
-	ID         string     `json:"id"`
-	HostID     int64      `json:"host_id"` // database id of the host
-	Name       string     `json:"name"`
-	ImageID    string     `json:"image_id"`
-	RegionID   string     `json:"region_id"`
-	SizeID     string     `json:"size_id"`
-	PublicKeys []string   `json:"public_keys"`
-	TLS        *tlsConfig `json:"tls"`
-	Secret     string     `json:"secret"`
+	ID         string          `json:"id"`
+	HostID     int64           `json:"host_id"` // database id of the host
+	Name       string          `json:"name"`
+	ImageID    string          `json:"image_id"`
+	RegionID   string          `json:"region_id"`
+	SizeID     string          `json:"size_id"`
+	PublicKeys []string        `json:"public_keys"`
+	TLS        *host.TLSConfig `json:"tls"`
+	Secret     string          `json:"secret"`
 
 	// for setting up repository on the host
 	AptUsername string `json:"apt_username"` // host id on nitrousd
@@ -119,7 +102,22 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Populating settings",
-			Func:        writeSettings,
+			Func: func(ctx *host.HostContext) error {
+				settings := host.NewSettings(
+					h.Config.TLS,
+					&host.AptConfig{
+						AptUsername: h.Config.AptUsername,
+						AptPassword: h.Config.AptPassword,
+						AptLocation: h.Config.AptLocation,
+						AptDist:     h.Config.AptDist,
+					},
+					"/root",
+					h.generateNotifyURL(),
+					h.Config.Secret,
+					h.Config.PublicKeys,
+				)
+				return host.WriteSettings(h, h.conn, settings, ctx.Done())
+			},
 		},
 		{
 			Description: "Fetching updates",
@@ -261,7 +259,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			Region:         droplet.Region.Slug,
 			Name:           droplet.Name,
 			IPAddress:      droplet.Networks.V4[0].IPAddress,
-			FreighterdPort: DefaultPort,
+			FreighterdPort: host.DefaultPort,
 			State:          getState(&droplet),
 		})
 	}
@@ -274,7 +272,7 @@ func (h *Host) dropletToInfo() *host.Info {
 		ID:             strconv.Itoa(h.droplet.ID),
 		Region:         h.droplet.Region.Slug,
 		IPAddress:      h.ipAddress(),
-		FreighterdPort: DefaultPort,
+		FreighterdPort: host.DefaultPort,
 		State:          getState(h.droplet),
 	}
 }
@@ -436,39 +434,6 @@ func (h *Host) logFailedDroplet() {
 	}
 }
 
-// configFile is used to marshal/unmarshal /etc/freighter/config.json.
-type configFile struct {
-	DataPath  string       `json:"data_path"`
-	TLSVerify bool         `json:"tls_verify"`
-	TLSCA     string       `json:"tls_ca"`
-	TLSCert   string       `json:"tls_cert"`
-	TLSKey    string       `json:"tls_key"`
-	Secret    string       `json:"secret"`
-	NotifyURL string       `json:"notify_url"`
-	Listen    []listenSpec `json:"listen"`
-}
-
-type listenSpec struct {
-	Proto   string `json:"proto"`
-	Address string `json:"address"`
-}
-
-func (h *Host) configFile() *configFile {
-	return &configFile{
-		DataPath:  "/var/lib/freighter",
-		TLSVerify: true,
-		TLSCA:     TLSCALocation,
-		TLSCert:   TLSCertLocation,
-		TLSKey:    TLSKeyLocation,
-		Secret:    SecretLocation,
-		NotifyURL: h.generateNotifyURL(),
-		Listen: []listenSpec{
-			{Proto: "unix", Address: "/var/run/freighterd.sock"},
-			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
-		},
-	}
-}
-
 func (h *Host) generateNotifyURL() string {
 	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
@@ -607,59 +572,5 @@ func waitForSSH(ctx *host.HostContext) error {
 	}
 	h.Logf("SSH ready for droplet %v", h.droplet.ID)
 	h.conn = sshConn
-	return nil
-}
-
-func writeSettings(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	h.Logf("Writing settings")
-
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
-	}
-
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
-		return err
-	}
-
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
-	}
-
-	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
-		return err
-	}
-
-	if err := uploadFile(h, map[string]io.Reader{
-		PubKeysLocation:     pubKeysBuf,
-		host.SourceLocation: aptSourcesBuf,
-		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
-		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
-		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
-		SecretLocation:      strings.NewReader(h.Config.Secret),
-		ConfigLocation:      bytes.NewBuffer(cfgb),
-	}); err != nil {
-		return err
-	}
-
-	h.Logf("Wrote settings")
-	return nil
-}
-
-func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.MetricsLabel("write_file")
-	defer mh.UpdateSince(label, time.Now())
-	flist := []string{}
-	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
-			return mh.Error(err, label)
-		}
-		flist = append(flist, dest)
-	}
-	h.Logf("Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
 	return nil
 }
