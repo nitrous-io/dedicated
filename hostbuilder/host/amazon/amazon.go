@@ -111,7 +111,6 @@ type Host struct {
 	// the following settings are only available during the creation phase
 	keypair       *keypair      // temporary keypair of the instance
 	createTimeout time.Duration // limit of instance's creation time
-	conn          *sshutil.Conn // ssh connection using the temporary keypair
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -138,7 +137,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		}
 	}()
 
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 	steps := []host.Step{
 		{
 			Description: "Creating key",
@@ -168,34 +167,15 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Populating settings",
-			Func: func(ctx *host.HostContext) error {
-				settings := host.NewSettings(
-					h.Config.TLS,
-					&host.AptConfig{
-						AptUsername: h.Config.AptUsername,
-						AptPassword: h.Config.AptPassword,
-						AptLocation: h.Config.AptLocation,
-						AptDist:     h.Config.AptDist,
-					},
-					"/home/ubuntu",
-					h.generateNotifyURL(),
-					h.Config.Secret,
-					h.Config.PublicKeys,
-				)
-				return host.WriteSettings(h, h.conn, settings, ctx.Done())
-			},
+			Func:        host.WriteSettings,
 		},
 		{
 			Description: "Fetching updates",
-			Func: func(ctx *host.HostContext) error {
-				return host.UpdateSoftware(h, h.conn, h.Config.FreighterdVersion, ctx.Done())
-			},
+			Func:        host.UpdateSoftware,
 		},
 		{
 			Description: "Applying settings",
-			Func: func(ctx *host.HostContext) error {
-				return host.RestartServices(h, h.conn, ctx.Done())
-			},
+			Func:        host.RestartServices,
 		},
 	}
 	for _, step := range steps {
@@ -226,7 +206,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 	steps := []host.Step{
 		{
 			Description: "Setting workspace's name",
@@ -473,6 +453,24 @@ func (h *Host) MetricsLabel(prefix string) string {
 		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
 	}
 	return fmt.Sprintf("%s.amazon", prefix)
+}
+
+// Settings returns the dynamic settings of the host
+func (h *Host) Settings() *host.Settings {
+	return host.NewSettings(
+		h.Config.TLS,
+		&host.AptConfig{
+			AptUsername: h.Config.AptUsername,
+			AptPassword: h.Config.AptPassword,
+			AptLocation: h.Config.AptLocation,
+			AptDist:     h.Config.AptDist,
+		},
+		"/home/ubuntu",
+		h.generateNotifyURL(),
+		h.Config.Secret,
+		h.Config.FreighterdVersion,
+		h.Config.PublicKeys,
+	)
 }
 
 // refreshInstance reload the current instance associated with this Host to the
@@ -731,7 +729,7 @@ func waitForSSH(ctx *host.HostContext) error {
 		return mh.Error(err, label)
 	}
 	h.Logf("SSH ready for instance %s", h.instance.InstanceId)
-	h.conn = sshConn
+	ctx.Executor = sshConn
 	return nil
 }
 

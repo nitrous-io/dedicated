@@ -18,7 +18,7 @@ var _ = Describe("context", func() {
 		It("runs the given step within its timeout", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -36,7 +36,7 @@ var _ = Describe("context", func() {
 		It("runs the given step if timeout is not specified", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -53,7 +53,7 @@ var _ = Describe("context", func() {
 		It("returns an error when the step times out before completion", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -73,7 +73,7 @@ var _ = Describe("context", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{

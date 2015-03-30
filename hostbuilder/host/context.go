@@ -18,6 +18,8 @@ const (
 
 type HostContext struct {
 	context.Context
+	Logger
+	Executor
 	Host   Host
 	Writer io.Writer
 }
@@ -67,10 +69,14 @@ func (ctx *HostContext) Run(step Step) error {
 	}
 }
 
-func NewContext(ctx context.Context, h Host, w io.Writer) *HostContext {
+// NewContext returns the a context which we can use to configure timeout for
+// any operations. This does not set Executor of the context, the user has to
+// set it explicitly whenever the executor is available.
+func NewContext(ctx context.Context, h Host, l Logger, w io.Writer) *HostContext {
 	return &HostContext{
 		Context: ctx,
 		Host:    h,
+		Logger:  l,
 		Writer:  w,
 	}
 }

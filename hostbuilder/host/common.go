@@ -14,62 +14,8 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
-const (
-	DefaultPort uint16 = 65333
-)
-
-var (
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-	ConfigLocation  = "/etc/freighterd/config.json"
-
-	ErrTimeout = errors.New("operation timedout")
-)
-
-// executor represents the connection to the remote host. We can use this to
-// perform setup tasks such as uploading files, running commands on the remote
-// host. The connection is only available during the host creation phase. The
-// host's filesystem should be considered immutable otherwise.
-type executor interface {
-	// Upload transfers the content of the reader to the path on a remote server
-	Upload(path string, input io.Reader) error
-	// Execute runs the command on the remote server and returns its error
-	Execute(cmd string) error
-	// CombinedOutput executes the command on the remote server and returns its
-	// combined standard stdout/stderr
-	CombinedOutput(cmd string) ([]byte, error)
-}
-
-// for setting up repository on the host
-type AptConfig struct {
-	AptUsername string `json:"apt_username"` // host id on nitrousd
-	AptPassword string `json:"apt_password"` // host secret
-	AptLocation string `json:"apt_location"` // URI of the repository
-	AptDist     string `json:"apt_dist"`     // distribution of the repo
-}
-
-// for setting up TLS certificates on the host
-type TLSConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
-// settings of the remote host. This includes contents that should be uploaded
-// to the remote host
-type Settings struct {
-	*TLSConfig
-	*AptConfig
-	*config.Config
-	Home       string // Home directory of the current user
-	Secret     string
-	PublicKeys []string
-}
-
-// create settings for the host with the provided dynatmic properties.
-func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret string, publicKeys []string) *Settings {
+// create settings for the host with the provided dynamic properties.
+func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
 	settings := &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
@@ -88,6 +34,7 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret string,
 		},
 		Home:       home,
 		Secret:     secret,
+		Version:    version,
 		PublicKeys: publicKeys,
 	}
 	return settings
@@ -95,9 +42,17 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret string,
 
 // WriteSettings uploads necessary file system contents to the host, which
 // include package configs, apt details, etc...
-func WriteSettings(l Logger, conn executor, settings *Settings, timeout <-chan struct{}) error {
+func WriteSettings(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	timeout := ctx.Done()
+	settings := ctx.Host.Settings()
+
 	label := l.MetricsLabel("write_settings")
 	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
 
 	pubKeysBuf := bytes.NewBuffer(nil)
 	for _, k := range settings.PublicKeys {
@@ -150,9 +105,15 @@ func WriteSettings(l Logger, conn executor, settings *Settings, timeout <-chan s
 	}
 }
 
-func RestartServices(l Logger, conn executor, timeout <-chan struct{}) error {
+func RestartServices(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	timeout := ctx.Done()
 	label := l.MetricsLabel("restart_software")
 	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
 
 	finish := make(chan error, 1)
 	go func() {
@@ -177,9 +138,16 @@ func RestartServices(l Logger, conn executor, timeout <-chan struct{}) error {
 
 // UpdateSoftware updates the package list and necessary packages that may be
 // outdated since the last image builds.
-func UpdateSoftware(l Logger, conn executor, version string, timeout <-chan struct{}) error {
+func UpdateSoftware(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	timeout := ctx.Done()
+	version := ctx.Host.Settings().Version
 	label := l.MetricsLabel("update_software")
 	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
 
 	// TODO move all of cmdParts into a shell script that is written and run
 	// (similar to /tmp/already-installed.sh below)
@@ -236,7 +204,7 @@ func UpdateSoftware(l Logger, conn executor, version string, timeout <-chan stru
 	}
 }
 
-func uploadFile(l Logger, conn executor, files map[string]io.Reader) ([]string, error) {
+func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
 	flist := []string{}
 	for dest, val := range files {
 		if err := conn.Upload(dest, val); err != nil {

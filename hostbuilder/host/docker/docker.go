@@ -237,6 +237,13 @@ func (h *Host) DriverName() string {
 	return "docker"
 }
 
+// Settings returns an empty settings.
+// TODO: make docker provider uses this instead of the config file definition
+// below
+func (h *Host) Settings() *host.Settings {
+	return &host.Settings{}
+}
+
 // configFile is used to marshal/unmarshal /etc/freighter/config.json.
 type configFile struct {
 	DataPath  string       `json:"data_path"`

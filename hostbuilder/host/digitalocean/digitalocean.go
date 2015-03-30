@@ -64,7 +64,6 @@ type Host struct {
 
 	droplet       *godo.Droplet
 	privateKey    *rsa.PrivateKey
-	conn          *sshutil.Conn
 	sshKey        *godo.Key
 	uuid          string
 	notifyURL     string
@@ -83,7 +82,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer cancel()
 
 	// Store host and writer in ctx for child requests.
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 
 	steps := []host.Step{
 		{
@@ -102,34 +101,15 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Populating settings",
-			Func: func(ctx *host.HostContext) error {
-				settings := host.NewSettings(
-					h.Config.TLS,
-					&host.AptConfig{
-						AptUsername: h.Config.AptUsername,
-						AptPassword: h.Config.AptPassword,
-						AptLocation: h.Config.AptLocation,
-						AptDist:     h.Config.AptDist,
-					},
-					"/root",
-					h.generateNotifyURL(),
-					h.Config.Secret,
-					h.Config.PublicKeys,
-				)
-				return host.WriteSettings(h, h.conn, settings, ctx.Done())
-			},
+			Func:        host.WriteSettings,
 		},
 		{
 			Description: "Fetching updates",
-			Func: func(ctx *host.HostContext) error {
-				return host.UpdateSoftware(h, h.conn, h.Config.FreighterdVersion, ctx.Done())
-			},
+			Func:        host.UpdateSoftware,
 		},
 		{
 			Description: "Applying settings",
-			Func: func(ctx *host.HostContext) error {
-				return host.RestartServices(h, h.conn, ctx.Done())
-			},
+			Func:        host.RestartServices,
 		},
 	}
 
@@ -378,6 +358,24 @@ func (h *Host) MetricsLabel(prefix string) string {
 	return fmt.Sprintf("%s.digitalocean", prefix)
 }
 
+// Settings returns the dynamic settings of the host
+func (h *Host) Settings() *host.Settings {
+	return host.NewSettings(
+		h.Config.TLS,
+		&host.AptConfig{
+			AptUsername: h.Config.AptUsername,
+			AptPassword: h.Config.AptPassword,
+			AptLocation: h.Config.AptLocation,
+			AptDist:     h.Config.AptDist,
+		},
+		"/root",
+		h.generateNotifyURL(),
+		h.Config.Secret,
+		h.Config.FreighterdVersion,
+		h.Config.PublicKeys,
+	)
+}
+
 func (h *Host) id() (int, error) {
 	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
@@ -571,6 +569,6 @@ func waitForSSH(ctx *host.HostContext) error {
 		return mh.Error(err, label)
 	}
 	h.Logf("SSH ready for droplet %v", h.droplet.ID)
-	h.conn = sshConn
+	ctx.Executor = sshConn
 	return nil
 }
