@@ -9,7 +9,7 @@ nodejs:
   about: "Node.js is a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications. Node.js uses an event-driven, non-blocking I/O model that makes it lightweight and efficient, perfect for data-intensive real-time applications that run across distributed devices."
 meteor:
   name: 'Meteor'
-  about: "Meteor is a complete open source platform for building web and mobile apps in pure JavaScript."
+  about: "Meteor is a complete open source platform for building web and mobile apps in pure JavaScript. Not only is Meteor entirely real-time, but the fact that it uses JavaScript on both the client and server means that you won't have to juggle with multiple languages and environments anymore."
 php:
   name: 'PHP'
   about: "PHP (recursive acronym for PHP: Hypertext Preprocessor) is a widely-used open source general-purpose scripting language that is especially suited for web development and can be embedded into HTML."

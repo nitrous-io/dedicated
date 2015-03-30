@@ -370,6 +370,7 @@ nav
         margin: 0 10px
         a
           padding: 0 16px
+          display: block
 
     .more
       position: relative
@@ -393,6 +394,9 @@ nav
       text-align: left
       li
         text-align: left
+
+    .active
+      font-weight: bold
 
 
 
@@ -557,6 +561,49 @@ nav
         & + .logo
           margin-top: -15px
 
+
+.stack-ruby
+  .notice .active
+    color: $ruby
+.stack-ruby-on-rails
+  .notice .active
+    color: $ruby-on-rails
+.stack-nodejs
+  .notice .active
+    color: $nodejs
+.stack-meteor
+  .notice .active
+    color: $meteor
+.stack-python
+  .notice .active
+    color: $python
+.stack-django
+  .notice .active
+    color: $django
+.stack-php
+  .notice .active
+    color: $php
+.stack-html5
+  .notice .active
+    color: $html5
+.stack-golang
+  .notice .active
+    color: $golang
+.stack-java
+  .notice .active
+    color: $java
+.stack-wordpress
+  .notice .active
+    color: $wordpress
+.stack-iojs
+  .notice .active
+    color: $iojs
+.stack-laravel
+  .notice .active
+    color: $laravel
+.stack-ubuntu
+  .notice .active
+    color: $ubuntu
 
 
 .form-wrapper
@@ -909,6 +956,14 @@ h4 + .box-wrapper
         margin-right: 10px
         background: transparent
 
+#stack .featurette .one
+  width: 420px
+  margin: 0 auto
+  text-align: center
+
+  p
+    width: 100%
+
 .two
   padding: 0 60px
   .box
@@ -1166,7 +1221,7 @@ h4 + .box-wrapper
   .box
     img
       width: 100%
-      height: 140px
+      height: auto
       display: block
       background: #FFF
       margin-bottom: 20px
@@ -1180,6 +1235,7 @@ h4 + .box-wrapper
 .stack-lang
   width: 94px
   height: 94px
+  position: relative
   text-indent: -999999px
   display: inline-block
   background-image: image_url("home/lang-logos.png")
@@ -1227,6 +1283,18 @@ h4 + .box-wrapper
   display: inline-block
   top: 36px
 
+
+.page-hero .django
+  width: 132px
+  background: image_url("home/django-page-hero.svg") center center no-repeat
+  background-size: 132px 48px
+  margin-left: 6px
+
+.page-hero .iojs
+  top: -5px
+
+.page-hero .java
+  top: -5px
 
 
 // --------------------------------------
@@ -1997,11 +2065,6 @@ h4 + .box-wrapper
       left: -28px
       font-size: 32px
 
-.light .quotes
-  .one p
-    &:before
-      color: #cfcfcf
-
 
 // --------------------------------------
 // Life at
@@ -2216,11 +2279,12 @@ footer
       font-weight: bold
       cursor: default
 
+
 .footer-item
   margin: 0
   line-height: 32px
 
-  h4
+  h4, h4 a
     font-size: 16px
     padding-bottom: 12px
     color: #FFF
@@ -2637,6 +2701,50 @@ input[type="range"]
 // Light
 .light
 
+  .page-hero
+    background: #8696A0
+    overflow: hidden
+  
+  .hero-copy h3
+    color: rgba(255,255,255,.6)
+
+  .big
+    color: #5b666f
+  
+  .stacks-home
+    .page-hero
+      &:before, &:after
+        content: ""
+        position: absolute
+        left: 0
+        right: 0
+        display: block
+
+      &:before
+        height: 600px
+        top: -50%
+        // background: rgba(134,150,160,1) image_url('home/stacks-logos-grid.svg') center center repeat
+        background: #0099ED image_url('home/stacks-logos-grid.svg') center center repeat
+        background-size: 1004px 380px
+        transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(0)
+        -webkit-perspective: 1000
+        backface-visibility: hidden
+
+      &:after
+        top: 0
+        bottom: 0
+        // background: radial-gradient(ellipse at center, rgba(134,150,160,.95) 0%,rgba(134,150,160,1) 68%)
+        background: radial-gradient(ellipse at center, rgba(0,153,237,.91) 0%,rgba(0,153,237,1) 72%)
+  
+
+  .quotes
+    .one p
+      &:before
+        color: #cfcfcf
+
+  article h4 a 
+    color: #a5b3be
+
   article p a
     color: $blueLink
 
@@ -2657,6 +2765,15 @@ input[type="range"]
     h3
       color: rgba(0,0,0,.6)
       padding-bottom: 10px
+
+  .stack
+    span
+      font-weight: 400
+      font-family: $opensans
+      color: rgba(0,0,0,.6)
+  
+  .ripple:hover
+    box-shadow: 0 0 0 transparent
 
 
 

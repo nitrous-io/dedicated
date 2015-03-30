@@ -1,0 +1,30 @@
+- @title = 'Stacks · Nitrous'
+- @html_class = 'light'
+- @body_id = 'stacks'
+- @body_class = "stacks-home"
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'stacks' }
+      .hero-copy
+        h2
+          | Stacks
+        h3
+          | Kick-off your development projects with Nitrous
+
+  
+  article.centered
+    .container
+      p.big
+        | Nitrous offers a wide range of stacks with pre-configured software dependencies (languages, databases and other required components)
+
+      = render 'layouts/stacks_grid'
+
+
+
+  = render partial: 'layouts/cta', locals: { theme: 'darker' }
+
+= render partial: 'layouts/footer', locals: { active: 'stacks' }
+
