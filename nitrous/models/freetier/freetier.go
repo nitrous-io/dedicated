@@ -24,7 +24,7 @@ var (
 
 func HasNonTerminatedHost(hs []*host.Host) bool {
 	for _, h := range hs {
-		if h.TerminatedAt != nil {
+		if h.TerminatedAt == nil {
 			return true
 		}
 	}

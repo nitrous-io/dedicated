@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -882,6 +883,39 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Fail("timeout while waiting for EventHostCreateFailed")
 				}
 			})
+		})
+	})
+
+	Context("when user is free tier", func() {
+		BeforeEach(func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
+				billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("responds with error if paid plan is selected", func() {
+			_, err := test.CreateHostStack(db, &test.HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("paid_plan_not_allowed"))
+		})
+
+		It("responds with error if there are non-terminated host", func() {
+			_, err := db.Exec(`UPDATE plans SET price=0;`)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("max_free_host_reached"))
 		})
 	})
 
