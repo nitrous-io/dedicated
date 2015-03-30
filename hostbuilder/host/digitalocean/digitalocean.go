@@ -137,7 +137,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			hlog(h, "ERROR: Failed in create host step: %v", err)
+			h.Logf("ERROR: Failed in create host step: %v", err)
 			h.logFailedDroplet()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
@@ -148,11 +148,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	if h.sshKey != nil {
 		fmt.Fprintf(w, "Removing key...")
-		hlog(h, "keyID=%d Removing key...", h.sshKey.ID)
+		h.Logf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
 			h.progressLog(w, "Removing key...Failed!")
-			hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
+			h.Logf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
 		h.progressLog(w, "Removing key...Done!")
 	}
@@ -168,7 +168,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, err
 	}
 
-	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
+	h.Logf("Renaming droplet %d to %s", id, h.Config.Name)
 	action, _, err := h.Client.DropletActions.Rename(id, h.Config.Name)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err := h.waitForAction(action.ID, 30*time.Second); err != nil {
 		return nil, err
 	}
-	hlog(h, "Renamed droplet")
+	h.Logf("Renamed droplet")
 
 	h.progressLog(w, "Updating host...Done!")
 	return h.Info()
@@ -420,18 +420,18 @@ func (h *Host) ipAddress() string {
 
 // progressLog writes the message to the given writer and logs the message,
 // prefixing host information.  It is used for user-facing messages.  Use
-// `hlog` for internal logging.
+// `h.Logf` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	hlog(h, format, v...)
+	h.Logf(format, v...)
 }
 
 func (h *Host) logFailedDroplet() {
 	if h.droplet != nil {
 		if h.sshKey != nil {
-			hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
+			h.Logf("keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
 		} else {
-			hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
+			h.Logf("keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
 		}
 	}
 }
@@ -526,18 +526,18 @@ func createSSHKey(ctx *host.HostContext) error {
 	label := h.metricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
-	hlog(h, "generating temporary SSH key")
+	h.Logf("generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "generating temporary SSH key... Done")
+	h.Logf("generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "creating SSH keypair on digitalocean")
+	h.Logf("creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
 		Name:      h.Config.Name,
 		PublicKey: string(pubKey),
@@ -547,7 +547,7 @@ func createSSHKey(ctx *host.HostContext) error {
 	}
 
 	h.sshKey = sshKey
-	hlog(h, "keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", h.sshKey.ID, h.sshKey.Fingerprint)
+	h.Logf("keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", h.sshKey.ID, h.sshKey.Fingerprint)
 	return nil
 }
 
@@ -564,7 +564,7 @@ func createDroplet(ctx *host.HostContext) error {
 	config := h.Config
 	sshKey := h.sshKey
 
-	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
+	h.Logf("digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
 		Region: config.RegionID,
@@ -591,7 +591,7 @@ func createDroplet(ctx *host.HostContext) error {
 			return mh.Error(err, label)
 		}
 	} else {
-		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", h)
+		h.Logf("[WARNING] digitalocean did not return action data for host %+v", h)
 		return nil
 	}
 
@@ -610,7 +610,7 @@ func waitForSSH(ctx *host.HostContext) error {
 	label := h.metricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
-	hlog(h, "Waiting for SSH to be ready")
+	h.Logf("Waiting for SSH to be ready")
 	address := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
 	info := map[string]interface{}{
 		"uuid": h.uuid,
@@ -621,14 +621,14 @@ func waitForSSH(ctx *host.HostContext) error {
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "SSH ready for droplet %v", h.droplet.ID)
+	h.Logf("SSH ready for droplet %v", h.droplet.ID)
 	h.conn = sshConn
 	return nil
 }
 
 func writeSettings(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	hlog(h, "Writing settings")
+	h.Logf("Writing settings")
 
 	pubKeysBuf := bytes.NewBuffer(nil)
 	for _, k := range h.Config.PublicKeys {
@@ -662,7 +662,7 @@ func writeSettings(ctx *host.HostContext) error {
 		return err
 	}
 
-	hlog(h, "Wrote settings")
+	h.Logf("Wrote settings")
 	return nil
 }
 
@@ -676,17 +676,6 @@ func uploadFile(h *Host, files map[string]io.Reader) error {
 		}
 		flist = append(flist, dest)
 	}
-	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
+	h.Logf("Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
 	return nil
-}
-
-func hlog(h *Host, format string, v ...interface{}) {
-	parts := []string{}
-	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
-	}
-	if h.droplet != nil {
-		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
-	}
-	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
