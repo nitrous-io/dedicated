@@ -207,7 +207,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Fetching updates",
-			Func:        updateSoftware,
+			Func: func(ctx *host.HostContext) error {
+				return host.UpdateSoftware(h, h.conn, h.Config.FreighterdVersion, ctx.Done())
+			},
 		},
 		{
 			Description: "Applying settings",
@@ -844,58 +846,6 @@ func uploadFile(h *Host, files map[string]io.Reader) error {
 		}
 		flist = append(flist, dest)
 	}
-	return nil
-}
-
-// updateSoftware updates the package list and necessary packages that may be
-// outdated since the last image builds.
-func updateSoftware(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-	hlog(h, "Updating freighterd package")
-
-	// TODO move all of cmdParts into a shell script that is written and run
-	// (similar to /tmp/already-installed.sh below)
-	path := "/tmp/already-installed.sh"
-	cmdParts := []string{
-		fmt.Sprintf(`{ cat > %s <<- 'EOF'
-			#!/bin/sh
-			installed_version=$(/usr/sbin/freighterd -v)
-			installed_version=${installed_version#'freighterd version '}
-			test $installed_version = '%s'
-		EOF
-		} && chmod +x %s && %s`, path, h.Config.FreighterdVersion, path, path),
-		`||`,
-		// apt-get update with single source
-		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
-		"-o APT::List-Cleanup=0",
-		`-o Dir::Etc::sourceparts="/dev/null"`,
-		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
-		`&&`,
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
-		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-	}
-	pkgspec := "freighterd"
-	if h.Config.FreighterdVersion != "" {
-		pkgspec = fmt.Sprintf("freighterd=%s", h.Config.FreighterdVersion)
-	}
-	cmdParts = append(cmdParts, pkgspec)
-	cmd := strings.Join(cmdParts, " ")
-
-	if out, err := h.conn.CombinedOutput(cmd); err != nil {
-		err = fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
-		hlog(h, err.Error())
-		if h.Config.FreighterdVersion != "" {
-			return mh.Error(err, label)
-		}
-		// failure to update freighterd when a version is not specified is considered continuable
-		return nil
-	}
-
-	hlog(h, "Updated freighterd package on %v", h.instance.PublicIpAddress)
 	return nil
 }
 
