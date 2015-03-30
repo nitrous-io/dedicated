@@ -7,7 +7,7 @@ if App.user.admin
         .card-body
           p Following hosts will be updated:
           ul
-            each host in hostsToUpdate 
+            each host in hostsToUpdate
               li
                 = host.slug
           .ui.input-group
@@ -24,3 +24,24 @@ if App.user.admin
             else
               a.ui.btn href='#' click='cancelUpdateHosts target="view"' Cancel
               input.ui.btn.primary type='submit' value='Update'
+
+  #switch-user-dialog.ui.modal
+    .ui.card
+      h2.card-header
+        | Switch User
+      form submit='switchUser'
+        .card-body
+          .ui.input-group
+            label.field-label for='switch-user-login'
+              | Email/Username
+            = input type='text' id='switch-user-login' value=login required=true
+
+        .card-footer
+          .right
+            if switching
+              button.ui.btn disabled='disabled'
+                i.spinner
+                | Wait...
+            else
+              a.ui.btn href='#' click='cancelSwitchUser target="view"' Cancel
+              input.ui.btn.primary type='submit' value='Switch'

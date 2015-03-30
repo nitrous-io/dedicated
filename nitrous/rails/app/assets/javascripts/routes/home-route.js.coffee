@@ -12,7 +12,6 @@ App.HomeRoute = App.AuthedRoute.extend
 
   renderTemplate: ->
     @_super()
-    @render 'beta', into: 'home', outlet: 'beta', controller: 'beta'
     @render 'topnav', into: 'home', outlet: 'topnav',  controller: 'topnav'
     @render 'sidebar', into: 'home', outlet: 'sidebar', controller: 'sidebar'
     @render 'admin/dialogs', into: 'home', outlet: 'admin', controller: 'admin-dialogs'
