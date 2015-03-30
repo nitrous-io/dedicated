@@ -31,6 +31,16 @@ type Host interface {
 	DriverName() string
 }
 
+type Logger interface {
+	// MetricsLabel returns the string that can be used to identify the
+	// current provider/region combination for the current operation.
+	MetricsLabel(prefix string) string
+
+	// Logf logs the data together with host's specific information such as the
+	// current instance ID and/or the current request UUID
+	Logf(format string, v ...interface{})
+}
+
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
 
 var (
