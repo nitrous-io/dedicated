@@ -21,6 +21,8 @@ type Host struct {
 	StartSuccess   bool   `json:"start"`
 	RestartSuccess bool   `json:"restart"`
 	ListSuccess    bool   `json:"list"`
+
+	Version string
 }
 
 var ReceivedNewHostDefaultConfig map[string]string
@@ -110,6 +112,18 @@ func (h *Host) List() ([]*host.Info, error) {
 
 func (h *Host) DriverName() string {
 	return "dummy"
+}
+
+func (h *Host) Settings() *host.Settings {
+	return host.NewSettings(
+		&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
+		&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
+		"/home/action",
+		"http://google.com",
+		"secret",
+		h.Version,
+		[]string{"pubkey1", "pubkey2"},
+	)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {

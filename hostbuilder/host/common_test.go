@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/net/context"
 )
 
 type dumbLogger struct{}
@@ -56,6 +59,7 @@ var _ = Describe("NewSettings", func() {
 			"/home/action",
 			"http://google.com",
 			"secret",
+			"0.0.1",
 			[]string{"pubkey1", "pubkey2"},
 		)
 
@@ -65,23 +69,18 @@ var _ = Describe("NewSettings", func() {
 		Expect(settings.Config.TLSVerify).To(BeTrue())
 		Expect(settings.Home).To(Equal("/home/action"))
 		Expect(settings.Secret).To(Equal("secret"))
+		Expect(settings.Version).To(Equal("0.0.1"))
 		Expect(settings.PublicKeys).To(ConsistOf("pubkey1", "pubkey2"))
 	})
 })
 
 var _ = Describe("WriteSettings", func() {
 	It("uploads settings to the remote server", func() {
-		settings := host.NewSettings(
-			&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
-			&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
-			"/home/action",
-			"http://google.com",
-			"secret",
-			[]string{"pubkey1", "pubkey2"},
-		)
-
 		e := &dumbExecutor{}
-		err := host.WriteSettings(&dumbLogger{}, e, settings, make(chan struct{}))
+		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = e
+
+		err := host.WriteSettings(ctx)
 		Expect(err).To(BeNil())
 		Expect(e.cmds[0]).To(Equal("sudo mkdir -p /etc/freighterd"))
 		Expect(e.uploaded["/home/action/.ssh/authorized_keys"]).To(Equal("pubkey1\npubkey2\n"))
@@ -94,24 +93,17 @@ var _ = Describe("WriteSettings", func() {
 	})
 
 	It("cancels early when the operation times out", func() {
-		settings := host.NewSettings(
-			&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
-			&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
-			"/home/action",
-			"http://google.com",
-			"secret",
-			[]string{"pubkey1", "pubkey2"},
-		)
+		parentCtx := context.Background()
+		currentCtx, cancel := context.WithCancel(parentCtx)
+		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
 		start := time.Now()
-		e := &dumbExecutor{nextDuration: time.Second}
-
-		done := make(chan struct{})
 		finish := make(chan error, 1)
 		go func() {
-			finish <- host.WriteSettings(&dumbLogger{}, e, settings, done)
+			finish <- host.WriteSettings(ctx)
 		}()
-		close(done)
+		cancel()
 		err := <-finish
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
 		Expect(err).To(Equal(host.ErrTimeout))
@@ -121,21 +113,26 @@ var _ = Describe("WriteSettings", func() {
 var _ = Describe("RestartServices", func() {
 	It("restarts the freighterd service", func() {
 		e := &dumbExecutor{}
-		err := host.RestartServices(&dumbLogger{}, e, make(chan struct{}))
+		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = e
+
+		err := host.RestartServices(ctx)
 		Expect(err).To(BeNil())
 		Expect(e.cmds[0]).To(Equal("sudo service freighterd restart"))
 	})
 
 	It("cancels early when the operation times out", func() {
-		start := time.Now()
-		e := &dumbExecutor{nextDuration: time.Second}
+		parentCtx := context.Background()
+		currentCtx, cancel := context.WithCancel(parentCtx)
+		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
-		done := make(chan struct{})
+		start := time.Now()
 		finish := make(chan error, 1)
 		go func() {
-			finish <- host.RestartServices(&dumbLogger{}, e, done)
+			finish <- host.RestartServices(ctx)
 		}()
-		close(done)
+		cancel()
 		err := <-finish
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
 		Expect(err).To(Equal(host.ErrTimeout))
@@ -145,7 +142,10 @@ var _ = Describe("RestartServices", func() {
 var _ = Describe("UpdateSoftware", func() {
 	It("update the freighterd service", func() {
 		e := &dumbExecutor{}
-		err := host.UpdateSoftware(&dumbLogger{}, e, "0.0.1", make(chan struct{}))
+		ctx := host.NewContext(context.Background(), &dummy.Host{Version: "0.0.1"}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = e
+
+		err := host.UpdateSoftware(ctx)
 		Expect(err).To(BeNil())
 		parts := []string{
 			"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
@@ -161,29 +161,33 @@ var _ = Describe("UpdateSoftware", func() {
 	})
 
 	It("fails when specifying version results in error", func() {
-		e := &dumbExecutor{
+		ctx := host.NewContext(context.Background(), &dummy.Host{Version: "0.0.1"}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = &dumbExecutor{
 			nextError: errors.New("invalid version"),
 		}
-		err := host.UpdateSoftware(&dumbLogger{}, e, "0.0.1", make(chan struct{}))
+		err := host.UpdateSoftware(ctx)
 		Expect(err).ToNot(BeNil())
 
-		e = &dumbExecutor{
+		ctx = host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = &dumbExecutor{
 			nextError: errors.New("invalid version"),
 		}
-		err = host.UpdateSoftware(&dumbLogger{}, e, "", make(chan struct{}))
+		err = host.UpdateSoftware(ctx)
 		Expect(err).To(BeNil())
 	})
 
 	It("cancels early when the operation times out", func() {
-		start := time.Now()
-		e := &dumbExecutor{nextDuration: time.Second}
+		parentCtx := context.Background()
+		currentCtx, cancel := context.WithCancel(parentCtx)
+		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
-		done := make(chan struct{})
+		start := time.Now()
 		finish := make(chan error, 1)
 		go func() {
-			finish <- host.UpdateSoftware(&dumbLogger{}, e, "0.0.1", done)
+			finish <- host.UpdateSoftware(ctx)
 		}()
-		close(done)
+		cancel()
 		err := <-finish
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
 		Expect(err).To(Equal(host.ErrTimeout))
