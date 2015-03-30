@@ -1,7 +1,9 @@
 package host_test
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"time"
 
@@ -17,6 +19,7 @@ func (l *dumbLogger) MetricsLabel(prefix string) string    { return "" }
 
 type dumbExecutor struct {
 	cmds         []string
+	uploaded     map[string]string
 	nextOutput   []byte
 	nextError    error
 	nextDuration time.Duration
@@ -27,6 +30,93 @@ func (e *dumbExecutor) CombinedOutput(cmd string) ([]byte, error) {
 	time.Sleep(e.nextDuration)
 	return e.nextOutput, e.nextError
 }
+
+func (e *dumbExecutor) Execute(cmd string) error {
+	e.cmds = append(e.cmds, cmd)
+	time.Sleep(e.nextDuration)
+	return e.nextError
+}
+
+func (e *dumbExecutor) Upload(path string, input io.Reader) error {
+	if e.uploaded == nil {
+		e.uploaded = make(map[string]string)
+	}
+	time.Sleep(e.nextDuration)
+	b := bytes.NewBuffer(nil)
+	io.Copy(b, input)
+	e.uploaded[path] = b.String()
+	return e.nextError
+}
+
+var _ = Describe("NewSettings", func() {
+	It("populates settings with default values", func() {
+		settings := host.NewSettings(
+			&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
+			&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
+			"/home/action",
+			"http://google.com",
+			"secret",
+			[]string{"pubkey1", "pubkey2"},
+		)
+
+		Expect(settings.TLSConfig).To(Equal(&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"}))
+		Expect(settings.AptConfig).To(Equal(&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"}))
+		Expect(settings.Config.NotifyURL).To(Equal("http://google.com"))
+		Expect(settings.Config.TLSVerify).To(BeTrue())
+		Expect(settings.Home).To(Equal("/home/action"))
+		Expect(settings.Secret).To(Equal("secret"))
+		Expect(settings.PublicKeys).To(ConsistOf("pubkey1", "pubkey2"))
+	})
+})
+
+var _ = Describe("WriteSettings", func() {
+	It("uploads settings to the remote server", func() {
+		settings := host.NewSettings(
+			&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
+			&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
+			"/home/action",
+			"http://google.com",
+			"secret",
+			[]string{"pubkey1", "pubkey2"},
+		)
+
+		e := &dumbExecutor{}
+		err := host.WriteSettings(&dumbLogger{}, e, settings, make(chan struct{}))
+		Expect(err).To(BeNil())
+		Expect(e.cmds[0]).To(Equal("sudo mkdir -p /etc/freighterd"))
+		Expect(e.uploaded["/home/action/.ssh/authorized_keys"]).To(Equal("pubkey1\npubkey2\n"))
+		Expect(e.uploaded["/etc/freighterd/ca.crt"]).To(Equal("ca"))
+		Expect(e.uploaded["/etc/freighterd/cert.crt"]).To(Equal("cert"))
+		Expect(e.uploaded["/etc/freighterd/key.crt"]).To(Equal("key"))
+		Expect(e.uploaded["/etc/freighterd/secret"]).To(Equal("secret"))
+		Expect(e.uploaded["/etc/freighterd/config.json"]).To(ContainSubstring("http://google.com"))
+		Expect(e.uploaded[host.SourceLocation]).To(ContainSubstring("deb https://distro:passwd@master precise main"))
+	})
+
+	It("cancels early when the operation times out", func() {
+		settings := host.NewSettings(
+			&host.TLSConfig{CA: "ca", Cert: "cert", Key: "key"},
+			&host.AptConfig{AptUsername: "distro", AptPassword: "passwd", AptLocation: "master", AptDist: "precise"},
+			"/home/action",
+			"http://google.com",
+			"secret",
+			[]string{"pubkey1", "pubkey2"},
+		)
+
+		start := time.Now()
+		e := &dumbExecutor{nextDuration: time.Second}
+
+		done := make(chan struct{})
+		finish := make(chan error, 1)
+		go func() {
+			finish <- host.WriteSettings(&dumbLogger{}, e, settings, done)
+		}()
+		close(done)
+		err := <-finish
+		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
+		Expect(err).To(Equal(host.ErrTimeout))
+	})
+})
 
 var _ = Describe("RestartServices", func() {
 	It("restarts the freighterd service", func() {

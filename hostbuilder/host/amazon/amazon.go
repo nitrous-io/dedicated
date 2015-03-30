@@ -1,14 +1,11 @@
 package amazon
 
 import (
-	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +21,7 @@ import (
 )
 
 const (
-	DefaultPort uint16 = 65333
-	sshPort     uint16 = 65100
+	sshPort uint16 = 65100
 
 	// represents 1gb of storage
 	storageUnit = 1
@@ -42,14 +38,6 @@ const (
 )
 
 var (
-	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/home/ubuntu/.ssh/authorized_keys"
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-	ConfigLocation  = "/etc/freighterd/config.json"
-
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
@@ -67,29 +55,6 @@ var (
 		aws.SAEast.Name:       aws.SAEast,
 	}
 )
-
-// configFile is used to marshal/unmarshal /etc/freighter/config.json.
-type configFile struct {
-	DataPath  string       `json:"data_path"`
-	TLSVerify bool         `json:"tls_verify"`
-	TLSCA     string       `json:"tls_ca"`
-	TLSCert   string       `json:"tls_cert"`
-	TLSKey    string       `json:"tls_key"`
-	Secret    string       `json:"secret"`
-	NotifyURL string       `json:"notify_url"`
-	Listen    []listenSpec `json:"listen"`
-}
-
-type listenSpec struct {
-	Proto   string `json:"proto"`
-	Address string `json:"address"`
-}
-
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
 
 type HostConfig struct {
 	ID              string `json:"id"`
@@ -113,14 +78,14 @@ type HostConfig struct {
 	StorageSize int `json:"storage_size"`
 
 	// freighter specific config
-	PublicKeys        []string   `json:"public_keys"`
-	TLS               *tlsConfig `json:"tls"`
-	Secret            string     `json:"secret"`
-	AptUsername       string     `json:"apt_username"` // host id on nitrous.io
-	AptPassword       string     `json:"apt_password"` // host secret
-	AptLocation       string     `json:"apt_location"` // URI of the repository
-	AptDist           string     `json:"apt_dist"`     // distribution of the repo
-	FreighterdVersion string     `json:"freighterd_version"`
+	PublicKeys        []string        `json:"public_keys"`
+	TLS               *host.TLSConfig `json:"tls"`
+	Secret            string          `json:"secret"`
+	AptUsername       string          `json:"apt_username"` // host id on nitrous.io
+	AptPassword       string          `json:"apt_password"` // host secret
+	AptLocation       string          `json:"apt_location"` // URI of the repository
+	AptDist           string          `json:"apt_dist"`     // distribution of the repo
+	FreighterdVersion string          `json:"freighterd_version"`
 }
 
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
@@ -203,7 +168,22 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Populating settings",
-			Func:        writeSettings,
+			Func: func(ctx *host.HostContext) error {
+				settings := host.NewSettings(
+					h.Config.TLS,
+					&host.AptConfig{
+						AptUsername: h.Config.AptUsername,
+						AptPassword: h.Config.AptPassword,
+						AptLocation: h.Config.AptLocation,
+						AptDist:     h.Config.AptDist,
+					},
+					"/home/ubuntu",
+					h.generateNotifyURL(),
+					h.Config.Secret,
+					h.Config.PublicKeys,
+				)
+				return host.WriteSettings(h, h.conn, settings, ctx.Done())
+			},
 		},
 		{
 			Description: "Fetching updates",
@@ -322,7 +302,7 @@ func (h *Host) Info() (*host.Info, error) {
 		Provider:       h.DriverName(),
 		ID:             h.instance.InstanceId,
 		IPAddress:      h.instance.PublicIpAddress,
-		FreighterdPort: DefaultPort,
+		FreighterdPort: host.DefaultPort,
 		Region:         h.provider.Region.Name,
 		State:          getState(h.instance),
 	}, nil
@@ -444,7 +424,7 @@ func (h *Host) List() ([]*host.Info, error) {
 						Provider:       h.DriverName(),
 						ID:             instance.InstanceId,
 						IPAddress:      instance.PublicIpAddress,
-						FreighterdPort: DefaultPort,
+						FreighterdPort: host.DefaultPort,
 						State:          getState(&instance),
 						Region:         region.Name,
 					}
@@ -508,22 +488,6 @@ func (h *Host) reloadInstance(id string) error {
 	}
 	h.instance = &instancesResp.Reservations[0].Instances[0]
 	return nil
-}
-
-func (h *Host) configFile() *configFile {
-	return &configFile{
-		DataPath:  "/var/lib/freighter",
-		TLSVerify: true,
-		TLSCA:     TLSCALocation,
-		TLSCert:   TLSCertLocation,
-		TLSKey:    TLSKeyLocation,
-		Secret:    SecretLocation,
-		NotifyURL: h.generateNotifyURL(),
-		Listen: []listenSpec{
-			{Proto: "unix", Address: "/var/run/freighterd.sock"},
-			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
-		},
-	}
 }
 
 func (h *Host) generateNotifyURL() string {
@@ -768,71 +732,6 @@ func waitForSSH(ctx *host.HostContext) error {
 	}
 	h.Logf("SSH ready for instance %s", h.instance.InstanceId)
 	h.conn = sshConn
-	return nil
-}
-
-// writeSettings uploads necessary file system contents to the host, which
-// include package configs, apt details, etc...
-func writeSettings(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("write_settings")
-	defer mh.UpdateSince(label, time.Now())
-	h.Logf("Writing settings")
-
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
-	}
-
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
-		return mh.Error(err, label)
-	}
-
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return mh.Error(fmt.Errorf("unable to marshal config JSON, err: %v", err), label)
-	}
-
-	if err := h.conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
-		return mh.Error(err, label)
-	}
-
-	if err := uploadFile(h, map[string]io.Reader{
-		PubKeysLocation:     pubKeysBuf,
-		host.SourceLocation: aptSourcesBuf,
-		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
-		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
-		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
-		SecretLocation:      strings.NewReader(h.Config.Secret),
-		ConfigLocation:      bytes.NewBuffer(cfgb),
-	}); err != nil {
-		return err
-	}
-
-	h.Logf("Wrote settings")
-	return nil
-}
-
-// uploadFile uploads a set of files to the remote host using the temporary SSH
-// connection. This is only available during creation phase. The host
-// filesystem should be considered immutable otherwise.
-func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.MetricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	flist := []string{}
-	for dest, val := range files {
-		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
-		if err := h.conn.Upload(tmpDest, val); err != nil {
-			return mh.Error(err, label)
-		}
-		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, fmt.Sprintf("%q", dest))); err != nil {
-			return mh.Error(err, label)
-		}
-		flist = append(flist, dest)
-	}
 	return nil
 }
 
