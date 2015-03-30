@@ -236,7 +236,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 // Update sets properties of an existing host
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
-	label := h.metricsLabel("update")
+	label := h.MetricsLabel("update")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -269,7 +269,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 
 // Destroy releases the instance Elastic IP and terminate it
 func (h *Host) Destroy() error {
-	label := h.metricsLabel("destroy")
+	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -329,7 +329,7 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() (*host.Info, error) {
-	label := h.metricsLabel("stop")
+	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -356,7 +356,7 @@ func (h *Host) Stop() (*host.Info, error) {
 
 // Start starts the instance and allocate the desired IP address to it
 func (h *Host) Start() (*host.Info, error) {
-	label := h.metricsLabel("start")
+	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -403,7 +403,7 @@ func (h *Host) Start() (*host.Info, error) {
 // public IP address of the instance. This does not use RebootAPI, but instead
 // stop/starting the instance to make sure that it has a clean state.
 func (h *Host) Restart() (*host.Info, error) {
-	label := h.metricsLabel("restart")
+	label := h.MetricsLabel("restart")
 	defer mh.UpdateSince(label, time.Now())
 	if _, err := h.Stop(); err != nil {
 		return nil, err
@@ -414,7 +414,7 @@ func (h *Host) Restart() (*host.Info, error) {
 // List returns all instances in the current region. To perform list of
 // multiple regions, use one List() request for each region.
 func (h *Host) List() ([]*host.Info, error) {
-	label := h.metricsLabel("list")
+	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
 	var (
@@ -548,19 +548,6 @@ func (h *Host) logFailed() {
 	}
 }
 
-// mlabel returns provider.region which is probably helpful if we ever want to
-// differentiate between regions.
-//
-// The result will have a form of prefix.amazon<.region>
-func (h *Host) metricsLabel(prefix string) string {
-	// region should be set for every requests because ec2 API requires it to
-	// find the instance id properly
-	if h.Config.RegionID != "" {
-		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
-	}
-	return fmt.Sprintf("%s.amazon", prefix)
-}
-
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
@@ -617,7 +604,7 @@ func init() {
 // phase. The keypair should be deleted after provisioning finishes.
 func createKeypair(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_key")
+	label := h.MetricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
 	// generate key pair
@@ -633,7 +620,7 @@ func createKeypair(ctx *host.HostContext) error {
 // the current settings.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("inspect_source_ami")
+	label := h.MetricsLabel("inspect_source_ami")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Logf("inspecting source ami %q", h.Config.SourceAMI)
@@ -654,7 +641,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 // keypair and wait for it to be ready.
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_host")
+	label := h.MetricsLabel("create_host")
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
 		// inside defer block
@@ -726,7 +713,7 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	if h.Config.DisableEIP {
 		return nil
 	}
-	label := h.metricsLabel("allocate_ip")
+	label := h.MetricsLabel("allocate_ip")
 	defer mh.UpdateSince(label, time.Now())
 
 	_, err := assignAddress(h.provider, h.instance.InstanceId, isVPC(h.instance))
@@ -747,7 +734,7 @@ func allocateElasticIP(ctx *host.HostContext) error {
 // If this fails, we still consider the operation to be successful
 func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("set_name")
+	label := h.MetricsLabel("set_name")
 	defer mh.UpdateSince(label, time.Now())
 
 	tags := []ec2.Tag{{"Name", h.Config.Name}}
@@ -765,7 +752,7 @@ func associateInstanceTags(ctx *host.HostContext) error {
 // so we can perform setup actions on it
 func waitForSSH(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("ssh_wait")
+	label := h.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Logf("Waiting for SSH to be ready")
@@ -788,7 +775,7 @@ func waitForSSH(ctx *host.HostContext) error {
 // include package configs, apt details, etc...
 func writeSettings(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("write_settings")
+	label := h.MetricsLabel("write_settings")
 	defer mh.UpdateSince(label, time.Now())
 	h.Logf("Writing settings")
 
@@ -832,7 +819,7 @@ func writeSettings(ctx *host.HostContext) error {
 // connection. This is only available during creation phase. The host
 // filesystem should be considered immutable otherwise.
 func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.metricsLabel("update_software")
+	label := h.MetricsLabel("update_software")
 	defer mh.UpdateSince(label, time.Now())
 
 	flist := []string{}
