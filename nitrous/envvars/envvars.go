@@ -1,15 +1,75 @@
 package envvars
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 )
 
+const (
+	defaultConfigPath = "/etc/default/nitrousd"
+
+	DBEnvVar       = "NITROUS_PG_URL"
+	MixpanelEnvVar = "MIXPANEL_TOKEN"
+)
+
+// config is used to decode JSON config files.
+type config struct {
+	// Set to true to enable debug functionality. DO NOT enable in production!
+	Debug bool `json:"debug"`
+
+	AESKey              string `json:"aes_key"`
+	DatabaseURL         string `json:"database_url"`
+	HostbuilderURL      string `json:"hostbuilder_url"`
+	DefaultProvider     string `json:"default_provider"`
+	DefaultAptLocation  string `json:"default_apt_location"`
+	DefaultAptDist      string `json:"default_apt_dist"`
+	CACertPath          string `json:"ca_cert_path"`
+	CAKeyPath           string `json:"ca_key_path"`
+	HostHostname        string `json:"host_hostname"`
+	ProxyHostname       string `json:"proxy_hostname"`
+	PreviewHostname     string `json:"preview_hostname"`
+	WebHostname         string `json:"web_hostname"`
+	FreighterdVersion   string `json:"freighterd_version"`
+	DockerVersion       string `json:"docker_version"`
+	ProvisionerUser     string `json:"provisioner_user"`
+	ProvisionerInterval string `json:"provisioner_interval"`
+
+	// Controls whether 'update now' option is available to users.
+	EnableSelfUpgrade bool `json:"enable_self_upgrade"`
+
+	Librato struct {
+		User     string `json:"user"`
+		Token    string `json:"token"`
+		Interval string `json:"interval"`
+	} `json:"librato"`
+
+	Mixpanel struct {
+		Token string `json:"token"`
+	} `json:"mixpanel"`
+
+	Sendgrid struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	} `json:"sendgrid"`
+
+	Stripe struct {
+		SecretKey string `json:"secret_key"`
+		PublicKey string `json:"public_key"`
+	} `json:"stripe"`
+
+	Github struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+	} `json:"github"`
+}
+
 var (
 	AESKey             string
-	Debug              string
+	Debug              bool
 	DefaultAptDist     string
 	DefaultAptLocation string
 	DefaultProvider    string
@@ -22,6 +82,8 @@ var (
 	ProxyHostname      string
 	PreviewHostname    string
 	WebHostname        string
+
+	EnableSelfUpgrade bool
 
 	CAKeyPath  string
 	CACertPath string
@@ -47,69 +109,52 @@ var (
 
 	GitHubOAuthClientID     string
 	GitHubOAuthClientSecret string
-
-	// Controls whether 'update now' option is available to users.  Defaults to
-	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
-	// false
-	EnableSelfUpgrade = true
-)
-
-const (
-	DBEnvVar       = "NITROUS_PG_URL"
-	MixpanelEnvVar = "MIXPANEL_TOKEN"
 )
 
 func init() {
-	AESKey = os.Getenv("AES_KEY")
-	Debug = os.Getenv("DEBUG")
-	DefaultAptDist = os.Getenv("DEFAULT_APT_DIST")
-	DefaultAptLocation = os.Getenv("DEFAULT_APT_LOCATION")
-	DefaultProvider = os.Getenv("DEFAULT_PROVIDER")
-	DockerVersion = os.Getenv("DOCKER_VERSION")
-	FreighterdVersion = os.Getenv("FREIGHTERD_VERSION")
-	HostBuilderURL = os.Getenv("HOSTBUILDER_URL")
-	HostHostname = os.Getenv("HOST_HOSTNAME")
-	MixpanelToken = os.Getenv(MixpanelEnvVar)
-	NitrousPgUrl = os.Getenv(DBEnvVar)
-	ProxyHostname = os.Getenv("PROXY_HOSTNAME")
-	PreviewHostname = os.Getenv("PREVIEW_HOSTNAME")
-	WebHostname = os.Getenv("WEB_HOSTNAME")
-
-	CAKeyPath = os.Getenv("CA_KEY_PATH")
-	CACertPath = os.Getenv("CA_CERT_PATH")
-
-	LibratoUser = os.Getenv("LIBRATO_USER")
-	LibratoToken = os.Getenv("LIBRATO_TOKEN")
-	LibratoInterval = os.Getenv("LIBRATO_INTERVAL")
-
-	SendgridUsername = os.Getenv("SENDGRID_USERNAME")
-	SendgridPassword = os.Getenv("SENDGRID_PASSWORD")
-
-	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
-	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
-
-	ProvisionerUser = os.Getenv("PROVISIONER_USER")
-	ProvisionerInterval = os.Getenv("PROVISIONER_INTERVAL")
-
-	ActivationEmailInterval = os.Getenv("ACTIVATION_EMAIL_INTERVAL")
-
-	GetStartedEmailIntervalFirst = os.Getenv("GET_STARTED_INTERVAL_FIRST")
-	GetStartedEmailIntervalSecond = os.Getenv("GET_STARTED_INTERVAL_SECOND")
-	GetStartedEmailIntervalThird = os.Getenv("GET_STARTED_INTERVAL_THIRD")
-
-	GitHubOAuthClientID = os.Getenv("GITHUB_CLIENT_ID")
-	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
-
-	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
-	if enableUpgradeEnv == "" {
-		EnableSelfUpgrade = true
-	} else {
-		var err error
-		EnableSelfUpgrade, err = strconv.ParseBool(enableUpgradeEnv)
-		if err != nil {
-			log.Fatalf("ENABLE_SELF_UPGRADE not acceptable boolean: %s", err)
-		}
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		log.Printf("envvars: CONFIG_PATH not defined, using default at %v", defaultConfigPath)
+		configPath = defaultConfigPath
 	}
+	b, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		log.Fatalf("envvars: failed to read config file, error: %v", err)
+	}
+
+	var cfg config
+	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&cfg); err != nil {
+		log.Fatalf("envvars: failed to parse config file, error: %v", err)
+	}
+
+	Debug = cfg.Debug
+	AESKey = cfg.AESKey
+	NitrousPgUrl = cfg.DatabaseURL
+	DefaultAptLocation = cfg.DefaultAptLocation
+	DefaultAptDist = cfg.DefaultAptDist
+	DefaultProvider = cfg.DefaultProvider
+	CAKeyPath = cfg.CAKeyPath
+	CACertPath = cfg.CACertPath
+	FreighterdVersion = cfg.FreighterdVersion
+	DockerVersion = cfg.DockerVersion
+	HostBuilderURL = cfg.HostbuilderURL
+	HostHostname = cfg.HostHostname
+	ProxyHostname = cfg.ProxyHostname
+	PreviewHostname = cfg.PreviewHostname
+	WebHostname = cfg.WebHostname
+	ProvisionerUser = cfg.ProvisionerUser
+	ProvisionerInterval = cfg.ProvisionerInterval
+	EnableSelfUpgrade = cfg.EnableSelfUpgrade
+	MixpanelToken = cfg.Mixpanel.Token
+	LibratoUser = cfg.Librato.User
+	LibratoToken = cfg.Librato.Token
+	LibratoInterval = cfg.Librato.Interval
+	SendgridUsername = cfg.Sendgrid.Username
+	SendgridPassword = cfg.Sendgrid.Password
+	StripePublicKey = cfg.Stripe.PublicKey
+	StripeSecretKey = cfg.Stripe.SecretKey
+	GitHubOAuthClientID = cfg.Github.ClientID
+	GitHubOAuthClientSecret = cfg.Github.ClientSecret
 }
 
 func CheckCAVariables() {

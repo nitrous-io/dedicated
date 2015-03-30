@@ -75,7 +75,7 @@ func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
 	s.route("/api/v0/github/oauth_cb", mw.Call("gihtub.OAuthCb", github.OAuthCb), "GET")
 
-	if envvars.Debug == "true" {
+	if envvars.Debug {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
 		s.routeJSON("/debug", s.debugHandler, "GET")
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")

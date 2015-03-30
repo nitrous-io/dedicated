@@ -29,10 +29,6 @@ var (
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
 
-	libratoUser    string
-	libratoToken   string
-	disableLibrato bool
-
 	// StopTimeout is the duration before we stop waiting for existing
 	// connections to complete.
 	stopTimeout = 1 * time.Minute
@@ -43,16 +39,6 @@ func init() {
 	// child execs, the child signals the parent, the parent execs, and finally
 	// the parent kills the child.
 	goagain.Strategy = goagain.Double
-
-	libratoUser = envvars.LibratoUser
-	libratoToken = envvars.LibratoToken
-
-	if libratoUser == "" ||
-		libratoToken == "" ||
-		strings.HasPrefix(libratoUser, "disable") ||
-		strings.HasPrefix(libratoToken, "disable") {
-		disableLibrato = true
-	}
 
 	// check CA
 	envvars.CheckCAVariables()
@@ -112,9 +98,14 @@ func main() {
 		}
 	}
 
-	if disableLibrato {
+	libratoUser := envvars.LibratoUser
+	libratoToken := envvars.LibratoToken
+	if libratoUser == "" ||
+		libratoToken == "" ||
+		strings.HasPrefix(libratoUser, "disable") ||
+		strings.HasPrefix(libratoToken, "disable") {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
-		// in dev, we flush metrics every 60s into devNull
+		// in dev, we flush metrics every 60s into /dev/null
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
