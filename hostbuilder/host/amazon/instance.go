@@ -6,6 +6,7 @@ import (
 
 type instanceProvider interface {
 	Instances(ids []string, filter *ec2.Filter) (*ec2.InstancesResp, error)
+	CreateTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
 }
 
 func getInstance(provider instanceProvider, id string, h *Host) error {
@@ -20,6 +21,13 @@ func getInstance(provider instanceProvider, id string, h *Host) error {
 	return nil
 }
 
-func setTag(provider instanceProvider, h *Host) error {
-	return nil
+func setTags(provider instanceProvider, h *Host) {
+	tags := []ec2.Tag{{"Name", h.Config.Name}}
+	if h.env != "" {
+		tags = append(tags, ec2.Tag{"dedicated", h.env})
+	}
+	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)
+	if err != nil {
+		h.Printf("Failed to set name for instance %s", h.instance.InstanceId)
+	}
 }
