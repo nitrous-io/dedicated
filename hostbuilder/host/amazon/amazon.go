@@ -586,15 +586,9 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("inspecting source ami %q", h.Config.SourceAMI)
-	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
-	if err != nil {
-		return mh.Error(fmt.Errorf("amazon: failed to list images %s", err), label)
+	if _, err := getImage(h.provider, h.Config.SourceAMI); err != nil {
+		return mh.Error(err, label)
 	}
-
-	if len(imageResp.Images) == 0 {
-		return mh.Error(fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI), label)
-	}
-
 	h.Printf("inspecting source ami %q... Done", h.Config.SourceAMI)
 	return nil
 }
