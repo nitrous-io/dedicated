@@ -1,0 +1,39 @@
+- @title = 'Education · Nitrous'
+- @html_class = 'light'
+- @body_id = 'education'
+
+- content_for :body_after
+  javascript:
+    pages.Features.init();
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      .hero-copy
+        h2
+          | Nitrous for Education
+        h3
+          | Lightning-fast development in the cloud: the ultimate learning companion
+
+
+
+  article.featurette
+    .container
+      .box-wrapper.three.centered
+        .box
+          h3 Any language on any computer in seconds
+          p Choose from popular web development templates and get setup in seconds. No configuration or setup required. Works from any computer with an internet browser.
+        .box
+          h3 Learn with practical execution
+          p No longer reduce your learning to the confines of a learning editor. Write and preview your code live like how developers operate practically.
+        .box
+          h3 Develop like a pro
+          p Learning doesn't stop after Codeacademy/CodeSchool. Move on to build real-world applications that people would love to use.
+
+
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'education' }
