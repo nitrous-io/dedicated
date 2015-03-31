@@ -130,12 +130,6 @@ var _ = Describe("controllers/tokens", func() {
 					Expect(res.Header().Get("Pragma")).To(Equal("no-cache"))
 				})
 
-				It("tracks the user as a new analytics profile", func() {
-					t, ok := svr.Tracker.(*FakeTracker)
-					Expect(ok).To(BeTrue())
-					Expect(t.ProfileCreated.ID).To(Equal(u.ID))
-				})
-
 				Context("making another token request", func() {
 					var prevToken interface{}
 
@@ -238,12 +232,6 @@ var _ = Describe("controllers/tokens", func() {
 				doRequest()
 				Expect(durationReceived).To(Equal(time.Duration(0)))
 			})
-
-			It("shouldn't track any events", func() {
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(BeEmpty())
-			})
 		})
 
 		Context("when grant type is not password", func() {
@@ -258,12 +246,6 @@ var _ = Describe("controllers/tokens", func() {
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("unsupported_grant_type"))
-			})
-
-			It("shouldn't track any events", func() {
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(BeEmpty())
 			})
 		})
 
@@ -281,12 +263,6 @@ var _ = Describe("controllers/tokens", func() {
 					Expect(err).To(BeNil())
 					Expect(j["error"]).To(Equal("invalid_request"))
 					Expect(j["error_description"]).To(Equal(v + " is required"))
-				})
-
-				It("shouldn't track any events", func() {
-					t, ok := svr.Tracker.(*FakeTracker)
-					Expect(ok).To(BeTrue())
-					Expect(t.Events[u.ID]).To(BeEmpty())
 				})
 			})
 		}
