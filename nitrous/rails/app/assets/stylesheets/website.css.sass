@@ -426,6 +426,7 @@ nav
     left: 0
     right: 0
     bottom: 0
+    opacity: 0
     text-align: center
     overflow: hidden
     +webkitFix
@@ -441,125 +442,14 @@ nav
       margin: 0 auto
       position: relative
       transition: all 0.2s ease 0s
-      transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(0)
+      background: rgba(48,60,71,1) image_url('home/stacks-logos-grid.svg') center center repeat
+      background-size: 1004px 380px
+      transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(-110px) translateX(-50px)
       -webkit-perspective: 1000
       backface-visibility: hidden
 
       &.heroMatrix
         animation: heroMatrix 185s infinite
-
-      .col
-        width: 68px
-        height: (16*68px)
-        margin: 4px
-        float: left
-        position: relative
-        overflow: hidden
-
-        &:nth-child(2)
-          top: -68px
-        &:nth-child(3)
-          top: (-68px*2)
-        &:nth-child(4)
-          top: (-68px*3)
-        &:nth-child(5)
-          top: (-68px*4)
-        &:nth-child(6)
-          top: (-68px*5)
-        &:nth-child(7)
-          top: (-68px*6)
-        &:nth-child(8)
-          top: (-68px*6)
-        &:nth-child(9)
-          top: (-68px*6)
-        &:nth-child(10)
-          top: (-68px*6)
-        &:nth-child(11)
-          top: (-68px*6)
-        &:nth-child(12)
-          top: (-68px*6)
-        &:nth-child(13)
-          top: (-68px*6)
-        &:nth-child(14)
-          top: (-68px*5)
-        &:nth-child(15)
-          top: (-68px*4)
-        &:nth-child(16)
-          top: (-68px*3)
-        &:nth-child(17)
-          top: (-68px*2)
-        &:nth-child(18)
-          top: -68px
-
-
-    .logo
-      width: 68px
-      height: 68px
-      margin: 6px 0
-      display: block
-      position: relative
-      transform: scale(1) translateZ(0)
-      z-index: 2
-      background: transparent image_url('home/logo-pattern.png') 0 0 no-repeat
-      background-size: 1088px 68px
-      +webkitFix
-
-      &.nitrous
-        top: -5px
-        margin-bottom: 0
-        background-position: 0 0
-        & + .logo
-          margin-top: -5px
-      &.github
-        background-position: -68px 0
-      &.python
-        background-position: (-68px*2) 0
-      &.nodejs
-        background-position: (-68px*3) 0
-      &.ubuntu
-        background-position: (-68px*4) 0
-      &.rails
-        background-position: (-68px*5) 0
-      &.meteor
-        background-position: (-68px*6) 0
-      &.html5
-        background-position: (-68px*7) 0
-      &.wordpress
-        background-position: (-68px*8) 0
-      &.code
-        top: -3px
-        margin-bottom: 0
-        background-position: (-68px*9) 0
-        & + .logo
-          margin-top: -7px
-      &.element
-        top: -6px
-        margin-bottom: 0
-        background-position: (-68px*10) 0
-        & + .logo
-          margin-top: -13px
-      &.cloud
-        top: -6px
-        margin-bottom: 0
-        background-position: (-68px*11) 0
-        & + .logo
-          margin-top: -6px
-      &.boxes
-        background-position: (-68px*12) 0
-      &.react
-        background-position: (-68px*12) 0
-      &.laravel
-        top: -10px
-        margin-bottom: 0
-        background-position: (-68px*14) 0
-        & + .logo
-          margin-top: -10px
-      &.php
-        top: -10px
-        margin-bottom: 0
-        background-position: (-68px*15) 0
-        & + .logo
-          margin-top: -15px
 
 
 .stack-ruby
@@ -2693,7 +2583,7 @@ input[type="range"]
     animation-iteration-count: 1
 
   .patternshadows
-    background-image: radial-gradient(ellipse at center, rgba(48,60,71,0) 0%,rgba(48,60,71,1) 68%)
+    background-image: radial-gradient(ellipse at center, rgba(48,60,71,.92) 0%,rgba(48,60,71,1) 68%)
 
 
 
@@ -2813,7 +2703,7 @@ input[type="range"]
 // Animations
 @keyframes heroMatrix
   50%
-    transform: matrix3d(1.07,0,0.1,0,0,0.71,0.71,-0.0006,0,-0.71,0.71,0,0,0,0,0.9) rotate(-20deg) translateY(-200px)
+    transform: matrix3d(1.07,0,0.1,0,0,0.71,0.71,-0.0006,0,-0.71,0.71,0,0,0,0,0.9) rotate(-20deg) translateY(-310px) translateX(-100px)
 
 @keyframes fadeIn
   0%
