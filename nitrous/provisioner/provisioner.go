@@ -186,8 +186,8 @@ func init() {
 	var err error
 	caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
 	if err != nil {
-		panic(fmt.Sprintf("provisioned: invalid CA cert %q and key %q",
-			envvars.CACertPath, envvars.CAKeyPath))
+		panic(fmt.Sprintf("provisioner: invalid CA cert %q and key %q, error: %v",
+			envvars.CACertPath, envvars.CAKeyPath, err))
 	}
 }
 

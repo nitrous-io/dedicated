@@ -28,38 +28,7 @@ var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
-
-	libratoUser    string
-	libratoToken   string
-	disableLibrato bool
 )
-
-func init() {
-	libratoUser = envvars.LibratoUser
-	libratoToken = envvars.LibratoToken
-
-	if libratoUser == "" ||
-		libratoToken == "" ||
-		strings.HasPrefix(libratoUser, "disable") ||
-		strings.HasPrefix(libratoToken, "disable") {
-		disableLibrato = true
-	}
-
-	// check CA
-	envvars.CheckCAVariables()
-	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
-		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
-	}
-
-	envvars.CheckSendgridVariables()
-	envvars.CheckHostnames()
-	envvars.CheckGitHubOAuth()
-
-	stripe.Key = envvars.StripeSecretKey
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
-}
 
 func main() {
 	flVersion := flag.Bool("v", false, "Display the version and exit")
@@ -77,6 +46,19 @@ func main() {
 			logr.FatalExit(r)
 		}
 	}()
+
+	envvars.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	}
+	envvars.CheckSendgridVariables()
+	envvars.CheckHostnames()
+	envvars.CheckGitHubOAuth()
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
+	}
 
 	// setup database
 	dbURL := envvars.NitrousPgUrl
@@ -103,10 +85,15 @@ func main() {
 		}
 	}
 
-	if disableLibrato {
+	libratoUser := envvars.LibratoUser
+	libratoToken := envvars.LibratoToken
+
+	if libratoUser == "" ||
+		libratoToken == "" ||
+		strings.HasPrefix(libratoUser, "disable") ||
+		strings.HasPrefix(libratoToken, "disable") {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
-		// in dev, we flush metrics every 60s into devNull
-		// because we are not interested in them
+		// in dev, we discard metrics output because we are not interested in it
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
@@ -130,13 +117,9 @@ func main() {
 	if err != nil {
 		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())
 	}
-	conf := &provisioner.Config{
-		Username: pu,
-		Interval: interval,
-	}
+	conf := &provisioner.Config{Username: pu, Interval: interval}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()),
-		dbConn, logr, conf)
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
