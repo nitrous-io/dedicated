@@ -12,7 +12,30 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/config"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
+
+// WaitForSSH establishes a connection to the remote host. This is only
+// available in the creation phase of the host.
+func WaitForSSH(ctx *HostContext) error {
+	l := ctx.Logger
+	timeout := ctx.Done()
+	config := ctx.Host.SSHConfig()
+
+	label := l.MetricsLabel("ssh_wait")
+	defer mh.UpdateSince(label, time.Now())
+
+	l.Logf("Waiting for SSH to be ready")
+	connInterval := 5 * time.Second
+	sshConn, err := sshutil.WaitForSSH(config.Address(), config.Username,
+		config.PrivateKey, connInterval, timeout, l)
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	l.Logf("SSH ready")
+	ctx.Executor = sshConn
+	return nil
+}
 
 // create settings for the host with the provided dynamic properties.
 func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {

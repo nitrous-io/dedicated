@@ -3,7 +3,6 @@ package sshutil
 import (
 	"crypto/rsa"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -22,6 +21,14 @@ type res struct {
 	err  error
 }
 
+type Logger interface {
+	Logf(format string, v ...interface{})
+}
+
+type logger struct{}
+
+func (l *logger) Logf(format string, v ...interface{}) { log.Printf(format, v...) }
+
 // wait for the ssh to be ready on `address`
 func WaitForSSH(
 	address string,
@@ -29,7 +36,13 @@ func WaitForSSH(
 	privateKey *rsa.PrivateKey,
 	connInterval time.Duration,
 	cancel <-chan struct{},
-	ctx map[string]interface{}) (conn *Conn, err error) {
+	l Logger) (conn *Conn, err error) {
+
+	// if we dont have a logger, delegates to normal log.Printf
+	if l == nil {
+		l = &logger{}
+	}
+
 	// generate the signer from private key
 	signer, err := ssh.ParsePrivateKey(GetPem(privateKey))
 	if err != nil {
@@ -40,11 +53,6 @@ func WaitForSSH(
 	sshConfig := &ssh.ClientConfig{
 		User: username,
 		Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
-	}
-
-	baseString := ""
-	for k, v := range ctx {
-		baseString += fmt.Sprintf("%s=%v ", k, v)
 	}
 
 	attempts := 0 // number of attempts to connect to ssh
@@ -60,12 +68,12 @@ func WaitForSSH(
 				return conn, nil
 			}
 
-			log.Printf("%sWaiting for ssh conn to be ready, got %v", baseString, err)
+			l.Logf("Waiting for ssh conn to be ready, got %v", err)
 			// Only count this as an attempt if we were able to attempt
 			// to authenticate. Note this is very brittle since it depends
 			// on the string of the error... but I don't see any other way.
 			if strings.Contains(err.Error(), "authenticate") {
-				log.Printf("%sFailed to authenticate with remote ssh: %v", baseString, err)
+				l.Logf("%sFailed to authenticate with remote ssh: %v", err)
 				attempts += 1
 			}
 			if attempts >= MaxAttempts {

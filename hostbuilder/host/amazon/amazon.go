@@ -16,13 +16,10 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
-	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
 
 const (
-	sshPort uint16 = 65100
-
 	// represents 1gb of storage
 	storageUnit = 1
 	// minimum storage size in GB. This is the size of standard root disk used in AMI
@@ -162,7 +159,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
-			Func:        waitForSSH,
+			Func:        host.WaitForSSH,
 			Timeout:     5 * time.Minute,
 		},
 		{
@@ -473,6 +470,17 @@ func (h *Host) Settings() *host.Settings {
 	)
 }
 
+// SSHConfig returns the host's SSH confiration. This configuration is only
+// valid during creation phase.
+func (h *Host) SSHConfig() *host.SSHConfig {
+	return &host.SSHConfig{
+		IPAddress:  h.instance.PublicIpAddress,
+		Port:       host.SSHPort,
+		Username:   "ubuntu",
+		PrivateKey: h.keypair.privateKey,
+	}
+}
+
 // refreshInstance reload the current instance associated with this Host to the
 // instance specified by `id` params. It can be used to refresh the current
 // instance, or load a new one
@@ -707,29 +715,6 @@ func associateInstanceTags(ctx *host.HostContext) error {
 	if err != nil {
 		h.Logf("Failed to set name for instance %s", h.instance.InstanceId)
 	}
-	return nil
-}
-
-// waitForSSH creates a SSH connection to the host using the temporary keypair
-// so we can perform setup actions on it
-func waitForSSH(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("ssh_wait")
-	defer mh.UpdateSince(label, time.Now())
-
-	h.Logf("Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
-		connInterval, ctx.Done(), info)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	h.Logf("SSH ready for instance %s", h.instance.InstanceId)
-	ctx.Executor = sshConn
 	return nil
 }
 

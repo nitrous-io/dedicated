@@ -23,10 +23,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	sshPort uint16 = 65100
-)
-
 var (
 	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
@@ -96,7 +92,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
-			Func:        waitForSSH,
+			Func:        host.WaitForSSH,
 			Timeout:     1 * time.Minute,
 		},
 		{
@@ -376,6 +372,17 @@ func (h *Host) Settings() *host.Settings {
 	)
 }
 
+// SSHConfig returns the host's SSH confiration. This configuration is only
+// valid during creation phase.
+func (h *Host) SSHConfig() *host.SSHConfig {
+	return &host.SSHConfig{
+		IPAddress:  h.ipAddress(),
+		Port:       host.SSHPort,
+		Username:   "root",
+		PrivateKey: h.privateKey,
+	}
+}
+
 func (h *Host) id() (int, error) {
 	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
@@ -549,26 +556,5 @@ func createDroplet(ctx *host.HostContext) error {
 	}
 
 	h.droplet = dropletRoot.Droplet
-	return nil
-}
-
-func waitForSSH(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("ssh_wait")
-	defer mh.UpdateSince(label, time.Now())
-
-	h.Logf("Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		connInterval, ctx.Done(), info)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	h.Logf("SSH ready for droplet %v", h.droplet.ID)
-	ctx.Executor = sshConn
 	return nil
 }

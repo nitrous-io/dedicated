@@ -1,6 +1,7 @@
 package host
 
 import (
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 
 const (
 	DefaultPort uint16 = 65333
+	SSHPort     uint16 = 65100
 )
 
 var (
@@ -50,6 +52,18 @@ type Settings struct {
 	PublicKeys []string
 }
 
+// configuration used to login to a remote host.
+type SSHConfig struct {
+	IPAddress  string
+	Port       uint16
+	Username   string
+	PrivateKey *rsa.PrivateKey
+}
+
+func (c *SSHConfig) Address() string {
+	return fmt.Sprintf("%s:%d", c.IPAddress, c.Port)
+}
+
 type Info struct {
 	Provider       string      `json:"provider"`
 	ID             string      `json:"id"`
@@ -75,6 +89,8 @@ type Host interface {
 	// Settings returns the current dynamic settings for a host, which
 	// includes the secret key, TLS certificates, apt information etc..
 	Settings() *Settings
+	// SSHConfig returns the configuration to login to the remote host
+	SSHConfig() *SSHConfig
 }
 
 type Logger interface {

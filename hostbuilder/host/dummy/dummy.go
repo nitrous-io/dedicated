@@ -7,6 +7,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
 type Host struct {
@@ -124,6 +125,16 @@ func (h *Host) Settings() *host.Settings {
 		h.Version,
 		[]string{"pubkey1", "pubkey2"},
 	)
+}
+
+func (h *Host) SSHConfig() *host.SSHConfig {
+	key, _ := sshutil.GenerateSSHKey()
+	return &host.SSHConfig{
+		IPAddress:  "10.0.0.1",
+		Port:       6222,
+		Username:   "action",
+		PrivateKey: key,
+	}
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
