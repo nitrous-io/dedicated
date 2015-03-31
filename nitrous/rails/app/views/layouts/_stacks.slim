@@ -2,53 +2,10 @@
     .container
       h3.big-title Stacks to kick-off your development projects
       h4
-        | Nitrous offers a wide range of stacks that contain pre-configured
+        | Nitrous offers a wide range of 
+        a href="/stacks" stacks
+        |  that contain pre-configured
         br
         | software dependencies (languages, databases and other required components)
 
-      ul.stacks
-        li.stack
-          a.stack-lang.ruby.ripple href="/stacks/ruby"
-          span Ruby
-        li.stack
-          a.stack-lang.ruby-on-rails.ripple href="/stacks/ruby-on-rails"
-          span Rails
-        li.stack
-          a.stack-lang.python.ripple href="/stacks/python"
-          span Python
-        li.stack
-          a.stack-lang.django.ripple href="/stacks/django"
-          span Django
-        li.stack
-          a.stack-lang.nodejs.ripple href="/stacks/nodejs"
-          span Node.js
-        li.stack
-          a.stack-lang.meteor.ripple href="/stacks/meteor"
-          span Meteor
-        li.stack
-          a.stack-lang.html5.ripple href="/stacks/html5"
-          span HTML5
-        li.stack
-          a.stack-lang.php.ripple href="/stacks/php"
-          span PHP
-        li.stack
-          a.stack-lang.golang.ripple href="/stacks/golang"
-          span Go
-        li.stack
-          a.stack-lang.java.ripple href="/stacks/java"
-          span Java
-        / li.stack
-        /   a.asp.ripple href="/stacks/asp"
-        /   span ASP.net
-        li.stack
-          a.stack-lang.wordpress.ripple href="/stacks/wordpress"
-          span Wordpress
-        li.stack
-          a.stack-lang.iojs.ripple href="/stacks/iojs"
-          span io.js
-        li.stack
-          a.stack-lang.laravel.ripple href="/stacks/laravel"
-          span Laravel
-        li.stack
-          a.stack-lang.ubuntu.ripple href="/stacks/ubuntu"
-          span Ubuntu
+      = render 'layouts/stacks_grid'

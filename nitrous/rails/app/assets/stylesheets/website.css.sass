@@ -31,9 +31,19 @@ blockquote
   cite
     padding-top: 10px
     font-style: italic
+    a
+      color: rgba(0,0,0,.6)
   strong
-    background: rgba(255,255,255,.08)
     padding: 0 1px
+
+.dark
+  blockquote
+    strong
+      background: rgba(255,255,255,.08)
+.light
+  blockquote
+    strong
+      background: rgba(0,0,0,.04)
 
 hr
   height: 1px
@@ -357,9 +367,10 @@ nav
       padding: 0
       li
         display: inline-block
-        margin: 0 6px
+        margin: 0 10px
         a
           padding: 0 16px
+          display: block
 
     .more
       position: relative
@@ -383,6 +394,9 @@ nav
       text-align: left
       li
         text-align: left
+
+    .active
+      font-weight: bold
 
 
 
@@ -548,6 +562,49 @@ nav
           margin-top: -15px
 
 
+.stack-ruby
+  .notice .active
+    color: $ruby
+.stack-ruby-on-rails
+  .notice .active
+    color: $ruby-on-rails
+.stack-nodejs
+  .notice .active
+    color: $nodejs
+.stack-meteor
+  .notice .active
+    color: $meteor
+.stack-python
+  .notice .active
+    color: $python
+.stack-django
+  .notice .active
+    color: $django
+.stack-php
+  .notice .active
+    color: $php
+.stack-html5
+  .notice .active
+    color: $html5
+.stack-golang
+  .notice .active
+    color: $golang
+.stack-java
+  .notice .active
+    color: $java
+.stack-wordpress
+  .notice .active
+    color: $wordpress
+.stack-iojs
+  .notice .active
+    color: $iojs
+.stack-laravel
+  .notice .active
+    color: $laravel
+.stack-ubuntu
+  .notice .active
+    color: $ubuntu
+
 
 .form-wrapper
   width: 420px
@@ -601,11 +658,12 @@ nav
 .light
   .form-wrapper
     form
-      border: 1px solid rgba(0,0,0,.2)
+      border: 1px solid transparent
       border-radius: 5px
 
       &:hover, &.focused
         box-shadow: 0 0 0 transparent
+        border: 1px solid $blueLink
 
 
 
@@ -889,6 +947,23 @@ h4 + .box-wrapper
       font-size: 20px
       padding-top: 10px
 
+      img
+        width: 36px
+        height: 36px
+        position: relative
+        top: 10px
+        display: inline-block
+        margin-right: 10px
+        background: transparent
+
+#stack .featurette .one
+  width: 420px
+  margin: 0 auto
+  text-align: center
+
+  p
+    width: 100%
+
 .two
   padding: 0 60px
   .box
@@ -926,7 +1001,6 @@ h4 + .box-wrapper
   font-family: $boldFont
   // font-weight: bold
   font-weight: 400
-
 
 
 
@@ -1039,7 +1113,7 @@ h4 + .box-wrapper
 
 .stack
   display: inline-block
-  margin: 10px 10px 40px 10px
+  margin: 10px 16px 40px 16px
   user-select: none
   position: relative
   +webkitFix
@@ -1070,31 +1144,98 @@ h4 + .box-wrapper
 
 #stack
   .stack-steps
-    padding: 32px 0
     ol
-      margin: 32px 60px 0
+      margin: 32px 0 0
+      padding: 20px 0
       li
+        width: 100%
+        overflow: hidden
         padding: 12px
         border-radius: 4px
-        margin: 0 0 32px
+        margin: 0 0 50px
         &:last-child
           margin-bottom: 0
-        h2
+
+        h4
           color: #5B666F
           text-align: left
           font-size: 16px
-          font-weight: 600
-        .step
-          border: 3px solid #5B666F
+          line-height: 24px
+          padding-bottom: 10px
+
+        .step-num
+          width: 24px
+          height: 24px
+          border: 1px solid #5B666F
           display: inline-block
           border-radius: 24px
-          width: 24px
+          font-size: 13px
           text-align: center
-          margin-right: 24px
+          margin-right: 16px
+
+        p + p
+          padding-top: 20px
+
+    .left, .right
+      width: 50%
+      position: relative
+
+    .left
+      float: left
+      img
+        width: 460px
+        height: auto
+        border-radius: 4px
+
+        &.callout
+          width: 160px
+          height: 160px
+          position: absolute
+          background: transparent
+          bottom: 90px
+          right: 100px
+          border-radius: 160px
+          box-shadow: 0 6px 20px rgba(0,0,0,.3)
+
+    .right
+      float: right
+
+    .did-you-know
+      width: 90%
+      padding: 26px 0 0 0
+      font-size: 13px
+      line-height: 24px
+      color: #A5B3BE
+
+      & + .did-you-know
+        padding-top: 14px
+
+      span
+        color: #5B666F
+        font-size: 14px
+        display: block
+        font-family: $boldFont
+
+
+.stack-resources
+  .box
+    img
+      width: 100%
+      height: auto
+      display: block
+      background: #FFF
+      margin-bottom: 20px
+    h3
+      margin-bottom: 6px
+
+    a:hover
+      h3
+        color: $blueLink
 
 .stack-lang
   width: 94px
   height: 94px
+  position: relative
   text-indent: -999999px
   display: inline-block
   background-image: image_url("home/lang-logos.png")
@@ -1142,6 +1283,18 @@ h4 + .box-wrapper
   display: inline-block
   top: 36px
 
+
+.page-hero .django
+  width: 132px
+  background: image_url("home/django-page-hero.svg") center center no-repeat
+  background-size: 132px 48px
+  margin-left: 6px
+
+.page-hero .iojs
+  top: -5px
+
+.page-hero .java
+  top: -5px
 
 
 // --------------------------------------
@@ -2126,11 +2279,12 @@ footer
       font-weight: bold
       cursor: default
 
+
 .footer-item
   margin: 0
   line-height: 32px
 
-  h4
+  h4, h4 a
     font-size: 16px
     padding-bottom: 12px
     color: #FFF
@@ -2547,11 +2701,60 @@ input[type="range"]
 // Light
 .light
 
+  .page-hero
+    background: #8696A0
+    overflow: hidden
+  
+  .hero-copy h3
+    color: rgba(255,255,255,.6)
+
+  .big
+    color: #5b666f
+  
+  .stacks-home
+    .page-hero
+      &:before, &:after
+        content: ""
+        position: absolute
+        left: 0
+        right: 0
+        display: block
+
+      &:before
+        height: 600px
+        top: -50%
+        background: #0099ED image_url('home/stacks-logos-grid.svg') center center repeat
+        background-size: 1004px 380px
+        transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(0)
+        -webkit-perspective: 1000
+        backface-visibility: hidden
+
+      &:after
+        top: 0
+        bottom: 0
+        background: radial-gradient(ellipse at center, rgba(0,153,237,.91) 0%,rgba(0,153,237,1) 72%)
+  
+
+  .quotes
+    .one p
+      &:before
+        color: #cfcfcf
+
+  article h4 a 
+    color: #a5b3be
+
+  article p a
+    color: $blueLink
+
   .unread
     &:after
       border: 1px solid rgba(255,255,255,.7)
 
   article
+    border-bottom: 1px solid rgba(0,0,0,.05)
+    &.darker
+      background: rgba(0,0,0,.03)
+      border-bottom: 0
     p
       color: #000
     h3, .big-title, .section-title
@@ -2560,6 +2763,15 @@ input[type="range"]
     h3
       color: rgba(0,0,0,.6)
       padding-bottom: 10px
+
+  .stack
+    span
+      font-weight: 400
+      font-family: $opensans
+      color: rgba(0,0,0,.6)
+  
+  .ripple:hover
+    box-shadow: 0 0 0 transparent
 
 
 
