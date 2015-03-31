@@ -22,12 +22,12 @@ type res struct {
 }
 
 type Logger interface {
-	Logf(format string, v ...interface{})
+	Printf(format string, v ...interface{})
 }
 
 type logger struct{}
 
-func (l *logger) Logf(format string, v ...interface{}) { log.Printf(format, v...) }
+func (l *logger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
 
 // wait for the ssh to be ready on `address`
 func WaitForSSH(
@@ -68,12 +68,12 @@ func WaitForSSH(
 				return conn, nil
 			}
 
-			l.Logf("Waiting for ssh conn to be ready, got %v", err)
+			l.Printf("Waiting for ssh conn to be ready, got %v", err)
 			// Only count this as an attempt if we were able to attempt
 			// to authenticate. Note this is very brittle since it depends
 			// on the string of the error... but I don't see any other way.
 			if strings.Contains(err.Error(), "authenticate") {
-				l.Logf("%sFailed to authenticate with remote ssh: %v", err)
+				l.Printf("%sFailed to authenticate with remote ssh: %v", err)
 				attempts += 1
 			}
 			if attempts >= MaxAttempts {

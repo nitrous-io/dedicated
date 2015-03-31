@@ -124,10 +124,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.keypair != nil {
 			fmt.Fprintf(w, "Removing key...")
-			h.Logf("keyID=%s Removing key...", h.keypair.name)
+			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
 				h.progressLog(w, "Removing key...Failed!")
-				h.Logf("ERROR: Failed to remove key %s", h.keypair.name)
+				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
 			} else {
 				h.progressLog(w, "Removing key...Done!")
 			}
@@ -177,7 +177,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			h.Logf("ERROR: Failed in create host step %q: %v", step.Description, err)
+			h.Printf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.logFailed()
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
@@ -212,7 +212,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			h.Logf("ERROR: Failed in update host step: %v", err)
+			h.Printf("ERROR: Failed in update host step: %v", err)
 			h.logFailed()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
@@ -391,7 +391,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			defer wg.Done()
 			instancesResp, err := conn.Instances(nil, filter)
 			if err != nil {
-				h.Logf("failed to get instances in region %s, err %v", region.Name, err)
+				h.Printf("failed to get instances in region %s, err %v", region.Name, err)
 				return
 			}
 			mu.Lock()
@@ -429,9 +429,9 @@ func (h *Host) DriverName() string {
 	return "amazon"
 }
 
-// Logf logs the data together with the host uuid and droplet id if they are
+// Printf logs the data together with the host uuid and droplet id if they are
 // avalaible
-func (h *Host) Logf(format string, v ...interface{}) {
+func (h *Host) Printf(format string, v ...interface{}) {
 	parts := []string{}
 	if h.uuid != "" {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
@@ -494,18 +494,18 @@ func (h *Host) generateNotifyURL() string {
 
 // progressLog writes the message to the given writer and logs the message,
 // prefixing host information.  It is used for user-facing messages.  Use
-// `h.Logf` for internal logging.
+// `h.Printf` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	h.Logf(format, v...)
+	h.Printf(format, v...)
 }
 
 func (h *Host) logFailed() {
 	if h.instance != nil {
 		if h.keypair != nil {
-			h.Logf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
+			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
 		} else {
-			h.Logf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
+			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
 		}
 	}
 }
@@ -585,7 +585,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 	label := h.MetricsLabel("inspect_source_ami")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Logf("inspecting source ami %q", h.Config.SourceAMI)
+	h.Printf("inspecting source ami %q", h.Config.SourceAMI)
 	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
 	if err != nil {
 		return mh.Error(fmt.Errorf("amazon: failed to list images %s", err), label)
@@ -595,7 +595,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 		return mh.Error(fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI), label)
 	}
 
-	h.Logf("inspecting source ami %q... Done", h.Config.SourceAMI)
+	h.Printf("inspecting source ami %q... Done", h.Config.SourceAMI)
 	return nil
 }
 
@@ -617,7 +617,7 @@ func createInstance(ctx *host.HostContext) error {
 		storageSize = minStorageSize
 	}
 
-	h.Logf("amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
+	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.Name)
 
 	opts := &ec2.RunInstances{
@@ -705,7 +705,7 @@ func associateInstanceTags(ctx *host.HostContext) error {
 	}
 	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {
-		h.Logf("Failed to set name for instance %s", h.instance.InstanceId)
+		h.Printf("Failed to set name for instance %s", h.instance.InstanceId)
 	}
 	return nil
 }

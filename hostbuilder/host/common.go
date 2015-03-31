@@ -25,14 +25,14 @@ func WaitForSSH(ctx *HostContext) error {
 	label := l.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
-	l.Logf("Waiting for SSH to be ready")
+	l.Printf("Waiting for SSH to be ready")
 	connInterval := 5 * time.Second
 	sshConn, err := sshutil.WaitForSSH(config.Address(), config.Username,
 		config.PrivateKey, connInterval, timeout, l)
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	l.Logf("SSH ready")
+	l.Printf("SSH ready")
 	ctx.Executor = sshConn
 	return nil
 }
@@ -92,7 +92,7 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(err, label)
 	}
 
-	l.Logf("Writing settings")
+	l.Printf("Writing settings")
 	if err := conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
 		return mh.Error(err, label)
 	}
@@ -107,11 +107,11 @@ func WriteSettings(ctx *HostContext) error {
 		SecretLocation:  strings.NewReader(settings.Secret),
 		ConfigLocation:  bytes.NewBuffer(cfgb),
 	})
-	l.Logf("Uploaded (%s) to %v", strings.Join(fl, ", "))
+	l.Printf("Uploaded (%s) to %v", strings.Join(fl, ", "))
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	l.Logf("Wrote settings")
+	l.Printf("Wrote settings")
 	return nil
 }
 
@@ -124,13 +124,13 @@ func RestartServices(ctx *HostContext) error {
 		return mh.Error(errors.New("invalid SSH connection"), label)
 	}
 
-	l.Logf("Restarting freighterd")
+	l.Printf("Restarting freighterd")
 	if out, err := conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
-		l.Logf("Failed to restart freighterd")
+		l.Printf("Failed to restart freighterd")
 		err = fmt.Errorf("restart freighterd failed with %q, output: %s", err, out)
 		return mh.Error(err, label)
 	}
-	l.Logf("Restarted freighterd")
+	l.Printf("Restarted freighterd")
 	return nil
 }
 
@@ -176,16 +176,16 @@ func UpdateSoftware(ctx *HostContext) error {
 	cmdParts = append(cmdParts, pkgspec)
 	cmd := strings.Join(cmdParts, " ")
 
-	l.Logf("Updating freighterd package")
+	l.Printf("Updating freighterd package")
 	if out, err := conn.CombinedOutput(cmd); err != nil {
 		err = fmt.Errorf("update failed with %q, output: %s", err, out)
-		l.Logf("Failed to update freighterd %s", err)
+		l.Printf("Failed to update freighterd %s", err)
 		if version != "" {
 			return mh.Error(err, label)
 		}
 	}
 	// failure to update freighterd when a version is not specified is considered continuable
-	l.Logf("Updated freighterd package")
+	l.Printf("Updated freighterd package")
 	return nil
 }
 

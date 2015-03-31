@@ -98,9 +98,9 @@ type Logger interface {
 	// current provider/region combination for the current operation.
 	MetricsLabel(prefix string) string
 
-	// Logf logs the data together with host's specific information such as the
+	// Printf logs the data together with host's specific information such as the
 	// current instance ID and/or the current request UUID
-	Logf(format string, v ...interface{})
+	Printf(format string, v ...interface{})
 }
 
 // executor represents the connection to the remote host. We can use this to
