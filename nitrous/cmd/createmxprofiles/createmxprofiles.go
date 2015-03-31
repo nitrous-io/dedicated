@@ -1,12 +1,11 @@
 package main
 
 import (
-	"os"
 	"strconv"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/go-mixpanel"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -21,18 +20,18 @@ func init() {
 }
 
 func main() {
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logr.FatalExit(appconfig.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
 	}
 
-	mixpanelToken := envvars.MixpanelToken
+	mixpanelToken := appconfig.MixpanelToken
 	if mixpanelToken == "" || strings.HasPrefix(mixpanelToken, "disable") {
-		logr.FatalExit(envvars.MixpanelEnvVar, "is not defined")
+		logr.FatalExit(appconfig.MixpanelEnvVar, "is not defined")
 	}
 	mc := mixpanel.NewMixpanelClient(mixpanelToken)
 

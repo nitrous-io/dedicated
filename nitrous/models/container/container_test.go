@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/lib/pq/hstore"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -850,9 +850,9 @@ var _ = Describe("models/container", func() {
 
 	Describe("PreviewHostname()", func() {
 		It("return the container's preview hostname", func() {
-			orig := envvars.PreviewHostname
-			envvars.PreviewHostname = "n2otest.com"
-			defer func() { envvars.PreviewHostname = orig }()
+			orig := appconfig.PreviewHostname
+			appconfig.PreviewHostname = "n2otest.com"
+			defer func() { appconfig.PreviewHostname = orig }()
 			c := &container.Container{Slug: "hello"}
 			Expect(c.PreviewHostname()).To(Equal("hello.n2otest.com"))
 		})

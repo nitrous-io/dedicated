@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -71,7 +71,7 @@ var _ = Describe("controllers/plans", func() {
 					t := providertemplate.ProviderTemplate{
 						PlanID:   pl.ID,
 						RegionID: r.ID,
-						Provider: envvars.DefaultProvider,
+						Provider: appconfig.DefaultProvider,
 					}
 					Expect(t.Insert(db)).To(BeNil())
 				}
@@ -82,7 +82,7 @@ var _ = Describe("controllers/plans", func() {
 				t := providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
 					RegionID: r.ID,
-					Provider: envvars.DefaultProvider,
+					Provider: appconfig.DefaultProvider,
 				}
 				Expect(t.Insert(db)).To(BeNil())
 

@@ -3,8 +3,8 @@ package amazon
 import (
 	"net/http"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/groupedhosts"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -16,7 +16,7 @@ var Hosts = admin.VerifyAdmin(hosts)
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
+	hostbuilderURL := appconfig.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("HOSTBUILDER_URL is not set")
 	}

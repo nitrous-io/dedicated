@@ -10,8 +10,8 @@ import (
 	"crypto/rsa"
 
 	"github.com/mitchellh/cli"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
@@ -33,15 +33,15 @@ type resizeRequest struct {
 
 func init() {
 	// get AES_Key
-	aesKey = envvars.AESKey
+	aesKey = appconfig.AESKey
 	if aesKey == "" {
 		log.Fatal("AES_KEY is not defined")
 	}
 
 	// get db connection
-	dbURL = envvars.NitrousPgUrl
+	dbURL = appconfig.NitrousPgUrl
 	if dbURL == "" {
-		log.Fatal(envvars.DBEnvVar, "is not defined")
+		log.Fatal(appconfig.DBEnvVar, "is not defined")
 	}
 }
 

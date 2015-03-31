@@ -1,0 +1,40 @@
+{
+  "debug": true,
+  "aes_key": "kmGFOWQkpNheZedIeZruzHfg",
+  "database_url": "host=/var/run/postgresql user=nitrous dbname=nitrous_development sslmode=disable",
+  "hostbuilder_url": "http://0.0.0.0:6666",
+  "default_provider": "docker",
+  "default_apt_location": "apt.nitrous.io",
+  "default_apt_dist": "nitrous",
+  "ca_cert_path": "/opt/src/github.com/nitrous-io/dedicated/nitrous/dev/n2odevpro-ca.crt",
+  "ca_key_path": "/opt/src/github.com/nitrous-io/dedicated/nitrous/dev/n2odevpro-ca.key",
+  "host_hostname": "n2odev.com",
+  "proxy_hostname": "n2odev.com",
+  "preview_hostname": "n2odevapp.com",
+  "web_hostname": "n2odev.com",
+  "freighterd_version": "1.3.0-chuyeow-dev",
+  "docker_version": "1.5.0-nitrous1",
+  "provisioner_user": "host-provisioner",
+  "provisioner_interval": "5s",
+  "enable_self_upgrade": true,
+  "librato": {
+    "user": "disable",
+    "token": "disable",
+    "interval": "120s"
+  },
+  "mixpanel": {
+    "token": "disable"
+  },
+  "sendgrid": {
+    "username": "disable",
+    "password": "disable"
+  },
+  "stripe": {
+    "secret_key": "sk_test_7vLarB8Depo8725Vrz9plzof",
+    "public_key": "pk_test_Lm7AilDLCE6e1locpnXxClDO"
+  },
+  "github": {
+    "client_id": "",
+    "client_secret": ""
+  }
+}

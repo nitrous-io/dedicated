@@ -3,14 +3,14 @@ package regions
 import (
 	"net/http"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	rs, err := region.AllForProvider(env.DB, envvars.DefaultProvider)
+	rs, err := region.AllForProvider(env.DB, appconfig.DefaultProvider)
 	if err != nil {
 		return err
 	}

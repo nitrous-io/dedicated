@@ -15,10 +15,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -53,7 +53,7 @@ func queryHost(db *ndb.Database, id int64) (*host.Host, error) {
 }
 
 func hostname(slug string) string {
-	return fmt.Sprintf("%s.%s", slug, envvars.HostHostname)
+	return fmt.Sprintf("%s.%s", slug, appconfig.HostHostname)
 }
 
 func Test(t *testing.T) {
@@ -314,9 +314,9 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("when self upgrade is disabled, returns empty upgrade_available even if versions do not match", func() {
-			envvars.EnableSelfUpgrade = false
+			appconfig.EnableSelfUpgrade = false
 			defer func() {
-				envvars.EnableSelfUpgrade = true
+				appconfig.EnableSelfUpgrade = true
 			}()
 
 			hs.H.DockerVersion = "1.2.0-nitrous1"

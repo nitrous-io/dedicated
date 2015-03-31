@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -16,9 +16,9 @@ func init() {
 }
 
 func main() {
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logr.FatalExit(appconfig.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {

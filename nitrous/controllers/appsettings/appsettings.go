@@ -3,7 +3,7 @@ package appsettings
 import (
 	"net/http"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -12,8 +12,8 @@ import (
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"mixpanel_token": envvars.MixpanelToken,
-		"stripe_key":     envvars.StripePublicKey,
+		"mixpanel_token": appconfig.MixpanelToken,
+		"stripe_key":     appconfig.StripePublicKey,
 	}
 
 	// optionally include additional admin info but ignore auth failures
@@ -30,7 +30,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 	if u != nil && u.Admin {
-		env.Data["freighterd_version"] = envvars.FreighterdVersion
+		env.Data["freighterd_version"] = appconfig.FreighterdVersion
 	}
 	return nil
 }

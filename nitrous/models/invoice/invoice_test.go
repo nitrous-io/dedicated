@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -402,7 +402,7 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should pass through the attemptCount", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			origMailer := invoice.Mailer
 			fakeMailer := &FakeMailer{}
 			invoice.Mailer = fakeMailer
@@ -460,7 +460,7 @@ var _ = Describe("models/invoice", func() {
 		})
 
 		It("should set Failed, mark the billing profile as payment due and fire an email if closed out", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			origMailer := invoice.Mailer
 			fakeMailer := &FakeMailer{}
 			invoice.Mailer = fakeMailer

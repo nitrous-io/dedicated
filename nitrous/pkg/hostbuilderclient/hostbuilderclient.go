@@ -9,10 +9,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -25,10 +23,9 @@ type Hostbuilder struct {
 
 func NewHostbuilder(url string) *Hostbuilder {
 	client := httpclient.New("")
-	v, _ := strconv.ParseBool(envvars.NoSSLVerify)
 	tr := &http.Transport{
 		DisableKeepAlives: true,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: v},
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: false},
 	}
 	client.Client.Transport = tr
 	return &Hostbuilder{URL: url, Client: client}

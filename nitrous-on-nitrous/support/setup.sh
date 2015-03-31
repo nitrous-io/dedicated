@@ -31,9 +31,13 @@ if [[ ! -f $dedi_path/tender/.env ]]; then
   sed -i 's|vagrant|nitrous|' $dedi_path/tender/.env
 fi
 
+if [[ !-f $dedi_path/nitrous/config.json ]]; then
+  cp $dedi_path/nitrous/{sample_,}config.json
+  sed -i 's|vagrant|nitrous|' $dedi_path/nitrous/config.json
+fi
+
 if [[ ! -f $dedi_path/nitrous/.env ]]; then
   cp $dedi_path/nitrous/.env{-example,}
-  sed -i 's|vagrant|nitrous|' $dedi_path/nitrous/.env
   sed -i 's|\${PWD}|/home/nitrous/code/dedicated/nitrous|' $dedi_path/nitrous/.env
 fi
 
@@ -46,7 +50,7 @@ if ! psql nitrous_development -c 'SELECT email FROM users' | grep admins@nitrous
   cd $dedi_path
   make nitrous
   cd nitrous
-  forego run ../build/dbseed
+  forego run -e nitrous/.env ../build/dbseed
   cd ..
 fi
 

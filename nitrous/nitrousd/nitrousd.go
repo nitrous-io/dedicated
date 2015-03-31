@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
-	"os/signal"
 	"strings"
 	"time"
 
 	"github.com/kardianos/osext"
-
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -21,6 +20,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
+	"github.com/rcrowley/goagain"
 	"github.com/stripe/stripe-go"
 )
 
@@ -29,33 +29,28 @@ var (
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
 
-	libratoUser    string
-	libratoToken   string
-	disableLibrato bool
+	// StopTimeout is the duration before we stop waiting for existing
+	// connections to complete.
+	stopTimeout = 1 * time.Minute
 )
 
 func init() {
-	libratoUser = envvars.LibratoUser
-	libratoToken = envvars.LibratoToken
-
-	if libratoUser == "" ||
-		libratoToken == "" ||
-		strings.HasPrefix(libratoUser, "disable") ||
-		strings.HasPrefix(libratoToken, "disable") {
-		disableLibrato = true
-	}
+	// The Double strategy is Upstart-compatible. The parent forks a child, the
+	// child execs, the child signals the parent, the parent execs, and finally
+	// the parent kills the child.
+	goagain.Strategy = goagain.Double
 
 	// check CA
-	envvars.CheckCAVariables()
-	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
-		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	appconfig.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(appconfig.CACertPath, appconfig.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", appconfig.CACertPath, appconfig.CAKeyPath, err))
 	}
 
-	envvars.CheckSendgridVariables()
-	envvars.CheckHostnames()
-	envvars.CheckGitHubOAuth()
+	appconfig.CheckSendgridVariables()
+	appconfig.CheckHostnames()
+	appconfig.CheckGitHubOAuth()
 
-	stripe.Key = envvars.StripeSecretKey
+	stripe.Key = appconfig.StripeSecretKey
 	if stripe.Key == "" {
 		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
@@ -79,9 +74,9 @@ func main() {
 	}()
 
 	// setup database
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalfExit("nitrousd: %s is not defined", envvars.DBEnvVar)
+		logr.FatalfExit("nitrousd: %s is not defined", appconfig.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
@@ -93,7 +88,7 @@ func main() {
 	}
 
 	var libratoInterval time.Duration
-	li := envvars.LibratoInterval
+	li := appconfig.LibratoInterval
 	if li == "" {
 		libratoInterval = 120 * time.Second
 	} else {
@@ -103,14 +98,18 @@ func main() {
 		}
 	}
 
-	if disableLibrato {
+	libratoUser := appconfig.LibratoUser
+	libratoToken := appconfig.LibratoToken
+	if libratoUser == "" ||
+		libratoToken == "" ||
+		strings.HasPrefix(libratoUser, "disable") ||
+		strings.HasPrefix(libratoToken, "disable") {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
-		// in dev, we flush metrics every 60s into devNull
+		// in dev, we flush metrics every 60s into /dev/null
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
-
 		go librato.Librato(metrics.DefaultRegistry,
 			libratoInterval,  // interval
 			libratoUser,      // account owner email address
@@ -121,32 +120,78 @@ func main() {
 		)
 	}
 
-	pu := envvars.ProvisionerUser
+	pu := appconfig.ProvisionerUser
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	pi := envvars.ProvisionerInterval
+	pi := appconfig.ProvisionerInterval
 	interval, err := time.ParseDuration(pi)
 	if err != nil {
 		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())
 	}
-	conf := &provisioner.Config{
-		Username: pu,
-		Interval: interval,
+	conf := &provisioner.Config{Username: pu, Interval: interval}
+	pid := os.Getpid()
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
+
+	done := make(chan struct{})
+	serve := func(ln net.Listener) {
+		svr.Start(ln)
+		close(done)
 	}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()),
-		dbConn, logr, conf)
-	pid := os.Getpid()
-	host := "0.0.0.0"
-	port := uint16(3333)
-	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	go svr.Start(host, port)
+	listener, err := goagain.Listener()
+	if err != nil {
+		// If there's an error, it means that there isn't an existing listener,
+		// so we create one.
+		addr := "0.0.0.0:3333"
+		listener, err = net.Listen("tcp", addr)
+		if err != nil {
+			logr.FatalfExit("nitrousd: failed to listen on %q, error: %q", addr, err)
+		}
 
-	ch := make(chan os.Signal)
-	signal.Notify(ch, os.Interrupt, os.Kill)
-	s := <-ch
-	logr.Infof("nitrousd (pid: %v) got signal %v. Terminating.", pid, s)
+		logr.Infof("nitrousd %s (pid: %v) listening on %v", version, pid, listener.Addr())
+		go serve(listener)
+
+	} else {
+		logr.Infof("nitrousd: resuming listening on %v", listener.Addr())
+
+		logr.Infof("nitrousd %s (pid: %v) listening on %v", version, pid, listener.Addr())
+		go serve(listener)
+
+		// If this is the child, send the parent SIGUSR2. If this is the parent,
+		// send the child SIGQUIT.
+		if err := goagain.Kill(); err != nil {
+			logr.FatalfExit("nitrousd: failed to signal parent/child, error: %q", err)
+		}
+	}
+
+	// Wait for signals.
+	sig, err := goagain.Wait(listener)
+	if err != nil {
+		logr.FatalfExit("nitrousd: error waiting for signals in main goroutine, error: %q", err)
+	}
+
+	logr.Infof("nitrousd (pid: %v) got signal %q. Stopping.", pid, sig)
 	svr.Stop()
-	logr.Infof("nitrousd (pid: %v) terminated.", pid)
+	logr.Infof("nitrousd (pid: %v) stopped.", pid)
+
+	// Stop gracefully on SIGQUIT or SIGUSR2.
+	if sig == goagain.SIGQUIT || sig == goagain.SIGUSR2 {
+		logr.Infof("nitrousd: received %q, will stop gracefully", goagain.SIGUSR2)
+		// Wait for existing connections to complete.
+		select {
+		case <-done:
+			logr.Info("nitrousd: all existing connections have completed")
+		case <-time.After(stopTimeout):
+			logr.Info("nitrousd: timed out waiting for all existing connections to complete")
+		}
+	}
+
+	// If we received SIGUSR2, re-exec the parent process.
+	if sig == goagain.SIGUSR2 {
+		logr.Infof("nitrousd: received SIGUSR2, will restart gracefully")
+		if err := goagain.Exec(listener); err != nil {
+			logr.FatalfExit("nitrousd: failed to re-exec with the same listener, error: %q", err)
+		}
+	}
 }

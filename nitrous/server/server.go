@@ -16,8 +16,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/mailgun/manners"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -54,7 +55,7 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 	svr := &Server{
 		Events:      events,
 		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
-		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		Tracker:     analytics.NewMixpanelTracker(appconfig.MixpanelToken),
 		root:        root,
 		db:          db,
 		logger:      l,
@@ -68,7 +69,43 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) Start(host string, port uint16) error {
+type listener struct {
+	net.Listener
+	closed chan struct{}
+}
+
+var ErrClosed = errors.New("listener has been gracefully closed")
+
+func newListener(ln net.Listener) net.Listener {
+	return &listener{Listener: ln, closed: make(chan struct{})}
+}
+
+func (ln *listener) Accept() (net.Conn, error) {
+	for {
+		select {
+		case <-ln.closed:
+			return nil, ErrClosed
+		default:
+		}
+
+		// Set a deadline so Accept doesn't block forever, which gives us an
+		// opportunity to stop gracefully.
+		ln.Listener.(tcpKeepAliveListener).SetDeadline(time.Now().Add(100 * time.Millisecond))
+
+		c, err := ln.Listener.Accept()
+		if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+			continue
+		}
+		return c, err
+	}
+}
+
+func (ln *listener) Close() error {
+	close(ln.closed)
+	return nil
+}
+
+func (s *Server) Start(ln net.Listener) error {
 	if err := s.Provisioner.Start(); err != nil {
 		switch err {
 		case provisioner.ErrPreprovisionerNotConfigured:
@@ -78,27 +115,18 @@ func (s *Server) Start(host string, port uint16) error {
 		}
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	srv := &http.Server{
-		Addr:    addr,
+	ln = tcpKeepAliveListener{ln.(*net.TCPListener)}
+	srv := manners.NewWithServer(&http.Server{
 		Handler: s.router,
-	}
-
-	// TODO Support graceful stop/restart.
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("nitrous/server: Failed to listen on %q, error: %q", addr, err)
-	}
-	s.listener = tcpKeepAliveListener{ln.(*net.TCPListener)}
+	})
+	s.listener = manners.NewListener(newListener(ln))
 
 	return srv.Serve(s.listener)
 }
 
 func (s *Server) Stop() {
 	s.Provisioner.Stop()
-	if s.listener != nil {
-		s.listener.Close()
-	}
+	s.listener.Close()
 }
 
 func (s *Server) namespace(ns string, f func()) {
@@ -107,8 +135,7 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-// debugHandler prints out debug information in json format. This should work
-// only for admin user
+// debugHandler prints out debug information in json format.
 func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	psInfo := s.Events.Info()
 	env.Status = http.StatusOK
@@ -119,6 +146,16 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 		"num_goroutine": runtime.NumGoroutine(),
 	}
 	return nil
+}
+
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
+	var duration int
+	if d := r.FormValue("duration"); d != "" {
+		duration, _ = strconv.Atoi(d)
+	}
+	s.logger.Debugf("sleeping for %d seconds", duration)
+	time.Sleep(time.Duration(duration) * time.Second)
+	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
 func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {

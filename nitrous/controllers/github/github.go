@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/google/go-github/github"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -41,8 +41,8 @@ func init() {
 	}
 	oauthStateString = hex.EncodeToString(src[:])
 	oauthConf = &oauth2.Config{
-		ClientID:     envvars.GitHubOAuthClientID,
-		ClientSecret: envvars.GitHubOAuthClientSecret,
+		ClientID:     appconfig.GitHubOAuthClientID,
+		ClientSecret: appconfig.GitHubOAuthClientSecret,
 		Scopes:       []string{"user:email", "repo", "write:public_key"},
 		Endpoint:     githuboauth.Endpoint,
 	}

@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -31,7 +31,7 @@ const (
 )
 
 func init() {
-	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+	Mailer = mailer.NewSendGridMailer(appconfig.SendgridUsername, appconfig.SendgridPassword)
 }
 
 type Invoice struct {
@@ -253,7 +253,7 @@ func (i *Invoice) handlePaymentFailed(d db.QueryReceiver, final bool) error {
 }
 
 func billingUrl() string {
-	host := envvars.WebHostname
+	host := appconfig.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}

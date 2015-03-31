@@ -12,8 +12,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -49,7 +49,7 @@ var (
 )
 
 func init() {
-	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+	Mailer = mailer.NewSendGridMailer(appconfig.SendgridUsername, appconfig.SendgridPassword)
 }
 
 type User struct {
@@ -372,7 +372,7 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 		return nil, err
 	}
 
-	host := envvars.WebHostname
+	host := appconfig.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}
@@ -470,7 +470,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 	replyTo := from
 	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")
 
-	host := envvars.WebHostname
+	host := appconfig.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}

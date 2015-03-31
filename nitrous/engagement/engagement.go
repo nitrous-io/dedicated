@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -45,13 +45,13 @@ func extractDuration(val, defaultVal string) time.Duration {
 }
 
 func init() {
-	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+	Mailer = mailer.NewSendGridMailer(appconfig.SendgridUsername, appconfig.SendgridPassword)
 
-	ActivationEmailInterval = extractDuration(envvars.ActivationEmailInterval, "12")
+	ActivationEmailInterval = extractDuration(appconfig.ActivationEmailInterval, "12")
 
-	GetStartedEmailIntervalFirst = extractDuration(envvars.GetStartedEmailIntervalFirst, "24")
-	GetStartedEmailIntervalSecond = extractDuration(envvars.GetStartedEmailIntervalSecond, "48")
-	GetStartedEmailIntervalThird = extractDuration(envvars.GetStartedEmailIntervalThird, "120")
+	GetStartedEmailIntervalFirst = extractDuration(appconfig.GetStartedEmailIntervalFirst, "24")
+	GetStartedEmailIntervalSecond = extractDuration(appconfig.GetStartedEmailIntervalSecond, "48")
+	GetStartedEmailIntervalThird = extractDuration(appconfig.GetStartedEmailIntervalThird, "120")
 }
 
 func ActivationEmailCandidates(d *db.Database) ([]user.User, error) {
@@ -73,7 +73,7 @@ func ActivationEmailCandidates(d *db.Database) ([]user.User, error) {
 }
 
 func SendActivationEmail(d *db.Database, u user.User) (err error) {
-	host := envvars.WebHostname
+	host := appconfig.WebHostname
 	if host == "" {
 		host = "pro.nitrous.io"
 	}
@@ -221,7 +221,7 @@ func SendGetStartedEmail(d *db.Database, u user.User) (err error) {
 	}
 
 	if claimUrl == nil {
-		host := envvars.WebHostname
+		host := appconfig.WebHostname
 		if host == "" {
 			host = "pro.nitrous.io"
 		}

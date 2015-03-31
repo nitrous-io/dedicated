@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -39,7 +39,7 @@ var (
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
+	hostbuilderURL := appconfig.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("HOSTBUILDER_URL is not set")
 	}

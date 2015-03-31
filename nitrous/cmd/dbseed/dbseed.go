@@ -7,8 +7,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -76,11 +76,11 @@ type SeedFn func(db.QueryReceiver) error
 var seeds = []SeedFn{users, regions, plans, providertemplates, templates, creditTypes}
 
 func main() {
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logr.FatalExit(appconfig.DBEnvVar, "is not defined")
 	}
-	providerToSeed = envvars.DefaultProvider
+	providerToSeed = appconfig.DefaultProvider
 	if providerToSeed != "digitalocean" && providerToSeed != "docker" && providerToSeed != "amazon" {
 		logr.FatalfExit("DEFAULT_PROVIDER %s is invalid", providerToSeed)
 	}

@@ -3,6 +3,7 @@ package server
 import (
 	"net/http/pprof"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/amazon"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/announcements"
@@ -32,7 +33,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/usersettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	mw "github.com/nitrous-io/dedicated/nitrous/middleware"
 )
 
@@ -75,9 +75,10 @@ func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
 	s.route("/api/v0/github/oauth_cb", mw.Call("gihtub.OAuthCb", github.OAuthCb), "GET")
 
-	if envvars.Debug == "true" {
+	if appconfig.Debug {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
 		s.routeJSON("/debug", s.debugHandler, "GET")
+		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {

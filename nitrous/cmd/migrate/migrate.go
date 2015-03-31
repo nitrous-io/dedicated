@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -80,15 +80,15 @@ func init() {
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
 
 	// get AES_Key
-	aesKey = envvars.AESKey
+	aesKey = appconfig.AESKey
 	if aesKey == "" {
 		logr.FatalExit("AES_KEY is not defined")
 	}
 
 	// get db connection
-	dbURL = envvars.NitrousPgUrl
+	dbURL = appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logr.FatalExit(appconfig.DBEnvVar, "is not defined")
 	}
 }
 

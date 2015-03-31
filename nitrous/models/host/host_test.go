@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/lib/pq/hstore"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -919,9 +919,9 @@ var _ = Describe("models/host", func() {
 
 	Describe(".Hostname", func() {
 		It("return the host DNS name", func() {
-			prev := envvars.HostHostname
-			envvars.HostHostname = "n2otest.com"
-			defer func() { envvars.HostHostname = prev }()
+			prev := appconfig.HostHostname
+			appconfig.HostHostname = "n2otest.com"
+			defer func() { appconfig.HostHostname = prev }()
 			h := &host.Host{Slug: "hello"}
 			Expect(h.Hostname()).To(Equal("hello.n2otest.com"))
 		})
@@ -929,9 +929,9 @@ var _ = Describe("models/host", func() {
 
 	Describe(".CertHostname", func() {
 		It("return the wildcard DNS name", func() {
-			prev := envvars.HostHostname
-			envvars.HostHostname = "n2otest.com"
-			defer func() { envvars.HostHostname = prev }()
+			prev := appconfig.HostHostname
+			appconfig.HostHostname = "n2otest.com"
+			defer func() { appconfig.HostHostname = prev }()
 			h := &host.Host{Slug: "hello"}
 			Expect(h.CertHostname()).To(Equal("*.n2otest.com"))
 		})
@@ -939,9 +939,9 @@ var _ = Describe("models/host", func() {
 
 	Describe(".ProxyHostname", func() {
 		It("return the host DNS name", func() {
-			prev := envvars.ProxyHostname
-			envvars.ProxyHostname = "n2otestproxy.com"
-			defer func() { envvars.ProxyHostname = prev }()
+			prev := appconfig.ProxyHostname
+			appconfig.ProxyHostname = "n2otestproxy.com"
+			defer func() { appconfig.ProxyHostname = prev }()
 			h := &host.Host{Slug: "world"}
 			Expect(h.ProxyHostname()).To(Equal("world.n2otestproxy.com"))
 		})

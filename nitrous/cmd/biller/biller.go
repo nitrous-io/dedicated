@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
@@ -20,18 +20,18 @@ var (
 func init() {
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
 
-	envvars.CheckSendgridVariables()
+	appconfig.CheckSendgridVariables()
 
-	stripe.Key = envvars.StripeSecretKey
+	stripe.Key = appconfig.StripeSecretKey
 	if stripe.Key == "" {
 		logr.FatalExit("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 
 func main() {
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logr.FatalExit(appconfig.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
