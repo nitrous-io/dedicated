@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
   get '/plan_changes' => 'pages#plan_changes'
+  get '/education' => 'pages#education'
 
 
   get '/stacks' => 'pages#stacks'
