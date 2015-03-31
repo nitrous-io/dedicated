@@ -93,20 +93,17 @@ var _ = Describe("WriteSettings", func() {
 	})
 
 	It("cancels early when the operation times out", func() {
-		parentCtx := context.Background()
-		currentCtx, cancel := context.WithCancel(parentCtx)
-		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
 		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
 		start := time.Now()
-		finish := make(chan error, 1)
-		go func() {
-			finish <- host.WriteSettings(ctx)
-		}()
-		cancel()
-		err := <-finish
+		err := ctx.Run(host.Step{
+			Func:    host.WriteSettings,
+			Timeout: time.Millisecond,
+		})
+
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
-		Expect(err).To(Equal(host.ErrTimeout))
+		Expect(err).To(Equal(context.DeadlineExceeded))
 	})
 })
 
@@ -122,20 +119,17 @@ var _ = Describe("RestartServices", func() {
 	})
 
 	It("cancels early when the operation times out", func() {
-		parentCtx := context.Background()
-		currentCtx, cancel := context.WithCancel(parentCtx)
-		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
 		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
 		start := time.Now()
-		finish := make(chan error, 1)
-		go func() {
-			finish <- host.RestartServices(ctx)
-		}()
-		cancel()
-		err := <-finish
+		err := ctx.Run(host.Step{
+			Func:    host.RestartServices,
+			Timeout: time.Millisecond,
+		})
+
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
-		Expect(err).To(Equal(host.ErrTimeout))
+		Expect(err).To(Equal(context.DeadlineExceeded))
 	})
 })
 
@@ -177,19 +171,16 @@ var _ = Describe("UpdateSoftware", func() {
 	})
 
 	It("cancels early when the operation times out", func() {
-		parentCtx := context.Background()
-		currentCtx, cancel := context.WithCancel(parentCtx)
-		ctx := host.NewContext(currentCtx, &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
+		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
 		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
 
 		start := time.Now()
-		finish := make(chan error, 1)
-		go func() {
-			finish <- host.UpdateSoftware(ctx)
-		}()
-		cancel()
-		err := <-finish
+		err := ctx.Run(host.Step{
+			Func:    host.UpdateSoftware,
+			Timeout: time.Millisecond,
+		})
+
 		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
-		Expect(err).To(Equal(host.ErrTimeout))
+		Expect(err).To(Equal(context.DeadlineExceeded))
 	})
 })
