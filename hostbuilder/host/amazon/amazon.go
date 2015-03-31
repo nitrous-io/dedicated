@@ -696,17 +696,10 @@ func allocateElasticIP(ctx *host.HostContext) error {
 // If this fails, we still consider the operation to be successful
 func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("set_name")
+	label := h.MetricsLabel("set_tags")
 	defer mh.UpdateSince(label, time.Now())
 
-	tags := []ec2.Tag{{"Name", h.Config.Name}}
-	if h.env != "" {
-		tags = append(tags, ec2.Tag{"dedicated", h.env})
-	}
-	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
-	if err != nil {
-		h.Printf("Failed to set name for instance %s", h.instance.InstanceId)
-	}
+	setTags(h.provider, h)
 	return nil
 }
 
