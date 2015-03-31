@@ -17,8 +17,8 @@ import (
 
 type dumbLogger struct{}
 
-func (l *dumbLogger) Logf(format string, v ...interface{}) {}
-func (l *dumbLogger) MetricsLabel(prefix string) string    { return "" }
+func (l *dumbLogger) Printf(format string, v ...interface{}) {}
+func (l *dumbLogger) MetricsLabel(prefix string) string      { return "" }
 
 type dumbExecutor struct {
 	cmds         []string
