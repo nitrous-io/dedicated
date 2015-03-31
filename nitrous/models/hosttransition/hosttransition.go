@@ -58,6 +58,11 @@ func joinInts(ids []int64) string {
 }
 
 func UsageListForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) ([]*HostUsage, error) {
+	// Skip query and return empty list if there is no host IDs provided
+	if len(hostIDs) == 0 {
+		return []*HostUsage{}, nil
+	}
+
 	query := fmt.Sprintf(`SELECT host_id,
 		ceiling(
 			cast(

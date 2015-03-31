@@ -46,6 +46,11 @@ func CreateHostPermission(d *db.Database, bp *billingprofile.BillingProfile, p *
 			return err
 		}
 
+		// Skip if user don't have any host created
+		if len(hs) == 0 {
+			return nil
+		}
+
 		if HasNonTerminatedHost(hs) {
 			return errMaxFreeHostReached
 		}
