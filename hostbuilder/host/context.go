@@ -38,22 +38,18 @@ func (ctx *HostContext) Run(step Step) error {
 	}
 	fmt.Fprintf(w, "%s...", step.Description)
 
-	if step.Timeout == 0 {
-		return step.Func(ctx)
+	var (
+		ch                      = make(chan error, 1)
+		stepCtx context.Context = ctx
+	)
+
+	if step.Timeout != 0 {
+		var cancel context.CancelFunc
+		stepCtx, cancel = context.WithTimeout(ctx, step.Timeout)
+		defer cancel()
 	}
 
-	newCtx, cancel := context.WithTimeout(ctx, step.Timeout)
-	defer cancel()
-
-	ch := make(chan error, 1)
-	go func() {
-		select {
-		case <-newCtx.Done():
-			return
-		default:
-			ch <- step.Func(ctx)
-		}
-	}()
+	go func() { ch <- step.Func(ctx) }()
 
 	select {
 	case err := <-ch:
@@ -63,9 +59,9 @@ func (ctx *HostContext) Run(step Step) error {
 		}
 		fmt.Fprintf(w, "%s... Done!", step.Description)
 		return nil
-	case <-newCtx.Done():
+	case <-stepCtx.Done():
 		fmt.Fprintf(w, "%s... Failed!", step.Description)
-		return newCtx.Err()
+		return stepCtx.Err()
 	}
 }
 

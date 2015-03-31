@@ -14,6 +14,23 @@ import (
 
 var _ = Describe("context", func() {
 	Describe("Run", func() {
+		It("stops when the context times out", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+			defer cancel()
+			hctx := host.NewContext(ctx, &dummy.Host{ID: "123"}, nil, ioutil.Discard)
+
+			var counter int
+			err := hctx.Run(host.Step{
+				Func: func(*host.HostContext) error {
+					time.Sleep(10 * time.Millisecond)
+					counter++
+					return nil
+				},
+			})
+
+			Expect(counter).To(Equal(0))
+			Expect(err).To(Equal(context.DeadlineExceeded))
+		})
 
 		It("runs the given step within its timeout", func() {
 			ctx := context.Background()

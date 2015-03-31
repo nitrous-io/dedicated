@@ -68,7 +68,6 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 func WriteSettings(ctx *HostContext) error {
 	l := ctx.Logger
 	conn := ctx.Executor
-	timeout := ctx.Done()
 	settings := ctx.Host.Settings()
 
 	label := l.MetricsLabel("write_settings")
@@ -93,70 +92,46 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(err, label)
 	}
 
-	finish := make(chan error, 1)
-	go func() {
-		l.Logf("Writing settings")
-		if err := conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
-			finish <- mh.Error(err, label)
-			return
-		}
-
-		pubKeyLocation := filepath.Join(settings.Home, ".ssh", "authorized_keys")
-		fl, err := uploadFile(l, conn, map[string]io.Reader{
-			pubKeyLocation:  pubKeysBuf,
-			SourceLocation:  aptSourcesBuf,
-			TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
-			TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
-			TLSKeyLocation:  strings.NewReader(settings.TLSConfig.Key),
-			SecretLocation:  strings.NewReader(settings.Secret),
-			ConfigLocation:  bytes.NewBuffer(cfgb),
-		})
-		l.Logf("Uploaded (%s) to %v", strings.Join(fl, ", "))
-		if err != nil {
-			finish <- mh.Error(err, label)
-			return
-		}
-		l.Logf("Wrote settings")
-		finish <- nil
-	}()
-
-	select {
-	case <-timeout:
-		return ErrTimeout
-	case err := <-finish:
-		return err
+	l.Logf("Writing settings")
+	if err := conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
+		return mh.Error(err, label)
 	}
+
+	pubKeyLocation := filepath.Join(settings.Home, ".ssh", "authorized_keys")
+	fl, err := uploadFile(l, conn, map[string]io.Reader{
+		pubKeyLocation:  pubKeysBuf,
+		SourceLocation:  aptSourcesBuf,
+		TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
+		TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
+		TLSKeyLocation:  strings.NewReader(settings.TLSConfig.Key),
+		SecretLocation:  strings.NewReader(settings.Secret),
+		ConfigLocation:  bytes.NewBuffer(cfgb),
+	})
+	l.Logf("Uploaded (%s) to %v", strings.Join(fl, ", "))
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	l.Logf("Wrote settings")
+	return nil
 }
 
 func RestartServices(ctx *HostContext) error {
 	l := ctx.Logger
 	conn := ctx.Executor
-	timeout := ctx.Done()
 	label := l.MetricsLabel("restart_software")
 	defer mh.UpdateSince(label, time.Now())
 	if conn == nil {
 		return mh.Error(errors.New("invalid SSH connection"), label)
 	}
 
-	finish := make(chan error, 1)
-	go func() {
-		l.Logf("Restarting freighterd")
-		if out, err := conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
-			l.Logf("Failed to restart freighterd")
-			err = fmt.Errorf("restart freighterd failed with %q, output: %s", err, out)
-			finish <- mh.Error(err, label)
-			return
-		}
-		l.Logf("Restarted freighterd")
-		finish <- nil
-	}()
-
-	select {
-	case <-timeout:
-		return ErrTimeout
-	case err := <-finish:
-		return err
+	l.Logf("Restarting freighterd")
+	if out, err := conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
+		l.Logf("Failed to restart freighterd")
+		err = fmt.Errorf("restart freighterd failed with %q, output: %s", err, out)
+		return mh.Error(err, label)
 	}
+	l.Logf("Restarted freighterd")
+	return nil
 }
 
 // UpdateSoftware updates the package list and necessary packages that may be
@@ -164,7 +139,6 @@ func RestartServices(ctx *HostContext) error {
 func UpdateSoftware(ctx *HostContext) error {
 	l := ctx.Logger
 	conn := ctx.Executor
-	timeout := ctx.Done()
 	version := ctx.Host.Settings().Version
 	label := l.MetricsLabel("update_software")
 	defer mh.UpdateSince(label, time.Now())
@@ -202,29 +176,17 @@ func UpdateSoftware(ctx *HostContext) error {
 	cmdParts = append(cmdParts, pkgspec)
 	cmd := strings.Join(cmdParts, " ")
 
-	finish := make(chan error, 1)
-
-	go func() {
-		l.Logf("Updating freighterd package")
-		if out, err := conn.CombinedOutput(cmd); err != nil {
-			err = fmt.Errorf("update failed with %q, output: %s", err, out)
-			l.Logf("Failed to update freighterd %s", err)
-			if version != "" {
-				finish <- mh.Error(err, label)
-				return
-			}
+	l.Logf("Updating freighterd package")
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err = fmt.Errorf("update failed with %q, output: %s", err, out)
+		l.Logf("Failed to update freighterd %s", err)
+		if version != "" {
+			return mh.Error(err, label)
 		}
-		// failure to update freighterd when a version is not specified is considered continuable
-		l.Logf("Updated freighterd package")
-		finish <- nil
-	}()
-
-	select {
-	case <-timeout:
-		return ErrTimeout
-	case err := <-finish:
-		return err
 	}
+	// failure to update freighterd when a version is not specified is considered continuable
+	l.Logf("Updated freighterd package")
+	return nil
 }
 
 func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
