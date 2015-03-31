@@ -81,6 +81,8 @@ $laravel: #F36562
 $ubuntu: #DD4814
 $asp: #0054A3
 
+$innerWidth: 1024px
+
 
 // --------------------------------------
 // Mixins
@@ -117,7 +119,7 @@ a
 
 
 .container
-  width: 1024px
+  width: $innerWidth
   margin: 0 auto
 
 
@@ -196,7 +198,11 @@ a
 // --------------------------------------
 // Navigation
 nav
-  position: relative
+  width: $innerWidth
+  position: absolute
+  top: 0
+  left: 50%
+  margin-left: -($innerWidth/2)
   padding-top: 4px
   z-index: 2
   +webkitFix
@@ -281,22 +287,22 @@ nav
 
   // ------------------------------------
   // Hero
+  .hero, .page-hero
+    display: flex
+    align-items: center
+    justify-content: center
+
   .hero
     height: 460px
     position: relative
 
   .hero-copy
-    position: absolute
-    left: 0
-    right: 0
+    position: relative
     padding-top: 64px
     text-align: center
-    vertical-align: center
-    top: 50%
     -webkit-transform: translate3d(0,0,0)
     -webkit-perspective: 1000
     backface-visibility: hidden
-    transform: translateY(-50%)
     z-index: 2
 
     h2, h3

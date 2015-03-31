@@ -2172,6 +2172,62 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
+	Describe("GET /api/v0/hosts/{slug}/can_create_containers", func() {
+		var hs *test.HostStack
+
+		doRequest := func() {
+			req, err := test.NewRequest("GET", "/api/v0/hosts/"+hs.H.Slug+"/can_create_containers", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					State:            host.StateRunning,
+					IPAddress:        sql.NullString{"127.0.0.1", true},
+					FreighterdPort:   sql.NullInt64{65333, true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("should return true if the user can create containers", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				CanCreate bool `json:"can_create"`
+			}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.CanCreate).To(BeTrue())
+		})
+
+		It("should return false if the user cannot create containers", func() {
+			_, err := db.Exec("UPDATE hosts SET max_containers = 0 WHERE id = $1;", hs.H.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE users SET max_containers = 0 WHERE id = $1;", u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				CanCreate bool `json:"can_create"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.CanCreate).To(BeFalse())
+		})
+
+	})
+
 	Describe("GET /api/v0/hosts/:slug/apt_allowed", func() {
 		doRequest := func(hostID int64, secret, hostSlug string) {
 			req, err := test.NewRequest("GET", fmt.Sprintf("/api/v0/hosts/%s/apt_allowed", hostSlug), nil)
