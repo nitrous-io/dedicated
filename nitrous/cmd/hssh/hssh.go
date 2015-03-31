@@ -106,7 +106,7 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	}
 
 	return sshutil.WaitForSSH(address, sshUser, privKey,
-		connInterval, make(chan struct{}), map[string]interface{}{})
+		connInterval, make(chan struct{}), nil)
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session

@@ -262,7 +262,7 @@ func newConn(slug string) (*sshutil.Conn, *host.Host, error) {
 		sshUser = "ubuntu"
 	}
 
-	wait, err := sshutil.WaitForSSH(address, sshUser, privKey, connInterval, make(chan struct{}), map[string]interface{}{})
+	wait, err := sshutil.WaitForSSH(address, sshUser, privKey, connInterval, make(chan struct{}), nil)
 
 	return wait, h, err
 }
