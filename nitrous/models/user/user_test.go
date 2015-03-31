@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -1092,7 +1092,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should send the email", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err := u.SendConfirmationEmail(db, false)
 			Expect(err).To(BeNil())
 
@@ -1111,7 +1111,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		It("should send the new user email if the user is new ", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err := u.SendConfirmationEmail(db, true)
 			Expect(err).To(BeNil())
 

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/lib/pq/hstore"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
@@ -232,5 +232,5 @@ func (c *Container) Unlock(d db.QueryReceiver) error {
 }
 
 func (c *Container) PreviewHostname() string {
-	return fmt.Sprintf("%s.%s", c.Slug, envvars.PreviewHostname)
+	return fmt.Sprintf("%s.%s", c.Slug, appconfig.PreviewHostname)
 }

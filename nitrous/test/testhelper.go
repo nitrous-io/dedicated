@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	nuser "github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -207,7 +207,7 @@ func RandomName(name string) string {
 }
 
 func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	caInfo, err := certauth.NewCAInfo(appconfig.CACertPath, appconfig.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

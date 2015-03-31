@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -60,17 +60,17 @@ var _ = Describe("controllers/appsettings", func() {
 		}
 
 		itReturnsPublicSettings := func() {
-			oldFV := envvars.FreighterdVersion
-			envvars.FreighterdVersion = "version-21-2"
-			defer func() { envvars.FreighterdVersion = oldFV }()
+			oldFV := appconfig.FreighterdVersion
+			appconfig.FreighterdVersion = "version-21-2"
+			defer func() { appconfig.FreighterdVersion = oldFV }()
 
-			oldMT := envvars.MixpanelToken
-			envvars.MixpanelToken = "Track Me"
-			defer func() { envvars.MixpanelToken = oldMT }()
+			oldMT := appconfig.MixpanelToken
+			appconfig.MixpanelToken = "Track Me"
+			defer func() { appconfig.MixpanelToken = oldMT }()
 
-			oldSK := envvars.StripePublicKey
-			envvars.StripePublicKey = "st-001"
-			defer func() { envvars.StripePublicKey = oldSK }()
+			oldSK := appconfig.StripePublicKey
+			appconfig.StripePublicKey = "st-001"
+			defer func() { appconfig.StripePublicKey = oldSK }()
 
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))

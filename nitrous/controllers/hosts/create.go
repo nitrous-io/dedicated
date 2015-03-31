@@ -13,10 +13,10 @@ import (
 	"github.com/nitrous-io/nitrous-common/flusher"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -281,7 +281,7 @@ func findTemplate(db ndb.QueryReceiver, pl *plan.Plan, rg *region.Region, provid
 // generate cert with server certificate and key. The cert will be used for
 // TLS encryption
 func generateCerts(hostname string) (*cert.Cert, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	caInfo, err := certauth.NewCAInfo(appconfig.CACertPath, appconfig.CAKeyPath)
 	if err != nil {
 		return nil, err
 	}

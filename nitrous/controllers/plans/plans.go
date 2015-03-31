@@ -3,14 +3,14 @@ package plans
 import (
 	"net/http"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pls, err := plan.EnabledForProvider(env.DB, envvars.DefaultProvider)
+	pls, err := plan.EnabledForProvider(env.DB, appconfig.DefaultProvider)
 	if err != nil {
 		return err
 	}

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/engagement"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -100,7 +100,7 @@ var _ = Describe("engagement", func() {
 
 	Describe("SendActivationEmail", func() {
 		It("should send the email", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err := engagement.SendActivationEmail(db, *u)
 			Expect(err).To(BeNil())
 
@@ -118,7 +118,7 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should mark the user profile as activation email sent", func() {
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err := engagement.SendActivationEmail(db, *u)
 			Expect(err).To(BeNil())
 
@@ -132,7 +132,7 @@ var _ = Describe("engagement", func() {
 			_, err := db.Exec(`UPDATE user_profiles SET activation_email_sent_at = now() WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err = engagement.SendActivationEmail(db, *u)
 			Expect(err).To(Equal(engagement.ErrActivationEmailAlreadySent))
 
@@ -239,7 +239,7 @@ var _ = Describe("engagement", func() {
 			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			err = engagement.SendGetStartedEmail(db, *u)
 			Expect(err).To(BeNil())
 
@@ -265,7 +265,7 @@ var _ = Describe("engagement", func() {
 			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			u.ConfirmationToken = sql.NullString{"ABCDEF", true}
 			t := time.Now().Add(-73 * time.Hour)
 			u.ConfirmationSentAt = pq.NullTime{t, true}
@@ -294,7 +294,7 @@ var _ = Describe("engagement", func() {
 			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
-			envvars.WebHostname = "nitrous.example"
+			appconfig.WebHostname = "nitrous.example"
 			t := time.Now()
 			u.ConfirmedAt = pq.NullTime{t, true}
 			err = engagement.SendGetStartedEmail(db, *u)

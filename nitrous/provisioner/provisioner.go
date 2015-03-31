@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -150,33 +150,33 @@ func (e *HostbuilderError) Error() string {
 }
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
+	hostbuilderURL := appconfig.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("provisioner: HOSTBUILDER_URL is not set")
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
-	aesKey = envvars.AESKey
+	aesKey = appconfig.AESKey
 	if aesKey == "" {
 		panic("provisioner: AES_KEY is not set")
 	}
 
-	defaultAPTLocation = envvars.DefaultAptLocation
+	defaultAPTLocation = appconfig.DefaultAptLocation
 	if defaultAPTLocation == "" {
 		panic("DEFAULT_APT_LOCATION is not set")
 	}
 
-	defaultAPTDist = envvars.DefaultAptDist
+	defaultAPTDist = appconfig.DefaultAptDist
 	if defaultAPTDist == "" {
 		panic("DEFAULT_APT_DIST is not set")
 	}
 
-	fv = envvars.FreighterdVersion
+	fv = appconfig.FreighterdVersion
 	if fv == "" {
 		panic("provisioner: FREIGHTERD_VERSION is not set")
 	}
 
-	dv = envvars.DockerVersion
+	dv = appconfig.DockerVersion
 	if dv == "" {
 		panic("provisioner: DOCKER_VERSION is not set")
 	}
@@ -184,10 +184,10 @@ func init() {
 	// preloaded the caInfo at boot time, so we dont have to recalculate this
 	// for every host since the result will be the same
 	var err error
-	caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	caInfo, err = certauth.NewCAInfo(appconfig.CACertPath, appconfig.CAKeyPath)
 	if err != nil {
 		panic(fmt.Sprintf("provisioner: invalid CA cert %q and key %q, error: %v",
-			envvars.CACertPath, envvars.CAKeyPath, err))
+			appconfig.CACertPath, appconfig.CAKeyPath, err))
 	}
 }
 

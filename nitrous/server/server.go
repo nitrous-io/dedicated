@@ -17,8 +17,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/manners"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -55,7 +55,7 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 	svr := &Server{
 		Events:      events,
 		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
-		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		Tracker:     analytics.NewMixpanelTracker(appconfig.MixpanelToken),
 		root:        root,
 		db:          db,
 		logger:      l,

@@ -17,10 +17,10 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -55,7 +55,7 @@ var _ = Describe("controllers/images/pull", func() {
 
 		env = &middleware.Env{
 			Events:  pubsub.New(128),
-			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
+			Tracker: analytics.NewMixpanelTracker(appconfig.MixpanelToken),
 			DB:      db,
 		}
 	})

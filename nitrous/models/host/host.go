@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/lib/pq/hstore"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -349,13 +349,13 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 // We assume that slug is vald ( its cant be empty ), therefore we wont check
 // it here
 func (h *Host) Hostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, envvars.HostHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, appconfig.HostHostname)
 }
 
 func (h *Host) CertHostname() string {
-	return fmt.Sprintf("*.%s", envvars.HostHostname)
+	return fmt.Sprintf("*.%s", appconfig.HostHostname)
 }
 
 func (h *Host) ProxyHostname() string {
-	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
+	return fmt.Sprintf("%s.%s", h.Slug, appconfig.ProxyHostname)
 }

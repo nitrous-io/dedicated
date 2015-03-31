@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -79,7 +79,7 @@ var _ = Describe("controllers/passwords", func() {
 
 		Describe("when a user exist for the given login", func() {
 			It("sends the user an email with password reset instructions", func() {
-				envvars.WebHostname = "nitrous.example"
+				appconfig.WebHostname = "nitrous.example"
 
 				res := doRequest(u.Email)
 				Expect(res.Code).To(Equal(http.StatusOK))

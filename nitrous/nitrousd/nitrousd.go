@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/kardianos/osext"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -41,16 +41,16 @@ func init() {
 	goagain.Strategy = goagain.Double
 
 	// check CA
-	envvars.CheckCAVariables()
-	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
-		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	appconfig.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(appconfig.CACertPath, appconfig.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", appconfig.CACertPath, appconfig.CAKeyPath, err))
 	}
 
-	envvars.CheckSendgridVariables()
-	envvars.CheckHostnames()
-	envvars.CheckGitHubOAuth()
+	appconfig.CheckSendgridVariables()
+	appconfig.CheckHostnames()
+	appconfig.CheckGitHubOAuth()
 
-	stripe.Key = envvars.StripeSecretKey
+	stripe.Key = appconfig.StripeSecretKey
 	if stripe.Key == "" {
 		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
@@ -74,9 +74,9 @@ func main() {
 	}()
 
 	// setup database
-	dbURL := envvars.NitrousPgUrl
+	dbURL := appconfig.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalfExit("nitrousd: %s is not defined", envvars.DBEnvVar)
+		logr.FatalfExit("nitrousd: %s is not defined", appconfig.DBEnvVar)
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
@@ -88,7 +88,7 @@ func main() {
 	}
 
 	var libratoInterval time.Duration
-	li := envvars.LibratoInterval
+	li := appconfig.LibratoInterval
 	if li == "" {
 		libratoInterval = 120 * time.Second
 	} else {
@@ -98,8 +98,8 @@ func main() {
 		}
 	}
 
-	libratoUser := envvars.LibratoUser
-	libratoToken := envvars.LibratoToken
+	libratoUser := appconfig.LibratoUser
+	libratoToken := appconfig.LibratoToken
 	if libratoUser == "" ||
 		libratoToken == "" ||
 		strings.HasPrefix(libratoUser, "disable") ||
@@ -120,11 +120,11 @@ func main() {
 		)
 	}
 
-	pu := envvars.ProvisionerUser
+	pu := appconfig.ProvisionerUser
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	pi := envvars.ProvisionerInterval
+	pi := appconfig.ProvisionerInterval
 	interval, err := time.ParseDuration(pi)
 	if err != nil {
 		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/mail"
 
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
@@ -13,7 +13,7 @@ import (
 var Mailer mailer.Mailer
 
 func init() {
-	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+	Mailer = mailer.NewSendGridMailer(appconfig.SendgridUsername, appconfig.SendgridPassword)
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

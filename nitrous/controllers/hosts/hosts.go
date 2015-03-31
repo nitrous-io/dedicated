@@ -10,8 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/appconfig"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -49,28 +49,28 @@ var aesKey string
 var fv, dv string
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
+	hostbuilderURL := appconfig.HostBuilderURL
 	if hostbuilderURL == "" {
 		panic("HOSTBUILDER_URL is not set")
 	}
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 
-	aesKey = envvars.AESKey
+	aesKey = appconfig.AESKey
 	if aesKey == "" {
 		panic("AES_KEY is not defined")
 	}
 
-	defaultProvider = envvars.DefaultProvider
+	defaultProvider = appconfig.DefaultProvider
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
 	}
 
-	fv := envvars.FreighterdVersion
+	fv := appconfig.FreighterdVersion
 	if fv == "" {
 		panic("FREIGHTERD_VERSION is not set")
 	}
 
-	dv := envvars.DockerVersion
+	dv := appconfig.DockerVersion
 	if dv == "" {
 		panic("DOCKER_VERSION is not set")
 	}
@@ -124,7 +124,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	if !envvars.EnableSelfUpgrade && !env.User.Admin {
+	if !appconfig.EnableSelfUpgrade && !env.User.Admin {
 		h.UpgradeAvailable = ""
 	}
 

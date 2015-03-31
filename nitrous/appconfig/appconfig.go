@@ -1,4 +1,4 @@
-package envvars
+package appconfig
 
 import (
 	"bytes"
@@ -114,17 +114,17 @@ var (
 func init() {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		log.Printf("envvars: CONFIG_PATH not defined, using default at %v", defaultConfigPath)
+		log.Printf("appconfig: CONFIG_PATH not defined, using default at %v", defaultConfigPath)
 		configPath = defaultConfigPath
 	}
 	b, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Fatalf("envvars: failed to read config file, error: %v", err)
+		log.Fatalf("appconfig: failed to read config file, error: %v", err)
 	}
 
 	var cfg config
 	if err := json.NewDecoder(bytes.NewReader(b)).Decode(&cfg); err != nil {
-		log.Fatalf("envvars: failed to parse config file, error: %v", err)
+		log.Fatalf("appconfig: failed to parse config file, error: %v", err)
 	}
 
 	Debug = cfg.Debug
