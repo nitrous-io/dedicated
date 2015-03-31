@@ -92,6 +92,17 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     , (jqxhr) => # container.save
       @handleErrorResponse(jqxhr)
 
+  canCreateContainer: (callback) ->
+    App.User.adapter.ajax('GET', "/hosts/#{@get('selectedHostSlug')}/can_create_containers").done((d) =>
+      if d.can_create
+        return callback?()
+
+      @set 'saving', false
+      App.postError "You have exceeded your container limit on #{@get('selectedHost.name')}"
+    ).fail (jqxhr) =>
+      @set 'saving', false
+      App.postError(jqxhr.responseJSON, "Failed to create container!")
+
   pullImage: (repository, callback) ->
     @set 'pullingImage', true
     events = App.get 'eventsSocket'
@@ -155,14 +166,16 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
         # custom image
         unless repository.match /^.*:.+$/
           repository = repository.replace /:?$/, ':latest'
-        @pullImage repository, =>
-          @createContainer(name, repository)
+        @canCreateContainer =>
+          @pullImage repository, =>
+            @createContainer(name, repository)
       else if selectedTemplate
         # update template
         img = selectedTemplate.get 'image'
         template = selectedTemplate.get 'slug'
-        @pullImage img, =>
-          @createContainer(name, img, template)
+        @canCreateContainer =>
+          @pullImage img, =>
+            @createContainer(name, img, template)
 
     createWorkspaceFirst: (repository) ->
       # Save data required to create container after creating workspace.
