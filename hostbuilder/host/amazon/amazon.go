@@ -485,15 +485,7 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 // instance specified by `id` params. It can be used to refresh the current
 // instance, or load a new one
 func (h *Host) reloadInstance(id string) error {
-	instancesResp, err := h.provider.Instances([]string{id}, nil)
-	if err != nil {
-		return err
-	}
-	if len(instancesResp.Reservations) == 0 || len(instancesResp.Reservations[0].Instances) == 0 {
-		return ErrInstanceNotFound
-	}
-	h.instance = &instancesResp.Reservations[0].Instances[0]
-	return nil
+	return getInstance(h.provider, id, h)
 }
 
 func (h *Host) generateNotifyURL() string {
