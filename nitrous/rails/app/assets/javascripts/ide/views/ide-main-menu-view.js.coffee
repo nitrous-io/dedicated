@@ -125,9 +125,8 @@ App.IdeMainMenuView = Em.View.extend
         url: 'http://docs.nitrous.io/v1.0/blog'
         target: '_blank'
       separator
-      menuItem 'Report an Issue...',
-        url: 'mailto:support@nitrous.io?subject=Nitrous.IO%20Beta%20Feedback'
-        target: '_blank'
+      menuItem 'Report an Issue...', callback: (controller) ->
+        App.trigger 'open-feedback-dialog', 'Report an Issue', 'Your request has been submitted. Our support team will email you soon.'
     )
     baseItems
   ).property 'App.container', 'App.container.env', 'App.container.env.NITROUS_README_URL'

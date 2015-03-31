@@ -30,6 +30,10 @@ App.IdeRoute = Em.Route.extend
     container?.loadHost().catch ->
       transition.abort()
 
+  renderTemplate: ->
+    @_super()
+    @render 'feedback', into: 'ide', outlet: 'feedback', controller: 'feedback'
+
   activate: ->
     # warn the user before actually unload the window. This is helpful to
     # prevent mis-click close tab / cmd + w
