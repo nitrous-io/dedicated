@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 var (
@@ -24,8 +23,8 @@ var (
 	PreviewHostname    string
 	WebHostname        string
 
-	StopTimeout time.Duration
-	KillTimeout time.Duration
+	StopTimeout string
+	KillTimeout string
 
 	CAKeyPath  string
 	CACertPath string
@@ -41,7 +40,7 @@ var (
 	StripeSecretKey string
 
 	ProvisionerUser     string
-	ProvisionerInterval time.Duration
+	ProvisionerInterval string
 
 	ActivationEmailInterval string
 
@@ -79,15 +78,8 @@ func init() {
 	PreviewHostname = os.Getenv("PREVIEW_HOSTNAME")
 	WebHostname = os.Getenv("WEB_HOSTNAME")
 
-	var err error
-	StopTimeout, err = time.ParseDuration(os.Getenv("STOP_TIMEOUT"))
-	if err != nil {
-		log.Fatalf("envvars: STOP_TIMEOUT is not a valid duration: %v", err)
-	}
-	KillTimeout, err = time.ParseDuration(os.Getenv("KILL_TIMEOUT"))
-	if err != nil {
-		log.Fatalf("envvars: KILL_TIMEOUT is not a valid duration: %v", err)
-	}
+	StopTimeout = os.Getenv("STOP_TIMEOUT")
+	KillTimeout = os.Getenv("KILL_TIMEOUT")
 
 	CAKeyPath = os.Getenv("CA_KEY_PATH")
 	CACertPath = os.Getenv("CA_CERT_PATH")
@@ -103,10 +95,7 @@ func init() {
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
 
 	ProvisionerUser = os.Getenv("PROVISIONER_USER")
-	ProvisionerInterval, err = time.ParseDuration(os.Getenv("PROVISIONER_INTERVAL"))
-	if err != nil {
-		log.Fatalf("envvars: PROVISIONER_INTERVAL is not a valid duration: %v", err)
-	}
+	ProvisionerInterval = os.Getenv("PROVISIONER_INTERVAL")
 
 	ActivationEmailInterval = os.Getenv("ACTIVATION_EMAIL_INTERVAL")
 

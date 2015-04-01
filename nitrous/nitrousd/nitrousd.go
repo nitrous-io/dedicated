@@ -111,15 +111,26 @@ func main() {
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	conf := &provisioner.Config{Username: pu, Interval: envvars.ProvisionerInterval}
+	pi, err := time.ParseDuration(envvars.ProvisionerInterval)
+	if err != nil {
+		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
+	}
+
+	conf := &provisioner.Config{Username: pu, Interval: pi}
 
 	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
-	if envvars.StopTimeout > 0 {
-		svr.StopTimeout = envvars.StopTimeout
+
+	st, err := time.ParseDuration(envvars.StopTimeout)
+	if err != nil {
+		log.Fatalf("nitrousd: STOP_TIMEOUT is not a valid duration: %v", err)
 	}
-	if envvars.KillTimeout > 0 {
-		svr.KillTimeout = envvars.KillTimeout
+	svr.StopTimeout = st
+
+	kt, err := time.ParseDuration(envvars.KillTimeout)
+	if err != nil {
+		log.Fatalf("nitrousd: KILL_TIMEOUT is not a valid duration: %v", err)
 	}
+	svr.KillTimeout = kt
 
 	pid := os.Getpid()
 	host := "0.0.0.0"
