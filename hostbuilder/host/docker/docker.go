@@ -198,17 +198,7 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) Start() (*host.Info, error) {
-	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
-		Privileged:      true,
-		PublishAllPorts: true,
-		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return h.Info()
+	return h.start()
 }
 
 func (h *Host) Restart() (*host.Info, error) {
@@ -221,16 +211,7 @@ func (h *Host) Restart() (*host.Info, error) {
 		}
 	}
 
-	hostConfig := &dockerclient.HostConfig{
-		Privileged:      true,
-		PublishAllPorts: true,
-		Binds:           []string{fmt.Sprintf("%s:/freighterd", h.FreighterdLocation)},
-	}
-	if err := h.client.StartContainer(h.ID, hostConfig); err != nil {
-		return nil, err
-	}
-
-	return h.Info()
+	return h.start()
 }
 
 func (h *Host) DriverName() string {
@@ -369,6 +350,7 @@ func (h *Host) start() (*host.Info, error) {
 	if h.DockerLocation != "" {
 		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
 	}
+	log.Println("got binds", binds)
 	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
