@@ -106,6 +106,13 @@ func DeleteAllByHostID(d db.QueryReceiver, hostID int64) error {
 	return err
 }
 
+func (c Container) String() string {
+	type c2 Container
+	cs := c2(c)
+	cs.Secret = "(REDACTED)"
+	return fmt.Sprintf("%+v", cs)
+}
+
 func (c *Container) Insert(d db.QueryReceiver) error {
 	if c.Secret == "" {
 		sec, err := securerandom.Base64(191)

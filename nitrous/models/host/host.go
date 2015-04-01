@@ -229,6 +229,13 @@ func FindPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (*Host,
 	return host, nil
 }
 
+func (h Host) String() string {
+	type h2 Host
+	hs := h2(h)
+	hs.Secret = "(REDACTED)"
+	return fmt.Sprintf("%+v", hs)
+}
+
 func (h *Host) Insert(d db.QueryReceiver) error {
 	if h.State == "" {
 		h.State = StateBorn
