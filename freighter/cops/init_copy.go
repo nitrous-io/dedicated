@@ -50,6 +50,7 @@ func CopyToContainer(id string, localPath string, r io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
+	log.Println("got pid", initPID)
 	// create the command, pass the child as fd3 of the command
 	cmd := reexec.Command(copyCommandName, strconv.Itoa(initPID), localPath)
 	cmd.Stdin = r
