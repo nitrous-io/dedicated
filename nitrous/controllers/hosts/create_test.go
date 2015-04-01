@@ -753,7 +753,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			})
 
 			It("updates the host record with the info from Hostbuilder", func() {
-				doRequest(params)
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
 
 				Eventually(func() (string, error) {
 					hosts, err := host.FindAllByUser(db, u)
@@ -780,7 +781,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				doRequest(params)
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
 
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
@@ -833,7 +835,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("paid_plan_not_allowed"))
 				})
 
-				It("it responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
+				It("responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
@@ -847,14 +849,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("max_free_host_reached"))
 				})
 
-				// TODO: The permission checking passes but I have problem
-				// setting up fixture to make the host creation succeed
-				PIt("responds success if there is no non-terminated host", func() {
+				It("responds success if there is no non-terminated host", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
 					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 			})
 		})
@@ -936,10 +936,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
+			Expect(errType).To(Equal("request_not_allowed"))
 			Expect(errDesc).To(ContainSubstring("not allowed"))
 		})
 	})
