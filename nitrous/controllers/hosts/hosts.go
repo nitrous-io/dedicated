@@ -259,11 +259,9 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	if bp.IsFreeTier() {
-		err = freetier.StartHostPermission(db, bp)
-		if err != nil {
-			return err
-		}
+	err = freetier.StartHostAllowed(db, bp, time.Now())
+	if err != nil {
+		return err
 	}
 
 	origState := h.State

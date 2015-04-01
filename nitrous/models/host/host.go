@@ -103,14 +103,6 @@ type Host struct {
 	UpgradeAvailable      string
 }
 
-func HostsToHostIDs(hs []*Host) []int64 {
-	hostIDs := make([]int64, len(hs))
-	for i, h := range hs {
-		hostIDs[i] = h.ID
-	}
-	return hostIDs
-}
-
 func (h *Host) IsFreeTier() bool {
 	return h.HourlyPrice == 0
 }

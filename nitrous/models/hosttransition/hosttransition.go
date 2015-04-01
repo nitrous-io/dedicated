@@ -49,6 +49,14 @@ func FindByID(db *db.Database, id int64) (*HostTransition, error) {
 	return hT, err
 }
 
+func hostsToHostIDs(hs []*host.Host) []int64 {
+	hostIDs := make([]int64, len(hs))
+	for i, h := range hs {
+		hostIDs[i] = h.ID
+	}
+	return hostIDs
+}
+
 func joinInts(ids []int64) string {
 	sids := make([]string, len(ids))
 	for i, id := range ids {
@@ -105,7 +113,7 @@ func UsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (m
 }
 
 // Find total usage time for list of hosts
-func TotalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (int64, error) {
+func totalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) (int64, error) {
 	usageList, err := UsageListForHosts(d, hostIDs, start, end)
 	if err != nil {
 		return 0, err
@@ -119,20 +127,25 @@ func TotalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Tim
 	return totalTime, nil
 }
 
-func CurrentMonthUsageForHosts(d db.QueryReceiver, hostIDs []int64) (int64, error) {
-	start := now.BeginningOfMonth()
-	end := time.Now()
+func CurrentMonthUsageForHosts(d db.QueryReceiver, hostIDs []int64, rightNow time.Time) (int64, error) {
+	start := now.New(rightNow).BeginningOfMonth()
+	end := rightNow
 
-	return TotalUsageForHosts(d, hostIDs, start, end)
+	return totalUsageForHosts(d, hostIDs, start, end)
 }
 
-func CurrentMonthUsageForUser(d *db.Database, userID int64) (int64, error) {
-	hs, err := host.FindAllWithTerminated(d, userID)
+func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int64, []*host.Host, error) {
+	hosts, err := host.FindAllWithTerminated(d, userID)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	return CurrentMonthUsageForHosts(d, host.HostsToHostIDs(hs))
+	usage, err := CurrentMonthUsageForHosts(d, hostsToHostIDs(hosts), now)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return usage, hosts, nil
 }
 
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {

@@ -2,6 +2,7 @@ package freetier
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -13,19 +14,19 @@ import (
 
 var (
 	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed",
-		"Paid user is not allowed to create free host plan")
+		"You are not allowed to create a free tier workspace")
 
 	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed",
-		"free tier user is not allowed to create paid host plan")
+		"You are not allowed to create a paid workspace")
 
 	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
-		"you have reach the maximum number of free host allowed")
+		"You can't create any more free workspaces.")
 
 	errFreeTimeLimitExceeded = httperror.New(http.StatusForbidden, "free_time_limit_exceeded",
 		"you have exceeded the free time limit allowed")
 )
 
-func HasNonTerminatedHost(hs []*host.Host) bool {
+func hasNonTerminatedHost(hs []*host.Host) bool {
 	for _, h := range hs {
 		if h.TerminatedAt == nil {
 			return true
@@ -34,30 +35,25 @@ func HasNonTerminatedHost(hs []*host.Host) bool {
 	return false
 }
 
-func CreateHostPermission(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan) error {
+func CreateHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan, now time.Time) error {
 	if bp.IsFreeTier() {
 		// Free tier users cannot create hosts with paid plan
 		if p.Price != 0 {
 			return errPaidPlanNotAllowed
 		}
 
-		hs, err := host.FindAllWithTerminated(d, bp.UserID)
+		usage, hosts, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
 		if err != nil {
 			return err
 		}
 
 		// Skip if user don't have any host created
-		if len(hs) == 0 {
+		if len(hosts) == 0 {
 			return nil
 		}
 
-		if HasNonTerminatedHost(hs) {
+		if hasNonTerminatedHost(hosts) {
 			return errMaxFreeHostReached
-		}
-
-		usage, err := hosttransition.CurrentMonthUsageForHosts(d, host.HostsToHostIDs(hs))
-		if err != nil {
-			return err
 		}
 
 		if usage >= bp.MaxMinutes() {
@@ -65,7 +61,7 @@ func CreateHostPermission(d *db.Database, bp *billingprofile.BillingProfile, p *
 		}
 	} else {
 		// Paid users cannot create hosts with free plan
-		if p.Price == 0 {
+		if p.IsFree() {
 			return errFreePlanNotAllowed
 		}
 	}
@@ -73,8 +69,12 @@ func CreateHostPermission(d *db.Database, bp *billingprofile.BillingProfile, p *
 	return nil
 }
 
-func StartHostPermission(d *db.Database, bp *billingprofile.BillingProfile) error {
-	usage, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID)
+func StartHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, now time.Time) error {
+	if !bp.IsFreeTier() {
+		return nil
+	}
+
+	usage, _, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
 	if err != nil {
 		return err
 	}

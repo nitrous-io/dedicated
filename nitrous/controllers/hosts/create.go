@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nitrous-io/nitrous-common/flusher"
 
@@ -109,7 +110,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = freetier.CreateHostPermission(db, bp, pl)
+	err = freetier.CreateHostAllowed(db, bp, pl, time.Now())
 	if err != nil {
 		return err
 	}

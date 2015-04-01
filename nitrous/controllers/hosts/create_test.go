@@ -826,9 +826,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				})
 
 				It("responds with error if paid plan is selected", func() {
-					_, err := test.CreateHostStack(db, &test.HostStack{U: u})
-					Expect(err).To(BeNil())
-
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusForbidden))
 
@@ -836,7 +833,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("paid_plan_not_allowed"))
 				})
 
-				It("responds with error if there are non-terminated host", func() {
+				It("it responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 

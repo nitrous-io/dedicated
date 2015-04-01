@@ -23,8 +23,8 @@ func Test(t *testing.T) {
 
 func insertHostTransition(db *db.Database, hostID int64, prevState, state string, start, end time.Time) error {
 	_, err := db.Exec(`INSERT INTO host_transitions 
-    (host_id, previous_state, state, created_at, ended_at) 
-    VALUES ($1, $2, $3, $4, $5);`,
+		(host_id, previous_state, state, created_at, ended_at) 
+		VALUES ($1, $2, $3, $4, $5);`,
 		hostID, prevState, state, start, end)
 
 	return err
@@ -32,16 +32,19 @@ func insertHostTransition(db *db.Database, hostID int64, prevState, state string
 
 var _ = Describe("models/freetier", func() {
 	var (
-		err                error
 		db                 *db.Database
 		u                  *user.User
-		hs1                *HostStack
 		h1                 *host.Host
 		paidPlan, freePlan *plan.Plan
 		bp                 *billingprofile.BillingProfile
+
+		// Stub the current time to be somewhere around middle of current month
+		rightNow = now.BeginningOfMonth().Add(15 * 24 * time.Hour)
 	)
 
 	BeforeEach(func() {
+		var err error
+
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
@@ -62,7 +65,7 @@ var _ = Describe("models/freetier", func() {
 			HourlyPrice: 3000,
 		}
 
-		hs1, err = CreateHostStack(db, &HostStack{
+		_, err = CreateHostStack(db, &HostStack{
 			H: h1,
 			U: u,
 			P: freePlan,
@@ -76,7 +79,6 @@ var _ = Describe("models/freetier", func() {
 		}
 
 		Expect(paidPlan.Insert(db)).To(BeNil())
-
 	})
 
 	AfterEach(func() {
@@ -96,13 +98,17 @@ var _ = Describe("models/freetier", func() {
 		})
 
 		Context("when host is running", func() {
-			It("Should not be allowed to create more free host", func() {
-				err := freetier.CreateHostPermission(db, bp, freePlan)
+			It("free-tier user should only be allowed to create one free host", func() {
+				hosts, err := host.FindAllByUser(db, u)
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
+
+				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
 				Expect(err).ToNot(BeNil())
 			})
 
 			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostPermission(db, bp, paidPlan)
+				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
 				Expect(err).ToNot(BeNil())
 			})
 		})
@@ -115,32 +121,32 @@ var _ = Describe("models/freetier", func() {
 			})
 
 			It("Should be allowed to create new free host", func() {
-				err := freetier.CreateHostPermission(db, bp, freePlan)
+				err := freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
 				Expect(err).To(BeNil())
 			})
 
 			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostPermission(db, bp, paidPlan)
+				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
 				Expect(err).ToNot(BeNil())
 			})
 
 			It("Should be allowed if previous host did not exceed free time quota", func() {
 				err := insertHostTransition(db, h1.ID, "born", "running",
-					time.Now().Add(-5*time.Hour),
-					time.Now())
+					rightNow.Add(-5*time.Hour),
+					rightNow)
 				Expect(err).To(BeNil())
 
-				err = freetier.CreateHostPermission(db, bp, freePlan)
+				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
 				Expect(err).To(BeNil())
 			})
 
 			It("Should not be allowed if max free time exceeded", func() {
 				err := insertHostTransition(db, h1.ID, "born", "running",
-					time.Now().Add(-11*time.Hour),
-					time.Now())
+					rightNow.Add(-11*time.Hour),
+					rightNow)
 				Expect(err).To(BeNil())
 
-				err = freetier.CreateHostPermission(db, bp, freePlan)
+				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
 				Expect(err).ToNot(BeNil())
 			})
 		})
@@ -153,31 +159,31 @@ var _ = Describe("models/freetier", func() {
 
 			It("Should allow start if there is free time remaining", func() {
 				err := insertHostTransition(db, h1.ID, "born", "running",
-					time.Now().Add(-10*time.Hour),
-					time.Now().Add(-5*time.Hour))
+					rightNow.Add(-10*time.Hour),
+					rightNow.Add(-5*time.Hour))
 				Expect(err).To(BeNil())
 
-				err = freetier.StartHostPermission(db, bp)
+				err = freetier.StartHostAllowed(db, bp, rightNow)
 				Expect(err).To(BeNil())
 			})
 
 			It("Should disallow start if current month free time exceeded", func() {
 				err := insertHostTransition(db, h1.ID, "born", "running",
-					time.Now().Add(-26*time.Hour),
-					time.Now().Add(-5*time.Hour))
+					rightNow.Add(-26*time.Hour),
+					rightNow.Add(-5*time.Hour))
 				Expect(err).To(BeNil())
 
-				err = freetier.StartHostPermission(db, bp)
+				err = freetier.StartHostAllowed(db, bp, rightNow)
 				Expect(err).ToNot(BeNil())
 			})
 
-			It("Should allow start if exceeded free time is beyond one month old", func() {
+			It("Should allow start when the the exceeded free time is in a previous month", func() {
 				err := insertHostTransition(db, h1.ID, "born", "running",
 					now.BeginningOfMonth().Add(-15*time.Hour),
 					now.BeginningOfMonth().Add(5*time.Hour))
 				Expect(err).To(BeNil())
 
-				err = freetier.StartHostPermission(db, bp)
+				err = freetier.StartHostAllowed(db, bp, rightNow)
 				Expect(err).To(BeNil())
 			})
 		})
@@ -185,12 +191,13 @@ var _ = Describe("models/freetier", func() {
 
 	Context("When user is in paid tier", func() {
 		BeforeEach(func() {
+			var err error
 			bp, err = billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
 		})
 
 		It("Should not be allowed to create host with free plan", func() {
-			err := freetier.CreateHostPermission(db, bp, freePlan)
+			err := freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
 			Expect(err).ToNot(BeNil())
 		})
 	})
