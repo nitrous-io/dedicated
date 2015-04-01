@@ -27,7 +27,7 @@ ruby:
       ul
         - stacks.first(10).each do |slug, st|
           li
-            a href="/stacks/#{slug}"
+            a href="/stacks/#{slug}" class=(stack.slug == slug ? 'active' : '')
               = st['name']
 
         li.more
@@ -36,7 +36,7 @@ ruby:
           ol
             - stacks.drop(10).each do |slug, st|
               li
-                a href="/stacks/#{slug}"
+                a href="/stacks/#{slug}" class=(stack.slug == slug ? 'active' : '')
                   = st['name']
 
   article.darker
@@ -53,29 +53,64 @@ ruby:
           h3 About Nitrous
           p Nitrous provides a lightning fast way to set up development environments and code in the cloud. Nitrous allows developers to collaborate on their projects in real-time, deploy to production servers with one-click, and to version dev environments with ease.
 
+
   article.featurette.stack-steps
     .container
       h3.big-title
         | Getting started with #{stack.name} and Nitrous
       ol
-        // TODO: only if not signed in
-        li.step1 class=(stack.slug)
-          h2
-            span.step 1
-            | Sign up for your Free Nitrous Account
+        li.step class=(stack.slug)
+          .left
+            = image_tag 'home/stack-step-1.png', alt: 'Getting started with Nitrous'
+          .right
+            h4
+              span.step-num 1
+              | Sign up for a Nitrous Account
+            p
+              | Register for a Nitrous account, and proceed to creating your first Workspace. If you need help selecting the right Workspace for you, please refer to 
+              a href="http://docs.nitrous.io/v1.0/docs/nitrous-pro-overview" target="_blank" our help section
+              | .
+            a.btn.blue href="/app/#/signup" target="_blank" Create an account
+            p.did-you-know
+              span Workspaces
+              | Workspaces are private dedicated servers where you can create and work on multiple development containers.
 
-          // = render 'layouts/cta_form'
+        li.step class=(stack.slug)
+          .left
+            = image_tag 'home/stack-step-2.png', alt: 'Getting started with Nitrous'
+            = image_tag "home/stack-step-2-callout-#{stack.slug}.png", alt: "Nitrous + #{stack.slug}", class: 'callout'
+          .right
+            h4
+             span.step-num 2
+             | Select the #{stack.name} template in the New Container screen
+            p
+              | Once you have created a Workspace you are ready to add a Container. Your first step is to select New Container from your Workspace settings, then select the #{stack.name} template.
+            p.did-you-know
+              span Stack Template
+              | Stack templates include a sample app with a database already configured, allowing you to start coding on a new app immediately.
+            p.did-you-know
+              span Basic Template
+              | Basic templates provide a Linux environment, various interpreters and tools pre-installed. Unlike stack templates there is no sample app pre-configured. You will want to clone an existing development repository on Github or Bitbucket, or build an app from scratch.
 
-        li.step2 class=(stack.slug)
-          h2
-           span.step 2
-           | Select the #{stack.name} template in the New Container screen.
+        li.step class=(stack.slug)
+          .left
+            = image_tag 'home/stack-step-3.png', alt: 'Getting started with Nitrous'
+          .right
+            h4
+              span.step-num 3
+              | Start coding on your new #{stack.name} environment in just seconds
+            p
+              | Congratulations, you are now ready to start developping on your own cloud development environment!
+            p.did-you-know
+              span Code the way you like
+              | With Nitrous, you have multiple ways to connect to your Container in order to edit and run your apps: using the Nitrous cloud IDE, over SSH, or with your local text editor using Nitrous Sync.
 
-        li.step3 class=(stack.slug)
-          h2
-            span.step 3
-            | Start coding on your new #{stack.name} environment in just seconds!
 
 
-  = render partial: 'layouts/cta', locals: { theme: 'lighter' }
+
+  = render partial: "stacks/resources_#{stack.slug.gsub('-','_')}"
+  = render partial: "stacks/quote_#{stack.slug.gsub('-','_')}"
+
+
+  = render partial: 'layouts/cta', locals: { theme: 'darker' }
 = render partial: 'layouts/footer', locals: { active: stack.slug }
