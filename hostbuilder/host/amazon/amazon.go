@@ -481,7 +481,7 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
-// refreshInstance reload the current instance associated with this Host to the
+// reloadInstance reload the current instance associated with this Host to the
 // instance specified by `id` params. It can be used to refresh the current
 // instance, or load a new one
 func (h *Host) reloadInstance(id string) error {
