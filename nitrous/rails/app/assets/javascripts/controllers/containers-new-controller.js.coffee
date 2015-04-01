@@ -21,6 +21,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
   selectedOption: null
   selectedTemplate: null
 
+  nameFieldEdited: false
+
   stackTemplates: (->
     App.get('templates')?.filterBy('type', 'stack')
   ).property 'App.templates.@each'

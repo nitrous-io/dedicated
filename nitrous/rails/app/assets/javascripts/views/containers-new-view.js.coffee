@@ -78,7 +78,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       @set 'selectedOption', null
       $('input[name=option]').removeAttr('checked')
       @set 'controller.privileged', selectedTemplate.get('privileged')
-      @set 'controller.name', selectedTemplate.get('name')
+      unless @get('controller.nameFieldEdited')
+        @set 'controller.name', selectedTemplate.get('name')
   ).observes 'selectedTemplate'
 
   hostsDidChange: (->
@@ -179,3 +180,11 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
     toggleLog: ->
       @toggleProperty 'showLog'
+
+App.ContainerNameTextField = Em.TextField.extend
+  click: ->
+    unless @get('targetObject.nameFieldEdited')
+      @$().select()
+
+  keyPress: ->
+    @set 'targetObject.nameFieldEdited', true

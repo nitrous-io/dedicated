@@ -84,7 +84,7 @@
         .ui.input-group
           label.field-label for='containers-new-name'
             | Name
-          = input type='text' id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name
+          App.ContainerNameTextField id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name
 
 
       .card-footer.bordered
