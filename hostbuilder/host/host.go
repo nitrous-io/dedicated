@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
@@ -45,7 +45,7 @@ type TLSConfig struct {
 type Settings struct {
 	*TLSConfig
 	*AptConfig
-	*config.Config
+	*freighter.Config
 	Home       string // Home directory of the current user
 	Secret     string
 	Version    string

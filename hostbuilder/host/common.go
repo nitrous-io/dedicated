@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
@@ -42,7 +42,7 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 	settings := &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
-		Config: &config.Config{
+		Config: &freighter.Config{
 			DataPath:  "/var/lib/freighter",
 			TLSVerify: true,
 			CA:        TLSCALocation,
@@ -50,7 +50,7 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 			Key:       TLSKeyLocation,
 			Secret:    SecretLocation,
 			NotifyURL: notifyURL,
-			Listen: []config.HostAddress{
+			Listen: []freighter.HostAddress{
 				{Proto: "unix", Address: "/var/run/freighterd.sock"},
 				{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
 			},

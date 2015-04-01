@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	_ "github.com/lib/pq"
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
@@ -162,7 +162,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	}
 
 	// set X-FORWARDED-PORT for the request
-	r.Header.Set(config.ForwardPortHeader, containerPort)
+	r.Header.Set(freighter.ForwardPortHeader, containerPort)
 	destAddr := net.JoinHostPort(container.HostIP.String(), containerPort)
 
 	// For TLS requests, we proxy to Freighter on the host, which will then

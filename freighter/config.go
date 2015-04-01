@@ -1,5 +1,4 @@
-// store shared configuration that can be read by other packages
-package config
+package freighter
 
 var (
 	// default header to read forwarded fort for preview. Tender should write
@@ -8,7 +7,7 @@ var (
 	Version           string
 )
 
-// address that the server will listen at. For example
+// HostAddress is an address that the server will listen at. For example
 // { "proto": "unix", "address": "/var/run/docker.sock" }
 // { "proto": "tcp", "address": "0.0.0.0:65333" }
 type HostAddress struct {
@@ -16,7 +15,7 @@ type HostAddress struct {
 	Address string `json:"address"`
 }
 
-// server config
+// Config stores shared configuration that can be read by other packages
 type Config struct {
 	DataPath string `json:"data_path"`
 

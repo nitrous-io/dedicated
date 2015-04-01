@@ -21,7 +21,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
@@ -726,7 +726,7 @@ var (
 // /versions
 func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
 	v := map[string]interface{}{
-		"freighterd_version": config.Version,
+		"freighterd_version": freighter.Version,
 	}
 	if dockerVer, err := s.provider.Version(); err == nil {
 		v["docker_version"] = dockerVer
@@ -986,7 +986,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		r.Header.Set("X-Forwarded-Proto", "https")
 	}
 
-	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
+	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(freighter.ForwardPortHeader))
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
@@ -1009,7 +1009,7 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	upgradingDocker := dv != "" && dv != myDockerVer
-	upgradingFreighter := fv != "" && fv != config.Version
+	upgradingFreighter := fv != "" && fv != freighter.Version
 
 	upgradingAny := upgradingDocker || upgradingFreighter
 	if !upgradingAny {
@@ -1063,7 +1063,7 @@ func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
 			s.notifyWebhookUpgradeFailed(err, "freighterd")
 			return
 		}
-		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+		s.logger.Infof("updated freighterd package from %q to %q", freighter.Version, fv)
 	}
 
 	if err := s.stopFreighterd(); err != nil {
