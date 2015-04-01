@@ -37,7 +37,7 @@ func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollaborator, error) 
 }
 
 func Delete(d db.QueryReceiver, scID int64) error {
-	_, err := d.Exec(`DELETE FROM container_collaborators WHERE id = $1`, scID)
+	_, err := d.Exec(`DELETE FROM container_collaborators WHERE id = $1 RETURNING *;`, scID)
 	return err
 }
 
