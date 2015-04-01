@@ -2,6 +2,7 @@ package host_test
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -53,6 +54,19 @@ var _ = Describe("models/host", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("String()", func() {
+		It("redacts host secret", func() {
+			h := hs.H
+			s := fmt.Sprintf("%+v", h)
+			Expect(s).NotTo(ContainSubstring(h.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+
+			s = fmt.Sprintf("%v", h)
+			Expect(s).NotTo(ContainSubstring(h.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+		})
 	})
 
 	Describe("FindAllByProvider()", func() {
