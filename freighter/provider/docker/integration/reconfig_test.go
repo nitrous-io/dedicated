@@ -3,6 +3,7 @@ package integration
 import (
 	"fmt"
 	"os/exec"
+	"path"
 	"strings"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
@@ -120,6 +121,48 @@ var _ = Describe("Reconfig", func() {
 			"PortBindings": ["private:666666:80"]
 		}`) // A host port out of range will cause container to fail when creating.
 		Expect(err).To(HaveOccurred())
+		Expect(reconfigCn).NotTo(BeNil())
+
+		Expect(reconfigCn.ID).NotTo(Equal(info.ID))
+
+		state, err := inspectField(reconfigCn.ID, "State.Running")
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("true"))
+
+		imageID, err := inspectField(reconfigCn.ID, "Image")
+		Expect(err).To(BeNil())
+		Expect(imageID).NotTo(Equal(info.ImageID)) // Image should be a different one.
+
+		// Container should use backup image.
+		Expect(reconfigCn.Image).To(MatchRegexp(fmt.Sprintf(`^%s-backup-\d+$`, info.Name)))
+	})
+
+	// Marked as pending because I cannot figure out a way to make container
+	// termination fail.
+	PIt("creates a new container from the original container's image when it runs into an error while terminating the original container, but the container was actually terminated", func() {
+		configJSON := `{
+       		"PortBindings": ["private:1234:2345", "public:2345:3456"]
+        }`
+		prov, info, cleanupFn, err := startContainer(configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		// FIXME This below doesn't actually work - the container is still
+		// terminated successfully.
+		//
+		// Make container fail to terminate by bind-mounting a read-only file
+		// in its diff directory.
+		roPath := path.Join("/var/lib/docker/aufs/diff", info.ID, "readonly-file")
+		err = exec.Command("sudo", "touch", roPath).Run()
+		Expect(err).To(BeNil())
+		err = exec.Command("sudo", "mount", "--bind", roPath, roPath).Run()
+		Expect(err).To(BeNil())
+		err = exec.Command("sudo", "mount", "-o", "remount,bind,ro", roPath).Run()
+		Expect(err).To(BeNil())
+		err = exec.Command("sudo", "ls", "-alh", roPath).Run()
+
+		reconfigCn, err := prov.Reconfig(info.ID, `{}`)
+		Expect(err).To(HaveOccurred()) // FIXME Test currently fails here (i.e. err is nil).
 		Expect(reconfigCn).NotTo(BeNil())
 
 		Expect(reconfigCn.ID).NotTo(Equal(info.ID))
