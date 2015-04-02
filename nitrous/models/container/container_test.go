@@ -2,6 +2,7 @@ package container_test
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -97,6 +98,22 @@ var _ = Describe("models/container", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("String()", func() {
+		It("redacts container secret", func() {
+			c, err := container.Find(db, u, "my-1st-container")
+			Expect(err).To(BeNil())
+			Expect(c).NotTo(BeNil())
+
+			s := fmt.Sprintf("%+v", c)
+			Expect(s).NotTo(ContainSubstring(c.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+
+			s = fmt.Sprintf("%+v", c)
+			Expect(s).NotTo(ContainSubstring(c.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+		})
 	})
 
 	Describe("Find()", func() {

@@ -275,7 +275,7 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 }
 
 func fetchHosts(db *db.Database, user *user.User) (map[int64]*host.Host, error) {
-	hosts, err := host.FindAllWithTerminated(db, user)
+	hosts, err := host.FindAllWithTerminated(db, user.ID)
 	if err != nil {
 		return nil, err
 	}

@@ -272,9 +272,19 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if !(paymentState == billingprofile.StatePaid ||
-		paymentState == billingprofile.StatePaymentDue ||
-		paymentState == billingprofile.StateExempt) {
+
+	switch paymentState {
+	// noop for these cases
+	case billingprofile.StatePaid:
+	case billingprofile.StatePaymentDue:
+	case billingprofile.StateExempt:
+
+	case billingprofile.StateFree:
+		// actual checking against allowed quota & plan
+		// is done by models/freetier
+
+	default:
+		// return disallowed if not in any of previous state
 		return false, nil
 	}
 

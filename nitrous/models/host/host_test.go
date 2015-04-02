@@ -2,6 +2,7 @@ package host_test
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -53,6 +54,19 @@ var _ = Describe("models/host", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("String()", func() {
+		It("redacts host secret", func() {
+			h := hs.H
+			s := fmt.Sprintf("%+v", h)
+			Expect(s).NotTo(ContainSubstring(h.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+
+			s = fmt.Sprintf("%v", h)
+			Expect(s).NotTo(ContainSubstring(h.Secret))
+			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
+		})
 	})
 
 	Describe("FindAllByProvider()", func() {
@@ -238,7 +252,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when the given user has host records", func() {
 			It("returns the host records", func() {
-				hosts, err := host.FindAllWithTerminated(db, u1)
+				hosts, err := host.FindAllWithTerminated(db, u1.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(2))
 
@@ -254,7 +268,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when the given user does not have any host records", func() {
 			It("returns an empty slice", func() {
-				hosts, err := host.FindAllWithTerminated(db, u2)
+				hosts, err := host.FindAllWithTerminated(db, u2.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(0))
 			})

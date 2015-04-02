@@ -198,12 +198,13 @@ func main() {
 		return
 	}
 
-	err = stopDestination()
-	if err != nil {
-		return
-	}
-
 	if refreshFn != nil {
+		// refreshFn is a proxy for whether a dest host was created
+		// we do not stop destination when dest host is already given
+		err = stopDestination()
+		if err != nil {
+			return
+		}
 		refreshFn()
 	}
 
