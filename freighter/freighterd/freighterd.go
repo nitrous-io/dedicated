@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// re-export the version so that it can be read elsewhere
-	config.Version = version
+	freighter.Version = version
 
 	var (
 		flVersion    = flag.Bool("v", false, "Display the version and exit")
@@ -57,7 +57,7 @@ func main() {
 		}
 	}()
 
-	conf := &server.Config{}
+	conf := &freighter.Config{}
 	// parse config file
 	confFile, err := os.Open(*flConfigPath)
 	if err != nil {

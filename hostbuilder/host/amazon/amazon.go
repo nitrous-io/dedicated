@@ -1,14 +1,11 @@
 package amazon
 
 import (
-	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,14 +16,10 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
-	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
 
 const (
-	DefaultPort uint16 = 65333
-	sshPort     uint16 = 65100
-
 	// represents 1gb of storage
 	storageUnit = 1
 	// minimum storage size in GB. This is the size of standard root disk used in AMI
@@ -42,14 +35,6 @@ const (
 )
 
 var (
-	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/home/ubuntu/.ssh/authorized_keys"
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-	ConfigLocation  = "/etc/freighterd/config.json"
-
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
@@ -67,29 +52,6 @@ var (
 		aws.SAEast.Name:       aws.SAEast,
 	}
 )
-
-// configFile is used to marshal/unmarshal /etc/freighter/config.json.
-type configFile struct {
-	DataPath  string       `json:"data_path"`
-	TLSVerify bool         `json:"tls_verify"`
-	TLSCA     string       `json:"tls_ca"`
-	TLSCert   string       `json:"tls_cert"`
-	TLSKey    string       `json:"tls_key"`
-	Secret    string       `json:"secret"`
-	NotifyURL string       `json:"notify_url"`
-	Listen    []listenSpec `json:"listen"`
-}
-
-type listenSpec struct {
-	Proto   string `json:"proto"`
-	Address string `json:"address"`
-}
-
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
 
 type HostConfig struct {
 	ID              string `json:"id"`
@@ -113,14 +75,14 @@ type HostConfig struct {
 	StorageSize int `json:"storage_size"`
 
 	// freighter specific config
-	PublicKeys        []string   `json:"public_keys"`
-	TLS               *tlsConfig `json:"tls"`
-	Secret            string     `json:"secret"`
-	AptUsername       string     `json:"apt_username"` // host id on nitrous.io
-	AptPassword       string     `json:"apt_password"` // host secret
-	AptLocation       string     `json:"apt_location"` // URI of the repository
-	AptDist           string     `json:"apt_dist"`     // distribution of the repo
-	FreighterdVersion string     `json:"freighterd_version"`
+	PublicKeys        []string        `json:"public_keys"`
+	TLS               *host.TLSConfig `json:"tls"`
+	Secret            string          `json:"secret"`
+	AptUsername       string          `json:"apt_username"` // host id on nitrous.io
+	AptPassword       string          `json:"apt_password"` // host secret
+	AptLocation       string          `json:"apt_location"` // URI of the repository
+	AptDist           string          `json:"apt_dist"`     // distribution of the repo
+	FreighterdVersion string          `json:"freighterd_version"`
 }
 
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
@@ -146,7 +108,6 @@ type Host struct {
 	// the following settings are only available during the creation phase
 	keypair       *keypair      // temporary keypair of the instance
 	createTimeout time.Duration // limit of instance's creation time
-	conn          *sshutil.Conn // ssh connection using the temporary keypair
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -163,17 +124,17 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer func() {
 		if h.keypair != nil {
 			fmt.Fprintf(w, "Removing key...")
-			hlog(h, "keyID=%s Removing key...", h.keypair.name)
+			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
 				h.progressLog(w, "Removing key...Failed!")
-				hlog(h, "ERROR: Failed to remove key %s", h.keypair.name)
+				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
 			} else {
 				h.progressLog(w, "Removing key...Done!")
 			}
 		}
 	}()
 
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 	steps := []host.Step{
 		{
 			Description: "Creating key",
@@ -198,25 +159,25 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
-			Func:        waitForSSH,
+			Func:        host.WaitForSSH,
 			Timeout:     5 * time.Minute,
 		},
 		{
 			Description: "Populating settings",
-			Func:        writeSettings,
+			Func:        host.WriteSettings,
 		},
 		{
 			Description: "Fetching updates",
-			Func:        updateSoftware,
+			Func:        host.UpdateSoftware,
 		},
 		{
 			Description: "Applying settings",
-			Func:        restartFreighterd,
+			Func:        host.RestartServices,
 		},
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			hlog(h, "ERROR: Failed in create host step '%s': %v", step.Description, err)
+			h.Printf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.logFailed()
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
@@ -232,7 +193,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 // Update sets properties of an existing host
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
-	label := h.metricsLabel("update")
+	label := h.MetricsLabel("update")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -242,7 +203,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 	steps := []host.Step{
 		{
 			Description: "Setting workspace's name",
@@ -251,7 +212,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			hlog(h, "ERROR: Failed in update host step: %v", err)
+			h.Printf("ERROR: Failed in update host step: %v", err)
 			h.logFailed()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
@@ -265,7 +226,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 
 // Destroy releases the instance Elastic IP and terminate it
 func (h *Host) Destroy() error {
-	label := h.metricsLabel("destroy")
+	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -318,14 +279,14 @@ func (h *Host) Info() (*host.Info, error) {
 		Provider:       h.DriverName(),
 		ID:             h.instance.InstanceId,
 		IPAddress:      h.instance.PublicIpAddress,
-		FreighterdPort: DefaultPort,
+		FreighterdPort: host.DefaultPort,
 		Region:         h.provider.Region.Name,
 		State:          getState(h.instance),
 	}, nil
 }
 
 func (h *Host) Stop() (*host.Info, error) {
-	label := h.metricsLabel("stop")
+	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -352,7 +313,7 @@ func (h *Host) Stop() (*host.Info, error) {
 
 // Start starts the instance and allocate the desired IP address to it
 func (h *Host) Start() (*host.Info, error) {
-	label := h.metricsLabel("start")
+	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
@@ -399,7 +360,7 @@ func (h *Host) Start() (*host.Info, error) {
 // public IP address of the instance. This does not use RebootAPI, but instead
 // stop/starting the instance to make sure that it has a clean state.
 func (h *Host) Restart() (*host.Info, error) {
-	label := h.metricsLabel("restart")
+	label := h.MetricsLabel("restart")
 	defer mh.UpdateSince(label, time.Now())
 	if _, err := h.Stop(); err != nil {
 		return nil, err
@@ -410,7 +371,7 @@ func (h *Host) Restart() (*host.Info, error) {
 // List returns all instances in the current region. To perform list of
 // multiple regions, use one List() request for each region.
 func (h *Host) List() ([]*host.Info, error) {
-	label := h.metricsLabel("list")
+	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
 	var (
@@ -430,7 +391,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			defer wg.Done()
 			instancesResp, err := conn.Instances(nil, filter)
 			if err != nil {
-				hlog(h, "failed to get instances in region %s, err %v", region.Name, err)
+				h.Printf("failed to get instances in region %s, err %v", region.Name, err)
 				return
 			}
 			mu.Lock()
@@ -440,7 +401,7 @@ func (h *Host) List() ([]*host.Info, error) {
 						Provider:       h.DriverName(),
 						ID:             instance.InstanceId,
 						IPAddress:      instance.PublicIpAddress,
-						FreighterdPort: DefaultPort,
+						FreighterdPort: host.DefaultPort,
 						State:          getState(&instance),
 						Region:         region.Name,
 					}
@@ -468,35 +429,63 @@ func (h *Host) DriverName() string {
 	return "amazon"
 }
 
-// refreshInstance reload the current instance associated with this Host to the
+// Printf logs the data together with the host uuid and droplet id if they are
+// avalaible
+func (h *Host) Printf(format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.instance != nil {
+		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+	}
+	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+}
+
+// MetricsLabel returns the label with the current host's region if possible
+func (h *Host) MetricsLabel(prefix string) string {
+	// region should be set for every requests because ec2 API requires it to
+	// find the instance id properly
+	if h.Config.RegionID != "" {
+		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
+	}
+	return fmt.Sprintf("%s.amazon", prefix)
+}
+
+// Settings returns the dynamic settings of the host
+func (h *Host) Settings() *host.Settings {
+	return host.NewSettings(
+		h.Config.TLS,
+		&host.AptConfig{
+			AptUsername: h.Config.AptUsername,
+			AptPassword: h.Config.AptPassword,
+			AptLocation: h.Config.AptLocation,
+			AptDist:     h.Config.AptDist,
+		},
+		"/home/ubuntu",
+		h.generateNotifyURL(),
+		h.Config.Secret,
+		h.Config.FreighterdVersion,
+		h.Config.PublicKeys,
+	)
+}
+
+// SSHConfig returns the host's SSH confiration. This configuration is only
+// valid during creation phase.
+func (h *Host) SSHConfig() *host.SSHConfig {
+	return &host.SSHConfig{
+		IPAddress:  h.instance.PublicIpAddress,
+		Port:       host.SSHPort,
+		Username:   "ubuntu",
+		PrivateKey: h.keypair.privateKey,
+	}
+}
+
+// reloadInstance reload the current instance associated with this Host to the
 // instance specified by `id` params. It can be used to refresh the current
 // instance, or load a new one
 func (h *Host) reloadInstance(id string) error {
-	instancesResp, err := h.provider.Instances([]string{id}, nil)
-	if err != nil {
-		return err
-	}
-	if len(instancesResp.Reservations) == 0 || len(instancesResp.Reservations[0].Instances) == 0 {
-		return ErrInstanceNotFound
-	}
-	h.instance = &instancesResp.Reservations[0].Instances[0]
-	return nil
-}
-
-func (h *Host) configFile() *configFile {
-	return &configFile{
-		DataPath:  "/var/lib/freighter",
-		TLSVerify: true,
-		TLSCA:     TLSCALocation,
-		TLSCert:   TLSCertLocation,
-		TLSKey:    TLSKeyLocation,
-		Secret:    SecretLocation,
-		NotifyURL: h.generateNotifyURL(),
-		Listen: []listenSpec{
-			{Proto: "unix", Address: "/var/run/freighterd.sock"},
-			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
-		},
-	}
+	return getInstance(h.provider, id, h)
 }
 
 func (h *Host) generateNotifyURL() string {
@@ -505,33 +494,20 @@ func (h *Host) generateNotifyURL() string {
 
 // progressLog writes the message to the given writer and logs the message,
 // prefixing host information.  It is used for user-facing messages.  Use
-// `hlog` for internal logging.
+// `h.Printf` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	hlog(h, format, v...)
+	h.Printf(format, v...)
 }
 
 func (h *Host) logFailed() {
 	if h.instance != nil {
 		if h.keypair != nil {
-			hlog(h, "keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
+			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
 		} else {
-			hlog(h, "keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
+			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
 		}
 	}
-}
-
-// mlabel returns provider.region which is probably helpful if we ever want to
-// differentiate between regions.
-//
-// The result will have a form of prefix.amazon<.region>
-func (h *Host) metricsLabel(prefix string) string {
-	// region should be set for every requests because ec2 API requires it to
-	// find the instance id properly
-	if h.Config.RegionID != "" {
-		return fmt.Sprintf("%s.amazon.%s", prefix, h.Config.RegionID)
-	}
-	return fmt.Sprintf("%s.amazon", prefix)
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
@@ -590,7 +566,7 @@ func init() {
 // phase. The keypair should be deleted after provisioning finishes.
 func createKeypair(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_key")
+	label := h.MetricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
 	// generate key pair
@@ -606,20 +582,14 @@ func createKeypair(ctx *host.HostContext) error {
 // the current settings.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("inspect_source_ami")
+	label := h.MetricsLabel("inspect_source_ami")
 	defer mh.UpdateSince(label, time.Now())
 
-	hlog(h, "inspecting source ami %q", h.Config.SourceAMI)
-	imageResp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
-	if err != nil {
-		return mh.Error(fmt.Errorf("amazon: failed to list images %s", err), label)
+	h.Printf("inspecting source ami %q", h.Config.SourceAMI)
+	if _, err := getImage(h.provider, h.Config.SourceAMI); err != nil {
+		return mh.Error(err, label)
 	}
-
-	if len(imageResp.Images) == 0 {
-		return mh.Error(fmt.Errorf("amazon: image %q not found", h.Config.SourceAMI), label)
-	}
-
-	hlog(h, "inspecting source ami %q... Done", h.Config.SourceAMI)
+	h.Printf("inspecting source ami %q... Done", h.Config.SourceAMI)
 	return nil
 }
 
@@ -627,7 +597,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 // keypair and wait for it to be ready.
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_host")
+	label := h.MetricsLabel("create_host")
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
 		// inside defer block
@@ -641,7 +611,7 @@ func createInstance(ctx *host.HostContext) error {
 		storageSize = minStorageSize
 	}
 
-	hlog(h, "amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
+	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.Name)
 
 	opts := &ec2.RunInstances{
@@ -699,7 +669,7 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	if h.Config.DisableEIP {
 		return nil
 	}
-	label := h.metricsLabel("allocate_ip")
+	label := h.MetricsLabel("allocate_ip")
 	defer mh.UpdateSince(label, time.Now())
 
 	_, err := assignAddress(h.provider, h.instance.InstanceId, isVPC(h.instance))
@@ -720,185 +690,11 @@ func allocateElasticIP(ctx *host.HostContext) error {
 // If this fails, we still consider the operation to be successful
 func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("set_name")
+	label := h.MetricsLabel("set_tags")
 	defer mh.UpdateSince(label, time.Now())
 
-	tags := []ec2.Tag{{"Name", h.Config.Name}}
-	if h.env != "" {
-		tags = append(tags, ec2.Tag{"dedicated", h.env})
-	}
-	_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
-	if err != nil {
-		hlog(h, "Failed to set name for instance %s", h.instance.InstanceId)
-	}
+	setTags(h.provider, h)
 	return nil
-}
-
-// waitForSSH creates a SSH connection to the host using the temporary keypair
-// so we can perform setup actions on it
-func waitForSSH(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("ssh_wait")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%d", h.instance.PublicIpAddress, sshPort)
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
-		connInterval, ctx.Done(), info)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	hlog(h, "SSH ready for instance %s", h.instance.InstanceId)
-	h.conn = sshConn
-	return nil
-}
-
-// writeSettings uploads necessary file system contents to the host, which
-// include package configs, apt details, etc...
-func writeSettings(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("write_settings")
-	defer mh.UpdateSince(label, time.Now())
-	hlog(h, "Writing settings")
-
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
-	}
-
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
-		return mh.Error(err, label)
-	}
-
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return mh.Error(fmt.Errorf("unable to marshal config JSON, err: %v", err), label)
-	}
-
-	if err := h.conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
-		return mh.Error(err, label)
-	}
-
-	if err := uploadFile(h, map[string]io.Reader{
-		PubKeysLocation:     pubKeysBuf,
-		host.SourceLocation: aptSourcesBuf,
-		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
-		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
-		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
-		SecretLocation:      strings.NewReader(h.Config.Secret),
-		ConfigLocation:      bytes.NewBuffer(cfgb),
-	}); err != nil {
-		return err
-	}
-
-	hlog(h, "Wrote settings")
-	return nil
-}
-
-// uploadFile uploads a set of files to the remote host using the temporary SSH
-// connection. This is only available during creation phase. The host
-// filesystem should be considered immutable otherwise.
-func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.metricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	flist := []string{}
-	for dest, val := range files {
-		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
-		if err := h.conn.Upload(tmpDest, val); err != nil {
-			return mh.Error(err, label)
-		}
-		if err := h.conn.Execute(fmt.Sprintf("sudo mv %s %s", tmpDest, fmt.Sprintf("%q", dest))); err != nil {
-			return mh.Error(err, label)
-		}
-		flist = append(flist, dest)
-	}
-	return nil
-}
-
-// updateSoftware updates the package list and necessary packages that may be
-// outdated since the last image builds.
-func updateSoftware(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-	hlog(h, "Updating freighterd package")
-
-	// TODO move all of cmdParts into a shell script that is written and run
-	// (similar to /tmp/already-installed.sh below)
-	path := "/tmp/already-installed.sh"
-	cmdParts := []string{
-		fmt.Sprintf(`{ cat > %s <<- 'EOF'
-			#!/bin/sh
-			installed_version=$(/usr/sbin/freighterd -v)
-			installed_version=${installed_version#'freighterd version '}
-			test $installed_version = '%s'
-		EOF
-		} && chmod +x %s && %s`, path, h.Config.FreighterdVersion, path, path),
-		`||`,
-		// apt-get update with single source
-		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
-		"-o APT::List-Cleanup=0",
-		`-o Dir::Etc::sourceparts="/dev/null"`,
-		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
-		`&&`,
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
-		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-	}
-	pkgspec := "freighterd"
-	if h.Config.FreighterdVersion != "" {
-		pkgspec = fmt.Sprintf("freighterd=%s", h.Config.FreighterdVersion)
-	}
-	cmdParts = append(cmdParts, pkgspec)
-	cmd := strings.Join(cmdParts, " ")
-
-	if out, err := h.conn.CombinedOutput(cmd); err != nil {
-		err = fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
-		hlog(h, err.Error())
-		if h.Config.FreighterdVersion != "" {
-			return mh.Error(err, label)
-		}
-		// failure to update freighterd when a version is not specified is considered continuable
-		return nil
-	}
-
-	hlog(h, "Updated freighterd package on %v", h.instance.PublicIpAddress)
-	return nil
-}
-
-// restartFreighterd restarts the remote freighterd server. This should be run
-// after updateSoftware to make sure that it has the latest settings.
-func restartFreighterd(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("restart_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Restarting freighterd")
-	if out, err := h.conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
-		err = fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
-		return mh.Error(err, label)
-	}
-	hlog(h, "Restarted freighterd on %s", h.instance.PublicIpAddress)
-	return nil
-}
-
-func hlog(h *Host, format string, v ...interface{}) {
-	parts := []string{}
-	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
-	}
-	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
-	}
-	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
 }
 
 func getState(instance *ec2.Instance) state.State {

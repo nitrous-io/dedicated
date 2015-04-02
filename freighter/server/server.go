@@ -15,7 +15,7 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
@@ -27,13 +27,13 @@ const NitrousUUIDHeader = "X-NITROUS-UUID"
 
 var (
 	// default server's configuration when we dont have a valid configuration
-	DefaultConfig *Config
+	DefaultConfig *freighter.Config
 
 	MaxRequestSize int64 = 20 << 20 // 20 MB
 )
 
 func init() {
-	DefaultConfig = &Config{
+	DefaultConfig = &freighter.Config{
 		DataPath:  "/var/lib/freighter",
 		TLSVerify: true,
 		CA:        "/etc/freighterd/ca.crt",
@@ -42,41 +42,18 @@ func init() {
 		Secret:    "/etc/freighterd/secret",
 		NotifyURL: "",
 
-		Listen: []HostAddress{
+		Listen: []freighter.HostAddress{
 			{Proto: "unix", Address: "/var/run/freighterd.sock"},
 			{Proto: "tcp", Address: "0.0.0.0:65333"},
 		},
 	}
 }
 
-// address that the server will listen at. For example
-// { "proto": "unix", "address": "/var/run/docker.sock" }
-// { "proto": "tcp", "address": "0.0.0.0:65333" }
-type HostAddress struct {
-	Proto   string `json:"proto"`
-	Address string `json:"address"`
-}
-
-// server config
-type Config struct {
-	DataPath string `json:"data_path"`
-
-	TLSVerify bool   `json:"tls_verify"` // whether we want to use TLS mode for all HTTP hosts
-	CA        string `json:"tls_ca"`     // path to CA
-	Cert      string `json:"tls_cert"`   // path to cert
-	Key       string `json:"tls_key"`    // path to key
-	Secret    string `json:"secret"`     // path to secret
-
-	NotifyURL string `json:"notify_url"`
-
-	Listen []HostAddress `json:"listen"`
-}
-
 type Server struct {
 	logger   *util.Logger
 	provider provider.Provider
 	router   *mux.Router
-	conf     *Config
+	conf     *freighter.Config
 	secret   string
 	// collection of current attached shells
 	shells    map[string]*shell.Shell
@@ -84,7 +61,7 @@ type Server struct {
 	runner    Runner
 }
 
-func NewServer(logger *util.Logger, provider provider.Provider, conf *Config) *Server {
+func NewServer(logger *util.Logger, provider provider.Provider, conf *freighter.Config) *Server {
 	if logger == nil || provider == nil || conf == nil {
 		panic("server.NewServer: invalid argument")
 	}
@@ -135,7 +112,7 @@ func (s *Server) Start() error {
 	go func() {
 		data := map[string]interface{}{
 			"event":              "started",
-			"freighterd_version": config.Version,
+			"freighterd_version": freighter.Version,
 		}
 		if v, err := s.provider.Version(); err != nil {
 			data["docker_version"] = v
@@ -268,7 +245,7 @@ func (s *Server) drawRoutes() {
 	// handle forwarding requests. This will only handle requests that has
 	// X-FORWARDED-PORT
 	s.router.NewRoute().MatcherFunc(func(r *http.Request, rm *mux.RouteMatch) bool {
-		fp := r.Header.Get(config.ForwardPortHeader)
+		fp := r.Header.Get(freighter.ForwardPortHeader)
 		if fp == "" {
 			return false
 		}

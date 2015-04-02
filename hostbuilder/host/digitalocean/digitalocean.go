@@ -1,7 +1,6 @@
 package digitalocean
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
@@ -24,21 +23,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	DefaultPort uint16 = 65333
-
-	sshPort uint16 = 65100
-)
-
 var (
-	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/root/.ssh/authorized_keys"
-	TLSCALocation   = "/etc/freighterd/ca.crt"
-	TLSCertLocation = "/etc/freighterd/cert.crt"
-	TLSKeyLocation  = "/etc/freighterd/key.crt"
-	SecretLocation  = "/etc/freighterd/secret"
-	ConfigLocation  = "/etc/freighterd/config.json"
-
 	DefaultCreateTimeout = 10 * time.Minute
 	StateWaitTime        = 3 * time.Second
 
@@ -49,22 +34,16 @@ var (
 	tenderDropletNameRegex *regexp.Regexp = regexp.MustCompile(`tender.[A-Za-z0-9\-]+.com`)
 )
 
-type tlsConfig struct {
-	CA   string `json:"ca"`
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-}
-
 type HostConfig struct {
-	ID         string     `json:"id"`
-	HostID     int64      `json:"host_id"` // database id of the host
-	Name       string     `json:"name"`
-	ImageID    string     `json:"image_id"`
-	RegionID   string     `json:"region_id"`
-	SizeID     string     `json:"size_id"`
-	PublicKeys []string   `json:"public_keys"`
-	TLS        *tlsConfig `json:"tls"`
-	Secret     string     `json:"secret"`
+	ID         string          `json:"id"`
+	HostID     int64           `json:"host_id"` // database id of the host
+	Name       string          `json:"name"`
+	ImageID    string          `json:"image_id"`
+	RegionID   string          `json:"region_id"`
+	SizeID     string          `json:"size_id"`
+	PublicKeys []string        `json:"public_keys"`
+	TLS        *host.TLSConfig `json:"tls"`
+	Secret     string          `json:"secret"`
 
 	// for setting up repository on the host
 	AptUsername string `json:"apt_username"` // host id on nitrousd
@@ -81,7 +60,6 @@ type Host struct {
 
 	droplet       *godo.Droplet
 	privateKey    *rsa.PrivateKey
-	conn          *sshutil.Conn
 	sshKey        *godo.Key
 	uuid          string
 	notifyURL     string
@@ -100,7 +78,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	defer cancel()
 
 	// Store host and writer in ctx for child requests.
-	hctx := host.NewContext(ctx, h, w)
+	hctx := host.NewContext(ctx, h, h, w)
 
 	steps := []host.Step{
 		{
@@ -114,26 +92,26 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 		},
 		{
 			Description: "Waiting for the workspace to be ready",
-			Func:        waitForSSH,
+			Func:        host.WaitForSSH,
 			Timeout:     1 * time.Minute,
 		},
 		{
 			Description: "Populating settings",
-			Func:        writeSettings,
+			Func:        host.WriteSettings,
 		},
 		{
 			Description: "Fetching updates",
-			Func:        updateSoftware,
+			Func:        host.UpdateSoftware,
 		},
 		{
 			Description: "Applying settings",
-			Func:        restartFreighterd,
+			Func:        host.RestartServices,
 		},
 	}
 
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			hlog(h, "ERROR: Failed in create host step: %v", err)
+			h.Printf("ERROR: Failed in create host step: %v", err)
 			h.logFailedDroplet()
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
@@ -144,11 +122,11 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	if h.sshKey != nil {
 		fmt.Fprintf(w, "Removing key...")
-		hlog(h, "keyID=%d Removing key...", h.sshKey.ID)
+		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
 			h.progressLog(w, "Removing key...Failed!")
-			hlog(h, "ERROR: Failed to remove key %d", h.sshKey.ID)
+			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
 		h.progressLog(w, "Removing key...Done!")
 	}
@@ -164,7 +142,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, err
 	}
 
-	hlog(h, "Renaming droplet %d to %s", id, h.Config.Name)
+	h.Printf("Renaming droplet %d to %s", id, h.Config.Name)
 	action, _, err := h.Client.DropletActions.Rename(id, h.Config.Name)
 	if err != nil {
 		return nil, err
@@ -173,7 +151,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if err := h.waitForAction(action.ID, 30*time.Second); err != nil {
 		return nil, err
 	}
-	hlog(h, "Renamed droplet")
+	h.Printf("Renamed droplet")
 
 	h.progressLog(w, "Updating host...Done!")
 	return h.Info()
@@ -257,7 +235,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			Region:         droplet.Region.Slug,
 			Name:           droplet.Name,
 			IPAddress:      droplet.Networks.V4[0].IPAddress,
-			FreighterdPort: DefaultPort,
+			FreighterdPort: host.DefaultPort,
 			State:          getState(&droplet),
 		})
 	}
@@ -270,7 +248,7 @@ func (h *Host) dropletToInfo() *host.Info {
 		ID:             strconv.Itoa(h.droplet.ID),
 		Region:         h.droplet.Region.Slug,
 		IPAddress:      h.ipAddress(),
-		FreighterdPort: DefaultPort,
+		FreighterdPort: host.DefaultPort,
 		State:          getState(h.droplet),
 	}
 }
@@ -351,6 +329,60 @@ func (h *Host) DriverName() string {
 	return "digitalocean"
 }
 
+// Printf logs the data together with the host uuid and droplet id if they are
+// avalaible
+func (h *Host) Printf(format string, v ...interface{}) {
+	parts := []string{}
+	if h.uuid != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	}
+	if h.droplet != nil {
+		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
+	}
+	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
+}
+
+// MetricsLabel returns the label with the current host's region if possible
+func (h *Host) MetricsLabel(prefix string) string {
+	var region string
+	if h.droplet != nil && h.droplet.Region != nil {
+		region = h.droplet.Region.Slug
+	}
+	if region != "" {
+		return fmt.Sprintf("%s.digitalocean.%s", prefix, region)
+	}
+	return fmt.Sprintf("%s.digitalocean", prefix)
+}
+
+// Settings returns the dynamic settings of the host
+func (h *Host) Settings() *host.Settings {
+	return host.NewSettings(
+		h.Config.TLS,
+		&host.AptConfig{
+			AptUsername: h.Config.AptUsername,
+			AptPassword: h.Config.AptPassword,
+			AptLocation: h.Config.AptLocation,
+			AptDist:     h.Config.AptDist,
+		},
+		"/root",
+		h.generateNotifyURL(),
+		h.Config.Secret,
+		h.Config.FreighterdVersion,
+		h.Config.PublicKeys,
+	)
+}
+
+// SSHConfig returns the host's SSH confiration. This configuration is only
+// valid during creation phase.
+func (h *Host) SSHConfig() *host.SSHConfig {
+	return &host.SSHConfig{
+		IPAddress:  h.ipAddress(),
+		Port:       host.SSHPort,
+		Username:   "root",
+		PrivateKey: h.privateKey,
+	}
+}
+
 func (h *Host) id() (int, error) {
 	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
@@ -391,67 +423,19 @@ func (h *Host) ipAddress() string {
 
 // progressLog writes the message to the given writer and logs the message,
 // prefixing host information.  It is used for user-facing messages.  Use
-// `hlog` for internal logging.
+// `h.Printf` for internal logging.
 func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 	fmt.Fprintf(w, format, v...)
-	hlog(h, format, v...)
+	h.Printf(format, v...)
 }
 
 func (h *Host) logFailedDroplet() {
 	if h.droplet != nil {
 		if h.sshKey != nil {
-			hlog(h, "keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
+			h.Printf("keyID=%d Leaving droplet for inspection: %d", h.sshKey.ID, h.droplet.ID)
 		} else {
-			hlog(h, "keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
+			h.Printf("keyID=unknown Leaving droplet for inspection: %d", h.droplet.ID)
 		}
-	}
-}
-
-// mlabel returns provider.region which is probably helpful if we ever want to
-// differentiate between regions.
-//
-// The result will have a form of prefix.digitalocean<.region>
-func (h *Host) metricsLabel(prefix string) string {
-	var region string
-	if h.droplet != nil && h.droplet.Region != nil {
-		region = h.droplet.Region.Slug
-	}
-	if region != "" {
-		return fmt.Sprintf("%s.digitalocean.%s", prefix, region)
-	}
-	return fmt.Sprintf("%s.digitalocean", prefix)
-}
-
-// configFile is used to marshal/unmarshal /etc/freighter/config.json.
-type configFile struct {
-	DataPath  string       `json:"data_path"`
-	TLSVerify bool         `json:"tls_verify"`
-	TLSCA     string       `json:"tls_ca"`
-	TLSCert   string       `json:"tls_cert"`
-	TLSKey    string       `json:"tls_key"`
-	Secret    string       `json:"secret"`
-	NotifyURL string       `json:"notify_url"`
-	Listen    []listenSpec `json:"listen"`
-}
-
-type listenSpec struct {
-	Proto   string `json:"proto"`
-	Address string `json:"address"`
-}
-
-func (h *Host) configFile() *configFile {
-	return &configFile{
-		DataPath:  "/var/lib/freighter",
-		TLSVerify: true,
-		TLSCA:     TLSCALocation,
-		TLSCert:   TLSCertLocation,
-		TLSKey:    TLSKeyLocation,
-		Secret:    SecretLocation,
-		NotifyURL: h.generateNotifyURL(),
-		Listen: []listenSpec{
-			{Proto: "unix", Address: "/var/run/freighterd.sock"},
-			{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
-		},
 	}
 }
 
@@ -494,21 +478,21 @@ func init() {
 
 func createSSHKey(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.metricsLabel("create_key")
+	label := h.MetricsLabel("create_key")
 	defer mh.UpdateSince(label, time.Now())
 
-	hlog(h, "generating temporary SSH key")
+	h.Printf("generating temporary SSH key")
 	privateKey, err := sshutil.GenerateSSHKey()
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "generating temporary SSH key... Done")
+	h.Printf("generating temporary SSH key... Done")
 	h.privateKey = privateKey
 	pubKey, err := sshutil.GetPubKey(privateKey)
 	if err != nil {
 		return mh.Error(err, label)
 	}
-	hlog(h, "creating SSH keypair on digitalocean")
+	h.Printf("creating SSH keypair on digitalocean")
 	sshKey, _, err := h.Client.Keys.Create(&godo.KeyCreateRequest{
 		Name:      h.Config.Name,
 		PublicKey: string(pubKey),
@@ -518,24 +502,23 @@ func createSSHKey(ctx *host.HostContext) error {
 	}
 
 	h.sshKey = sshKey
-	hlog(h, "keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", h.sshKey.ID, h.sshKey.Fingerprint)
+	h.Printf("keyID=%d fingerprint=%s creating SSH keypair on digitalocean... Done", h.sshKey.ID, h.sshKey.Fingerprint)
 	return nil
 }
 
 func createDroplet(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-
 	defer func(start time.Time) {
 		// we are interested in the final context of `h` so label is generated
 		// inside defer block
-		mh.UpdateSince(h.metricsLabel("create_host"), start)
+		mh.UpdateSince(h.MetricsLabel("create_host"), start)
 	}(time.Now())
 
-	label := h.metricsLabel("create_host")
+	label := h.MetricsLabel("create_host")
 	config := h.Config
 	sshKey := h.sshKey
 
-	hlog(h, "digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
+	h.Printf("digitalocean: creating droplet in region %s, size: %s, slug: %s", config.RegionID, config.SizeID, config.Name)
 	dropletRoot, _, err := h.Client.Droplets.Create(&godo.DropletCreateRequest{
 		Name:   config.Name,
 		Region: config.RegionID,
@@ -562,7 +545,7 @@ func createDroplet(ctx *host.HostContext) error {
 			return mh.Error(err, label)
 		}
 	} else {
-		hlog(h, "[WARNING] digitalocean did not return action data for host %+v", h)
+		h.Printf("[WARNING] digitalocean did not return action data for host %+v", h)
 		return nil
 	}
 
@@ -574,156 +557,4 @@ func createDroplet(ctx *host.HostContext) error {
 
 	h.droplet = dropletRoot.Droplet
 	return nil
-}
-
-func waitForSSH(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("ssh_wait")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Waiting for SSH to be ready")
-	address := fmt.Sprintf("%s:%d", h.ipAddress(), sshPort)
-	info := map[string]interface{}{
-		"uuid": h.uuid,
-	}
-	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "root", h.privateKey,
-		connInterval, ctx.Done(), info)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	hlog(h, "SSH ready for droplet %v", h.droplet.ID)
-	h.conn = sshConn
-	return nil
-}
-
-func writeSettings(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	hlog(h, "Writing settings")
-
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range h.Config.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
-	}
-
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := host.SourceTemplate.Execute(aptSourcesBuf, h.Config); err != nil {
-		return err
-	}
-
-	cfg := h.configFile()
-	cfgb, err := json.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("unable to marshal config JSON, err: %v", err)
-	}
-
-	if err := h.conn.Execute("mkdir -p /etc/freighterd"); err != nil {
-		return err
-	}
-
-	if err := uploadFile(h, map[string]io.Reader{
-		PubKeysLocation:     pubKeysBuf,
-		host.SourceLocation: aptSourcesBuf,
-		TLSCALocation:       strings.NewReader(h.Config.TLS.CA),
-		TLSCertLocation:     strings.NewReader(h.Config.TLS.Cert),
-		TLSKeyLocation:      strings.NewReader(h.Config.TLS.Key),
-		SecretLocation:      strings.NewReader(h.Config.Secret),
-		ConfigLocation:      bytes.NewBuffer(cfgb),
-	}); err != nil {
-		return err
-	}
-
-	hlog(h, "Wrote settings")
-	return nil
-}
-
-func uploadFile(h *Host, files map[string]io.Reader) error {
-	label := h.metricsLabel("write_file")
-	defer mh.UpdateSince(label, time.Now())
-	flist := []string{}
-	for dest, val := range files {
-		if err := h.conn.Upload(dest, val); err != nil {
-			return mh.Error(err, label)
-		}
-		flist = append(flist, dest)
-	}
-	hlog(h, "Uploaded (%s) to %v", strings.Join(flist, " "), h.ipAddress())
-	return nil
-}
-
-func updateSoftware(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Updating freighterd package")
-
-	// TODO move all of cmdParts into a shell script that is written and run
-	// (similar to /tmp/already-installed.sh below)
-	path := "/tmp/already-installed.sh"
-	cmdParts := []string{
-		fmt.Sprintf(`{ cat > %s <<- 'EOF'
-			#!/bin/sh
-			installed_version=$(/usr/sbin/freighterd -v)
-			installed_version=${installed_version#'freighterd version '}
-			test $installed_version = '%s'
-		EOF
-		} && chmod +x %s && %s`, path, h.Config.FreighterdVersion, path, path),
-		`||`,
-		// apt-get update with single source
-		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive apt-get update",
-		"-o APT::List-Cleanup=0",
-		`-o Dir::Etc::sourceparts="/dev/null"`,
-		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
-		`&&`,
-		"DEBIAN_FRONTEND=noninteractive apt-get install -y --force-yes",
-		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-	}
-	pkgspec := "freighterd"
-	if h.Config.FreighterdVersion != "" {
-		pkgspec = fmt.Sprintf("freighterd=%s", h.Config.FreighterdVersion)
-	}
-	cmdParts = append(cmdParts, pkgspec)
-	cmd := strings.Join(cmdParts, " ")
-	hlog(h, "Running %q to update freighterd", cmd)
-
-	if out, err := h.conn.CombinedOutput(cmd); err != nil {
-		e := fmt.Errorf("update sofware failed with '%s', output: %s", err, out)
-		hlog(h, e.Error())
-		mh.Error(e, label)
-		if h.Config.FreighterdVersion != "" {
-			return e
-		}
-		// failure to update freighterd when a version is not specified is considered continuable
-		return nil
-	}
-	hlog(h, "Updated freighterd package on %v", h.ipAddress())
-	return nil
-}
-
-func restartFreighterd(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.metricsLabel("restart_software")
-	defer mh.UpdateSince(label, time.Now())
-
-	hlog(h, "Restarting freighterd")
-	if out, err := h.conn.CombinedOutput(`service freighterd restart`); err != nil {
-		e := fmt.Errorf("restart freighterd failed with '%s', output: %s", err, out)
-		return mh.Error(e, label)
-	}
-	hlog(h, "Restarted freighterd on %v", h.ipAddress())
-	return nil
-}
-
-func hlog(h *Host, format string, v ...interface{}) {
-	parts := []string{}
-	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
-	}
-	if h.droplet != nil {
-		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
-	}
-	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
