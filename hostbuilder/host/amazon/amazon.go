@@ -43,7 +43,7 @@ const (
 
 var (
 	// Paths to files within each DigitalOcean host.
-	PubKeysLocation = "/home/ubuntu/.ssh/authorized_keys"
+	PubKeysLocation = "/home/admin/.ssh/authorized_keys"
 	TLSCALocation   = "/etc/freighterd/ca.crt"
 	TLSCertLocation = "/etc/freighterd/cert.crt"
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
@@ -653,7 +653,7 @@ func createInstance(ctx *host.HostContext) error {
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
 			{
-				DeviceName:          "/dev/sda1",
+				DeviceName:          "/dev/xvda",
 				VolumeType:          GeneralVolumeType,
 				VolumeSize:          storageSize,
 				DeleteOnTermination: true,
@@ -747,7 +747,7 @@ func waitForSSH(ctx *host.HostContext) error {
 		"uuid": h.uuid,
 	}
 	connInterval := 5 * time.Second
-	sshConn, err := sshutil.WaitForSSH(address, "ubuntu", h.keypair.privateKey,
+	sshConn, err := sshutil.WaitForSSH(address, "admin", h.keypair.privateKey,
 		connInterval, ctx.Done(), info)
 	if err != nil {
 		return mh.Error(err, label)
