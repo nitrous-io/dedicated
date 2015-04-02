@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	ErrFreePlanNotAllowed    = errors.New("You are not allowed to create a free tier workspace")
-	ErrPaidPlanNotAllowed    = errors.New("You are not allowed to create a paid workspace")
-	ErrMaxFreeHostReached    = errors.New("You can't create any more free workspaces.")
-	ErrFreeTimeLimitExceeded = errors.New("you have exceeded the free time limit allowed")
+	ErrFreePlanNotAllowed    = errors.New("paying user is not allowed to create a free tier workspace")
+	ErrPaidPlanNotAllowed    = errors.New("free tier user is not allowed to create a paid workspace")
+	ErrMaxFreeHostReached    = errors.New("free tier user already has existing free host")
+	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
 )
 
 func hasNonTerminatedHost(hs []*host.Host) bool {
