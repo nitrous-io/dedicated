@@ -2,9 +2,12 @@ package host_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -83,13 +86,28 @@ var _ = Describe("WriteSettings", func() {
 		err := host.WriteSettings(ctx)
 		Expect(err).To(BeNil())
 		Expect(e.cmds[0]).To(Equal("sudo mkdir -p /etc/freighterd"))
-		Expect(e.uploaded["/home/action/.ssh/authorized_keys"]).To(Equal("pubkey1\npubkey2\n"))
-		Expect(e.uploaded["/etc/freighterd/ca.crt"]).To(Equal("ca"))
-		Expect(e.uploaded["/etc/freighterd/cert.crt"]).To(Equal("cert"))
-		Expect(e.uploaded["/etc/freighterd/key.crt"]).To(Equal("key"))
-		Expect(e.uploaded["/etc/freighterd/secret"]).To(Equal("secret"))
-		Expect(e.uploaded["/etc/freighterd/config.json"]).To(ContainSubstring("http://google.com"))
-		Expect(e.uploaded[host.SourceLocation]).To(ContainSubstring("deb https://distro:passwd@master precise main"))
+
+		uploads := [][3]string{
+			// destination, contents, equality ("" = test contents for substring)
+			{"/home/action/.ssh/authorized_keys", "pubkey1\npubkey2\n", "true"},
+			{"/etc/freighterd/ca.crt", "ca", "true"},
+			{"/etc/freighterd/cert.crt", "cert", "true"},
+			{"/etc/freighterd/key.crt", "key", "true"},
+			{"/etc/freighterd/secret", "secret", "true"},
+			{"/etc/freighterd/config.json", "http://google.com", ""},
+			{host.SourceLocation, "deb https://distro:passwd@master precise main", ""},
+		}
+
+		for _, v := range uploads {
+			dest, contents, equality := v[0], v[1], v[2] != ""
+			tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
+			if equality {
+				Expect(e.uploaded[tmpDest]).To(Equal(contents), "expected %s (tempfile %s) to have content", dest, tmpDest)
+			} else {
+				Expect(e.uploaded[tmpDest]).To(ContainSubstring(contents), "expected %s (tempfile %s) to contain content", dest, tmpDest)
+			}
+			Expect(e.cmds).To(ContainElement(fmt.Sprintf(`sudo mv %s "%s"`, tmpDest, dest)))
+		}
 	})
 
 	It("cancels early when the operation times out", func() {

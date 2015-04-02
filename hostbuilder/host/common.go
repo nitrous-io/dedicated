@@ -2,6 +2,7 @@ package host
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,8 +192,14 @@ func UpdateSoftware(ctx *HostContext) error {
 
 func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
 	flist := []string{}
+	// upload to tmp directory then mv to dest path to avoid permissions issues
 	for dest, val := range files {
-		if err := conn.Upload(dest, val); err != nil {
+		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
+		if err := conn.Upload(tmpDest, val); err != nil {
+			return flist, err
+		}
+		if err := conn.Execute(fmt.Sprintf(
+			"sudo mv %s %s", tmpDest, fmt.Sprintf("%q", dest))); err != nil {
 			return flist, err
 		}
 		flist = append(flist, dest)
