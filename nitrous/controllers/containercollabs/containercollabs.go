@@ -1,4 +1,4 @@
-package containercollaborators
+package containercollabs
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/containercollaborator"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -45,14 +45,14 @@ func init() {
 }
 
 func index(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	sc, err := containercollaborator.FindAll(env.DB, cn.ID)
+	sc, err := containercollab.FindAll(env.DB, cn.ID)
 	if err != nil {
 		return err
 	}
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"collaborators": serializers.SerializeContainerCollaboratorUsers(sc),
+		"collaborators": serializers.SerializeContainerCollabUsers(sc),
 	}
 	return nil
 }
@@ -71,11 +71,15 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		return err
 	}
 
+	if usr.ServiceAccount {
+		return errUserNotFound
+	}
+
 	if usr.ID == env.User.ID {
 		return errSameUser
 	}
 
-	collab, err := containercollaborator.Create(env.DB, cn.ID, usr.ID)
+	collab, err := containercollab.Create(env.DB, cn.ID, usr.ID)
 	if err != nil {
 		pqErr, ok := err.(*pq.Error)
 		if ok && strings.Contains(pqErr.Message, "duplicate key") {
@@ -104,7 +108,7 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	err = containercollaborator.Delete(env.DB, ccid)
+	err = containercollab.Delete(env.DB, ccid)
 	if err != nil {
 		return err
 	}
@@ -116,7 +120,7 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	return nil
 }
 
-func sendEmail(d *db.Database, c *container.Container, collab *containercollaborator.ContainerCollaborator, sharer *user.User, recv *user.User) (err error) {
+func sendEmail(d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {
 	if collab.EmailSentAt.Valid {
 		return errEmailAlreadySent
 	}
@@ -135,7 +139,7 @@ func sendEmail(d *db.Database, c *container.Container, collab *containercollabor
 	}()
 
 	collab.EmailSentAt = pq.NullTime{time.Now(), true}
-	_, err = tx.Exec(`UPDATE container_collaborators SET email_sent_at = $1 WHERE id = $2;`, collab.EmailSentAt, collab.ID)
+	_, err = tx.Exec(`UPDATE container_collabs SET email_sent_at = $1 WHERE id = $2;`, collab.EmailSentAt, collab.ID)
 	if err != nil {
 		return
 	}

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/nitrous-io/dedicated/nitrous/models/containercollaborator"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,8 +15,8 @@ var _ = Describe("container collaborator (with user info) serializer", func() {
 		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
-		sc = &containercollaborator.ContainerCollaboratorUser{
-			containercollaborator.ContainerCollaborator{
+		sc = &containercollab.ContainerCollabUser{
+			containercollab.ContainerCollab{
 				ID:          10,
 				UserID:      29,
 				ContainerID: 28,
@@ -29,9 +29,9 @@ var _ = Describe("container collaborator (with user info) serializer", func() {
 		}
 	)
 
-	Describe("SerializeContainerCollaboratorUser", func() {
+	Describe("SerializeContainerCollabUser", func() {
 		It("serializes to JSON", func() {
-			s := serializers.SerializeContainerCollaboratorUser(sc)
+			s := serializers.SerializeContainerCollabUser(sc)
 			b, err := json.Marshal(s)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
@@ -47,9 +47,9 @@ var _ = Describe("container collaborator (with user info) serializer", func() {
 		})
 	})
 
-	Describe("SerializeContainerCollaboratorUsers", func() {
+	Describe("SerializeContainerCollabUsers", func() {
 		It("serializes to JSON", func() {
-			col := serializers.SerializeContainerCollaboratorUsers([]*containercollaborator.ContainerCollaboratorUser{sc})
+			col := serializers.SerializeContainerCollabUsers([]*containercollab.ContainerCollabUser{sc})
 			b, err := json.Marshal(col)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[{

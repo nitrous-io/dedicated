@@ -1,4 +1,4 @@
-package containercollaborators
+package containercollabs
 
 // {{ .SharerName }} has shared container {{ .ContainerName }} with you!
 

@@ -3,10 +3,10 @@ package serializers
 import (
 	"time"
 
-	"github.com/nitrous-io/dedicated/nitrous/models/containercollaborator"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 )
 
-type ContainerCollaboratorUser struct {
+type ContainerCollabUser struct {
 	ID          int64      `json:"id"`
 	ContainerID int64      `json:"container_id"`
 	UserID      int64      `json:"user_id"`
@@ -18,11 +18,11 @@ type ContainerCollaboratorUser struct {
 	Name     string `json:"name"`
 }
 
-func SerializeContainerCollaboratorUser(sc *containercollaborator.ContainerCollaboratorUser) *ContainerCollaboratorUser {
+func SerializeContainerCollabUser(sc *containercollab.ContainerCollabUser) *ContainerCollabUser {
 	if sc == nil {
 		return nil
 	}
-	return &ContainerCollaboratorUser{
+	return &ContainerCollabUser{
 		ID:          sc.ID,
 		ContainerID: sc.ContainerID,
 		UserID:      sc.UserID,
@@ -34,10 +34,10 @@ func SerializeContainerCollaboratorUser(sc *containercollaborator.ContainerColla
 	}
 }
 
-func SerializeContainerCollaboratorUsers(scs []*containercollaborator.ContainerCollaboratorUser) []*ContainerCollaboratorUser {
-	ret := make([]*ContainerCollaboratorUser, len(scs))
+func SerializeContainerCollabUsers(scs []*containercollab.ContainerCollabUser) []*ContainerCollabUser {
+	ret := make([]*ContainerCollabUser, len(scs))
 	for i, sc := range scs {
-		ret[i] = SerializeContainerCollaboratorUser(sc)
+		ret[i] = SerializeContainerCollabUser(sc)
 	}
 	return ret
 }

@@ -1,4 +1,4 @@
-package containercollaborators_test
+package containercollabs_test
 
 import (
 	"database/sql"
@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollaborators"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollabs"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/containercollaborator"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -29,10 +29,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "controllers/containercollaborators")
+	RunSpecs(t, "controllers/containercollabs")
 }
 
-var _ = Describe("controllers/containercollaborators", func() {
+var _ = Describe("controllers/containercollabs", func() {
 	var (
 		db  *db.Database
 		u   *user.User
@@ -108,11 +108,11 @@ var _ = Describe("controllers/containercollaborators", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				ContainerCollaborators []*serializers.ContainerCollaboratorUser `json:"container_collaborators"`
+				ContainerCollabs []*serializers.ContainerCollabUser `json:"container_collabs"`
 			}
 			err := json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
-			Expect(j.ContainerCollaborators).To(BeEmpty())
+			Expect(j.ContainerCollabs).To(BeEmpty())
 		})
 
 		It("should return all container collaborators for a container", func() {
@@ -132,13 +132,13 @@ var _ = Describe("controllers/containercollaborators", func() {
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collaborators (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collaborators (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
 			Expect(err).To(BeNil())
 
-			all, err := containercollaborator.FindAll(db, cnr.ID)
+			all, err := containercollab.FindAll(db, cnr.ID)
 			Expect(err).To(BeNil())
 
 			doRequest()
@@ -146,12 +146,12 @@ var _ = Describe("controllers/containercollaborators", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				ContainerCollaborators []*serializers.ContainerCollaboratorUser `json:"collaborators"`
+				ContainerCollabs []*serializers.ContainerCollabUser `json:"collaborators"`
 			}
 			err = json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
-			Expect(j.ContainerCollaborators).To(HaveLen(2))
-			Expect([]int64{j.ContainerCollaborators[0].ContainerID, j.ContainerCollaborators[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
+			Expect(j.ContainerCollabs).To(HaveLen(2))
+			Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
 		})
 	})
 
@@ -165,7 +165,7 @@ var _ = Describe("controllers/containercollaborators", func() {
 			envvars.WebHostname = "nitrous.example"
 			origMailer = user.Mailer
 			fakeMailer = &test.FakeMailer{}
-			containercollaborators.Mailer = fakeMailer
+			containercollabs.Mailer = fakeMailer
 		})
 
 		AfterEach(func() {
@@ -218,6 +218,29 @@ var _ = Describe("controllers/containercollaborators", func() {
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})
 
+		It("should return an error if the user is a service account", func() {
+			otherUser := &user.User{
+				Username: "serviceaccount",
+				Email:    "service@nitrous.io",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET service_account = TRUE WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("serviceaccount")
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("user_not_found"))
+			Expect(errDesc).To(Equal("the specified `user` could not be found"))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
 		It("should add the user as a collaborator", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -250,8 +273,8 @@ var _ = Describe("controllers/containercollaborators", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello steve!</h3>"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/containers/java-test-container" target="_blank">`))
 
-			collab := &containercollaborator.ContainerCollaborator{}
-			err = db.Get(collab, "SELECT * FROM container_collaborators WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
+			collab := &containercollab.ContainerCollab{}
+			err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(collab).ToNot(BeNil())
 
@@ -282,8 +305,8 @@ var _ = Describe("controllers/containercollaborators", func() {
 				return fakeMailer.SendMailCalled
 			}).Should(BeTrue())
 
-			collab := &containercollaborator.ContainerCollaborator{}
-			err = db.Get(collab, "SELECT * FROM container_collaborators WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
+			collab := &containercollab.ContainerCollab{}
+			err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(collab).ToNot(BeNil())
 
@@ -299,7 +322,7 @@ var _ = Describe("controllers/containercollaborators", func() {
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = containercollaborator.Create(db, cnr.ID, otherUser.ID)
+			_, err = containercollab.Create(db, cnr.ID, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -331,7 +354,7 @@ var _ = Describe("controllers/containercollaborators", func() {
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
-			cc, err := containercollaborator.Create(db, cnr.ID, otherUser.ID)
+			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest(cc.ID)
@@ -345,7 +368,7 @@ var _ = Describe("controllers/containercollaborators", func() {
 			Expect(j.Success).To(BeTrue())
 
 			var count int
-			err = db.QueryRow(`SELECT COUNT(*) FROM container_collaborators WHERE id = $1;`, cc.ID).Scan(&count)
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(0))
 		})
