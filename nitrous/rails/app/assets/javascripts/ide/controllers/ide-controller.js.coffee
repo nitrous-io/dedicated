@@ -114,7 +114,7 @@ App.IdeController = Em.ObjectController.extend
             App.localStorage.set(cacheKey, true)
 
       # FIXME enable when freighter >=0.4.0 is guaranteed on all hosts
-      if false
+      if true
         socket = @get('opsSocket')
         socket.getFeatures (err, features) =>
           if !err
