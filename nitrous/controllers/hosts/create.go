@@ -39,6 +39,18 @@ import (
 
 var (
 	CreateVolumeFn = volumes.CreateVolume
+
+	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed",
+		"You are not allowed to create a free tier workspace")
+
+	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed",
+		"You are not allowed to create a paid workspace")
+
+	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
+		"You can't create any more free workspaces.")
+
+	errFreeTimeLimitExceeded = httperror.New(http.StatusForbidden, "free_time_limit_exceeded",
+		"you have exceeded the free time limit allowed")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -112,7 +124,18 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	err = freetier.CreateHostAllowed(db, bp, pl, time.Now())
 	if err != nil {
-		return err
+		switch err {
+		case freetier.ErrFreePlanNotAllowed:
+			return errFreePlanNotAllowed
+		case freetier.ErrPaidPlanNotAllowed:
+			return errPaidPlanNotAllowed
+		case freetier.ErrMaxFreeHostReached:
+			return errMaxFreeHostReached
+		case freetier.ErrFreeTimeLimitExceeded:
+			return errFreeTimeLimitExceeded
+		default:
+			return err
+		}
 	}
 
 	t := &token.Token{UserID: u.ID, Type: token.TypeHost}

@@ -261,7 +261,12 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	err = freetier.StartHostAllowed(db, bp, time.Now())
 	if err != nil {
-		return err
+		switch err {
+		case freetier.ErrFreeTimeLimitExceeded:
+			return errFreeTimeLimitExceeded
+		default:
+			return err
+		}
 	}
 
 	origState := h.State

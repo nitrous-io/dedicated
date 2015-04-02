@@ -104,12 +104,12 @@ var _ = Describe("models/freetier", func() {
 				Expect(len(hosts)).To(Equal(1))
 
 				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
 			})
 
 			It("Should not be allowed to create host with paid plan", func() {
 				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 			})
 		})
 
@@ -127,7 +127,7 @@ var _ = Describe("models/freetier", func() {
 
 			It("Should not be allowed to create host with paid plan", func() {
 				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 			})
 
 			It("Should be allowed if previous host did not exceed free time quota", func() {
@@ -147,7 +147,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(BeNil())
 
 				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(Equal(freetier.ErrFreeTimeLimitExceeded))
 			})
 		})
 
@@ -174,7 +174,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(BeNil())
 
 				err = freetier.StartHostAllowed(db, bp, rightNow)
-				Expect(err).ToNot(BeNil())
+				Expect(err).To(Equal(freetier.ErrFreeTimeLimitExceeded))
 			})
 
 			It("Should allow start when the the exceeded free time is in a previous month", func() {
@@ -198,7 +198,7 @@ var _ = Describe("models/freetier", func() {
 
 		It("Should not be allowed to create host with free plan", func() {
 			err := freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-			Expect(err).ToNot(BeNil())
+			Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
 		})
 	})
 })
