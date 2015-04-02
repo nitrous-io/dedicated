@@ -141,8 +141,8 @@ var _ = Describe("Reconfig", func() {
 	// termination fail.
 	PIt("creates a new container from the original container's image when it runs into an error while terminating the original container, but the container was actually terminated", func() {
 		configJSON := `{
-       		"PortBindings": ["private:1234:2345", "public:2345:3456"]
-        }`
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}`
 		prov, info, cleanupFn, err := startContainer(configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
