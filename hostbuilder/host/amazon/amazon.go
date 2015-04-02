@@ -653,7 +653,7 @@ func createInstance(ctx *host.HostContext) error {
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
 			{
-				DeviceName:          "/dev/sda1",
+				DeviceName:          "/dev/xvda",
 				VolumeType:          GeneralVolumeType,
 				VolumeSize:          storageSize,
 				DeleteOnTermination: true,
