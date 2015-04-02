@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -752,7 +753,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			})
 
 			It("updates the host record with the info from Hostbuilder", func() {
-				doRequest(params)
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
 
 				Eventually(func() (string, error) {
 					hosts, err := host.FindAllByUser(db, u)
@@ -779,7 +781,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				doRequest(params)
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
 
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
@@ -815,6 +818,44 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						},
 					}), "unexpected event, wanted EventHostCreated")
 				}
+			})
+
+			Context("when user is free tier", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
+						billingprofile.StateFree, u.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("responds with error if paid plan is selected", func() {
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusForbidden))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("paid_plan_not_allowed"))
+				})
+
+				It("responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					_, err = test.CreateHostStack(db, &test.HostStack{U: u})
+					Expect(err).To(BeNil())
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusForbidden))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("max_free_host_reached"))
+				})
+
+				It("responds success if there is no non-terminated host", func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+				})
 			})
 		})
 
@@ -895,10 +936,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("invalid_request"))
+			Expect(errType).To(Equal("request_not_allowed"))
 			Expect(errDesc).To(ContainSubstring("not allowed"))
 		})
 	})

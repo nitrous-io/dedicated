@@ -252,7 +252,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when the given user has host records", func() {
 			It("returns the host records", func() {
-				hosts, err := host.FindAllWithTerminated(db, u1)
+				hosts, err := host.FindAllWithTerminated(db, u1.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(2))
 
@@ -268,7 +268,7 @@ var _ = Describe("models/host", func() {
 
 		Context("when the given user does not have any host records", func() {
 			It("returns an empty slice", func() {
-				hosts, err := host.FindAllWithTerminated(db, u2)
+				hosts, err := host.FindAllWithTerminated(db, u2.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(0))
 			})

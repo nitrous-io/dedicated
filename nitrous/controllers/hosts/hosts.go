@@ -14,8 +14,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -31,12 +33,12 @@ var (
 	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
 	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
 	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
-	errHostCreationNotAllowed   = httperror.New(http.StatusBadRequest, "invalid_request", "not allowed to create more hosts")
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
@@ -251,6 +253,22 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return errHostStartInvalidState
 	}
 
+	db := env.DB
+	bp, err := billingprofile.Find(db, h.UserID)
+	if err != nil {
+		return err
+	}
+
+	err = freetier.StartHostAllowed(db, bp, time.Now())
+	if err != nil {
+		switch err {
+		case freetier.ErrFreeTimeLimitExceeded:
+			return errFreeTimeLimitExceeded
+		default:
+			return err
+		}
+	}
+
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -276,7 +294,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
-		tx, err := env.DB.Beginx()
+		tx, err := db.Beginx()
 		if err != nil {
 			return err
 		}
@@ -300,7 +318,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	tx, err = env.DB.Beginx()
+	tx, err = db.Beginx()
 	if err != nil {
 		return err
 	}

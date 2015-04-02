@@ -28,6 +28,10 @@ type PlanPricing struct {
 	BasePrice int64 `db:"base_price"`
 }
 
+func (p *Plan) IsFree() bool {
+	return p.Price == 0 && p.BasePrice == 0
+}
+
 func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	plan := &Plan{}
 	if err := d.Get(plan, "SELECT * FROM plans WHERE id = $1", id); err != nil {
