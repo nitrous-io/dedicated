@@ -61,6 +61,22 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
+  saveGoDocument: (document) ->
+    path = document.get 'path'
+    opsSocket = @get 'opsSocket'
+    if !path || !opsSocket
+      return
+    cmd = ["goimports", "-w", path.get('absolutePath')]
+    cwd = ''
+    env = []
+    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+      if err || cmdErr
+        document.set 'clean', true
+        return
+      sidebarController = App.get 'router.ideSidebarController'
+      if sidebarController
+        sidebarController.refreshTextFileContent path
+
   saveDocument: (document) ->
     return unless @get 'opsSocketReady'
     return if document.get('isImageFile')
@@ -68,14 +84,20 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     if path = document.get 'path'
       if opsSocket = @get 'opsSocket'
         path.incrementProperty 'loadCount'
-        opsSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) ->
+        opsSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) =>
           path.decrementProperty 'loadCount'
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
             return
-          document.set 'clean', true
           Mp.track Mp.EventIDEUserSavedFile
           Mp.increment Mp.PropertyIDEFileSaveCount, new_file: 'false'
+
+          ideController = App.get 'router.ideController'
+          hasCmdRun = ideController?.freighterSupports("hasCmdRun")
+          if hasCmdRun && path.get('absolutePath').match(/\.go$/)
+            @saveGoDocument(document)
+          else
+            document.set 'clean', true
     else
       @set 'saveDialog', App.SaveDialog.create document: document
 

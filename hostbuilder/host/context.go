@@ -18,6 +18,8 @@ const (
 
 type HostContext struct {
 	context.Context
+	Logger
+	Executor
 	Host   Host
 	Writer io.Writer
 }
@@ -36,22 +38,18 @@ func (ctx *HostContext) Run(step Step) error {
 	}
 	fmt.Fprintf(w, "%s...", step.Description)
 
-	if step.Timeout == 0 {
-		return step.Func(ctx)
+	var (
+		ch                      = make(chan error, 1)
+		stepCtx context.Context = ctx
+	)
+
+	if step.Timeout != 0 {
+		var cancel context.CancelFunc
+		stepCtx, cancel = context.WithTimeout(ctx, step.Timeout)
+		defer cancel()
 	}
 
-	newCtx, cancel := context.WithTimeout(ctx, step.Timeout)
-	defer cancel()
-
-	ch := make(chan error, 1)
-	go func() {
-		select {
-		case <-newCtx.Done():
-			return
-		default:
-			ch <- step.Func(ctx)
-		}
-	}()
+	go func() { ch <- step.Func(ctx) }()
 
 	select {
 	case err := <-ch:
@@ -61,16 +59,20 @@ func (ctx *HostContext) Run(step Step) error {
 		}
 		fmt.Fprintf(w, "%s... Done!", step.Description)
 		return nil
-	case <-newCtx.Done():
+	case <-stepCtx.Done():
 		fmt.Fprintf(w, "%s... Failed!", step.Description)
-		return newCtx.Err()
+		return stepCtx.Err()
 	}
 }
 
-func NewContext(ctx context.Context, h Host, w io.Writer) *HostContext {
+// NewContext returns the a context which we can use to configure timeout for
+// any operations. This does not set Executor of the context, the user has to
+// set it explicitly whenever the executor is available.
+func NewContext(ctx context.Context, h Host, l Logger, w io.Writer) *HostContext {
 	return &HostContext{
 		Context: ctx,
 		Host:    h,
+		Logger:  l,
 		Writer:  w,
 	}
 }

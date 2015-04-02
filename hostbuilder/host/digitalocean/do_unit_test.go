@@ -13,19 +13,19 @@ func TestDigitalOceanUnit(t *testing.T) {
 	RunSpecs(t, "host/digitalocean")
 }
 
-var _ = Describe("metricsLabel", func() {
+var _ = Describe("MetricsLabel", func() {
 	It("returns metrics label of the host", func() {
 		var h *Host
 		h = &Host{}
-		Expect(h.metricsLabel("wow")).To(Equal("wow.digitalocean"))
+		Expect(h.MetricsLabel("wow")).To(Equal("wow.digitalocean"))
 
 		h = &Host{droplet: &godo.Droplet{}}
-		Expect(h.metricsLabel("wow")).To(Equal("wow.digitalocean"))
+		Expect(h.MetricsLabel("wow")).To(Equal("wow.digitalocean"))
 
 		h = &Host{droplet: &godo.Droplet{Region: &godo.Region{}}}
-		Expect(h.metricsLabel("wow")).To(Equal("wow.digitalocean"))
+		Expect(h.MetricsLabel("wow")).To(Equal("wow.digitalocean"))
 
 		h = &Host{droplet: &godo.Droplet{Region: &godo.Region{Slug: "sgp1"}}}
-		Expect(h.metricsLabel("wow")).To(Equal("wow.digitalocean.sgp1"))
+		Expect(h.MetricsLabel("wow")).To(Equal("wow.digitalocean.sgp1"))
 	})
 })

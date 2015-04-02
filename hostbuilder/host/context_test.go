@@ -2,7 +2,6 @@ package host_test
 
 import (
 	"io/ioutil"
-	"testing"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -13,18 +12,30 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestContext(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "context")
-}
-
 var _ = Describe("context", func() {
 	Describe("Run", func() {
+		It("stops when the context times out", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+			defer cancel()
+			hctx := host.NewContext(ctx, &dummy.Host{ID: "123"}, nil, ioutil.Discard)
+
+			var counter int
+			err := hctx.Run(host.Step{
+				Func: func(*host.HostContext) error {
+					time.Sleep(10 * time.Millisecond)
+					counter++
+					return nil
+				},
+			})
+
+			Expect(counter).To(Equal(0))
+			Expect(err).To(Equal(context.DeadlineExceeded))
+		})
 
 		It("runs the given step within its timeout", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -42,7 +53,7 @@ var _ = Describe("context", func() {
 		It("runs the given step if timeout is not specified", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -59,7 +70,7 @@ var _ = Describe("context", func() {
 		It("returns an error when the step times out before completion", func() {
 			ctx := context.Background()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
@@ -79,7 +90,7 @@ var _ = Describe("context", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 			h := &dummy.Host{ID: "123"}
-			hctx := host.NewContext(ctx, h, ioutil.Discard)
+			hctx := host.NewContext(ctx, h, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{

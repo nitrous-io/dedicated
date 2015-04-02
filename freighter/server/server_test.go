@@ -21,7 +21,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/server"
@@ -66,7 +66,7 @@ var _ = Describe("server", func() {
 	BeforeEach(func() {
 		prov = &MockProvider{}
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov, &server.Config{})
+		svr = server.NewServer(logger, prov, &freighter.Config{})
 		svr.SetSecret(hostSecret)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -82,7 +82,7 @@ var _ = Describe("server", func() {
 		Expect(err).To(BeNil(), "failed to get test server's port")
 
 		req, err := http.NewRequest("GET", "/", nil)
-		req.Header.Set(config.ForwardPortHeader, port)
+		req.Header.Set(freighter.ForwardPortHeader, port)
 		Expect(err).To(BeNil())
 
 		handler.ServeHTTP(res, req)
@@ -1185,7 +1185,7 @@ var _ = Describe("server", func() {
 			handler.ServeHTTP(res, req)
 		}
 		BeforeEach(func() {
-			config.Version = "1.2-freight"
+			freighter.Version = "1.2-freight"
 			prov.VersionInfo = "1.4.1-nitrous"
 		})
 		It("responds with 200 OK and version info", func() {
@@ -2052,7 +2052,7 @@ var _ = Describe("server", func() {
 			defer webhookSvr.Close()
 
 			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &server.Config{
+			svr = server.NewServer(logger, prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
@@ -2093,7 +2093,7 @@ var _ = Describe("server", func() {
 		}
 
 		BeforeEach(func() {
-			config.Version = "freighterd-0.1.1-deadbeef"
+			freighter.Version = "freighterd-0.1.1-deadbeef"
 		})
 
 		It("responds with 204 No Content when freighterd version is the same", func() {
@@ -2140,7 +2140,7 @@ var _ = Describe("server", func() {
 			defer webhookSvr.Close()
 
 			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &server.Config{
+			svr = server.NewServer(logger, prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)

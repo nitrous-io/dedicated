@@ -21,7 +21,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/dedicated/freighter/config"
+	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
@@ -547,11 +547,37 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	}
 }
 
+// returns true if a given env variable should be passed to cops process
+// envVar is in FOO=bar format
+func copsWantedEnvVar(envVar string) bool {
+	parts := strings.SplitN(envVar, "=", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	switch parts[0] {
+	case "__HOST", "NITROUS_IMAGE_VERSION", "NITROUS_USERNAME", "NITROUS_SSH_ENABLED":
+		return true
+	default:
+		return false
+	}
+}
+
+func copsAdditionalEnv(env []string) []string {
+	var res []string
+	for _, e := range env {
+		if copsWantedEnvVar(e) {
+			res = append(res, e)
+		}
+	}
+	return res
+}
+
 func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 
+	// get environment variables from docker so that we can pass them to cops process
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
 		return err
@@ -559,6 +585,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	if info.State != provider.ContainerStateRunning {
 		return fmt.Errorf("container ops: cannot perform container ops on stopped container %v", info.ID)
 	}
+	copsEnv := copsAdditionalEnv(info.Env)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -567,7 +594,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	ws := NewWebSocketConnection(conn, binary)
 	defer ws.Close()
 
-	cmd, copsStdin, copsStdout, err := cops.Start(id)
+	cmd, copsStdin, copsStdout, err := cops.Start(id, copsEnv)
 	if err != nil {
 		return err
 	}
@@ -699,7 +726,7 @@ var (
 // /versions
 func (s *Server) serverVersions(w http.ResponseWriter, r *http.Request) error {
 	v := map[string]interface{}{
-		"freighterd_version": config.Version,
+		"freighterd_version": freighter.Version,
 	}
 	if dockerVer, err := s.provider.Version(); err == nil {
 		v["docker_version"] = dockerVer
@@ -959,7 +986,7 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 		r.Header.Set("X-Forwarded-Proto", "https")
 	}
 
-	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(config.ForwardPortHeader))
+	addr := fmt.Sprintf("%s:%s", "0.0.0.0", r.Header.Get(freighter.ForwardPortHeader))
 	if proxy.IsWebsocket(r) {
 		proxy.ProxyWebsocket(addr, nil)(w, r)
 	} else {
@@ -982,7 +1009,7 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	upgradingDocker := dv != "" && dv != myDockerVer
-	upgradingFreighter := fv != "" && fv != config.Version
+	upgradingFreighter := fv != "" && fv != freighter.Version
 
 	upgradingAny := upgradingDocker || upgradingFreighter
 	if !upgradingAny {
@@ -1036,7 +1063,7 @@ func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
 			s.notifyWebhookUpgradeFailed(err, "freighterd")
 			return
 		}
-		s.logger.Infof("updated freighterd package from %q to %q", config.Version, fv)
+		s.logger.Infof("updated freighterd package from %q to %q", freighter.Version, fv)
 	}
 
 	if err := s.stopFreighterd(); err != nil {
