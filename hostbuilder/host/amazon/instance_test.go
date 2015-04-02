@@ -80,13 +80,13 @@ var _ = Describe("setTags", func() {
 
 		p = &dummyInstanceProvider{}
 		h = &Host{
-			Config:   &HostConfig{Name: "test-host"},
+			Config:   &HostConfig{Name: "test-{{env}}-host"},
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 			env:      "staging",
 		}
 		setTags(p, h)
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(Equal([]ec2.Tag{
-			{"Name", "test-host"},
+			{"Name", "test-staging-host"},
 			{"dedicated", "staging"},
 		}))
 	})

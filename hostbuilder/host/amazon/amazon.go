@@ -470,6 +470,15 @@ func (h *Host) Settings() *host.Settings {
 	)
 }
 
+// Name returns the name of the host, injecting env if available
+func (h *Host) Name() string {
+	env := h.env
+	if env == "" {
+		env = "env"
+	}
+	return strings.Replace(h.Config.Name, "{{env}}", env, -1)
+}
+
 // SSHConfig returns the host's SSH confiration. This configuration is only
 // valid during creation phase.
 func (h *Host) SSHConfig() *host.SSHConfig {
@@ -611,8 +620,8 @@ func createInstance(ctx *host.HostContext) error {
 		storageSize = minStorageSize
 	}
 
-	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, slug: %s",
-		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.Name)
+	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
+		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
 
 	opts := &ec2.RunInstances{
 		KeyName:        h.keypair.name,
