@@ -1,4 +1,4 @@
-package containercollaborator
+package containercollab
 
 import (
 	"time"
@@ -7,15 +7,15 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-type ContainerCollaboratorUser struct {
-	ContainerCollaborator
+type ContainerCollabUser struct {
+	ContainerCollab
 
 	Username string `db:"username"`
 	Email    string `db:"email"`
 	Name     string `db:"name"`
 }
 
-type ContainerCollaborator struct {
+type ContainerCollab struct {
 	ID          int64       `db:"id"`
 	ContainerID int64       `db:"container_id"`
 	UserID      int64       `db:"user_id"`
@@ -24,12 +24,12 @@ type ContainerCollaborator struct {
 	UpdatedAt   *time.Time  `db:"updated_at"`
 }
 
-func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollaborator, error) {
-	sc := &ContainerCollaborator{
+func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
+	sc := &ContainerCollab{
 		ContainerID: cID,
 		UserID:      uID,
 	}
-	nstmt, err := d.PrepareNamed(`INSERT INTO container_collaborators (user_id, container_id) VALUES (:user_id, :container_id) RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`INSERT INTO container_collabs (user_id, container_id) VALUES (:user_id, :container_id) RETURNING *;`)
 	if err != nil {
 		return nil, err
 	}
@@ -37,19 +37,19 @@ func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollaborator, error) 
 }
 
 func Delete(d db.QueryReceiver, scID int64) error {
-	_, err := d.Exec(`DELETE FROM container_collaborators WHERE id = $1 RETURNING *;`, scID)
+	_, err := d.Exec(`DELETE FROM container_collabs WHERE id = $1 RETURNING *;`, scID)
 	return err
 }
 
-func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollaboratorUser, error) {
-	shared := []*ContainerCollaboratorUser{}
+func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollabUser, error) {
+	shared := []*ContainerCollabUser{}
 	err := d.Select(&shared, `SELECT
-		container_collaborators.*,
+		container_collabs.*,
 		users.username,
 		users.email,
 		users.name
-		FROM container_collaborators
-		INNER JOIN users ON users.id = container_collaborators.user_id
+		FROM container_collabs
+		INNER JOIN users ON users.id = container_collabs.user_id
 		WHERE container_id = $1;`,
 		cID)
 	if err != nil {

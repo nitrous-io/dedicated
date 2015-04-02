@@ -1,10 +1,10 @@
-package containercollaborator_test
+package containercollab_test
 
 import (
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/containercollaborator"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -15,10 +15,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "models/containercollaborator")
+	RunSpecs(t, "models/containercollab")
 }
 
-var _ = Describe("models/containercollaborator", func() {
+var _ = Describe("models/containercollab", func() {
 	var (
 		db  *ndb.Database
 		cnr *container.Container
@@ -59,12 +59,12 @@ var _ = Describe("models/containercollaborator", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			sc, err := containercollaborator.Create(db, cnr.ID, u.ID)
+			sc, err := containercollab.Create(db, cnr.ID, u.ID)
 			Expect(err).To(BeNil())
 			Expect(sc).ToNot(BeNil())
 
 			var found bool
-			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collaborators WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeTrue())
 		})
@@ -81,14 +81,14 @@ var _ = Describe("models/containercollaborator", func() {
 			Expect(err).To(BeNil())
 
 			var scID int64
-			err = db.QueryRow(`INSERT INTO container_collaborators (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
+			err = db.QueryRow(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
 			Expect(err).To(BeNil())
 
-			err = containercollaborator.Delete(db, scID)
+			err = containercollab.Delete(db, scID)
 			Expect(err).To(BeNil())
 
 			var found bool
-			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collaborators WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeFalse())
 		})
@@ -112,17 +112,17 @@ var _ = Describe("models/containercollaborator", func() {
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collaborators (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collaborators (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
 			Expect(err).To(BeNil())
 
-			items, err := containercollaborator.FindAll(db, cnr.ID)
+			items, err := containercollab.FindAll(db, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(2))
-			Expect([]int64{items[0].UserID, items[1].UserID}).To(Equal([]int64{u1.ID, u2.ID}))
-			Expect([]string{items[0].Username, items[1].Username}).To(Equal([]string{"foo", "bar"}))
+			Expect([]int64{items[0].UserID, items[1].UserID}).To(ConsistOf([]int64{u1.ID, u2.ID}))
+			Expect([]string{items[0].Username, items[1].Username}).To(ConsistOf([]string{"foo", "bar"}))
 		})
 	})
 })
