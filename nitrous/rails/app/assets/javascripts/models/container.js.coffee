@@ -131,6 +131,7 @@ App.Container = klass = App.Model.extend
     config =
       env: transformEnvArrayToHash(jsonConfig.env)
       port: jsonConfig.port || []
+      config_port_bindings: jsonConfig.config_port_bindings || jsonConfig.port || []
       volume: jsonConfig.volume
       privileged: jsonConfig.privileged
       publish_all: jsonConfig.publish_all

@@ -16,16 +16,54 @@ var (
 	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
+// Serializes docker portbindings back to
+// provider.ContainerConfig's format.
+//
+// For running containers, the docker-assigned host port will be filled in, so
+// returned portspecs are limited to:
+//   public:hostPort:containerPort
+//   private:hostPort:containerPort
+func SerializePortBindings(bindingsMap map[dockerclient.Port][]dockerclient.PortBinding) []string {
+	resultBindings := []string{}
+	for containerPort, portBindings := range bindingsMap {
+		// portBindings is nil when port is exposed with no
+		// HostConfig.PortBinding and HostConfig.PublishAllPorts is false
+		// TODO investigate how else to resolve
+		if portBindings != nil {
+			for _, binding := range portBindings {
+				access := "private"
+				if binding.HostIp == "0.0.0.0" {
+					access = "public"
+				}
+
+				resultBindings = append(resultBindings, fmt.Sprintf("%s:%s:%s",
+					access, binding.HostPort, string(containerPort)))
+			}
+		}
+	}
+
+	return resultBindings
+}
+
 // configFromContainer populates a ContainerConfig given a container
 func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {
-	return &provider.ContainerConfig{
-		Privileged:   &cnr.HostConfig.Privileged,
-		Cmd:          cnr.Config.Cmd,
-		Env:          cnr.Config.Env,
-		PublishAll:   &cnr.HostConfig.PublishAllPorts,
-		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
-		PortBindings: parsers.ParsePortsFromDocker(cnr),
+	configPortBindings := SerializePortBindings(cnr.HostConfig.PortBindings)
+	runtimePortBindings := configPortBindings
+	if cnr.State.Running {
+		runtimePortBindings = SerializePortBindings(cnr.NetworkSettings.Ports)
 	}
+
+	containerConfig := &provider.ContainerConfig{
+		Privileged:         &cnr.HostConfig.Privileged,
+		Cmd:                cnr.Config.Cmd,
+		Env:                cnr.Config.Env,
+		PublishAll:         &cnr.HostConfig.PublishAllPorts,
+		Mounts:             mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
+		PortBindings:       runtimePortBindings,
+		ConfigPortBindings: configPortBindings,
+	}
+
+	return containerConfig
 }
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {

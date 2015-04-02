@@ -32,6 +32,22 @@ var _ = Describe("provider/docker config", func() {
 		Expect(err).To(BeNil())
 	})
 
+	Describe("SerializePortBindings", func() {
+		It("parse docker bindings and return nitrous-compliant format", func() {
+			var bindings []string
+			bindings = docker.SerializePortBindings(
+				map[dockerclient.Port][]dockerclient.PortBinding{
+					"3000/tcp": {{"0.0.0.0", "3000"}},
+					"9999/udp": {{"10.0.42.1", "8888"}},
+				})
+
+			Expect(bindings).To(ConsistOf(
+				"public:3000:3000/tcp",
+				"private:8888:9999/udp",
+			), "invalid bindings")
+		})
+	})
+
 	Describe("configFromContainer", func() {
 		var cnr *dockerclient.Container
 

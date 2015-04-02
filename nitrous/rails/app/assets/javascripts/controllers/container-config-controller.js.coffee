@@ -32,7 +32,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
 
   updateConfigForm: (config) ->
     @set 'portMappings', Lib.PortMappings.create
-      ports: config.port
+      ports: config.config_port_bindings || config.port
       
     if config.env
       [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
