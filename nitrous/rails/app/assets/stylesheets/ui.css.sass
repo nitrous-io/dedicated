@@ -591,6 +591,13 @@ ul.ui.list
     display: flex
     flex-direction: row
 
+    span.sep
+      color: $gray400
+      margin: 0 5px
+
+      &:before
+        content: '-'
+
     .left-accessory, .right-accessory
       display: flex
       align-items: center
@@ -604,6 +611,10 @@ ul.ui.list
       font-size: $fontSizeSmall
       font-weight: 400
       padding: 0 16px
+
+      &.strike
+        h4, p
+          text-decoration: line-through
 
       &.right
         text-align: right
@@ -621,6 +632,9 @@ ul.ui.list
 
       p
         color: $gray800
+
+        &.error
+          color: $red400 !important
 
       &.disabled
         h4, p
@@ -642,6 +656,16 @@ ul.ui.list
     .list-item
       height: 40px
       line-height: 40px
+
+      .lines
+        h4, p
+          display: inline-block
+
+        h4
+          margin: 0 10px 0 0
+
+        p
+          color: $n2oGray400
 
   &.item-2-line
     .list-item
@@ -925,15 +949,6 @@ ul.ui.snackbar
         > a
           color: $lightBlue500
           font-weight: 500
-
-  .gravatar
-    position: relative
-    width: 24px
-    height: 24px
-    vertical-align: middle
-    margin-right: 7px
-    background: $n2oGray200
-    border-radius: 2px
 
 .ui.selectable-list
   display: flex
