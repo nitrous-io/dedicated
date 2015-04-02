@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/signal"
 	"strings"
 	"time"
 
@@ -28,38 +27,7 @@ var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
 	nitroVersion      string // nitro version that works with current nitrousd
-
-	libratoUser    string
-	libratoToken   string
-	disableLibrato bool
 )
-
-func init() {
-	libratoUser = envvars.LibratoUser
-	libratoToken = envvars.LibratoToken
-
-	if libratoUser == "" ||
-		libratoToken == "" ||
-		strings.HasPrefix(libratoUser, "disable") ||
-		strings.HasPrefix(libratoToken, "disable") {
-		disableLibrato = true
-	}
-
-	// check CA
-	envvars.CheckCAVariables()
-	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
-		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
-	}
-
-	envvars.CheckSendgridVariables()
-	envvars.CheckHostnames()
-	envvars.CheckGitHubOAuth()
-
-	stripe.Key = envvars.StripeSecretKey
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
-}
 
 func main() {
 	flVersion := flag.Bool("v", false, "Display the version and exit")
@@ -77,6 +45,19 @@ func main() {
 			logr.FatalExit(r)
 		}
 	}()
+
+	envvars.CheckCAVariables()
+	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
+		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
+	}
+	envvars.CheckSendgridVariables()
+	envvars.CheckHostnames()
+	envvars.CheckGitHubOAuth()
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		panic("STRIPE_SECRET_KEY environment variable not set")
+	}
 
 	// setup database
 	dbURL := envvars.NitrousPgUrl
@@ -103,10 +84,15 @@ func main() {
 		}
 	}
 
-	if disableLibrato {
+	libratoUser := envvars.LibratoUser
+	libratoToken := envvars.LibratoToken
+
+	if libratoUser == "" ||
+		libratoToken == "" ||
+		strings.HasPrefix(libratoUser, "disable") ||
+		strings.HasPrefix(libratoToken, "disable") {
 		logr.Warnf("missing librato config. Metrics logging is disabled")
-		// in dev, we flush metrics every 60s into devNull
-		// because we are not interested in them
+		// in dev, we discard metrics output because we are not interested in it
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
 	} else {
@@ -125,28 +111,31 @@ func main() {
 	if pu == "" {
 		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
 	}
-	pi := envvars.ProvisionerInterval
-	interval, err := time.ParseDuration(pi)
+	pi, err := time.ParseDuration(envvars.ProvisionerInterval)
 	if err != nil {
-		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL invalid:", err.Error())
-	}
-	conf := &provisioner.Config{
-		Username: pu,
-		Interval: interval,
+		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
 	}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()),
-		dbConn, logr, conf)
+	conf := &provisioner.Config{Username: pu, Interval: pi}
+
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
+
+	st, err := time.ParseDuration(envvars.StopTimeout)
+	if err != nil {
+		log.Fatalf("nitrousd: STOP_TIMEOUT is not a valid duration: %v", err)
+	}
+	svr.StopTimeout = st
+
+	kt, err := time.ParseDuration(envvars.KillTimeout)
+	if err != nil {
+		log.Fatalf("nitrousd: KILL_TIMEOUT is not a valid duration: %v", err)
+	}
+	svr.KillTimeout = kt
+
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
-	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	go svr.Start(host, port)
 
-	ch := make(chan os.Signal)
-	signal.Notify(ch, os.Interrupt, os.Kill)
-	s := <-ch
-	logr.Infof("nitrousd (pid: %v) got signal %v. Terminating.", pid, s)
-	svr.Stop()
-	logr.Infof("nitrousd (pid: %v) terminated.", pid)
+	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
+	svr.Start(host, port)
 }

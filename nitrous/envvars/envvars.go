@@ -19,10 +19,12 @@ var (
 	HostHostname       string
 	MixpanelToken      string
 	NitrousPgUrl       string
-	NoSSLVerify        string
 	ProxyHostname      string
 	PreviewHostname    string
 	WebHostname        string
+
+	StopTimeout string
+	KillTimeout string
 
 	CAKeyPath  string
 	CACertPath string
@@ -75,6 +77,9 @@ func init() {
 	ProxyHostname = os.Getenv("PROXY_HOSTNAME")
 	PreviewHostname = os.Getenv("PREVIEW_HOSTNAME")
 	WebHostname = os.Getenv("WEB_HOSTNAME")
+
+	StopTimeout = os.Getenv("STOP_TIMEOUT")
+	KillTimeout = os.Getenv("KILL_TIMEOUT")
 
 	CAKeyPath = os.Getenv("CA_KEY_PATH")
 	CACertPath = os.Getenv("CA_CERT_PATH")
