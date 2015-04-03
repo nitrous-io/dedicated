@@ -31,7 +31,12 @@ blockquote
 
   cite
     padding-top: 10px
-    font-style: italic
+    font-weight: bold
+
+    span
+      font-weight: normal
+      font-style: italic
+      padding-left: 2px
 
     a
       color: rgba(0,0,0,.6)
@@ -52,6 +57,8 @@ blockquote
   blockquote
     strong
       background: rgba(255,255,255,.08)
+    span
+      color: rgba(255,255,255,.4)
 .light
   blockquote
     strong
@@ -1000,14 +1007,21 @@ h4 + .box-wrapper
 
     cite
       width: 100%
-      text-align: right
+      text-align: left
       font-size: 20px
       padding-top: 10px
 
+      span
+        font-size: 16px
+
       a
         color: rgba(0,0,0,.6)
+
         &:hover
           color: $blueLink
+          span
+            color: rgba(0,0,0,.6)
+
 
 #stack .featurette .one
   width: 420px
