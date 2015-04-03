@@ -36,7 +36,7 @@ blockquote
     span
       font-weight: normal
       font-style: italic
-      padding-left: 2px
+      padding-left: 4px
 
     a
       color: rgba(0,0,0,.6)
@@ -1113,9 +1113,13 @@ h4 + .box-wrapper
   text-align: center
   padding-bottom: 10px
   font-family: $boldFont
-  // font-weight: bold
   font-weight: 400
 
+
+.box-wrapper
+  .learn-more
+    display: inline-block
+    margin-top: 10px
 
 
 // --------------------------------------
@@ -2425,6 +2429,63 @@ footer
       color: #FFF
       font-weight: bold
       cursor: default
+
+
+  .dropdown
+    position: absolute
+    bottom: -67px
+    left: 90%
+    display: none
+    background: #3D464D
+    border-radius: 4px
+    box-shadow: 0 1px 1px rgba(0,0,0,.2), 0 1px 6px rgba(0,0,0,.1)
+    +transition(.2s ease-out)
+
+    li
+      border-bottom: 1px solid rgba(0,0,0,.2)
+      line-height: 40px
+
+      a
+        padding: 8px 26px 8px 20px
+
+      &:last-child
+        border: 0
+
+
+  .dropdown-trigger
+    position: relative
+
+    span
+      display: inline-block
+      color: #A5B3BE
+
+    .carets
+      width: 6px
+      height: 20px
+      display: inline-block
+      position: relative
+      top: 6px
+
+      i
+        position: absolute
+        color: #4E5862
+        left: 4px
+
+        &.fa-caret-up
+          top: 0
+
+        &.fa-caret-down
+          bottom: 0
+
+    &:hover
+      &, span
+        color: #FFF
+      i
+        color: #A5B3BE
+
+    &:hover
+      .dropdown
+        display: block
 
 
 .footer-item
