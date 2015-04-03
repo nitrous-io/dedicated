@@ -236,6 +236,26 @@ App.IdeDocumentView = Em.View.extend
       editor.set 'text', @get 'document.content'
   ).observes 'document.content'
 
+  # a hack but the best we could come up with
+  # if we want to replace content of the editor and preserve current line etc.
+  triggerReplaceContent: (->
+    newContent = @get 'document.replaceContentTrigger'
+    return unless newContent != null
+    editor = @get 'editor'
+    cm = editor?.codeMirror
+    return unless cm
+
+    # TODO: to restore state well and play nice with collaborations
+    # features we need to do a diff between new and old content and insert/delete
+    # parts that changed
+    selections = cm.listSelections()
+    editor.set 'text', newContent
+    editor.setSelections(selections)
+    # this will call triggerReplaceContent again which is why we filter out null above
+    @set 'document.replaceContentTrigger', null
+    @set 'document.clean', true
+  ).observes 'document.replaceContentTrigger'
+
   cleanDidChange: (->
     if editor = @get 'editor'
       documentIsClean = @get('document.clean')

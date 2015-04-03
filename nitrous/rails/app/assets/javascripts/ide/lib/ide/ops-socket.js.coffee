@@ -141,6 +141,17 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
   getFeatures: (callback) ->
     @send 'features', 'get', callback
 
+  # cmd : command to execute as a list e.g. ["ls"], ["ls", "-lah"]
+  # cwd : current working directory e.g. "/home". empty strings means whatever
+  #       is current in cops process
+  # env : additional env variables as a list e.g. ["FOO=bar", "SECOND=two"].
+  #       empty list means no additions
+  # callback is: (err, cmdErrMsg, cmdStdout, cmdStderr)
+  # Note: the command is run with shell, which includes things like substitution
+  # of shell variables e.g. command ["echo", "$PATH"] will print PATH env variable
+  run: (cmd, cwd, env, callback) ->
+    @send 'cmd', 'run', cmd, cwd, env, callback
+
   search: (id, term, location, ignoreCase, useRegexp, callback) ->
     request =
       id: id

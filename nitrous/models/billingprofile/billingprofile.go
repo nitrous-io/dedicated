@@ -52,6 +52,14 @@ type BillingProfile struct {
 	UpdatedAt         *time.Time     `db:"updated_at"`
 }
 
+func (bp *BillingProfile) IsFreeTier() bool {
+	return bp.State == StateFree
+}
+
+func (bp *BillingProfile) MaxMinutes() int64 {
+	return bp.MaxHours.Int64 * 60
+}
+
 func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)

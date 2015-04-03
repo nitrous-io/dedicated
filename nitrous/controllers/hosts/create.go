@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nitrous-io/nitrous-common/flusher"
 
@@ -18,7 +19,9 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -36,6 +39,15 @@ import (
 
 var (
 	CreateVolumeFn = volumes.CreateVolume
+
+	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed",
+		"You are not allowed to create a free tier workspace")
+	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed",
+		"You are not allowed to create a paid workspace")
+	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
+		"You can't create any more free workspaces")
+	errFreeTimeLimitExceeded = httperror.New(http.StatusForbidden, "free_time_limit_exceeded",
+		"You have exceeded your usage for this month")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -98,6 +110,27 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		template, err = findTemplate(db, pl, reg, options.Provider)
 		if err != nil {
+			return err
+		}
+	}
+
+	bp, err := billingprofile.Find(db, u.ID)
+	if err != nil {
+		return err
+	}
+
+	err = freetier.CreateHostAllowed(db, bp, pl, time.Now())
+	if err != nil {
+		switch err {
+		case freetier.ErrFreePlanNotAllowed:
+			return errFreePlanNotAllowed
+		case freetier.ErrPaidPlanNotAllowed:
+			return errPaidPlanNotAllowed
+		case freetier.ErrMaxFreeHostReached:
+			return errMaxFreeHostReached
+		case freetier.ErrFreeTimeLimitExceeded:
+			return errFreeTimeLimitExceeded
+		default:
 			return err
 		}
 	}

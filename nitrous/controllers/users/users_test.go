@@ -167,14 +167,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(j.User.Username).To(Equal("foo"))
 				Expect(j.User.Email).To(Equal("foo@example.com"))
 			})
-
-			It("tracks the user as a new analytics profile", func() {
-				u, err := user.FindByUsername(db, "foo")
-				Expect(err).To(BeNil())
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.ProfileCreated.ID).To(Equal(u.ID))
-			})
 		})
 
 		for _, v := range []string{"email", "username", "password"} {
@@ -196,12 +188,6 @@ var _ = Describe("controllers/users", func() {
 					Expect(j["error"]).To(Equal("validation_failed"))
 					Expect(j["error_description"]).To(Equal(v + " can't be blank"))
 				})
-
-				It("shouldn't do any event tracking", func() {
-					t, ok := svr.Tracker.(*FakeTracker)
-					Expect(ok).To(BeTrue())
-					Expect(t.Events[u.ID]).To(BeEmpty())
-				})
 			})
 		}
 
@@ -221,12 +207,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("validation_failed"))
 				Expect(j["error_description"]).To(Equal("email is not valid"))
-			})
-
-			It("shouldn't do any event tracking", func() {
-				t, ok := svr.Tracker.(*FakeTracker)
-				Expect(ok).To(BeTrue())
-				Expect(t.Events[u.ID]).To(BeEmpty())
 			})
 		})
 
@@ -468,7 +448,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(usr.UnconfirmedEmail.String).To(Equal("att@example.com"))
 
 				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
+				Expect(fakeMailer.Tos).To(Equal([]string{`"tokenuser" <att@example.com>`}))
 			})
 
 			It("should not fire off an email if the email is the same as the unconfirmed email", func() {

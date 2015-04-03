@@ -165,7 +165,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	configJson := r.Form.Get("config")
 	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := host.InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return mh.Error(err, fmt.Sprintf("create.%s", provider))
 	}
@@ -276,7 +276,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.providerConfig(provider)
 	configJson := r.Form.Get("config")
 
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := host.InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
@@ -305,7 +305,7 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig := s.providerConfig(provider)
 	configJson := r.Form.Get("config")
 
-	h, err := InitHost(provider, providerConfig, configJson)
+	h, err := host.InitHost(provider, providerConfig, configJson)
 	if err != nil {
 		return err
 	}
@@ -449,7 +449,7 @@ func (s *Server) hostFromRequest(r *http.Request, customConfig map[string]string
 	if configJSON == "" {
 		configJSON = "{}"
 	}
-	return InitHost(provider, providerConfig, configJSON)
+	return host.InitHost(provider, providerConfig, configJSON)
 }
 
 func (s *Server) CreateRouter() {

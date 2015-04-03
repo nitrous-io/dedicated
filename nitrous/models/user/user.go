@@ -249,6 +249,14 @@ func (u *User) Validate() error {
 	return nil
 }
 
+func (u *User) DisplayName() string {
+	name := u.Name
+	if name == "" {
+		name = u.Username
+	}
+	return name
+}
+
 func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
@@ -272,9 +280,19 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if !(paymentState == billingprofile.StatePaid ||
-		paymentState == billingprofile.StatePaymentDue ||
-		paymentState == billingprofile.StateExempt) {
+
+	switch paymentState {
+	// noop for these cases
+	case billingprofile.StatePaid:
+	case billingprofile.StatePaymentDue:
+	case billingprofile.StateExempt:
+
+	case billingprofile.StateFree:
+		// actual checking against allowed quota & plan
+		// is done by models/freetier
+
+	default:
+		// return disallowed if not in any of previous state
 		return false, nil
 	}
 
@@ -394,12 +412,8 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
 		Name       string
 		ConfirmUrl string
 	}{
-		u.Name,
+		u.DisplayName(),
 		resetURL.String(),
-	}
-
-	if tmplData.Name == "" {
-		tmplData.Name = u.Username
 	}
 
 	htmlTmpl := confirmEmailHtmlTemplate
@@ -429,7 +443,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
 	}
 
 	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
-	to := (&mail.Address{Name: u.Name, Address: targetEmail}).String()
+	to := (&mail.Address{Name: u.DisplayName(), Address: targetEmail}).String()
 
 	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 }
@@ -466,7 +480,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 	}
 
 	from := (&mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}).String()
-	to := (&mail.Address{Name: u.Name, Address: u.Email}).String()
+	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 	replyTo := from
 	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")
 
@@ -480,11 +494,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 		Path:     "/app",
 		Fragment: fmt.Sprintf("/reset-password?token=%s", u.ResetPasswordToken.String),
 	}
-	name := u.Username
-	if u.Name != "" {
-		name = u.Name
-	}
-	params := map[string]string{"Name": name, "URL": resetURL.String()}
+	params := map[string]string{"Name": u.DisplayName(), "URL": resetURL.String()}
 
 	var htmlBuf, txtBuf bytes.Buffer
 	err = resetPasswordEmailHtmlTemplate.Execute(&htmlBuf, params)

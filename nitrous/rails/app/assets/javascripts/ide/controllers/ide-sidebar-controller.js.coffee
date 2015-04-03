@@ -135,6 +135,28 @@ App.IdeSidebarController = Em.ArrayController.extend
       else
         path.updateContent content
 
+  # reloads document content of a tab with a given path from server
+  # this is for operations where we modified content of the file on the server
+  # e.g. because of running gofmt/goimports on the code, and we want those
+  # changes be reflected in the editor
+  refreshTextFileContent: (path, settings = {}) ->
+    opsSocket = @get 'opsSocket'
+    path.incrementProperty 'loadCount'
+    editorController = @get('controllers.ideEditor')
+
+    opsSocket.fetchFileContent path.get('absolutePath'), (err, absolutePath, contentType, content) =>
+      path.decrementProperty 'loadCount'
+      if err
+        if settings.error
+          settings.error(err)
+        return
+
+      editorController = @get('controllers.ideEditor')
+      if doc = editorController.findProperty 'path', path
+        doc.set 'replaceContentTrigger', content
+      if settings.done
+        settings.done(tab)
+
   fetchFileContent: (path, settings = {}) ->
     opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'

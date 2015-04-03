@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/facebookgo/httpdown"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -34,16 +34,28 @@ var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}
 // route namespace stack
 var nsStack []string = []string{}
 
+var (
+	defaultStopTimeout = 15 * time.Minute
+	defaultKillTimeout = 1 * time.Minute
+)
+
 type Server struct {
 	Events      *pubsub.Pubsub
 	Provisioner *provisioner.Provisioner
 	Tracker     analytics.Tracker
 
-	router   *mux.Router
-	root     string
-	logger   *logger.Logger
-	db       *db.Database
-	listener net.Listener
+	// StopTimeout is the duration before we begin force closing connections.
+	StopTimeout time.Duration
+	// KillTimeout is the duration before which we completely give up and abort
+	// even though we still have connected clients. This is useful when a large
+	// number of client connections exist and closing them can take a long time.
+	// Note, this is in addition to the StopTimeout.
+	KillTimeout time.Duration
+
+	router *mux.Router
+	root   string
+	logger *logger.Logger
+	db     *db.Database
 }
 
 func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config) *Server {
@@ -55,6 +67,8 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 		Events:      events,
 		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
 		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		StopTimeout: defaultStopTimeout,
+		KillTimeout: defaultKillTimeout,
 		root:        root,
 		db:          db,
 		logger:      l,
@@ -84,21 +98,17 @@ func (s *Server) Start(host string, port uint16) error {
 		Handler: s.router,
 	}
 
-	// TODO Support graceful stop/restart.
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("nitrous/server: Failed to listen on %q, error: %q", addr, err)
+	hd := &httpdown.HTTP{
+		StopTimeout: s.StopTimeout,
+		KillTimeout: s.KillTimeout,
 	}
-	s.listener = tcpKeepAliveListener{ln.(*net.TCPListener)}
-
-	return srv.Serve(s.listener)
+	s.logger.Debugf("nitrous/server: starting HTTP server with stop timeout: %v, kill timeout: %v",
+		s.StopTimeout, s.KillTimeout)
+	return httpdown.ListenAndServe(srv, hd)
 }
 
 func (s *Server) Stop() {
 	s.Provisioner.Stop()
-	if s.listener != nil {
-		s.listener.Close()
-	}
 }
 
 func (s *Server) namespace(ns string, f func()) {
@@ -107,8 +117,7 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-// debugHandler prints out debug information in json format. This should work
-// only for admin user
+// debugHandler prints out debug information in json format.
 func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	psInfo := s.Events.Info()
 	env.Status = http.StatusOK
@@ -119,6 +128,16 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 		"num_goroutine": runtime.NumGoroutine(),
 	}
 	return nil
+}
+
+func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
+	var duration int
+	if d := r.FormValue("duration"); d != "" {
+		duration, _ = strconv.Atoi(d)
+	}
+	s.logger.Debugf("sleeping for %d seconds", duration)
+	time.Sleep(time.Duration(duration) * time.Second)
+	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
 func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {
@@ -249,24 +268,4 @@ func (s *Server) getNumFds() int {
 		return -1
 	}
 	return len(fds)
-}
-
-// tcpKeepAliveListener sets TCP keep-alive timeouts on accepted
-// connections. It's used by ListenAndServe and ListenAndServeTLS so
-// dead TCP connections (e.g. closing laptop mid-download) eventually
-// go away.
-//
-// Copied from the net/http package.
-type tcpKeepAliveListener struct {
-	*net.TCPListener
-}
-
-func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
-	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(3 * time.Minute)
-	return tc, nil
 }

@@ -97,11 +97,7 @@ App.Host = klass = App.Model.extend
   ).property 'App.selectedHost'
 
   hostStateDidChange: (->
-    if @get('state') == 'running'
-      Em.run.later(this, ->
-        @fetchStats()
-      , 1000)
-    else
+    if @get('state') != 'running'
       @set 'stats', null
   ).observes 'state'
 

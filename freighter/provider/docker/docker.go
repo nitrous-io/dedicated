@@ -518,9 +518,10 @@ type dockerImage struct {
 type reconfigState int
 
 const (
-	stopped    reconfigState = iota + 1 // indicates old container has been stopped
-	terminated                          // indicates old container has been terminated
-	created                             // indicates new container has been created
+	stopped        reconfigState = iota + 1 // indicates old container has been stopped
+	terminateError                          // indicates there was an error while terminating old container
+	terminated                              // indicates old container has been terminated
+	created                                 // indicates new container has been created
 )
 
 // Reconfig recreates a container from its original image with new config,
@@ -555,7 +556,48 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		case terminated:
 			// Restore from backup image.
 			if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
-				p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v", id, backupImageName, err)
+				p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+					id, backupImageName, err)
+			} else {
+				ret = cn
+			}
+		case terminateError:
+			p.logger.Infof("reconfig: error while terminating original container: %v", err)
+
+			// When we run into an error terminating the old container, either:
+			// 1. old container was actually terminated
+			//    -> restore from backup image.
+			// 2. old container was not terminated
+			//    -> try to start old container, otherwise restore from backup image.
+			// This sometimes happens when we run into this bug:
+			//   https://github.com/docker/docker/issues/2714
+			//   https://github.com/docker/docker/issues/3823
+
+			// Handle old container actually terminated.
+			if _, err := p.GetInfo(id); err != nil {
+				// Restore from backup image.
+				p.logger.Infof("reconfig: error getting container info: %v", err)
+
+				if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+					p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+						id, backupImageName, err)
+				} else {
+					ret = cn
+				}
+				return
+			}
+
+			// Handle old container not terminated.
+			if cn, err := p.Start(id, ""); err != nil {
+				// Restore from backup image.
+				p.logger.Infof("reconfig: error starting original container %s: %v", id, err)
+
+				if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+					p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+						id, backupImageName, err)
+				} else {
+					ret = cn
+				}
 			} else {
 				ret = cn
 			}
@@ -656,6 +698,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	// Terminate the existing container.
 	_, err = p.Terminate(id, false)
 	if err != nil {
+		state = terminateError
 		return ret, err
 	}
 	state = terminated

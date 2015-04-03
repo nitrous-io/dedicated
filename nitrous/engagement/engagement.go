@@ -88,12 +88,8 @@ func SendActivationEmail(d *db.Database, u user.User) (err error) {
 		Name        string
 		ActivateUrl string
 	}{
-		u.Name,
+		u.DisplayName(),
 		actURL.String(),
-	}
-
-	if tmplData.Name == "" {
-		tmplData.Name = u.Username
 	}
 
 	tx, err := d.Beginx()
@@ -236,12 +232,8 @@ func SendGetStartedEmail(d *db.Database, u user.User) (err error) {
 		Name     string
 		ClaimUrl string
 	}{
-		u.Name,
+		u.DisplayName(),
 		claimUrl.String(),
-	}
-
-	if tmplData.Name == "" {
-		tmplData.Name = u.Username
 	}
 
 	// send email

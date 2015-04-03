@@ -1,0 +1,208 @@
+package host
+
+import (
+	"bytes"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/nitrous-io/dedicated/freighter"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/sshutil"
+)
+
+// WaitForSSH establishes a connection to the remote host. This is only
+// available in the creation phase of the host.
+func WaitForSSH(ctx *HostContext) error {
+	l := ctx.Logger
+	timeout := ctx.Done()
+	config := ctx.Host.SSHConfig()
+
+	label := l.MetricsLabel("ssh_wait")
+	defer mh.UpdateSince(label, time.Now())
+
+	l.Printf("Waiting for SSH to be ready")
+	connInterval := 5 * time.Second
+	sshConn, err := sshutil.WaitForSSH(config.Address(), config.Username,
+		config.PrivateKey, connInterval, timeout, l)
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	l.Printf("SSH ready")
+	ctx.Executor = sshConn
+	return nil
+}
+
+// create settings for the host with the provided dynamic properties.
+func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
+	settings := &Settings{
+		TLSConfig: tls,
+		AptConfig: apt,
+		Config: &freighter.Config{
+			DataPath:  "/var/lib/freighter",
+			TLSVerify: true,
+			CA:        TLSCALocation,
+			Cert:      TLSCertLocation,
+			Key:       TLSKeyLocation,
+			Secret:    SecretLocation,
+			NotifyURL: notifyURL,
+			Listen: []freighter.HostAddress{
+				{Proto: "unix", Address: "/var/run/freighterd.sock"},
+				{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},
+			},
+		},
+		Home:       home,
+		Secret:     secret,
+		Version:    version,
+		PublicKeys: publicKeys,
+	}
+	return settings
+}
+
+// WriteSettings uploads necessary file system contents to the host, which
+// include package configs, apt details, etc...
+func WriteSettings(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	settings := ctx.Host.Settings()
+
+	label := l.MetricsLabel("write_settings")
+	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
+
+	pubKeysBuf := bytes.NewBuffer(nil)
+	for _, k := range settings.PublicKeys {
+		fmt.Fprintln(pubKeysBuf, k)
+	}
+
+	aptSourcesBuf := bytes.NewBuffer(nil)
+	if err := SourceTemplate.Execute(aptSourcesBuf, settings.AptConfig); err != nil {
+		return mh.Error(err, label)
+	}
+
+	cfgb, err := json.Marshal(settings.Config)
+	if err != nil {
+		err = fmt.Errorf("invalid config, err: %v", err)
+		return mh.Error(err, label)
+	}
+
+	l.Printf("Writing settings")
+	if err := conn.Execute("sudo mkdir -p /etc/freighterd"); err != nil {
+		return mh.Error(err, label)
+	}
+
+	pubKeyLocation := filepath.Join(settings.Home, ".ssh", "authorized_keys")
+	fl, err := uploadFile(l, conn, map[string]io.Reader{
+		pubKeyLocation:  pubKeysBuf,
+		SourceLocation:  aptSourcesBuf,
+		TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
+		TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
+		TLSKeyLocation:  strings.NewReader(settings.TLSConfig.Key),
+		SecretLocation:  strings.NewReader(settings.Secret),
+		ConfigLocation:  bytes.NewBuffer(cfgb),
+	})
+	l.Printf("Uploaded (%s) to %v", strings.Join(fl, ", "))
+	if err != nil {
+		return mh.Error(err, label)
+	}
+	l.Printf("Wrote settings")
+	return nil
+}
+
+func RestartServices(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	label := l.MetricsLabel("restart_software")
+	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
+
+	l.Printf("Restarting freighterd")
+	if out, err := conn.CombinedOutput(`sudo service freighterd restart`); err != nil {
+		l.Printf("Failed to restart freighterd")
+		err = fmt.Errorf("restart freighterd failed with %q, output: %s", err, out)
+		return mh.Error(err, label)
+	}
+	l.Printf("Restarted freighterd")
+	return nil
+}
+
+// UpdateSoftware updates the package list and necessary packages that may be
+// outdated since the last image builds.
+func UpdateSoftware(ctx *HostContext) error {
+	l := ctx.Logger
+	conn := ctx.Executor
+	version := ctx.Host.Settings().Version
+	label := l.MetricsLabel("update_software")
+	defer mh.UpdateSince(label, time.Now())
+	if conn == nil {
+		return mh.Error(errors.New("invalid SSH connection"), label)
+	}
+
+	// TODO move all of cmdParts into a shell script that is written and run
+	// (similar to /tmp/already-installed.sh below)
+	path := "/tmp/already-installed.sh"
+	cmdParts := []string{
+		fmt.Sprintf(`{ cat > %s <<- 'EOF'
+			#!/bin/sh
+			installed_version=$(/usr/sbin/freighterd -v)
+			installed_version=${installed_version#'freighterd version '}
+			test $installed_version = '%s'
+		EOF
+		} && chmod +x %s && %s`, path, version, path, path),
+		`||`,
+		// apt-get update with single source
+		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
+		"-o APT::List-Cleanup=0",
+		`-o Dir::Etc::sourceparts="/dev/null"`,
+		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
+		`&&`,
+		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
+		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
+		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
+	}
+	pkgspec := "freighterd"
+	if version != "" {
+		pkgspec = fmt.Sprintf("freighterd=%s", version)
+	}
+	cmdParts = append(cmdParts, pkgspec)
+	cmd := strings.Join(cmdParts, " ")
+
+	l.Printf("Updating freighterd package")
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err = fmt.Errorf("update failed with %q, output: %s", err, out)
+		l.Printf("Failed to update freighterd %s", err)
+		if version != "" {
+			return mh.Error(err, label)
+		}
+	}
+	// failure to update freighterd when a version is not specified is considered continuable
+	l.Printf("Updated freighterd package")
+	return nil
+}
+
+func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
+	flist := []string{}
+	// upload to tmp directory then mv to dest path to avoid permissions issues
+	for dest, val := range files {
+		tmpDest := filepath.Join("/tmp", hex.EncodeToString([]byte(dest)))
+		if err := conn.Upload(tmpDest, val); err != nil {
+			return flist, err
+		}
+		if err := conn.Execute(fmt.Sprintf(
+			"sudo mv %s %s", tmpDest, fmt.Sprintf("%q", dest))); err != nil {
+			return flist, err
+		}
+		flist = append(flist, dest)
+	}
+	return flist, nil
+}

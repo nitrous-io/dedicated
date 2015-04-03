@@ -198,12 +198,13 @@ func main() {
 		return
 	}
 
-	err = stopDestination()
-	if err != nil {
-		return
-	}
-
 	if refreshFn != nil {
+		// refreshFn is a proxy for whether a dest host was created
+		// we do not stop destination when dest host is already given
+		err = stopDestination()
+		if err != nil {
+			return
+		}
 		refreshFn()
 	}
 
@@ -262,7 +263,7 @@ func newConn(slug string) (*sshutil.Conn, *host.Host, error) {
 		sshUser = "ubuntu"
 	}
 
-	wait, err := sshutil.WaitForSSH(address, sshUser, privKey, connInterval, make(chan struct{}), map[string]interface{}{})
+	wait, err := sshutil.WaitForSSH(address, sshUser, privKey, connInterval, make(chan struct{}), nil)
 
 	return wait, h, err
 }
