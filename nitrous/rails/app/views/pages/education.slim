@@ -1,0 +1,110 @@
+- @title = 'Education · Nitrous'
+- @html_class = 'light'
+- @body_id = 'education'
+- @body_class = 'story'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      .hero-copy
+        h2
+          | Nitrous and Education
+        h3
+          | Lightning-fast development in the cloud: the ultimate learning companion
+
+
+
+  article.featurette.offset-visual
+    .container
+
+      .full-visual
+        = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+
+      .box-wrapper.three.centered
+        .box
+          .visual
+            = image_tag 'home/large-featurette-anywhere.svg', class: 'visual', alt: 'Any language, anywhere'
+          h3.section-title Any language, anywhere
+          p Choose from popular web development templates and get setup in seconds. No configuration or setup required. Works from any computer with an internet browser.
+        
+        .box
+          .visual
+            = image_tag 'home/large-featurette-code.svg', class: 'visual', alt: 'Learn with practical execution'
+          h3.section-title Learn with practical execution
+          p No longer reduce your learning to the confines of a learning editor. Write and preview your code live like how developers operate practically.
+        
+        .box
+          .visual
+            = image_tag 'home/large-featurette-win.svg', class: 'visual', alt: 'Develop like a pro'
+          h3.section-title Develop like a pro
+          p Learning doesn't stop after Codeacademy/CodeSchool. Move on to build real-world applications that people would love to use.
+
+  
+  article.used-by
+    .container
+      h3.section-title 
+       | Used by students &amp; instructors at universities,
+       br
+       | coding academies, learning groups and hackathons
+      .logos
+        .row
+          = image_tag 'home/harvard-on-light.png',    class: 'harvard on-light',    alt: 'Harvard University'
+          = image_tag 'home/pilotdc-on-light.png',    class: 'pilotdc on-light',    alt: 'PilotDC'
+          = image_tag 'home/carnegie-on-light.svg',        class: 'carnegie on-light',        alt: 'Carnegie Mellon'
+          = image_tag 'home/berkeley-on-light.svg',    class: 'berkeley on-light',    alt: 'Berkeley'
+          = image_tag 'home/ucl-on-light.png',    class: 'ucl on-light',    alt: 'University College London'
+          = image_tag 'home/cornell-on-light.svg',    class: 'cornell on-light',    alt: 'Cornell University'
+          = image_tag 'home/railsgirls-on-light.svg',        class: 'railsgirls on-light',        alt: 'Rails Girls'
+        .row
+          = image_tag 'home/mit-on-light.png',        class: 'mit on-light',        alt: 'MIT'
+          = image_tag 'home/imperial-on-light.svg',        class: 'imperial on-light',        alt: 'Imperial College London'
+          = image_tag 'home/stanford-on-light.svg',        class: 'stanford on-light',        alt: 'Stanford'
+          = image_tag 'home/tealeaf-on-light.svg',        class: 'tealeaf on-light',        alt: 'Tealeaf Academy'
+          = image_tag 'home/lahacks-on-light.png',        class: 'lahacks on-light',        alt: 'LA Hacks'
+          = image_tag 'home/gaslight-on-light.svg',        class: 'gaslight on-light',        alt: 'Gaslight'
+          = image_tag 'home/codeacademy-on-light.svg',        class: 'codeacademy on-light',        alt: 'Code Academy'
+
+
+  
+
+  article.colored.tealeaf-academy.quote
+    .container
+
+      blockquote
+        = image_tag 'home/quote-tealeaf-logo.svg', class: 'visual', alt: 'Tealeaf Academy'
+
+        p
+          | Nitrous.IO has 
+          strong saved us a lot of time
+          |, because its one-click development environment allows our students to 
+          strong focus on the most important thing: learning to code
+          |. What we love about Nitrous.IO is that it's all that you need as a developer and nothing more. In other words, when our students use Nitrous, they're learning how to work like a real developer, not learning a proprietary product. The Nitrous development environment is just Unix, and a code editor - that's how real programmers work. We love that about Nitrous.IO.
+        cite
+          | Chris Lee
+          span , Co-founder of Tealeaf Academy
+
+
+  article.colored.pilot-dc.quote
+    .container
+
+      blockquote
+        = image_tag 'home/quote-pilotdc-logo.png', class: 'visual', alt: 'PilotDC'
+        p
+          | We definitely love the 
+          strong easy to use coding interface 
+          | and the 
+          strong amazing collaborative technology 
+          | that Nitrous.IO offers. In the past, we had used other code sharing software such as Git and Dropbox, but the live code collaboration that Nitrous.IO provides is just awesome. Nitrous.IO definitely 
+          strong increased our productivity
+          |  a great deal, especially in an overnight event, where fatigue can catch up with your body and tempers can rise quickly if software doesn't cooperate.
+        cite
+          | Michael Reininger
+          span , part of the PilotDC hackathon's winning team from Montgomery High
+
+
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'education' }

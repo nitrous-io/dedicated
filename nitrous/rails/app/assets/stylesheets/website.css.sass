@@ -28,11 +28,31 @@ blockquote
   p
     text-align: left
     font-size: 16px
+
   cite
     padding-top: 10px
-    font-style: italic
+    font-weight: bold
+
+    span
+      font-weight: normal
+      font-style: italic
+      padding-left: 4px
+
     a
       color: rgba(0,0,0,.6)
+
+    img
+      width: 36px
+      height: 36px
+      position: relative
+      top: 10px
+      display: inline-block
+      margin-right: 10px
+      background: transparent
+
+    a
+      color: rgba(0,0,0,.6)
+
   strong
     padding: 0 1px
 
@@ -40,6 +60,9 @@ blockquote
   blockquote
     strong
       background: rgba(255,255,255,.08)
+    span
+      color: rgba(255,255,255,.4)
+
 .light
   blockquote
     strong
@@ -113,6 +136,17 @@ $innerWidth: 1024px
 
 =transition($args:200ms)
   transition: $args
+
+=quoteVisual($color,$top,$left,$font-size)
+  content: "“"
+  position: absolute
+  display: block
+  color: $color
+  font-family: "georgia",serif
+  font-weight: bold
+  top: $top
+  left: $left
+  font-size: $font-size
 
 // --------------------------------------
 // Style
@@ -495,6 +529,49 @@ nav
   .notice .active
     color: $ubuntu
 
+.stack-ruby
+  .notice .active
+    color: $ruby
+.stack-ruby-on-rails
+  .notice .active
+    color: $ruby-on-rails
+.stack-nodejs
+  .notice .active
+    color: $nodejs
+.stack-meteor
+  .notice .active
+    color: $meteor
+.stack-python
+  .notice .active
+    color: $python
+.stack-django
+  .notice .active
+    color: $django
+.stack-php
+  .notice .active
+    color: $php
+.stack-html5
+  .notice .active
+    color: $html5
+.stack-golang
+  .notice .active
+    color: $golang
+.stack-java
+  .notice .active
+    color: $java
+.stack-wordpress
+  .notice .active
+    color: $wordpress
+.stack-iojs
+  .notice .active
+    color: $iojs
+.stack-laravel
+  .notice .active
+    color: $laravel
+.stack-ubuntu
+  .notice .active
+    color: $ubuntu
+
 
 .form-wrapper
   width: 420px
@@ -556,22 +633,164 @@ nav
         border: 1px solid $blueLink
 
 
-
-
 .section-title
   text-align: center
   font-size: 20px
   color: #FFF
   padding-bottom: 30px
   font-family: $boldFont
-  // font-weight: bold
   font-weight: 400
-
 
 
 .wf-active .hero-copy
   h2, h3
     visibility: visible
+
+
+// --------------------------------------
+// Story pages
+.story 
+  .page-hero
+    height: 460px
+    
+    .hero-copy
+      padding-top: 32px
+
+    .hero-copy h2
+      font-size: 42px
+      padding-bottom: 4px
+
+    .hero-copy h3
+      color: rgba(255,255,255,.8)
+  
+
+  article
+    position: relative
+
+    &.offset-visual
+      .box-wrapper
+        padding-top: 480px
+
+      .full-visual
+        position: absolute
+        top: -84px
+        left: 50%
+        margin-left: -485px
+
+
+  .full-visual, .full-visual img
+    background: transparent
+
+  .visual
+    margin-bottom: 10px
+
+    &, img
+      height: 76px
+
+  .visual + h3
+    color: $blueLink
+
+
+  .page-hero + article
+    padding: 90px 0 60px 0
+
+  
+  .quote .container
+    min-height: 300px
+    padding: 40px 0
+    display: flex
+    align-items: center
+    justify-content: center
+
+
+  blockquote
+    width: 560px
+
+    .visual
+      margin: 0 auto 10px auto
+      display: block
+      opacity: .6
+
+    p
+      position: relative
+      font-size: 20px
+      line-height: 34px
+      text-indent: 60px
+      text-align: justify
+
+      &:before
+        +quoteVisual(rgba(255,255,255,.5),18px,-64px,90px)
+
+    strong
+      background: rgba(255,255,255,.1)
+      padding: 0 3px
+
+    cite
+      margin-top: 10px
+      font-size: 20px
+      font-weight: bold
+      font-style: normal
+
+      span
+        font-size: 16px
+        font-weight: 300
+        font-style: italic
+
+
+  .colored
+    border-bottom: 0
+
+    p, cite 
+      color: #FFF
+
+    cite span
+      color: rgba(255,255,255,.6)
+    
+    &.tealeaf-academy
+      background: #127570
+
+    &.pilot-dc
+      background: #78BAE2
+    
+    &.tilde
+      background: #00AFC4
+
+    &.heroku
+      background: #6863A4
+
+    &.rails
+      background: $ruby
+
+    &.wilsonsmith
+      background: #839098
+
+
+
+.light, .dark
+  #education
+    .page-hero
+      background: $blueLink image_url('home/education-hero.jpg') center center no-repeat
+      background-size: cover
+
+  #agencies
+    .page-hero
+      background: $blueLink image_url('home/agencies-hero.jpg') center center no-repeat
+      background-size: cover
+
+  #enterprises
+    .page-hero
+      background: $blueLink image_url('home/enterprises-hero.jpg') center center no-repeat
+      background-size: cover
+  
+  #teams
+    .page-hero
+      background: $blueLink image_url('home/teams-hero.jpg') center center no-repeat
+      background-size: cover
+
+  #vpc
+    .page-hero
+      background: #8696A0 image_url('home/vpc-hero.jpg') center center no-repeat
+      background-size: cover
 
 
 // --------------------------------------
@@ -827,24 +1046,29 @@ h4 + .box-wrapper
   blockquote
     width: 860px
     margin: 0 auto
+
     p
       width: 100%
       font-size: 25px
       line-height: 42px
+
     cite
       width: 100%
-      text-align: right
+      text-align: left
       font-size: 20px
       padding-top: 10px
 
-      img
-        width: 36px
-        height: 36px
-        position: relative
-        top: 10px
-        display: inline-block
-        margin-right: 10px
-        background: transparent
+      span
+        font-size: 16px
+
+      a
+        color: rgba(0,0,0,.6)
+
+        &:hover
+          color: $blueLink
+          span
+            color: rgba(0,0,0,.6)
+
 
 #stack .featurette .one
   width: 420px
@@ -889,9 +1113,13 @@ h4 + .box-wrapper
   text-align: center
   padding-bottom: 10px
   font-family: $boldFont
-  // font-weight: bold
   font-weight: 400
 
+
+.box-wrapper
+  .learn-more
+    display: inline-block
+    margin-top: 10px
 
 
 // --------------------------------------
@@ -1278,9 +1506,8 @@ h4 + .box-wrapper
 
 
 // --------------------------------------
-// Company logos
-.companies
-  background: $n2oGray900
+// Logos
+.companies, .used-by
   flex-shrink: 0
 
   .section-title
@@ -1330,6 +1557,51 @@ h4 + .box-wrapper
 
     .shopify
       height: 34px
+
+    .berkeley
+      max-height: 56px
+
+    .ucl
+      max-height: 56px
+
+    .carnegie
+      max-height: 56px
+    
+    .pilotdc
+      max-height: 56px
+
+    .cornell
+      max-height: 56px
+
+    .on-light.harvard
+      max-height: 56px
+      height: 56px
+
+    .on-light.mit
+      max-height: 52px
+      height: 52px
+
+    .stanford
+      max-height: 56px
+      height: 56px
+
+    .lahacks
+      max-height: 56px
+      height: 56px
+
+    .gaslight
+      max-height: 56px
+
+    .railsgirls
+      max-height: 56px
+
+    .tealeaf
+      max-height: 56px
+
+
+.light .used-by
+  .section-title
+    padding-bottom: 40px
 
 
 // --------------------------------------
@@ -1933,27 +2205,16 @@ h4 + .box-wrapper
 
   .one p, .three p
     position: relative
-    &:before
-      content: "“"
-      position: absolute
-      display: block
-      color: #94A0AA
-      font-family: "georgia",serif
-      font-weight: bold
 
   .one p
     text-indent: 56px
     &:before
-      top: 14px
-      left: -58px
-      font-size: 80px
+      +quoteVisual(#94A0AA,14px,-58px,80px)
 
   .three p
     text-indent: 28px
     &:before
-      top: 6px
-      left: -28px
-      font-size: 32px
+      +quoteVisual(#94A0AA,6px,-28px,32px)
 
 
 // --------------------------------------
@@ -2168,6 +2429,63 @@ footer
       color: #FFF
       font-weight: bold
       cursor: default
+
+
+  .dropdown
+    position: absolute
+    bottom: -86px
+    left: 90%
+    display: none
+    background: #3D464D
+    border-radius: 4px
+    box-shadow: 0 1px 1px rgba(0,0,0,.2), 0 1px 6px rgba(0,0,0,.1)
+    +transition(.2s ease-out)
+
+    li
+      border-bottom: 1px solid rgba(0,0,0,.2)
+      line-height: 40px
+
+      a
+        padding: 8px 26px 8px 20px
+
+      &:last-child
+        border: 0
+
+
+  .dropdown-trigger
+    position: relative
+
+    span
+      display: inline-block
+      color: #A5B3BE
+
+    .carets
+      width: 6px
+      height: 20px
+      display: inline-block
+      position: relative
+      top: 6px
+
+      i
+        position: absolute
+        color: #4E5862
+        left: 4px
+
+        &.fa-caret-up
+          top: 0
+
+        &.fa-caret-down
+          bottom: 0
+
+    &:hover
+      &, span
+        color: #FFF
+      i
+        color: #A5B3BE
+
+    &:hover
+      .dropdown
+        display: block
 
 
 .footer-item
@@ -2633,8 +2951,10 @@ input[type="range"]
   article h4 a 
     color: #a5b3be
 
-  article p a
+
+  article a, article p a
     color: $blueLink
+
 
   .unread
     &:after

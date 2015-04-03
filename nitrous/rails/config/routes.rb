@@ -6,6 +6,11 @@ Rails.application.routes.draw do
   get '/company' => 'pages#company'
   get '/plan_changes' => 'pages#plan_changes'
 
+  get '/education' => 'pages#education'
+  get '/agencies' => 'pages#agencies'
+  get '/enterprises' => 'pages#enterprises'
+  get '/teams' => 'pages#teams'
+  get '/vpc' => 'pages#vpc'
 
   get '/stacks' => 'pages#stacks'
   get '/stacks/:stack' => 'pages#stack'
