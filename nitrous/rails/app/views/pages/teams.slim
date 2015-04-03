@@ -1,0 +1,103 @@
+- @title = 'Teams · Nitrous'
+- @html_class = 'light'
+- @body_id = 'teams'
+- @body_class = 'story'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      .hero-copy
+        h2
+          | Nitrous and Teams
+        h3
+          | Leverage Nitrous's cutting-edge cloud IDE to stay lean,
+          br 
+          | agile and productive, wherever you are
+
+
+
+  article.featurette.offset-visual
+    .container
+
+      .full-visual
+        = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+
+      .box-wrapper.three.centered
+        .box
+          .visual
+            = image_tag 'home/large-featurette-seconds.svg', class: 'visual', alt: 'Zero-to-Code in Seconds'
+          h3.section-title Zero-to-Code in Seconds
+          p Spin up a complex development environment for any app, language or stack in seconds. Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to. Works perfectly with native tools and existing workflow.
+        
+        .box
+          .visual
+            = image_tag 'home/large-featurette-cloud.svg', class: 'visual', alt: 'Code Editor in the Cloud'
+          h3.section-title Code Editor in the Cloud
+          p Access your cloud-based code editor anytime, anywhere, regardless of what machine/OS you're using. With features like 'Go to File' and 'Split-pane Editing', Nitrous meets the standards of desktop editors while allowing teams to reap tremendous benefits of programming in the cloud.
+        
+        .box
+          .visual
+            = image_tag 'home/large-featurette-collab.svg', class: 'visual', alt: 'Realtime Collaboration'
+          h3.section-title Realtime Collaboration
+          p Nitrous not only lets you edit code with your colleagues in realtime, you can also snapshot an intricate dev environment into an Image and share it across the world with other teams. Get everyone on the same page with consistent, shareable dev environments.
+
+  
+  article.used-by
+    .container
+      h3.section-title 
+       | Loved by teams at startups and corporations alike
+      .logos
+        .row
+          = image_tag 'home/sendgrid-on-light.svg',   class: 'sendgrid on-light',   alt: 'Sendgrid'
+          = image_tag 'home/lampcamp-on-light.png',      class: 'lampcamp',      alt: 'LAMPCamp'
+          = image_tag 'home/thoughtbot-on-light.svg', class: 'thoughtbot on-light', alt: 'thoughtbot'
+          = image_tag 'home/zendesk-on-light.svg',    class: 'zendesk on-light',    alt: 'Zendesk'
+          = image_tag 'home/clearsight-on-light.png',      class: 'clearsight',      alt: 'Clearsight Studio'
+        .row
+          = image_tag 'home/heroku-on-light.svg',     class: 'heroku on-light',     alt: 'Heroku'
+          = image_tag 'home/tilde-on-light.png',      class: 'tilde on-light',      alt: 'Tilde'
+          = image_tag 'home/shopify-on-light.svg',    class: 'shopify on-light',    alt: 'Shopify'
+          = image_tag 'home/facebook-on-light.svg',      class: 'facebook on-light',      alt: 'Facebook'
+          = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
+          = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'
+
+  
+
+  article.colored.tilde.quote
+    .container
+
+      blockquote
+        = image_tag 'home/quote-tilde-logo.svg', class: 'visual', alt: 'Tilde'
+
+        p
+          | Mostly, the ability to 
+          strong get a Unix session going on any machine
+          | with Chrome on it and get right back into my tmux session. I'm no longer afraid of forgetting to check something in before I go home or what might happen if my laptop got stolen. Nitrous.IO and ChromeOS are really 
+          strong a match made in heaven
+          |.
+        cite
+          | Yehuda Katz
+          span , Founder of Tilde
+
+
+  article.colored.heroku.quote
+    .container
+
+      blockquote
+        = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
+
+        p
+          | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
+          strong the first solution that doesn't feel like a toy
+          |. I can use it to get work done, today.
+        cite
+          | Max Schoening
+          span , Software Designer at Heroku
+
+
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'education' }
