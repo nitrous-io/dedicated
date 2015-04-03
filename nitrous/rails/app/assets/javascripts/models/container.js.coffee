@@ -30,6 +30,11 @@ App.Container = klass = App.Model.extend
     config
   ).property 'id'
 
+  collaborators: (->
+    if id = @get('id')
+      App.ContainerCollaborator.fetch(containerId: id).value
+  ).property 'id'
+
   underReconfig: attr('boolean', serialize: false)
 
   isRunning: Em.computed.equal 'state', 'running'
@@ -111,6 +116,10 @@ App.Container = klass = App.Model.extend
   eventOccurred: (evt) ->
     if evt in ['container.started', 'container.stopped', 'container.restarted', 'container.updated', 'container.reconfigured', 'container.reconfigure_failed']
       @set 'underReconfig', false
+
+  prefetchResources: ->
+    @loadConfig()
+    @get 'collaborators'
 
   loadConfig: ->
     @ajax('GET', 'config').then (json) =>

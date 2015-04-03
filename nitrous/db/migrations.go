@@ -990,5 +990,20 @@ func init() {
 				ALTER TABLE provider_templates ADD COLUMN disabled boolean NOT NULL default false;
 			`,
 		},
+		{
+			Version: "860",
+			Up: `
+				CREATE TABLE container_collabs (
+					id bigserial PRIMARY KEY NOT NULL,
+					container_id bigint REFERENCES containers(id) NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					email_sent_at timestamp without time zone DEFAULT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE UNIQUE INDEX index_container_collabs_user_id_container_id ON container_collabs USING btree (user_id, container_id);
+			`,
+		},
 	}
 }

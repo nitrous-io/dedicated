@@ -5,10 +5,11 @@ App.ContainerTabBarComponent = Em.Component.extend
   model: null
   selected: null
 
-  generalSelected: Em.computed.equal 'selected', 'general'
-  keysSelected:    Em.computed.equal 'selected', 'keys'
-  portsSelected:   Em.computed.equal 'selected', 'ports'
-  configSelected:  Em.computed.equal 'selected', 'config'
+  generalSelected:       Em.computed.equal 'selected', 'general'
+  keysSelected:          Em.computed.equal 'selected', 'keys'
+  portsSelected:         Em.computed.equal 'selected', 'ports'
+  configSelected:        Em.computed.equal 'selected', 'config'
+  collaboratorsSelected: Em.computed.equal 'selected', 'collaborators'
 
   didInsertElement: ->
     @_super()

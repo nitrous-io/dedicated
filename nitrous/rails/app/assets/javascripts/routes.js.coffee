@@ -12,6 +12,7 @@ App.Router.map ->
       @route 'new'
 
     @resource 'container', path: '/containers/:containerSlug', ->
+      @route 'collaborators'
       @route 'keys'
       @route 'keys-new', path: '/keys/new'
       @route 'config'

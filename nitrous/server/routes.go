@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/appsettings"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billing"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/billingprofiles"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollabs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
@@ -133,6 +134,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/config":           r("containers.Config", containers.Config),
 				"/containers/{slug}/keys":             r("userkeys.Index", userkeys.Index),
 				"/containers/{slug}/container_keys":   r("containerkeys.Index", containerkeys.Index, EventContainerKeyListed),
+				"/containers/{slug}/collaborators":    r("containercollabs.Index", containercollabs.Index),
 				"/billing/invoices":                   r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":              r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/announcements/global":         r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
@@ -169,6 +171,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/token":                 r("containers.Token", containers.Token, EventContainerTokenRequested),
 				"/containers/{slug}/keys":                  r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/containers/{slug}/container_keys/github": r("containerkeys.AddToGitHub", containerkeys.AddToGitHub, EventContainerKeyAddedToGitHub),
+				"/containers/{slug}/collaborators":         r("containercollabs.Add", containercollabs.Add, EventContainerCollabAdded),
 				"/feedback":                                r("feedback.Send", feedback.Send),
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice),
 				"/admin/announcements/new":                 r("announcements.SendAnnouncement", announcements.SendAnnouncement),
@@ -188,14 +191,15 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
 			"DELETE": {
-				"/hosts/{slug}":                    r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
-				"/hosts/{slug}/registries/{rslug}": r("registries.Logout", registries.Logout, EventRegistryRemoved),
-				"/hosts/{slug}/volumes/{vslug}":    r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy), EventVolumeRemoved),
-				"/hosts/{slug}/images/{image:.*}":  r("images.Remove", mw.HostViaPath("slug", images.Remove), EventImageRemoved),
-				"/containers/{slug}":               r("containers.Destroy", containers.Destroy, EventContainerTerminated),
-				"/containers/{slug}/keys/{kslug}":  r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
-				"/containers/{slug}/keys":          r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
-				"/logout":                          r("tokens.Logout", tokens.Logout),
+				"/hosts/{slug}":                           r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
+				"/hosts/{slug}/registries/{rslug}":        r("registries.Logout", registries.Logout, EventRegistryRemoved),
+				"/hosts/{slug}/volumes/{vslug}":           r("volumes.Destroy", mw.HostViaPath("slug", volumes.Destroy), EventVolumeRemoved),
+				"/hosts/{slug}/images/{image:.*}":         r("images.Remove", mw.HostViaPath("slug", images.Remove), EventImageRemoved),
+				"/containers/{slug}":                      r("containers.Destroy", containers.Destroy, EventContainerTerminated),
+				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
+				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
+				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
+				"/logout": r("tokens.Logout", tokens.Logout),
 			},
 		}
 
