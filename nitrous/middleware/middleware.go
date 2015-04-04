@@ -181,9 +181,9 @@ func Track(event string, mw Middleware) Middleware {
 			return err
 		}
 
-		if env.RemoteAddr != "" {
-			env.AddEventData(map[string]interface{}{"$ip": env.RemoteAddr})
-		}
+		// via Mixpanel HTTP API reference:
+		// 'If $ip is set to "0", Mixpanel will ignore IP information.'
+		env.AddEventData(map[string]interface{}{"$ip": "0"})
 
 		if env.TrackEventName != "" {
 			env.Tracker.TrackEvent(event, env.User, env.trackEventData, env.Logger)
