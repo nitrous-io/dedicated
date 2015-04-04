@@ -108,7 +108,7 @@ func WriteSettings(ctx *HostContext) error {
 		SecretLocation:  strings.NewReader(settings.Secret),
 		ConfigLocation:  bytes.NewBuffer(cfgb),
 	})
-	l.Printf("Uploaded (%s) to %v", strings.Join(fl, ", "))
+	l.Printf("Uploaded (%s) to %v", pubKeyLocation, strings.Join(fl, ", "))
 	if err != nil {
 		return mh.Error(err, label)
 	}
