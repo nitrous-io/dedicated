@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   get '/features' => 'pages#features'
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
+  get '/press' => 'pages#press'
   get '/plan_changes' => 'pages#plan_changes'
 
   get '/education' => 'pages#education'

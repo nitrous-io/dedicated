@@ -144,6 +144,32 @@ $innerWidth: 1024px
   left: $left
   font-size: $font-size
 
+=logoGridBg($color,$width,$height)
+  background: $color image_url('home/stacks-logos-grid.svg') center center repeat
+  background-size: $width $height
+
+=heroLogoGrid($color,$width,$height)
+  &:before, &:after
+    content: ""
+    position: absolute
+    left: 0
+    right: 0
+    display: block
+
+  &:before
+    height: 600px
+    top: -50%
+    +logoGridBg($color,$width,$height)
+    transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(0)
+    -webkit-perspective: 1000
+    backface-visibility: hidden
+
+  &:after
+    top: 0
+    bottom: 0
+    background: radial-gradient(ellipse at center, rgba($color,.91) 0%,rgba($color,1) 72%)
+
+
 // --------------------------------------
 // Style
 body
@@ -472,8 +498,7 @@ nav
       margin: 0 auto
       position: relative
       transition: all 0.2s ease 0s
-      background: rgba(48,60,71,1) image_url('home/stacks-logos-grid.svg') center center repeat
-      background-size: 1004px 380px
+      +logoGridBg(rgba(48,60,71,1),1004px,380px)
       transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(-110px) translateX(-50px)
       -webkit-perspective: 1000
       backface-visibility: hidden
@@ -870,7 +895,6 @@ h4 + .box-wrapper
     margin-bottom: 0
     font-family: $boldFont
     font-weight: bold
-    // font-weight: 400
 
     &.larger
       font-size: 24px
@@ -914,76 +938,51 @@ h4 + .box-wrapper
     &.ubuntu
       background-position: 0 (-32px*3)
 
+
+  &.press-asset
+    img
+      width: 100%
+      height: 250px
+      display: block
+      margin-bottom: 10px
+      border: 1px solid rgba(0,0,0,.1)
+      border-radius: 2px
+
+    .download
+      padding-left: 6px
+      font-weight: bold
+
 .with-icon
   background: transparent image_url('home/small-featurettes.png') 0 0 no-repeat
   background-size: 32px 384px
 
 .terminal h3
-  // background: image_url("home/featurette-terminal.svg") 0 2px no-repeat
-  // background-size: 30px 26px
-  // padding-left: 44px
   background-position: 0 0
 .code h3
-  // background: image_url("home/featurette-code.svg") 0 4px no-repeat
-  // background-size: 30px 24px
-  // padding-left: 44px
   background-position: 0 -32px
 .containers h3
-  // background: image_url("home/featurette-workspaces.svg") 0 0 no-repeat
-  // background-size: 30px 30px
-  // padding-left: 44px
   background-position: 0 (-32px*2)
 
 .collaboration h3
-  // background: image_url("home/featurette-collab.svg") 0 0 no-repeat
-  // background-size: 30px 30px
-  // padding-left: 44px
   background-position: 0 (-32px*3)
 .github h3
-  // background: image_url("home/featurette-github.svg") 0 0 no-repeat
-  // background-size: 30px 30px
-  // padding-left: 44px
   background-position: 0 (-32px*4)
 .snapshots h3
-  // background: image_url("home/featurette-snapshots.svg") 0 2px no-repeat
-  // background-size: 30px 26px
-  // padding-left: 44px
   background-position: 0 (-32px*5)
 
-
 .go-to-file h3
-  // background: image_url("home/featurette-gotofile.svg") 0 0 no-repeat
-  // background-size: 30px 30px
-  // padding-left: 44px
   background-position: 0 (-32px*6)
 .split-editing h3
-  // background: image_url("home/featurette-splitediting.svg") 0 4px no-repeat
-  // background-size: 30px 24px
-  // padding-left: 44px
   background-position: 0 (-32px*7)
 .ssh h3
-  // background: image_url("home/featurette-sshaccess.svg") 0 0 no-repeat
-  // background-size: 30px 30px
-  // padding-left: 44px
   background-position: 0 (-32px*8)
 
-
 .ssl h3
-  // background: image_url("home/featurette-ssl.svg") 0 0 no-repeat
-  // background-size: 22px 32px
-  // padding-left: 40px
   background-position: 0 (-32px*9)
 .backup h3
-  // background: image_url("home/featurette-backup.svg") 0 0 no-repeat
-  // background-size: 32px 32px
-  // padding-left: 46px
   background-position: 0 (-32px*10)
 .secure h3
-  // background: image_url("home/featurette-secure.svg") 0 0 no-repeat
-  // background-size: 32px 32px
-  // padding-left: 48px
   background-position: 0 (-32px*11)
-
 
 
 .big-title + .box-wrapper
@@ -2871,30 +2870,15 @@ input[type="range"]
 
   .big
     color: #5b666f
+
+  #press
+    .page-hero
+      +heroLogoGrid(#8696A0,1004px,380px)
   
   .stacks-home
     .page-hero
-      &:before, &:after
-        content: ""
-        position: absolute
-        left: 0
-        right: 0
-        display: block
+      +heroLogoGrid(#0099ED,1004px,380px)
 
-      &:before
-        height: 600px
-        top: -50%
-        background: #0099ED image_url('home/stacks-logos-grid.svg') center center repeat
-        background-size: 1004px 380px
-        transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(0)
-        -webkit-perspective: 1000
-        backface-visibility: hidden
-
-      &:after
-        top: 0
-        bottom: 0
-        background: radial-gradient(ellipse at center, rgba(0,153,237,.91) 0%,rgba(0,153,237,1) 72%)
-  
 
   .quotes
     .one p
@@ -2903,6 +2887,20 @@ input[type="range"]
 
   article h4 a 
     color: #a5b3be
+
+  article h4 a.blue
+    color: $blueLink
+
+  span.date
+    display: block
+    margin: 4px 0
+    color: rgba(0,0,0,.2)
+    font-family: $boldFont
+
+  article .article a
+    &:hover
+      h3
+        color: $blueLink
 
   article a, article p a
     color: $blueLink
