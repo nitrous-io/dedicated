@@ -304,7 +304,7 @@ var _ = Describe("middleware", func() {
 
 		It("adds $ip to event data", func() {
 			t := env.Tracker.(*FakeTracker)
-			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("192.168.1.1"))
+			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("0"))
 		})
 
 		It("Responds with 200 OK", func() {
