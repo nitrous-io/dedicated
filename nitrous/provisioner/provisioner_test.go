@@ -478,19 +478,32 @@ var _ = Describe("provisioner", func() {
 			prov = provisioner.NewProvisioner(db, lgr, nil, pcfg)
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
-				H:  &host.Host{},
-				PT: &providertemplate.ProviderTemplate{},
+				H: &host.Host{},
+				PT: &providertemplate.ProviderTemplate{
+					Config: hstore.Hstore{Map: map[string]sql.NullString{
+						"region_id":    {"usw2", true},
+						"storage_size": {"25", true},
+					}},
+				},
 			})
 			Expect(err).To(BeNil())
+		})
+
+		It("uses convention for provider name", func() {
+			ph := provisioner.NewPreparedHost(hs.H)
+			hs.PT.Provider = provisioner.AmazonProvider
+			opts := provisioner.ProvisionOptions{
+				Template: hs.PT,
+				Name:     "host-slug",
+			}
+			cfg, err := prov.MakeHostbuilderConfig(ph, opts)
+			Expect(err).To(BeNil())
+			Expect(cfg["name"]).To(Equal(fmt.Sprintf("userhost-{{env}}-%d", hs.H.ID)))
 		})
 
 		It("amazon provider returns config given valid opts", func() {
 			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			hs.PT.Config = hstore.Hstore{Map: map[string]sql.NullString{
-				"region_id":    {"usw2", true},
-				"storage_size": {"25", true},
-			}}
 			opts := provisioner.ProvisionOptions{
 				Template: hs.PT,
 			}
@@ -503,11 +516,7 @@ var _ = Describe("provisioner", func() {
 		It("amazon provider disables eip if set", func() {
 			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			hs.PT.Config = hstore.Hstore{Map: map[string]sql.NullString{
-				"region_id":    {"usw2", true},
-				"storage_size": {"25", true},
-				"disable_eip":  {"true", true},
-			}}
+			hs.PT.Config.Map["disable_eip"] = sql.NullString{"true", true}
 			opts := provisioner.ProvisionOptions{
 				Template: hs.PT,
 			}

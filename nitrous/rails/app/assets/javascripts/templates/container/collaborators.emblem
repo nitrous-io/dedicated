@@ -1,0 +1,59 @@
+= container-tab-bar selected='collaborators' model=model
+.card-body
+  p.hint-text.no-caps
+   | Collaborators allow you to share your container with other users
+
+  if records.loaded
+    ul.ui.list.item-1-line
+      each collaborator in records
+        li.list-item
+          .left-accessory
+            img.gravatar.medium src=collaborator.gravatar
+          .lines class={collaborator.pendingRemove:strike}
+            h4
+              = collaborator.username
+            p
+              | Added&nbsp;
+              = ago collaborator.createdAt
+          .right-accessory
+            if collaborator.pendingRemove
+              button.ui.btn click='toggle collaborator target="view"' Restore
+            else
+              button.ui.btn click='toggle collaborator target="view"' Remove
+
+      each pend in pending
+        li.list-item
+          .lines
+            h4
+              = pend.username
+            if pend.error
+              p.error
+                = pend.error
+          .right-accessory
+            button.ui.btn click='removePending pend' Remove
+  else
+    p.hint-text
+      i.spinner
+      | Loading...
+
+  form.container-config submit='add'
+    .ui.input-group.container-config-form
+      table.ui.table
+        thead
+          tr
+            th Username
+        tbody
+          tr
+            td
+              = input type='text' placeholder='Username or email' required=true value=username
+            td
+              input.ui.btn.raised type='submit' value='Add'
+
+.card-footer.bordered
+  .right
+    if saving
+      button.ui.btn disabled='disabled'
+        i.spinner
+        | Saving...
+    else
+      button.ui.btn click='applyChanges' class={changes:primary} Apply Changes

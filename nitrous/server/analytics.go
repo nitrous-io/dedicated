@@ -36,4 +36,7 @@ const (
 
 	EventContainerKeyListed        = "Container Key Listed"
 	EventContainerKeyAddedToGitHub = "Container Key Added To GitHub"
+
+	EventContainerCollabAdded   = "Container Collaborator Added"
+	EventContainerCollabRemoved = "Container Collaborator Removed"
 )

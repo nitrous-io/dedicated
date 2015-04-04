@@ -7,7 +7,10 @@ Lib.RecordListView = Em.View.extend
 
   updatedSelectedIds: (->
     Em.run.scheduleOnce 'afterRender', =>
-      selected = @$('input.record-checkbox:checked:not(:disabled)').map (i, el) ->
+      jq = @$('input.record-checkbox:checked:not(:disabled)')
+      unless jq
+        return
+      selected = jq.map (i, el) ->
         parseInt(el.value, 10)
       @set 'controller.selectedIds', $.makeArray(selected)
   ).observes 'controller.records.@each'

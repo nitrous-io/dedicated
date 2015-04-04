@@ -448,7 +448,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(usr.UnconfirmedEmail.String).To(Equal("att@example.com"))
 
 				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.Tos).To(Equal([]string{"<att@example.com>"}))
+				Expect(fakeMailer.Tos).To(Equal([]string{`"tokenuser" <att@example.com>`}))
 			})
 
 			It("should not fire off an email if the email is the same as the unconfirmed email", func() {
