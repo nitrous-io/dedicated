@@ -43,6 +43,16 @@ const (
 	DockerProvider       = "docker"
 )
 
+// format strings for provider name conventions
+// hostbuilder will replace the {{env}} with the hostbuilder environment
+const (
+	AmazonNamef = "userhost-{{env}}-%d"
+
+	// we have separate accounts for DO staging and production, so no env
+	// distinction needed
+	DigitalOceanNamef = "userhost-%d"
+)
+
 var (
 	// shared client to interact with hostbuilder
 	HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -681,7 +691,7 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 	h := phost.host
 	config := hostbuilderclient.Config{
 		"host_id":     h.ID,
-		"name":        h.Slug,
+		"name":        h.Slug, // overridden by provider-specific names later
 		"secret":      h.Secret,
 		"public_keys": []string{string(phost.pubkey)},
 		"tls": map[string]string{
@@ -711,12 +721,15 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 	}
 	switch opts.Template.Provider {
 	case DigitalOceanProvider:
+		config["name"] = fmt.Sprintf(DigitalOceanNamef, h.ID)
 		if reg, ok := doRegionsMap[rid.String]; !ok {
 			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
 		} else {
 			config["region_id"] = reg
 		}
 	case AmazonProvider:
+		config["name"] = fmt.Sprintf(AmazonNamef, h.ID)
+
 		// convert storage_size to format accepted by hostbuilder
 		size, err := strconv.Atoi(config["storage_size"].(string))
 		if err != nil {
