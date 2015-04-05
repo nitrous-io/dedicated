@@ -40,7 +40,8 @@ build() {
   rm -f "$BUILD_DIR/$app"
   # install only the binary
   # this prevents go from looking at test-only directory
-  GOBIN=$BUILD_DIR godep go install \
+  godep go build \
+    -o "$BUILD_DIR/$binary" \
     -x -ldflags "$LDFLAGS" \
     github.com/nitrous-io/dedicated/$app
 
