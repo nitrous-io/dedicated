@@ -83,17 +83,17 @@ var _ = BeforeSuite(func() {
 
 // startContainer behaves similarly to startContainerWithData except that it
 // pre-creates a tmpdir for you
-func startContainer(config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
+func startContainer(image, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	datadir, err := ioutil.TempDir("", "freightertest")
 	if err != nil {
 		return nil, nil, func() {}, err
 	}
-	return startContainerWithData(datadir, config)
+	return startContainerWithData(image, datadir, config)
 }
 
 // startContainerWithData returns a running container based on busybox:latest
 // with random name, and the provider used to run the container
-func startContainerWithData(datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
+func startContainerWithData(image, datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
 	prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
 	if err != nil {
 		return nil, nil, func() {
@@ -101,7 +101,7 @@ func startContainerWithData(datadir, config string) (*docker.DockerProvider, *pr
 		}, err
 	}
 	name := test.RandomName("freightertest")
-	info, err := prov.CreateStart(name, "busybox:latest", "secret", config)
+	info, err := prov.CreateStart(name, image, "secret", config)
 	if err != nil {
 		return nil, nil, func() {
 			os.RemoveAll(datadir)

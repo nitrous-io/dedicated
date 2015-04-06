@@ -27,7 +27,7 @@ var _ = Describe("CreateStart", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		_, info, cleanupFn, err := startContainerWithData(datadir, config)
+		_, info, cleanupFn, err := startContainerWithData("busybox", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 

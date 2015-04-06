@@ -19,7 +19,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON = `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		defer removeBackupImages(prov)
 		Expect(err).To(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -88,7 +88,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -113,7 +113,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -143,7 +143,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -183,7 +183,7 @@ var _ = Describe("Reconfig", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
-		prov, info, cleanupFn, err := startContainer(configJSON)
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
