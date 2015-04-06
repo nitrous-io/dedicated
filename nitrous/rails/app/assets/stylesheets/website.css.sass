@@ -113,6 +113,7 @@ $iojs: #F5DA4E
 $laravel: #F36562
 $ubuntu: #DD4814
 $asp: #0054A3
+$docker: #008BB8
 
 $innerWidth: 1024px
 
@@ -917,20 +918,14 @@ article
 .grid-wrapper
   display: flex
   align-items: flex-start
-  justify-content: space-between
+  justify-content: center
   flex-wrap: wrap
-  padding: 20px 10px
+  padding: 20px 0
 
-  &.centered
-    justify-content: center
-
-    .grid-item:nth-of-type(3n-1)
-      margin-left: 82px
-      margin-right: 82px
 
   .grid-item
     width: 280px
-    margin: 20px 0
+    margin: 20px 30px
     text-align: center
 
     h3
@@ -1391,7 +1386,7 @@ h4 + .box-wrapper
   display: inline-block
   background-image: image_url("home/lang-logos.png")
   background-repeat: no-repeat
-  background-size: 94px 1316px
+  background-size: 94px 1410px
 
   &.ruby
     background-position: 0 0
@@ -1421,6 +1416,8 @@ h4 + .box-wrapper
     background-position: 0 (-94px*12)
   &.ubuntu
     background-position: 0 (-94px*13)
+  &.docker
+    background-position: 0 (-94px*14)
   &.nitrous
     width: 206px
     background-image: image_url("home/nitrous-logo.png")
@@ -3090,6 +3087,8 @@ input[type="range"]
   background: $java
 .stack-ubuntu .page-hero
   background: $ubuntu
+.stack-docker .page-hero
+  background: $docker
 
 
 // --------------------------------------
