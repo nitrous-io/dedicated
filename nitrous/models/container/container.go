@@ -83,6 +83,50 @@ func Find(d db.QueryReceiver, user *user.User, identifier string) (*Container, e
 	return c, nil
 }
 
+// Find queries for a container scoped to the user.
+// identifier can be either an ID or a slug.
+func FindShared(d db.QueryReceiver, user *user.User, identifier string) (*Container, error) {
+	c := &Container{}
+	id, err := strconv.ParseInt(identifier, 10, 64)
+
+	if err != nil {
+		err = d.Get(c,
+			`SELECT
+			containers.*
+			FROM containers
+			INNER JOIN container_collabs ON containers.id = container_collabs.container_id
+			WHERE container_collabs.user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`,
+			user.ID, identifier)
+	} else {
+		err = d.Get(c,
+			`SELECT
+			containers.*
+			FROM containers
+			INNER JOIN container_collabs ON containers.id = container_collabs.container_id
+			WHERE container_collabs.user_id = $1 AND containers.id = $2 AND containers.terminated_at IS NULL;`,
+			user.ID, id)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func FindAllShared(d db.QueryReceiver, userID int64) ([]*Container, error) {
+	containers := []*Container{}
+	err := d.Select(&containers, `
+		SELECT containers.* FROM containers
+		INNER JOIN container_collabs ON container_collabs.container_id = containers.id
+		WHERE containers.terminated_at IS NULL
+		AND container_collabs.user_id = $1;`,
+		userID)
+	if err != nil {
+		return nil, err
+	}
+	return containers, nil
+}
+
 func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 	c := &Container{}
 	err := d.Get(c, `SELECT * FROM containers WHERE cid = $1 AND terminated_at IS NULL;`, cid)
