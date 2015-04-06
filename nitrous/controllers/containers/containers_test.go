@@ -1755,19 +1755,105 @@ var _ = Describe("controllers/containers", func() {
 				Expect(ok).To(BeTrue())
 				Expect(evt1.Name).To(Equal(inputs.expectedEventNames[0]))
 
-				cn, ok := evt1.Data.(map[string]*serializers.Container)
+				data, ok := evt1.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				Expect(cn["container"].ID).To(Equal(c.ID))
-				Expect(cn["container"].State).To(Equal(inputs.tempState))
+				cn, ok := data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.ID).To(Equal(c.ID))
+				Expect(cn.State).To(Equal(inputs.tempState))
 
 				// evt2 - after completing the action
 				evt2, ok := msgs[1].(*controllers.Event)
 				Expect(ok).To(BeTrue())
 				Expect(evt2.Name).To(Equal(inputs.expectedEventNames[1]))
 
-				cn, ok = evt2.Data.(map[string]*serializers.Container)
+				data, ok = evt2.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				expectSerializedContainer(cn["container"])
+				cn, ok = data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn)
+			}
+		})
+
+		It("publishes a state transition events for the container's collaborators", func() {
+			recv := &user.User{
+				Username: "recv",
+				Email:    "recv@example.com",
+				Password: "123456",
+			}
+			err := WrapInTransaction(db, recv.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, recv.ID)
+			Expect(err).To(BeNil())
+
+			ch := svr.Events.Subscribe(recv.Topic())
+			defer svr.Events.Unsubscribe(ch, recv.Topic())
+
+			doRequest("elixir-web-1")
+
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch)
+				close(finished)
+			}()
+
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail(fmt.Sprintf("timeout while waiting for %s", inputs.action))
+			case <-finished:
+				// evt1 - when invoking the action
+				evt1, ok := msgs[0].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt1.Name).To(Equal(inputs.expectedEventNames[0]))
+
+				data, ok := evt1.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				cn, ok := data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.ID).To(Equal(c.ID))
+				Expect(cn.State).To(Equal(inputs.tempState))
+
+				// evt2 - after completing the action
+				evt2, ok := msgs[1].(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt2.Name).To(Equal(inputs.expectedEventNames[1]))
+
+				data, ok = evt2.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				cn, ok = data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn)
+			}
+		})
+
+		It("should not publish a state transition events for unrelated users", func() {
+			recv := &user.User{
+				Username: "recv",
+				Email:    "recv@example.com",
+				Password: "123456",
+			}
+			err := WrapInTransaction(db, recv.Insert)
+			Expect(err).To(BeNil())
+
+			ch := svr.Events.Subscribe(recv.Topic())
+			defer svr.Events.Unsubscribe(ch, recv.Topic())
+
+			doRequest("elixir-web-1")
+
+			msgs := []pubsub.Message{}
+			finished := make(chan struct{})
+			go func() {
+				msgs = append(msgs, <-ch, <-ch)
+				close(finished)
+			}()
+
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Expect(msgs).To(BeEmpty())
+			case <-finished:
+				Expect(msgs).To(BeEmpty())
 			}
 		})
 
@@ -2658,19 +2744,23 @@ var _ = Describe("controllers/containers", func() {
 				Expect(ok).To(BeTrue())
 				Expect(evt1.Name).To(Equal(controllers.EventContainerDestroying))
 
-				cn, ok := evt1.Data.(map[string]*serializers.Container)
+				data, ok := evt1.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				Expect(cn["container"].ID).To(Equal(c.ID))
-				Expect(cn["container"].State).To(Equal("terminating"))
+				cn, ok := data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.ID).To(Equal(c.ID))
+				Expect(cn.State).To(Equal("terminating"))
 
 				// evt2 - after completing the action
 				evt2, ok := msgs[1].(*controllers.Event)
 				Expect(ok).To(BeTrue())
 				Expect(evt2.Name).To(Equal(controllers.EventContainerDestroyed))
 
-				cn, ok = evt2.Data.(map[string]*serializers.Container)
+				data, ok = evt2.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				expectSerializedContainer(cn["container"])
+				cn, ok = data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				expectSerializedContainer(cn)
 			}
 		})
 

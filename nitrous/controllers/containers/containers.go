@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/shellwords"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
@@ -362,7 +363,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		cn, env, container.StateStarting, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
-			publishContainerEvent(env, controllers.EventContainerStarting, cn)
+			publishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
 			liveContainer, err := cl.Start(cn.CID, config)
 			if err != nil {
@@ -372,7 +373,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
 
-			publishContainerEvent(env, controllers.EventContainerStarted, cn)
+			publishContainerEvent(env, controllers.EventContainerStarted, cn, nil)
 			env.Status = http.StatusOK
 			env.Data = map[string]interface{}{
 				"container": serializers.SerializeContainer(cn),
@@ -398,7 +399,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 				if err != nil {
 					return err
 				}
-				publishContainerEvent(env, evtName, cn)
+				publishContainerEvent(env, evtName, cn, nil)
 
 				liveContainer, err := action(cl, cn.CID)
 				if err != nil {
@@ -410,7 +411,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 
 				cn = hydrateContainer(cn, liveContainer, h)
 
-				publishContainerEvent(env, eventName, cn)
+				publishContainerEvent(env, eventName, cn, nil)
 				env.Status = http.StatusOK
 				env.Data = map[string]interface{}{
 					"container": serializers.SerializeContainer(cn),
@@ -440,7 +441,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
-			publishContainerEvent(env, controllers.EventContainerDestroying, cn)
+			publishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
 			cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 			if err != nil {
@@ -462,7 +463,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			cn = hydrateContainer(cn, liveContainer, h)
 
-			publishContainerEvent(env, controllers.EventContainerDestroyed, cn)
+			publishContainerEvent(env, controllers.EventContainerDestroyed, cn, nil)
 			env.Status = http.StatusOK
 			env.Data = map[string]interface{}{
 				"container": serializers.SerializeContainer(cn),
@@ -591,13 +592,32 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return c
 }
 
-func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container) {
-	env.Events.Publish(
-		controllers.NewEvent(name, map[string]*serializers.Container{
-			"container": serializers.SerializeContainer(c),
-		}),
-		env.User.Topic(),
-	)
+func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
+	var userIDs []int64
+	err := env.DB.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, c.ID)
+	if err != nil {
+		env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
+		return
+	}
+	userIDs = append(userIDs, c.UserID)
+
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(c),
+		"initiated_by": map[string]interface{}{
+			"username": env.User.Username,
+			"id":       env.User.ID,
+		},
+	}
+	if add != nil {
+		for k, v := range add {
+			data[k] = v
+		}
+	}
+
+	for _, userID := range userIDs {
+		topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
+		env.Events.Publish(controllers.NewEvent(name, data), topic)
+	}
 }
 
 func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {

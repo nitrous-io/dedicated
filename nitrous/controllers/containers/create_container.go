@@ -196,7 +196,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, err
 	}
 
-	publishContainerEvent(env, controllers.EventContainerCreated, cn)
+	publishContainerEvent(env, controllers.EventContainerCreated, cn, nil)
 
 	res.Container = serializers.SerializeContainer(cn)
 

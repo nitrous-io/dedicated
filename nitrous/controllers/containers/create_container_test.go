@@ -222,14 +222,16 @@ var _ = Describe("CreateContainer", func() {
 			}
 		}
 		Expect(evt.Name).To(Equal(controllers.EventContainerCreated))
-		evtData, ok := evt.Data.(map[string]*serializers.Container)
+		evtData, ok := evt.Data.(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		cn, ok := evtData["container"].(*serializers.Container)
 		Expect(ok).To(BeTrue())
 		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
 		Expect(cntrs).To(HaveLen(1))
 		c := cntrs[0]
 
-		expectSerializedContainer(evtData["container"], c)
+		expectSerializedContainer(cn, c)
 
 		close(done)
 	})
