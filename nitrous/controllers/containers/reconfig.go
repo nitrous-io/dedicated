@@ -21,7 +21,7 @@ import (
 const reconfigLockTime = 2 * time.Minute
 
 var (
-	Reconfig = WithContainerAndHost(reconfig)
+	Reconfig = WithContainerAndHost(reconfig, false)
 )
 
 func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

@@ -39,6 +39,16 @@ type Container struct {
 	FinishedAt   *time.Time `json:"finished_at"`
 }
 
+type SharedContainer struct {
+	Container
+
+	UserUsername     string `json:"user_username"`
+	UserName         string `json:"user_name"`
+	UserGravatarHash string `json:"user_gravatar_hash"`
+
+	Host *Host `json:"host"`
+}
+
 func SerializeContainer(c *container.Container) *Container {
 	con := &Container{
 		ID:              c.ID,

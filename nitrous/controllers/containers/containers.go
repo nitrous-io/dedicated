@@ -56,14 +56,14 @@ var (
 
 var (
 	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit)
-	Config  = WithContainerAndHost(config)
-	Show    = WithContainerAndHost(show)
-	Start   = WithContainerAndHost(start)
-	Stop    = WithContainerAndHost(stop)
-	Restart = WithContainerAndHost(restart)
-	Destroy = WithContainerAndHost(destroy)
-	Token   = WithContainerAndHost(token)
+	Commit  = WithContainerAndHost(commit, false)
+	Config  = WithContainerAndHost(config, true)
+	Show    = WithContainerAndHost(show, true)
+	Start   = WithContainerAndHost(start, true)
+	Stop    = WithContainerAndHost(stop, true)
+	Restart = WithContainerAndHost(restart, true)
+	Destroy = WithContainerAndHost(destroy, false)
+	Token   = WithContainerAndHost(token, true)
 )
 
 var (
@@ -73,12 +73,10 @@ var (
 type containerHandler func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
 	var err error
-
+	db := env.DB
 	hSlug := r.FormValue("host")
 	hosts := []*host.Host{}
-	containersResp := []*serializers.Container{}
 
 	// If no host is provided, then get all hosts belonging to the user
 	// and get all containers from all hosts
@@ -98,14 +96,34 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	containerHostMap := make(map[int64][]*container.Container)
+	for _, host := range hosts {
+		containers, err := container.FindAllByHostID(db, host.ID)
+		if err != nil {
+			env.Logger.Errorf("unable to find all containers: %v, for host %s", err, host.Slug)
+			continue
+		}
+		containerHostMap[host.ID] = containers
+	}
+
+	env.Data = map[string]interface{}{}
+	serContainers := listContainers(env, w, r, hosts, containerHostMap, false)
+	env.Status = http.StatusOK
+	env.Data["containers"] = serContainers
+	return nil
+}
+
+func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request, hosts []*host.Host, containerHostMap map[int64][]*container.Container, onlySaved bool) []*serializers.Container {
+	db := env.DB
+
+	containersResp := []*serializers.Container{}
 	errorMessages := []string{}
 
 	for _, h := range hosts {
 		liveContainers, freighterErr := freighterList(db, h, env)
 
-		savedContainers, err := container.FindAllByHostID(db, h.ID)
-		if err != nil {
-			env.Logger.Errorf("unable to find all containers: %v, for host %s", err, h.Slug)
+		savedContainers, ok := containerHostMap[h.ID]
+		if !ok {
 			errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for %s", h.Slug))
 		}
 
@@ -140,6 +158,9 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			if savedContainer != nil {
 				cn = hydrateContainer(savedContainer, lc, h)
 			} else {
+				if onlySaved {
+					continue
+				}
 				cn = mkContainer(lc, h)
 			}
 
@@ -148,14 +169,11 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	sort.Sort(serializers.BySlug(containersResp))
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"containers": containersResp,
-	}
 	if len(errorMessages) != 0 {
 		env.Data["errors"] = errorMessages
 	}
-	return nil
+
+	return containersResp
 }
 
 type listresult struct {
@@ -472,14 +490,18 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func WithContainerAndHost(fn containerHandler) middleware.Middleware {
+func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
+		slug := mux.Vars(r)["slug"]
 
-		cn, err := container.Find(db, env.User, mux.Vars(r)["slug"])
+		cn, err := container.Find(db, env.User, slug)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return errContainerNotFound
+				if !allowCollab {
+					return errContainerNotFound
+				}
+				return withSharedContainerAndHost(fn, env, w, r)
 			}
 			return err
 		}
@@ -493,6 +515,28 @@ func WithContainerAndHost(fn containerHandler) middleware.Middleware {
 		}
 		return fn(cn, h, env, w, r)
 	}
+}
+
+func withSharedContainerAndHost(fn containerHandler, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	slug := mux.Vars(r)["slug"]
+
+	cn, err := container.FindShared(db, env.User, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errContainerNotFound
+		}
+		return err
+	}
+
+	h, err := host.FindByIdentifier(db, strconv.FormatInt(cn.HostID, 10))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errHostNotFound
+		}
+		return err
+	}
+	return fn(cn, h, env, w, r)
 }
 
 type runningHost *host.Host

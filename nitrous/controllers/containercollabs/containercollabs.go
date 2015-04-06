@@ -29,9 +29,9 @@ import (
 )
 
 var (
-	Index  middleware.Middleware = containers.WithContainerAndHost(index)
-	Add    middleware.Middleware = containers.WithContainerAndHost(add)
-	Remove middleware.Middleware = containers.WithContainerAndHost(remove)
+	Index  middleware.Middleware = containers.WithContainerAndHost(index, true)
+	Add    middleware.Middleware = containers.WithContainerAndHost(add, false)
+	Remove middleware.Middleware = containers.WithContainerAndHost(remove, false)
 
 	errMissingUserParam = httperror.New(http.StatusBadRequest, "invalid_request", "`user` must be provided")
 	errUserNotFound     = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")

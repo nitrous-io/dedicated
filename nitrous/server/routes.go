@@ -130,6 +130,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images/{image:.*}":     r("images.Inspect", mw.HostViaPath("slug", images.Inspect)),
 				"/hosts/{slug}/registries":            r("registries.Index", registries.Index),
 				"/containers":                         r("containers.Index", containers.Index),
+				"/shared_containers":                  r("containers.Shared", containers.Shared),
 				"/containers/{slug}":                  r("containers.Show", containers.Show),
 				"/containers/{slug}/config":           r("containers.Config", containers.Config),
 				"/containers/{slug}/keys":             r("userkeys.Index", userkeys.Index),

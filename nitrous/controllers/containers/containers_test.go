@@ -109,6 +109,7 @@ var _ = Describe("controllers/containers", func() {
 			env           *middleware.Env
 			handler       *mux.Router
 			c             *container.Container
+			allowCollab   bool
 			handlerCalled bool
 		)
 
@@ -119,6 +120,7 @@ var _ = Describe("controllers/containers", func() {
 			}
 
 			handlerCalled = false
+			allowCollab = false
 
 			h := func(w http.ResponseWriter, r *http.Request) {
 				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -127,7 +129,7 @@ var _ = Describe("controllers/containers", func() {
 					Expect(h.State).To(Equal(host.StateRunning))
 					handlerCalled = true
 					return nil
-				})
+				}, allowCollab)
 				err := mw(env, w, r)
 				if err != nil {
 					svr.HandleError(w, err)
@@ -179,6 +181,68 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(handlerCalled).To(BeTrue())
+			})
+		})
+
+		Context("when a container is shared with a user", func() {
+			var owner *user.User
+
+			BeforeEach(func() {
+				owner = &user.User{
+					Username: "owner",
+					Email:    "owner@example.com",
+					Password: "123456",
+				}
+				err := WrapInTransaction(db, owner.Insert)
+				Expect(err).To(BeNil())
+
+				c = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: owner.ID,
+					HostID: hs.H.ID,
+				}
+				err = c.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, u.ID)
+				Expect(err).To(BeNil())
+				handlerCalled = false
+			})
+
+			It("it should not run if the handler does not permit sharing", func() {
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				Expect(handlerCalled).To(BeFalse())
+			})
+
+			It("it should run if the handler does permit sharing", func() {
+				allowCollab = true
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(handlerCalled).To(BeTrue())
+			})
+
+			It("it should not run if the handler does permit sharing but isn't shared", func() {
+				allowCollab = true
+
+				_, err := db.Exec(`DELETE FROM container_collabs WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				Expect(handlerCalled).To(BeFalse())
 			})
 		})
 	})
@@ -738,6 +802,326 @@ var _ = Describe("controllers/containers", func() {
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("fetchContainersWithHosts()", func() {
+		var (
+			receiver *user.User
+			c        *container.Container
+		)
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   "dominant-intercooler-42",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Rails app server", true},
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"C": {"1", true},
+					},
+				},
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			c2 := &container.Container{
+				CID:    "invisible",
+				Slug:   "invisible-machine",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+			}
+			err = c2.Insert(db)
+			Expect(err).To(BeNil())
+
+			receiver = &user.User{
+				Username: "guest",
+				Email:    "guest@example.com",
+				Password: "123456",
+			}
+			err = WrapInTransaction(db, receiver.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, receiver.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should return nil if there is nothing shared", func() {
+			res, err := containers.FetchContainersWithHosts(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(res).To(BeNil())
+		})
+
+		It("should return the container map and hosts", func() {
+			res, err := containers.FetchContainersWithHosts(db, receiver.ID)
+			Expect(err).To(BeNil())
+			Expect(res).ToNot(BeNil())
+			Expect(res.Hosts[0].Host).To(Equal(*hs.H))
+			Expect(res.Hosts[0].UserUsername).To(Equal(u.Username))
+			Expect(res.Hosts[0].UserName).To(Equal(u.Name))
+			Expect(res.Hosts[0].GravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
+			Expect(res.HostContainers[hs.H.ID]).To(ConsistOf(c))
+		})
+
+		It("should not include hosts that are terminated", func() {
+			_, err := db.Exec(`UPDATE hosts SET terminated_at = now() WHERE id = $1;`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			res, err := containers.FetchContainersWithHosts(db, receiver.ID)
+			Expect(err).To(BeNil())
+			Expect(res).ToNot(BeNil())
+			Expect(res.Hosts).To(BeEmpty())
+		})
+
+		It("should not include hosts that are orphaned", func() {
+			_, err := db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateOrphan, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			res, err := containers.FetchContainersWithHosts(db, receiver.ID)
+			Expect(err).To(BeNil())
+			Expect(res).ToNot(BeNil())
+			Expect(res.Hosts).To(BeEmpty())
+		})
+
+		It("should not include hosts that are migrating", func() {
+			_, err := db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateMigrating, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			res, err := containers.FetchContainersWithHosts(db, receiver.ID)
+			Expect(err).To(BeNil())
+			Expect(res).ToNot(BeNil())
+			Expect(res.Hosts).To(BeEmpty())
+		})
+	})
+
+	Describe("GET /api/v0/shared_containers", func() {
+		var (
+			receiver      *user.User
+			receiverToken *token.Token
+			c             *container.Container
+			fc            *freighterclient.Container
+			startedAt     = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+		)
+
+		doRequest := func() {
+			req, err := NewRequest("GET", "/api/v0/shared_containers", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+receiverToken.Token)
+			handler.ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   "dominant-intercooler-42",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+				Name:   sql.NullString{"Rails app server", true},
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"C": {"1", true},
+					},
+				},
+			}
+			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			c2 := &container.Container{
+				CID:    "invisible",
+				Slug:   "invisible-machine",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs.H.ID,
+			}
+			err = c2.Insert(db)
+			Expect(err).To(BeNil())
+
+			receiver = &user.User{
+				Username: "guest",
+				Email:    "guest@example.com",
+				Password: "123456",
+			}
+			err = WrapInTransaction(db, receiver.Insert)
+			Expect(err).To(BeNil())
+
+			receiverToken = &token.Token{
+				UserID: receiver.ID,
+				Token:  "ABC",
+			}
+			err = receiverToken.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, receiver.ID)
+			Expect(err).To(BeNil())
+
+			fc = &freighterclient.Container{
+				ID:         "deadbeef",
+				Name:       "dominant-intercooler-42",
+				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				User:       "guest",
+				StartedAt:  startedAt,
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+			}
+			fc2 := &freighterclient.Container{
+				ID:         "invisible",
+				Name:       "invisible-machine-v3",
+				Host:       "1.2.3.4",
+				Gateway:    "1.2.3.0",
+				State:      "running",
+				Image:      "nitrous-base",
+				Cmd:        []string{"/sbin/init"},
+				Entrypoint: []string{"/bin/blah"},
+				ExitCode:   0,
+				User:       "guest",
+				StartedAt:  startedAt,
+				FinishedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+			}
+			mockClient.Containers = []*freighterclient.Container{fc, fc2}
+		})
+
+		It("should return an empty list when no containers are shared", func() {
+			_, err := db.Exec(`DELETE FROM container_collabs WHERE user_id = $1;`, receiver.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(0))
+		})
+
+		It("should not return the container if it has been terminated", func() {
+			_, err := db.Exec(`UPDATE containers SET terminated_AT = now() WHERE id = $1;`, c.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(0))
+		})
+
+		It("should not return the container if its host has been terminated", func() {
+			_, err := db.Exec(`UPDATE hosts SET terminated_AT = now() WHERE id = $1;`, c.HostID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(0))
+		})
+
+		It("should only return the shared containers with host info", func() {
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(1))
+
+			Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+			Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+			Expect(j.Containers[0].IPAddress).To(Equal("1.2.3.4"))
+			Expect(j.Containers[0].State).To(Equal("running"))
+			Expect(j.Containers[0].UserUsername).To(Equal("foo"))
+			Expect(j.Containers[0].UserGravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
+			Expect(j.Containers[0].Host.ID).To(Equal(hs.H.ID))
+		})
+
+		It("should handle multiple hosts", func() {
+			hs1, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:      "bar",
+					IPAddress: sql.NullString{},
+				},
+				U:  u,
+				R:  hs.R,
+				P:  hs.P,
+				PT: hs.PT,
+			})
+			Expect(err).To(BeNil())
+
+			c1 := &container.Container{
+				CID:    "cafedead",
+				Slug:   "forever-container-21",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: hs1.H.ID,
+				Name:   sql.NullString{"Rails app server", true},
+			}
+			err = c1.Insert(db)
+			Expect(err).To(BeNil())
+
+			hs1.H.State = host.StateStopped
+			err = hs1.H.Update(db)
+			Expect(err).To(BeNil())
+
+			hs.H.State = host.StateStopped
+			err = hs.H.Update(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c1.ID, receiver.ID)
+			Expect(err).To(BeNil())
+
+			UnstubFreighterFn()
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(2))
+
+			Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+			Expect(j.Containers[0].Image).To(Equal("nitrous-base"))
+			Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
+			Expect(j.Containers[0].IPAddress).To(Equal(""))
+			Expect(j.Containers[0].State).To(Equal("host_stopped"))
+			Expect(j.Containers[0].UserUsername).To(Equal("foo"))
+			Expect(j.Containers[0].UserGravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
+
+			Expect(j.Containers[1].CID).To(Equal("cafedead"))
+			Expect(j.Containers[1].Image).To(Equal("nitrous-base"))
+			Expect(j.Containers[1].Slug).To(Equal("forever-container-21"))
+			Expect(j.Containers[1].IPAddress).To(Equal(""))
+			Expect(j.Containers[1].State).To(Equal("host_stopped"))
+			Expect(j.Containers[1].UserUsername).To(Equal("foo"))
+			Expect(j.Containers[1].UserGravatarHash).To(Equal("b48def645758b95537d4424c84d1a9ff"))
 		})
 	})
 
