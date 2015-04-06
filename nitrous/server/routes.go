@@ -74,7 +74,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 
 func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", mw.Call("gihtub.OAuthCb", github.OAuthCb), "GET")
+	s.route("/api/v0/github/oauth_cb", mw.Call("github.OAuthCb", github.OAuthCb), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
