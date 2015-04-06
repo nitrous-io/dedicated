@@ -65,6 +65,20 @@ var _ = BeforeSuite(func() {
 	out, err = cmd.CombinedOutput()
 	Expect(err).To(BeNil(), "failed to build busybox, output: %s", string(out))
 	fmt.Printf(" took %s\n", time.Now().Sub(start))
+
+	// build busybox-volumes which has two built-in volumes
+	start = time.Now()
+	fmt.Print("build busybox-volumes:latest...")
+	cmd = exec.Command("docker", "build", "-t", "busybox-volumes:latest", "-")
+	cmd.Stdin = bytes.NewBufferString(`
+	FROM base:latest
+	CMD ["top"]
+	VOLUME /var/lib/docker
+	VOLUME /var/lib/extra
+	`)
+	out, err = cmd.CombinedOutput()
+	Expect(err).To(BeNil(), "failed to build busybox-volumes, output: %s", string(out))
+	fmt.Printf(" took %s\n", time.Now().Sub(start))
 })
 
 // startContainer behaves similarly to startContainerWithData except that it
