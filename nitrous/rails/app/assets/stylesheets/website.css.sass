@@ -913,6 +913,40 @@ article
 
 
 // --------------------------------------
+// Grid
+.grid-wrapper
+  display: flex
+  align-items: flex-start
+  justify-content: space-between
+  flex-wrap: wrap
+  padding: 20px 10px
+
+  &.centered
+    justify-content: center
+
+    .grid-item:nth-of-type(3n-1)
+      margin-left: 82px
+      margin-right: 82px
+
+  .grid-item
+    width: 280px
+    margin: 20px 0
+    text-align: center
+
+    h3
+      font-size: 18px
+      line-height: 22px
+
+    img
+      max-width: 280px
+      margin-bottom: 18px
+
+    a:hover h3
+      color: $blueLink
+
+
+
+// --------------------------------------
 // Box
 .box-wrapper
   display: flex
@@ -2920,7 +2954,8 @@ input[type="range"]
 
   #press
     .page-hero
-      +heroLogoGrid(#8696A0,1004px,380px)
+      // +heroLogoGrid(#8696A0,1004px,380px)
+      +heroLogoGrid(#0099ED,1004px,380px)
   
   .stacks-home
     .page-hero
@@ -2943,8 +2978,12 @@ input[type="range"]
     margin: 4px 0
     color: rgba(0,0,0,.2)
     font-family: $boldFont
+  
 
   article .article a
+    padding-top: 120px
+    display: block
+
     &:hover
       h3
         color: $blueLink
@@ -2952,6 +2991,42 @@ input[type="range"]
 
   article a, article p a
     color: $blueLink
+
+  article .article a
+    background-size: 560px 120px
+    background-position: 0 0
+    background-repeat: no-repeat
+
+  article .article:hover a
+    background-position: top right
+
+
+  article .readwrite a
+    background-image: image_url('home/press-readwrite.png')
+
+  article .tnw a
+    background-image: image_url('home/press-tnw.png')
+
+  article .article.gigaom a
+    background-image: image_url('home/press-gigaom.png')
+
+  article .article.techcrunch a
+    background-image: image_url('home/press-techcrunch.png')
+
+  article .article.techinasia a
+    background-image: image_url('home/press-techinasia.png')
+
+  article .article.techco a
+    background-image: image_url('home/press-techco.png')
+
+  article .article.thebridge a
+    background-image: image_url('home/press-thebridge.png')
+
+  article .article.techrepublic a
+    background-image: image_url('home/press-techrepublic.png')
+
+  article .article.venturebeat a
+    background-image: image_url('home/press-venturebeat.png')
 
 
   .unread
