@@ -28,6 +28,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   userProfile: null
   hosts: null
   containers: null
+  sharedContainers: null
   selectedHost: null
   selectedContainer: null
   regions: null
@@ -63,6 +64,21 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
     return index
   ).property 'plans'
+
+  groupedSharedContainers: (->
+    set = []
+    @get('sharedContainers').forEach (item)=>
+      existing = set.findBy('userId', item.get('userId'))
+      if existing
+        existing.get('items').unshift item
+      else
+        existing = App.SharedContainersGroup.create
+          userId: item.get('userId')
+          items: [item]
+
+        set.push existing
+    set.sortBy('username')
+  ).property 'sharedContainers'
 
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')

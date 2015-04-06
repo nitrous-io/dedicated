@@ -6,9 +6,11 @@ App.HomeRoute = App.AuthedRoute.extend
     App.set 'title', null
     hostsFetch = App.Host.fetch()
     containersFetch = App.Container.fetch()
+    sharedContainersFetch = App.SharedContainer.fetch()
     App.set 'hosts', hostsFetch.value
     App.set 'containers', containersFetch.value
-    Em.RSVP.allSettled([hostsFetch, containersFetch])
+    App.set 'sharedContainers', sharedContainersFetch.value
+    Em.RSVP.allSettled([hostsFetch, containersFetch, sharedContainersFetch])
 
   renderTemplate: ->
     @_super()

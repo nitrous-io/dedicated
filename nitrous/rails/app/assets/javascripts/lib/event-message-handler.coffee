@@ -107,9 +107,15 @@ App.EventMessageHandler = App.EventsSocket.extend
 findAllContainers = ->
   App.get('containers')
 
+findAllSharedContainers = ->
+  App.get('sharedContainers')
+
 findContainer = (data) ->
   pk = App.Container.primaryKey
-  findAllContainers()?.findBy(pk, data[pk])
+  c = findAllContainers()?.findBy(pk, data[pk])
+  if c
+    return c
+  return findAllSharedContainers()?.findBy(pk, data[pk])
 
 findAllHosts = ->
   App.get('hosts')
