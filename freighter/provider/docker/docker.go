@@ -282,28 +282,25 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		return nil, err
 	}
 
-	cfg, err := containerConfigFromJSON(configJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	p.setDefaultContainerConfig(cfg)
-	cfg.Hostname = container.Config.Hostname
-	cfg.Image = container.Config.Image
-
-	startConfig, err := p.mkHostConfig(container.HostConfig, cfg, p.isNitrousImage(cfg.Image))
-	if err != nil {
-		return nil, err
-	}
-
 	if !container.State.Running {
-		p.logger.Info("DockerProvider: starting container", id)
-		start := time.Now()
-
-		if err := p.client.StartContainer(id, startConfig); err != nil {
+		cfg, err := containerConfigFromJSON(configJSON)
+		if err != nil {
 			return nil, err
 		}
 
+		p.setDefaultContainerConfig(cfg)
+		cfg.Hostname = container.Config.Hostname
+		cfg.Image = container.Config.Image
+
+		startConfig, err := p.mkHostConfig(container.HostConfig, cfg, p.isNitrousImage(cfg.Image))
+		if err != nil {
+			return nil, err
+		}
+		p.logger.Info("DockerProvider: starting container", id)
+		start := time.Now()
+		if err := p.client.StartContainer(id, startConfig); err != nil {
+			return nil, err
+		}
 		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
 	}
 
