@@ -36,6 +36,10 @@ var _ = Describe("GetConfig", func() {
 		Expect(config.PortBindings).To(ContainElement(MatchRegexp(`public:49\d{3}:3456`)))
 		Expect(config.PortBindings).To(ContainElement(MatchRegexp(`private:49\d{3}:8080`)))
 
+		Expect(config.ConfigPortBindings).To(ConsistOf([]string{
+			"private:1234:2345/udp", "public:2345:3456/tcp", "public::3456/tcp", "private::8080/tcp",
+		}))
+
 		info, err = prov.Stop(name)
 		Expect(err).To(BeNil())
 
@@ -43,6 +47,10 @@ var _ = Describe("GetConfig", func() {
 		Expect(err).To(BeNil())
 
 		Expect(config.PortBindings).To(ConsistOf([]string{
+			"private:1234:2345/udp", "public:2345:3456/tcp", "public::3456/tcp", "private::8080/tcp",
+		}))
+
+		Expect(config.ConfigPortBindings).To(ConsistOf([]string{
 			"private:1234:2345/udp", "public:2345:3456/tcp", "public::3456/tcp", "private::8080/tcp",
 		}))
 	})

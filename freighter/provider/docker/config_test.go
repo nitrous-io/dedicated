@@ -1,4 +1,4 @@
-package docker_test
+package docker
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
 
@@ -16,7 +15,7 @@ import (
 
 var _ = Describe("provider/docker config", func() {
 	var (
-		prov                                *docker.DockerProvider
+		prov                                *DockerProvider
 		datadir, sshBind, containerSlugBind string
 		cnrName                             = "php-box"
 	)
@@ -28,14 +27,14 @@ var _ = Describe("provider/docker config", func() {
 		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/nitrous/ssh:ro"
 		containerSlugBind = filepath.Join(datadir, "containers", cnrName, ".nitrous-container-slug") + ":/.nitrous-container-slug:ro"
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir)
+		prov, err = NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
 	})
 
-	Describe("SerializePortBindings", func() {
+	Describe("serializePortBindings", func() {
 		It("parse docker bindings and return nitrous-compliant format", func() {
 			var bindings []string
-			bindings = docker.SerializePortBindings(
+			bindings = serializePortBindings(
 				map[dockerclient.Port][]dockerclient.PortBinding{
 					"3000/tcp": {{"0.0.0.0", "3000"}},
 					"9999/udp": {{"10.0.42.1", "8888"}},
@@ -115,6 +114,37 @@ var _ = Describe("provider/docker config", func() {
 			addBinding(cnr.HostConfig.PortBindings, prov.Gateway(), "49123", "4000")
 			config := prov.ConfigFromContainer(cnr)
 			Expect(config.PortBindings).To(ConsistOf([]string{"public:8080:3000", "private:49123:4000"}))
+		})
+
+		It("returns config port bindings from hostconfig", func() {
+			addBinding(cnr.HostConfig.PortBindings, "0.0.0.0", "8080", "3000")
+			addBinding(cnr.HostConfig.PortBindings, prov.Gateway(), "", "4000")
+
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "8000", "3000")
+			addBinding(cnr.NetworkSettings.Ports, prov.Gateway(), "49123", "4000")
+
+			config := prov.ConfigFromContainer(cnr)
+			Expect(config.ConfigPortBindings).To(ConsistOf([]string{"public:8080:3000", "private::4000"}))
+		})
+
+		It("config port bindings should include exposed ports not included inside HostConfig", func() {
+			cnr.HostConfig.PublishAllPorts = true
+
+			cnr.Config.ExposedPorts = map[dockerclient.Port]struct{}{
+				"3000": {},
+				"4000": {},
+				"5000": {},
+			}
+
+			addBinding(cnr.HostConfig.PortBindings, "0.0.0.0", "8080", "3000")
+			addBinding(cnr.HostConfig.PortBindings, prov.Gateway(), "", "4000")
+
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "8000", "3000")
+			addBinding(cnr.NetworkSettings.Ports, prov.Gateway(), "49123", "4000")
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "49124", "5000")
+
+			config := prov.ConfigFromContainer(cnr)
+			Expect(config.ConfigPortBindings).To(ConsistOf([]string{"public:8080:3000", "private::4000", "public::5000"}))
 		})
 
 		It("returns mounts from container", func() {

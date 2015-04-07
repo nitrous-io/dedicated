@@ -25,7 +25,7 @@ type PortBindingsMap map[dockerclient.Port][]dockerclient.PortBinding
 // returned portspecs are limited to:
 //   public:hostPort:containerPort
 //   private:hostPort:containerPort
-func SerializePortBindings(bindingsMap PortBindingsMap) []string {
+func serializePortBindings(bindingsMap PortBindingsMap) []string {
 	resultBindings := []string{}
 	for containerPort, portBindings := range bindingsMap {
 		// portBindings is nil when port is exposed with no
@@ -83,10 +83,10 @@ func (p *DockerProvider) configFromContainer(container *dockerclient.Container) 
 	configPortBindings := normalizedConfigPortBindings(container, p.gateway)
 	runtimePortBindings := container.NetworkSettings.Ports
 
-	serializedConfigPortBindings := SerializePortBindings(configPortBindings)
+	serializedConfigPortBindings := serializePortBindings(configPortBindings)
 	serializedRuntimePortBindings := serializedConfigPortBindings
 	if container.State.Running {
-		serializedRuntimePortBindings = SerializePortBindings(runtimePortBindings)
+		serializedRuntimePortBindings = serializePortBindings(runtimePortBindings)
 	}
 
 	containerConfig := &provider.ContainerConfig{

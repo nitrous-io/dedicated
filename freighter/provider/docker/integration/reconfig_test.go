@@ -208,6 +208,35 @@ var _ = Describe("Reconfig", func() {
 		Expect(reconfigCn.Image).To(MatchRegexp(fmt.Sprintf(`^%s-reconfig-\d+$`, info.Name)))
 	})
 
+	It("reconfig should not persist auto host port bindings", func() {
+		configJSON := `{
+			"PortBindings": ["public::1337/tcp"]
+		}`
+
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		config, err := prov.GetConfig(info.ID)
+		Expect(err).To(BeNil())
+
+		// Host port bindings should not be specified in config port bindings
+		Expect(config.ConfigPortBindings).To(ConsistOf([]string{"public::1337/tcp"}))
+
+		// Simulate adding one more port binding
+		reconfigCn, err := prov.Reconfig(info.ID, `{
+			"PortBindings": ["public::1337/tcp", "public::8080/tcp"]
+		}`)
+		defer test.CleanUpContainer(reconfigCn.ID)
+		Expect(err).To(BeNil())
+
+		config2, err := prov.GetConfig(reconfigCn.ID)
+		Expect(err).To(BeNil())
+
+		// After reconfig, the old host port bindings should still not be specified in config port bindings
+		Expect(config2.ConfigPortBindings).To(ConsistOf([]string{"public::1337/tcp", "public::8080/tcp"}))
+	})
+
 	It("removes built-in volumes when reconfig mount options do not include them", func() {
 		prov, info, cleanupFn, err := startContainer("busybox-volumes", "")
 		defer cleanupFn()
