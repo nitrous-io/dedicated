@@ -2,7 +2,12 @@
 
 App.ContainerRoute = App.AuthedRoute.extend
   model: (params) ->
-    fetch = App.Container.fetch(params.containerSlug)
+    isShared = App.get('sharedContainers').findBy('slug', params.containerSlug)
+    model = if isShared
+      App.SharedContainer
+    else
+      App.Container
+    fetch = model.fetch(params.containerSlug)
     container = fetch.value
     App.set 'selectedContainer', container
     fetch.catch (jqxhr) =>

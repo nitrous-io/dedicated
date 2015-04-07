@@ -12,4 +12,6 @@ var (
 	DoAsyncExclusive = doAsyncExclusive
 	LockerFn         = lockerFn
 	UnlockerFn       = unlockerFn
+
+	FetchContainersWithHosts = fetchContainersWithHosts
 )
