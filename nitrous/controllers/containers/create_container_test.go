@@ -23,7 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
@@ -39,7 +39,7 @@ var _ = Describe("CreateContainer", func() {
 
 		u      *user.User
 		t      *token.Token
-		hs     *HostStack
+		hs     *test.HostStack
 		params url.Values
 		env    *middleware.Env
 		h      *host.Host
@@ -61,9 +61,9 @@ var _ = Describe("CreateContainer", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		StubDefaultFreighterFn(mockClient)
+		test.StubDefaultFreighterFn(mockClient)
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 
@@ -72,8 +72,7 @@ var _ = Describe("CreateContainer", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
-		Expect(err).To(BeNil())
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
 
 		t = &token.Token{
 			UserID: u.ID,
@@ -82,7 +81,7 @@ var _ = Describe("CreateContainer", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, &HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
 				Slug:          "foo",
 				IPAddress:     sql.NullString{"127.0.0.1", true},
@@ -118,7 +117,7 @@ var _ = Describe("CreateContainer", func() {
 		if db != nil {
 			db.Close()
 		}
-		UnstubFreighterFn()
+		test.UnstubFreighterFn()
 	})
 
 	expectSerializedContainer := func(cn *serializers.Container, c *container.Container) {
