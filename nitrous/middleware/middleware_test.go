@@ -456,8 +456,8 @@ var _ = Describe("middleware", func() {
 				r.Header.Set("X-Real-Ip", "202.157.130.11")
 			})
 
-			Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.11"))
 			It("should return the IP address in the X-Real-Ip header", func() {
+				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.11"))
 			})
 		})
 
