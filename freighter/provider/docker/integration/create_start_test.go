@@ -1,7 +1,9 @@
 package integration
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -40,6 +42,24 @@ var _ = Describe("CreateStart", func() {
 			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
 			"/nitrous/ssh":     filepath.Join(datadir, "containers", info.Name, "ssh"),
+		}, nil)
+	})
+
+	FIt("creates host directory for built-in volumes implicitly", func() {
+		var err error
+		datadir := os.Getenv("FREIGHTERD_BASE")
+		if datadir == "" {
+			datadir, err = ioutil.TempDir("", "freighter-integration")
+			Expect(err).To(BeNil())
+		}
+
+		_, info, cleanupFn, err := startContainerWithData("busybox-volumes", datadir, "")
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		assertVolumes(info.ID, map[string]string{
+			"/var/lib/docker": filepath.Join(datadir, "volumes", fmt.Sprintf("%s-%s", info.Name, base64.StdEncoding.EncodeToString([]byte("/var/lib/docker")))),
+			"/var/lib/extra":  filepath.Join(datadir, "volumes", fmt.Sprintf("%s-%s", info.Name, base64.StdEncoding.EncodeToString([]byte("/var/lib/extra")))),
 		}, nil)
 	})
 
