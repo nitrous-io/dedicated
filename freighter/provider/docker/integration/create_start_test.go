@@ -1,7 +1,7 @@
 package integration
 
 import (
-	"encoding/base64"
+	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -39,13 +39,14 @@ var _ = Describe("CreateStart", func() {
 			"9999/tcp -> 0.0.0.0:9999",
 		})
 		assertVolumes(info.ID, map[string]string{
-			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
-			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
-			"/nitrous/ssh":     filepath.Join(datadir, "containers", info.Name, "ssh"),
+			"/etc/dotfiles":            filepath.Join(datadir, "volumes", "dotfiles"),
+			"/volumes/backups":         filepath.Join(datadir, "volumes", "backups"),
+			"/nitrous/ssh":             filepath.Join(datadir, "containers", info.Name, "ssh"),
+			"/.nitrous-container-slug": filepath.Join(datadir, "containers", info.Name, ".nitrous-container-slug"),
 		}, nil)
 	})
 
-	FIt("creates host directory for built-in volumes implicitly", func() {
+	It("creates host directory for built-in volumes implicitly", func() {
 		var err error
 		datadir := os.Getenv("FREIGHTERD_BASE")
 		if datadir == "" {
@@ -57,9 +58,15 @@ var _ = Describe("CreateStart", func() {
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
+		dockerSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/docker")))
+		extraSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/extra")))
+		Expect(info.Volumes).To(HaveLen(2), "unexpected returned volumes")
+		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/docker", dockerSlug))
+		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/extra", extraSlug))
+
 		assertVolumes(info.ID, map[string]string{
-			"/var/lib/docker": filepath.Join(datadir, "volumes", fmt.Sprintf("%s-%s", info.Name, base64.StdEncoding.EncodeToString([]byte("/var/lib/docker")))),
-			"/var/lib/extra":  filepath.Join(datadir, "volumes", fmt.Sprintf("%s-%s", info.Name, base64.StdEncoding.EncodeToString([]byte("/var/lib/extra")))),
+			"/var/lib/docker": fmt.Sprintf("%s/volumes/%s", datadir, dockerSlug),
+			"/var/lib/extra":  fmt.Sprintf("%s/volumes/%s", datadir, extraSlug),
 		}, nil)
 	})
 

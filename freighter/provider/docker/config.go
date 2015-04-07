@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"crypto/md5"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -29,12 +30,8 @@ func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provi
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {
 	dcConfig := &dockerclient.Config{
-		Hostname: cfg.Hostname,
-		Image:    cfg.Image,
-		Volumes: map[string]struct{}{
-			"/nitrous/ssh":            struct{}{},
-			"/" + nitrousSlugFilename: struct{}{},
-		},
+		Hostname:     cfg.Hostname,
+		Image:        cfg.Image,
 		ExposedPorts: map[dockerclient.Port]struct{}{},
 		OpenStdin:    true,
 		Tty:          true,
@@ -66,8 +63,9 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	return dcConfig, nil
 }
 
-func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.HostConfig, error) {
+func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.HostConfig, error) {
 	newCfg := dockerclient.HostConfig{}
+	hostCfg := container.HostConfig
 	if hostCfg != nil {
 		newCfg = *hostCfg
 	}
@@ -113,9 +111,19 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		}
 		newCfg.Binds = ms
 	}
-
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
+
+	// implicitly create external volumes for built-in volume
+	for vname := range container.Config.Volumes {
+		slug := fmt.Sprintf("%s:%s", container.ID, vname)
+		n := md5.Sum([]byte(slug))
+		vinfo, err := p.CreateVolume(fmt.Sprintf("%x", n))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create volume %q(%q): %s", vname, n, err)
+		}
+		addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
+	}
 
 	// ExtraHosts is only available in Docker 1.3.0+.
 	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))

@@ -253,6 +253,15 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		return nil, err
 	}
 
+	// get volumes created in /var/lib/freighter/volumes and mounted to this
+	// container
+	volumes := make(map[string]string)
+	for vname, dest := range container.Volumes {
+		if filepath.Dir(dest) == p.VolumesDir("") {
+			volumes[vname] = filepath.Base(dest)
+		}
+	}
+
 	return &provider.ContainerInfo{
 		ID:         container.ID,
 		Name:       nameFromContainer(container),
@@ -269,6 +278,7 @@ func (p *DockerProvider) GetInfo(id string) (*provider.ContainerInfo, error) {
 		User:       container.Config.User,
 		StartedAt:  container.State.StartedAt,
 		FinishedAt: container.State.FinishedAt,
+		Volumes:    volumes,
 	}, nil
 }
 
@@ -292,7 +302,7 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		cfg.Hostname = container.Config.Hostname
 		cfg.Image = container.Config.Image
 
-		startConfig, err := p.mkHostConfig(container.HostConfig, cfg, p.isNitrousImage(cfg.Image))
+		startConfig, err := p.mkHostConfig(container, cfg, p.isNitrousImage(cfg.Image))
 		if err != nil {
 			return nil, err
 		}
