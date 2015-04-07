@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -80,17 +81,19 @@ var _ = Describe("user serializer", func() {
 				UpdatedAt: &updatedAt,
 			}
 
+			freeTrialExpiresAt := time.Date(2015, time.January, 1, 0, 0, 0, 0, time.UTC)
 			bp := &billingprofile.BillingProfile{
-				ID:        10,
-				UserID:    10,
-				State:     "paid",
-				StripeID:  sql.NullString{"sk_0001", true},
-				LastFour:  sql.NullString{"1234", true},
-				CardType:  sql.NullString{"Visa", true},
-				ExpMonth:  sql.NullInt64{4, true},
-				ExpYear:   sql.NullInt64{2014, true},
-				CreatedAt: &createdAt,
-				UpdatedAt: &updatedAt,
+				ID:                 10,
+				UserID:             10,
+				State:              "paid",
+				StripeID:           sql.NullString{"sk_0001", true},
+				LastFour:           sql.NullString{"1234", true},
+				CardType:           sql.NullString{"Visa", true},
+				ExpMonth:           sql.NullInt64{4, true},
+				ExpYear:            sql.NullInt64{2014, true},
+				FreeTrialExpiresAt: pq.NullTime{freeTrialExpiresAt, true},
+				CreatedAt:          pq.NullTime{createdAt, true},
+				UpdatedAt:          pq.NullTime{updatedAt, true},
 			}
 
 			u := serializers.SerializeUserWithProfiles(model, up, bp)
@@ -112,6 +115,7 @@ var _ = Describe("user serializer", func() {
 					"card_type": "Visa",
 					"exp_month": 4,
 					"exp_year": 2014,
+					"free_trial_expires_at": "2015-01-01T00:00:00Z",
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z",
 					"card_required": false,

@@ -357,12 +357,8 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	}
 
 	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(p.db)
-	if err != nil {
-		return nil, err
-	}
-
-	if !canCreateHosts {
+	if err := opts.User.CanCreateHosts(p.db, opts.Plan); err != nil {
+		p.logger.Errorf("Error checking if user can create host: %v", err)
 		return nil, ErrHostCreationNotAllowed
 	}
 
@@ -523,12 +519,8 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	if !canCreateHosts {
+	if err := opts.User.CanCreateHosts(tx, opts.Plan); err != nil {
+		p.logger.Errorf("Error checking if user can create host: %v", err)
 		tx.Rollback()
 		return nil, ErrHostCreationNotAllowed
 	}
