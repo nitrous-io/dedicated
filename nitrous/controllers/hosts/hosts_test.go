@@ -1652,10 +1652,12 @@ var _ = Describe("controllers/hosts", func() {
 
 			checkStoppedEvent := func(evt *controllers.Event, slug string) {
 				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]*serializers.Container)
+				evtData, ok := evt.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				Expect(evtData["container"].Slug).To(Equal(slug))
-				Expect(evtData["container"].State).To(Equal(container.StateStopped.String()))
+				cn, ok := evtData["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.Slug).To(Equal(slug))
+				Expect(cn.State).To(Equal(container.StateStopped.String()))
 			}
 
 			It("publishes container stopped events", func() {
@@ -2042,10 +2044,11 @@ var _ = Describe("controllers/hosts", func() {
 
 			checkStoppedEvent := func(evt *controllers.Event, slug string) {
 				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]*serializers.Container)
+				evtData, ok := evt.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
-				Expect(evtData["container"].Slug).To(Equal(slug))
-				Expect(evtData["container"].State).To(Equal(container.StateStopped.String()))
+				cn, ok := evtData["container"].(*serializers.Container)
+				Expect(cn.Slug).To(Equal(slug))
+				Expect(cn.State).To(Equal(container.StateStopped.String()))
 			}
 
 			It("publishes container stopped events", func() {

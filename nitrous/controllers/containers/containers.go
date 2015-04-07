@@ -363,7 +363,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		cn, env, container.StateStarting, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
-			publishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
+			PublishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
 			liveContainer, err := cl.Start(cn.CID, config)
 			if err != nil {
@@ -373,7 +373,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
 
-			publishContainerEvent(env, controllers.EventContainerStarted, cn, nil)
+			PublishContainerEvent(env, controllers.EventContainerStarted, cn, nil)
 			env.Status = http.StatusOK
 			env.Data = map[string]interface{}{
 				"container": serializers.SerializeContainer(cn),
@@ -399,7 +399,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 				if err != nil {
 					return err
 				}
-				publishContainerEvent(env, evtName, cn, nil)
+				PublishContainerEvent(env, evtName, cn, nil)
 
 				liveContainer, err := action(cl, cn.CID)
 				if err != nil {
@@ -411,7 +411,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 
 				cn = hydrateContainer(cn, liveContainer, h)
 
-				publishContainerEvent(env, eventName, cn, nil)
+				PublishContainerEvent(env, eventName, cn, nil)
 				env.Status = http.StatusOK
 				env.Data = map[string]interface{}{
 					"container": serializers.SerializeContainer(cn),
@@ -441,7 +441,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
 			// broadcast transitioning state
-			publishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
+			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
 			cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 			if err != nil {
@@ -463,7 +463,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			cn = hydrateContainer(cn, liveContainer, h)
 
-			publishContainerEvent(env, controllers.EventContainerDestroyed, cn, nil)
+			PublishContainerEvent(env, controllers.EventContainerDestroyed, cn, nil)
 			env.Status = http.StatusOK
 			env.Data = map[string]interface{}{
 				"container": serializers.SerializeContainer(cn),
@@ -592,7 +592,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return c
 }
 
-func publishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
+func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
 	var userIDs []int64
 	err := env.DB.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, c.ID)
 	if err != nil {

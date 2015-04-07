@@ -51,7 +51,7 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		async, cn, env,
 		container.StateReconfiguring, reconfigLockTime,
 		func() error {
-			publishContainerEvent(env, controllers.EventContainerReconfiguring, cn, nil)
+			PublishContainerEvent(env, controllers.EventContainerReconfiguring, cn, nil)
 
 			err := reconfigureContainer(ctx, env)
 
@@ -64,7 +64,7 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 				add := map[string]interface{}{
 					"error": errMsg,
 				}
-				publishContainerEvent(env, controllers.EventContainerReconfigureFailed, cn, add)
+				PublishContainerEvent(env, controllers.EventContainerReconfigureFailed, cn, add)
 				return err
 			}
 
@@ -146,7 +146,7 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 		"config": serializers.SerializeContainerConfig(newConfig),
 	}
 
-	publishContainerEvent(env, controllers.EventContainerReconfigured, cn, add)
+	PublishContainerEvent(env, controllers.EventContainerReconfigured, cn, add)
 
 	return nil
 }
