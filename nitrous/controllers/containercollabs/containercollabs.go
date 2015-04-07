@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -24,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -96,6 +98,8 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		}
 	}()
 
+	publishEvent(env, controllers.EventCollaboratorAdded, cn, usr.ID)
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,
@@ -109,16 +113,41 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
+	var affectedUserID int64
+	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1`, ccid).Scan(&affectedUserID)
+	if err != nil {
+		return err
+	}
+
 	err = containercollab.Delete(env.DB, ccid)
 	if err != nil {
 		return err
 	}
+
+	publishEvent(env, controllers.EventCollaboratorRemoved, cn, affectedUserID)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,
 	}
 	return nil
+}
+
+func publishEvent(env *middleware.Env, name controllers.EventName, c *container.Container, trgtID int64) {
+	userIDs := []int64{c.UserID, trgtID}
+
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(c),
+		"initiated_by": map[string]interface{}{
+			"username": env.User.Username,
+			"id":       env.User.ID,
+		},
+	}
+
+	for _, userID := range userIDs {
+		topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
+		env.Events.Publish(controllers.NewEvent(name, data), topic)
+	}
 }
 
 func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {

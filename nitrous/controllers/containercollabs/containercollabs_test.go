@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollabs"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -19,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -313,6 +316,54 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(collab.EmailSentAt.Valid).To(BeFalse())
 		})
 
+		It("should fire off events to the target user and container owner", func() {
+			otherUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			chOwner := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(chOwner, u.Topic())
+			chCollab := svr.Events.Subscribe(otherUser.Topic())
+			defer svr.Events.Unsubscribe(chCollab, otherUser.Topic())
+
+			doRequest("steve")
+
+			msgsOwners := []pubsub.Message{}
+			msgsCollab := []pubsub.Message{}
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				msgsOwners = append(msgsOwners, <-chOwner)
+				wg.Done()
+			}()
+			go func() {
+				msgsCollab = append(msgsCollab, <-chCollab)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			Expect(msgsOwners).To(HaveLen(1))
+			Expect(msgsCollab).To(HaveLen(1))
+
+			ownerMsg := msgsOwners[0].(*controllers.Event)
+			Expect(ownerMsg.Name).To(Equal(controllers.EventCollaboratorAdded))
+			data, ok := ownerMsg.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok := data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
+
+			ownerCollab := msgsCollab[0].(*controllers.Event)
+			Expect(ownerCollab.Name).To(Equal(controllers.EventCollaboratorAdded))
+			data, ok = ownerCollab.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok = data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
+		})
+
 		It("should not allow the same user to be added twice", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -371,6 +422,56 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(0))
+		})
+
+		It("should fire off events to the target user and container owner", func() {
+			otherUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			chOwner := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(chOwner, u.Topic())
+			chCollab := svr.Events.Subscribe(otherUser.Topic())
+			defer svr.Events.Unsubscribe(chCollab, otherUser.Topic())
+
+			doRequest(cc.ID)
+
+			msgsOwners := []pubsub.Message{}
+			msgsCollab := []pubsub.Message{}
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				msgsOwners = append(msgsOwners, <-chOwner)
+				wg.Done()
+			}()
+			go func() {
+				msgsCollab = append(msgsCollab, <-chCollab)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			Expect(msgsOwners).To(HaveLen(1))
+			Expect(msgsCollab).To(HaveLen(1))
+
+			ownerMsg := msgsOwners[0].(*controllers.Event)
+			Expect(ownerMsg.Name).To(Equal(controllers.EventCollaboratorRemoved))
+			data, ok := ownerMsg.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok := data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
+
+			ownerCollab := msgsCollab[0].(*controllers.Event)
+			Expect(ownerCollab.Name).To(Equal(controllers.EventCollaboratorRemoved))
+			data, ok = ownerCollab.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok = data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
 		})
 	})
 

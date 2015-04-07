@@ -78,7 +78,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
         set.push existing
     set.sortBy('username')
-  ).property 'sharedContainers'
+  ).property 'sharedContainers.@each'
 
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')

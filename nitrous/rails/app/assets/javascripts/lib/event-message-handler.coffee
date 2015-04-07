@@ -69,6 +69,10 @@ App.EventMessageHandler = App.EventsSocket.extend
         if progress = parseProgress(data)
           image.set 'progress', progress
 
+    ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
+      @on evt, (data) ->
+        App.set('sharedContainers', App.SharedContainer.fetch().value)
+
     @on 'image.build_failed', (data) ->
       findImage(data)?.set 'progress', null
 
