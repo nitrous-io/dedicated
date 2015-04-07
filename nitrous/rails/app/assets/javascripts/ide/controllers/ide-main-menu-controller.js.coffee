@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideGotoLine']
+  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideGotoLine', 'ideSidebar']
   initialize: ->
   reset: ->
 
@@ -41,7 +41,8 @@ App.IdeMainMenuController = Em.Controller.extend
 
   editFindInProject: ->
     if controller = @get 'controllers.ideFindInProject'
-      controller.showFindDialog()
+      path = this.get('controllers.ideSidebar.rootPath')?.absolutePath
+      controller.showFindDialog(path)
 
   editReplace: ->
     activeDocumentSet 'replaceTrigger', true
