@@ -448,6 +448,65 @@ var _ = Describe("middleware", func() {
 				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.10"))
 			})
 		})
+
+		Context("with RemoteAddr and X-Forwarded-For are not set, but X-Remote-Ip is set", func() {
+			BeforeEach(func() {
+				r.RemoteAddr = ""
+				r.Header.Set("X-Forwarded-For", "")
+				r.Header.Set("X-Real-Ip", "202.157.130.11")
+			})
+
+			It("should return the IP address in the X-Remote-Ip header", func() {
+				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.11"))
+			})
+		})
+
+		Context("with RemoteAddr and X-Forwarded-For are not set, but X-Real-Ip is set to multiple IP addresses, some of which are 'trusted' IP addresses", func() {
+			BeforeEach(func() {
+				r.RemoteAddr = ""
+				r.Header.Set("X-Forwarded-For", "")
+				r.Header.Set("X-Real-Ip", "127.0.0.1:63333 192.168.212.122\t202.157.130.203:60000")
+			})
+
+			It("should return the IP address in the X-Real-Ip header", func() {
+				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.203"))
+			})
+		})
+
+		Context("with RemoteAddr is not set and both X-Real-Ip and X-Forwarded-For are set", func() {
+			BeforeEach(func() {
+				r.RemoteAddr = ""
+				r.Header.Set("X-Forwarded-For", "127.0.0.1:63333 192.168.212.122\t202.157.130.202:60000")
+				r.Header.Set("X-Real-Ip", "127.0.0.1:63333 192.168.212.123\t202.157.130.203:60000")
+			})
+
+			It("should return the IP address in the X-Forwarded-For", func() {
+				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.202"))
+			})
+		})
+
+		Context("with RemoteAddr and X-Real-Ip and X-Forwarded-For are set", func() {
+			BeforeEach(func() {
+				r.RemoteAddr = "202.157.130.10"
+				r.Header.Set("X-Forwarded-For", "127.0.0.1:63333 192.168.212.122\t202.157.130.202:60000")
+				r.Header.Set("X-Real-Ip", "202.157.130.203:60000")
+			})
+
+			It("should return the IP address stored in RemoteAddr", func() {
+				Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.10"))
+			})
+
+			Context("with RemoteAddr and X-Forwarded-For set to 'proxy' IP address", func() {
+				BeforeEach(func() {
+					r.RemoteAddr = "127.0.0.1:63333"
+					r.Header.Set("X-Forwarded-For", "192.168.212.122")
+				})
+
+				It("should return the IP address ine the X-Real-Ip", func() {
+					Expect(middleware.GetRemoteAddr(r)).To(Equal("202.157.130.203"))
+				})
+			})
+		})
 	})
 
 	Describe("GetBearerToken", func() {

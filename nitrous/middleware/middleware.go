@@ -246,6 +246,13 @@ func GetRemoteAddr(r *http.Request) string {
 		}
 	}
 
+	if remoteAddr == "" {
+		ipAddresses = filterIPAddresses(splitIPAddresses(r.Header.Get("X-Real-Ip")))
+		if len(ipAddresses) > 0 {
+			remoteAddr = ipAddresses[0]
+		}
+	}
+
 	return remoteAddr
 }
 
