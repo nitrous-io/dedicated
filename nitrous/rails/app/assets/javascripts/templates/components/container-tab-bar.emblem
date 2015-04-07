@@ -1,14 +1,12 @@
 li class={generalSelected:selected}
   link-to 'container.index' | Container
-// TODO: Remove after happy with container sharing capabilities
-if App.user.admin
-  li class={collaboratorsSelected:selected}
-    link-to 'container.collaborators'
-      | Collaborators
-      if model.collaborators.length
-        |  (
-        = model.collaborators.length
-        | )
+li class={collaboratorsSelected:selected}
+  link-to 'container.collaborators'
+    | Collaborators
+    if model.collaborators.length
+      |  (
+      = model.collaborators.length
+      | )
 if model.sshEnabled
   li class={keysSelected:selected}
     link-to 'container.keys' | SSH Keys

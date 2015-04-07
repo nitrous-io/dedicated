@@ -32,30 +32,30 @@ if App.hosts.length
                         .state-indicator class={container.state} title={container.state}
                           span
                             = container.state
-if App.user.admin
-  if App.groupedSharedContainers.length
-    h2 Shared
-    ul.hosts
-      each group in App.groupedSharedContainers
-        li
-            a.noclick href='#'
-              h3
-                = group.username
-            ul.containers
-              each container in group.items
-                li class={container.selected container.isTerminated:disabled}
-                  if container.isTerminated
-                    a.noclick href='#'
-                      h4
-                        = container.displayName
-                      .state-indicator.terminated title='terminated'
-                  else
-                    link-to 'container.index' container.slug
-                      h4
-                        = container.displayName
-                      .state-indicator class={container.state} title={container.state}
-                        span
-                          = container.state
+
+if App.groupedSharedContainers.length
+  h2 Shared
+  ul.hosts
+    each group in App.groupedSharedContainers
+      li
+          a.noclick href='#'
+            h3
+              = group.username
+          ul.containers
+            each container in group.items
+              li class={container.selected container.isTerminated:disabled}
+                if container.isTerminated
+                  a.noclick href='#'
+                    h4
+                      = container.displayName
+                    .state-indicator.terminated title='terminated'
+                else
+                  link-to 'container.index' container.slug
+                    h4
+                      = container.displayName
+                    .state-indicator class={container.state} title={container.state}
+                      span
+                        = container.state
 
 .app-download
   h3 Get Desktop Sync
