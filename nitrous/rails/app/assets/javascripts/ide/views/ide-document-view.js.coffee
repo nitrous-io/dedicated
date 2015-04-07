@@ -1,3 +1,5 @@
+#= require diff_match_patch
+
 TAB_SIZES = [2, 3, 4, 8]
 
 App.IdeDocumentView = Em.View.extend
@@ -236,6 +238,62 @@ App.IdeDocumentView = Em.View.extend
       editor.set 'text', @get 'document.content'
   ).observes 'document.content'
 
+  cmDelete: (cm, start, end) ->
+    from = cm.posFromIndex(start)
+    to = cm.posFromIndex(end)
+    cm.replaceRange '', from, to
+
+  cmInsert: (cm, start, s) ->
+    from = cm.posFromIndex(start)
+    cm.replaceRange s, from, from
+
+  removeFirstPatchIfPreserve: (patch) ->
+    return unless patch.diffs.length > 0
+    diff = patch.diffs[0]
+    type = diff[0]
+    return unless type == 0
+    n = diff[1].length
+    patch.start1 += n
+    patch.length1 -= n
+    # remove first diff
+    patch.diffs.splice 0, 1
+
+  removeLastPatchIfPreserve: (patch) ->
+    n = patch.diffs.length
+    return unless n > 0
+    diff = patch.diffs[n-1]
+    return unless diff[0] == DIFF_EQUAL
+    s = diff[1]
+    patch.length1 -= s.length
+    # remove last diff
+    patch.diffs.splice n-1, 1
+
+  # patch_diff_match library generates diff that are meant to be applied fuzzily
+  # so they add a bit of before/after context for finding the text to change.
+  # We do exact match and this additional context is not needed and causes
+  # unnecessary modifications, so we remove first and last diff component
+  # if they are just for context
+  optimizePatch: (patch) ->
+    @removeFirstPatchIfPreserve patch
+    @removeLastPatchIfPreserve patch
+
+  applyPatch: (cm, patch) ->
+    @optimizePatch patch
+    start = patch.start1
+    end = start + patch.length1
+    @cmDelete cm, start, end
+    patch.diffs.forEach (diff) =>
+      type = diff[0] # 0 : DIFF_EQUAL, 1 : DIFF_INSERT, -1 : DIFF_DELETE
+      text = diff[1]
+      # DIFF_DELETE is a no-op because it got deleted with
+      # the first cmDelete()
+      if type == DIFF_EQUAL
+        @cmInsert cm, start, text
+        start += text.length
+      else if type == DIFF_INSERT
+        @cmInsert cm, start, text
+        start += text.length
+
   # a hack but the best we could come up with
   # if we want to replace content of the editor and preserve current line etc.
   triggerReplaceContent: (->
@@ -245,12 +303,25 @@ App.IdeDocumentView = Em.View.extend
     cm = editor?.codeMirror
     return unless cm
 
-    # TODO: to restore state well and play nice with collaborations
-    # features we need to do a diff between new and old content and insert/delete
-    # parts that changed
-    selections = cm.listSelections()
-    editor.set 'text', newContent
-    editor.setSelections(selections)
+    currContent = cm.getValue()
+    if currContent == newContent
+      @set 'document.clean', true
+      return
+
+    # heuristic: replacing content by diffing is only meant for relatively
+    # small changes (e.g. those we can expect to get by runnign goimports on
+    # .go code). if a change is too big, we replace the whole thing
+    lenDiff = Math.abs(currContent.length - newContent.length)
+    if lenDiff > 4*1024
+      selections = cm.listSelections()
+      editor.set 'text', newContent
+      editor.setSelections(selections)
+    else
+      differ = new diff_match_patch
+      patches = differ.patch_make(currContent, newContent)
+      for patch in patches
+        @applyPatch cm, patch
+
     # this will call triggerReplaceContent again which is why we filter out null above
     @set 'document.replaceContentTrigger', null
     @set 'document.clean', true
