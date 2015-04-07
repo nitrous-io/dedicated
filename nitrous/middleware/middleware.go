@@ -126,7 +126,12 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 		return mh.Error(err, label)
 	}
 
-	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
+	remoteAddr := GetRemoteAddr(r)
+	if remoteAddr == "" {
+		env.Logger.Errorf("Unable to get remote address. Token: %d", t.ID)
+	}
+
+	if err := t.Touch(db, remoteAddr); err != nil {
 		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
@@ -241,6 +246,13 @@ func GetRemoteAddr(r *http.Request) string {
 
 	if remoteAddr == "" {
 		ipAddresses = filterIPAddresses(splitIPAddresses(r.Header.Get("X-Forwarded-For")))
+		if len(ipAddresses) > 0 {
+			remoteAddr = ipAddresses[0]
+		}
+	}
+
+	if remoteAddr == "" {
+		ipAddresses = filterIPAddresses(splitIPAddresses(r.Header.Get("X-Real-Ip")))
 		if len(ipAddresses) > 0 {
 			remoteAddr = ipAddresses[0]
 		}
