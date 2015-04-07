@@ -459,6 +459,102 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindShared()", func() {
+		var (
+			recv *user.User
+			c    *container.Container
+		)
+
+		BeforeEach(func() {
+			recv = &user.User{
+				Username: "shared",
+				Email:    "shared@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, recv.Insert)
+			Expect(err).To(BeNil())
+
+			c = &container.Container{
+				CID:    "thingo3",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "coffee-test-container",
+			}
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, recv.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when given param is an ID", func() {
+			It("returns the matching record that is shared via the container", func() {
+				h, err := host.FindShared(db, recv, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.Provider).To(Equal(hs.PT.Provider))
+				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+			})
+
+			It("returns an error when the matching record is not shared with the user", func() {
+				_, err := db.Exec(`DELETE FROM container_collabs WHERE user_id = $1;`, recv.ID)
+				Expect(err).To(BeNil())
+
+				h, err := host.FindShared(db, recv, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
+			})
+
+			It("returns an error when there's no matching record", func() {
+				h, err := host.FindShared(db, recv, "10001")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
+			})
+		})
+
+		Context("when given param is a slug", func() {
+			It("returns the matching host record that is shared via the container", func() {
+				h, err := host.FindShared(db, recv, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h).NotTo(BeNil())
+				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.Slug).To(Equal(hs.H.Slug))
+				Expect(h.Provider).To(Equal(hs.PT.Provider))
+				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
+				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
+			})
+
+			It("returns an error when matching record is not shared with the user", func() {
+				_, err := db.Exec(`DELETE FROM container_collabs WHERE user_id = $1;`, recv.ID)
+				Expect(err).To(BeNil())
+
+				h, err := host.FindShared(db, recv, hs.H.Slug)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
+			})
+
+			It("returns an error when there's no matching record'", func() {
+				h, err := host.FindShared(db, recv, "vivabrazil")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(h).To(BeNil())
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				h, err := host.FindShared(db, recv, hs.H.Slug)
+				Expect(h).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByIdentifier()", func() {
 		Context("when given identifier is an ID", func() {
 			It("returns the host with the given ID", func() {

@@ -210,11 +210,15 @@ func AuthQS(mw Middleware) Middleware {
 type hostHandlerFn func(h *host.Host, env *Env, w http.ResponseWriter, r *http.Request) error
 
 func HostViaForm(srcVar string, fn hostHandlerFn) Middleware {
-	return withHost("form", srcVar, fn)
+	return withHost("form", srcVar, fn, false)
 }
 
 func HostViaPath(srcVar string, fn hostHandlerFn) Middleware {
-	return withHost("path", srcVar, fn)
+	return withHost("path", srcVar, fn, false)
+}
+
+func SharedHostViaPath(srcVar string, fn hostHandlerFn) Middleware {
+	return withHost("path", srcVar, fn, true)
 }
 
 func GetBearerToken(r *http.Request) (string, error) {
@@ -275,7 +279,7 @@ func filterIPAddresses(ipAddresses []string) []string {
 
 // withHost takes a src ("form" or "path") and the formvalue/pattern to look
 // for to retrieve host slug.
-func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
+func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		label := "nitrous.withHost"
 		start := time.Now()
@@ -297,6 +301,12 @@ func withHost(src string, srcVar string, fn hostHandlerFn) Middleware {
 			h, err = host.FindByIdentifier(env.DB, param)
 		} else {
 			h, err = host.Find(env.DB, env.User, param)
+		}
+		if allowCollab && err == sql.ErrNoRows {
+			h, err = host.FindShared(env.DB, env.User, param)
+			if err == nil {
+				env.Logger.Infof("Collaborator user %d accessed host %d", env.User.ID, h.ID)
+			}
 		}
 		if err != nil {
 			if err == sql.ErrNoRows {

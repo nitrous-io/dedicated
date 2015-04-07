@@ -106,6 +106,38 @@ var _ = Describe("controllers/hosts", func() {
 		}
 	})
 
+	var createCollaborator = func(hs *test.HostStack) (*user.User, *token.Token) {
+		recv := &user.User{
+			Username: "shared",
+			Email:    "shared@example.com",
+			Password: "123456",
+		}
+		err := test.WrapInTransaction(db, recv.Insert)
+		Expect(err).To(BeNil())
+
+		tok := &token.Token{
+			UserID: recv.ID,
+			Token:  "recv",
+		}
+		err = tok.Insert(db)
+		Expect(err).To(BeNil())
+
+		c := &container.Container{
+			CID:    "thingo3",
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "coffee-test-container",
+		}
+		err = c.Insert(db)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, recv.ID)
+		Expect(err).To(BeNil())
+
+		return recv, tok
+	}
+
 	Describe("GET /api/v0/hosts", func() {
 		doRequest := func() {
 			req, err := test.NewRequest("GET", "/api/v0/hosts", nil)
@@ -404,6 +436,38 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+
+		Context("container collaborator", func() {
+			var (
+				recv *user.User
+				tok  *token.Token
+			)
+
+			BeforeEach(func() {
+				recv, tok = createCollaborator(hs)
+			})
+
+			It("responds with host info from the database if the user is a collaborator", func() {
+				doRequest(hs.H.Slug, tok.Token)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+			})
+
+			It("responds with 404 if the user is not a collaborator", func() {
+				_, err := db.Exec(`DELETE FROM container_collabs WHERE user_id = $1;`, recv.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, tok.Token)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
 		})
 	})
 
@@ -1300,12 +1364,15 @@ var _ = Describe("controllers/hosts", func() {
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/stop", func() {
-		var hs *test.HostStack
+		var (
+			hs  *test.HostStack
+			tok *token.Token
+		)
 
 		doRequest := func(slug string, params *url.Values) {
 			req, err := test.NewFormRequest("POST", "/api/v0/hosts/"+slug+"/stop", params)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", "Bearer "+tok.Token)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -1321,6 +1388,7 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
+			tok = t
 		})
 
 		It("should send the UUID headers", func() {
@@ -1631,6 +1699,14 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+
+		It("should not be accessible by a collaborator", func() {
+			_, t := createCollaborator(hs)
+			tok = t
+
+			doRequest(hs.H.Slug, nil)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
@@ -2014,18 +2090,26 @@ var _ = Describe("controllers/hosts", func() {
 
 			test.ItRequiresAuthToken(&authTokenInputs)
 		})
+
+		It("should not be accessible by a collaborator", func() {
+			_, t := createCollaborator(hs)
+
+			doRequest(hs.H.Slug, t.Token, nil)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/upgrade", func() {
 		var (
 			hs         *test.HostStack
 			mockClient *freighterclient.MockClient
+			tok        *token.Token
 		)
 
 		doRequest := func() {
 			req, err := test.NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/upgrade", nil)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", "Bearer "+tok.Token)
 			handler.ServeHTTP(res, req)
 		}
 
@@ -2037,6 +2121,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
 			Expect(err).To(BeNil())
+			tok = t
 		})
 
 		AfterEach(func() {
@@ -2110,19 +2195,34 @@ var _ = Describe("controllers/hosts", func() {
 
 			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
 		})
+
+		It("should not be accessible by a collaborator", func() {
+			_, t := createCollaborator(hs)
+			tok = t
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
 	})
 
 	Describe("PUT /api/v0/hosts/:slug/versions", func() {
-		var hs *test.HostStack
-		var params *url.Values
-		var err error
+		var (
+			hs     *test.HostStack
+			params *url.Values
+			err    error
+			tok    *token.Token
+		)
 
 		doRequest := func() {
 			req, err := test.NewAuthedRequest(t, "PUT", fmt.Sprintf("/api/v0/hosts/%s/versions", hs.H.Slug), params)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer valid-token")
+			req.Header.Set("Authorization", "Bearer "+tok.Token)
 			handler.ServeHTTP(res, req)
 		}
+
+		BeforeEach(func() {
+			tok = t
+		})
 
 		Context("when the user is not an admin", func() {
 			It("responds with 404", func() {
@@ -2169,6 +2269,16 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Host.FreighterdVersion).To(Equal("1.0.88-acecafe-42"))
 				Expect(j.Host.DockerVersion).To(Equal("1.2.3-nitrous"))
 			})
+		})
+
+		It("should not be accessible by a collaborator", func() {
+			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
+			Expect(err).To(BeNil())
+			_, t := createCollaborator(hs)
+			tok = t
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 
