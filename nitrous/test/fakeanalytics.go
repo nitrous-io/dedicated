@@ -10,6 +10,13 @@ type FakeTracker struct {
 	Events               map[int64][]string
 	TrackEventProperties map[int64][]map[string]interface{}
 	ProfileCreated       *user.User
+	PropsCalled          []*PropsCall
+}
+
+type PropsCall struct {
+	UserID   int64
+	Mode     string
+	PropsSet map[string]interface{}
 }
 
 func NewFakeTracker() *FakeTracker {
@@ -39,4 +46,12 @@ func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interf
 
 func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 	f.ProfileCreated = u
+}
+
+func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) {
+	f.PropsCalled = append(f.PropsCalled, &PropsCall{
+		Mode:     mode,
+		UserID:   userID,
+		PropsSet: p,
+	})
 }
