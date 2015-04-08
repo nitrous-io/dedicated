@@ -7,12 +7,16 @@
   .page-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'compare' }
-      .hero-copy
-        h2
-          | Introducing Nitrous Pro
 
-      .visual
-        = image_tag 'home/ide-theme-split-3.png', width: '970px', alt: 'Nitrous Pro'
+      
+      .hero-tagline
+        h2 Introducing Nitrous Pro
+        h3 Development environments without the pain
+        = render 'layouts/cta_form'
+
+      .hero-visual
+        = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
+
 
   
   .notice.darker
@@ -65,7 +69,11 @@
       .table
         .col-1
           .row.title
-            span Nitrous Pro
+            span Pro
+          .row
+            span 
+              i.fa.fa-check
+              | Whole new IDE
           .row
             span 
               i.fa.fa-check
@@ -85,7 +93,11 @@
 
         .col-2
           .row.title
-            span Nitrous.io (free)
+            span Free
+          .row
+            span 
+              i.fa.fa-minus
+              | Previous IDE version
           .row
             span 
               i.fa.fa-minus
