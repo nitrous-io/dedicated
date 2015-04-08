@@ -8,9 +8,9 @@ footer
           | &copy; 2012-2015 Nitrous, Inc.
       ul
         li
-          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms of Use
         li
-          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy Policy
         li
           a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
         li
@@ -26,14 +26,26 @@ footer
           a class=('active' if active == 'pricing') href='/pricing' Pricing
         li
           a class=('active' if active == 'company') href='/company' Company
-        // li
-          a class=('active' if active == 'press') href='/press' Press
-        // li
-          a href='/contact' Contact us
-        // li
-          a class=('active' if active == 'jobs') href='/jobs' Jobs
+          
+        li.dropdown-trigger
+          span Use cases
+          span.carets
+            i.fa.fa-caret-up
+            i.fa.fa-caret-down
+          ol.dropdown
+            li
+              a class=('active' if active == 'education') href='/education' Education
+            li
+              a class=('active' if active == 'teams') href='/teams' Teams
+            li
+              a class=('active' if active == 'agencies') href='/agencies' Agencies
+            li
+              a class=('active' if active == 'enterprises') href='/enterprises' Enterprises
+            li
+              a class=('active' if active == 'vpc') href='/vpc' VPC
+
         li
-          a href='https://www.nitrous.io/business' target="_blank" For business
+          a class=('active' if active == 'press') href='/press' Press
         li
           a href='http://blog.nitrous.io/' target="_blank" Blog
 

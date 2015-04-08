@@ -1,0 +1,34 @@
+- @title = 'VPC Solutions · Nitrous'
+- @html_class = 'light'
+- @body_id = 'vpc'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      .hero-copy
+        h2
+          | VPC Solutions
+        h3
+          | Run Nitrous on your own Virtual Private Cloud
+
+
+  article.featurette.centered
+    .container
+
+      p.big 
+        | Enjoy all the benefits of Nitrous on the network that you have full control over. 
+        br Nitrous' plans for VPC will be available later in 2015.
+      
+      .wufoo-container
+
+        #wufoo-zlcx7br0pv1r9h
+
+          javascript:
+            var zlcx7br0pv1r9h;(function(d, t) {var s = d.createElement(t), options = {'userName':'actionio','formHash':'zlcx7br0pv1r9h','autoResize':true,'height':'4056','async':true,'host':'wufoo.com','header':'show','ssl':true};s.src = ('https:' == d.location.protocol ? 'https://' : 'http://') + 'www.wufoo.com/scripts/embed/form.js';s.onload = s.onreadystatechange = function() {var rs = this.readyState; if (rs) if (rs != 'complete') if (rs != 'loaded') return;try { zlcx7br0pv1r9h = new WufooForm();zlcx7br0pv1r9h.initialize(options);zlcx7br0pv1r9h.display(); } catch (e) {}};var scr = d.getElementsByTagName(t)[0], par = scr.parentNode; par.insertBefore(s, scr);})(document, 'script');
+
+
+  = render 'layouts/cta'
+
+= render partial: 'layouts/footer', locals: { active: 'vpc' }

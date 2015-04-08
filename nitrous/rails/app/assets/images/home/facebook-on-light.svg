@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="100px" height="100px" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+    <!-- Generator: Sketch 3.2.2 (9983) - http://www.bohemiancoding.com/sketch -->
+    <title>facebook-on-light</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+        <path d="M93.884,0 L5.483,0 C2.453,0 0,2.454 0,5.485 L0,93.885 C0,96.914 2.453,99.37 5.483,99.37 L93.884,99.37 C96.911,99.37 99.368,96.914 99.368,93.885 L99.368,5.485 C99.368,2.454 96.911,0 93.884,0 Z M82.353,60.88 L84.286,45.883 L69.437,45.883 L69.437,36.308 C69.437,31.967 70.642,29.008 76.868,29.008 L84.809,29.005 L84.809,15.591 C83.436,15.409 78.722,15 73.237,15 C61.787,15 53.949,21.989 53.949,34.824 L53.949,45.883 L41,45.883 L41,60.88 L53.949,60.88 L53.949,99.362 L69.437,99.362 L69.437,60.88 L82.353,60.88 Z" id="facebook-on-light" fill="#B8BABC" sketch:type="MSShapeGroup"></path>
+    </g>
+</svg>
