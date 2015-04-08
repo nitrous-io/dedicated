@@ -72,6 +72,8 @@ App.EventMessageHandler = App.EventsSocket.extend
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
         App.set('sharedContainers', App.SharedContainer.fetch().value)
+        if evt == "collaborator.added" && data.container.user_id != App.get('user.id')
+            App.snackbar.post("#{data.initiated_by.username} has added to you to #{data.container.slug}")
 
     @on 'image.build_failed', (data) ->
       findImage(data)?.set 'progress', null
