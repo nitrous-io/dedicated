@@ -67,9 +67,23 @@
       +truncate
 
   ul.containers
-    h4
+    h4, .group
       font-weight: 400
       padding: 0 34px 0 30px
+
+    .group
+      h4, p
+        padding: 0
+        margin: 0
+
+      h4
+        padding: 0 10px 0 0
+
+      p
+        font-size: $fontSizeXSmall
+        color: $n2oGray400
+        line-height: normal
+        padding: 0 0 8px 0
 
   .state-indicator
     position: absolute
@@ -78,6 +92,18 @@
     top: ($lineItemHeight - 10px) / 2
     width: 10px
     height: 10px
+
+  .sharer-image
+    width: initial
+    height: initial
+    padding: 0
+    margin: 0
+    top: 5px
+    position: absolute
+    right: 5px
+    width: 20px
+    height: 20px
+    border-radius: 2px
 
   .app-download
     background: $n2oGray1000

@@ -100,7 +100,8 @@
       button.ui.btn click='stop' Stop
       button.ui.btn click='restart' Restart
       if App.user.advanced
-        button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+        if canEdit
+          button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
     .right
       if App.user.advanced
         unless isNitrousImage
@@ -115,9 +116,11 @@
   else
     if isStopped
       .left
-        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+        if canEdit
+          button.ui.btn click='showTerminateDialog target="view"' Terminate...
         if App.user.advanced
-          button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
+          if canEdit
+            button.ui.btn click='showSnapshotDialog target="view"' Snapshot...
       .right
         if App.user.advanced
           unless isNitrousImage

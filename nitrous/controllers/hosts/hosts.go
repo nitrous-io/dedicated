@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
@@ -593,12 +594,7 @@ func publishContainersStopped(env *middleware.Env, h *host.Host) {
 	}
 	for _, cn := range cns {
 		cn.State = container.StateStopped
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventContainerStopped, map[string]*serializers.Container{
-				"container": serializers.SerializeContainer(cn),
-			}),
-			env.User.Topic(),
-		)
+		containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
 	}
 }
 

@@ -9,6 +9,7 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
   changes: (->
     if @get('pending') && @get('pending').length > 0
       return true
+    return false unless @get('records')
     x = @get('records').any (collaborator)->
       collaborator.get 'pendingRemove'
     return x

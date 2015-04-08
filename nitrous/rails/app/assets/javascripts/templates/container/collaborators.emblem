@@ -15,11 +15,12 @@
             p
               | Added&nbsp;
               = ago collaborator.createdAt
-          .right-accessory
-            if collaborator.pendingRemove
-              button.ui.btn click='toggle collaborator target="view"' Restore
-            else
-              button.ui.btn click='toggle collaborator target="view"' Remove
+          if model.canEdit
+            .right-accessory
+              if collaborator.pendingRemove
+                button.ui.btn click='toggle collaborator target="view"' Restore
+              else
+                button.ui.btn click='toggle collaborator target="view"' Remove
 
       each pend in pending
         li.list-item
@@ -29,31 +30,34 @@
             if pend.error
               p.error
                 = pend.error
-          .right-accessory
-            button.ui.btn click='removePending pend' Remove
+          if model.canEdit
+            .right-accessory
+              button.ui.btn click='removePending pend' Remove
   else
     p.hint-text
       i.spinner
       | Loading...
 
-  form.container-config submit='add'
-    .ui.input-group.container-config-form
-      table.ui.table
-        thead
-          tr
-            th Username
-        tbody
-          tr
-            td
-              = input type='text' placeholder='Username or email' required=true value=username
-            td
-              input.ui.btn.raised type='submit' value='Add'
+  if model.canEdit
+    form.container-config submit='add'
+      .ui.input-group.container-config-form
+        table.ui.table
+          thead
+            tr
+              th Username
+          tbody
+            tr
+              td
+                = input type='text' placeholder='Username or email' required=true value=username
+              td
+                input.ui.btn.raised type='submit' value='Add'
 
-.card-footer.bordered
-  .right
-    if saving
-      button.ui.btn disabled='disabled'
-        i.spinner
-        | Saving...
-    else
-      button.ui.btn click='applyChanges' class={changes:primary} Apply Changes
+if model.canEdit
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+      else
+        button.ui.btn click='applyChanges' class={changes:primary} Apply Changes
