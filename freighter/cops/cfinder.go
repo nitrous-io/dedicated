@@ -54,11 +54,12 @@ type FileFindResponse struct {
 }
 
 type SearchRequest struct {
-	ID         string `json:"id"`
-	Term       string `json:"term"`
-	Root       string `json:"root"`
-	IgnoreCase bool   `json:"ignore_case"`
-	UseRegexp  bool   `json:"use_regexp"`
+	ID          string `json:"id"`
+	Term        string `json:"term"`
+	Root        string `json:"root"`
+	IgnoreCase  bool   `json:"ignore_case"`
+	UseRegexp   bool   `json:"use_regexp"`
+	FilePattern string `json:"file_pattern"`
 }
 
 type SearchResponse struct {
@@ -144,7 +145,7 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 			return sendErr(resp, msg, fmt.Errorf("request argument %+v is in invalid format", arg))
 		}
 
-		ch, errch, err := c.search(req.Term, req.Root, req.IgnoreCase, req.UseRegexp)
+		ch, errch, err := c.search(req.Term, req.Root, req.IgnoreCase, req.UseRegexp, req.FilePattern)
 		if err != nil {
 			return sendErr(resp, msg, err)
 		}
@@ -184,7 +185,7 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 // - a channel for reading search results
 // - a channel for reading potential errors that happen during searching
 // - an error when we fail to perform the search at all
-func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *finder.SearchResult, chan error, error) {
+func (c *Finder) search(term, root string, ignoreCase, useRegexp bool, filePattern string) (chan *finder.SearchResult, chan error, error) {
 	var errSent bool // we only want to send error once
 	errch := make(chan error, 1)
 	ch := make(chan *finder.SearchResult, chanSize)
@@ -198,7 +199,8 @@ func (c *Finder) search(term, root string, ignoreCase, useRegexp bool) (chan *fi
 	}
 
 	f := finder.NewFinder(root)
-	results, err := f.FindContent(term, ignoreCase, useRegexp)
+	filePattern = finder.SanitizeFilePattern(filePattern)
+	results, err := f.FindContent(term, ignoreCase, useRegexp, filePattern)
 	if err != nil {
 		return nil, nil, err
 	}

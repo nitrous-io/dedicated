@@ -22,7 +22,7 @@ func TestFindContent(t *testing.T) {
 	}
 
 	f := NewFinder(root)
-	results, err := f.FindContent("he", false, false)
+	results, err := f.FindContent("he", false, false, "")
 	if err != nil {
 		t.Fatalf("failed to find content %s", err)
 	}
@@ -73,7 +73,7 @@ func TestFindContentIgnoreCase(t *testing.T) {
 
 	f := NewFinder(root)
 	ignoreCase := true
-	results, err := f.FindContent("hello world", ignoreCase, false)
+	results, err := f.FindContent("hello world", ignoreCase, false, "")
 	if err != nil {
 		t.Fatalf("failed to find content %s", err)
 	}
@@ -113,7 +113,7 @@ func TestFindContentUseRegexp(t *testing.T) {
 
 	f := NewFinder(root)
 	useRegexp := true
-	results, err := f.FindContent(`x\s\d+`, false, useRegexp)
+	results, err := f.FindContent(`x\s\d+`, false, useRegexp, "")
 	if err != nil {
 		t.Fatalf("failed to find content %s", err)
 	}
