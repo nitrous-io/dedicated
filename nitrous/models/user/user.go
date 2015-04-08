@@ -563,7 +563,13 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
-		Desc:  fmt.Sprint(u.Name, u.Username),
+		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
+		Params: stripe.Params{
+			Meta: map[string]string{
+				"username": u.Username,
+				"name":     u.Name,
+			},
+		},
 	}
 	c, err := customer.New(params)
 	if err != nil {

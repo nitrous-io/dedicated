@@ -1223,11 +1223,13 @@ var _ = Describe("models/user", func() {
 			u.ActivateBillingProfile(db, "token")
 
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
-				"method": "POST",
-				"path":   "/customers",
-				"card":   "token",
-				"email":  u.Email,
-				"desc":   fmt.Sprint(u.Name, u.Username),
+				"method":             "POST",
+				"path":               "/customers",
+				"card":               "token",
+				"email":              u.Email,
+				"desc":               "Name: quxboy, Username: qux",
+				"metadata[username]": "qux",
+				"metadata[name]":     "quxboy",
 			}))
 		})
 

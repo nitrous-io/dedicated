@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"net/url"
+	"strings"
 
 	"github.com/stripe/stripe-go"
 )
@@ -28,6 +29,14 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		}
 		if s := body.Get("customer"); s != "" {
 			m["customer"] = s
+		}
+		for k, v := range *body {
+			if len(v) == 0 {
+				continue
+			}
+			if strings.HasPrefix(k, "metadata[") {
+				m[k] = v[0]
+			}
 		}
 	}
 	s.ReceivedRequests = append(s.ReceivedRequests, m)
