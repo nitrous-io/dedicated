@@ -37,6 +37,18 @@ func Find(d db.QueryReceiver, c *container.Container, v *volume.Volume) (*Contai
 	return cv, nil
 }
 
+// FindAll returns all volumes associated with a container
+func FindAll(d db.QueryReceiver, c *container.Container) ([]*volume.Volume, error) {
+	vols := []*volume.Volume{}
+	err := d.Select(&vols, `SELECT v.*
+	FROM volumes v JOIN container_volumes cv ON v.id = cv.volume_id
+	WHERE cv.container_id = $1`, c.ID)
+	if err != nil {
+		return nil, err
+	}
+	return vols, nil
+}
+
 func DeleteContainer(d db.QueryReceiver, c *container.Container) error {
 	_, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID)
 	return err

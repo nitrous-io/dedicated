@@ -80,6 +80,17 @@ var _ = Describe("models/volume", func() {
 		})
 	})
 
+	Describe("FindAll()", func() {
+		It("finds all the volumes associated with a given container", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+
+			vols, err := cvolume.FindAll(db, cnr)
+			Expect(err).To(BeNil())
+			Expect(vols[0].ID).To(Equal(vol.ID))
+		})
+	})
+
 	Describe("DeleteContainer()", func() {
 		It("deletes without removing other containers", func() {
 			delCnr := &container.Container{

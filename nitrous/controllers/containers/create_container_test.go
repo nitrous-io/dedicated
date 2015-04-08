@@ -3,6 +3,7 @@ package containers_test
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -273,6 +274,33 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(res.Container, c)
 	})
 
+	It("creates new volumes when the container requires built-in volumes", func() {
+		mockClient.CreatedContainer = &freighterclient.Container{
+			ID:      "deadbeef",
+			Name:    "elixir-web-1",
+			State:   "running",
+			Image:   "elixir",
+			ImageID: "abc123",
+			Volumes: map[string]string{
+				"/var/lib/docker": "hexvarlibdocker",
+				"/var/lib/extra":  "hexvarlibextra",
+			},
+		}
+
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
+		Expect(vols).To(HaveLen(2), "missing generated volumes")
+		Expect(vols[0].HostID).To(Equal(res.Container.HostID))
+		Expect(vols[0].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker")))
+		Expect(vols[0].Slug).To(Equal("hexvarlibdocker"))
+
+		Expect(vols[1].HostID).To(Equal(res.Container.HostID))
+		Expect(vols[1].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra")))
+		Expect(vols[1].Slug).To(Equal("hexvarlibextra"))
+	})
+
 	Context("when the Freighter client returns an error", func() {
 		BeforeEach(func() {
 			mockClient.CreateError = errors.New("only Chuck Norris is allowed")
@@ -394,7 +422,7 @@ var _ = Describe("CreateContainer", func() {
 			params.Add("volume[]", "backups")
 		})
 
-		It("returns success if volume does exist", func() {
+		It("returns success if volume does exist and response doesnt include volumes", func() {
 			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
 			err := v.Insert(db)
 			Expect(err).To(BeNil())
@@ -409,6 +437,7 @@ var _ = Describe("CreateContainer", func() {
 			Expect(conf.Mounts).To(HaveLen(2))
 			Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
 			Expect(conf.Mounts).To(ContainElement("backups"))
+
 			cv, err := cvolume.Find(db, &container.Container{ID: res.Container.ID}, v)
 			Expect(err).To(BeNil())
 			Expect(cv.VolumeID).To(Equal(v.ID))
@@ -423,6 +452,5 @@ var _ = Describe("CreateContainer", func() {
 
 			Expect(err).To(MatchError(containers.ErrVolumeNotFound))
 		})
-
 	})
 })
