@@ -9,7 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -22,17 +22,17 @@ func Test(t *testing.T) {
 var _ = Describe("models/volume", func() {
 	var (
 		db  *ndb.Database
-		hs  *HostStack
+		hs  *test.HostStack
 		cnr *container.Container
 		vol *volume.Volume
 	)
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, nil)
+		hs, err = test.CreateHostStack(db, nil)
 		Expect(err).To(BeNil())
 
 		cnr = &container.Container{
