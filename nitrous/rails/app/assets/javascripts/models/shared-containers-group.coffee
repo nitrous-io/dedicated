@@ -15,5 +15,5 @@ App.SharedContainersGroup = Em.Object.extend
   ).property 'items.@each.gravatarHash'
 
   gravatar: (->
-    "https://secure.gravatar.com/avatar/#{@get('gravatarHash')}?default=retro&secure=true&size=72"
+    "https://secure.gravatar.com/avatar/#{@get('gravatarHash')}?default=retro&secure=true&size=40"
   ).property 'gravatarHash'
