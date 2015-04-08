@@ -38,24 +38,21 @@ if App.groupedSharedContainers.length
   ul.hosts
     each group in App.groupedSharedContainers
       li
-          a.noclick href='#'
-            h3
-              = group.username
+          h3
+            = group.username
+          img.sharer-image src=group.gravatar width="20" height="20"
           ul.containers
             each container in group.items
               li class={container.selected container.isTerminated:disabled}
-                if container.isTerminated
-                  a.noclick href='#'
+                link-to 'container.index' container.slug
+                  .group
                     h4
+                      = container.slug
+                    p
                       = container.displayName
-                    .state-indicator.terminated title='terminated'
-                else
-                  link-to 'container.index' container.slug
-                    h4
-                      = container.displayName
-                    .state-indicator class={container.state} title={container.state}
-                      span
-                        = container.state
+                  .state-indicator class={container.state} title={container.state}
+                    span
+                      = container.state
 
 .app-download
   h3 Get Desktop Sync
