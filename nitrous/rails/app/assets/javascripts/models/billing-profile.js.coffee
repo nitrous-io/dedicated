@@ -58,6 +58,7 @@ App.BillingProfile = klass = App.Model.extend
   addCard: (params) ->
     new Ember.RSVP.Promise (resolve, reject) =>
       Stripe.card.createToken {
+        name: params.name,
         number: params.number,
         exp_month: params.exp_month,
         exp_year: params.exp_year,
