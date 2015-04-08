@@ -8,6 +8,8 @@ App.SharedContainer = klass = App.Container.extend
 
   _host: attr('host', as: 'host', serialize: false)
 
+  canEdit: false
+
   loadConfig: ->
     @ajax('GET', 'config').then (json) =>
       @setConfig(json.config)
