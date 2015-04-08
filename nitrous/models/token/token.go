@@ -11,9 +11,6 @@ import (
 )
 
 const (
-	TypeLogin           = "login"
-	TypeHost            = "host"
-	TypeProvisioner     = "provisioner"
 	MaxLastUsedDuration = (24 * 7) * time.Hour
 )
 
@@ -63,7 +60,7 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 }
 
 func DeleteExpiredTokens(d db.QueryReceiver) error {
-	stmt := fmt.Sprintf(`DELETE FROM tokens WHERE type = '%s' AND last_seen_at <= now() - interval '%d milliseconds';`, TypeLogin, MaxLastUsedDuration/time.Millisecond)
+	stmt := fmt.Sprintf(`DELETE FROM tokens WHERE last_seen_at <= now() - interval '%d milliseconds';`, MaxLastUsedDuration/time.Millisecond)
 	_, err := d.Exec(stmt)
 	if err != nil {
 		return err

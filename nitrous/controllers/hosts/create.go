@@ -27,7 +27,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -135,11 +134,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	t := &token.Token{UserID: u.ID, Type: token.TypeHost}
-	if err := t.Insert(db); err != nil {
-		return err
-	}
-
 	// Progress data from host provisioning is written to the events stream.
 	// For synchronous requests, progress data is also written to the
 	// ResponseWriter.
@@ -181,7 +175,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Slug:               options.Slug,
 		Name:               options.Name,
 		User:               u,
-		Token:              t,
 		Region:             reg,
 		Plan:               pl,
 		Template:           template,

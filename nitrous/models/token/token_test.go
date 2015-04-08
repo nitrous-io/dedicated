@@ -151,8 +151,6 @@ var _ = Describe("models/token", func() {
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '20 days');", u2.ID, "ABC3")
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO tokens (user_id, token, type, last_seen_at) values ($1, $2, $3, now() - interval '20 days');", u2.ID, "H1", token.TypeHost)
-			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '7 days');", u2.ID, "ABC4")
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '6 days');", u2.ID, "ABC5")
@@ -169,7 +167,8 @@ var _ = Describe("models/token", func() {
 
 			Expect(tokens).NotTo(ContainElement(con{Token: "ABC3"}))
 			Expect(tokens).NotTo(ContainElement(con{Token: "ABC4"}))
-			Expect(tokens).To(ContainElement(con{Token: "H1"}))
+			Expect(tokens).To(ContainElement(con{Token: "ABC2"}))
+			Expect(tokens).To(ContainElement(con{Token: "ABC5"}))
 		})
 	})
 
@@ -177,7 +176,7 @@ var _ = Describe("models/token", func() {
 		var t *token.Token
 
 		BeforeEach(func() {
-			t = &token.Token{UserID: u1.ID, Type: token.TypeLogin, LastIP: sql.NullString{"127.0.0.1", true}}
+			t = &token.Token{UserID: u1.ID, LastIP: sql.NullString{"127.0.0.1", true}}
 		})
 
 		Context("when no error happens", func() {
@@ -197,7 +196,6 @@ var _ = Describe("models/token", func() {
 					Expect(t2.ID).NotTo(BeZero())
 					Expect(t2.UserID).To(Equal(u1.ID))
 					Expect(t2.Token).To(Equal("foobar"))
-					Expect(t2.Type).To(Equal(token.TypeLogin))
 					Expect(t2.LastIP.Valid).To(BeTrue())
 					Expect(t2.LastIP.String).To(Equal("127.0.0.1"))
 					Expect(t2.CreatedAt).NotTo(BeNil())

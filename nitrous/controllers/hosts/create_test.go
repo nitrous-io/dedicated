@@ -254,10 +254,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		hosts.HostbuilderClient = hb
 		doRequest(params)
 
-		var ht string
-		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
-		Expect(err).To(BeNil())
-
 		req := rt.Requests[0]
 		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 
@@ -295,10 +291,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		replaceTransport(hb, rt)
 		hosts.HostbuilderClient = hb
 		doJsonRequest(jsonStr)
-
-		var ht string
-		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
-		Expect(err).To(BeNil())
 
 		Expect(rt.Requests).To(HaveLen(1))
 		req := rt.Requests[0]

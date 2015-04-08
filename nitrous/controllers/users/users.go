@@ -178,7 +178,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if password != "" {
-		_, err := db.Exec(`DELETE FROM tokens WHERE user_id = $1 AND id != $2 AND type = $3;`, u.ID, env.Token.ID, token.TypeLogin)
+		_, err := db.Exec(`DELETE FROM tokens WHERE user_id = $1 AND id != $2;`, u.ID, env.Token.ID)
 		if err != nil {
 			return err
 		}

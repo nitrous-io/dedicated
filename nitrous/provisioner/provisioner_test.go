@@ -146,10 +146,6 @@ var _ = Describe("provisioner", func() {
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
 
-			t := &token.Token{
-				UserID: hs.U.ID,
-				Token:  "valid-token",
-			}
 			canCreate, err := hs.U.CanCreateHosts(db)
 			Expect(err).To(BeNil())
 			Expect(canCreate).To(BeTrue())
@@ -159,7 +155,6 @@ var _ = Describe("provisioner", func() {
 				Slug:         "new-slug",
 				Name:         "new-name",
 				User:         hs.U,
-				Token:        t,
 				Region:       hs.R,
 				Plan:         hs.P,
 				Template:     hs.PT,
@@ -208,10 +203,6 @@ var _ = Describe("provisioner", func() {
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
 
-			t := &token.Token{
-				UserID: hs.U.ID,
-				Token:  "valid-token",
-			}
 			canCreate, err := hs.U.CanCreateHosts(db)
 			Expect(err).To(BeNil())
 			Expect(canCreate).To(BeTrue())
@@ -221,7 +212,6 @@ var _ = Describe("provisioner", func() {
 				Slug:               "bypassed",
 				Name:               "new-name",
 				User:               hs.U,
-				Token:              t,
 				Region:             hs.R,
 				Plan:               hs.P,
 				Template:           hs.PT,
@@ -431,7 +421,6 @@ var _ = Describe("provisioner", func() {
 				Slug:         "new-slug",
 				Name:         "new-name",
 				User:         u,
-				Token:        t,
 				Region:       hs.R,
 				Plan:         hs.P,
 				Template:     hs.PT,
