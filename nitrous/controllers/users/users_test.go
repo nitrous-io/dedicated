@@ -334,9 +334,7 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("should remove all other login tokens on password change", func() {
-			_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
-			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", "otherTokenType")
+			_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u.ID, "toke1")
 			Expect(err).To(BeNil())
 
 			params := &url.Values{}
@@ -351,7 +349,7 @@ var _ = Describe("controllers/users", func() {
 			err = db.Select(&tokens, `SELECT token FROM tokens WHERE user_id = $1`, u.ID)
 			Expect(err).To(BeNil())
 
-			Expect(tokens).To(ConsistOf([]con{{Token: "toke2"}, {Token: t.Token}}))
+			Expect(tokens).To(ConsistOf([]con{{Token: t.Token}}))
 		})
 
 		Context("when an existing email is given", func() {

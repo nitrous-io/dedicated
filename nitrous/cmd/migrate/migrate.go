@@ -278,7 +278,6 @@ func provisionDestHost() (string, func()) {
 
 	uToken = &token.Token{
 		UserID: u.ID,
-		Type:   token.TypeLogin,
 	}
 
 	if err := uToken.Insert(dbConn); err != nil {
