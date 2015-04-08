@@ -8,11 +8,11 @@ namespace :build do
       '/public/index.html'            => {layout: 'layouts/pages', template: 'pages/home'},
     }
 
-    %w(pricing features company plan_changes stacks).each do |page|
+    %w(pricing features company plan_changes stacks press education teams agencies enterprises vpc).each do |page|
       locations["/public/#{page}/index.html"] = { layout: 'layouts/pages', template: "pages/#{page}"}
     end
 
-    %w(ruby-on-rails django nodejs meteor php html5 ruby python golang java wordpress iojs laravel ubuntu).each do |stack|
+    %w(ruby-on-rails django nodejs meteor php html5 ruby python golang java wordpress iojs laravel ubuntu docker).each do |stack|
       locations["/public/stacks/#{stack}/index.html"] = { layout: 'layouts/pages', template: 'pages/stack', locals: { params: { stack: stack } } }
     end
 
