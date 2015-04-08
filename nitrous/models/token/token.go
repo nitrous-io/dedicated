@@ -12,8 +12,6 @@ import (
 
 const (
 	TypeLogin           = "login"
-	TypeHost            = "host"
-	TypeProvisioner     = "provisioner"
 	MaxLastUsedDuration = (24 * 7) * time.Hour
 )
 

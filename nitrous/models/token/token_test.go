@@ -151,7 +151,7 @@ var _ = Describe("models/token", func() {
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '20 days');", u2.ID, "ABC3")
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO tokens (user_id, token, type, last_seen_at) values ($1, $2, $3, now() - interval '20 days');", u2.ID, "H1", token.TypeHost)
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type, last_seen_at) values ($1, $2, $3, now() - interval '20 days');", u2.ID, "H1", "otherTokenType")
 			Expect(err).To(BeNil())
 			_, err = db.Exec("INSERT INTO tokens (user_id, token, last_seen_at) values ($1, $2, now() - interval '7 days');", u2.ID, "ABC4")
 			Expect(err).To(BeNil())

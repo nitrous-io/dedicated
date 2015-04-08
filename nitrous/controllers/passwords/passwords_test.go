@@ -140,7 +140,7 @@ var _ = Describe("controllers/passwords", func() {
 			It("removes all other login tokens", func() {
 				_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
 				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", token.TypeHost)
+				_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", "otherTokenType")
 				Expect(err).To(BeNil())
 
 				err = u.SetResetPasswordToken(db)

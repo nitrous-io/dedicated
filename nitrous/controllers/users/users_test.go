@@ -336,7 +336,7 @@ var _ = Describe("controllers/users", func() {
 		It("should remove all other login tokens on password change", func() {
 			_, err := db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke1", token.TypeLogin)
 			Expect(err).To(BeNil())
-			_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", token.TypeHost)
+			_, err = db.Exec("INSERT INTO tokens (user_id, token, type) values ($1, $2, $3);", u.ID, "toke2", "otherTokenType")
 			Expect(err).To(BeNil())
 
 			params := &url.Values{}
