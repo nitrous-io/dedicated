@@ -65,3 +65,39 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 		}
 	}()
 }
+
+func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) {
+	var propFn func(string, map[string]interface{}) error
+	uid := strconv.Itoa(int(userID))
+
+	switch mode {
+	case "set":
+		// CreateProfile doubles as 'set'
+		propFn = m.client.CreateProfile
+	case "setnx": // set not exist
+		propFn = m.client.SetPropertiesOnProfileOnce
+	case "append":
+		propFn = m.client.AppendPropertiesOnProfile
+	default:
+		logger.Errorf("analytics: unsupported mode given: %s", mode)
+		return
+	}
+
+	go func() {
+		err := propFn(strconv.Itoa(int(userID)), p)
+		if err != nil {
+			logger.Errorf("analytics: failed to update (%s) user profile: %s. err: %v", mode, uid, err)
+		}
+	}()
+}
+
+func (m *MixpanelTracker) IncProfileProps(userID int64, p map[string]int, logger *logger.Logger) {
+	uid := strconv.Itoa(int(userID))
+
+	go func() {
+		err := m.client.IncrementPropertiesOnProfile(strconv.Itoa(int(userID)), p)
+		if err != nil {
+			logger.Errorf("analytics: failed to update user profile %s. err: %v", uid, err)
+		}
+	}()
+}
