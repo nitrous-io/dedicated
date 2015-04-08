@@ -1,10 +1,11 @@
 = container-tab-bar selected='ports' model=model
 
 .card-body
-  .notice-text
-    i.fa.fa-warning
-    '
-    | Applying port changes will restart your container. Save your work before you proceed.
+  unless model.shared
+    .notice-text
+      i.fa.fa-warning
+      '
+      | Applying port changes will restart your container. Save your work before you proceed.
 
   .ui.input-group
     label.field-label
@@ -22,37 +23,39 @@
             '
             ' (Preview)
           unless saving
-            a.close href='#' click='remove port' &times;
+            unless model.shared
+              a.close href='#' click='remove port' &times;
 
     else
       p.hint-text
         i.fa.fa-exclamation-circle
         | No exposed ports
 
-  form.container-config submit='add'
-    .ui.input-group.container-config-form
-      table.ui.table
-        thead
-          tr
-            th
-              abbr title='Use this port as the preview port' Preview
-            th colspan='2' Container Port
-        tbody
-          tr
-            td
-              .ui.checkbox
-                = input type='checkbox' checked=setPreviewPort disabled=saving
-                label
-            td
-              = input type='number' min='1' max='65535' step='1' placeholder='e.g., 1337' value=port disabled=saving
-            td
-              input.ui.btn.raised type='submit' value='Add' disabled={view.addDisabled}
-
-.card-footer.bordered
-  .right
-    if saving
-      button.ui.btn disabled='disabled'
-        i.spinner
-        | Applying Changes...
-    else
-      button.ui.btn.primary click='apply' disabled={saving} Apply Changes
+  unless model.shared
+    form.container-config submit='add'
+      .ui.input-group.container-config-form
+        table.ui.table
+          thead
+            tr
+              th
+                abbr title='Use this port as the preview port' Preview
+              th colspan='2' Container Port
+          tbody
+            tr
+              td
+                .ui.checkbox
+                  = input type='checkbox' checked=setPreviewPort disabled=saving
+                  label
+              td
+                = input type='number' min='1' max='65535' step='1' placeholder='e.g., 1337' value=port disabled=saving
+              td
+                input.ui.btn.raised type='submit' value='Add' disabled={view.addDisabled}
+unless model.shared
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Applying Changes...
+      else
+        button.ui.btn.primary click='apply' disabled={saving} Apply Changes

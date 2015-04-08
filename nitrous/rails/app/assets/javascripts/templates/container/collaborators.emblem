@@ -29,31 +29,34 @@
             if pend.error
               p.error
                 = pend.error
-          .right-accessory
-            button.ui.btn click='removePending pend' Remove
+          unless model.shared
+            .right-accessory
+              button.ui.btn click='removePending pend' Remove
   else
     p.hint-text
       i.spinner
       | Loading...
 
-  form.container-config submit='add'
-    .ui.input-group.container-config-form
-      table.ui.table
-        thead
-          tr
-            th Username
-        tbody
-          tr
-            td
-              = input type='text' placeholder='Username or email' required=true value=username
-            td
-              input.ui.btn.raised type='submit' value='Add'
+  unless model.shared
+    form.container-config submit='add'
+      .ui.input-group.container-config-form
+        table.ui.table
+          thead
+            tr
+              th Username
+          tbody
+            tr
+              td
+                = input type='text' placeholder='Username or email' required=true value=username
+              td
+                input.ui.btn.raised type='submit' value='Add'
 
-.card-footer.bordered
-  .right
-    if saving
-      button.ui.btn disabled='disabled'
-        i.spinner
-        | Saving...
-    else
-      button.ui.btn click='applyChanges' class={changes:primary} Apply Changes
+unless model.shared
+  .card-footer.bordered
+    .right
+      if saving
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+      else
+        button.ui.btn click='applyChanges' class={changes:primary} Apply Changes

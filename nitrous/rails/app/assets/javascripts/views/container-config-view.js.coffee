@@ -9,8 +9,8 @@ App.ContainerConfigView = Lib.ContainerConfigView.extend
   volumeDropdownDisabled: Em.computed.or('controller.hostVolumesEmpty', 'formDisabled')
 
   formDisabled: (->
-    !@get('controller.loaded') || @get('controller.saving')
-  ).property 'controller.loaded', 'controller.saving'
+    !@get('controller.loaded') || @get('controller.saving') || @get('controller.model.shared')
+  ).property 'controller.loaded', 'controller.saving', 'controller.model.shared'
 
   closeApplyDialogDidChange: (->
     if @get 'controller.closeApplyDialog'
