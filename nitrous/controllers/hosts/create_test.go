@@ -824,7 +824,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusForbidden))
 
 					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("paid_plan_not_allowed"))
+					Expect(errType).To(Equal("request_not_allowed"))
 				})
 
 				It("responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
@@ -838,7 +838,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusForbidden))
 
 					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("max_free_host_reached"))
+					Expect(errType).To(Equal("request_not_allowed"))
 				})
 
 				It("responds success if there is no non-terminated host", func() {
@@ -927,7 +927,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 
 			res := doRequest(params)
-
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)

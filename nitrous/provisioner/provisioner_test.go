@@ -146,10 +146,6 @@ var _ = Describe("provisioner", func() {
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
 
-			canCreate, err := hs.U.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(canCreate).To(BeTrue())
-
 			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
 				OutputStream: GinkgoWriter,
 				Slug:         "new-slug",
@@ -202,10 +198,6 @@ var _ = Describe("provisioner", func() {
 			Expect(err).To(BeNil())
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
-
-			canCreate, err := hs.U.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(canCreate).To(BeTrue())
 
 			newHost, err := prov.ProvisionHost(provisioner.ProvisionOptions{
 				OutputStream:       GinkgoWriter,
