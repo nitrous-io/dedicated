@@ -1,0 +1,113 @@
+- @title = 'Compare · Nitrous'
+- @html_class = 'light'
+- @body_id = 'compare'
+- @body_class = 'introducing'
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'compare' }
+      .hero-copy
+        h2
+          | Introducing Nitrous Pro
+
+      .visual
+        = image_tag 'home/ide-theme-split-3.png', width: '970px', alt: 'Nitrous Pro'
+
+  
+  .notice.darker
+    .container
+      .left
+        .social-buttons
+          .social-fb
+          .social-twitter
+          .social-googleplus
+
+
+  article.centered
+    .container
+
+      .grid-wrapper
+
+        .grid-item
+          h3.new
+            em New
+            | Revamped IDE
+          p Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Aenean eu leo quam.
+
+        .grid-item
+          h3.new
+            em New
+            | Improved collaboration
+          p Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Aenean eu leo quam.
+
+        .grid-item
+          h3.new
+            em New
+            | New Stacks/Templates
+          p Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Aenean eu leo quam.
+
+        .grid-item
+          h3.new
+            em New
+            | Improved editor themes
+          p Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Aenean eu leo quam.
+
+        .grid-item
+          h3.new
+            em New
+            | Split editing
+          p Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Aenean eu leo quam.
+
+      
+  article
+    .container
+      .table
+        .col-1
+          .row.title
+            span Nitrous Pro
+          .row
+            span 
+              i.fa.fa-check
+              | Full root access
+          .row
+            span 
+              i.fa.fa-check
+              | Auto-save
+          .row
+            span 
+              i.fa.fa-check
+              | Private, dedicated machine
+          .row
+            span 
+              i.fa.fa-check
+              | Fully configurable containers
+
+        .col-2
+          .row.title
+            span Nitrous.io (free)
+          .row
+            span 
+              i.fa.fa-minus
+              | No root access
+          .row
+            span 
+              i.fa.fa-minus
+              | Manual file save
+          .row
+            span 
+              i.fa.fa-minus
+              | Shared resources
+          .row
+            span 
+              i.fa.fa-minus
+              | Very limited configuration
+
+
+
+
+
+  = render partial: 'layouts/cta', locals: { theme: 'darker' }
+
+= render partial: 'layouts/footer', locals: { active: 'compare' }
+

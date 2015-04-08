@@ -73,7 +73,6 @@ hr
 
 // --------------------------------------
 // Variables
-// $roboto: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif
 $opensans: 'Open Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif
 $boldFont: 'Montserrat', 'Helvetica Neue', Helvetica, Arial, sans-serif
 
@@ -121,9 +120,6 @@ $innerWidth: 1024px
   -webkit-font-smoothing: antialiased
   -moz-osx-font-smoothing: grayscale
 
-// WebkitFix is used to fix the flickering
-// that happens in Safari when using CSS
-// transforms. Not needed in any other browser
 =webkitFix
   -webkit-font-smoothing: antialiased
   -webkit-text-stroke: 0.35px
@@ -170,11 +166,17 @@ $innerWidth: 1024px
     bottom: 0
     background: radial-gradient(ellipse at center, rgba($color,.91) 0%,rgba($color,1) 72%)
 
+=clearFix
+  &:after
+    content: "."
+    height: 0
+    visibility: hidden
+    display: block
+    clear: both
 
 // --------------------------------------
 // Style
 body
-  // font-family: $roboto
   font-family: $opensans
   font-size: 14px
   font-weight: 300
@@ -183,7 +185,6 @@ body
 a
   text-decoration: none
   cursor: pointer
-
 
 .container
   width: $innerWidth
@@ -205,7 +206,6 @@ a
   color: $placeholder
 
 
-
 // --------------------------------------
 // Buttons
 .btn
@@ -215,15 +215,11 @@ a
   &.blue, &.grey, &.hack
     display: inline-block
     text-align: center
-    // padding: 13px 44px
     padding: 10px 44px
     text-transform: uppercase
     border-radius: 4px
     +transition(.2s ease-out)
     +webkitFix
-
-    &:hover
-      // box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
 
   &.blue
     margin-top: 30px
@@ -244,7 +240,6 @@ a
     font-family: $boldFont
     text-indent: 20px
     background-color: #F6F6F6
-    // background-image: linear-gradient(90deg, #BEBEBE 50%, transparent 50%)
     background-image: linear-gradient(90deg, rgba(0,0,0,.1) 50%, transparent 50%)
     background-repeat: no-repeat
     background-size: 80px 50px
@@ -456,7 +451,6 @@ nav
       font-weight: bold
 
 
-
   span.free
     position: relative
     top: -1px
@@ -567,12 +561,8 @@ nav
     &:hover, &.focused
       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
 
-    &:after
-      content: "."
-      height: 0
-      visibility: hidden
-      display: block
-      clear: both
+    +clearFix
+
     input[type="text"], input[type="email"], .btn.blue, input[type="submit"]
       float: left
       margin: 0
@@ -627,11 +617,37 @@ nav
 
 
 // --------------------------------------
+// Introducing
+.introducing
+  .page-hero
+    height: 720px
+
+    .hero-copy
+      top: -130px
+      padding-top: 0
+
+    .hero-copy h2
+      font-size: 42px
+      padding-bottom: 4px
+
+    .hero-copy h3
+      color: rgba(255,255,255,.8)
+
+    .visual
+      position: relative
+      top: -60px
+
+      img
+        box-shadow: 0px 2px 20px rgba(0, 0, 0, 0.2)
+
+
+// --------------------------------------
+>>>>>>> local changes
 // Story pages
-.story 
+.story
   .page-hero
     height: 460px
-    
+
     .hero-copy
       padding-top: 32px
 
@@ -641,7 +657,7 @@ nav
 
     .hero-copy h3
       color: rgba(255,255,255,.8)
-  
+
 
   article
     position: relative
@@ -673,7 +689,7 @@ nav
   .page-hero + article
     padding: 90px 0 60px 0
 
-  
+
   .quote .container
     min-height: 300px
     padding: 40px 0
@@ -719,18 +735,18 @@ nav
   .colored
     border-bottom: 0
 
-    p, cite 
+    p, cite
       color: #FFF
 
     cite span
       color: rgba(255,255,255,.6)
-    
+
     &.tealeaf-academy
       background: #127570
 
     &.pilot-dc
       background: #78BAE2
-    
+
     &.tilde
       background: #00AFC4
 
@@ -760,7 +776,7 @@ nav
     .page-hero
       background: $blueLink image_url('home/enterprises-hero.jpg') center center no-repeat
       background-size: cover
-  
+
   #teams
     .page-hero
       background: $blueLink image_url('home/teams-hero.jpg') center center no-repeat
@@ -779,7 +795,6 @@ article
 
   &.extra-padding
     padding-top: 100px
-
 
   &.darker
     background: rgba(0,0,0,.08)
@@ -852,7 +867,6 @@ article
       border-bottom: 0
 
 
-
 // --------------------------------------
 // CTA
 .cta
@@ -875,7 +889,6 @@ article
   flex-wrap: wrap
   padding: 20px 0
 
-
   .grid-item
     width: 280px
     margin: 20px 30px
@@ -891,8 +904,6 @@ article
 
     a:hover h3
       color: $blueLink
-
-
 
 // --------------------------------------
 // Box
@@ -1126,7 +1137,6 @@ h4 + .box-wrapper
     height: 100px
 
 
-
 .full-visual
   position: relative
   margin: 0 auto 30px
@@ -1178,7 +1188,6 @@ h4 + .box-wrapper
     &[data-id="4"]
       top: 250px
       left: 567px
-
 
 
 .ide .full-visual
@@ -1451,24 +1460,17 @@ h4 + .box-wrapper
       z-index: 40
 
 
-
-
 // --------------------------------------
 // IDE
 .ide
-  // background: #343E47 image_url('home/ide-feature-bg.png') center center no-repeat
-  // background-size: cover
   h3
     padding-top: 40px
-
-
 
 .ide + article
   padding-bottom: 60px
 
   .box-wrapper + .centered:last-of-type
     padding-top: 80px
-
 
 .profiles
   .profile
@@ -1549,7 +1551,7 @@ h4 + .box-wrapper
 
     .carnegie
       max-height: 56px
-    
+
     .pilotdc
       max-height: 56px
 
@@ -1617,12 +1619,7 @@ h4 + .box-wrapper
     position: relative
     padding-bottom: 80px
 
-    &:after
-      content: "."
-      height: 0
-      visibility: hidden
-      display: block
-      clear: both
+    +clearFix
 
   .pricing-block
     ul
@@ -1635,13 +1632,7 @@ h4 + .box-wrapper
       justify-content: center
       align-content: flex-start
       align-items: flex-start
-
-      &:after
-        content: "."
-        height: 0
-        visibility: hidden
-        display: block
-        clear: both
+      +clearFix
 
       li
         padding: 20px 0
@@ -1762,323 +1753,85 @@ h4 + .box-wrapper
     +webkitFix
 
 
+// --------------------------------------
+// Compare
+#compare
+  .new
+    color: $blueLink
 
-// .pricing
-//   .pricing-container
-//     position: relative
-//     padding-bottom: 40px
+  em
+    text-transform: uppercase
+    font-size: 9px
+    background: $blueLink
+    border-radius: 2px
+    color: #FFF
+    font-weight: bold
+    position: relative
+    top: -1px
+    padding: 1px 3px
+    margin-right: 6px
 
-//     &:after
-//       content: "."
-//       height: 0
-//       visibility: hidden
-//       display: block
-//       clear: both
+  .table
+    margin: 30px auto 60px auto
+    position: relative
+    text-align: center
+    +clearFix
 
-//   .left
-//     width: 688px
-//     float: left
-//   .right
-//     width: 268px
-//     float: right
+    & > div
+      width: 40%
+      display: inline-block
+      position: relative
+      margin: 0 40px
 
-// .pricing-block
-//   margin: 0 0 40px 0
-//   h3
-//     line-height: 42px
-//     font-size: 18px
-//     padding: 2px 0 2px 50px
-//   &.workspaces
-//     h3
-//       background: image_url('home/pricing-workspaces.svg') 0 0 no-repeat
-//       background-size: 38px 44px
-//   &.compute
-//     h3
-//       background: image_url('home/pricing-compute.svg') 0 0 no-repeat
-//       background-size: 42px 42px
+  .row
+    height: 44px
+    display: block
+    line-height: 44px
+    font-size: 16px
+    text-align: left
 
-//   input[type="range"]
-//     width: 264px
+    span
+      width: 80%
+      margin: 0 auto
+      display: block
 
-//   ul
-//     padding: 18px 0
-//     &:after
-//       content: "."
-//       height: 0
-//       visibility: hidden
-//       display: block
-//       clear: both
-//     li
-//       padding: 20px 0
-//       display: block
-//       float: left
-//       border: 1px solid #434D55
-//       border-radius: 4px
-//       position: relative
-//       cursor: pointer
+    &.visual
+      height: 290px
+      margin: 0
 
-//       a
-//         display: block
-//         color: #A5B3BE
+      img
+        width: 480px
+        height: auto
+        display: block
+        box-shadow: 0 1px 6px rgba(0,0,0,.2)
 
+    &.title
+      font-family: $boldFont
+      text-align: center
+      border-bottom: 1px solid rgba(0,0,0,.05)
+      margin-bottom: 20px
 
-//   .single
-//     li
-//       width: 682px
-//       padding-bottom: 17px
+    .fa-close
+      color: rgba(0,0,0,.2)
 
-//   .duo, .trio
-//     text-align: center
+    .fa-check, .fa-minus
+      margin-right: 6px
 
-//   .duo
-//     li
-//       width: 341px
-//       &:first-child
-//         border-radius: 4px 0 0 4px
-//       &:last-child
-//         left: -1px
-//         border-radius: 0 4px 4px 0
-//   .trio
-//     li
-//       width: 228px
-//       &:first-child
-//         border-radius: 4px 0 0 4px
-//       &:nth-child(2)
-//         border-radius: 0
-//         margin-left: -1px
-//       &:last-child
-//         border-radius: 0 4px 4px 0
-//         margin-left: -1px
+    .fa-check
+      color: #85D966
+
+    .fa-minus
+      color: rgba(0,0,0,.45)
 
 
+  .col-1
+    .title
+      color: $blueLink
 
-//   span
-//     display: block
+  .col-2
+    .title
+      color: rgba(0,0,0,.6)
 
-//   strong
-//     padding-right: 6px
-
-//   .title
-//     color: #A5B3BE
-//     text-transform: uppercase
-//   .focus
-//     font-size: 24px
-//     text-transform: uppercase
-//     padding: 6px 0
-//   .range
-//     height: 24px
-//     margin: 6px 0 16px 0
-//   .details
-//     color: #6C767E
-//     strong
-//       color: #A5B3BE
-
-
-//   .col
-//     float: left
-//     padding: 0 20px
-
-//     &.workspaces, &.compute
-//       line-height: 22px
-//       padding: 0 0 0 26px
-//     &.workspaces
-//       background: image_url('home/pricing-workspaces-small.png') 0 0 no-repeat
-//       background-size: 20px 48px
-//       margin-left: 40px
-//     &.compute
-//       background: image_url('home/pricing-compute-small.png') 0 0 no-repeat
-//       background-size: 22px 48px
-//       margin-left: 30px
-//       padding-right: 4px
-//     &.compute + .col
-//       padding-left: 10px
-//     &.text
-//       padding: 0 0 0 20px
-//       border-left: 1px solid #434D55
-//       &:last-of-type
-//         border: none
-
-//   .single
-//     .focus
-//       font-size: 14px
-//       color: #6C767E
-//       padding: 0
-//       text-transform: none
-//       strong
-//         color: #A5B3BE
-
-
-//   p
-//     color: #A5B3BE
-
-
-
-//   .selectable
-//     &:hover
-//       background: rgba(255,255,255,.02)
-//       box-shadow: 0 2px 10px rgba(0,0,0,.2)
-//       border-color: #0099ED
-//       z-index: 2
-//       a
-//         color: #FFF
-
-//     &.active
-//       z-index: 4
-//       .text
-//         border-color: rgba(255,255,255,.4)
-//       .workspaces, .compute
-//         background-position: bottom left
-
-//     &.active, &.active a
-//       cursor: default
-
-//     &.active, &.active:hover
-//       background: #0099ED
-//       border-color: #0099ED
-//       *, strong
-//         color: #FFF
-
-
-// .paid, .selectable
-//   +transition(.2s ease-out)
-//   +webkitFix
-
-
-// .or
-//   position: relative
-//   margin: 0 0 30px 0
-//   text-align: center
-//   border-bottom: 1px solid #434D55
-
-//   span
-//     width: 38px
-//     margin: 0 auto
-//     bottom: -10px
-//     font-size: 12px
-//     display: block
-//     position: relative
-//     background: #2A3239
-//     color: #6C767E
-//     text-transform: uppercase
-
-
-
-// .sticky
-//   position: absolute
-//   right: 0
-//   +transition(.150s linear)
-//   +webkitFix
-
-
-// .pricing-sheet
-//   position: relative
-//   top: 0
-//   padding-bottom: 20px
-//   color: #2A3239
-//   background: #D8DFE5
-//   border-radius: 4px
-//   box-shadow: 0 2px 20px rgba(0,0,0,.2)
-//   z-index: 10
-
-//   .inner
-//     position: relative
-//     border: 1px solid #B1C0CC
-//     border-radius: 4px
-//     margin: 0 10px
-//     top: 10px
-//     bottom: 10px
-//     padding: 20px
-
-//   .nitrous-badge
-//     width: 64px
-//     height: 64px
-//     position: relative
-//     margin: 0 auto
-//     top: -50px
-//     background: #EEF1F4 image_url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADQAAAAqCAYAAAD8pHgAAAAAAXNSR0IArs4c6QAAA99JREFUaAXdmktoE0EYx79vk1itrSAULSj4wIPgRQ+e6iG9+Eo3h2rS+MAkoh4UDype6kFUxEsRPFTwYJv6KElWENpURD0UVDyoIIgXQRHEgg8saG1rSWb8pthD3c1kZzObgHvJ7vf8/7o7s7ND0UykL4OGg5XY7RFr4KWGUvNKmF2po4C4bp5RchFEwBMSv2uXEQh0RiJ7N42MDI67TnIRiGDsprB2F6GzIYbbwEpxCLDKaGoYoDg6rd+hDUggIKIZjadP1w8HQCuQAOGIF6PxZFu9oLQDIUKQo5EzzT0t9YDSDiQg6NFbAY2LbtOpL/VlfyjfGtKd2hpNHDwja+6HzzegWbGcn43ED7iecnUA+guEGDAwMLgzlmrVIdZNDX+BSAGNp9agYQxCLBZwI6jaGCUgDjDO6VBuitBuGk3nlPM8JCgBIYdXtFTq8dBHpHRH4ultHnNdpykBiao/Pr/v5sCfuO7wN5AePTQMvLWjc99K1VyVeGWg0dHRIi+VEvTkfVVpJGJpkdcSDDVkw+FwUDXXbbwykChcsG58Qsb30Slz22gujt5Pbc3L1lyau9b96wlIiBiyMg8ZY+c9CUI41RFPmZ5yKyR5BhJ1C/nMBeD8UYUeNrcYTzSgBrYnUqttzioNVQFRbzY9UxSP3piqDhpPS0Mc8xtisQWqubL4aoHgwd2bX0rAaJKAoqyRk4/u0+a1RrPX14BTST2r4ZFs5jEH1u3YoYKRJonjHbG0+MzWclR9h+ZUFHKZHprKh+euVX4xANejsf2uN0JktbUBURPOJn4naZL4IGvo5KPVxxIwQlY4nFro5Fex6QQCseNDq4g4Qc2oiJiNRdzYvByvKOf9k6AVSNQezmWeM44n/+nj6pImiSNmIrXXVXCZIO1Aok8h39dLdypfpqfUjNy4Zu5KrZcGSZy+AIl+3yfxEHB4K+nt7EJoghDeMU2z0TlAbvUN6OlQ388iY7tpPE3JJdi9NElsgMUtV+2eyhbfgETre1bmNa1ej1WWYY8gqGRHVzpt98gtvgKJ1oVcfz+9n/rlMpy9JK6XI6x19jpbfQcSbb+xiWP06L12liCxIi6iNd8qSYTNVROgZ5Y1VYQSjSf4aVOg2VATIKH5Xu7GW4b8sGb9tnI1AxKdC9n+HH1x9NpUaDTUFEjoflf6JVYRLzQyzCtVc6A3ljUzAywm9vjmKdF0UXMgoft+NvOBM5ak6Vx907ICeF2AhCbajxiuYtOyLFbdgIQir5uWZWnIUVcgsWk5PTnVRU+e8qZlOaggLfNdf7twBh/LFfJqfziUHaP/RYjQYNritcZ/nfcHcIEAX4w7thYAAAAASUVORK5CYII=') center center no-repeat
-//     background-size: 26px 20px
-//     border-radius: 64px
-//     box-shadow: 0 2px 4px rgba(0,0,0,.1)
-
-//     img
-//       width: 26px
-//       height: 20px
-//       margin: 0 auto
-//       position: relative
-//       display: block
-//       top: 22px
-
-//   .details
-//     margin-top: -30px
-//     padding-bottom: 4px
-
-//     .item
-//       position: relative
-//       margin-bottom: 10px
-
-//       li
-//         position: relative
-//         color: #6C7982
-//         padding: 2px 0 2px 12px
-
-//         &:before
-//           content: '◆'
-//           font-size: 11px
-//           display: block
-//           position: absolute
-//           left: 0
-//           top: 1px
-//           color: #B1C0CC
-
-//     .price
-//       position: absolute
-//       top: 0
-//       right: 0
-//       text-align: right
-
-//     .title
-//       display: block
-//       font-weight: 500
-//       padding-bottom: 2px
-
-//   .total
-//     position: relative
-//     padding: 14px 0 20px 0
-//     border-top: 1px solid #B1C0CC
-
-//     .item
-//       position: absolute
-//       top: 8px
-//       right: 0
-//     strong, small
-//       display: block
-//       clear: both
-//       text-align: right
-//     strong
-//       font-size: 22px
-//       font-weight: 600
-//     small
-//       font-size: 10px
-
-
-//   .btn
-//     width: 139px
-//     font-size: 13px
-//     margin: 20px -10px -10px -10px
-
-// .for-teams
-//   margin-top: 20px
-//   padding: 12px 20px 14px 20px
-//   border: 1px solid #434D55
-//   border-radius: 4px
-
-//   p
-//     display: block
-//     text-align: center
-//     font-size: 12px
-//     line-height: 18px
-//     color: #A5B3BE
-//     margin-bottom: 14px
 
 
 // --------------------------------------
@@ -2094,12 +1847,7 @@ h4 + .box-wrapper
   width: 900px
   margin: 0 auto
 
-  &:after
-    content: "."
-    height: 0
-    visibility: hidden
-    display: block
-    clear: both
+  +clearFix
 
   .section-title
     text-align: left
@@ -2145,11 +1893,11 @@ h4 + .box-wrapper
 
   .item
     padding-bottom: 0
-    
+
     h4
       font-family: $boldFont
       font-weight: 300
-  
+
   .download-btns
     padding: 24px 0 0 0
 
@@ -2169,7 +1917,7 @@ h4 + .box-wrapper
         background-position: 4px -28px
       &.linux
         background-position: 4px -92px
-        
+
       &:hover
         color: #FFF
         background-color: $blueLink
@@ -2302,7 +2050,6 @@ h4 + .box-wrapper
       animation: pulse 2s infinite
       z-index: 1
       +webkitFix
-
 
 
 // --------------------------------------
@@ -2550,7 +2297,6 @@ footer
     background-size: 34px 34px
 
 
-
 // --------------------------------------
 // Carousel
 .carousel
@@ -2747,11 +2493,6 @@ $thumb-bg: $theme-base
   border-radius: $thumb-r
   background: $handle-color
   box-shadow: nth($thumb-sh, $i)
-  // width: 28px
-  // height: 30px
-  // background: image_url('home/range-thumb.png') center center no-repeat
-  // background-size: 28px 30px
-
 
 input[type="range"]
   &,
@@ -2842,7 +2583,6 @@ input[type="range"]
 
   .hero
     background: #2C3944
-    // background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
     background: linear-gradient(to bottom, rgba(40,50,58,1) 0%,rgba(49,62,73,1) 47%,rgba(54,69,80,1) 100%)
     background-size: cover
 
@@ -2895,18 +2635,25 @@ input[type="range"]
   .page-hero
     background: #8696A0
     overflow: hidden
-  
+
   .hero-copy h3
     color: rgba(255,255,255,.6)
 
   .big
     color: #5b666f
 
+  .notice.darker
+    background: rgba(0,0,0,.03)
+    border-bottom: 1px solid rgba(0,0,0,.05)
+
   #press
     .page-hero
-      // +heroLogoGrid(#8696A0,1004px,380px)
       +heroLogoGrid(#0099ED,1004px,380px)
-  
+
+  #compare
+    .page-hero
+      background: #0099ED
+
   .stacks-home
     .page-hero
       +heroLogoGrid(#0099ED,1004px,380px)
@@ -2917,7 +2664,7 @@ input[type="range"]
       &:before
         color: #cfcfcf
 
-  article h4 a 
+  article h4 a
     color: #a5b3be
 
   article h4 a.blue
@@ -2928,7 +2675,7 @@ input[type="range"]
     margin: 4px 0
     color: rgba(0,0,0,.2)
     font-family: $boldFont
-  
+
 
   article .article a
     padding-top: 120px
@@ -3001,7 +2748,7 @@ input[type="range"]
       font-weight: 400
       font-family: $opensans
       color: rgba(0,0,0,.6)
-  
+
   .ripple:hover
     box-shadow: 0 0 0 transparent
 
