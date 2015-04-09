@@ -190,6 +190,39 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	return host, err
 }
 
+// FindShared will return a Host that has been shared via a container collaboration
+func FindShared(db *db.Database, user *user.User, identifier string) (*Host, error) {
+	host := &Host{}
+
+	id, err := strconv.ParseInt(identifier, 10, 64)
+	if err != nil {
+		// If we can't parse an int, identifier is a slug.
+		err = db.Get(host,
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+			INNER JOIN containers AS c ON hosts.id = c.host_id
+			INNER JOIN container_collabs AS cc ON c.id = cc.container_id
+			WHERE cc.user_id = $1 AND hosts.slug = $2
+			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
+	} else {
+		err = db.Get(host,
+			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+			INNER JOIN containers AS c ON hosts.id = c.host_id
+			INNER JOIN container_collabs AS cc ON c.id = cc.container_id
+			WHERE cc.user_id = $1 AND hosts.id = $2
+			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return host, err
+}
+
 // FindByIdentifier returns a host identified by its ID or slug.
 // It does not scope to a user and includes pre-provisioned hosts.
 // It also returns some data about the host's provider template

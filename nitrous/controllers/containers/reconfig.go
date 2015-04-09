@@ -21,7 +21,7 @@ import (
 const reconfigLockTime = 2 * time.Minute
 
 var (
-	Reconfig = WithContainerAndHost(reconfig)
+	Reconfig = WithContainerAndHost(reconfig, false)
 )
 
 func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -51,7 +51,7 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		async, cn, env,
 		container.StateReconfiguring, reconfigLockTime,
 		func() error {
-			publishContainerEvent(env, controllers.EventContainerReconfiguring, cn)
+			PublishContainerEvent(env, controllers.EventContainerReconfiguring, cn, nil)
 
 			err := reconfigureContainer(ctx, env)
 
@@ -61,13 +61,10 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 				if hError, ok := err.(*httperror.Error); ok {
 					errMsg = hError.Description
 				}
-				env.Events.Publish(
-					controllers.NewEvent(controllers.EventContainerReconfigureFailed, map[string]interface{}{
-						"container": serializers.SerializeContainer(cn),
-						"error":     errMsg,
-					}),
-					env.User.Topic(),
-				)
+				add := map[string]interface{}{
+					"error": errMsg,
+				}
+				PublishContainerEvent(env, controllers.EventContainerReconfigureFailed, cn, add)
 				return err
 			}
 
@@ -145,13 +142,11 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 		env.Logger.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
 	}
 
-	env.Events.Publish(
-		controllers.NewEvent(controllers.EventContainerReconfigured, map[string]interface{}{
-			"container": serializers.SerializeContainer(cn),
-			"config":    serializers.SerializeContainerConfig(newConfig),
-		}),
-		env.User.Topic(),
-	)
+	add := map[string]interface{}{
+		"config": serializers.SerializeContainerConfig(newConfig),
+	}
+
+	PublishContainerEvent(env, controllers.EventContainerReconfigured, cn, add)
 
 	return nil
 }

@@ -11,13 +11,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -254,21 +253,6 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
-	bp, err := billingprofile.Find(db, h.UserID)
-	if err != nil {
-		return err
-	}
-
-	err = freetier.StartHostAllowed(db, bp, time.Now())
-	if err != nil {
-		switch err {
-		case freetier.ErrFreeTimeLimitExceeded:
-			return errFreeTimeLimitExceeded
-		default:
-			return err
-		}
-	}
-
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -610,12 +594,7 @@ func publishContainersStopped(env *middleware.Env, h *host.Host) {
 	}
 	for _, cn := range cns {
 		cn.State = container.StateStopped
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventContainerStopped, map[string]*serializers.Container{
-				"container": serializers.SerializeContainer(cn),
-			}),
-			env.User.Topic(),
-		)
+		containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
 	}
 }
 

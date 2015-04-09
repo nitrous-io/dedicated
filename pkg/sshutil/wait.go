@@ -73,7 +73,7 @@ func WaitForSSH(
 			// to authenticate. Note this is very brittle since it depends
 			// on the string of the error... but I don't see any other way.
 			if strings.Contains(err.Error(), "authenticate") {
-				l.Printf("%sFailed to authenticate with remote ssh: %v", err)
+				l.Printf("Failed to authenticate with remote ssh: %v", err)
 				attempts += 1
 			}
 			if attempts >= MaxAttempts {

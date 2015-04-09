@@ -61,6 +61,7 @@ App.AddCardController = Em.ObjectController.extend
         @set 'saving', false
       else
         App.get('billingProfile').addCard(
+          name: @get('name'),
           number: @get('number'),
           exp_month: @get('expMonth'),
           exp_year: @get('expYear'),

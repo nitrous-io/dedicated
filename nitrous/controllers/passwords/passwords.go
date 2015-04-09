@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
@@ -70,7 +69,7 @@ func ResetPassword(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	_, err = db.Exec(`DELETE FROM tokens WHERE user_id = $1 AND type = $2;`, u.ID, token.TypeLogin)
+	_, err = db.Exec(`DELETE FROM tokens WHERE user_id = $1;`, u.ID)
 	if err != nil {
 		return err
 	}

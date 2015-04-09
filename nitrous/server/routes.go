@@ -74,7 +74,7 @@ func (s *Server) drawRouteData(method string, auth bool, routes map[string]route
 
 func (s *Server) drawRoutes() {
 	s.route("/", mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", mw.Call("gihtub.OAuthCb", github.OAuthCb), "GET")
+	s.route("/api/v0/github/oauth_cb", mw.Call("github.OAuthCb", github.OAuthCb), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
@@ -120,7 +120,7 @@ func (s *Server) drawRoutes() {
 				"/hosts":                              r("hosts.Index", hosts.Index),
 				"/images":                             r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":                r("images.Index", images.Index),
-				"/hosts/{slug}":                       r("hosts.Show", mw.HostViaPath("slug", hosts.Show)),
+				"/hosts/{slug}":                       r("hosts.Show", mw.SharedHostViaPath("slug", hosts.Show)),
 				"/hosts/{slug}/stats":                 r("hosts.Stats", mw.HostViaPath("slug", hosts.Stats)),
 				"/hosts/{slug}/announcements":         r("hosts.Announcements", mw.HostViaPath("slug", hosts.Announcements)),
 				"/hosts/{slug}/can_create_containers": r("hosts.CanCreateContainers", mw.HostViaPath("slug", hosts.CanCreateContainers)),
@@ -130,6 +130,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/images/{image:.*}":     r("images.Inspect", mw.HostViaPath("slug", images.Inspect)),
 				"/hosts/{slug}/registries":            r("registries.Index", registries.Index),
 				"/containers":                         r("containers.Index", containers.Index),
+				"/shared_containers":                  r("containers.Shared", containers.Shared),
 				"/containers/{slug}":                  r("containers.Show", containers.Show),
 				"/containers/{slug}/config":           r("containers.Config", containers.Config),
 				"/containers/{slug}/keys":             r("userkeys.Index", userkeys.Index),

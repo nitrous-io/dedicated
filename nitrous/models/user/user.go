@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -46,6 +47,12 @@ var (
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
+
+	ErrFreeTrialPaidUserDisallowed = errors.New("cannot create a free trial host for a paid user")
+	ErrFreeTrialPlanNotFree        = errors.New("cannot create a free trial host using a paid plan")
+	ErrFreeTrialOngoing            = errors.New("cannot create a free trial host when user has already created one")
+	ErrFreeTrialExpired            = errors.New("cannot create a free trial host after free trial period")
+	ErrMaxHostsExceeded            = errors.New("max hosts exceeded")
 )
 
 func init() {
@@ -261,42 +268,41 @@ func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
-func (u *User) paymentState(d db.QueryReceiver) (string, error) {
-	var state string
-	if err := d.QueryRowx(`SELECT state FROM billing_profiles WHERE user_id = $1;`, u.ID).Scan(&state); err != nil {
-		return "", err
-	}
-	return state, nil
-}
-
-func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
-	// admins have free reign
+func (u *User) CanCreateHosts(d db.QueryReceiver, pl *plan.Plan) error {
+	// admins and service accounts have free rein
 	if u.Admin || u.ServiceAccount {
-		return true, nil
+		return nil
 	}
 
-	// continue ONLY if the user is a paid, exempt or payment_due user
-	paymentState, err := u.paymentState(d)
+	bp, err := billingprofile.Find(d, u.ID)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	switch paymentState {
-	// noop for these cases
-	case billingprofile.StatePaid:
-	case billingprofile.StatePaymentDue:
-	case billingprofile.StateExempt:
+	switch bp.State {
+	case billingprofile.StatePaid, billingprofile.StatePaymentDue:
+		// Paid users cannot create hosts on a free plan
+		if pl.IsFree() {
+			return ErrFreeTrialPaidUserDisallowed
+		}
 
 	case billingprofile.StateFree:
-		// actual checking against allowed quota & plan
-		// is done by models/freetier
+		// Plan must allow free trials.
+		if !pl.IsFree() {
+			return ErrFreeTrialPlanNotFree
+		}
+
+		return u.isEligibleForFreeTrial(d)
+
+	case billingprofile.StateExempt:
+		// no-op
 
 	default:
 		// return disallowed if not in any of previous state
-		return false, nil
+		return fmt.Errorf("unexpected billing profile state: %v", bp.State)
 	}
 
-	// user is a paid/payment_due user, ensure max_hosts limit has not been reached
+	// ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
@@ -304,11 +310,49 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		LEFT JOIN hosts h ON (h.user_id = u.id AND h.terminated_at IS NULL)
 		WHERE u.id = $1;`,
 		u.ID).Scan(&b)
-
 	if err != nil {
-		return false, err
+		return err
 	}
-	return b, nil
+
+	if !b {
+		return ErrMaxHostsExceeded
+	}
+
+	return nil
+}
+
+func (u *User) isEligibleForFreeTrial(d db.QueryReceiver) error {
+	bp, err := billingprofile.Find(d, u.ID)
+	if err != nil {
+		return err
+	}
+
+	if bp.State != billingprofile.StateFree {
+		return errors.New("user's billing profile is not free")
+	}
+
+	// Free users can only participate in a free trial once.
+	if bp.FreeTrialExpiresAt.Valid {
+		if bp.FreeTrialExpiresAt.Time.After(time.Now()) {
+			return ErrFreeTrialOngoing
+		} else {
+			return ErrFreeTrialExpired
+		}
+	}
+
+	// Free users can only create a single free trial host.
+	var count int
+	if err = d.QueryRowx(`SELECT count(h.id)
+			FROM hosts h
+			WHERE h.user_id = $1;`,
+		u.ID).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrMaxHostsExceeded
+	}
+
+	return nil
 }
 
 func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
@@ -519,7 +563,13 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
-		Desc:  fmt.Sprint(u.Name, u.Username),
+		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
+		Params: stripe.Params{
+			Meta: map[string]string{
+				"username": u.Username,
+				"name":     u.Name,
+			},
+		},
 	}
 	c, err := customer.New(params)
 	if err != nil {

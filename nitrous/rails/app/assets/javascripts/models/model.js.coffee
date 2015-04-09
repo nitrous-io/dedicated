@@ -3,7 +3,8 @@
 
 App.Model = klass = SM.Model.extend
   ajax: (method, action, data=null, headers={}, options={}) ->
-    urlComponents = [Ember.get(@constructor, 'url')]
+    baseUrl = Ember.get(@constructor, 'url')
+    urlComponents = [baseUrl]
     unless Ember.get(@constructor, 'singular')
       urlComponents.push(encodeURIComponent(@getPrimaryKey()))
     urlComponents.push(encodeURIComponent(action)) if action

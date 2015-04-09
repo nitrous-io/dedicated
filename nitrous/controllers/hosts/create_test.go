@@ -254,10 +254,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		hosts.HostbuilderClient = hb
 		doRequest(params)
 
-		var ht string
-		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
-		Expect(err).To(BeNil())
-
 		req := rt.Requests[0]
 		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 
@@ -295,10 +291,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		replaceTransport(hb, rt)
 		hosts.HostbuilderClient = hb
 		doJsonRequest(jsonStr)
-
-		var ht string
-		err := db.QueryRow(`SELECT token FROM tokens WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1;`, u.ID, token.TypeHost).Scan(&ht)
-		Expect(err).To(BeNil())
 
 		Expect(rt.Requests).To(HaveLen(1))
 		req := rt.Requests[0]
@@ -832,7 +824,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusForbidden))
 
 					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("paid_plan_not_allowed"))
+					Expect(errType).To(Equal("request_not_allowed"))
 				})
 
 				It("responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
@@ -846,7 +838,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusForbidden))
 
 					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("max_free_host_reached"))
+					Expect(errType).To(Equal("request_not_allowed"))
 				})
 
 				It("responds success if there is no non-terminated host", func() {
@@ -935,7 +927,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(err).To(BeNil())
 
 			res := doRequest(params)
-
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errType, errDesc := test.ErrorSlug(res.Body)

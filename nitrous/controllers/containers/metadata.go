@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	Metadata = WithContainerAndHost(metadata)
+	Metadata = WithContainerAndHost(metadata, true)
 )
 
 func metadata(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

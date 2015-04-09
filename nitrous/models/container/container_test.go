@@ -32,12 +32,11 @@ var _ = Describe("models/container", func() {
 	var (
 		db *db.Database
 		u  *user.User
+		c  *container.Container
 		h  *host.Host
 		r  *region.Region
 		p  *plan.Plan
 		pt *providertemplate.ProviderTemplate
-
-		cID int64
 	)
 
 	BeforeEach(func() {
@@ -80,18 +79,15 @@ var _ = Describe("models/container", func() {
 		err = h.Insert(db)
 		Expect(err).To(BeNil())
 
-		cntnr := &container.Container{
+		c = &container.Container{
 			CID:    "deadbeef",
 			UserID: u.ID,
 			HostID: h.ID,
 			Image:  "nitrous-base",
 			Slug:   "my-1st-container",
 		}
-		nstmt, err := db.PrepareNamed(`INSERT INTO containers
-			(cid, user_id, host_id, image, slug)
-			VALUES (:cid, :user_id, :host_id, :image, :slug) RETURNING id;`)
+		err = c.Insert(db)
 		Expect(err).To(BeNil())
-		nstmt.QueryRowx(cntnr).Scan(&cID)
 	})
 
 	AfterEach(func() {
@@ -102,10 +98,6 @@ var _ = Describe("models/container", func() {
 
 	Describe("String()", func() {
 		It("redacts container secret", func() {
-			c, err := container.Find(db, u, "my-1st-container")
-			Expect(err).To(BeNil())
-			Expect(c).NotTo(BeNil())
-
 			s := fmt.Sprintf("%+v", c)
 			Expect(s).NotTo(ContainSubstring(c.Secret))
 			Expect(s).To(ContainSubstring("Secret:(REDACTED)"))
@@ -119,7 +111,7 @@ var _ = Describe("models/container", func() {
 	Describe("Find()", func() {
 		Context("when finding by slug", func() {
 			It("returns the container record matching the slug that belongs to the user", func() {
-				c, err := container.Find(db, u, "my-1st-container")
+				c, err := container.Find(db, u, c.Slug)
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
 				Expect(c.UserID).To(Equal(u.ID))
@@ -137,7 +129,7 @@ var _ = Describe("models/container", func() {
 				err := WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
-				c, err := container.Find(db, u2, "my-1st-container")
+				c, err := container.Find(db, u2, c.Slug)
 				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
@@ -151,7 +143,7 @@ var _ = Describe("models/container", func() {
 
 		Context("when finding by ID", func() {
 			It("returns the container record matching the ID that belongs to the user", func() {
-				c, err := container.Find(db, u, strconv.FormatInt(cID, 10))
+				c, err := container.Find(db, u, strconv.FormatInt(c.ID, 10))
 				Expect(err).To(BeNil())
 				Expect(c).NotTo(BeNil())
 				Expect(c.UserID).To(Equal(u.ID))
@@ -169,7 +161,7 @@ var _ = Describe("models/container", func() {
 				err := WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 
-				c, err := container.Find(db, u2, strconv.FormatInt(cID, 10))
+				c, err := container.Find(db, u2, strconv.FormatInt(c.ID, 10))
 				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
 			})
@@ -184,10 +176,151 @@ var _ = Describe("models/container", func() {
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
-				c, err := container.Find(db, u, "my-1st-container")
+				c, err := container.Find(db, u, c.Slug)
 				Expect(err).NotTo(BeNil())
 				Expect(c).To(BeNil())
 			})
+		})
+	})
+
+	Describe("FindShared()", func() {
+		var recv *user.User
+
+		BeforeEach(func() {
+			recv = &user.User{
+				Username: "shared",
+				Email:    "shared@example.com",
+				Password: "123456",
+			}
+			err := WrapInTransaction(db, recv.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, recv.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when finding by slug", func() {
+			It("returns the container record shared with the user", func() {
+				c, err := container.FindShared(db, recv, c.Slug)
+				Expect(err).To(BeNil())
+				Expect(c).NotTo(BeNil())
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(h.ID))
+				Expect(c.CID).To(Equal("deadbeef"))
+				Expect(c.Slug).To(Equal(c.Slug))
+			})
+
+			It("returns an error if the container matching the given slug is not shared with the user", func() {
+				u2 := &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				c, err := container.FindShared(db, u2, c.Slug)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(c).To(BeNil())
+			})
+
+			It("returns an error when there's no matching container for the given slug'", func() {
+				c, err := container.Find(db, recv, "no-such-container")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(c).To(BeNil())
+			})
+		})
+
+		Context("when finding by ID", func() {
+			It("returns the container record shared with the user", func() {
+				c, err := container.FindShared(db, recv, strconv.FormatInt(c.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(c).NotTo(BeNil())
+				Expect(c.UserID).To(Equal(u.ID))
+				Expect(c.HostID).To(Equal(h.ID))
+				Expect(c.CID).To(Equal("deadbeef"))
+				Expect(c.Slug).To(Equal(c.Slug))
+			})
+
+			It("returns an error if the container matching the given slug is not shared with the user", func() {
+				u2 := &user.User{
+					Username: "barbaz",
+					Email:    "barbaz@example.com",
+					Password: "123456",
+				}
+				err := WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				c, err := container.FindShared(db, u2, strconv.FormatInt(c.ID, 10))
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(c).To(BeNil())
+			})
+
+			It("returns an error when there's no matching container for the given slug'", func() {
+				c, err := container.FindShared(db, recv, "10001")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(c).To(BeNil())
+			})
+		})
+	})
+
+	Describe("FindAllShared()", func() {
+		var (
+			recv       *user.User
+			cnr1, cnr2 *container.Container
+		)
+
+		BeforeEach(func() {
+			recv = &user.User{
+				Username: "shared",
+				Email:    "shared@example.com",
+				Password: "123456",
+			}
+			err := WrapInTransaction(db, recv.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, recv.ID)
+			Expect(err).To(BeNil())
+
+			cnr1 = &container.Container{
+				CID:    "thingo3",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "coffee-test-container",
+			}
+			err = cnr1.Insert(db)
+			Expect(err).To(BeNil())
+
+			cnr2 = &container.Container{
+				CID:    "thingo8",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "swift-test-container",
+			}
+			err = cnr2.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, cnr2.ID, recv.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should list all containers shared with the user", func() {
+			cns, err := container.FindAllShared(db, recv.ID)
+			Expect(err).To(BeNil())
+			Expect(cns).To(HaveLen(2))
+			Expect(cns).To(ConsistOf(cnr2, c))
+		})
+
+		It("should not include terminated containers", func() {
+			_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE id = $1;`, cnr2.ID)
+			Expect(err).To(BeNil())
+
+			cns, err := container.FindAllShared(db, recv.ID)
+			Expect(err).To(BeNil())
+			Expect(cns).To(HaveLen(1))
+			Expect(cns).To(ConsistOf(c))
 		})
 	})
 
@@ -199,7 +332,7 @@ var _ = Describe("models/container", func() {
 				Expect(c).NotTo(BeNil())
 				Expect(c.CID).To(Equal("deadbeef"))
 				Expect(c.Image).To(Equal("nitrous-base"))
-				Expect(c.Slug).To(Equal("my-1st-container"))
+				Expect(c.Slug).To(Equal(c.Slug))
 			})
 
 			Context("when container has been terminated", func() {
@@ -243,7 +376,7 @@ var _ = Describe("models/container", func() {
 
 				Expect(containers[0].CID).To(Equal("deadbeef"))
 				Expect(containers[0].Image).To(Equal("nitrous-base"))
-				Expect(containers[0].Slug).To(Equal("my-1st-container"))
+				Expect(containers[0].Slug).To(Equal(c.Slug))
 			})
 
 			Context("when some containers have been terminated", func() {

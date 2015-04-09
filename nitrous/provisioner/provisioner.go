@@ -26,7 +26,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -96,10 +95,9 @@ type Provisioner struct {
 	stopped   chan struct{}
 	isRunning uint32 // atomic bool, non zero if true
 
-	config                *Config
-	preprovisionUser      *user.User
-	preprovisionUserToken *token.Token
-	caInfo                *certauth.CAInfo
+	config           *Config
+	preprovisionUser *user.User
+	caInfo           *certauth.CAInfo
 }
 
 // Config is the configuration of a host provisioner.
@@ -117,7 +115,6 @@ type ProvisionOptions struct {
 	Slug     string
 	Name     string
 	User     *user.User
-	Token    *token.Token
 	Region   *region.Region
 	Plan     *plan.Plan
 	Template *providertemplate.ProviderTemplate
@@ -360,12 +357,8 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	}
 
 	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(p.db)
-	if err != nil {
-		return nil, err
-	}
-
-	if !canCreateHosts {
+	if err := opts.User.CanCreateHosts(p.db, opts.Plan); err != nil {
+		p.logger.Errorf("Error checking if user can create host: %v", err)
 		return nil, ErrHostCreationNotAllowed
 	}
 
@@ -526,12 +519,8 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	if !canCreateHosts {
+	if err := opts.User.CanCreateHosts(tx, opts.Plan); err != nil {
+		p.logger.Errorf("Error checking if user can create host: %v", err)
 		tx.Rollback()
 		return nil, ErrHostCreationNotAllowed
 	}
@@ -638,12 +627,7 @@ func (p *Provisioner) configureUser() error {
 		}
 		return err
 	}
-	t := &token.Token{UserID: u.ID, Type: token.TypeProvisioner}
-	if err := t.Insert(p.db); err != nil {
-		return err
-	}
 	p.preprovisionUser = u
-	p.preprovisionUserToken = t
 	return nil
 }
 
@@ -671,7 +655,6 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 		Slug:         slug,
 		Name:         "Pre-provisioned host",
 		User:         p.preprovisionUser,
-		Token:        p.preprovisionUserToken,
 		Region:       r,
 		Plan:         pl,
 		Template:     j.template,

@@ -1,6 +1,7 @@
 package userkeys
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -27,9 +28,9 @@ var (
 
 var (
 	Index     middleware.Middleware = withContainer(index)
-	Create    middleware.Middleware = containers.WithContainerAndHost(create)
-	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll)
-	Delete    middleware.Middleware = containers.WithContainerAndHost(delete)
+	Create    middleware.Middleware = containers.WithContainerAndHost(create, true)
+	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll, false)
+	Delete    middleware.Middleware = containers.WithContainerAndHost(delete, true)
 )
 
 func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -160,13 +161,19 @@ func withContainer(fn func(cn *container.Container, env *middleware.Env, w http.
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 		u := env.User
+		slug := mux.Vars(r)["slug"]
 
-		cn, err := container.Find(db, u, mux.Vars(r)["slug"])
+		cn, err := container.Find(db, u, slug)
 		if err != nil {
-			return err
-		}
-		if cn == nil {
-			return ErrContainerNotFound
+			if err == sql.ErrNoRows {
+				cn, err = container.FindShared(db, u, slug)
+				if err != nil {
+					if err == sql.ErrNoRows {
+						return ErrContainerNotFound
+					}
+					return err
+				}
+			}
 		}
 
 		return fn(cn, env, w, r)

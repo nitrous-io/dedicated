@@ -4,11 +4,9 @@ App.HomeRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments
     App.set 'title', null
-    hostsFetch = App.Host.fetch()
-    containersFetch = App.Container.fetch()
-    App.set 'hosts', hostsFetch.value
-    App.set 'containers', containersFetch.value
-    Em.RSVP.allSettled([hostsFetch, containersFetch])
+    App.set 'hosts', App.Host.fetch().value
+    App.set 'containers', App.Container.fetch().value
+    App.set 'sharedContainers', App.SharedContainer.fetch().value
 
   renderTemplate: ->
     @_super()

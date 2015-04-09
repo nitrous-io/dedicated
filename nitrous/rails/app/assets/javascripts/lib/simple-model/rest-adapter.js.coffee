@@ -33,6 +33,8 @@ SM.RESTAdapter = Ember.Object.extend
       fetchOne = true
       url = "#{url}/#{encodeURIComponent(primaryKey)}"
     else
+      if mulUrl = Ember.get(model, 'multipleUrl')
+        url = mulUrl
       fetchOne = false
 
     if params

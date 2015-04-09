@@ -48,6 +48,8 @@ const (
 	EventVolumeCreated              EventName = "volume.created"
 	EventVolumeDestroyed            EventName = "volume.destroyed"
 	EventInvoiceUpdated             EventName = "invoice.updated"
+	EventCollaboratorAdded          EventName = "collaborator.added"
+	EventCollaboratorRemoved        EventName = "collaborator.removed"
 )
 
 type Event struct {
