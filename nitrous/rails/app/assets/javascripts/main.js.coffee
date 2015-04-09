@@ -274,6 +274,5 @@ App.Router.reopen
   ).on 'didTransition'
 
   notifyOnboarding: (->
-    console.log @get('url')
     App.trigger 'handle-transition', @get('url')
   ).on 'didTransition'

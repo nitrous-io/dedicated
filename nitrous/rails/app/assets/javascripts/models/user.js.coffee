@@ -32,6 +32,18 @@ App.User = klass = App.Model.extend
     @set 'firstTime', false
     @ajax 'POST', 'dismiss_first_time'
 
+  updatePhone: (phone, phoneCountryCode) ->
+    @ajax 'POST', 'phone',
+      phone: phone
+      phone_country_code: phoneCountryCode
+
+  resendPhoneCode: ->
+    @ajax 'POST', 'resend_phone_code'
+
+  verifyPhone: (code) ->
+    @ajax 'POST', 'verify_phone',
+      code: code
+
 klass.reopenClass
   url: '/user'
   createURL: '/users'
