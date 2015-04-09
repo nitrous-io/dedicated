@@ -1,0 +1,14 @@
+#onboarding-welcome.ui.modal
+  .ui.card
+    h2.card-header
+      | Welcome to Nitrous!
+    .card-body
+      | Let's get your first setup started. It'll just take a few minutes.
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        input.ui.btn.primary value='Get started' click='nextScreen'
+
+if view.showGutter
+  App.GutterOnboardingView

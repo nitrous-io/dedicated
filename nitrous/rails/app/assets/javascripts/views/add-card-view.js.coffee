@@ -24,3 +24,7 @@ App.AddCardView = Em.View.extend
       backgroundImageURL = "url(#{location.protocol}//nitrous-image-icons.s3.amazonaws.com/cards/#{cardType}.png)"
     $('#card-number').css 'background-image', backgroundImageURL
   ).observes 'controller.number'
+
+  actions:
+    showHelp: ->
+      App.set 'onboardingScreen', 'cardholders-name'

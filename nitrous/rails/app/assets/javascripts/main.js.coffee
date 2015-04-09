@@ -45,6 +45,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   pendingContainerData: null
 
+  onboardingScreen: null
+  onboardingReady: false
+
   regionIndex: (->
     regions = @get('regions')
 
@@ -83,6 +86,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
   newUser: (->
     @get('billingProfile') && @get('billingProfile.cardRequired')
   ).property 'billingProfile', 'billingProfile.cardRequired'
+
+  showOnboarding: (->
+    @get('user.firstTime') && @get('onboardingReady')
+  ).property 'onboardingReady', 'user.firstTime'
 
   desktopDownloadUrl: (->
     "http://getpro.nitrous.io/#{@get('platform')}/download.html"

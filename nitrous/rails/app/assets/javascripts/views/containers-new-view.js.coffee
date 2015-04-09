@@ -181,6 +181,9 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
     toggleLog: ->
       @toggleProperty 'showLog'
 
+    showHelp: ->
+      App.set 'onboardingScreen', 'pick-container'
+
 App.ContainerNameTextField = Em.TextField.extend
   click: ->
     unless @get('targetObject.nameFieldEdited')
