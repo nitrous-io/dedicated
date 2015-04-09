@@ -9,15 +9,19 @@ import (
 )
 
 type User struct {
-	ID               int64           `json:"id"`
-	Name             string          `json:"name"`
-	Username         string          `json:"username"`
-	Email            string          `json:"email"`
-	Admin            bool            `json:"admin"`
-	UserProfile      *UserProfile    `json:"user_profile,omitempty"`
-	BillingProfile   *BillingProfile `json:"billing_profile,omitempty"`
-	UnconfirmedEmail string          `json:"unconfirmed_email,omitempty"`
-	PromoCode        string          `json:"promo_code,omitempty"`
+	UserProfile    *UserProfile    `json:"user_profile,omitempty"`
+	BillingProfile *BillingProfile `json:"billing_profile,omitempty"`
+
+	ID               int64  `json:"id"`
+	Name             string `json:"name"`
+	Username         string `json:"username"`
+	Email            string `json:"email"`
+	Admin            bool   `json:"admin"`
+	UnconfirmedEmail string `json:"unconfirmed_email,omitempty"`
+	PromoCode        string `json:"promo_code,omitempty"`
+	Phone            string `json:"phone"`
+	PhoneCountryCode string `json:"phone_country_code"`
+	PhoneAuthed      bool   `json:"phone_authed"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -35,6 +39,9 @@ func SerializeUser(u *user.User) *User {
 		Admin:            u.Admin,
 		UnconfirmedEmail: u.UnconfirmedEmail.String,
 		PromoCode:        u.PromoCode.String,
+		Phone:            u.Phone.String,
+		PhoneCountryCode: u.PhoneCountryCode.String,
+		PhoneAuthed:      u.PhoneAuthed,
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,

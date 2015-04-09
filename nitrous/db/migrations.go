@@ -1011,5 +1011,14 @@ func init() {
 				ALTER TABLE billing_profiles ADD COLUMN free_trial_expires_at timestamp without time zone;
 			`,
 		},
+		{
+			Version: "880",
+			Up: `
+				ALTER TABLE users ADD COLUMN phone character varying(255) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN phone_country_code character varying(255) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN phone_authed boolean DEFAULT false NOT NULL;
+				CREATE UNIQUE INDEX index_users_on_phone_and_phone_country_code ON users USING btree (phone, phone_country_code);
+			`,
+		},
 	}
 }

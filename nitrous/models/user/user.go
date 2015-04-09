@@ -85,6 +85,10 @@ type User struct {
 	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at"`
 	ConfirmedAt        pq.NullTime    `db:"confirmed_at"`
 	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email"`
+
+	Phone            sql.NullString `db:"phone"`
+	PhoneCountryCode sql.NullString `db:"phone_country_code"`
+	PhoneAuthed      bool           `db:"phone_authed"`
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
