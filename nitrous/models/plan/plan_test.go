@@ -33,8 +33,15 @@ var _ = Describe("models/plan", func() {
 		_, err = db.Exec(`INSERT INTO plans
 			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+			"free", "FreeToTry", 4, 0, 0, "2", "1 GB", "20 GB", false, true)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`INSERT INTO plans
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
 			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true)
 		Expect(err).To(BeNil())
+
 		_, err = db.Exec(`INSERT INTO plans
 			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
@@ -241,6 +248,10 @@ var _ = Describe("models/plan", func() {
 				slugs = append(slugs, pl.Slug)
 			}
 			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
+
+			pls, _ = plan.FreePlansForProvider(db, "digitalocean")
+			Expect(len(pls)).To(Equal(1))
+			Expect(pls[0].Slug).To(Equal("free"))
 		})
 	})
 

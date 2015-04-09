@@ -30,6 +30,7 @@ func Test(t *testing.T) {
 var _ = Describe("controllers/plans", func() {
 	var (
 		db      *db.Database
+		u       *user.User
 		res     *httptest.ResponseRecorder
 		handler *mux.Router
 	)
@@ -45,7 +46,7 @@ var _ = Describe("controllers/plans", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 
-		u := &user.User{
+		u = &user.User{
 			Username: "tokenuser",
 			Password: "123456",
 			Email:    "tokenuser@example.com",
@@ -77,7 +78,29 @@ var _ = Describe("controllers/plans", func() {
 		}
 
 		Context("when plans exist", func() {
-			var planSlugs = []string{"start", "shift", "turbo"}
+			plans := []plan.Plan{
+				{
+					Slug:  "free",
+					Price: 0,
+				},
+				{
+					Slug:  "start",
+					Price: 500,
+				},
+				{
+					Slug:  "shift",
+					Price: 1000,
+				},
+				{
+					Slug:  "turbo",
+					Price: 1500,
+				},
+				{
+					Slug:     "hidden",
+					Price:    2000,
+					Disabled: true,
+				},
+			}
 
 			BeforeEach(func() {
 				r := region.Region{
@@ -86,53 +109,74 @@ var _ = Describe("controllers/plans", func() {
 				}
 				Expect(r.Insert(db)).To(BeNil())
 
-				for _, n := range planSlugs {
-					pl := plan.Plan{Slug: n, Price: 500}
+				for _, pl := range plans {
 					Expect(pl.Insert(db)).To(BeNil())
-					t := providertemplate.ProviderTemplate{
+					pt := providertemplate.ProviderTemplate{
 						PlanID:   pl.ID,
 						RegionID: r.ID,
 						Provider: envvars.DefaultProvider,
 					}
-					Expect(t.Insert(db)).To(BeNil())
+					Expect(pt.Insert(db)).To(BeNil())
 				}
-
-				// Add a disabled plan - it should not be returned.
-				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
-				Expect(pl.Insert(db)).To(BeNil())
-				t := providertemplate.ProviderTemplate{
-					PlanID:   pl.ID,
-					RegionID: r.ID,
-					Provider: envvars.DefaultProvider,
-				}
-				Expect(t.Insert(db)).To(BeNil())
 
 				// Add a plan belonging to another provider - it should not be returned.
-				pl = plan.Plan{Slug: "start-windows-azure"}
+				pl := plan.Plan{Slug: "start-windows-azure", Price: 3000}
 				Expect(pl.Insert(db)).To(BeNil())
-				t = providertemplate.ProviderTemplate{
+				pt := providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
 					RegionID: r.ID,
 					Provider: "windows-azure",
 				}
-				Expect(t.Insert(db)).To(BeNil())
+				Expect(pt.Insert(db)).To(BeNil())
 			})
 
-			It("returns valid plans of the default provider", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			Context("when user is paid user", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+				})
 
-				j := struct {
-					Plans []serializers.Plan `json:"plans"`
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				Expect(j.Plans).To(HaveLen(3))
-				slugs := make([]string, 0, len(planSlugs))
-				for _, pl := range j.Plans {
-					slugs = append(slugs, pl.Slug)
-				}
-				Expect(slugs).To(ConsistOf(planSlugs))
+				It("returns paid plans of the default provider", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					j := struct {
+						Plans []serializers.Plan `json:"plans"`
+					}{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					expectedSlugs := []string{"start", "shift", "turbo"}
+
+					Expect(j.Plans).To(HaveLen(3))
+
+					slugs := make([]string, 3)
+					for i, pl := range j.Plans {
+						slugs[i] = pl.Slug
+					}
+					Expect(slugs).To(ConsistOf(expectedSlugs))
+				})
+			})
+
+			Context("when user is in free trial", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("returns free plans of the default provider", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					j := struct {
+						Plans []serializers.Plan `json:"plans"`
+					}{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					Expect(j.Plans).To(HaveLen(1))
+					Expect(j.Plans[0].Slug).To(Equal("free"))
+				})
 			})
 		})
 
