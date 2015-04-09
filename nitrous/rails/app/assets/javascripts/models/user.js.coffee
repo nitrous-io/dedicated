@@ -27,6 +27,11 @@ App.User = klass = App.Model.extend
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'
 
+  updatePhone: (phone, phoneCountryCode) ->
+    @ajax 'POST', 'phone',
+      phone: phone
+      phone_country_code: phoneCountryCode
+
 klass.reopenClass
   url: '/user'
   createURL: '/users'
@@ -34,3 +39,5 @@ klass.reopenClass
   primaryKey: 'id'
   singular: true
   rootKey: 'user'
+
+  updatePhone: ->
