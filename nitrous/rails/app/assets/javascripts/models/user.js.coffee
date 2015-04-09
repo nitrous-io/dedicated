@@ -13,6 +13,9 @@ App.User = klass = App.Model.extend
   unconfirmedEmail: attr(as: 'unconfirmed_email', default: null, overwrite: true)
   promoCode: attr(as: 'promo_code')
   firstTime: attr('boolean', as: 'first_time', default: false)
+  phone: attr()
+  phoneCountryCode: attr(as: 'phone_country_code')
+  phoneAuthed: attr('boolean', as: 'phone_authed', serialize: false)
 
   # used for sideloading the records, should not access directly
   # instead use `App.userProfile` and `App.billingProfile`.
