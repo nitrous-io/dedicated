@@ -274,33 +274,6 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(res.Container, c)
 	})
 
-	It("creates new volumes when the container requires built-in volumes", func() {
-		mockClient.CreatedContainer = &freighterclient.Container{
-			ID:      "deadbeef",
-			Name:    "elixir-web-1",
-			State:   "running",
-			Image:   "elixir",
-			ImageID: "abc123",
-			Volumes: map[string]string{
-				"/var/lib/docker": "hexvarlibdocker",
-				"/var/lib/extra":  "hexvarlibextra",
-			},
-		}
-
-		res, err := containers.CreateContainer(h, params, env)
-		Expect(err).To(BeNil())
-
-		vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
-		Expect(vols).To(HaveLen(2), "missing generated volumes")
-		Expect(vols[0].HostID).To(Equal(res.Container.HostID))
-		Expect(vols[0].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker")))
-		Expect(vols[0].Slug).To(Equal("hexvarlibdocker"))
-
-		Expect(vols[1].HostID).To(Equal(res.Container.HostID))
-		Expect(vols[1].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra")))
-		Expect(vols[1].Slug).To(Equal("hexvarlibextra"))
-	})
-
 	Context("when the Freighter client returns an error", func() {
 		BeforeEach(func() {
 			mockClient.CreateError = errors.New("only Chuck Norris is allowed")
@@ -416,7 +389,7 @@ var _ = Describe("CreateContainer", func() {
 		})
 	})
 
-	Context("with volumes param", func() {
+	Context("when assign pre-created volumes", func() {
 		BeforeEach(func() {
 			params.Add("volume[]", "music:/mpd/albums")
 			params.Add("volume[]", "backups")
@@ -424,11 +397,10 @@ var _ = Describe("CreateContainer", func() {
 
 		It("returns success if volume does exist and response doesnt include volumes", func() {
 			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
-			err := v.Insert(db)
-			Expect(err).To(BeNil())
+			Expect(v.Insert(db)).To(BeNil())
+
 			v2 := &volume.Volume{HostID: hs.H.ID, Slug: "backups"}
-			err = v2.Insert(db)
-			Expect(err).To(BeNil())
+			Expect(v2.Insert(db)).To(BeNil())
 
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(err).To(BeNil())
@@ -441,6 +413,7 @@ var _ = Describe("CreateContainer", func() {
 			cv, err := cvolume.Find(db, &container.Container{ID: res.Container.ID}, v)
 			Expect(err).To(BeNil())
 			Expect(cv.VolumeID).To(Equal(v.ID))
+
 			cv2, err := cvolume.Find(db, &container.Container{ID: res.Container.ID}, v2)
 			Expect(err).To(BeNil())
 			Expect(cv2.VolumeID).To(Equal(v2.ID))
@@ -449,8 +422,65 @@ var _ = Describe("CreateContainer", func() {
 		It("returns error if volume does not exist", func() {
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(res).To(BeNil())
-
 			Expect(err).To(MatchError(containers.ErrVolumeNotFound))
 		})
+
+		It("creates new volumes and associate old ones when container has a mix of built-in and manual volumes", func() {
+			for _, slug := range []string{"music", "backups"} {
+				Expect((&volume.Volume{HostID: hs.H.ID, Slug: slug}).Insert(db)).To(BeNil())
+			}
+			mockClient.CreatedContainer = &freighterclient.Container{
+				ID:      "deadbeef",
+				Name:    "elixir-web-1",
+				State:   "running",
+				Image:   "elixir",
+				ImageID: "abc123",
+				Volumes: map[string]string{
+					"/var/lib/docker":  "hexvarlibdocker",
+					"/var/lib/extra":   "hexvarlibextra",
+					"/mpd/albums":      "music",
+					"/volumes/backups": "backups",
+				},
+			}
+
+			res, err := containers.CreateContainer(h, params, env)
+			Expect(err).To(BeNil())
+
+			vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
+			Expect(vols).To(HaveLen(4), "missing volumes")
+
+			var slugs []string
+			for _, v := range vols {
+				slugs = append(slugs, v.Slug)
+			}
+			Expect(slugs).To(ConsistOf("music", "backups", "hexvarlibdocker", "hexvarlibextra"))
+		})
+	})
+
+	It("creates new volumes when the container requires built-in volumes", func() {
+		mockClient.CreatedContainer = &freighterclient.Container{
+			ID:      "deadbeef",
+			Name:    "elixir-web-1",
+			State:   "running",
+			Image:   "elixir",
+			ImageID: "abc123",
+			Volumes: map[string]string{
+				"/var/lib/docker": "hexvarlibdocker",
+				"/var/lib/extra":  "hexvarlibextra",
+			},
+		}
+
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
+		Expect(vols).To(HaveLen(2), "missing generated volumes")
+		Expect(vols[0].HostID).To(Equal(res.Container.HostID))
+		Expect(vols[0].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker")))
+		Expect(vols[0].Slug).To(Equal("hexvarlibdocker"))
+
+		Expect(vols[1].HostID).To(Equal(res.Container.HostID))
+		Expect(vols[1].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra")))
+		Expect(vols[1].Slug).To(Equal("hexvarlibextra"))
 	})
 })

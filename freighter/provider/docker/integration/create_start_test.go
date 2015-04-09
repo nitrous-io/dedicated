@@ -53,20 +53,26 @@ var _ = Describe("CreateStart", func() {
 			datadir, err = ioutil.TempDir("", "freighter-integration")
 			Expect(err).To(BeNil())
 		}
-
-		_, info, cleanupFn, err := startContainerWithData("busybox-volumes", datadir, "")
+		config := `{
+			"Mounts": ["dotfiles:/etc/dotfiles","backups"]
+		}`
+		_, info, cleanupFn, err := startContainerWithData("busybox-volumes", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
 		dockerSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/docker")))
 		extraSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/extra")))
-		Expect(info.Volumes).To(HaveLen(2), "unexpected returned volumes")
+		Expect(info.Volumes).To(HaveLen(4), "unexpected returned volumes")
 		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/docker", dockerSlug))
 		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/extra", extraSlug))
+		Expect(info.Volumes).To(HaveKeyWithValue("/etc/dotfiles", "dotfiles"))
+		Expect(info.Volumes).To(HaveKeyWithValue("/volumes/backups", "backups"))
 
 		assertVolumes(info.ID, map[string]string{
-			"/var/lib/docker": fmt.Sprintf("%s/volumes/%s", datadir, dockerSlug),
-			"/var/lib/extra":  fmt.Sprintf("%s/volumes/%s", datadir, extraSlug),
+			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
+			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
+			"/var/lib/docker":  filepath.Join(datadir, "volumes", dockerSlug),
+			"/var/lib/extra":   filepath.Join(datadir, "volumes", extraSlug),
 		}, nil)
 	})
 
