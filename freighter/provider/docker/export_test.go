@@ -24,8 +24,8 @@ func (p *DockerProvider) MkContainerConfig(cfg *provider.ContainerConfig, isNitr
 	return p.mkContainerConfig(cfg, isNitrousImage)
 }
 
-func (p *DockerProvider) MkHostConfig(hostCfg *dockerclient.HostConfig, cfg *provider.ContainerConfig, isNitrousImage bool) (*dockerclient.HostConfig, error) {
-	return p.mkHostConfig(hostCfg, cfg, isNitrousImage)
+func (p *DockerProvider) MkHostConfig(c *dockerclient.Container, cfg *provider.ContainerConfig, isNitrousImage bool) (*dockerclient.HostConfig, error) {
+	return p.mkHostConfig(c, cfg, isNitrousImage)
 }
 
 // Client exposes private client in tests

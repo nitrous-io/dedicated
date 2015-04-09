@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -27,7 +28,7 @@ var _ = Describe("CreateStart", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		_, info, cleanupFn, err := startContainerWithData(datadir, config)
+		_, info, cleanupFn, err := startContainerWithData("busybox", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -37,9 +38,39 @@ var _ = Describe("CreateStart", func() {
 			"9999/tcp -> 0.0.0.0:9999",
 		})
 		assertVolumes(info.ID, map[string]string{
+			"/etc/dotfiles":            filepath.Join(datadir, "volumes", "dotfiles"),
+			"/volumes/backups":         filepath.Join(datadir, "volumes", "backups"),
+			"/nitrous/ssh":             filepath.Join(datadir, "containers", info.Name, "ssh"),
+			"/.nitrous-container-slug": filepath.Join(datadir, "containers", info.Name, ".nitrous-container-slug"),
+		}, nil)
+	})
+
+	It("creates host directory for built-in volumes implicitly", func() {
+		var err error
+		datadir := os.Getenv("FREIGHTERD_BASE")
+		if datadir == "" {
+			datadir, err = ioutil.TempDir("", "freighter-integration")
+			Expect(err).To(BeNil())
+		}
+		config := `{
+			"Mounts": ["dotfiles:/etc/dotfiles","backups"]
+		}`
+		_, info, cleanupFn, err := startContainerWithData("busybox-volumes", datadir, config)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		Expect(info.Volumes).To(HaveLen(4), "unexpected returned volumes")
+		Expect(info.Volumes["/var/lib/docker"]).To(HavePrefix(info.Name))
+		Expect(info.Volumes["/var/lib/extra"]).To(HavePrefix(info.Name))
+		Expect(info.Volumes["/var/lib/docker"]).ToNot(Equal(info.Volumes["/var/lib/extra"]))
+		Expect(info.Volumes).To(HaveKeyWithValue("/etc/dotfiles", "dotfiles"))
+		Expect(info.Volumes).To(HaveKeyWithValue("/volumes/backups", "backups"))
+
+		assertVolumes(info.ID, map[string]string{
 			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
-			"/nitrous/ssh":     filepath.Join(datadir, "containers", info.Name, "ssh"),
+			"/var/lib/docker":  filepath.Join(datadir, "volumes", info.Volumes["/var/lib/docker"]),
+			"/var/lib/extra":   filepath.Join(datadir, "volumes", info.Volumes["/var/lib/extra"]),
 		}, nil)
 	})
 

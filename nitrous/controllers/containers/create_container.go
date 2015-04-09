@@ -2,6 +2,7 @@ package containers
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
@@ -185,10 +187,48 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
 	}
 
-	for _, v := range volumeSlugs(config.Mounts) {
-		cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
-		if err := cv.Insert(tx); err != nil { // log and continue
-			log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
+	if len(created.Volumes) > 0 {
+		// resync volumes definition returned from the host's daemon
+		// This is key-value pairs of the mount destination in the container
+		// and the directory name in the host's volumes path. The directory
+		// name is unique for a single host and is suitable to be used as a
+		// unique volume identifier for this host.
+		for vname, vslug := range created.Volumes {
+			// create a new volume definition if it's a newly created volume
+			vol, err := volume.Find(tx, cn.HostID, vslug)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return nil, fmt.Errorf("failed to retrieve volume %s on host %d: %v", vol, cn.HostID, err)
+				}
+				vol = &volume.Volume{
+					HostID: cn.HostID,
+					Slug:   vslug,
+					Name:   fmt.Sprintf("%s:%s", cn.Slug, vname),
+				}
+				if err := vol.Insert(tx); err != nil {
+					return nil, fmt.Errorf("failed to insert volume %v: %v", vol, err)
+				}
+			}
+
+			// associate the volume with current container if it's not
+			// associated yet
+			if _, err := cvolume.Find(tx, cn, vol); err == sql.ErrNoRows {
+				cv := &cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: vol.ID}
+				if err := cv.Insert(tx); err != nil { // log and continue
+					log.Errorf("containers.create: failed to attach volume %#v: %v ", cv, err)
+				}
+			}
+		}
+	} else {
+		// legacy code, we keep this to make sure that it still accounts for old
+		// daemons where the response doesnt include volumes
+		// TODO: remove this when all freighter has been updated with the volume
+		// changes
+		for _, v := range volumeSlugs(config.Mounts) {
+			cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
+			if err := cv.Insert(tx); err != nil { // log and continue
+				log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
+			}
 		}
 	}
 

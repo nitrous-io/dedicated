@@ -125,6 +125,10 @@ type ContainerInfo struct {
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`
 	Env        []string            `json:"env"`
+
+	// mapping of the container's volumes to their external directory
+	// (identified by its directory name) on the host
+	Volumes map[string]string `json:"volumes"`
 }
 
 // ContainerConfig is our internal mechanism for configuring containers.  It

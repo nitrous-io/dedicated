@@ -23,7 +23,7 @@ var _ = Describe("Start", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		prov, info, cleanupFn, err := startContainerWithData(datadir, config)
+		prov, info, cleanupFn, err := startContainerWithData("busybox", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
@@ -59,7 +59,7 @@ var _ = Describe("Start", func() {
 			"Mounts": ["dotfiles:/etc/dotfiles","backups"],
 			"PortBindings": ["private:65000:3000", "public:9999:9999"]
 		}`
-		prov, info, cleanupFn, err := startContainerWithData(datadir, config)
+		prov, info, cleanupFn, err := startContainerWithData("busybox", datadir, config)
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
