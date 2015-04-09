@@ -212,7 +212,7 @@ a
   -webkit-tap-highlight-color: transparent
   cursor: pointer
 
-  &.blue, &.grey, &.hack
+  &.blue, &.grey, &.hack, &.light-grey, &.blue-outline, &.grey-outline
     display: inline-block
     text-align: center
     padding: 10px 44px
@@ -232,6 +232,32 @@ a
     background: #A5B3BE
     font-size: 12px
     font-weight: 400
+
+  &.light-grey
+    margin-top: 30px
+    color: rgba(0,0,0,.8)
+    background: rgba(0,0,0,.05)
+
+  &.blue-outline
+    margin-top: 30px
+    color: $blueLink
+    background: transparent
+    border: 1px solid $blueLink
+
+    &:hover
+      background: $blueLink
+      color: #FFF
+
+  &.grey-outline
+    margin-top: 30px
+    color: rgba(0,0,0,.6)
+    background: transparent
+    border: 1px solid rgba(0,0,0,.3)
+
+    &:hover
+      background: rgba(0,0,0,.3)
+      border: 1px solid rgba(0,0,0,0)
+      color: #FFF
 
   &.hack
     margin-top: 12px
@@ -450,6 +476,19 @@ nav
     .active
       font-weight: bold
 
+    .social-buttons
+      text-align: center
+
+      & > div
+        min-width: 120px
+        height: 20px
+        display: inline-block
+        margin: 14px 20px 0 20px
+        padding: 0
+
+        span, iframe, & > div
+          vertical-align: top !important
+
 
   span.free
     position: relative
@@ -627,10 +666,12 @@ nav
     .hero-tagline, .hero-visual
       top: 50%
       position: absolute
-      transform: translateY(-45%)
+      transform: translate3d(0,-45%,0)
+      -webkit-perspective: 1000
+      backface-visibility: hidden
 
     .hero-tagline
-      width: 50%
+      width: 52%
       right: 0
       text-align: center
       animation: .8s ease 1 hero-tagline-in
@@ -678,18 +719,18 @@ nav
 @keyframes hero-tagline-in
   0%
     opacity: 0
-    transform: translateY(-45%) translateX(100px)
+    transform: translate3d(100px,-45%,0)
   100%
     opacity: 1
-    transform: translateY(-45%) translateX(0)
+    transform: translate3d(0,-45%,0)
 
 @keyframes hero-visual-in
   0%
     opacity: 0
-    transform: translateY(-45%) translateX(-100px)
+    transform: translate3d(-100px,-45%,0)
   100%
     opacity: 1
-    transform: translateY(-45%) translateX(0)
+    transform: translate3d(0,-45%,0)
 
 
 
@@ -1805,8 +1846,8 @@ h4 + .box-wrapper
 
 
 // --------------------------------------
-// Compare
-#compare
+// What's new
+#whatsnew
   .new
     color: $blueLink
 
@@ -1818,9 +1859,44 @@ h4 + .box-wrapper
     color: #FFF
     font-weight: bold
     position: relative
-    top: -1px
+    top: -2px
     padding: 1px 3px
     margin-right: 6px
+
+  
+  .grid-wrapper
+    padding-top: 60px
+  
+  .grid-item
+    margin-top: 20px
+    margin-bottom: 40px
+
+    img
+      border-radius: 4px
+
+  
+  .two-blocks
+    padding: 0
+    +clearFix
+  
+  .two-blocks .left, .two-blocks .right
+    width: 50%
+    height: auto
+    position: relative
+
+  .two-blocks .left
+    float: left
+
+  .two-blocks .right
+    float: right
+
+    &:after
+      content: ""
+      position: absolute
+      top: 0
+      left: 0
+      bottom: 0
+      border-left: 1px solid rgba(0,0,0,.05)
 
   .table
     margin: 30px auto 60px auto
@@ -1828,7 +1904,7 @@ h4 + .box-wrapper
     text-align: center
     +clearFix
 
-    & > div
+    .col
       width: auto
       display: inline-block
       position: relative
@@ -1866,19 +1942,22 @@ h4 + .box-wrapper
     .fa-close
       color: rgba(0,0,0,.2)
 
-    .fa-check, .fa-minus
-      margin-right: 6px
-
     .fa-check
+      margin-right: 6px
       color: #85D966
 
     .fa-minus
+      margin-right: 8px
       color: rgba(0,0,0,.45)
 
+  .btn
+    font-size: 13px
 
-  .col-1
+  .left .col
+    right: -30px
 
-  .col-2
+  .right .col
+    left: -30px
 
 
 
@@ -2699,7 +2778,7 @@ input[type="range"]
     .page-hero
       +heroLogoGrid(#0099ED,1004px,380px)
 
-  #compare
+  #whatsnew
     .page-hero
       background: #0099ED
 

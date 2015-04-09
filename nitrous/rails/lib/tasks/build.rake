@@ -8,7 +8,7 @@ namespace :build do
       '/public/index.html'            => {layout: 'layouts/pages', template: 'pages/home'},
     }
 
-    %w(pricing features company plan_changes stacks press education teams agencies enterprises vpc).each do |page|
+    %w(pricing features company plan_changes stacks press education teams agencies enterprises vpc whatsnew).each do |page|
       locations["/public/#{page}/index.html"] = { layout: 'layouts/pages', template: "pages/#{page}"}
     end
 

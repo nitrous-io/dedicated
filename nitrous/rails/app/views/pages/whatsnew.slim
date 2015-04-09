@@ -1,0 +1,159 @@
+- @title = 'What\'s new · Nitrous'
+- @html_class = 'light'
+- @body_id = 'whatsnew'
+- @body_class = 'introducing'
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'whatsnew' }
+
+      
+      .hero-tagline
+        h2 Introducing Nitrous Pro
+        h3 Development environments without the pain
+        = render 'layouts/cta_form'
+
+      .hero-visual
+        = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
+
+
+  
+  .notice.darker
+    .container
+      .left
+        .social-buttons
+          .social-fb
+            erb:
+              <div id="fb-root"></div>
+              <script>(function(d, s, id) {
+                var js, fjs = d.getElementsByTagName(s)[0];
+                if (d.getElementById(id)) return;
+                js = d.createElement(s); js.id = id;
+                js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.3";
+                fjs.parentNode.insertBefore(js, fjs);
+              }(document, 'script', 'facebook-jssdk'));</script>
+              <div class="fb-share-button" data-href="https://pro.nitrous.io/whatsnew" data-layout="button_count"></div>
+
+          .social-twitter
+            erb:
+              <a href="https://twitter.com/share" class="twitter-share-button" data-url="https://pro.nitrous.io/whatsnew">Tweet</a> <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+
+          .social-googleplus
+            erb:
+              <div class="g-plus" data-action="share" data-width="120" data-href="https://pro.nitrous.io/whatsnew"></div>
+              <script type="text/javascript">
+                (function() {
+                  var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+                  po.src = 'https://apis.google.com/js/platform.js';
+                  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+                })();
+              </script>
+
+
+  article.centered
+    .container
+
+      .grid-wrapper
+
+        .grid-item
+          = image_tag 'home/whatsnew-1.jpg', alt: 'Nitrous Pro'
+          h3.new
+            em New
+            | Revamped IDE
+          p Reworked from the ground up, the new Nitrous IDE is cleaner, and faster than ever
+
+        .grid-item
+          = image_tag 'home/whatsnew-2.jpg', alt: 'Nitrous Pro'
+          h3.new
+            em New
+            | Improved collaboration
+          p Code collaboration has been greatly improved, and is now faster and more robust
+
+        .grid-item
+          = image_tag 'home/whatsnew-3.jpg', alt: 'Nitrous Pro'
+          h3.new
+            em New
+            | More Stacks
+          p New and updated templates have been added (including Java, Wordpress, Laravel)
+
+        .grid-item
+          = image_tag 'home/whatsnew-4.jpg', alt: 'Nitrous Pro'
+          h3.new
+            em New
+            | Improved editor themes
+          p Nitrous Pro introduces new light and dark themes, with improved syntax highlighting
+
+        .grid-item
+          = image_tag 'home/whatsnew-5.jpg', alt: 'Nitrous Pro'
+          h3.new
+            em New
+            | Split editing
+          p You can now have multiple files opened at once thanks to the new split editing mode
+
+      
+  article.two-blocks
+    .left
+      .table
+        .col
+          .row.title
+            span Pro
+          .row
+            span 
+              i.fa.fa-check
+              | Whole new IDE
+          .row
+            span 
+              i.fa.fa-check
+              | Full root access
+          .row
+            span 
+              i.fa.fa-check
+              | Auto-save
+          .row
+            span 
+              i.fa.fa-check
+              | Private, dedicated machine
+          .row
+            span 
+              i.fa.fa-check
+              | Fully configurable containers
+
+          a.btn.blue-outline href="/features" Learn more about Pro
+
+    .right
+      .table
+        .col
+          .row.title
+            span Free
+          .row
+            span 
+              i.fa.fa-minus
+              | Previous IDE version
+          .row
+            span 
+              i.fa.fa-minus
+              | No root access
+          .row
+            span 
+              i.fa.fa-minus
+              | Manual file save
+          .row
+            span 
+              i.fa.fa-minus
+              | Shared resources
+          .row
+            span 
+              i.fa.fa-minus
+              | Very limited configuration
+
+          a.btn.grey-outline href="https://free.nitrous.io" Go to free.nitrous.io
+
+
+
+
+
+  = render partial: 'layouts/cta', locals: { theme: 'darker' }
+
+= render partial: 'layouts/footer', locals: { active: 'whatsnew' }
+
