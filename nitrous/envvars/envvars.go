@@ -51,6 +51,10 @@ var (
 	GitHubOAuthClientID     string
 	GitHubOAuthClientSecret string
 
+	TwilioNumber     string
+	TwilioAccountSID string
+	TwilioAuthToken  string
+
 	// Controls whether 'update now' option is available to users.  Defaults to
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
 	// false
@@ -105,6 +109,10 @@ func init() {
 
 	GitHubOAuthClientID = os.Getenv("GITHUB_CLIENT_ID")
 	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
+
+	TwilioNumber = os.Getenv("TWILIO_NUMBER")
+	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
+	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
 
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {
