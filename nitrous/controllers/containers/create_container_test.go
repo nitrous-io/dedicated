@@ -475,12 +475,15 @@ var _ = Describe("CreateContainer", func() {
 
 		vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
 		Expect(vols).To(HaveLen(2), "missing generated volumes")
-		Expect(vols[0].HostID).To(Equal(res.Container.HostID))
-		Expect(vols[0].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker")))
-		Expect(vols[0].Slug).To(Equal("hexvarlibdocker"))
+		var nameSlugs [][]string
+		for _, v := range vols {
+			Expect(v.HostID).To(Equal(res.Container.HostID))
+			nameSlugs = append(nameSlugs, []string{v.Name, v.Slug})
+		}
 
-		Expect(vols[1].HostID).To(Equal(res.Container.HostID))
-		Expect(vols[1].Name).To(Equal(fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra")))
-		Expect(vols[1].Slug).To(Equal("hexvarlibextra"))
+		Expect(nameSlugs).To(ConsistOf(
+			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker"), "hexvarlibdocker"},
+			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra"), "hexvarlibextra"},
+		))
 	})
 })

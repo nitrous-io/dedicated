@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"crypto/md5"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -60,19 +59,18 @@ var _ = Describe("CreateStart", func() {
 		defer cleanupFn()
 		Expect(err).To(BeNil())
 
-		dockerSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/docker")))
-		extraSlug := fmt.Sprintf("%x", md5.Sum([]byte(info.ID+":"+"/var/lib/extra")))
 		Expect(info.Volumes).To(HaveLen(4), "unexpected returned volumes")
-		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/docker", dockerSlug))
-		Expect(info.Volumes).To(HaveKeyWithValue("/var/lib/extra", extraSlug))
+		Expect(info.Volumes["/var/lib/docker"]).To(HavePrefix(info.Name))
+		Expect(info.Volumes["/var/lib/extra"]).To(HavePrefix(info.Name))
+		Expect(info.Volumes["/var/lib/docker"]).ToNot(Equal(info.Volumes["/var/lib/extra"]))
 		Expect(info.Volumes).To(HaveKeyWithValue("/etc/dotfiles", "dotfiles"))
 		Expect(info.Volumes).To(HaveKeyWithValue("/volumes/backups", "backups"))
 
 		assertVolumes(info.ID, map[string]string{
 			"/etc/dotfiles":    filepath.Join(datadir, "volumes", "dotfiles"),
 			"/volumes/backups": filepath.Join(datadir, "volumes", "backups"),
-			"/var/lib/docker":  filepath.Join(datadir, "volumes", dockerSlug),
-			"/var/lib/extra":   filepath.Join(datadir, "volumes", extraSlug),
+			"/var/lib/docker":  filepath.Join(datadir, "volumes", info.Volumes["/var/lib/docker"]),
+			"/var/lib/extra":   filepath.Join(datadir, "volumes", info.Volumes["/var/lib/extra"]),
 		}, nil)
 	})
 

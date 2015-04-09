@@ -207,4 +207,18 @@ var _ = Describe("Reconfig", func() {
 		// Container should use reconfig image.
 		Expect(reconfigCn.Image).To(MatchRegexp(fmt.Sprintf(`^%s-reconfig-\d+$`, info.Name)))
 	})
+
+	It("removes built-in volumes when reconfig mount options do not include them", func() {
+		prov, info, cleanupFn, err := startContainer("busybox-volumes", "")
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+		Expect(info.Volumes).To(HaveKey("/var/lib/docker"))
+		Expect(info.Volumes).To(HaveKey("/var/lib/extra"))
+
+		reconfigCn, _ := prov.Reconfig(info.ID, `{
+			"Mounts": ["dotfiles:/etc/dotfiles"]
+		}`) // extra built-in volumes have beenr removed
+		Expect(reconfigCn.Volumes).ToNot(HaveKey("/var/lib/docker"))
+		Expect(reconfigCn.Volumes).ToNot(HaveKey("/var/lib/extra"))
+	})
 })

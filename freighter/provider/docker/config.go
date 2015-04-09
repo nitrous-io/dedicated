@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"crypto/md5"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
 
 var (
@@ -111,19 +111,25 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 		}
 		newCfg.Binds = ms
 	}
+	// add built-in volumes. This is only valid when the container is started
+	// for the first time. A reconfigured container will not triggered this as
+	// built-in volumes will be reset. Therefore, it's safe to generate a
+	// probably one-time-unique slug for the volume instead of all-time-unique
+	// slug
+	if container.Config != nil {
+		for vname := range container.Config.Volumes {
+			// container's name started with `/` which we dont want
+			slug := fmt.Sprintf("%s-%s", container.Name[1:], uuid.Make())
+			vinfo, err := p.CreateVolume(slug)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create volume %q(%q): %s", vname, slug, err)
+			}
+			addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
+		}
+	}
+	// add required nitrous configs
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
-
-	// implicitly create external volumes for built-in volume
-	for vname := range container.Config.Volumes {
-		slug := fmt.Sprintf("%s:%s", container.ID, vname)
-		n := md5.Sum([]byte(slug))
-		vinfo, err := p.CreateVolume(fmt.Sprintf("%x", n))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create volume %q(%q): %s", vname, n, err)
-		}
-		addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
-	}
 
 	// ExtraHosts is only available in Docker 1.3.0+.
 	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))

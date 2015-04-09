@@ -123,8 +123,8 @@ var _ = Describe("server", func() {
 		Context("when there exists containers", func() {
 			BeforeEach(func() {
 				prov.Containers = []*provider.ContainerInfo{
-					{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, User: "guest"},
-					{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped, User: "admin"},
+					{ID: "aaa", Name: "foo", Image: "ubuntu", ImageID: "abc123", Host: "1.2.3.4", Gateway: "1.2.3.0", State: provider.ContainerStateRunning, User: "guest", Volumes: map[string]string{}},
+					{ID: "bbb", Name: "bar", Image: "centos", ImageID: "def456", Host: "1.2.3.5", Gateway: "1.2.3.0", State: provider.ContainerStateStopped, User: "admin", Volumes: map[string]string{}},
 				}
 				doRequest()
 			})
@@ -132,8 +132,8 @@ var _ = Describe("server", func() {
 			It("responds with 200 ok with container info array", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(res.Body.String()).To(MatchJSON(`{"containers":[
-				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"env":null,"user":"guest","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
-				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"env":null,"user":"admin","started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
+				{"id":"aaa","name":"foo","image":"ubuntu","image_id":"abc123","host":"1.2.3.4","gateway":"1.2.3.0","state":"running","ports":null,"exit_code":0,"env":null,"user":"guest","volumes":{},"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"},
+				{"id":"bbb","name":"bar","image":"centos","image_id":"def456","host":"1.2.3.5","gateway":"1.2.3.0","state":"stopped","ports":null,"exit_code":0,"env":null,"user":"admin","volumes":{},"started_at":"0001-01-01T00:00:00Z","finished_at":"0001-01-01T00:00:00Z"}
 				]}`))
 			})
 		})
@@ -198,7 +198,7 @@ var _ = Describe("server", func() {
 
 				Context("returns a provider.StartFailedError", func() {
 					BeforeEach(func() {
-						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "", Gateway: "", State: provider.ContainerStateStopped, User: "abc"}
+						prov.CreateContainerInfo = &provider.ContainerInfo{ID: "aaa", Name: name, Image: "ubuntu", ImageID: "abc123", Host: "", Gateway: "", State: provider.ContainerStateStopped, User: "abc", Volumes: map[string]string{}}
 						prov.CreateError = &provider.StartFailedError{Err: errors.New("start failed")}
 					})
 
@@ -218,6 +218,7 @@ var _ = Describe("server", func() {
 								"exit_code":0,
 								"env":null,
 								"user": "abc",
+								"volumes": {},
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 							},
@@ -260,6 +261,7 @@ var _ = Describe("server", func() {
 								"exit_code":0,
 								"env":null,
 								"user": "guest",
+								"volumes": null,
 								"started_at":"0001-01-01T00:00:00Z",
 								"finished_at":"0001-01-01T00:00:00Z"
 						}}`))
@@ -356,6 +358,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"env":null,
 						"user": "guest",
+						"volumes": null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 				}}`))
@@ -514,6 +517,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"env":null,
 						"user": "` + user + `",
+						"volumes": null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -547,6 +551,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"env":null,
 						"user": "` + user + `",
+						"volumes": null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -586,6 +591,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"env":null,
 						"user": "` + user + `",
+						"volumes": null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
@@ -619,6 +625,7 @@ var _ = Describe("server", func() {
 						"exit_code":0,
 						"env":null,
 						"user": "` + user + `",
+						"volumes": null,
 						"started_at":"0001-01-01T00:00:00Z",
 						"finished_at":"0001-01-01T00:00:00Z"
 					}
