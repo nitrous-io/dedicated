@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 )
 
 type Plan struct {
@@ -66,18 +67,53 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 	return mapping, nil
 }
 
-func EnabledForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans
-		WHERE NOT disabled
-		AND plans.id IN (
-			SELECT DISTINCT plan_id
-			FROM provider_templates AS pt
-			WHERE pt.provider=$1 AND NOT pt.disabled
-		) ORDER BY (price, max_containers, name);`, provider); err != nil {
+func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT plans.*
+		FROM plans
+		INNER JOIN provider_templates pt ON (plans.id = pt.plan_id)
+		WHERE NOT pt.disabled
+			AND pt.provider=$1
+			AND plans.price > 0
+			AND plans.base_price > 0
+		ORDER BY (plans.price, plans.max_containers, plans.name);`, provider)
+
+	if err != nil {
 		return nil, err
 	}
-	return pls, nil
+	return plans, nil
+}
+
+func FreePlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT plans.*
+		FROM plans
+		INNER JOIN provider_templates pt ON (plans.id = pt.plan_id)
+		WHERE NOT pt.disabled
+			AND pt.provider=$1
+			AND plans.price = 0
+			AND plans.base_price = 0
+		ORDER BY (plans.price, plans.max_containers, plans.name);`, provider)
+
+	if err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
+func PlansForUser(d db.QueryReceiver, userID int64, provider string) ([]*Plan, error) {
+	bp, err := billingprofile.Find(d, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.IsFreeTier() {
+		return FreePlansForProvider(d, provider)
+	} else {
+		return PaidPlansForProvider(d, provider)
+	}
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {

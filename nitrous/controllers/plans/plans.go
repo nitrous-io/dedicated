@@ -10,7 +10,7 @@ import (
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pls, err := plan.EnabledForProvider(env.DB, envvars.DefaultProvider)
+	pls, err := plan.PlansForUser(env.DB, env.User.ID, envvars.DefaultProvider)
 	if err != nil {
 		return err
 	}
