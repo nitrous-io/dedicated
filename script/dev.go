@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,6 +21,9 @@ var (
 	tenderPrefix      = "tender  | "
 	nitrousPrefix     = "nitrous | "
 	hostbuilderPrefix = "hostbdr | "
+
+	m      sync.Mutex
+	stdout *os.File
 )
 
 func main() {
@@ -32,7 +38,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	stdout := os.Stdout
+	stdout = os.Stdout
 
 	id := make([]byte, 4)
 	if _, err := io.ReadFull(rand.Reader, id); err != nil {
@@ -266,22 +272,30 @@ func promise(cmd *exec.Cmd) chan error {
 }
 
 type prefixWriter struct {
+	pr     *io.PipeReader
+	pw     *io.PipeWriter
 	writer io.Writer
 	prefix string
 }
 
 func (w *prefixWriter) Write(p []byte) (int, error) {
-	_, err := w.writer.Write([]byte(w.prefix))
-	if err != nil {
-		return 0, err
+	return w.pw.Write(p)
+}
+
+func (w *prefixWriter) drain() {
+	scanner := bufio.NewScanner(w.pr)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		m.Lock()
+		fmt.Fprintln(w.writer, w.prefix, line)
+		m.Unlock()
 	}
-	_, err = w.writer.Write(p)
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
+	w.pr.CloseWithError(scanner.Err())
 }
 
 func newPrefixWriter(w io.Writer, prefix string) *prefixWriter {
-	return &prefixWriter{w, prefix}
+	pr, pw := io.Pipe()
+	writer := &prefixWriter{pr: pr, pw: pw, writer: w, prefix: prefix}
+	go writer.drain()
+	return writer
 }
