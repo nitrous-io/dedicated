@@ -30,3 +30,4 @@ SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
     existing.pushObjects(added)
 
     @set 'loaded', true
+    @trigger 'loaded'
