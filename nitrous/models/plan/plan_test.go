@@ -180,7 +180,7 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("EnabledForProvider()", func() {
+	Describe("PaidPlansForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
 			sfo := &region.Region{Slug: "sfo", Name: "US West"}
 			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
@@ -235,7 +235,7 @@ var _ = Describe("models/plan", func() {
 			}
 			Expect(pt.Insert(db)).To(BeNil())
 
-			pls, _ := plan.EnabledForProvider(db, "digitalocean")
+			pls, _ := plan.PaidPlansForProvider(db, "digitalocean")
 			slugs := []string{}
 			for _, pl := range pls {
 				slugs = append(slugs, pl.Slug)
