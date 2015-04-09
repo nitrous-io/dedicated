@@ -6,13 +6,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -27,19 +29,37 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/plans", func() {
 	var (
-		db  *db.Database
-		svr *server.Server
-		res *httptest.ResponseRecorder
+		db      *db.Database
+		res     *httptest.ResponseRecorder
+		handler *mux.Router
 	)
 
 	BeforeEach(func() {
 		var err error
-
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
+
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr := NewTestServer("", db, logger, NewFakeTracker())
+
+		handler = svr.Router()
 		res = httptest.NewRecorder()
+
+		u := &user.User{
+			Username: "tokenuser",
+			Password: "123456",
+			Email:    "tokenuser@example.com",
+		}
+		err = WrapInTransaction(db, u.Insert)
+		Expect(err).To(BeNil())
+		Expect(u.ID).NotTo(BeZero())
+
+		t := &token.Token{
+			UserID: u.ID,
+			Token:  "secret",
+		}
+		err = t.Insert(db)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -52,7 +72,8 @@ var _ = Describe("controllers/plans", func() {
 		doRequest := func() {
 			req, err := NewRequest("GET", "/api/v0/plans", nil)
 			Expect(err).To(BeNil())
-			svr.Router().ServeHTTP(res, req)
+			req.Header.Set("Authorization", "Bearer secret")
+			handler.ServeHTTP(res, req)
 		}
 
 		Context("when plans exist", func() {
@@ -66,7 +87,7 @@ var _ = Describe("controllers/plans", func() {
 				Expect(r.Insert(db)).To(BeNil())
 
 				for _, n := range planSlugs {
-					pl := plan.Plan{Slug: n}
+					pl := plan.Plan{Slug: n, Price: 500}
 					Expect(pl.Insert(db)).To(BeNil())
 					t := providertemplate.ProviderTemplate{
 						PlanID:   pl.ID,

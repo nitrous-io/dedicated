@@ -70,14 +70,18 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	plans := []*Plan{}
 	err := d.Select(&plans, `
-		SELECT plans.*
-		FROM plans
-		INNER JOIN provider_templates pt ON (plans.id = pt.plan_id)
-		WHERE NOT pt.disabled
-			AND pt.provider=$1
-			AND plans.price > 0
-			AND plans.base_price > 0
-		ORDER BY (plans.price, plans.max_containers, plans.name);`, provider)
+		SELECT * FROM plans
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		) 
+		AND (
+			plans.price > 0
+			OR plans.base_price > 0
+		)
+		ORDER BY (price, max_containers, name);`, provider)
 
 	if err != nil {
 		return nil, err
@@ -88,14 +92,16 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 func FreePlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	plans := []*Plan{}
 	err := d.Select(&plans, `
-		SELECT plans.*
-		FROM plans
-		INNER JOIN provider_templates pt ON (plans.id = pt.plan_id)
-		WHERE NOT pt.disabled
-			AND pt.provider=$1
-			AND plans.price = 0
-			AND plans.base_price = 0
-		ORDER BY (plans.price, plans.max_containers, plans.name);`, provider)
+		SELECT * FROM plans
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		)
+		AND plans.price = 0
+		AND plans.base_price = 0
+		ORDER BY (price, max_containers, name);`, provider)
 
 	if err != nil {
 		return nil, err
