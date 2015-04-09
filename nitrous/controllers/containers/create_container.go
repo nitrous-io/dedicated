@@ -203,6 +203,8 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	env.AddEventData(map[string]interface{}{
 		"image": cn.Image,
 	})
+	env.ProfileOnce(map[string]interface{}{"first template": cn.Image})
+	env.ProfileAppend(map[string]interface{}{"templates": cn.Image})
 
 	return res, nil
 }
