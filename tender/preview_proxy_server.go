@@ -4,13 +4,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -19,20 +21,26 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
-const previewPortEnvVar = "NITROUS_PREVIEW_PORT"
+const (
+	previewPortEnvVar            = "NITROUS_PREVIEW_PORT"
+	containersCacheRefreshPeriod = time.Second * 60
+)
 
-// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
-// E.g. if preview is running on port 3000, requests on port 443 will be treated
-// as if they were made on port 3000.
-var previewForwardPorts = []int{80, 443}
+var (
+	// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
+	// E.g. if preview is running on port 3000, requests on port 443 will be treated
+	// as if they were made on port 3000.
+	previewForwardPorts = []int{80, 443}
+
+	errContainerNotFound = errors.New("Host not found")
+	containersCache      atomic.Value
+)
 
 // PreviewProxyServer let user proxy preview requests to the host.
 // The server is awared of the exposed ports on the host and proxy requests
 // accordingly
 type PreviewProxyServer struct {
 	// direct access to database so we can fetch stuffs as fast as possible
-	// FIXME:
-	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// expected DNS based domain for host's request. Request coming from this
 	// domain will be proxied to freighterd server on that host.
@@ -49,10 +57,33 @@ type PreviewProxyServer struct {
 	freighterdPort int
 }
 
-// Returns a `http.Handler` which can be used to proxy preview request to
-// a Nitrous.IO host
+func refreshContainersCache(db *sql.DB) error {
+	m, err := getContainers(db)
+	if err != nil {
+		return err
+	}
+	containersCache.Store(m)
+	return nil
+}
+
+func refreshContainersCacheWorker(db *sql.DB) {
+	for {
+		time.Sleep(containersCacheRefreshPeriod)
+		refreshContainersCache(db)
+	}
+}
+
+// NewPreviewProxyServer returns a `http.Handler` which can be used to proxy
+// preview request to` a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 	db *sql.DB, caBytes []byte) http.Handler {
+
+	timeStart := time.Now()
+	refreshContainersCache(db)
+	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
+
+	go refreshContainersCacheWorker(db)
+
 	s := &PreviewProxyServer{
 		tlsDomain:      tlsDomain,
 		domain:         baseDomain,
@@ -84,40 +115,6 @@ type containerWithInfo struct {
 	env   []string
 }
 
-// Naïve cache - replace with something like groupcache.
-type containerCache struct {
-	lock sync.RWMutex
-	data map[string]containerWithInfo
-}
-
-func newContainerCache() *containerCache {
-	return &containerCache{
-		lock: sync.RWMutex{},
-		data: make(map[string]containerWithInfo),
-	}
-}
-
-func (c *containerCache) Get(slug string) (containerWithInfo, bool) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	cn, ok := c.data[slug]
-	return cn, ok
-}
-
-func (c *containerCache) Set(slug string, cn containerWithInfo) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.data[slug] = cn
-}
-
-func (c *containerCache) Delete(slug string) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	delete(c.data, slug)
-}
-
-var cnCache = newContainerCache()
-
 func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
 	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
@@ -127,10 +124,12 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
+	m := containersCache.Load().(ContainersMap)
 	var container containerWithInfo
-	cn, err := findContainer(s.db, slug)
-	if err != nil {
-		return err
+
+	cn, ok := m[slug]
+	if !ok {
+		return errContainerNotFound
 	}
 
 	fhost := freighterclient.NewHost(
