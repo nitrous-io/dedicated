@@ -24,7 +24,7 @@ form autocomplete='on' submit='save'
               | /mo.)
 
     .ui.input-group
-      label.field-label for='card-name'
+      label#cardholders-name.field-label for='card-name'
         | Cardholder's Name
       = input type='text' id='card-name' name='name' disabled=saving value=name autofocus=true
 
@@ -58,6 +58,9 @@ form autocomplete='on' submit='save'
       |. All sales are final.
 
   .card-footer.bordered
+    .left
+      a click='showHelp target=view'
+        i.fa.fa-info-circle
     if saving
       .right
         button.ui.btn disabled='disabled'

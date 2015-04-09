@@ -80,6 +80,8 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
       @set 'controller.privileged', selectedTemplate.get('privileged')
       unless @get('controller.nameFieldEdited')
         @set 'controller.name', selectedTemplate.get('name')
+      if App.get('onboardingScreen') == 'pick-container'
+        App.trigger 'next-onboarding'
   ).observes 'selectedTemplate'
 
   hostsDidChange: (->
@@ -180,6 +182,9 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
     toggleLog: ->
       @toggleProperty 'showLog'
+
+    showHelp: ->
+      App.set 'onboardingScreen', 'pick-container'
 
 App.ContainerNameTextField = Em.TextField.extend
   click: ->

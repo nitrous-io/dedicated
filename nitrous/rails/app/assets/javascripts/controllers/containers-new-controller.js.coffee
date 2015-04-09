@@ -157,6 +157,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     create: (repository) ->
       @set 'saving', true
 
+      if App.get('onboardingScreen')
+        App.set 'onboardingScreen', 'thank-you'
+
       name = @get 'name'
       selectedOption = @get 'selectedOption'
       selectedTemplate = @get 'selectedTemplate'
