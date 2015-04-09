@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/nitrous-io/go-mixpanel"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/go-mixpanel"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
