@@ -1,0 +1,74 @@
+if view.showPickContainer
+  .card data-target="#new-container-title"
+    h2
+      | First, let's pick a container
+    p
+      | Containers come with
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        if view.showNextButton
+          input.ui.btn.primary value='Next' click='nextScreen'
+        else
+          input.ui.btn.primary value='Done' click='nextScreen'
+
+if view.showSelectContainerName
+  .card data-target="#select-container-name"
+    h2
+      | Select a Container name....
+    p
+      | or you can generate one.
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        if view.showNextButton
+          input.ui.btn.primary value='Next' click='nextScreen'
+        else
+          input.ui.btn.primary value='Done' click='nextScreen'
+
+if view.showSelectRegion
+  .card data-target="#select-region"
+    h2
+      | Select a region closet to you
+    p
+      | This is where
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        if view.showNextButton
+          input.ui.btn.primary value='Next' click='nextScreen'
+        else
+          input.ui.btn.primary value='Done' click='nextScreen'
+
+if view.showSelectPlan
+  .card data-target="#select-plan"
+    h2
+      | Select a plan
+    p
+      | It's important
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        if view.showNextButton
+          input.ui.btn.primary value='Next' click='nextScreen'
+        else
+          input.ui.btn.primary value='Done' click='nextScreen'
+
+if view.showCardholdersName
+  .card data-target="#cardholders-name"
+    h2
+      | We will need your name
+    p
+      | So we can pay the bills
+    .card-footer
+      .left
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+      .right
+        if view.showNextButton
+          input.ui.btn.primary value='Next' click='nextScreen'
+        else
+          input.ui.btn.primary value='Done' click='nextScreen'

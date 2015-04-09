@@ -61,3 +61,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
     toggleLog: ->
       @toggleProperty 'showLog'
+
+    showHelp: ->
+      App.set 'onboardingScreen', 'select-region'

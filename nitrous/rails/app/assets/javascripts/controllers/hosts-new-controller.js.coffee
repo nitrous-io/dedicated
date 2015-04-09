@@ -72,6 +72,11 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         @transitionToRoute 'add-card'
         return
 
+      if pendingContainerData = App.get('pendingContainerData')
+        if App.get('onboardingScreen')
+          console.log 'Thanking you!'
+          App.set 'onboardingScreen', 'thank-you'
+
       events = App.get 'eventsSocket'
       @set 'saving', true
 
