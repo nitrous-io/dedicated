@@ -93,6 +93,8 @@ SM.RESTAdapter = Ember.Object.extend
           return
         reject(jqxhr)
       ).fail (jqxhr) ->
+        if recordArray.trigger
+          recordArray.trigger 'failed'
         reject(jqxhr)
     promise.value = recordArray
     promise
