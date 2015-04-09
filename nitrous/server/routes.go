@@ -148,6 +148,9 @@ func (s *Server) drawRoutes() {
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 			},
 			"POST": {
+				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
+				"/user/resend_phone_code":                  r("users.ResendPhoneCode", users.ResendPhoneCode),
+				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
