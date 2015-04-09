@@ -4,12 +4,21 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
-	"sync"
+	"sync/atomic"
+	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
+)
+
+const hostsCacheRefreshPeriod = time.Second * 60
+
+var (
+	errHostNotFound = errors.New("Host not found")
+	hostsCache      atomic.Value
 )
 
 // FreighterProxyServer let user proxy requests to the freighterd host. This is
@@ -17,8 +26,6 @@ import (
 // instal its SSL certificates for example.
 type FreighterProxyServer struct {
 	// direct access to database so we can fetch stuffs as fast as possible
-	// FIXME:
-	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// expected DNS based domain for host's request. Request coming from this
 	// domain will be proxied to freighterd server on that host.
@@ -36,10 +43,33 @@ type FreighterProxyServer struct {
 	portMap map[int]int
 }
 
-// Returns a `http.Handler` which can be used to proxy requests to a freighterd
-// server on a Nitrous.IO host
+func refreshHostsCache(db *sql.DB) error {
+	m, err := getHosts(db)
+	if err != nil {
+		return err
+	}
+	hostsCache.Store(m)
+	return nil
+}
+
+func refreshHostsCacheWorker(db *sql.DB) {
+	for {
+		time.Sleep(hostsCacheRefreshPeriod)
+		refreshHostsCache(db)
+	}
+}
+
+// NewFreighterProxyServer returns a `http.Handler` which can be used to proxy
+// requests to a freighterd server on a Nitrous.IO host
 func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 	db *sql.DB, caBytes []byte) http.Handler {
+
+	timeStart := time.Now()
+	refreshHostsCache(db)
+	log.Printf("[INFO] initial refreshHostsCache() took %s", time.Since(timeStart))
+
+	go refreshHostsCacheWorker(db)
+
 	s := &FreighterProxyServer{
 		db:        db,
 		domain:    baseDomain,
@@ -65,34 +95,6 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// Naïve cache - replace with something like groupcache.
-type hostCache struct {
-	lock sync.RWMutex
-	data map[string]*Host
-}
-
-func newHostCache() *hostCache {
-	return &hostCache{
-		lock: sync.RWMutex{},
-		data: make(map[string]*Host),
-	}
-}
-
-func (h *hostCache) Get(slug string) (*Host, bool) {
-	h.lock.RLock()
-	defer h.lock.RUnlock()
-	host, ok := h.data[slug]
-	return host, ok
-}
-
-func (h *hostCache) Set(slug string, host *Host) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-	h.data[slug] = host
-}
-
-var hCache = newHostCache()
-
 // proxy the request to the right boxhost. We will switch the proxy strategy
 // depending on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
@@ -113,17 +115,12 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	// get host id and host ip
 	// host ip will be the new destination for current request
 	var host *Host
-	// FIXME Evict host from cache when host is terminated.
-	host, ok := hCache.Get(slug)
-	if !ok {
-		var err error
-		host, err = findHost(s.db, slug)
-		if err != nil {
-			return err
-		}
-		hCache.Set(slug, host)
-	}
 
+	cache := hostsCache.Load().(HostsMap)
+	host, ok := cache[slug]
+	if !ok {
+		return errHostNotFound
+	}
 	dest := hostToIP(r, host.IP, host.Port)
 
 	// copy tls config and set serverName
