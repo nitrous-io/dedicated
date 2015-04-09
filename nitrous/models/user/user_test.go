@@ -530,6 +530,61 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("UpdatePhone()", func() {
+		var u *user.User
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates phone, phone_country_code and updated_at", func() {
+			oldUpdated := u.UpdatedAt
+
+			err := u.UpdatePhone(db, "62353535", "65")
+			Expect(err).To(BeNil())
+
+			Expect(u.Phone.String).To(Equal("62353535"))
+			Expect(u.PhoneCountryCode.String).To(Equal("65"))
+			Expect(*u.UpdatedAt).To(BeTemporally(">", *oldUpdated))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.Phone.String).To(Equal("62353535"))
+			Expect(updated.PhoneCountryCode.String).To(Equal("65"))
+		})
+
+		It("returns ErrPhoneInvalid if either phone or phone_country_code is empty", func() {
+			err := u.UpdatePhone(db, "62353535", "")
+			Expect(err).To(Equal(user.ErrPhoneInvalid))
+
+			err = u.UpdatePhone(db, "", "65")
+			Expect(err).To(Equal(user.ErrPhoneInvalid))
+
+			err = u.UpdatePhone(db, "62353535", "65")
+			Expect(err).To(BeNil())
+		})
+
+		It("does not update if phone_authed is already true", func() {
+			_, err := db.Exec("UPDATE users SET phone_authed = $1 WHERE id = $2", true, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.UpdatePhone(db, "62353535", "65")
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u2.Phone.Valid).To(BeFalse())
+			Expect(u2.PhoneCountryCode.Valid).To(BeFalse())
+		})
+	})
+
 	Describe("Validate()", func() {
 		var u *user.User
 
@@ -602,6 +657,29 @@ var _ = Describe("models/user", func() {
 			u.Password = ""
 			u.EncryptedPassword = "something"
 			Expect(u.Validate()).To(BeNil())
+		})
+	})
+
+	Describe("PhoneNumber()", func() {
+		It("returns user's phone number with country code", func() {
+			testCases := []struct {
+				countryCode string
+				phone       string
+				expected    string
+			}{
+				{"1", "6175551212", "+16175551212"},
+				{"65", "88884444", "+6588884444"},
+				{"", "6175551212", ""},
+				{"1", "", ""},
+			}
+
+			for _, t := range testCases {
+				u := &user.User{
+					Phone:            sql.NullString{t.phone, true},
+					PhoneCountryCode: sql.NullString{t.countryCode, true},
+				}
+				Expect(u.PhoneNumber()).To(Equal(t.expected))
+			}
 		})
 	})
 
