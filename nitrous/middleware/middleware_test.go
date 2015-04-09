@@ -282,9 +282,9 @@ var _ = Describe("middleware", func() {
 			Expect(err).To(BeNil())
 			Expect(u.ID).NotTo(BeZero())
 			env.User = u
+		})
 
-			env.RemoteAddr = "192.168.1.1"
-
+		doRequest := func() {
 			h := func(w http.ResponseWriter, r *http.Request) {
 				err := middleware.Track("Action Called", emptyMw)(env, w, r)
 				if err != nil {
@@ -296,19 +296,85 @@ var _ = Describe("middleware", func() {
 			req, err := NewRequest("GET", "/action", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
-		})
+		}
 
 		It("sets the TrackEventName in the environment", func() {
+			doRequest()
 			Expect(env.TrackEventName).To(Equal("Action Called"))
 		})
 
 		It("adds $ip to event data", func() {
+			doRequest()
 			t := env.Tracker.(*FakeTracker)
 			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("0"))
 		})
 
 		It("Responds with 200 OK", func() {
+			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("Sets analytics profile attributes", func() {
+			data := map[string]interface{}{"persona": "student"}
+			env.ProfileSet(data)
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.PropsCalled).To(HaveLen(1))
+			pc := t.PropsCalled[0]
+			Expect(pc.Mode).To(Equal("set"))
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.PropsSet).To(Equal(data))
+		})
+
+		It("Appends analytics profile attributes", func() {
+			data := map[string]interface{}{"templates": []string{"python", "ruby"}}
+			env.ProfileAppend(data)
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.PropsCalled).To(HaveLen(1))
+			pc := t.PropsCalled[0]
+			Expect(pc.Mode).To(Equal("append"))
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.PropsSet).To(Equal(data))
+		})
+
+		It("Sets once analytics profile attributes", func() {
+			data := map[string]interface{}{"first_template": []string{"python"}}
+			env.ProfileOnce(data)
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.PropsCalled).To(HaveLen(1))
+			pc := t.PropsCalled[0]
+			Expect(pc.Mode).To(Equal("setnx"))
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.PropsSet).To(Equal(data))
+		})
+
+		It("Increments analytics profile attributes", func() {
+			data := map[string]int{"containers_created": 1}
+			env.ProfileInc(data)
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.PropsCalled).To(HaveLen(1))
+			pc := t.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.PropsInc).To(Equal(data))
+		})
+
+		It("Makes multiple profile calls if necessary", func() {
+			setData := map[string]interface{}{"persona": "student"}
+			env.ProfileSet(setData)
+			incData := map[string]int{"containers_created": 1}
+			env.ProfileInc(incData)
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.PropsCalled).To(HaveLen(2))
+			pc := t.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.PropsSet).To(Equal(setData))
+			pc2 := t.PropsCalled[1]
+			Expect(pc2.UserID).To(Equal(u.ID))
+			Expect(pc2.PropsInc).To(Equal(incData))
 		})
 	})
 
