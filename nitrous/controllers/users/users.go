@@ -266,13 +266,26 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 
 	client := twilio.NewClient(envvars.TwilioAccountSID, envvars.TwilioAuthToken, nil)
 	msg := fmt.Sprintf("Your Nitrous verification code is: %s", v.Code)
-	if m, _, err := client.Messages.SendSMS(envvars.TwilioNumber, u.PhoneNumber(), msg); err != nil {
+	m, _, err := client.Messages.SendSMS(envvars.TwilioNumber, u.PhoneNumber(), msg)
+	if err != nil {
 		env.Logger.Errorf("user.UpdatePhone: failed to send SMS, message: %+v, err: %v", m, err)
 		return httperror.New(http.StatusServiceUnavailable, "sms_failed",
 			"there was an error sending the verification code to your phone")
 	}
 
 	userResponse(env, u)
+	return nil
+}
+
+func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+
+	code := r.PostFormValue("code")
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"verified": true,
+	}
 	return nil
 }
 
