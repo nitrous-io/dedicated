@@ -82,6 +82,22 @@ func containerCacheSet(slug string, c *Container) {
 	muContainers.Unlock()
 }
 
+func containerGet(db *sql.DB, slug string) (*Container, error) {
+	var err error
+	cn, ok := containerCacheGet(slug)
+	if !ok {
+		cn, err = findContainer(db, slug)
+		if err != nil {
+			cn = containerNotFound
+		}
+		containerCacheSet(slug, cn)
+	}
+	if cn == containerNotFound {
+		return nil, errContainerNotFound
+	}
+	return cn, nil
+}
+
 // NewPreviewProxyServer returns a `http.Handler` which can be used to proxy
 // preview request to` a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
@@ -127,16 +143,9 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
-	cn, ok := containerCacheGet(slug)
-	if !ok {
-		cn, err = findContainer(s.db, slug)
-		if err != nil {
-			cn = containerNotFound
-		}
-		containerCacheSet(slug, cn)
-	}
-	if cn == containerNotFound {
-		return errContainerNotFound
+	cn, err := containerGet(s.db, slug)
+	if err != nil {
+		return err
 	}
 
 	fhost := freighterclient.NewHost(

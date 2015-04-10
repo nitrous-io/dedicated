@@ -67,6 +67,24 @@ func hostCacheSet(slug string, host *Host) {
 	muHosts.Unlock()
 }
 
+func hostGet(db *sql.DB, slug string) (*Host, error) {
+	var err error
+	// get host id and host ip
+	// host ip will be the new destination for current request
+	host, ok := hostCacheGet(slug)
+	if !ok {
+		host, err = findHost(db, slug)
+		if err != nil {
+			host = hostNotFound
+		}
+		hostCacheSet(slug, host)
+	}
+	if host == hostNotFound {
+		return nil, errHostNotFound
+	}
+	return host, nil
+}
+
 // NewFreighterProxyServer returns a `http.Handler` which can be used to proxy
 // requests to a freighterd server on a Nitrous.IO host
 func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
@@ -114,18 +132,9 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		fp = p
 	}
 
-	// get host id and host ip
-	// host ip will be the new destination for current request
-	host, ok := hostCacheGet(slug)
-	if !ok {
-		host, err = findHost(s.db, slug)
-		if err != nil {
-			host = hostNotFound
-		}
-		hostCacheSet(slug, host)
-	}
-	if host == hostNotFound {
-		return errHostNotFound
+	host, err := hostGet(s.db, slug)
+	if err != nil {
+		return err
 	}
 
 	dest := hostToIP(r, host.IP, host.Port)
