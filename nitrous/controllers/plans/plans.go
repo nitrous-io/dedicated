@@ -5,12 +5,11 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pls, err := plan.PlansForUser(env.DB, env.User.ID, envvars.DefaultProvider)
+	pls, err := env.User.EligiblePlans(env.DB, envvars.DefaultProvider)
 	if err != nil {
 		return err
 	}

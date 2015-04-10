@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 )
 
 type Plan struct {
@@ -89,7 +88,7 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 	return plans, nil
 }
 
-func FreePlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	plans := []*Plan{}
 	err := d.Select(&plans, `
 		SELECT * FROM plans
@@ -99,27 +98,12 @@ func FreePlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 			FROM provider_templates AS pt
 			WHERE pt.provider=$1 AND NOT pt.disabled
 		)
-		AND plans.price = 0
-		AND plans.base_price = 0
 		ORDER BY (price, max_containers, name);`, provider)
 
 	if err != nil {
 		return nil, err
 	}
 	return plans, nil
-}
-
-func PlansForUser(d db.QueryReceiver, userID int64, provider string) ([]*Plan, error) {
-	bp, err := billingprofile.Find(d, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	if bp.IsFreeTier() {
-		return FreePlansForProvider(d, provider)
-	} else {
-		return PaidPlansForProvider(d, provider)
-	}
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {

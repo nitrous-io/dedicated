@@ -32,7 +32,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
   selectedHost: null
   selectedContainer: null
   regions: null
-  plans: null
   templates: null
   billingUsage: null
 
@@ -58,6 +57,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
     return index
   ).property 'regions'
+
+  plans: (->
+    App.Plan.fetch().value
+  ).property 'user'
 
   planIndex: (->
     plans = @get('plans')
@@ -167,7 +170,6 @@ App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
   App.set 'regions', App.Region.fetch().value
-  App.set 'plans', App.Plan.fetch().value
   App.set 'templates', App.Template.fetch().value
   Em.run.later(->
     Em.run.scheduleOnce 'afterRender', ->

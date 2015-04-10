@@ -12,7 +12,8 @@
           '
           | / mo.
       else
-        | FREE
+        strong
+          | FREE
     table.specs
       tr
         td

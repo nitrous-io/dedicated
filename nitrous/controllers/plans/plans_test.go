@@ -22,6 +22,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func mapPlansToSlugs(plans []*serializers.Plan) []string {
+	slugs := make([]string, len(plans))
+	for i, plan := range plans {
+		slugs[i] = plan.Slug
+	}
+	return slugs
+}
+
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "controllers/plans")
@@ -141,20 +149,12 @@ var _ = Describe("controllers/plans", func() {
 					Expect(res.Code).To(Equal(http.StatusOK))
 
 					j := struct {
-						Plans []serializers.Plan `json:"plans"`
+						Plans []*serializers.Plan `json:"plans"`
 					}{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
 
-					expectedSlugs := []string{"start", "shift", "turbo"}
-
-					Expect(j.Plans).To(HaveLen(3))
-
-					slugs := make([]string, 3)
-					for i, pl := range j.Plans {
-						slugs[i] = pl.Slug
-					}
-					Expect(slugs).To(ConsistOf(expectedSlugs))
+					Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 			})
 
@@ -169,13 +169,12 @@ var _ = Describe("controllers/plans", func() {
 					Expect(res.Code).To(Equal(http.StatusOK))
 
 					j := struct {
-						Plans []serializers.Plan `json:"plans"`
+						Plans []*serializers.Plan `json:"plans"`
 					}{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
 
-					Expect(j.Plans).To(HaveLen(1))
-					Expect(j.Plans[0].Slug).To(Equal("free"))
+					Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 			})
 		})
