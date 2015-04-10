@@ -8,13 +8,10 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
-
-const hostsCacheRefreshPeriod = time.Second * 60
 
 var (
 	errHostNotFound = errors.New("Host not found")
@@ -46,7 +43,7 @@ type FreighterProxyServer struct {
 	portMap map[int]int
 }
 
-func refreshHostsCache(db *sql.DB) error {
+func RefreshHostsCache(db *sql.DB) error {
 	m, err := getHosts(db)
 	if err != nil {
 		return err
@@ -55,13 +52,6 @@ func refreshHostsCache(db *sql.DB) error {
 	hostsCache = m
 	muHosts.Unlock()
 	return nil
-}
-
-func refreshHostsCacheWorker(db *sql.DB) {
-	for {
-		time.Sleep(hostsCacheRefreshPeriod)
-		refreshHostsCache(db)
-	}
 }
 
 func hostCacheGet(slug string) (*Host, bool) {
@@ -81,12 +71,6 @@ func hostCacheSet(slug string, host *Host) {
 // requests to a freighterd server on a Nitrous.IO host
 func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 	db *sql.DB, caBytes []byte) http.Handler {
-
-	timeStart := time.Now()
-	refreshHostsCache(db)
-	log.Printf("[INFO] initial refreshHostsCache() took %s", time.Since(timeStart))
-
-	go refreshHostsCacheWorker(db)
 
 	s := &FreighterProxyServer{
 		db:        db,
