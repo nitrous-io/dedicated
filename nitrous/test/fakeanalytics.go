@@ -48,10 +48,11 @@ func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 	f.ProfileCreated = u
 }
 
-func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) {
+func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {
 	f.PropsCalled = append(f.PropsCalled, &PropsCall{
 		Mode:     mode,
 		UserID:   userID,
 		PropsSet: p,
 	})
+	return nil
 }

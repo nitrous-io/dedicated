@@ -66,7 +66,7 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 	}()
 }
 
-func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) {
+func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {
 	var propFn func() error
 	uid := strconv.Itoa(int(userID))
 
@@ -83,13 +83,16 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 		propFn = op.Increment
 	default:
 		logger.Errorf("analytics: unsupported mode given: %s", mode)
-		return
+		return nil
 	}
 
+	finished := make(chan struct{}, 1)
 	go func() {
 		err := propFn()
 		if err != nil {
 			logger.Errorf("analytics: failed to update (%s) user profile: %s. err: %v", mode, uid, err)
 		}
+		finished <- struct{}{}
 	}()
+	return finished
 }
