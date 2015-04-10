@@ -4,7 +4,7 @@
    | Collaborators allow you to share your container with other users
 
   if records.loaded
-    ul.ui.list.item-1-line
+    ul.ui.list.item-1-line.collaborators
       each collaborator in records
         li.list-item
           .left-accessory
@@ -31,7 +31,9 @@
                 = pend.error
           unless model.shared
             .right-accessory
-              button.ui.btn click='removePending pend' Remove
+              / button.ui.btn click='removePending pend' Remove
+              button.ui.btn click='removePending pend'
+                i.fa.fa-close
   else
     p.hint-text
       i.spinner

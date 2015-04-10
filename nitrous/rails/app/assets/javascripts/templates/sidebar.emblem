@@ -48,8 +48,6 @@ if App.groupedSharedContainers.length
                   .group
                     h4
                       = container.slug
-                    p
-                      = container.displayName
                   .state-indicator class={container.state} title={container.state}
                     span
                       = container.state
