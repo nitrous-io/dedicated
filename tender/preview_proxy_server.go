@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -22,8 +21,7 @@ import (
 )
 
 const (
-	previewPortEnvVar            = "NITROUS_PREVIEW_PORT"
-	containersCacheRefreshPeriod = time.Second * 60
+	previewPortEnvVar = "NITROUS_PREVIEW_PORT"
 )
 
 var (
@@ -60,7 +58,7 @@ type PreviewProxyServer struct {
 	freighterdPort int
 }
 
-func refreshContainersCache(db *sql.DB) error {
+func RefreshContainersCache(db *sql.DB) error {
 	m, err := getContainers(db)
 	if err != nil {
 		return err
@@ -69,13 +67,6 @@ func refreshContainersCache(db *sql.DB) error {
 	containersCache = m
 	muContainers.Unlock()
 	return nil
-}
-
-func refreshContainersCacheWorker(db *sql.DB) {
-	for {
-		time.Sleep(containersCacheRefreshPeriod)
-		refreshContainersCache(db)
-	}
 }
 
 func containerGet(slug string) (*Container, bool) {
@@ -95,12 +86,6 @@ func containerSet(slug string, c *Container) {
 // preview request to` a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 	db *sql.DB, caBytes []byte) http.Handler {
-
-	timeStart := time.Now()
-	refreshContainersCache(db)
-	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
-
-	go refreshContainersCacheWorker(db)
 
 	s := &PreviewProxyServer{
 		tlsDomain:      tlsDomain,

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/nitrous-io/dedicated/tender"
 )
@@ -17,7 +18,10 @@ import (
 // current version of tender binary
 var version string
 
-const freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+const (
+	freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+	cacheRefreshPeriod    = time.Second * 60
+)
 
 var (
 	// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
@@ -70,6 +74,14 @@ func init() {
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
 }
 
+func refreshCachesWorker(db *sql.DB) {
+	for {
+		time.Sleep(cacheRefreshPeriod)
+		tender.RefreshContainersCache(db)
+		tender.RefreshHostsCache(db)
+	}
+}
+
 func main() {
 	flag.Parse()
 	if *flVersion {
@@ -87,6 +99,17 @@ func main() {
 	}
 
 	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
+
+	timeStart := time.Now()
+	tender.RefreshContainersCache(db)
+	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
+
+	timeStart = time.Now()
+	tender.RefreshHostsCache(db)
+	log.Printf("[INFO] initial refreshHostsCache() took %s", time.Since(timeStart))
+
+	go refreshCachesWorker(db)
+
 	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
 	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert)
 
