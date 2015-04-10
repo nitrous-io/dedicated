@@ -54,14 +54,14 @@ func RefreshHostsCache(db *sql.DB) error {
 	return nil
 }
 
-func hostGet(slug string) (*Host, bool) {
+func hostCacheGet(slug string) (*Host, bool) {
 	muHosts.Lock()
 	h, ok := hostsCache[slug]
 	muHosts.Unlock()
 	return h, ok
 }
 
-func hostSet(slug string, host *Host) {
+func hostCacheSet(slug string, host *Host) {
 	muHosts.Lock()
 	hostsCache[slug] = host
 	muHosts.Unlock()
@@ -116,13 +116,13 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
-	host, ok := hostGet(slug)
+	host, ok := hostCacheGet(slug)
 	if !ok {
 		host, err = findHost(s.db, slug)
 		if err != nil {
 			host = hostNotFound
 		}
-		hostSet(slug, host)
+		hostCacheSet(slug, host)
 	}
 	if host == hostNotFound {
 		return errHostNotFound

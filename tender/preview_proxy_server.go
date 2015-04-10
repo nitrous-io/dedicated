@@ -69,14 +69,14 @@ func RefreshContainersCache(db *sql.DB) error {
 	return nil
 }
 
-func containerGet(slug string) (*Container, bool) {
+func containerCacheGet(slug string) (*Container, bool) {
 	muContainers.Lock()
 	c, ok := containersCache[slug]
 	muContainers.Unlock()
 	return c, ok
 }
 
-func containerSet(slug string, c *Container) {
+func containerCacheSet(slug string, c *Container) {
 	muContainers.Lock()
 	containersCache[slug] = c
 	muContainers.Unlock()
@@ -127,13 +127,13 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
-	cn, ok := containerGet(slug)
+	cn, ok := containerCacheGet(slug)
 	if !ok {
 		cn, err = findContainer(s.db, slug)
 		if err != nil {
 			cn = containerNotFound
 		}
-		containerSet(slug, cn)
+		containerCacheSet(slug, cn)
 	}
 	if cn == containerNotFound {
 		return errContainerNotFound
