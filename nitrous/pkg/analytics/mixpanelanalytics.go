@@ -70,6 +70,11 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 	var propFn func() error
 	uid := strconv.Itoa(int(userID))
 
+	if ip, ok := p["$ip"]; !ok || ip == "" {
+		// do not use request address as IP (mixpanel default if $ip missing)
+		p["$ip"] = "0"
+	}
+
 	op := m.client.NewProfileOp(uid, p)
 
 	switch mode {
