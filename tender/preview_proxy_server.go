@@ -128,17 +128,15 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
 	cn, ok := containerGet(slug)
-	if ok {
-		if cn == containerNotFound {
-			return errContainerNotFound
-		}
-	} else {
+	if !ok {
 		cn, err = findContainer(s.db, slug)
 		if err != nil {
-			containerSet(slug, containerNotFound)
-			return errContainerNotFound
+			cn = containerNotFound
 		}
 		containerSet(slug, cn)
+	}
+	if cn == containerNotFound {
+		return errContainerNotFound
 	}
 
 	fhost := freighterclient.NewHost(

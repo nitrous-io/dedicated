@@ -117,18 +117,17 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	// get host id and host ip
 	// host ip will be the new destination for current request
 	host, ok := hostGet(slug)
-	if ok {
-		if host == hostNotFound {
-			return errHostNotFound
-		}
-	} else {
+	if !ok {
 		host, err = findHost(s.db, slug)
 		if err != nil {
-			hostSet(slug, hostNotFound)
-			return errHostNotFound
+			host = hostNotFound
 		}
 		hostSet(slug, host)
 	}
+	if host == hostNotFound {
+		return errHostNotFound
+	}
+
 	dest := hostToIP(r, host.IP, host.Port)
 
 	// copy tls config and set serverName
