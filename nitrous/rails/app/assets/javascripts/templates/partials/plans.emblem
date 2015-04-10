@@ -3,5 +3,5 @@
     label.field-label
       | Workspace Size
   ul.plans
-    each plan in App.plans
+    each plan in plans
       App.PlanView plan=plan selectedPlan=selectedPlan

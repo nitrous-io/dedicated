@@ -338,6 +338,11 @@ func (u *User) CanCreateHosts(d db.QueryReceiver, pl *plan.Plan) error {
 }
 
 func (u *User) IsEligibleForFreeTrial(d db.QueryReceiver) error {
+	if u.Admin {
+		// admin can create any plan including free trial host
+		return nil
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err

@@ -2,10 +2,10 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   queryParams: ['pendingContainer']
   pendingContainer: false
 
+  plans: App.get('plans')
   canSelectPlan: true
   name: null
   selectedRegion: null
-  selectedPlan: null
   error: null
   invalidField: null
   host: null
@@ -18,15 +18,21 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     @setProperties
       name: null
       selectedRegion: App.get('regions.firstObject')
-      selectedPlan: App.get('plans.firstObject')
       error: null
       invalidField: null
       host: null
       saving: false
       bypassPreprovision: false
       templateName: null
+
+    @get('plans')?.reload()
+
     if @get('hasPendingContainer')
       @set('name', App.get('pendingContainerData.name'))
+
+  selectedPlan: (->
+    @get('plans.firstObject')
+  ).property 'plans'
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
@@ -34,8 +40,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   plansDidChange: (->
     unless @get('selectedPlan')
-      @set('selectedPlan', App.get('plans.firstObject'))
-  ).observes 'App.plans.@each'
+      @set('selectedPlan', @get('plans.firstObject'))
+  ).observes 'plans.@each'
 
   regionsDidChange: (->
     unless @get('selectedRegion')
