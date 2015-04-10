@@ -47,6 +47,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   onboardingScreen: null
   onboardingReady: false
+  onboardingIDEOpen: false
 
   regionIndex: (->
     regions = @get('regions')

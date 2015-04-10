@@ -19,7 +19,7 @@
     .card-footer
       .right
         .ui.checkbox
-          = input type='checkbox' id='open-ide' checked=view.openIDE
+          = input type='checkbox' id='open-ide' checked=openIDE
           label
         label for='open-ide' Open the IDE when ready
         a.ui.btn.primary.raised href='#' click='dismissOnboarding' Done

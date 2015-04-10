@@ -14,6 +14,7 @@ screens = [
 
 App.OnboardingController = Em.ObjectController.extend
   screenBinding: 'App.onboardingScreen'
+  openIDEBinding: 'App.onboardingIDEOpen'
 
   bindEvents: (->
     App.on 'next-onboarding', =>
@@ -43,6 +44,11 @@ App.OnboardingController = Em.ObjectController.extend
       return false
     return screen
   ).property 'screen'
+
+  setIDEOnStart: (->
+    if @get 'screen'
+      @set('openIDE', true)
+  ).observes 'screen'
 
   clear: ->
     @_super.apply this, arguments
