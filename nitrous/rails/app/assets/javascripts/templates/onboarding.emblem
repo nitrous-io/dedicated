@@ -6,9 +6,9 @@
       | Let's get your first setup started. It'll just take a few minutes.
     .card-footer
       .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+        a.ui.text-btn href='#' click='dismissOnboarding' Dismiss
       .right
-        input.ui.btn.primary value='Get started' click='nextScreen'
+        a.ui.btn.primary.raised href='#' click='nextScreen' Get started
 
 #thankyou.ui.modal
   .ui.card
