@@ -7,7 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
@@ -18,7 +18,10 @@ const hostsCacheRefreshPeriod = time.Second * 60
 
 var (
 	errHostNotFound = errors.New("Host not found")
-	hostsCache      atomic.Value
+	hostsCache      HostsMap
+	muHosts         sync.Mutex
+	// serves as identity to allow caching failed lookups
+	hostNotFound = &Host{}
 )
 
 // FreighterProxyServer let user proxy requests to the freighterd host. This is
@@ -48,7 +51,9 @@ func refreshHostsCache(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	hostsCache.Store(m)
+	muHosts.Lock()
+	hostsCache = m
+	muHosts.Unlock()
 	return nil
 }
 
@@ -57,6 +62,19 @@ func refreshHostsCacheWorker(db *sql.DB) {
 		time.Sleep(hostsCacheRefreshPeriod)
 		refreshHostsCache(db)
 	}
+}
+
+func hostGet(slug string) (*Host, bool) {
+	muHosts.Lock()
+	h, ok := hostsCache[slug]
+	muHosts.Unlock()
+	return h, ok
+}
+
+func hostSet(slug string, host *Host) {
+	muHosts.Lock()
+	hostsCache[slug] = host
+	muHosts.Unlock()
 }
 
 // NewFreighterProxyServer returns a `http.Handler` which can be used to proxy
@@ -114,12 +132,18 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 
 	// get host id and host ip
 	// host ip will be the new destination for current request
-	var host *Host
-
-	cache := hostsCache.Load().(HostsMap)
-	host, ok := cache[slug]
-	if !ok {
-		return errHostNotFound
+	host, ok := hostGet(slug)
+	if ok {
+		if host == hostNotFound {
+			return errHostNotFound
+		}
+	} else {
+		host, err = findHost(s.db, slug)
+		if err != nil {
+			hostSet(slug, hostNotFound)
+			return errHostNotFound
+		}
+		hostSet(slug, host)
 	}
 	dest := hostToIP(r, host.IP, host.Port)
 
