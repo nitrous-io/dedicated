@@ -62,7 +62,8 @@ App.BillingProfile = klass = App.Model.extend
         number: params.number,
         exp_month: params.exp_month,
         exp_year: params.exp_year,
-        cvc: params.cvc
+        cvc: params.cvc,
+        address_zip: params.zipcode
       }, (status, response) =>
         if response.error
           return reject(response.error.message)
