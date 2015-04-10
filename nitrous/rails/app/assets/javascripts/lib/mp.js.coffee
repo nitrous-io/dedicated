@@ -78,6 +78,10 @@ window.Mp =
     return false unless @initialized && @identified
     mixpanel.people.append(properties)
 
+  unionUser: (properties) ->
+    return false unless @initialized && @identified
+    mixpanel.people.union(properties)
+
   timestamp: (property, value) ->
     return false unless @initialized && @identified
     if !value?

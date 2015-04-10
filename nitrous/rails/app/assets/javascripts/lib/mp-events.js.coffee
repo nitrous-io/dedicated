@@ -33,6 +33,8 @@ Object.assign window.Mp,
   # suffix conventions
   # _date : timestamp
   # _count : incremented property
+  # _list : array/list
   PropertyIDEFileSaveCount: "ide_file_save_count"
   PropertyIDEStartCount: "ide_start_count"
   PropertyConfirmedEmail: "confirmed_email_date"
+  PropertyImagesList: "images_list"

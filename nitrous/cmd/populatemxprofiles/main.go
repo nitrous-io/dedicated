@@ -55,6 +55,7 @@ func makeJobs() <-chan job {
 
 	steps := map[string]stepFn{
 		"set confirmed": SetConfirmed,
+		"set templates": SetTemplates,
 	}
 
 	go func() {
