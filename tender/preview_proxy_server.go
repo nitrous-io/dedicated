@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -33,7 +33,10 @@ var (
 	previewForwardPorts = []int{80, 443}
 
 	errContainerNotFound = errors.New("Host not found")
-	containersCache      atomic.Value
+	containersCache      ContainersMap
+	muContainers         sync.Mutex
+	// serves as identity to allow caching failed lookups
+	containerNotFound = &Container{}
 )
 
 // PreviewProxyServer let user proxy preview requests to the host.
@@ -62,7 +65,9 @@ func refreshContainersCache(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	containersCache.Store(m)
+	muContainers.Lock()
+	containersCache = m
+	muContainers.Unlock()
 	return nil
 }
 
@@ -71,6 +76,19 @@ func refreshContainersCacheWorker(db *sql.DB) {
 		time.Sleep(containersCacheRefreshPeriod)
 		refreshContainersCache(db)
 	}
+}
+
+func containerCacheGet(slug string) (*Container, bool) {
+	muContainers.Lock()
+	c, ok := containersCache[slug]
+	muContainers.Unlock()
+	return c, ok
+}
+
+func containerCacheSet(slug string, c *Container) {
+	muContainers.Lock()
+	containersCache[slug] = c
+	muContainers.Unlock()
 }
 
 // NewPreviewProxyServer returns a `http.Handler` which can be used to proxy
@@ -124,11 +142,15 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
-	m := containersCache.Load().(ContainersMap)
-	var container containerWithInfo
-
-	cn, ok := m[slug]
+	cn, ok := containerCacheGet(slug)
 	if !ok {
+		cn, err = findContainer(s.db, slug)
+		if err != nil {
+			cn = containerNotFound
+		}
+		containerCacheSet(slug, cn)
+	}
+	if cn == containerNotFound {
 		return errContainerNotFound
 	}
 
@@ -148,7 +170,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
 	}
 
-	container = containerWithInfo{
+	container := containerWithInfo{
 		Container: cn,
 		ports:     info.Ports,
 		env:       info.Env,
