@@ -3,6 +3,7 @@ package analytics
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/go-mixpanel"
@@ -73,6 +74,17 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 	if ip, ok := p["$ip"]; !ok || ip == "" {
 		// do not use request address as IP (mixpanel default if $ip missing)
 		p["$ip"] = "0"
+	}
+
+	// handle types consistently
+	for k, v := range p {
+		switch t := v.(type) {
+		case time.Time:
+			// Mixpanel's preferred format is YYYY-MM-DDTHH:MM:SS
+			// per https://mixpanel.com/docs/properties-or-segments/property-data-types
+			// format string below omits zone information and assumes timestamps are UTC
+			p[k] = t.Format("2006-01-02T15:04:05")
+		}
 	}
 
 	op := m.client.NewProfileOp(uid, p)
