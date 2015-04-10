@@ -108,7 +108,7 @@ var _ = Describe("mixpanel", func() {
 		})
 	})
 
-	Describe("CreateProfile", func() {
+	Describe("ProfileOp Set()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -121,7 +121,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.CreateProfile("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})
+				err := m.NewProfileOp("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"}).Set()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -139,14 +139,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.CreateProfile("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})
+				err := m.NewProfileOp("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"}).Set()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("SetPropertiesOnProfileOnce", func() {
+	Describe("ProfileOp SetOnce()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -159,7 +159,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.SetPropertiesOnProfileOnce("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})
+				err := m.NewProfileOp("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"}).SetOnce()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -177,14 +177,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.SetPropertiesOnProfileOnce("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})
+				err := m.NewProfileOp("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"}).SetOnce()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("IncrementPropertiesOnProfile", func() {
+	Describe("ProfileOp Increment()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -197,7 +197,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.IncrementPropertiesOnProfile("1", map[string]int{"items_created": 10, "invites_sent": -1})
+				err := m.NewProfileOp("1", map[string]interface{}{"items_created": 10, "invites_sent": -1}).Increment()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -215,14 +215,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.IncrementPropertiesOnProfile("1", map[string]int{"items_created": 10, "invites_sent": -1})
+				err := m.NewProfileOp("1", map[string]interface{}{"items_created": 10, "invites_sent": -1}).Increment()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("AppendPropertiesOnProfile", func() {
+	Describe("ProfileOp Append()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -235,7 +235,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.AppendPropertiesOnProfile("1", map[string]interface{}{"level_ups": "sword obtained", "power_ups": "bubble lead"})
+				err := m.NewProfileOp("1", map[string]interface{}{"level_ups": "sword obtained", "power_ups": "bubble lead"}).Append()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -253,14 +253,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.AppendPropertiesOnProfile("1", map[string]interface{}{"level_ups": "sword obtained", "power_ups": "bubble lead"})
+				err := m.NewProfileOp("1", map[string]interface{}{"level_ups": "sword obtained", "power_ups": "bubble lead"}).Append()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("UnionPropertiesOnProfile", func() {
+	Describe("ProfileOp Union()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -273,7 +273,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.UnionPropertiesOnProfile("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}})
+				err := m.NewProfileOp("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}}).Union()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -291,14 +291,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.UnionPropertiesOnProfile("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}})
+				err := m.NewProfileOp("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}}).Union()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("UnsetPropertiesOnProfile", func() {
+	Describe("ProfileOp Unset()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -311,7 +311,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.UnsetPropertiesOnProfile("1", []string{"Days Purchased"})
+				err := m.NewProfileOp("1", nil).Unset([]string{"Days Purchased"})
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -329,14 +329,14 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.UnsetPropertiesOnProfile("1", []string{"Days Purchased"})
+				err := m.NewProfileOp("1", nil).Unset([]string{"Days Purchased"})
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("DeleteProfile", func() {
+	Describe("ProfileOp Delete()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
@@ -349,7 +349,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.DeleteProfile("1")
+				err := m.NewProfileOp("1", nil).Delete()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -367,27 +367,27 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.DeleteProfile("1")
+				err := m.NewProfileOp("1", nil).Delete()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
 		})
 	})
 
-	Describe("Alias", func() {
+	Describe("ProfileOp Alias()", func() {
 		Context("when mixpanel responds with a valid response", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
 					"GET",
 					`\A\/track\/\?data=.*?\z`,
-					`{"event":"$create_alias","properties":{"token": "token", "distinct_id":"deadbeef","alias":"1"}}`,
+					`{"event":"$create_alias","properties":{"token": "token", "distinct_id":"1","alias":"deadbeef"}}`,
 					"1",
 				)
 			})
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.Alias("deadbeef", "1")
+				err := m.NewProfileOp("1", nil).Alias("deadbeef")
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -398,14 +398,14 @@ var _ = Describe("mixpanel", func() {
 				verifyRequestResponse(server,
 					"GET",
 					`\A\/track\/\?data=.*?\z`,
-					`{"event":"$create_alias","properties":{"token": "token", "distinct_id":"deadbeef","alias":"1"}}`,
+					`{"event":"$create_alias","properties":{"token": "token", "distinct_id":"1","alias":"deadbeef"}}`,
 					"error",
 				)
 			})
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.Alias("deadbeef", "1")
+				err := m.NewProfileOp("1", nil).Alias("deadbeef")
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedTrackResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
