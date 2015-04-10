@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
@@ -20,7 +19,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -98,7 +96,7 @@ var _ = Describe("CreateContainer", func() {
 		env = &middleware.Env{
 			DB:      db,
 			Events:  pubsub.New(128),
-			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
+			Tracker: NewFakeTracker(),
 			Logger:  logger,
 			User:    u,
 		}
@@ -192,6 +190,9 @@ var _ = Describe("CreateContainer", func() {
 		Expect(c.Image).To(Equal("elixir"))
 		Expect(c.Name.String).To(Equal("elixir-web"))
 		Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
+
+		// Tracks analytics
+		Expect(env.TrackProfileOnce).To(Equal("hmm"))
 	})
 
 	It("responds with the created container", func() {

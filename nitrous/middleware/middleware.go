@@ -71,6 +71,12 @@ type Env struct {
 	RemoteAddr     string
 	Tracker        analytics.Tracker
 	UUID           string
+
+	// changes to the user mixpanel profile
+	TrackProfileOnce   map[string]interface{}
+	TrackProfileSet    map[string]interface{}
+	TrackProfileAppend map[string]interface{}
+	TrackProfileInc    map[string]int
 }
 
 func (env *Env) AddEventData(data map[string]interface{}) {
@@ -79,6 +85,36 @@ func (env *Env) AddEventData(data map[string]interface{}) {
 	}
 
 	mergemap.Merge(data, env.trackEventData)
+}
+
+func (env *Env) ProfileOnce(data map[string]interface{}) {
+	if env.TrackProfileOnce == nil {
+		env.TrackProfileOnce = map[string]interface{}{}
+	}
+	mergemap.Merge(data, env.TrackProfileOnce)
+}
+
+func (env *Env) ProfileSet(data map[string]interface{}) {
+	if env.TrackProfileSet == nil {
+		env.TrackProfileSet = map[string]interface{}{}
+	}
+	mergemap.Merge(data, env.TrackProfileSet)
+}
+
+func (env *Env) ProfileAppend(data map[string]interface{}) {
+	if env.TrackProfileAppend == nil {
+		env.TrackProfileAppend = map[string]interface{}{}
+	}
+	mergemap.Merge(data, env.TrackProfileAppend)
+}
+
+func (env *Env) ProfileInc(data map[string]int) {
+	if env.TrackProfileInc == nil {
+		env.TrackProfileInc = map[string]int{}
+	}
+	for k, v := range data {
+		env.TrackProfileInc[k] = v
+	}
 }
 
 func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
@@ -187,6 +223,20 @@ func Track(event string, mw Middleware) Middleware {
 
 		if env.TrackEventName != "" {
 			env.Tracker.TrackEvent(event, env.User, env.trackEventData, env.Logger)
+		}
+
+		// FIXME: we should use mixpanel's batch requests support to combine into a single request
+		if len(env.TrackProfileSet) > 0 {
+			env.Tracker.SetProfileProps("set", env.User.ID, env.TrackProfileSet, env.Logger)
+		}
+		if len(env.TrackProfileAppend) > 0 {
+			env.Tracker.SetProfileProps("append", env.User.ID, env.TrackProfileAppend, env.Logger)
+		}
+		if len(env.TrackProfileOnce) > 0 {
+			env.Tracker.SetProfileProps("setnx", env.User.ID, env.TrackProfileOnce, env.Logger)
+		}
+		if len(env.TrackProfileInc) > 0 {
+			env.Tracker.IncProfileProps(env.User.ID, env.TrackProfileInc, env.Logger)
 		}
 
 		return nil
