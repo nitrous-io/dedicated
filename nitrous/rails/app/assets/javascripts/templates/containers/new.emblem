@@ -90,7 +90,7 @@
       .card-footer.bordered
         .left
           a click='showHelp target=view'
-            i.fa.fa-info-circle
+            span.onboarding-trigger
         .right
           a.ui.btn href='#' click='cancel' Cancel
           input.ui.btn.primary.raised type='submit' disabled={view.createButtonDisabled} value={view.firstScreenButtonLabel}

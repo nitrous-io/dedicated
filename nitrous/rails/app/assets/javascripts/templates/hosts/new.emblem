@@ -99,7 +99,8 @@
         else
           .left
             a click='showHelp target=view'
-              i.fa.fa-info-circle
+              / i.fa.fa-info-circle
+              span.onboarding-trigger
           .right
             if hasPendingContainer
               button.ui.btn click='goBack' Back

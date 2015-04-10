@@ -32,5 +32,10 @@ App.GutterOnboardingView = Em.View.extend
       target = $(target)
       pos = target.offset()
       return unless pos
-      left = pos.left - card.width()
-      card.offset({top: pos.top, left: left})
+      content = $("#content-wrapper")
+      left = content.offset().left - card.width()
+      middle = (pos.top + (target.height()/2)) - 25
+      card.offset({top: middle, left: left})
+      setTimeout ->
+        card.addClass "animated"
+      , 5

@@ -1,74 +1,60 @@
 if view.showPickContainer
-  .card data-target="#new-container-title"
-    h2
-      | First, let's pick a container
-    p
-      | Containers come with
-    .card-footer
-      .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
-      .right
-        if view.showNextButton
-          input.ui.btn.primary value='Next' click='nextScreen'
-        else
-          input.ui.btn.primary value='Done' click='nextScreen'
+  .card data-target="#new-container-title" data-arrow="top-right"
+    .card-inner
+      h2
+        | First, let's pick a Container
+      p
+        ' Containers come with a set of
+        strong
+          | pre-installed tools, libraries
+        ' , and/or
+        strong
+         ' frameworks
+        | to enable you to start coding so you don't have to worry about setting up your development environment.
+      = partial 'partials/onboarding-card-footer'
 
 if view.showSelectContainerName
-  .card data-target="#select-container-name"
-    h2
-      | Select a Container name....
-    p
-      | or you can generate one.
-    .card-footer
-      .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
-      .right
-        if view.showNextButton
-          input.ui.btn.primary value='Next' click='nextScreen'
-        else
-          input.ui.btn.primary value='Done' click='nextScreen'
+  .card data-target="#select-container-name" data-arrow="top-right"
+    .card-inner
+      h2
+        | Select a Container name...
+      p
+        ' ... or you can
+        a href="#"
+          | generate one
+        |.
+      = partial 'partials/onboarding-card-footer'
 
 if view.showSelectRegion
-  .card data-target="#select-region"
-    h2
-      | Select a region closet to you
-    p
-      | This is where
-    .card-footer
-      .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
-      .right
-        if view.showNextButton
-          input.ui.btn.primary value='Next' click='nextScreen'
-        else
-          input.ui.btn.primary value='Done' click='nextScreen'
+  .card data-target="#select-region" data-arrow="top-right"
+    .card-inner
+      h2
+        | Select a region closest to you
+      p
+        | This is where your dedicated Nitrous machine will be hosted. The closer it is to you, the faster it will be.
+      p
+        a href="#" Learn more
+        |  about Workspaces and Containers.
+      = partial 'partials/onboarding-card-footer'
 
 if view.showSelectPlan
-  .card data-target="#select-plan"
-    h2
-      | Select a plan
-    p
-      | It's important
-    .card-footer
-      .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
-      .right
-        if view.showNextButton
-          input.ui.btn.primary value='Next' click='nextScreen'
-        else
-          input.ui.btn.primary value='Done' click='nextScreen'
+  .card data-target="#select-plan" data-arrow="top-right"
+    .card-inner
+      h2
+        | Pick a plan
+      p
+        ' These prices are
+        strong flexible
+        | : pay only for what you use, without worrying about cost overruns. Charges are calculated on an hourly basis against the actual hours used for your workspace.
+      p.tip
+        | Pay less by stopping your workspace when you don’t use it.
+      = partial 'partials/onboarding-card-footer'
 
 if view.showCardholdersName
-  .card data-target="#cardholders-name"
-    h2
-      | We will need your name
-    p
-      | So we can pay the bills
-    .card-footer
-      .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
-      .right
-        if view.showNextButton
-          input.ui.btn.primary value='Next' click='nextScreen'
-        else
-          input.ui.btn.primary value='Done' click='nextScreen'
+  .card data-target="#cardholders-name" data-arrow="top-right"
+    .card-inner
+      h2
+        | Enter your billing info
+      p
+        | You’re doing great! Just one last step before you can use your new workspace.
+      = partial 'partials/onboarding-card-footer'

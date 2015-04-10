@@ -6,24 +6,23 @@
       | Let's get your first setup started. It'll just take a few minutes.
     .card-footer
       .left
-        a.ui.btn href='#' click='dismissOnboarding' Dismiss
+        a.ui.text-btn href='#' click='dismissOnboarding' Dismiss
       .right
-        input.ui.btn.primary value='Get started' click='nextScreen'
+        a.ui.btn.primary.raised href='#' click='nextScreen' Get started
 
 #thankyou.ui.modal
   .ui.card
     h2.card-header
       | Thank you, and congratulations!
     .card-body
-      | Your AJ cloud computer is being set up
+      | Your Nitrous machine is being set up – it should just take a few minutes.
     .card-footer
-      .left
+      .right
         .ui.checkbox
           = input type='checkbox' id='open-ide' checked=view.openIDE
           label
         label for='open-ide' Open the IDE when ready
-      .right
-        input.ui.btn.primary value='Done' click='dismissOnboarding'
+        a.ui.btn.primary.raised href='#' click='dismissOnboarding' Done
 
 if view.showGutter
   App.GutterOnboardingView

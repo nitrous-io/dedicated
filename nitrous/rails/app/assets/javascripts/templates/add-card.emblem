@@ -60,7 +60,7 @@ form autocomplete='on' submit='save'
   .card-footer.bordered
     .left
       a click='showHelp target=view'
-        i.fa.fa-info-circle
+        span.onboarding-trigger
     if saving
       .right
         button.ui.btn disabled='disabled'
