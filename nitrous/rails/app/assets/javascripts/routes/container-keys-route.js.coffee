@@ -17,9 +17,10 @@ App.ContainerKeysRoute = App.AuthedRoute.extend
       containerKeys.reload().catch (jqxhr) =>
         resp = jqxhr.responseJSON
         controller.set('error', true)
-        App.postError(resp, "Failed to load container keys")
         if resp?.error == "container_not_running"
           controller.set 'notRunningError', true
+        else
+          App.postError(resp, "Failed to load container keys")
 
     App.set 'title', model.get('displayName') + ' › SSH Keys'
     Mp.track Mp.EventDashboardViewedContainerKeys
