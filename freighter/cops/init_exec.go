@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -16,6 +15,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 	"github.com/nitrous-io/dedicated/pkg/shellquote"
 )
@@ -42,7 +42,7 @@ func execInit() {
 	id := flag.Arg(0)
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("execInit failed to change dir to / : %v", err)
+		airbrake.Fatalf("execInit failed to change dir to / : %v", err)
 	}
 
 	// this is used to communicate with the parent process
@@ -51,7 +51,7 @@ func execInit() {
 	err := handleOps(id, os.Stdin, pipe)
 
 	if err != nil {
-		log.Fatalf("opsHandler failed with %v", err)
+		airbrake.Fatalf("opsHandler failed with %v", err)
 	}
 	os.Exit(0)
 }
@@ -65,7 +65,7 @@ func getNitrousUser() string {
 		return user
 	}
 	// shouldn't happen, but if it does, log the error and go on using "nitrous" user
-	log.Printf("getNitrousUser: NITROUS_USERNAME not set")
+	airbrake.Printf("NITROUS_USERNAME not set")
 	return "nitrous"
 }
 
@@ -74,7 +74,7 @@ func getNitrousUser() string {
 func shellForUserFromEtcPasswd(user string) string {
 	d, err := ioutil.ReadFile("/etc/passwd")
 	if err != nil {
-		log.Printf("shellForUserFromEtcPasswd: ioutil.ReadFile('/etc/passwd') failed with %s", err)
+		airbrake.Printf("ioutil.ReadFile('/etc/passwd') failed with %s", err)
 		return defaultShell
 	}
 	shell := extractShellFromEtcPasswd(string(d), user)
@@ -126,9 +126,9 @@ func runWithSuUserShell(cmdStr string) (string, string, error) {
 	stdout, stderr, err := runCmd(cmd)
 	shell := getShellForUserCached(getNitrousUser())
 	if err != nil {
-		log.Printf("su shell '%s' cmd: '%s' failed with %s, stdout: '%s', stderr: '%s'\n", shell, cmdStr, err, stdout, stderr)
+		airbrake.Printf("su shell '%s' cmd: '%s' failed with %s, stdout: '%s', stderr: '%s'\n", shell, cmdStr, err, stdout, stderr)
 	} else {
-		log.Printf("su shell '%s' cmd: '%s' returned stdout: '%s' stderr: '%s'\n", shell, cmdStr, stdout, stderr)
+		airbrake.Printf("su shell '%s' cmd: '%s' returned stdout: '%s' stderr: '%s'\n", shell, cmdStr, stdout, stderr)
 	}
 	return stdout, stderr, err
 }
@@ -145,12 +145,12 @@ func doRun(msg *Message, ch chan *Message) {
 	}
 	cmdWithArgs, ok := getArgAsStrArray(msg.Args[0])
 	if !ok {
-		log.Printf("doRun: msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
+		airbrake.Printf("msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
 		sendErr(ch, msg, errors.New("invalid cmd argument"))
 		return
 	}
 	if len(cmdWithArgs) == 0 {
-		log.Printf("doRun: msg.Args[0] is an empty list")
+		airbrake.Printf("msg.Args[0] is an empty list")
 		sendErr(ch, msg, errors.New("empty cmd argument"))
 		return
 	}
@@ -160,7 +160,7 @@ func doRun(msg *Message, ch chan *Message) {
 	// set custom working directory (if given)
 	cwd, ok := msg.Args[1].(string)
 	if !ok {
-		log.Printf("doRun: msg.Args[1] (%#v) is not a string", msg.Args[1])
+		airbrake.Printf("msg.Args[1] (%#v) is not a string", msg.Args[1])
 		sendErr(ch, msg, errors.New("invalid cwd argument"))
 		return
 	}
@@ -170,7 +170,7 @@ func doRun(msg *Message, ch chan *Message) {
 	// setup additional environment variables (if given)
 	env, ok := getArgAsStrArray(msg.Args[2])
 	if !ok {
-		log.Printf("doRun: msg.Args[2] (%#v) is not a list of strings", msg.Args[2])
+		airbrake.Printf("msg.Args[2] (%#v) is not a list of strings", msg.Args[2])
 		sendErr(ch, msg, errors.New("invalid env argument"))
 		return
 	}
@@ -188,7 +188,7 @@ func doRun(msg *Message, ch chan *Message) {
 			errMsg = err.Error()
 			cmdName := cmdWithArgs[0]
 			args := cmdWithArgs[1:]
-			log.Printf("doRun: cmd: '%s' args: '%#v', cmdStr: %s failed with '%s'", cmdName, args, cmdStr, err)
+			airbrake.Printf("cmd: '%s' args: '%#v', cmdStr: %s failed with '%s'", cmdName, args, cmdStr, err)
 		}
 		args := []interface{}{errMsg, stdout, stderr}
 		sendFinalReply(ch, msg, args)
@@ -201,7 +201,7 @@ func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
 	case "run":
 		go doRun(msg, resp)
 	default:
-		log.Printf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
+		airbrake.Printf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
 		return sendErr(resp, msg, fmt.Errorf("unkown event '%s'", msg.Event))
 	}
 	return resp

@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
@@ -546,7 +547,7 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			default:
-				log.Println("shell: got unknown msg ", msg)
+				airbrake.Printf("got unknown msg %v", msg)
 			}
 		}
 	}
@@ -615,7 +616,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 			if err := dec.Decode(&msg); err == nil {
 				msgsFromCops <- msg
 			} else {
-				log.Printf("wsContainerOps: dec.Decode() failed with %s", err)
+				airbrake.Printf("dec.Decode() failed with %s", err)
 				quit <- err
 				return
 			}
@@ -632,15 +633,15 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		for {
 			msgType, d, err = msgproto.ReadAndDecodeMessage(ws)
 			if err != nil {
-				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() failed with %s", err)
+				airbrake.Printf("msgproto.ReadAndDecodeMessage() failed with %s", err)
 				break
 			}
 			if msgType == msgproto.CloseMessage {
-				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() received msgproto.CloseMessge")
+				airbrake.Printf("msgproto.ReadAndDecodeMessage() received msgproto.CloseMessge")
 				break
 			}
 			if _, err = copsStdin.Write(d); err != nil {
-				log.Printf("cops.Start(): stdin.Write() failed with %s", err)
+				airbrake.Printf("copsStdin.Write() failed with %s", err)
 				break
 			}
 		}
@@ -669,11 +670,11 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		case msg := <-msgsFromCops:
 			d, err := json.Marshal(msg)
 			if err != nil {
-				log.Printf("json.Marshal() of %v failed with %s\n", msg, err)
+				airbrake.Printf("json.Marshal() of %v failed with %s\n", msg, err)
 			} else {
 				_, err = msgproto.WriteDataMessage(d, ws)
 				if err != nil {
-					log.Printf("msgproto.WriteDataMessage() failed with '%s'\n", err)
+					airbrake.Printf("msgproto.WriteDataMessage() failed with '%s'\n", err)
 				}
 			}
 

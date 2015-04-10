@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 
 	// load required init for reexec commands
@@ -30,6 +31,11 @@ func init() {
 }
 
 func main() {
+	// TODO: for now disabled, will be enabled by default when more tested
+	if false {
+		airbrake.Init(109646, "97d9ec92f0aeb42ac2fa0ba1bb6a4ded", "production")
+	}
+
 	// return if running in reexec mode, and the reexec func has already finished
 	if reexec.Init() {
 		return

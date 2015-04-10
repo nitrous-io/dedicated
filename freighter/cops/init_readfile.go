@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"syscall"
 
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -28,12 +28,12 @@ func readFileInit() {
 	localPath := flag.Arg(1)
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("readFileInit failed to change dir to / : %v", err)
+		airbrake.Fatalf("failed to change dir to / : %v", err)
 	}
 
 	f, err := os.Open(localPath)
 	if err != nil {
-		log.Fatal(err)
+		airbrake.Fatal(err)
 	}
 	defer f.Close()
 	io.Copy(os.Stdout, f)

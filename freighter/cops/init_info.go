@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"syscall"
 
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -28,12 +28,12 @@ func infoInit() {
 
 	// chroot the current process into path
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("infoInit failed to change dir to / : %v", err)
+		airbrake.Fatalf("failed to change dir to / : %v", err)
 	}
 
 	stat, err := os.Stat(localPath)
 	if err != nil {
-		log.Fatalf("infoInit failed to stat %s: %v", localPath, err)
+		airbrake.Fatalf("failed to stat %s: %v", localPath, err)
 	}
 
 	info := &FileInfo{
@@ -42,7 +42,7 @@ func infoInit() {
 		IsDir: stat.IsDir(),
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(info); err != nil {
-		log.Fatalf("infoInit failed to encode: %v", err)
+		airbrake.Fatalf("failed to encode: %v", err)
 	}
 	os.Exit(0)
 }
