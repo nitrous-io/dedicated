@@ -135,11 +135,29 @@ func (p *ProfileOp) Alias(newID string) error {
 	return p.Track("$create_alias", map[string]interface{}{"distinct_id": p.DistinctID, "alias": newID})
 }
 
+// engage sends the requests to Mixpanel.  It recognizes special properties and
+// promotes them to the top level.  These are:
+// * $ignore_time : bool, default false .  Set to true to avoid updating Last Seen
+// * $ip : string . Set to "0" to tell mixpanel to ignore IP information.
+//   Leave empty to use the IP address of the request
 func (m *Mixpanel) engage(distinctID string, op string, properties interface{}) error {
 	var data map[string]interface{} = make(map[string]interface{})
 
 	data["$token"] = m.Token
 	data["$distinct_id"] = distinctID
+
+	// promote special properties if found
+	if m, ok := properties.(map[string]interface{}); ok {
+		if ip, found := m["$ip"]; found {
+			data["$ip"] = ip
+			delete(m, "$ip")
+		}
+		if ignore_time, found := m["$ignore_time"]; found {
+			data["$ignore_time"] = ignore_time
+			delete(m, "$ignore_time")
+		}
+	}
+
 	data[op] = properties
 
 	response, err := m.get(fmt.Sprintf("%s/engage/", m.BaseURL), data)

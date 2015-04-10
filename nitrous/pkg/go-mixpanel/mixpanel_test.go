@@ -127,6 +127,32 @@ var _ = Describe("mixpanel", func() {
 			})
 		})
 
+		Context("special properties are promoted", func() {
+			BeforeEach(func() {
+				verifyRequestResponse(server,
+					"GET",
+					`\A\/engage\/\?data=.*?\z`,
+					`{"$token":"token",
+					  "$distinct_id":"1",
+					  "$set":{"Company": "Acme Organ Donation"},
+					  "$ignore_time": true,
+					  "$ip": "0"
+					}`,
+					"1",
+				)
+			})
+
+			It("promotes special properties into top-level object", func() {
+				m := mixpanel.NewMixpanelClient("token", baseURL)
+				err := m.NewProfileOp("1", map[string]interface{}{
+					"Company":      "Acme Organ Donation",
+					"$ip":          "0",
+					"$ignore_time": true,
+				}).Set()
+				Expect(err).To(BeNil())
+			})
+		})
+
 		Context("when mixpanel responds with an error", func() {
 			BeforeEach(func() {
 				verifyRequestResponse(server,
