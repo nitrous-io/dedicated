@@ -15,6 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func mapPlansToSlugs(plans []*plan.Plan) []string {
+	slugs := make([]string, len(plans))
+	for i, plan := range plans {
+		slugs[i] = plan.Slug
+	}
+	return slugs
+}
+
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "models/plan")
@@ -187,7 +195,7 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("PaidPlansForProvider()", func() {
+	Describe("PlansForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
 			sfo := &region.Region{Slug: "sfo", Name: "US West"}
 			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
@@ -242,16 +250,13 @@ var _ = Describe("models/plan", func() {
 			}
 			Expect(pt.Insert(db)).To(BeNil())
 
-			pls, _ := plan.PaidPlansForProvider(db, "digitalocean")
-			slugs := []string{}
-			for _, pl := range pls {
-				slugs = append(slugs, pl.Slug)
-			}
-			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
+			plans, err := plan.PaidPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"1gb", "2gb"}))
 
-			pls, _ = plan.FreePlansForProvider(db, "digitalocean")
-			Expect(len(pls)).To(Equal(1))
-			Expect(pls[0].Slug).To(Equal("free"))
+			plans, err = plan.AllPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"free", "1gb", "2gb"}))
 		})
 	})
 

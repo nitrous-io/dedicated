@@ -85,6 +85,22 @@ type User struct {
 	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at"`
 	ConfirmedAt        pq.NullTime    `db:"confirmed_at"`
 	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email"`
+
+	// cached billing profile
+	billingProfile *billingprofile.BillingProfile
+}
+
+func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfile, error) {
+	if u.billingProfile == nil {
+		bp, err := billingprofile.Find(d, u.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		u.billingProfile = bp
+	}
+
+	return u.billingProfile, nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
@@ -274,7 +290,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver, pl *plan.Plan) error {
 		return nil
 	}
 
-	bp, err := billingprofile.Find(d, u.ID)
+	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
 	}
@@ -292,7 +308,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver, pl *plan.Plan) error {
 			return ErrFreeTrialPlanNotFree
 		}
 
-		return u.isEligibleForFreeTrial(d)
+		return u.IsEligibleForFreeTrial(d)
 
 	case billingprofile.StateExempt:
 		// no-op
@@ -321,8 +337,8 @@ func (u *User) CanCreateHosts(d db.QueryReceiver, pl *plan.Plan) error {
 	return nil
 }
 
-func (u *User) isEligibleForFreeTrial(d db.QueryReceiver) error {
-	bp, err := billingprofile.Find(d, u.ID)
+func (u *User) IsEligibleForFreeTrial(d db.QueryReceiver) error {
+	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
 	}
@@ -353,6 +369,14 @@ func (u *User) isEligibleForFreeTrial(d db.QueryReceiver) error {
 	}
 
 	return nil
+}
+
+func (u *User) EligiblePlans(d db.QueryReceiver, provider string) ([]*plan.Plan, error) {
+	if u.IsEligibleForFreeTrial(d) == nil {
+		return plan.AllPlansForProvider(d, provider)
+	} else {
+		return plan.PaidPlansForProvider(d, provider)
+	}
 }
 
 func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {
