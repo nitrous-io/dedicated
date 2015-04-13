@@ -9,7 +9,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/nitrous-io/dedicated/tender"
 )
@@ -17,7 +20,10 @@ import (
 // current version of tender binary
 var version string
 
-const freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+const (
+	freighterdForwardPort = 443 // We forward this port to FREIGHTERD_PORT.
+	cacheRefreshPeriod    = time.Minute
+)
 
 var (
 	// TODO: eventually we may look into etcd ( and co ) so we dont have to touch
@@ -38,7 +44,8 @@ var (
 	tlsDomain      string
 	privCACertPath string
 
-	flVersion = flag.Bool("v", false, "Display the version and exit")
+	flVersion     = flag.Bool("v", false, "Display the version and exit")
+	flVerboseLogs = flag.Bool("verbose", false, "show verbose logging")
 )
 
 func init() {
@@ -70,12 +77,52 @@ func init() {
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
 }
 
+func refreshCachesWorker(db *sql.DB) {
+	var err error
+	for {
+		// Compromise between accuracy and performance (i.e. hitting db all the time)
+		// Periodically refresh the cache with the latest state of running containers,
+		// so the maximum amount of time a host can be out of date is cacheRefreshPeriod.
+		// When cache hit is a miss (host that transitioned to `running` state
+		// between refreshes), we fetch from db
+		time.Sleep(cacheRefreshPeriod)
+		if err = tender.RefreshContainersCache(db); err != nil {
+			log.Printf("RefreshContainersCache() failed with %s", err)
+		}
+		if err = tender.RefreshHostsCache(db); err != nil {
+			log.Printf("RefreshHostsCache() failed with %s", err)
+		}
+	}
+}
+
+func installSignalHandlers() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGUSR1, syscall.SIGUSR2)
+	go func() {
+		for s := range c {
+			if s == syscall.SIGUSR1 {
+				tender.ToggleVerboseLog()
+			} else if s == syscall.SIGUSR2 {
+				tender.DumpHostsCache()
+			} else {
+				log.Printf("Unexpected signal %s", s)
+			}
+		}
+	}()
+}
+
 func main() {
 	flag.Parse()
 	if *flVersion {
 		fmt.Printf("tender version: %s\n", version)
 		os.Exit(0)
 	}
+
+	if *flVerboseLogs {
+		tender.VerboseLog = 1
+	}
+	installSignalHandlers()
+
 	db, err := connectDB(databaseURL)
 	if err != nil {
 		log.Fatalf("connectDB: %v", err)
@@ -87,6 +134,17 @@ func main() {
 	}
 
 	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
+
+	timeStart := time.Now()
+	tender.RefreshContainersCache(db)
+	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
+
+	timeStart = time.Now()
+	tender.RefreshHostsCache(db)
+	log.Printf("[INFO] initial refreshHostsCache() took %s", time.Since(timeStart))
+
+	go refreshCachesWorker(db)
+
 	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
 	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert)
 

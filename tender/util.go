@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
@@ -25,6 +27,8 @@ var (
 	DefaultStartPort int64 = 1024
 	DefaultEndPort   int64 = 9999
 	MinPort          int64 = 1024
+
+	VerboseLog int32 // a bool as int32 so that we can use atomic ops
 
 	ErrDomainMismatched = errors.New("mismatched domain")
 
@@ -189,4 +193,23 @@ func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	tc.SetKeepAlive(true)
 	tc.SetKeepAlivePeriod(3 * time.Minute)
 	return tc, nil
+}
+
+func ToggleVerboseLog() {
+	v := atomic.LoadInt32(&VerboseLog)
+	if v == 0 {
+		v = 1
+	} else {
+		v = 0
+	}
+	atomic.StoreInt32(&VerboseLog, v)
+	log.Printf("Toggled verbose logging to %d", v)
+}
+
+func LogVerbosef(format string, args ...interface{}) {
+	v := atomic.LoadInt32(&VerboseLog)
+	if v == 0 {
+		return
+	}
+	log.Printf(format, args...)
 }

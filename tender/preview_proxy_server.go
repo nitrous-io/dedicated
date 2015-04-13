@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -19,20 +21,29 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
-const previewPortEnvVar = "NITROUS_PREVIEW_PORT"
+const (
+	previewPortEnvVar = "NITROUS_PREVIEW_PORT"
+)
 
-// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
-// E.g. if preview is running on port 3000, requests on port 443 will be treated
-// as if they were made on port 3000.
-var previewForwardPorts = []int{80, 443}
+var (
+	// Requests on these ports will be mapped to the NITROUS_PREVIEW_PORT.
+	// E.g. if preview is running on port 3000, requests on port 443 will be treated
+	// as if they were made on port 3000.
+	previewForwardPorts = []int{80, 443}
+
+	errContainerNotFound      = errors.New("Host not found")
+	containersCache           ContainersMap
+	containersCacheLastUpdate time.Time
+	muContainers              sync.Mutex
+	// serves as identity to allow caching failed lookups
+	containerNotFound = &Container{}
+)
 
 // PreviewProxyServer let user proxy preview requests to the host.
 // The server is awared of the exposed ports on the host and proxy requests
 // accordingly
 type PreviewProxyServer struct {
 	// direct access to database so we can fetch stuffs as fast as possible
-	// FIXME:
-	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// expected DNS based domain for host's request. Request coming from this
 	// domain will be proxied to freighterd server on that host.
@@ -49,10 +60,64 @@ type PreviewProxyServer struct {
 	freighterdPort int
 }
 
-// Returns a `http.Handler` which can be used to proxy preview request to
-// a Nitrous.IO host
+func RefreshContainersCache(db *sql.DB) error {
+	timeStart := time.Now()
+	m, err := getContainers(db)
+	if err != nil {
+		return err
+	}
+	n := len(m)
+	muContainers.Lock()
+	containersCache = m
+	muContainers.Unlock()
+	containersCacheLastUpdate = time.Now()
+	LogVerbosef("got %d containers in %s\n", n, time.Since(timeStart))
+	return nil
+}
+
+func DumpContainersCache() {
+	muContainers.Lock()
+	defer muContainers.Unlock()
+	log.Printf("containersCache: %d containers, last updated %s ago\n", len(containersCache), time.Since(containersCacheLastUpdate))
+	for slug, c := range containersCache {
+		log.Printf(" %s: %s:%d\n", slug, c.HostIP, c.HostPort)
+	}
+}
+
+func containerCacheGet(slug string) (*Container, bool) {
+	muContainers.Lock()
+	c, ok := containersCache[slug]
+	muContainers.Unlock()
+	return c, ok
+}
+
+func containerCacheSet(slug string, c *Container) {
+	muContainers.Lock()
+	containersCache[slug] = c
+	muContainers.Unlock()
+}
+
+func containerGet(db *sql.DB, slug string) (*Container, error) {
+	var err error
+	cn, ok := containerCacheGet(slug)
+	if !ok {
+		cn, err = findContainer(db, slug)
+		if err != nil {
+			cn = containerNotFound
+		}
+		containerCacheSet(slug, cn)
+	}
+	if cn == containerNotFound {
+		return nil, errContainerNotFound
+	}
+	return cn, nil
+}
+
+// NewPreviewProxyServer returns a `http.Handler` which can be used to proxy
+// preview request to` a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 	db *sql.DB, caBytes []byte) http.Handler {
+
 	s := &PreviewProxyServer{
 		tlsDomain:      tlsDomain,
 		domain:         baseDomain,
@@ -84,40 +149,6 @@ type containerWithInfo struct {
 	env   []string
 }
 
-// Naïve cache - replace with something like groupcache.
-type containerCache struct {
-	lock sync.RWMutex
-	data map[string]containerWithInfo
-}
-
-func newContainerCache() *containerCache {
-	return &containerCache{
-		lock: sync.RWMutex{},
-		data: make(map[string]containerWithInfo),
-	}
-}
-
-func (c *containerCache) Get(slug string) (containerWithInfo, bool) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	cn, ok := c.data[slug]
-	return cn, ok
-}
-
-func (c *containerCache) Set(slug string, cn containerWithInfo) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.data[slug] = cn
-}
-
-func (c *containerCache) Delete(slug string) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	delete(c.data, slug)
-}
-
-var cnCache = newContainerCache()
-
 func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
 	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
@@ -127,8 +158,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 
 	log.Printf("[INFO] request %+v to %s", r, slug)
 
-	var container containerWithInfo
-	cn, err := findContainer(s.db, slug)
+	cn, err := containerGet(s.db, slug)
 	if err != nil {
 		return err
 	}
@@ -149,7 +179,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
 	}
 
-	container = containerWithInfo{
+	container := containerWithInfo{
 		Container: cn,
 		ports:     info.Ports,
 		env:       info.Env,
