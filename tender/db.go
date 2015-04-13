@@ -57,15 +57,16 @@ func findHost(db *sql.DB, slug string) (*Host, error) {
 
 func getHosts(db *sql.DB) (HostsMap, error) {
 	m := HostsMap{}
-	rows, err := db.Query(`
-			SELECT slug, ip_address, freighterd_port
-			FROM hosts
-			WHERE terminated_at IS NULL
-			AND state = 'running'
-			AND COALESCE(ip_address, '') != ''
-		`)
+	q := `
+		SELECT slug, ip_address, freighterd_port
+		FROM hosts
+		WHERE terminated_at IS NULL
+		AND state = 'running'
+		AND COALESCE(ip_address, '') != ''
+	`
+	rows, err := db.Query(q)
 	if err != nil {
-		log.Printf("[ERROR] db.Query() failed with '%s'", err)
+		log.Printf("[ERROR] db.Query('%s') failed with '%s'", q, err)
 		return nil, err
 	}
 	for rows.Next() {
@@ -124,13 +125,12 @@ func findContainer(db *sql.DB, slug string) (*Container, error) {
 
 func getContainers(db *sql.DB) (ContainersMap, error) {
 	m := ContainersMap{}
-	rows, err := db.Query(`
-		SELECT containers.slug, containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
-		FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
-		WHERE containers.terminated_at IS NULL
-	`)
+	q := `SELECT containers.slug, containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
+			  FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
+			  WHERE containers.terminated_at IS NULL`
+	rows, err := db.Query(q)
 	if err != nil {
-		log.Printf("[ERROR] db.Query() failed with '%s'", err)
+		log.Printf("[ERROR] db.Query('%s') failed with '%s'", q, err)
 		return nil, err
 	}
 

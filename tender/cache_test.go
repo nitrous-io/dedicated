@@ -14,7 +14,7 @@ var _ = Describe("db", func() {
 
 	BeforeEach(func() {
 		db = prepareDB()
-		loadFixtures(db)
+		loadFixtures()
 		RefreshHostsCache(db)
 		RefreshContainersCache(db)
 	})
