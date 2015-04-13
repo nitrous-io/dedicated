@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
 var ErrMockProviderContainerNotFound = errors.New("no such container")
@@ -12,6 +13,7 @@ var ErrMockProviderContainerNotFound = errors.New("no such container")
 type MockProvider struct {
 	VerifyTokenCalled bool
 	VerifyTokenError  error
+	VerifyTokenToken  *hmactoken.Token
 
 	CreateCalled        bool
 	CreateContainerInfo *provider.ContainerInfo
@@ -166,12 +168,12 @@ type MockProvider struct {
 	VersionInfo   string
 }
 
-func (p *MockProvider) VerifyToken(id, token string, permissions ...string) error {
+func (p *MockProvider) VerifyToken(id, token string, permissions ...string) (*hmactoken.Token, error) {
 	p.VerifyTokenCalled = true
 	p.ReceivedID = id
 	p.ReceivedToken = token
 	p.ReceivedPermissions = permissions
-	return p.VerifyTokenError
+	return p.VerifyTokenToken, p.VerifyTokenError
 }
 
 func (p *MockProvider) List() ([]*provider.ContainerInfo, error) {

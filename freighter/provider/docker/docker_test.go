@@ -667,13 +667,14 @@ var _ = Describe("provider/docker", func() {
 
 				BeforeEach(func() {
 					var err error
-					correctToken, err = hmactoken.Generate([]string{"attach"}, secret)
+					correctToken, err = hmactoken.Generate(19, []string{"attach"}, secret)
 					Expect(err).To(BeNil())
 				})
 
 				It("doesn't return an error when verifying a correct token", func() {
-					err := prov.VerifyToken(id, correctToken, "attach")
+					t, err := prov.VerifyToken(id, correctToken, "attach")
 					Expect(err).To(BeNil())
+					Expect(t.UserID).To(Equal(int64(19)))
 				})
 
 				It("returns ErrUnverifiable when the container's shared secret cannot be read", func() {
@@ -683,33 +684,37 @@ var _ = Describe("provider/docker", func() {
 					Expect(err).To(BeNil())
 					defer os.Rename(newpath, secretFile)
 
-					err = prov.VerifyToken(id, correctToken, "attach")
+					t, err := prov.VerifyToken(id, correctToken, "attach")
 					Expect(err).To(MatchError(provider.ErrUnverifiable))
+					Expect(t).To(BeNil())
 				})
 
 				It("returns ErrTokenVerificationFailed when token is invalid", func() {
-					invalidToken, err := hmactoken.Generate([]string{"attach"}, "wrong secret")
+					invalidToken, err := hmactoken.Generate(19, []string{"attach"}, "wrong secret")
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(id, invalidToken, "attach")
+					t, err := prov.VerifyToken(id, invalidToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
+					Expect(t).To(BeNil())
 				})
 
 				It("returns ErrTokenVerificationFailed when token has incorrect permissions", func() {
-					invalidToken, err := hmactoken.Generate([]string{"admin"}, secret)
+					invalidToken, err := hmactoken.Generate(19, []string{"admin"}, secret)
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(id, invalidToken, "attach")
+					t, err := prov.VerifyToken(id, invalidToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenVerificationFailed))
+					Expect(t).To(BeNil())
 				})
 
 				It("returns ErrTokenExpired when token has expired", func() {
 					hmactoken.DefaultValidityPeriod = 0
-					expiredToken, err := hmactoken.Generate([]string{"attach"}, secret)
+					expiredToken, err := hmactoken.Generate(19, []string{"attach"}, secret)
 					Expect(err).To(BeNil())
 
-					err = prov.VerifyToken(id, expiredToken, "attach")
+					t, err := prov.VerifyToken(id, expiredToken, "attach")
 					Expect(err).To(MatchError(provider.ErrTokenExpired))
+					Expect(t).To(BeNil())
 				})
 			})
 		})

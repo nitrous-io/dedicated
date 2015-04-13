@@ -31,6 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/dedicated/pkg/multipartsio"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
@@ -457,7 +458,7 @@ func (s *Server) exportContainer(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsContainerLogs(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	// convert to bool, ignore the errors as the value will be false when error
@@ -479,7 +480,7 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 
 // wsNewShell creates a new shell to a container using protocol specified in
 // pkg/shell/protocol.go
-func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsNewShell(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	info, err := s.provider.GetInfo(id)
@@ -572,7 +573,7 @@ func copsAdditionalEnv(env []string) []string {
 	return res
 }
 
-func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsContainerOps(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
@@ -870,7 +871,7 @@ func (s *Server) inspectImage(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsAttachToContainer(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -923,7 +924,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 	}
 }
 
-func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) downloadContainerFile(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {
@@ -946,7 +947,7 @@ func (s *Server) downloadContainerFile(w http.ResponseWriter, r *http.Request) e
 	return s.provider.CopyFile(id, localPath, w)
 }
 
-func (s *Server) uploadContainerFile(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) uploadContainerFile(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	info, err := s.provider.GetInfo(id)
 	if err != nil {

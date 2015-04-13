@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/provider"
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
 var (
@@ -16,11 +17,12 @@ var (
 	jsonErrorNotFound  = []byte(`{"error":"no such container"}`)
 )
 
+type httpTokenFunc func(t *hmactoken.Token, w http.ResponseWriter, r *http.Request) error
 type httpFunc func(w http.ResponseWriter, r *http.Request) error
 
 const authHeaderTokenPrefix = "Token "
 
-func (s *Server) withContainerToken(handler httpFunc, permissions ...string) httpFunc {
+func (s *Server) withContainerToken(handler httpTokenFunc, permissions ...string) httpFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
 		var token string
 
@@ -33,8 +35,9 @@ func (s *Server) withContainerToken(handler httpFunc, permissions ...string) htt
 
 		if token != "" {
 			id := mux.Vars(r)["id"]
-			if err := s.provider.VerifyToken(id, token, permissions...); err == nil {
-				return handler(w, r)
+			tok, err := s.provider.VerifyToken(id, token, permissions...)
+			if err == nil {
+				return handler(tok, w, r)
 			}
 		}
 

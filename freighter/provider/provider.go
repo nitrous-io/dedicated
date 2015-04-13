@@ -6,6 +6,8 @@ import (
 	"io"
 	"regexp"
 	"time"
+
+	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
 const (
@@ -42,7 +44,7 @@ type Provider interface {
 	// on the container with the given ID.
 	// It is the caller's responsibility to verify a token before subsequently
 	// calling other functions, wherever necessary.
-	VerifyToken(id, token string, permissions ...string) error
+	VerifyToken(id, token string, permissions ...string) (*hmactoken.Token, error)
 
 	List() (infoList []*ContainerInfo, err error)
 	CreateStart(name, image, secret, config string) (info *ContainerInfo, err error)

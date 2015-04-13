@@ -111,24 +111,24 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 	}, nil
 }
 
-func (p *DockerProvider) VerifyToken(id, token string, permissions ...string) error {
+func (p *DockerProvider) VerifyToken(id, token string, permissions ...string) (*hmactoken.Token, error) {
 	container, err := p.inspectContainer(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	secret, err := p.readSharedSecret(nameFromContainer(container))
 	if err != nil {
-		return provider.ErrUnverifiable
+		return nil, provider.ErrUnverifiable
 	}
-	err = hmactoken.Verify(permissions, token, secret)
+	ht, err := hmactoken.Verify(permissions, token, secret)
 	switch err {
 	case hmactoken.ErrInvalidToken, hmactoken.ErrPermissionDenied:
-		return provider.ErrTokenVerificationFailed
+		return nil, provider.ErrTokenVerificationFailed
 	case hmactoken.ErrTokenExpired:
-		return provider.ErrTokenExpired
+		return nil, provider.ErrTokenExpired
 	default:
-		return err
+		return ht, err
 	}
 }
 
