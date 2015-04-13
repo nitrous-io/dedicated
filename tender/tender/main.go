@@ -76,6 +76,11 @@ func init() {
 
 func refreshCachesWorker(db *sql.DB) {
 	for {
+		// Compromise between accuracy and performance (i.e. hitting db all the time)
+		// Periodically refresh the cache with the latest state of running containers,
+		// so the maximum amount of time a host can be out of date is cacheRefreshPeriod.
+		// When cache hit is a miss (host that transitioned to `running` state
+		// between refreshes), we fetch from db
 		time.Sleep(cacheRefreshPeriod)
 		tender.RefreshContainersCache(db)
 		tender.RefreshHostsCache(db)
