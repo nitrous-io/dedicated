@@ -58,6 +58,7 @@ App.OnboardingController = Em.ObjectController.extend
     dismissOnboarding: ->
       @set 'screen', null
       App.set 'onboardingReady', false
+      App.get('user').dismissFirstTime()
 
     nextScreen: ->
       @set 'screen', @get 'nextScreen'

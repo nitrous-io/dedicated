@@ -25,6 +25,10 @@ App.User = klass = App.Model.extend
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'
 
+  dismissFirstTime: ->
+    @set 'firstTime', false
+    @ajax "POST", "dismiss_first_time"
+
 klass.reopenClass
   url: '/user'
   createURL: '/users'

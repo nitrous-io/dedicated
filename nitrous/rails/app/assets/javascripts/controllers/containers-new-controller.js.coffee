@@ -159,6 +159,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
     create: (repository) ->
       @set 'saving', true
+      App.set 'user.firstTime', false
 
       if App.get('onboardingScreen')
         App.set 'onboardingScreen', 'thank-you'

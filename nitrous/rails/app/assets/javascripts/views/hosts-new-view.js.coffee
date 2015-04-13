@@ -54,6 +54,11 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
     @_super()
     @$().off 'change.hosts-new'
 
+  selectRegionDidChange: (->
+    if App.get('onboardingScreen') == 'select-region'
+      App.trigger 'next-onboarding'
+  ).observes 'controller.selectedRegion'
+
   actions:
     create: ->
       @get('terminal')?.clear()
