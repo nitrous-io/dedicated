@@ -23,6 +23,15 @@ type Mixpanel struct {
 	BaseURL string
 }
 
+// a ProfileOp is the information needed for a single operation on a profile.
+// While multiple operations can be run with an unchanged ProfileOp, this is
+// usually not desired.
+type ProfileOp struct {
+	*Mixpanel
+	DistinctID string
+	Properties map[string]interface{}
+}
+
 // NewMixpanelClient returns a Mixpanel struct with which you can perform other Mixpanel operations
 // e.g. `m := mixpanel.NewMixpanelClient("your_mixpanel_token")`
 func NewMixpanelClient(args ...string) *Mixpanel {
@@ -35,6 +44,20 @@ func NewMixpanelClient(args ...string) *Mixpanel {
 	}
 
 	return m
+}
+
+// NewProfileOp returns a ProfileOp struct ready for profile operations
+func NewProfileOp(m *Mixpanel, distinctID string, props map[string]interface{}) *ProfileOp {
+	return &ProfileOp{
+		Mixpanel:   m,
+		DistinctID: distinctID,
+		Properties: props,
+	}
+}
+
+// NewProfileOp returns a ProfileOp struct ready for profile operations
+func (m *Mixpanel) NewProfileOp(distinctID string, props map[string]interface{}) *ProfileOp {
+	return NewProfileOp(m, distinctID, props)
 }
 
 // Track creates a Mixpanel event for the "event" string along with other properties
@@ -59,66 +82,82 @@ func (m *Mixpanel) Track(event string, properties map[string]interface{}) error 
 	return nil
 }
 
-// CreateProfile creates a "People" profile in Mixpanel with a distinctID (which is the primary key)
-// along with properties that are added as meta-data to the profile
-// e.g. `err := m.CreateProfile("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})`
-func (m *Mixpanel) CreateProfile(distinctID string, properties map[string]interface{}) error {
-	return m.engage(distinctID, "$set", properties)
+// Set updates the profile with the profile op's properties
+func (p *ProfileOp) Set() error {
+	return p.engage(p.DistinctID, "$set", p.Properties)
 }
 
-// SetPropertiesOnProfileOnce sets properties that are not already set in the profile
+// Create is an alias for set (which creates a profile in Mixpanel if
+// distinctID does not exist).  Use it to communicate intent.
+func (p *ProfileOp) Create() error {
+	return p.Set()
+}
+
+// SetOnce updates the profile with the profile op's properties if they are not
+// already set
+func (p *ProfileOp) SetOnce() error {
+	return p.engage(p.DistinctID, "$set_once", p.Properties)
+}
+
+// Increment updates the profile by incrementing each of the keys in the
+// profile op's properties with their corresponding value.  Decrement is
+// supported by using negative values.
+func (p *ProfileOp) Increment() error {
+	return p.engage(p.DistinctID, "$add", p.Properties)
+}
+
+// Append updates the profile by appending to each property instead of
+// overwriting it.  Append with an absent property will turn it into a
+// one-element list.
+func (p *ProfileOp) Append() error {
+	return p.engage(p.DistinctID, "$append", p.Properties)
+}
+
+// Union unions values to the given properties of the profile
 // that is referenced by the distinctID (which is the primary key)
-// e.g. `err := m.SetPropertiesOnProfileOnce("1", map[string]interface{}{"full_name": "Mclovin", "Company": "Acme Organ Donation"})`
-func (m *Mixpanel) SetPropertiesOnProfileOnce(distinctID string, properties map[string]interface{}) error {
-	return m.engage(distinctID, "$set_once", properties)
+// e.g. `err := m.UnionPropertiesOnProfileOp("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}})`
+func (p *ProfileOp) Union() error {
+	return p.engage(p.DistinctID, "$union", p.Properties)
 }
 
-// IncrementPropertiesOnProfile increments properties by the given amount for the profile
-// that is referenced by the distinctID (which is the primary key)
-// If you need to decrement a property, provide a negative value
-// e.g. `err := m.IncrementPropertiesOnProfile("1", map[string]int{"items_created": 10, "invites_sent": -1})`
-func (m *Mixpanel) IncrementPropertiesOnProfile(distinctID string, properties map[string]int) error {
-	return m.engage(distinctID, "$add", properties)
+// Unset removes properties from a profile
+func (p *ProfileOp) Unset(keys []string) error {
+	return p.engage(p.DistinctID, "$unset", keys)
 }
 
-// AppendPropertiesOnProfile appends values to the given properties of the profile
-// that is referenced by the distinctID (which is the primary key)
-// e.g. `err := m.AppendPropertiesOnProfile("1", map[string]interface{}{"level_ups": "sword obtained", "power_ups": "bubble lead"})`
-func (m *Mixpanel) AppendPropertiesOnProfile(distinctID string, properties map[string]interface{}) error {
-	return m.engage(distinctID, "$append", properties)
+// Delete deletes a profile
+func (p *ProfileOp) Delete() error {
+	return p.engage(p.DistinctID, "$delete", "")
 }
 
-// UnionPropertiesOnProfile unions values to the given properties of the profile
-// that is referenced by the distinctID (which is the primary key)
-// e.g. `err := m.UnionPropertiesOnProfile("1", map[string]interface{}{"items_purchased": []string{"socks", "shirts"}})`
-func (m *Mixpanel) UnionPropertiesOnProfile(distinctID string, properties map[string]interface{}) error {
-	return m.engage(distinctID, "$union", properties)
+// Alias adds an alias for the profile's distinctID
+func (p *ProfileOp) Alias(newID string) error {
+	return p.Track("$create_alias", map[string]interface{}{"distinct_id": p.DistinctID, "alias": newID})
 }
 
-// UnionPropertiesOnProfile unions values to the given properties of the profile
-// that is referenced by the distinctID (which is the primary key)
-// e.g. `err := m.UnsetPropertiesOnProfile("1", []string{"Days Purchased"})`
-func (m *Mixpanel) UnsetPropertiesOnProfile(distinctID string, properties []string) error {
-	return m.engage(distinctID, "$unset", properties)
-}
-
-// DeleteProfile deletes the profile that is referenced by the distinctID
-// e.g. `err := m.DeleteProfile("1")`
-func (m *Mixpanel) DeleteProfile(distinctID string) error {
-	return m.engage(distinctID, "$delete", "")
-}
-
-// Alias alias'es an old distinct ID with the new distinct ID
-// e.g. `err := m.Alias("deadbeef", "1")`
-func (m *Mixpanel) Alias(oldID, newID string) error {
-	return m.Track("$create_alias", map[string]interface{}{"distinct_id": oldID, "alias": newID})
-}
-
+// engage sends the requests to Mixpanel.  It recognizes special properties and
+// promotes them to the top level.  These are:
+// * $ignore_time : bool, default false .  Set to true to avoid updating Last Seen
+// * $ip : string . Set to "0" to tell mixpanel to ignore IP information.
+//   Leave empty to use the IP address of the request
 func (m *Mixpanel) engage(distinctID string, op string, properties interface{}) error {
 	var data map[string]interface{} = make(map[string]interface{})
 
 	data["$token"] = m.Token
 	data["$distinct_id"] = distinctID
+
+	// promote special properties if found
+	if m, ok := properties.(map[string]interface{}); ok {
+		if ip, found := m["$ip"]; found {
+			data["$ip"] = ip
+			delete(m, "$ip")
+		}
+		if ignore_time, found := m["$ignore_time"]; found {
+			data["$ignore_time"] = ignore_time
+			delete(m, "$ignore_time")
+		}
+	}
+
 	data[op] = properties
 
 	response, err := m.get(fmt.Sprintf("%s/engage/", m.BaseURL), data)
