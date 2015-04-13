@@ -480,7 +480,7 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 
 	r.ParseForm()
 	permissions := r.PostForm["permission[]"]
-	t, err := hmactoken.Generate(permissions, cn.Secret)
+	t, err := hmactoken.Generate(env.User.ID, permissions, cn.Secret)
 	if err != nil {
 		return err
 	}

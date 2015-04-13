@@ -2854,8 +2854,9 @@ var _ = Describe("controllers/containers", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			err = hmactoken.Verify(nil, j["token"], secret)
+			hT, err := hmactoken.Verify(nil, j["token"], secret)
 			Expect(err).To(BeNil())
+			Expect(hT.UserID).To(Equal(u.ID))
 		})
 
 		It("returns an HMAC token with only the requested permissions", func() {
@@ -2866,10 +2867,12 @@ var _ = Describe("controllers/containers", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
-			err = hmactoken.Verify([]string{"attach", "logs"}, j["token"], secret)
+			hT, err := hmactoken.Verify([]string{"attach", "logs"}, j["token"], secret)
 			Expect(err).To(BeNil())
-			err = hmactoken.Verify([]string{"shell"}, j["token"], secret)
+			Expect(hT.UserID).To(Equal(u.ID))
+			hT, err = hmactoken.Verify([]string{"shell"}, j["token"], secret)
 			Expect(err).To(HaveOccurred())
+			Expect(hT).To(BeNil())
 		})
 
 		Context("when container is locked", func() {
