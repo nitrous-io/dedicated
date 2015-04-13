@@ -17,7 +17,7 @@
       | Loading...
 
   ul.ui.chips
-    each portMapping in portMappings.sortedPorts
+    each portMapping in portMappings.runtimePortMappings.sortedPorts
       li class={view.formDisabled:disabled}
         = port-mapping portMapping
         unless view.formDisabled

@@ -99,9 +99,9 @@
           | Custom Port Bindings
 
       ul.ui.chips
-        each portMapping in portMappings.rawPorts
+        each portMapping in portMappings.sortedPorts
           li
-            = portMapping
+            = port-mapping portMapping
             a.close href='#' click='removePortMapping portMapping' &times;
 
       form.container-config submit='addPortMapping'

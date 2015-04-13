@@ -51,10 +51,8 @@ Lib.PortMappings = Em.Object.extend
   parsedPorts: []
 
   init: () ->
-    rawPorts = @getWithDefault 'ports', []
-
+    rawPorts = @getWithDefault('ports', [])
     parsedPorts = rawPorts.map(parsePortMapping)
-
     @set 'parsedPorts', parsedPorts
 
   add: (scope, hostPort, containerPort, protocol='tcp') ->
@@ -85,3 +83,28 @@ Lib.PortMappings = Em.Object.extend
      @get('parsedPorts').sortBy('scope:desc', 'containerPort')
   ).property 'parsedPorts.@each'
 
+  rawPorts: (->
+    @get('sortedPorts').map(serializePortMapping)
+  ).property 'sortedPorts'
+
+Lib.DualPortMappings = Em.Object.extend
+  runtimePortMappings: null
+  configPortMappings: null
+
+  init: () ->
+    runtimePorts = Lib.PortMappings.create
+      ports: @get('runtimePorts')
+
+    configPorts = Lib.PortMappings.create
+      ports: @get('configPorts')
+
+    @set('configPortMappings', configPorts)
+    @set('runtimePortMappings', runtimePorts)
+
+  add: (scope, hostPort, containerPort, protocol) ->
+    @get('configPortMappings').add(scope, hostPort, containerPort, protocol)
+    @get('runtimePortMappings').add(scope, hostPort, containerPort, protocol)
+
+  remove: (portMapping) ->
+    @get('configPortMappings').fuzzyRemove(portMapping)
+    @get('runtimePortMappings').fuzzyRemove(portMapping)

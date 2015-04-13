@@ -31,8 +31,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       App.postError(jqxhr.responseJSON, "Failed to fetch configuration!")
 
   updateConfigForm: (config) ->
-    @set 'portMappings', Lib.PortMappings.create
-      ports: config.config_port_bindings || config.port
+    @set 'portMappings', Lib.DualPortMappings.create
+      configPorts: config.config_port_bindings || config.port
+      runtimePorts: config.port
       
     if config.env
       [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
@@ -78,7 +79,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       container.saveConfig(
         env: @get 'envVars'
         volume: @get 'volumeMounts'
-        port: @get 'portMappings.rawPorts'
+        port: @get 'portMappings.configPortMappings.rawPorts'
         privileged: @get 'privileged'
         publish_all: @get 'publishAll'
       ).then(=>
