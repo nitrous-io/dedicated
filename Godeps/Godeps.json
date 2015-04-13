@@ -178,7 +178,7 @@
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/hmactoken",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "e68d80360a7d2de9daa6a09ea24b7e0348aa82f1"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/httpclient",
