@@ -17,9 +17,9 @@
       | Loading...
 
   ul.ui.chips
-    each portMapping in portMappings.rawPorts
+    each portMapping in portMappings.sortedPorts
       li class={view.formDisabled:disabled}
-        = portMapping
+        = port-mapping portMapping
         unless view.formDisabled
           a.close href='#' click='removePortMapping portMapping' &times;
 

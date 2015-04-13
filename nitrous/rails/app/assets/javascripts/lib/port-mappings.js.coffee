@@ -28,6 +28,21 @@ conflictPortMapping = (pm1, pm2) ->
     ((pm1.containerPort == pm2.containerPort) ||
      (pm1.hostPort != '' && pm1.hostPort == pm2.hostPort))
 
+# Two port mappings are fuzzy equal if they have the 
+# same container port, either their host ports are either empty
+# or both host ports are the same.
+#
+# Used for matching port mappings with optional host ports.
+# i.e. public:49153:1337/tcp == public::1337/tcp
+#
+# Main difference with conflictPortMapping is that there is
+# conflict with different container ports but with the same host port
+fuzzyEqualPortMapping = (pm1, pm2) ->
+  return (pm1.protocol == pm2.protocol) && 
+    ((pm1.containerPort == pm2.containerPort) &&
+     ((pm1.hostPort == '' || pm2.hostPort == '') ||
+      (pm1.hostPort == pm2.hostPort)))
+
 serializePortMapping = (portMapping) ->
   { scope, hostPort, containerPort, protocol } = portMapping
   "#{scope}:#{hostPort}:#{containerPort}/#{protocol}"
@@ -38,14 +53,9 @@ Lib.PortMappings = Em.Object.extend
   init: () ->
     rawPorts = @getWithDefault 'ports', []
 
-    parsedPorts = []
+    parsedPorts = rawPorts.map(parsePortMapping)
+
     @set 'parsedPorts', parsedPorts
-
-    for rawPort in rawPorts
-      parsedPort = parsePortMapping(rawPort)
-
-      if parsedPort
-        parsedPorts.pushObject parsedPort
 
   add: (scope, hostPort, containerPort, protocol='tcp') ->
     hostPort = parsePort(hostPort)
@@ -63,16 +73,15 @@ Lib.PortMappings = Em.Object.extend
     parsedPorts.pushObject(newPortMapping)
 
   remove: (portMapping) ->
-    parsedPorts = @get 'parsedPorts'
-    index = parsedPorts.map(serializePortMapping)
-      .indexOf(portMapping)
+    @get('parsedPorts').removeObject(portMapping)
 
-    if index != -1
-      parsedPorts.removeAt(index)
-
-  rawPorts: (->
+  fuzzyRemove: (portMapping) ->
     parsedPorts = @get 'parsedPorts'
-    return parsedPorts.sortBy('scope:desc', 'containerPort')
-      .map(serializePortMapping)
-      
+    for parsedPort, i in parsedPorts
+      if fuzzyEqualPortMapping(portMapping, parsedPort)
+        return parsedPorts.removeAt(i)
+
+  sortedPorts: (->
+     @get('parsedPorts').sortBy('scope:desc', 'containerPort')
   ).property 'parsedPorts.@each'
+
