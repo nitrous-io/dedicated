@@ -55,7 +55,9 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 	rows, err := db.Query(`
 			SELECT slug, ip_address, freighterd_port
 			FROM hosts
-			WHERE hosts.terminated_at IS NULL
+			WHERE terminated_at IS NULL
+			AND state = 'running'
+			AND COALESCE(ip_address, '') != ''
 		`)
 	if err != nil {
 		log.Printf("[ERROR] db.Query() failed with '%s'", err)
