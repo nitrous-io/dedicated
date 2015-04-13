@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -30,9 +31,10 @@ var (
 	// as if they were made on port 3000.
 	previewForwardPorts = []int{80, 443}
 
-	errContainerNotFound = errors.New("Host not found")
-	containersCache      ContainersMap
-	muContainers         sync.Mutex
+	errContainerNotFound      = errors.New("Host not found")
+	containersCache           ContainersMap
+	containersCacheLastUpdate time.Time
+	muContainers              sync.Mutex
 	// serves as identity to allow caching failed lookups
 	containerNotFound = &Container{}
 )
@@ -59,14 +61,27 @@ type PreviewProxyServer struct {
 }
 
 func RefreshContainersCache(db *sql.DB) error {
+	timeStart := time.Now()
 	m, err := getContainers(db)
 	if err != nil {
 		return err
 	}
+	n := len(m)
 	muContainers.Lock()
 	containersCache = m
 	muContainers.Unlock()
+	containersCacheLastUpdate = time.Now()
+	LogVerbosef("got %d containers in %s\n", n, time.Since(timeStart))
 	return nil
+}
+
+func DumpContainersCache() {
+	muContainers.Lock()
+	defer muContainers.Unlock()
+	log.Printf("containersCache: %d containers, last updated %s ago\n", len(containersCache), time.Since(containersCacheLastUpdate))
+	for slug, c := range containersCache {
+		log.Printf(" %s: %s:%d\n", slug, c.HostIP, c.HostPort)
+	}
 }
 
 func containerCacheGet(slug string) (*Container, bool) {

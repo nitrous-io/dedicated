@@ -8,15 +8,17 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
 
 var (
-	errHostNotFound = errors.New("Host not found")
-	hostsCache      HostsMap
-	muHosts         sync.Mutex
+	errHostNotFound      = errors.New("Host not found")
+	hostsCache           HostsMap
+	hostsCacheLastUpdate time.Time
+	muHosts              sync.Mutex
 	// serves as identity to allow caching failed lookups
 	hostNotFound = &Host{}
 )
@@ -43,14 +45,27 @@ type FreighterProxyServer struct {
 	portMap map[int]int
 }
 
+func DumpHostsCache() {
+	muHosts.Lock()
+	defer muHosts.Unlock()
+	log.Printf("hostsCache: %d hosts, last updated %s ago\n", len(hostsCache), time.Since(hostsCacheLastUpdate))
+	for slug, h := range hostsCache {
+		log.Printf(" %s: %s:%d\n", slug, h.IP, h.Port)
+	}
+}
+
 func RefreshHostsCache(db *sql.DB) error {
+	timeStart := time.Now()
 	m, err := getHosts(db)
 	if err != nil {
 		return err
 	}
+	n := len(m)
 	muHosts.Lock()
 	hostsCache = m
 	muHosts.Unlock()
+	hostsCacheLastUpdate = time.Now()
+	LogVerbosef("got %d hosts in %s\n", n, time.Since(timeStart))
 	return nil
 }
 
