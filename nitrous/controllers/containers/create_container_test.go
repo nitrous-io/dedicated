@@ -206,6 +206,17 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(res.Container, c)
 	})
 
+	It("updates the user to set first_time as FALSE", func() {
+		_, err := db.Exec("UPDATE users SET first_time = TRUE WHERE id = $1", env.User.ID)
+		Expect(err).To(BeNil())
+
+		_, err = containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		u, err := user.FindByID(db, env.User.ID)
+		Expect(u.FirstTime).To(BeFalse())
+	})
+
 	It("publishes a container created event with the created container", func(done Done) {
 		ch := env.Events.Subscribe(u.Topic())
 		defer env.Events.Unsubscribe(ch, u.Topic())
