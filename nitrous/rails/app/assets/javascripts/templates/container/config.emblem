@@ -49,13 +49,6 @@
               td
                 input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add' disabled={view.formDisabled}
 
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='containers-config-publish-all' checked=publishAll disabled=view.formDisabled
-            label
-          label for='containers-config-publish-all' Publish All Exposed Ports
-
 .card-body.bordered
   .ui.input-group
     label.field-label

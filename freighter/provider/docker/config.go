@@ -16,16 +16,90 @@ var (
 	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
-// configFromContainer populates a ContainerConfig given a container
-func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {
-	return &provider.ContainerConfig{
-		Privileged:   &cnr.HostConfig.Privileged,
-		Cmd:          cnr.Config.Cmd,
-		Env:          cnr.Config.Env,
-		PublishAll:   &cnr.HostConfig.PublishAllPorts,
-		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
-		PortBindings: parsers.ParsePortsFromDocker(cnr),
+type PortBindingsMap map[dockerclient.Port][]dockerclient.PortBinding
+
+// Serializes docker portbindings back to
+// provider.ContainerConfig's format.
+//
+// For running containers, the docker-assigned host port will be filled in, so
+// returned portspecs are limited to:
+//   public:hostPort:containerPort
+//   private:hostPort:containerPort
+func serializePortBindings(bindingsMap PortBindingsMap) []string {
+	resultBindings := []string{}
+	for containerPort, portBindings := range bindingsMap {
+		// portBindings is nil when port is exposed with no
+		// HostConfig.PortBinding and HostConfig.PublishAllPorts is false
+		// TODO investigate how else to resolve
+		if portBindings != nil {
+			for _, binding := range portBindings {
+				access := "private"
+				if binding.HostIp == "0.0.0.0" {
+					access = "public"
+				}
+
+				resultBindings = append(resultBindings, fmt.Sprintf("%s:%s:%s",
+					access, binding.HostPort, string(containerPort)))
+			}
+		}
 	}
+
+	return resultBindings
+}
+
+// Get a normalized version of HostConfig.PortBindings
+// that include all exposed ports. This is necessary because
+// the original exposed ports specified inside Dockerfile
+// are not included in the config port bindings list
+func normalizedConfigPortBindings(container *dockerclient.Container, gateway string) PortBindingsMap {
+	configPortBindings := container.HostConfig.PortBindings
+	if configPortBindings == nil {
+		configPortBindings = make(PortBindingsMap)
+	}
+
+	exposedPorts := container.Config.ExposedPorts
+
+	hostIp := gateway
+	if container.HostConfig.PublishAllPorts {
+		hostIp = "0.0.0.0"
+	}
+
+	for port, _ := range exposedPorts {
+		if _, ok := configPortBindings[port]; !ok {
+			configPortBindings[port] = []dockerclient.PortBinding{
+				{
+					HostPort: "",
+					HostIp:   hostIp,
+				},
+			}
+		}
+	}
+
+	return configPortBindings
+}
+
+// configFromContainer populates a ContainerConfig given a container
+func (p *DockerProvider) configFromContainer(container *dockerclient.Container) *provider.ContainerConfig {
+	configPortBindings := normalizedConfigPortBindings(container, p.gateway)
+	runtimePortBindings := container.NetworkSettings.Ports
+
+	serializedConfigPortBindings := serializePortBindings(configPortBindings)
+	serializedRuntimePortBindings := serializedConfigPortBindings
+	if container.State.Running {
+		serializedRuntimePortBindings = serializePortBindings(runtimePortBindings)
+	}
+
+	containerConfig := &provider.ContainerConfig{
+		Privileged:         &container.HostConfig.Privileged,
+		Cmd:                container.Config.Cmd,
+		Env:                container.Config.Env,
+		PublishAll:         &container.HostConfig.PublishAllPorts,
+		Mounts:             mountBindsFromDocker(container.HostConfig.Binds, p.VolumesDir("")),
+		PortBindings:       serializedRuntimePortBindings,
+		ConfigPortBindings: serializedConfigPortBindings,
+	}
+
+	return containerConfig
 }
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {

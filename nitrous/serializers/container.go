@@ -84,21 +84,23 @@ func SerializeContainer(c *container.Container) *Container {
 }
 
 type ContainerConfig struct {
-	Cmd        []string `json:"cmd"`
-	Env        []string `json:"env"`
-	Ports      []string `json:"port"`
-	Mounts     []string `json:"volume"`
-	Privileged bool     `json:"privileged"`
-	PublishAll bool     `json:"publish_all"`
+	Cmd                []string `json:"cmd"`
+	Env                []string `json:"env"`
+	Ports              []string `json:"port"`
+	ConfigPortBindings []string `json:"config_port_bindings"`
+	Mounts             []string `json:"volume"`
+	Privileged         bool     `json:"privileged"`
+	PublishAll         bool     `json:"publish_all"`
 }
 
 func SerializeContainerConfig(cfg *freighterclient.ContainerConfig) *ContainerConfig {
 	filterContainerConfig(cfg)
 	c := &ContainerConfig{
-		Cmd:    cfg.Cmd,
-		Env:    cfg.Env,
-		Ports:  cfg.PortBindings,
-		Mounts: cfg.Mounts,
+		Cmd:                cfg.Cmd,
+		Env:                cfg.Env,
+		Ports:              cfg.PortBindings,
+		ConfigPortBindings: cfg.ConfigPortBindings,
+		Mounts:             cfg.Mounts,
 	}
 	if cfg.Privileged != nil {
 		c.Privileged = *cfg.Privileged

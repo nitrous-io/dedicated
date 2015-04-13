@@ -135,15 +135,16 @@ type ContainerInfo struct {
 // combines elements of docker's Config and HostConfig, and functions exist to
 // generate Config and HostConfig from a given ContainerConfig
 type ContainerConfig struct {
-	Hostname     string   `json:"-"`
-	Image        string   `json:"-"`
-	Privileged   *bool    `json:"Privileged,omitempty"`
-	Cmd          []string `json:"Cmd,omitempty"`
-	Env          []string `json:"Env,omitempty"`
-	Mounts       []string `json:"Mounts,omitempty"`
-	PortBindings []string `json:"PortBindings,omitempty"`
-	PublishAll   *bool    `json:"PublishAll,omitempty"`
-	Gateway      string   `json:"-"`
+	Hostname           string   `json:"-"`
+	Image              string   `json:"-"`
+	Privileged         *bool    `json:"Privileged,omitempty"`
+	Cmd                []string `json:"Cmd,omitempty"`
+	Env                []string `json:"Env,omitempty"`
+	Mounts             []string `json:"Mounts,omitempty"`
+	PortBindings       []string `json:"PortBindings,omitempty"`
+	ConfigPortBindings []string `json:"ConfigPortBindings,omitempty"`
+	PublishAll         *bool    `json:"PublishAll,omitempty"`
+	Gateway            string   `json:"-"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;
