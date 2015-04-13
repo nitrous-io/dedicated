@@ -2,6 +2,7 @@ package tender
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"net"
 )
@@ -31,27 +32,31 @@ type ContainersMap map[string]*Container
 
 // findHost returns the host data given its unique slug
 func findHost(db *sql.DB, slug string) (*Host, error) {
-	var ip string
+	var ip sql.NullString
 	var port int
 	err := db.QueryRow(`
-		SELECT hosts.ip_address, hosts.freighterd_port
+		SELECT ip_address, freighterd_port
 		FROM hosts
-		WHERE hosts.slug = $1 AND hosts.terminated_at IS NULL
+		WHERE slug = $1
+		  AND terminated_at IS NULL
+		  AND state = 'running'
+		  AND COALESCE(ip_address, '') != ''
 	`, slug).Scan(&ip, &port)
 	if err != nil {
 		return nil, err
 	}
+	if !ip.Valid {
+		return nil, errors.New("ip_address is NULL")
+	}
 	return &Host{
 		Slug: slug,
-		IP:   net.ParseIP(ip),
+		IP:   net.ParseIP(ip.String),
 		Port: port,
 	}, nil
 }
 
 func getHosts(db *sql.DB) (HostsMap, error) {
 	m := HostsMap{}
-	// TODO: should log time it takes to do this query so that we can have an
-	// alert if it takes too long (eg. more than 5 secs)
 	rows, err := db.Query(`
 			SELECT slug, ip_address, freighterd_port
 			FROM hosts
@@ -64,7 +69,7 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 		return nil, err
 	}
 	for rows.Next() {
-		var slug, ip string
+		var slug, ip sql.NullString
 		var port int
 		err = rows.Scan(&slug, &ip, &port)
 		if err != nil {
@@ -72,12 +77,20 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 			rows.Close()
 			return nil, err
 		}
+		if !ip.Valid {
+			log.Printf("[ERROR] ip_address is NULL")
+			continue
+		}
+		if !slug.Valid {
+			log.Printf("[ERROR] slug is NULL")
+			continue
+		}
 		h := &Host{
-			Slug: slug,
-			IP:   net.ParseIP(ip),
+			Slug: slug.String,
+			IP:   net.ParseIP(ip.String),
 			Port: port,
 		}
-		m[slug] = h
+		m[slug.String] = h
 	}
 	err = rows.Close()
 	if err != nil {
