@@ -94,40 +94,6 @@ var _ = Describe("ParsePortBindings", func() {
 	})
 })
 
-var _ = Describe("ParsePortsFromDocker", func() {
-	It("parse docker bindings and return nitrous-compliant format", func() {
-		var bindings []string
-		bindings = ParsePortsFromDocker(&docker.Container{
-			HostConfig: &docker.HostConfig{
-				PortBindings: map[docker.Port][]docker.PortBinding{
-					"3000/tcp": {{"0.0.0.0", "3000"}},
-					"9999/udp": {{"10.0.42.1", "8888"}},
-				},
-			},
-			State: docker.State{Running: false},
-		})
-		Expect(bindings).To(ConsistOf(
-			"public:3000:3000/tcp",
-			"private:8888:9999/udp",
-		), "invalid bindings")
-
-		bindings = ParsePortsFromDocker(&docker.Container{
-			HostConfig: &docker.HostConfig{},
-			NetworkSettings: &docker.NetworkSettings{
-				Ports: map[docker.Port][]docker.PortBinding{
-					"3000/tcp": {{"10.0.42.1", "3000"}},
-					"9999/udp": {{"10.0.42.1", "8888"}},
-				},
-			},
-			State: docker.State{Running: true},
-		})
-		Expect(bindings).To(ConsistOf(
-			"private:3000:3000/tcp",
-			"private:8888:9999/udp",
-		), "invalid bindings")
-	})
-})
-
 var _ = Describe("parsePortSpec", func() {
 	It("parses port specs", func() {
 		testCases := []struct {

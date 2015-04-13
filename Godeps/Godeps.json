@@ -169,10 +169,6 @@
 			"Rev": "2d6d6b795e0d98b45e8a7fe967c85684ba0c5ceb"
 		},
 		{
-			"ImportPath": "github.com/nitrous-io/go-mixpanel",
-			"Rev": "5258575f8e3a6aee706c7f62e9ff05548fefaf7a"
-		},
-		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/cipher",
 			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
 		},

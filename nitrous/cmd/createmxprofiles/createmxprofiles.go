@@ -8,7 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/go-mixpanel"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/go-mixpanel"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 

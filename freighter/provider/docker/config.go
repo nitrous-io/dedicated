@@ -8,6 +8,7 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
 
 var (
@@ -15,26 +16,96 @@ var (
 	ErrInvalidMountSpec = fmt.Errorf("volume specification invalid")
 )
 
-// configFromContainer populates a ContainerConfig given a container
-func (p *DockerProvider) configFromContainer(cnr *dockerclient.Container) *provider.ContainerConfig {
-	return &provider.ContainerConfig{
-		Privileged:   &cnr.HostConfig.Privileged,
-		Cmd:          cnr.Config.Cmd,
-		Env:          cnr.Config.Env,
-		PublishAll:   &cnr.HostConfig.PublishAllPorts,
-		Mounts:       mountBindsFromDocker(cnr.HostConfig.Binds, p.VolumesDir("")),
-		PortBindings: parsers.ParsePortsFromDocker(cnr),
+type PortBindingsMap map[dockerclient.Port][]dockerclient.PortBinding
+
+// Serializes docker portbindings back to
+// provider.ContainerConfig's format.
+//
+// For running containers, the docker-assigned host port will be filled in, so
+// returned portspecs are limited to:
+//   public:hostPort:containerPort
+//   private:hostPort:containerPort
+func serializePortBindings(bindingsMap PortBindingsMap) []string {
+	resultBindings := []string{}
+	for containerPort, portBindings := range bindingsMap {
+		// portBindings is nil when port is exposed with no
+		// HostConfig.PortBinding and HostConfig.PublishAllPorts is false
+		// TODO investigate how else to resolve
+		if portBindings != nil {
+			for _, binding := range portBindings {
+				access := "private"
+				if binding.HostIp == "0.0.0.0" {
+					access = "public"
+				}
+
+				resultBindings = append(resultBindings, fmt.Sprintf("%s:%s:%s",
+					access, binding.HostPort, string(containerPort)))
+			}
+		}
 	}
+
+	return resultBindings
+}
+
+// Get a normalized version of HostConfig.PortBindings
+// that include all exposed ports. This is necessary because
+// the original exposed ports specified inside Dockerfile
+// are not included in the config port bindings list
+func normalizedConfigPortBindings(container *dockerclient.Container, gateway string) PortBindingsMap {
+	configPortBindings := container.HostConfig.PortBindings
+	if configPortBindings == nil {
+		configPortBindings = make(PortBindingsMap)
+	}
+
+	exposedPorts := container.Config.ExposedPorts
+
+	hostIp := gateway
+	if container.HostConfig.PublishAllPorts {
+		hostIp = "0.0.0.0"
+	}
+
+	for port, _ := range exposedPorts {
+		if _, ok := configPortBindings[port]; !ok {
+			configPortBindings[port] = []dockerclient.PortBinding{
+				{
+					HostPort: "",
+					HostIp:   hostIp,
+				},
+			}
+		}
+	}
+
+	return configPortBindings
+}
+
+// configFromContainer populates a ContainerConfig given a container
+func (p *DockerProvider) configFromContainer(container *dockerclient.Container) *provider.ContainerConfig {
+	configPortBindings := normalizedConfigPortBindings(container, p.gateway)
+	runtimePortBindings := container.NetworkSettings.Ports
+
+	serializedConfigPortBindings := serializePortBindings(configPortBindings)
+	serializedRuntimePortBindings := serializedConfigPortBindings
+	if container.State.Running {
+		serializedRuntimePortBindings = serializePortBindings(runtimePortBindings)
+	}
+
+	containerConfig := &provider.ContainerConfig{
+		Privileged:         &container.HostConfig.Privileged,
+		Cmd:                container.Config.Cmd,
+		Env:                container.Config.Env,
+		PublishAll:         &container.HostConfig.PublishAllPorts,
+		Mounts:             mountBindsFromDocker(container.HostConfig.Binds, p.VolumesDir("")),
+		PortBindings:       serializedRuntimePortBindings,
+		ConfigPortBindings: serializedConfigPortBindings,
+	}
+
+	return containerConfig
 }
 
 func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.Config, error) {
 	dcConfig := &dockerclient.Config{
-		Hostname: cfg.Hostname,
-		Image:    cfg.Image,
-		Volumes: map[string]struct{}{
-			"/nitrous/ssh":            struct{}{},
-			"/" + nitrousSlugFilename: struct{}{},
-		},
+		Hostname:     cfg.Hostname,
+		Image:        cfg.Image,
 		ExposedPorts: map[dockerclient.Port]struct{}{},
 		OpenStdin:    true,
 		Tty:          true,
@@ -66,8 +137,9 @@ func (p *DockerProvider) mkContainerConfig(cfg *provider.ContainerConfig, isTrus
 	return dcConfig, nil
 }
 
-func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.HostConfig, error) {
+func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *provider.ContainerConfig, isTrustedImage bool) (*dockerclient.HostConfig, error) {
 	newCfg := dockerclient.HostConfig{}
+	hostCfg := container.HostConfig
 	if hostCfg != nil {
 		newCfg = *hostCfg
 	}
@@ -113,7 +185,23 @@ func (p *DockerProvider) mkHostConfig(hostCfg *dockerclient.HostConfig, cfg *pro
 		}
 		newCfg.Binds = ms
 	}
-
+	// add built-in volumes. This is only valid when the container is started
+	// for the first time. A reconfigured container will not triggered this as
+	// built-in volumes will be reset. Therefore, it's safe to generate a
+	// probably one-time-unique slug for the volume instead of all-time-unique
+	// slug
+	if container.Config != nil {
+		for vname := range container.Config.Volumes {
+			// container's name started with `/` which we dont want
+			slug := fmt.Sprintf("%s-%s", container.Name[1:], uuid.Make())
+			vinfo, err := p.CreateVolume(slug)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create volume %q(%q): %s", vname, slug, err)
+			}
+			addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
+		}
+	}
+	// add required nitrous configs
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
 

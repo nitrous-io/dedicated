@@ -177,7 +177,10 @@ window.NitrousTerminal =
     type = ev.data.slice(0, 2)
     switch type
       when 'd|'
-        @handleData(ev.binaryData.slice(2))
+        if @binaryMode
+          @handleData(ev.binaryData.slice(2))
+        else
+          @term.write(ev.data.slice(2))
       when 'c|'
         @close()
       when 'h'

@@ -3,6 +3,7 @@ package containers_test
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -23,7 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
@@ -39,7 +40,7 @@ var _ = Describe("CreateContainer", func() {
 
 		u      *user.User
 		t      *token.Token
-		hs     *HostStack
+		hs     *test.HostStack
 		params url.Values
 		env    *middleware.Env
 		h      *host.Host
@@ -61,9 +62,9 @@ var _ = Describe("CreateContainer", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		StubDefaultFreighterFn(mockClient)
+		test.StubDefaultFreighterFn(mockClient)
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 
@@ -72,8 +73,7 @@ var _ = Describe("CreateContainer", func() {
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
-		Expect(err).To(BeNil())
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
 
 		t = &token.Token{
 			UserID: u.ID,
@@ -82,7 +82,7 @@ var _ = Describe("CreateContainer", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, &HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
 				Slug:          "foo",
 				IPAddress:     sql.NullString{"127.0.0.1", true},
@@ -118,7 +118,7 @@ var _ = Describe("CreateContainer", func() {
 		if db != nil {
 			db.Close()
 		}
-		UnstubFreighterFn()
+		test.UnstubFreighterFn()
 	})
 
 	expectSerializedContainer := func(cn *serializers.Container, c *container.Container) {
@@ -389,19 +389,18 @@ var _ = Describe("CreateContainer", func() {
 		})
 	})
 
-	Context("with volumes param", func() {
+	Context("when assign pre-created volumes", func() {
 		BeforeEach(func() {
 			params.Add("volume[]", "music:/mpd/albums")
 			params.Add("volume[]", "backups")
 		})
 
-		It("returns success if volume does exist", func() {
+		It("returns success if volume does exist and response doesnt include volumes", func() {
 			v := &volume.Volume{HostID: hs.H.ID, Slug: "music"}
-			err := v.Insert(db)
-			Expect(err).To(BeNil())
+			Expect(v.Insert(db)).To(BeNil())
+
 			v2 := &volume.Volume{HostID: hs.H.ID, Slug: "backups"}
-			err = v2.Insert(db)
-			Expect(err).To(BeNil())
+			Expect(v2.Insert(db)).To(BeNil())
 
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(err).To(BeNil())
@@ -410,9 +409,11 @@ var _ = Describe("CreateContainer", func() {
 			Expect(conf.Mounts).To(HaveLen(2))
 			Expect(conf.Mounts).To(ContainElement("music:/mpd/albums"))
 			Expect(conf.Mounts).To(ContainElement("backups"))
+
 			cv, err := cvolume.Find(db, &container.Container{ID: res.Container.ID}, v)
 			Expect(err).To(BeNil())
 			Expect(cv.VolumeID).To(Equal(v.ID))
+
 			cv2, err := cvolume.Find(db, &container.Container{ID: res.Container.ID}, v2)
 			Expect(err).To(BeNil())
 			Expect(cv2.VolumeID).To(Equal(v2.ID))
@@ -421,9 +422,68 @@ var _ = Describe("CreateContainer", func() {
 		It("returns error if volume does not exist", func() {
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(res).To(BeNil())
-
 			Expect(err).To(MatchError(containers.ErrVolumeNotFound))
 		})
 
+		It("creates new volumes and associate old ones when container has a mix of built-in and manual volumes", func() {
+			for _, slug := range []string{"music", "backups"} {
+				Expect((&volume.Volume{HostID: hs.H.ID, Slug: slug}).Insert(db)).To(BeNil())
+			}
+			mockClient.CreatedContainer = &freighterclient.Container{
+				ID:      "deadbeef",
+				Name:    "elixir-web-1",
+				State:   "running",
+				Image:   "elixir",
+				ImageID: "abc123",
+				Volumes: map[string]string{
+					"/var/lib/docker":  "hexvarlibdocker",
+					"/var/lib/extra":   "hexvarlibextra",
+					"/mpd/albums":      "music",
+					"/volumes/backups": "backups",
+				},
+			}
+
+			res, err := containers.CreateContainer(h, params, env)
+			Expect(err).To(BeNil())
+
+			vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
+			Expect(vols).To(HaveLen(4), "missing volumes")
+
+			var slugs []string
+			for _, v := range vols {
+				slugs = append(slugs, v.Slug)
+			}
+			Expect(slugs).To(ConsistOf("music", "backups", "hexvarlibdocker", "hexvarlibextra"))
+		})
+	})
+
+	It("creates new volumes when the container requires built-in volumes", func() {
+		mockClient.CreatedContainer = &freighterclient.Container{
+			ID:      "deadbeef",
+			Name:    "elixir-web-1",
+			State:   "running",
+			Image:   "elixir",
+			ImageID: "abc123",
+			Volumes: map[string]string{
+				"/var/lib/docker": "hexvarlibdocker",
+				"/var/lib/extra":  "hexvarlibextra",
+			},
+		}
+
+		res, err := containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		vols, _ := cvolume.FindAll(db, &container.Container{ID: res.Container.ID})
+		Expect(vols).To(HaveLen(2), "missing generated volumes")
+		var nameSlugs [][]string
+		for _, v := range vols {
+			Expect(v.HostID).To(Equal(res.Container.HostID))
+			nameSlugs = append(nameSlugs, []string{v.Name, v.Slug})
+		}
+
+		Expect(nameSlugs).To(ConsistOf(
+			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker"), "hexvarlibdocker"},
+			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra"), "hexvarlibextra"},
+		))
 	})
 })

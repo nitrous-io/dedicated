@@ -125,21 +125,26 @@ type ContainerInfo struct {
 	StartedAt  time.Time           `json:"started_at"`
 	FinishedAt time.Time           `json:"finished_at"`
 	Env        []string            `json:"env"`
+
+	// mapping of the container's volumes to their external directory
+	// (identified by its directory name) on the host
+	Volumes map[string]string `json:"volumes"`
 }
 
 // ContainerConfig is our internal mechanism for configuring containers.  It
 // combines elements of docker's Config and HostConfig, and functions exist to
 // generate Config and HostConfig from a given ContainerConfig
 type ContainerConfig struct {
-	Hostname     string   `json:"-"`
-	Image        string   `json:"-"`
-	Privileged   *bool    `json:"Privileged,omitempty"`
-	Cmd          []string `json:"Cmd,omitempty"`
-	Env          []string `json:"Env,omitempty"`
-	Mounts       []string `json:"Mounts,omitempty"`
-	PortBindings []string `json:"PortBindings,omitempty"`
-	PublishAll   *bool    `json:"PublishAll,omitempty"`
-	Gateway      string   `json:"-"`
+	Hostname           string   `json:"-"`
+	Image              string   `json:"-"`
+	Privileged         *bool    `json:"Privileged,omitempty"`
+	Cmd                []string `json:"Cmd,omitempty"`
+	Env                []string `json:"Env,omitempty"`
+	Mounts             []string `json:"Mounts,omitempty"`
+	PortBindings       []string `json:"PortBindings,omitempty"`
+	ConfigPortBindings []string `json:"ConfigPortBindings,omitempty"`
+	PublishAll         *bool    `json:"PublishAll,omitempty"`
+	Gateway            string   `json:"-"`
 }
 
 // DockerConfig is fields we care about from the container's Config on Docker;

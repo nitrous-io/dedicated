@@ -57,12 +57,13 @@ var _ = Describe("container serializer", func() {
 		It("serializes to JSON", func() {
 			c := serializers.SerializeContainer(model)
 			c.Config = &serializers.ContainerConfig{
-				Cmd:        []string{"/bin/yes"},
-				Env:        []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-				Ports:      []string{"public:4040:5050", "private:4000:3000"},
-				Mounts:     []string{"db"},
-				Privileged: true,
-				PublishAll: true,
+				Cmd:                []string{"/bin/yes"},
+				Env:                []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				ConfigPortBindings: []string{"public::5050", "private::3000"},
+				Ports:              []string{"public:4040:5050", "private:4000:3000"},
+				Mounts:             []string{"db"},
+				Privileged:         true,
+				PublishAll:         true,
 			}
 			b, err := json.Marshal(c)
 			Expect(err).To(BeNil())
@@ -92,6 +93,7 @@ var _ = Describe("container serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"config": {
+					"config_port_bindings": ["public::5050", "private::3000"],
 					"port": ["public:4040:5050", "private:4000:3000"],
 					"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
 					"cmd": ["/bin/yes"],
@@ -109,17 +111,19 @@ var _ = Describe("container config serializer", func() {
 	It("serializes to JSON", func() {
 		priv, pub := true, true
 		fconfig := &freighterclient.ContainerConfig{
-			PortBindings: []string{"public:4040:5050", "private:4000:3000"},
-			Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-			Cmd:          []string{"/bin/yes"},
-			Mounts:       []string{"db"},
-			Privileged:   &priv,
-			PublishAll:   &pub,
+			ConfigPortBindings: []string{"public::5050", "private::3000"},
+			PortBindings:       []string{"public:4040:5050", "private:4000:3000"},
+			Env:                []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+			Cmd:                []string{"/bin/yes"},
+			Mounts:             []string{"db"},
+			Privileged:         &priv,
+			PublishAll:         &pub,
 		}
 		c := serializers.SerializeContainerConfig(fconfig)
 		j, err := json.Marshal(c)
 		Expect(err).To(BeNil())
 		Expect(j).To(MatchJSON(fmt.Sprintf(`{
+			"config_port_bindings": ["public::5050", "private::3000"],
 			"port": ["public:4040:5050", "private:4000:3000"],
 			"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
 			"cmd": ["/bin/yes"],
@@ -132,9 +136,10 @@ var _ = Describe("container config serializer", func() {
 	It("filters out special nitrous mounts", func() {
 		priv, pub := true, true
 		fconfig := &freighterclient.ContainerConfig{
-			PortBindings: []string{"public:4040:5050", "private:4000:3000"},
-			Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
-			Cmd:          []string{"/bin/yes"},
+			ConfigPortBindings: []string{"public::5050", "private::3000"},
+			PortBindings:       []string{"public:4040:5050", "private:4000:3000"},
+			Env:                []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+			Cmd:                []string{"/bin/yes"},
 			Mounts: []string{
 				"db",
 				"/nitrous-oxide",
@@ -148,6 +153,7 @@ var _ = Describe("container config serializer", func() {
 		j, err := json.Marshal(c)
 		Expect(err).To(BeNil())
 		Expect(j).To(MatchJSON(fmt.Sprintf(`{
+			"config_port_bindings": ["public::5050", "private::3000"],
 			"port": ["public:4040:5050", "private:4000:3000"],
 			"env": ["NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"],
 			"cmd": ["/bin/yes"],

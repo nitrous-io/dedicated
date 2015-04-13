@@ -65,7 +65,8 @@ App.AddCardController = Em.ObjectController.extend
           number: @get('number'),
           exp_month: @get('expMonth'),
           exp_year: @get('expYear'),
-          cvc: @get('cvc')
+          cvc: @get('cvc'),
+          zipcode: @get('zipcode')
         ).then =>
           @set 'saving', false
           App.snackbar.post "Credit card added."

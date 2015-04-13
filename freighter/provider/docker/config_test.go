@@ -1,4 +1,4 @@
-package docker_test
+package docker
 
 import (
 	"fmt"
@@ -6,8 +6,7 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/provider/docker"
-	. "github.com/nitrous-io/dedicated/freighter/test"
+	"github.com/nitrous-io/dedicated/freighter/test"
 	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
@@ -16,20 +15,36 @@ import (
 
 var _ = Describe("provider/docker config", func() {
 	var (
-		prov                                *docker.DockerProvider
+		prov                                *DockerProvider
 		datadir, sshBind, containerSlugBind string
 		cnrName                             = "php-box"
 	)
 
 	BeforeEach(func() {
 		var err error
-		datadir, err = TempDir()
+		datadir, err = test.TempDir()
 		Expect(err).To(BeNil())
 		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/nitrous/ssh:ro"
 		containerSlugBind = filepath.Join(datadir, "containers", cnrName, ".nitrous-container-slug") + ":/.nitrous-container-slug:ro"
 		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir)
+		prov, err = NewDockerProvider(logger, datadir)
 		Expect(err).To(BeNil())
+	})
+
+	Describe("serializePortBindings", func() {
+		It("parse docker bindings and return nitrous-compliant format", func() {
+			var bindings []string
+			bindings = serializePortBindings(
+				map[dockerclient.Port][]dockerclient.PortBinding{
+					"3000/tcp": {{"0.0.0.0", "3000"}},
+					"9999/udp": {{"10.0.42.1", "8888"}},
+				})
+
+			Expect(bindings).To(ConsistOf(
+				"public:3000:3000/tcp",
+				"private:8888:9999/udp",
+			), "invalid bindings")
+		})
 	})
 
 	Describe("configFromContainer", func() {
@@ -101,6 +116,37 @@ var _ = Describe("provider/docker config", func() {
 			Expect(config.PortBindings).To(ConsistOf([]string{"public:8080:3000", "private:49123:4000"}))
 		})
 
+		It("returns config port bindings from hostconfig", func() {
+			addBinding(cnr.HostConfig.PortBindings, "0.0.0.0", "8080", "3000")
+			addBinding(cnr.HostConfig.PortBindings, prov.Gateway(), "", "4000")
+
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "8000", "3000")
+			addBinding(cnr.NetworkSettings.Ports, prov.Gateway(), "49123", "4000")
+
+			config := prov.ConfigFromContainer(cnr)
+			Expect(config.ConfigPortBindings).To(ConsistOf([]string{"public:8080:3000", "private::4000"}))
+		})
+
+		It("config port bindings should include exposed ports not included inside HostConfig", func() {
+			cnr.HostConfig.PublishAllPorts = true
+
+			cnr.Config.ExposedPorts = map[dockerclient.Port]struct{}{
+				"3000": {},
+				"4000": {},
+				"5000": {},
+			}
+
+			addBinding(cnr.HostConfig.PortBindings, "0.0.0.0", "8080", "3000")
+			addBinding(cnr.HostConfig.PortBindings, prov.Gateway(), "", "4000")
+
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "8000", "3000")
+			addBinding(cnr.NetworkSettings.Ports, prov.Gateway(), "49123", "4000")
+			addBinding(cnr.NetworkSettings.Ports, "0.0.0.0", "49124", "5000")
+
+			config := prov.ConfigFromContainer(cnr)
+			Expect(config.ConfigPortBindings).To(ConsistOf([]string{"public:8080:3000", "private::4000", "public::5000"}))
+		})
+
 		It("returns mounts from container", func() {
 			cnr.HostConfig.Binds = []string{
 				"/var/lib/freighter/containers/testcon/ssh:/nitrous/ssh:ro",
@@ -128,9 +174,6 @@ var _ = Describe("provider/docker config", func() {
 
 			Expect(cfg.Hostname).To(Equal(cnrName), "expect hostname")
 			Expect(cfg.Image).To(Equal("nitrousio/php"), "expect imagename")
-
-			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
-			Expect(cfg.Volumes).To(HaveKey("/.nitrous-container-slug"), "expect .nitrous-container-slug")
 			Expect(cfg.Env).To(BeEmpty(), "expect empty preset env")
 			Expect(cfg.ExposedPorts).To(HaveKey(dockerclient.Port("22/tcp")), "expect ssh port to be exposed")
 		})
@@ -141,10 +184,7 @@ var _ = Describe("provider/docker config", func() {
 				Image:    "custom-image",
 			}, false)
 			Expect(err).To(BeNil())
-
 			Expect(cfg.ExposedPorts).To(HaveLen(0), "expect empty preset exposed ports")
-			Expect(cfg.Volumes).To(HaveKey("/nitrous/ssh"), "expect ssh volumes")
-			Expect(cfg.Volumes).To(HaveKey("/.nitrous-container-slug"), "expect .nitrous-container-slug")
 		})
 
 		It("configured all exposed ports", func() {
@@ -193,7 +233,9 @@ var _ = Describe("provider/docker config", func() {
 
 		Context("nitrous image", func() {
 			It("preserves existing port bindings", func() {
-				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+				hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, &provider.ContainerConfig{
 					Hostname: cnrName,
 					Image:    "nitrousio/php",
 				}, true)
@@ -204,7 +246,9 @@ var _ = Describe("provider/docker config", func() {
 			})
 
 			It("defaults PublishAllPorts to true", func() {
-				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+				hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, &provider.ContainerConfig{
 					Hostname: cnrName,
 					Image:    "nitrousio/php",
 				}, true)
@@ -215,7 +259,9 @@ var _ = Describe("provider/docker config", func() {
 
 			It("allows PublishAllPorts to be set to false", func() {
 				publishAll := false
-				hostCfg, err := prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+				hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, &provider.ContainerConfig{
 					Hostname:   cnrName,
 					Image:      "nitrousio/php",
 					PublishAll: &publishAll,
@@ -231,7 +277,9 @@ var _ = Describe("provider/docker config", func() {
 				oldHostCfg.PortBindings = map[dockerclient.Port][]dockerclient.PortBinding{}
 				oldHostCfg.Binds = []string{}
 				var err error
-				hostCfg, err = prov.MkHostConfig(oldHostCfg, &provider.ContainerConfig{
+				hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, &provider.ContainerConfig{
 					Hostname: cnrName,
 					Image:    "not/nitrous",
 				}, false)
@@ -254,7 +302,9 @@ var _ = Describe("provider/docker config", func() {
 		Context("Mounts config handling (always keeps ssh bind)", func() {
 			getCfg := func(cfg *provider.ContainerConfig) *dockerclient.HostConfig {
 				var err error
-				hostCfg, err = prov.MkHostConfig(oldHostCfg, cfg, true)
+				hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, cfg, true)
 				Expect(err).To(BeNil())
 				return hostCfg
 			}
@@ -305,12 +355,13 @@ var _ = Describe("provider/docker config", func() {
 		Context("with PortBindings config", func() {
 			BeforeEach(func() {
 				var err error
-				hostCfg, err = prov.MkHostConfig(oldHostCfg,
-					&provider.ContainerConfig{
-						Hostname:     cnrName,
-						Image:        "nitrousio/php", // Nitrous image.
-						PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001"},
-					}, true)
+				hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				}, &provider.ContainerConfig{
+					Hostname:     cnrName,
+					Image:        "nitrousio/php", // Nitrous image.
+					PortBindings: []string{"public::4000", "3000:8080", "private:5000:5001"},
+				}, true)
 				Expect(err).To(BeNil())
 			})
 
@@ -343,13 +394,17 @@ var _ = Describe("provider/docker config", func() {
 				Privileged: &priv,
 			}
 
-			hostCfg, err := prov.MkHostConfig(oldHostCfg, cnCfg, true)
+			hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+				HostConfig: oldHostCfg,
+			}, cnCfg, true)
 			Expect(err).To(BeNil())
 			Expect(hostCfg.Privileged).To(BeFalse())
 
 			priv = true
 			cnCfg.Privileged = &priv
-			hostCfg, err = prov.MkHostConfig(oldHostCfg, cnCfg, true)
+			hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+				HostConfig: oldHostCfg,
+			}, cnCfg, true)
 			Expect(err).To(BeNil())
 			Expect(hostCfg.Privileged).To(BeTrue())
 		})
@@ -358,7 +413,9 @@ var _ = Describe("provider/docker config", func() {
 			BeforeEach(func() {
 				var err error
 				publishAll := true
-				hostCfg, err = prov.MkHostConfig(oldHostCfg,
+				hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+					HostConfig: oldHostCfg,
+				},
 					&provider.ContainerConfig{
 						Hostname:   cnrName,
 						Image:      "not/nitrous",
