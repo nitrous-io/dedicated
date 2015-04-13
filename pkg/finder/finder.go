@@ -42,13 +42,12 @@ func NewFinder(root string) *Finder {
 //
 // chan *SearchResult has to be fully read even if we dont consume it
 // completely
-func (f *Finder) FindContent(term string, ignoreCase, useRegexp bool) (chan *SearchResult, error) {
+func (f *Finder) FindContent(term string, ignoreCase, useRegexp bool, filePattern string) (chan *SearchResult, error) {
 	smartCase := true
 	if ignoreCase {
 		smartCase = false
 	}
-
-	pattern, err := pt.NewPattern(term, "", smartCase, ignoreCase, useRegexp)
+	pattern, err := pt.NewPattern(term, filePattern, smartCase, ignoreCase, useRegexp)
 	if err != nil {
 		return nil, err
 	}

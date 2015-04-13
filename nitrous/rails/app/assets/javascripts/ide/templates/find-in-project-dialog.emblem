@@ -9,8 +9,13 @@
         = input type='text' id='ide-find-in-project-search-term' classNameBindings=':focus view.termFieldInvalid:error' value=view.content.term
 
       .ui.input-group
+        label.field-label for='ide-find-in-project-search-file-pattern'
+          | Pattern:
+        = input type='text' id='ide-find-in-project-search-file-pattern' value=view.content.filePattern placeholder='File path pattern. eg. `*.js` to search only javascript files'
+
+      .ui.input-group
         label.field-label for='ide-find-in-project-search-location'
-          | Where:
+          | Directory:
         = input type='text' id='ide-find-in-project-search-location' placeholder='All files and folders' value=view.content.location
 
       .ui.input-group
@@ -52,4 +57,3 @@
         else
           a.ui.btn href='#' click='didClickCancel target="view"' Cancel
           button.ui.btn.primary click='didClickFind target="view"' Find
-
