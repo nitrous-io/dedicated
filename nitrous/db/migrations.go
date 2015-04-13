@@ -1005,5 +1005,17 @@ func init() {
 				CREATE UNIQUE INDEX index_container_collabs_user_id_container_id ON container_collabs USING btree (user_id, container_id);
 			`,
 		},
+		{
+			Version: "870",
+			Up: `
+				ALTER TABLE billing_profiles ADD COLUMN free_trial_expires_at timestamp without time zone;
+			`,
+		},
+		{
+			Version: "871",
+			Up: `
+				ALTER TABLE billing_profiles DROP COLUMN free_trial_expires_at;
+			`,
+		},
 	}
 }
