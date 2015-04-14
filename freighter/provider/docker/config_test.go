@@ -428,5 +428,40 @@ var _ = Describe("provider/docker config", func() {
 				Expect(hostCfg.PublishAllPorts).To(BeTrue())
 			})
 		})
+
+		Context("with Volumes config", func() {
+			BeforeEach(func() {
+				var err error
+				publishAll := true
+				volumes := map[string]struct{}{
+					"/.nitrous-container-slug": {},
+					"/nitrous/ssh":             {},
+					"/opt/data":                {},
+				}
+
+				cfg := &dockerclient.Config{
+					Volumes: volumes,
+				}
+				hostCfg, err = prov.MkHostConfig(&dockerclient.Container{
+					Name:       "GOGO",
+					HostConfig: oldHostCfg,
+					Config:     cfg,
+				},
+					&provider.ContainerConfig{
+						Hostname:   cnrName,
+						Image:      "not/nitrous",
+						PublishAll: &publishAll,
+					}, true)
+				Expect(err).To(BeNil())
+			})
+
+			It("sets PublishAllPorts to true", func() {
+				binds := hostCfg.Binds
+				Expect(binds).To(HaveLen(3))
+				Expect(binds[0]).To(MatchRegexp(`/tmp/freightertest-\d+-\d+/containers/php-box/ssh:/nitrous/ssh:ro`))
+				Expect(binds[1]).To(MatchRegexp(`/tmp/freightertest-\d+-\d+/containers/php-box/.nitrous-container-slug:/.nitrous-container-slug:ro`))
+				Expect(binds[2]).To(MatchRegexp(`/tmp/freightertest-\d+-\d+/volumes/\w+-\w+:/opt/data`))
+			})
+		})
 	})
 })

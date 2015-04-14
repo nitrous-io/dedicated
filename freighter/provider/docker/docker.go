@@ -34,6 +34,8 @@ const (
 	nitrousEnvImage     = "NITROUS_IMAGE_VERSION"
 	nitrousEnvUser      = "NITROUS_USERNAME"
 	nitrousSlugFilename = ".nitrous-container-slug"
+	nitrousSlugFilepath = "/.nitrous-container-slug"
+	nitrousSSHFilepath  = "/nitrous/ssh"
 )
 
 var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvUser}

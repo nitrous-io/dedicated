@@ -190,8 +190,12 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 	// built-in volumes will be reset. Therefore, it's safe to generate a
 	// probably one-time-unique slug for the volume instead of all-time-unique
 	// slug
+
 	if container.Config != nil {
 		for vname := range container.Config.Volumes {
+			if vname == nitrousSSHFilepath || vname == nitrousSlugFilepath {
+				continue
+			}
 			// container's name started with `/` which we dont want
 			slug := fmt.Sprintf("%s-%s", container.Name[1:], uuid.Make())
 			vinfo, err := p.CreateVolume(slug)
@@ -201,8 +205,9 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 			addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
 		}
 	}
+
 	// add required nitrous configs
-	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
+	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", nitrousSSHFilepath+":ro", &newCfg)
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
 
 	// ExtraHosts is only available in Docker 1.3.0+.
