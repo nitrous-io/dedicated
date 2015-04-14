@@ -150,6 +150,7 @@ func (s *Server) drawRoutes() {
 			"POST": {
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
+				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
 				"/hosts/refresh":                           r("hosts.Refresh", hosts.Refresh),
 				"/user/billing_profile":                    r("billingprofiles.Activate", billingprofiles.Activate),

@@ -2,6 +2,8 @@ App.HomeIndexController = Em.Controller.extend
   actions:
     handleNoHost: ->
       @transitionToRoute 'containers.new'
+      if App.get('user.firstTime')
+        App.set 'onboardingReady', true
 
     redirectToFirstHost: ->
       slug = App.get('hosts').findBy('state', 'running')?.get('slug')

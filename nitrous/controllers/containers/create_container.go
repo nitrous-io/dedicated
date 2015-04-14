@@ -232,6 +232,10 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 	}
 
+	if _, err := tx.Exec("UPDATE users SET first_time = FALSE WHERE id = $1", env.User.ID); err != nil {
+		log.Errorf("Failed to disable first_time for user %d, err: %v", env.User.ID, err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}

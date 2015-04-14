@@ -1017,5 +1017,12 @@ func init() {
 				ALTER TABLE billing_profiles DROP COLUMN free_trial_expires_at;
 			`,
 		},
+		{
+			Version: "880",
+			Up: `
+				ALTER TABLE users ADD COLUMN first_time bool DEFAULT TRUE NOT NULL;
+				UPDATE users SET first_time = FALSE;
+			`,
+		},
 	}
 }

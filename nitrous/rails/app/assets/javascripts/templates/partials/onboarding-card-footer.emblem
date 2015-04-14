@@ -1,0 +1,8 @@
+.card-footer
+  .left
+    a.ui.text-btn href='#' click='dismissOnboarding' Dismiss
+  .right
+    if view.showNextButton
+      a.ui.btn.primary.raised href='#' click='nextScreen' Next
+    else
+      a.ui.btn.primary.raised href='#' click='nextScreen' Done

@@ -28,6 +28,7 @@ var _ = Describe("user serializer", func() {
 			Admin:             true,
 			UnconfirmedEmail:  sql.NullString{"h.granger+nospam@hogwarts.edu", true},
 			PromoCode:         sql.NullString{"hogwarts", true},
+			FirstTime:         true,
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
 		}
@@ -46,6 +47,7 @@ var _ = Describe("user serializer", func() {
 				"admin": true,
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"promo_code": "hogwarts",
+				"first_time": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -63,6 +65,7 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
 				"promo_code": "hogwarts",
+				"first_time": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -118,6 +121,7 @@ var _ = Describe("user serializer", func() {
 					"has_billing_issues": false
 				},
 				"promo_code": "hogwarts",
+				"first_time": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
