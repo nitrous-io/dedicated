@@ -1011,5 +1011,11 @@ func init() {
 				ALTER TABLE billing_profiles ADD COLUMN free_trial_expires_at timestamp without time zone;
 			`,
 		},
+		{
+			Version: "871",
+			Up: `
+				ALTER TABLE billing_profiles DROP COLUMN free_trial_expires_at;
+			`,
+		},
 	}
 }
