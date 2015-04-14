@@ -428,5 +428,38 @@ var _ = Describe("provider/docker config", func() {
 				Expect(hostCfg.PublishAllPorts).To(BeTrue())
 			})
 		})
+
+		Context("a container with an existing Volumes config", func() {
+			BeforeEach(func() {
+				var err error
+				volumes := map[string]struct{}{
+					"/.nitrous-container-slug": {}, // Nitrous-specific volume.
+					"/nitrous/ssh":             {}, // Nitrous-specific volume.
+					"/opt/data":                {},
+				}
+
+				cn := &dockerclient.Container{
+					Name:       "/" + cnrName,
+					HostConfig: oldHostCfg,
+					Config: &dockerclient.Config{
+						Volumes: volumes,
+					},
+				}
+				hostCfg, err = prov.MkHostConfig(cn,
+					&provider.ContainerConfig{
+						Hostname: cnrName,
+						Image:    "nitrousio/php",
+					}, true)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not create explicit mount binds for nitrous-specific built-in volumes", func() {
+				binds := hostCfg.Binds
+				Expect(binds).To(HaveLen(3))
+				Expect(binds[0]).To(MatchRegexp(`.+/containers/php-box/ssh:/nitrous/ssh:ro$`))
+				Expect(binds[1]).To(MatchRegexp(`.+/containers/php-box/.nitrous-container-slug:/.nitrous-container-slug:ro$`))
+				Expect(binds[2]).To(MatchRegexp(`.+/volumes/php-box+-\w+:/opt/data$`))
+			})
+		})
 	})
 })
