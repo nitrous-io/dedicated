@@ -77,3 +77,13 @@ window.Mp =
   appendUser: (properties) ->
     return false unless @initialized && @identified
     mixpanel.people.append(properties)
+
+  timestamp: (property, value) ->
+    return false unless @initialized && @identified
+    if !value?
+      value = new Date()
+    if value.toISOString
+      value = value.toISOString()
+    p = {}
+    p[property] = value
+    mixpanel.people.set(p)
