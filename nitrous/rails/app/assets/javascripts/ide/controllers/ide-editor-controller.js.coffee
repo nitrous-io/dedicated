@@ -89,8 +89,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
           if err
             App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
             return
-          Mp.track Mp.EventIDEUserSavedFile
-          Mp.increment Mp.PropertyIDEFileSaveCount, new_file: 'false'
+          Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
+          Mp.increment Mp.PropertyIDEFileSaveCount
 
           ideController = App.get 'router.ideController'
           hasCmdRun = ideController?.freighterSupports("hasCmdRun")
