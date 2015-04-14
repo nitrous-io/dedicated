@@ -1,0 +1,41 @@
+.card-header.bordered
+  h2
+    | Add a Phone
+
+.card-body
+
+  .notice-text
+    p To start your free trial, we require your phone number to verify that you're a real person.
+    p A verification code will be sent to your phone via SMS.
+
+  form submit="savePhone" autocomplete="on"
+    .ui.input-group
+      label.field-label for='phone-country-code'
+        | Country Code
+      .ui.select
+        Ember.Select id='phone-country-code' name='phone-country-code' content=whitelist optionValuePath='content.code' optionLabelPath='content.name' disabled=view.phoneFormDisabled value=phoneCountryCode
+
+    .ui.input-group
+      label.field-label for='phone'
+        | Phone Number
+      = input type='text' id='phone' name='phone' disabled=view.phoneFormDisabled value=phone required=true autofocus=true
+
+      input.ui.btn.primary type='submit' disabled=view.phoneFormDisabled value='Save'
+
+      .note
+        p
+          ' A verification code has been sent to
+          strong = fullPhone
+          ' . Enter it below to start your free trial!
+
+  if otpSent
+    hr
+
+    form submit="verifyOTP"
+      .ui.input-group
+        label.field-label for='otp'
+          | Verification Code
+        = input type='text' id='otp' name='otp' classNameBindings='invalidOTP:error' disabled=verifying value=otp
+
+        input.ui.btn.primary type='submit' disabled=verifying value='Verify'
+        a.ui.btn href='#' click='resendOTP' Resend Code

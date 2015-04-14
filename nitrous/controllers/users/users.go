@@ -3,11 +3,13 @@ package users
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
@@ -15,14 +17,17 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/subosito/twilio"
 )
 
 var (
 	validations = map[string]error{
-		"index_users_on_username": httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
-		"index_users_on_email":    httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
+		"index_users_on_username":                     httperror.New(http.StatusBadRequest, "validation_failed", "username is taken"),
+		"index_users_on_email":                        httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
+		"index_users_on_phone_and_phone_country_code": httperror.New(http.StatusBadRequest, "validation_failed", "phone number already exists"),
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
@@ -193,6 +198,100 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	userResponse(env, u)
 	return nil
 }
+
+var PhoneCountryWhitelist = map[string]string{
+	"United States":  "1",
+	"Canada":         "1",
+	"United Kingdom": "44",
+	"Australia":      "61",
+	"New Zealand":    "64",
+	"Germany":        "49",
+	"France":         "33",
+	"Japan":          "81",
+	"Norway":         "47",
+	"Switzerland":    "41",
+	"Netherlands":    "31",
+	"Ireland":        "353",
+	"Austria":        "43",
+	"Sweden":         "46",
+	"Denmark":        "45",
+	"Iceland":        "354",
+	"Belgium":        "32",
+	"Finland":        "358",
+	"Italy":          "39",
+	"Singapore":      "65",
+}
+
+func inWhitelist(code string) bool {
+	for _, c := range PhoneCountryWhitelist {
+		if c == code {
+			return true
+		}
+	}
+	return false
+}
+
+func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+
+	phone := r.PostFormValue("phone")
+	phoneCountryCode := r.PostFormValue("phone_country_code")
+	if phone == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "phone must be provided")
+	}
+	if phoneCountryCode == "" {
+		return httperror.New(http.StatusBadRequest, "validation_failed", "phone country code must be provided")
+	}
+
+	if !inWhitelist(phoneCountryCode) {
+		return httperror.New(http.StatusForbidden, "forbidden", "phone numbers from your country are not supported")
+	}
+
+	// TODO Check if we have exceeded the free trial limit.
+
+	if err := u.UpdatePhone(env.DB, phone, phoneCountryCode); err != nil {
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+			if validationErr, ok := validations[e.Constraint]; ok {
+				return validationErr
+			}
+		}
+		return err
+	}
+
+	// Send verification code to user via SMS to verify he's a real person™.
+	v, err := verification.Generate(env.DB, u.ID, u.PhoneNumber())
+	if err != nil {
+		return err
+	}
+
+	client := twilio.NewClient(envvars.TwilioAccountSID, envvars.TwilioAuthToken, nil)
+	msg := fmt.Sprintf("Your Nitrous verification code is: %s", v.Code)
+	m, _, err := client.Messages.SendSMS(envvars.TwilioNumber, u.PhoneNumber(), msg)
+	if err != nil {
+		env.Logger.Errorf("user.UpdatePhone: failed to send SMS, message: %+v, err: %v", m, err)
+		return httperror.New(http.StatusServiceUnavailable, "sms_failed",
+			"there was an error sending the verification code to your phone")
+	}
+
+	userResponse(env, u)
+	return nil
+}
+
+func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+
+	code := r.PostFormValue("code")
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"verified": true,
+	}
+	return nil
+}
+
+// TODO Add handler to resend SMS token.
+
+// TODO Add handler to verify SMS token.
 
 func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB

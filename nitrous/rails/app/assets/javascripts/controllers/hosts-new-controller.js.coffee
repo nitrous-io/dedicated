@@ -67,6 +67,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           name: @get 'name'
       @set 'host', host
 
+      if @get('selectedPlan.freeTrial')
+        if !App.get('user.phoneAuthed')
+          App.set('pendingHost', host)
+          @transitionToRoute 'add-phone'
+          return
+
       if App.get('newUser')
         App.set('pendingHost', host)
         @transitionToRoute 'add-card'

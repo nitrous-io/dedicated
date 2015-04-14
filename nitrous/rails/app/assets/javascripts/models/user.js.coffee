@@ -12,6 +12,9 @@ App.User = klass = App.Model.extend
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   unconfirmedEmail: attr(as: 'unconfirmed_email', default: null, overwrite: true)
   promoCode: attr(as: 'promo_code')
+  phone: attr()
+  phoneCountryCode: attr(as: 'phone_country_code')
+  phoneAuthed: attr('boolean', as: 'phone_authed', serialize: false)
 
   # used for sideloading the records, should not access directly
   # instead use `App.userProfile` and `App.billingProfile`.
@@ -24,6 +27,11 @@ App.User = klass = App.Model.extend
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'
 
+  updatePhone: (phone, phoneCountryCode) ->
+    @ajax 'POST', 'phone',
+      phone: phone
+      phone_country_code: phoneCountryCode
+
 klass.reopenClass
   url: '/user'
   createURL: '/users'
@@ -31,3 +39,5 @@ klass.reopenClass
   primaryKey: 'id'
   singular: true
   rootKey: 'user'
+
+  updatePhone: ->

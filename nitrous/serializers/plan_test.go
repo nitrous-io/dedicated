@@ -38,7 +38,8 @@ var _ = Describe("plan serializer", func() {
 				"cpu": "2",
 				"memory": "1 GB",
 				"storage": "20 GB",
-				"most_popular": true
+				"most_popular": true,
+				"free_trial": false
 			}`))
 		})
 	})

@@ -12,6 +12,7 @@ App.Plan = klass = App.Model.extend
   memory: attr()
   storage: attr()
   mostPopular: attr('boolean', as: 'most_popular')
+  freeTrial: attr('boolean', as: 'free_trial', serialize: false)
 
   inputId: (->
     if slug = @get 'slug'

@@ -34,6 +34,7 @@ App.Router.map ->
       @route 'pull'
 
     @resource 'account'
+    @resource 'add-phone'
     @resource 'billing'
     @resource 'add-card'
     @resource 'provider-templates', path: '/provider-templates'
