@@ -66,18 +66,44 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 	return mapping, nil
 }
 
-func EnabledForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
-	pls := []*Plan{}
-	if err := d.Select(&pls, `SELECT * FROM plans
+func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT * FROM plans
 		WHERE NOT disabled
 		AND plans.id IN (
 			SELECT DISTINCT plan_id
 			FROM provider_templates AS pt
 			WHERE pt.provider=$1 AND NOT pt.disabled
-		) ORDER BY (price, max_containers, name);`, provider); err != nil {
+		) 
+		AND (
+			plans.price > 0
+			OR plans.base_price > 0
+		)
+		ORDER BY (price, max_containers, name);`, provider)
+
+	if err != nil {
 		return nil, err
 	}
-	return pls, nil
+	return plans, nil
+}
+
+func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT * FROM plans
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		)
+		ORDER BY (price, max_containers, name);`, provider)
+
+	if err != nil {
+		return nil, err
+	}
+	return plans, nil
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {

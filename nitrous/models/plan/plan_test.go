@@ -15,6 +15,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func mapPlansToSlugs(plans []*plan.Plan) []string {
+	slugs := make([]string, len(plans))
+	for i, plan := range plans {
+		slugs[i] = plan.Slug
+	}
+	return slugs
+}
+
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "models/plan")
@@ -33,8 +41,15 @@ var _ = Describe("models/plan", func() {
 		_, err = db.Exec(`INSERT INTO plans
 			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+			"free", "FreeToTry", 4, 0, 0, "2", "1 GB", "20 GB", false, true)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`INSERT INTO plans
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
 			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true)
 		Expect(err).To(BeNil())
+
 		_, err = db.Exec(`INSERT INTO plans
 			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
@@ -180,7 +195,7 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
-	Describe("EnabledForProvider()", func() {
+	Describe("PlansForProvider()", func() {
 		It("returns all enabled plans for the given provider", func() {
 			sfo := &region.Region{Slug: "sfo", Name: "US West"}
 			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
@@ -235,12 +250,13 @@ var _ = Describe("models/plan", func() {
 			}
 			Expect(pt.Insert(db)).To(BeNil())
 
-			pls, _ := plan.EnabledForProvider(db, "digitalocean")
-			slugs := []string{}
-			for _, pl := range pls {
-				slugs = append(slugs, pl.Slug)
-			}
-			Expect(slugs).To(ConsistOf([]string{"1gb", "2gb"}))
+			plans, err := plan.PaidPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"1gb", "2gb"}))
+
+			plans, err = plan.AllPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"free", "1gb", "2gb"}))
 		})
 	})
 

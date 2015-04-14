@@ -75,8 +75,8 @@ App.Host = klass = App.Model.extend
 
   region: (->
     if regionId = @get('regionId')
-      App.get('regions').findBy('id', regionId)
-  ).property 'regionId', 'App.regions.@each'
+      App.get('regionIndex')[regionId]
+  ).property 'regionId', 'App.regionIndex'
 
   plan: (->
     if planId = @get('planId')
