@@ -19,10 +19,7 @@ if view.showSelectContainerName
       h2
         | Select a Container name...
       p
-        ' ... or you can
-        a href="#"
-          | generate one
-        |.
+        | We've given your container a name based on the starter template you've chosen above, but feel free to change the name to something more suitable.
       = partial 'partials/onboarding-card-footer'
 
 if view.showSelectRegion
@@ -31,21 +28,16 @@ if view.showSelectRegion
       h2
         | Select a region closest to you
       p
-        | This is where your dedicated Nitrous machine will be hosted. The closer it is to you, the faster it will be.
-      p
-        a href="#" Learn more
-        |  about Workspaces and Containers.
+        | This is where your dedicated Nitrous machine is hosted. Selecting a region closest to you will optimize your experience with the platform.
       = partial 'partials/onboarding-card-footer'
 
 if view.showSelectPlan
   .card data-target="#select-plan" data-arrow="top-right"
     .card-inner
       h2
-        | Pick a plan
+        | Select a plan
       p
-        ' These prices are
-        strong flexible
-        | : pay only for what you use, without worrying about cost overruns. Charges are calculated on an hourly basis against the actual hours used for your workspace.
+        | Workspaces are billed on an hourly basis up to a monthly cap. The plans included here assume that you keep your workspace powered on during the month.
       p.tip
         | Pay less by stopping your workspace when you don’t use it.
       = partial 'partials/onboarding-card-footer'
