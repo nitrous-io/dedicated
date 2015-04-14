@@ -1050,5 +1050,13 @@ func init() {
 				CREATE UNIQUE INDEX index_verifications_on_user_id ON verifications USING btree (user_id);
 			`,
 		},
+		{
+			Version: "910",
+			Up: `
+				ALTER TABLE users ADD COLUMN max_running_time bigint DEFAULT 7200;
+				ALTER TABLE users ADD COLUMN refresh_period bigint DEFAULT 86400;
+				UPDATE users SET max_running_time = NULL, refresh_period = NULL;
+			`,
+		},
 	}
 }

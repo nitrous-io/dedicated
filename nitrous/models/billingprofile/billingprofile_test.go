@@ -168,6 +168,21 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.PendingActivation).To(BeFalse())
 			})
 
+			It("removes the time restrictions on a user", func() {
+				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{7200, true}))
+				Expect(u.RefreshPeriod).To(Equal(sql.NullInt64{86400, true}))
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(BeNil())
+
+				u2, err := user.FindByUsername(db, "qux")
+				Expect(err).To(BeNil())
+				Expect(u2.MaxRunningTime).To(Equal(sql.NullInt64{0, false}))
+				Expect(u2.RefreshPeriod).To(Equal(sql.NullInt64{0, false}))
+			})
+
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
 				fakeStripe.Error = test.StripeCardDeclined
 				err := bp.UpdateCard(db, "token")

@@ -74,6 +74,9 @@ type User struct {
 
 	MaxContainers sql.NullInt64 `db:"max_containers"`
 
+	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // seconds (free tier)
+	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // seconds (free tier)
+
 	ResetPasswordToken  sql.NullString `db:"reset_password_token"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at"`
 
