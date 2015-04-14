@@ -127,27 +127,23 @@ func totalUsageForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Tim
 	return totalTime, nil
 }
 
-func CurrentMonthUsageForHosts(d db.QueryReceiver, hostIDs []int64, rightNow time.Time) (int64, error) {
-	start := now.New(rightNow).BeginningOfMonth()
-	end := rightNow
-
-	return totalUsageForHosts(d, hostIDs, start, end)
-}
-
-func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int64, []*host.Host, error) {
+func CurrentDayUsageForUser(d *db.Database, userID int64, rightNow time.Time) (int64, []*host.Host, error) {
 	hosts, err := host.FindAllWithTerminated(d, userID)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	usage, err := CurrentMonthUsageForHosts(d, hostsToHostIDs(hosts), now)
+	start := now.New(rightNow).BeginningOfDay()
+	end := rightNow
+	hostIDs := hostsToHostIDs(hosts)
+
+	usage, err := totalUsageForHosts(d, hostIDs, start, end)
 	if err != nil {
 		return 0, nil, err
 	}
 
 	return usage, hosts, nil
 }
-
 func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {
 	hT := &HostTransition{
 		HostID:    host.ID,
