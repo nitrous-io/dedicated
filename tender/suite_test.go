@@ -1,10 +1,13 @@
 package tender
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"log"
 	"os/exec"
 	"os/user"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -33,13 +36,27 @@ func prepareDB() *sql.DB {
 	return db
 }
 
-func loadFixtures(db *sql.DB) {
+func runPsqlMust(dbName, sqlFile string) {
 	args := []string{
-		"-d", "tender_test",
-		"-f", "./testdata/fixtures.sql",
+		"-d", dbName,
+		"-f", sqlFile,
 	}
-	err := exec.Command("psql", args...).Run()
+	var stderr bytes.Buffer
+	cmd := exec.Command("psql", args...)
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
 		panic(err)
 	}
+	// running psql doesn't return err when there are problems in *.sql file
+	// so we have to check for existence of "ERROR:" in stderr output
+	stderrStr := strings.TrimSpace(string(stderr.Bytes()))
+	if -1 != strings.Index(stderrStr, "ERROR:") {
+		log.Printf("psql failed with stderr: '%s'", stderrStr)
+		panic(fmt.Errorf("psql failed to import %s", sqlFile))
+	}
+}
+
+func loadFixtures() {
+	runPsqlMust("tender_test", "./testdata/fixtures.sql")
 }

@@ -1,0 +1,52 @@
+if view.showPickContainer
+  .card data-target="#new-container-title" data-arrow="top-right"
+    .card-inner
+      h2
+        | First, let's pick a Container
+      p
+        ' Containers come with a set of
+        strong
+          | pre-installed tools, libraries
+        ' , and/or
+        strong
+         ' frameworks
+        | to enable you to start coding so you don't have to worry about setting up your development environment.
+      = partial 'partials/onboarding-card-footer'
+
+if view.showSelectContainerName
+  .card data-target="#select-container-name" data-arrow="top-right"
+    .card-inner
+      h2
+        | Select a Container name...
+      p
+        | We've given your container a name based on the starter template you've chosen above, but feel free to change the name to something more suitable.
+      = partial 'partials/onboarding-card-footer'
+
+if view.showSelectRegion
+  .card data-target="#select-region" data-arrow="top-right"
+    .card-inner
+      h2
+        | Select a region closest to you
+      p
+        | This is where your dedicated Nitrous machine is hosted. Selecting a region closest to you will optimize your experience with the platform.
+      = partial 'partials/onboarding-card-footer'
+
+if view.showSelectPlan
+  .card data-target="#select-plan" data-arrow="top-right"
+    .card-inner
+      h2
+        | Select a plan
+      p
+        | Workspaces are billed on an hourly basis up to a monthly cap. The plans included here assume that you keep your workspace powered on during the month.
+      p.tip
+        | Pay less by stopping your workspace when you don’t use it.
+      = partial 'partials/onboarding-card-footer'
+
+if view.showCardholdersName
+  .card data-target="#cardholders-name" data-arrow="top-right"
+    .card-inner
+      h2
+        | Enter your billing info
+      p
+        | You’re doing great! Just one last step before you can use your new workspace.
+      = partial 'partials/onboarding-card-footer'

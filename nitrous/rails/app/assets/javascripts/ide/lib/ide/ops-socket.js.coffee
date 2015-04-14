@@ -152,11 +152,12 @@ App.OpsSocket = Lib.Socket.extend Ember.Evented,
   run: (cmd, cwd, env, callback) ->
     @send 'cmd', 'run', cmd, cwd, env, callback
 
-  search: (id, term, location, ignoreCase, useRegexp, callback) ->
+  search: (id, term, location, ignoreCase, useRegexp, filePattern, callback) ->
     request =
       id: id
       term: term
       root: location
       ignore_case: ignoreCase
       use_regexp: useRegexp
+      file_pattern: filePattern
     @send 'finder', 'search', request, callback

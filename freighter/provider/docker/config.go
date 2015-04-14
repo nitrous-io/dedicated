@@ -185,6 +185,7 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 		}
 		newCfg.Binds = ms
 	}
+
 	// add built-in volumes. This is only valid when the container is started
 	// for the first time. A reconfigured container will not triggered this as
 	// built-in volumes will be reset. Therefore, it's safe to generate a
@@ -192,7 +193,14 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 	// slug
 	if container.Config != nil {
 		for vname := range container.Config.Volumes {
-			// container's name started with `/` which we dont want
+			// Don't create explicit binds for nitrous-specific volume mounts:
+			// this is a workaround for old containers created by Freighter
+			// prior to this change https://github.com/nitrous-io/dedicated/commit/d7a36b72414bf9daa85b7e0a339e5e742a7d0cda
+			// when we were adding to Config.Volumes.
+			if vname == nitrousSSHFilepath || vname == nitrousSlugFilepath {
+				continue
+			}
+			// container's name starts with `/` which we dont want
 			slug := fmt.Sprintf("%s-%s", container.Name[1:], uuid.Make())
 			vinfo, err := p.CreateVolume(slug)
 			if err != nil {
@@ -201,9 +209,10 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 			addVolume(p.VolumesDir(vinfo.Slug), vname, &newCfg)
 		}
 	}
+
 	// add required nitrous configs
-	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", "/nitrous/ssh:ro", &newCfg)
-	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/"+nitrousSlugFilename, "/"+nitrousSlugFilename+":ro", &newCfg)
+	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", nitrousSSHFilepath+":ro", &newCfg)
+	addVolume(p.ContainerSettingsDir(cfg.Hostname)+nitrousSlugFilepath, nitrousSlugFilepath+":ro", &newCfg)
 
 	// ExtraHosts is only available in Docker 1.3.0+.
 	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))

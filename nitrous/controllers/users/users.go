@@ -300,6 +300,26 @@ func ResendConfirmation(env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	return nil
 }
 
+func DismissFirstTime(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	u := env.User
+	if u == nil {
+		return errors.New("user is nil")
+	}
+
+	_, err := db.Exec(`UPDATE users SET first_time = FALSE WHERE id = $1`, u.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+	return nil
+}
+
 func userResponse(env *middleware.Env, u *user.User) {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

@@ -14,7 +14,7 @@ var _ = Describe("db", func() {
 
 	BeforeEach(func() {
 		db = prepareDB()
-		loadFixtures(db)
+		loadFixtures()
 	})
 
 	Describe("findHost", func() {
@@ -25,6 +25,19 @@ var _ = Describe("db", func() {
 
 			_, err := findHost(db, "invalid name")
 			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
+		})
+	})
+
+	Describe("getHosts", func() {
+		It("returns information about all hosts", func() {
+			m, err := getHosts(db)
+			Expect(err).To(BeNil())
+			host, _ := m["oldapp"]
+			Expect(host.IP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(host.Port).To(Equal(10001), "Expect to get port given a valid name")
+
+			_, ok := m["invalid name"]
+			Expect(ok).To(BeFalse(), "Expect to not find a host when name is invalid")
 		})
 	})
 
@@ -39,6 +52,23 @@ var _ = Describe("db", func() {
 
 			_, err := findContainer(db, "invalid name")
 			Expect(err).ToNot(BeNil(), "Expect to get err when name is invalid")
+		})
+	})
+
+	Describe("getContainers", func() {
+		It("returns information about all containers", func() {
+			m, err := getContainers(db)
+			Expect(err).To(BeNil())
+			container, ok := m["rails-app"]
+			Expect(ok).To(BeTrue(), "Expect to find a container")
+			Expect(container.Slug).To(Equal("rails-app"), "Expect to get correct container")
+			Expect(container.HostSlug).ToNot(BeEmpty(), "Expect to get the host slug")
+			Expect(container.HostIP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(container.HostPort).To(Equal(10001), "Expect to get port given a valid name")
+			Expect(container.HostSecret).ToNot(BeEmpty(), "Expect to get host secret")
+
+			_, ok = m["invalid name"]
+			Expect(ok).To(BeFalse(), "Expect to not find a container when name is invalid")
 		})
 	})
 })

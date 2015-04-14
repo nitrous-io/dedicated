@@ -7,6 +7,7 @@ App.IdeFindInProjectController = Em.Controller.extend
   locationBinding: Ember.Binding.oneWay('findInProjectDialog.location')
   caseSensitiveBinding: Ember.Binding.oneWay('findInProjectDialog.caseSensitive')
   useRegexpBinding: Ember.Binding.oneWay('findInProjectDialog.useRegexp')
+  filePatternBinding: Ember.Binding.oneWay('findInProjectDialog.filePattern')
 
   invalidField: null
 
@@ -34,6 +35,7 @@ App.IdeFindInProjectController = Em.Controller.extend
       location = @guessPath(@get('location'))
       ignoreCase = !@get('caseSensitive')
       useRegexp = @get('useRegexp')
+      filePattern = @get('filePattern')
 
       socket = @get('opsSocket')
       editorController = @get('controllers.ideEditor')
@@ -69,7 +71,7 @@ App.IdeFindInProjectController = Em.Controller.extend
       socket.on 'search.error', onError
       socket.on 'search.completed', onCompleted
 
-      socket.search searchId, term, location, ignoreCase, useRegexp, (err) =>
+      socket.search searchId, term, location, ignoreCase, useRegexp, filePattern, (err) =>
         if err
           App.postError err
           return

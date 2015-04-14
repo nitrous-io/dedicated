@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
@@ -24,9 +24,9 @@ var (
 const (
 	// User with no card added (initial state)
 	StateNoCard = "no_card"
-	// User exempt from paying
+	// Exempted users from paying
 	StateExempt = "exempt"
-	// User on free trial
+	// User under free tier
 	StateFree = "free"
 	// User pays for usage
 	StatePaid = "paid"
@@ -37,20 +37,19 @@ const (
 )
 
 type BillingProfile struct {
-	ID                 int64          `db:"id"`
-	UserID             int64          `db:"user_id"`
-	State              string         `db:"state"`
-	StripeID           sql.NullString `db:"stripe_id"`
-	StripeFingerprint  sql.NullString `db:"stripe_fingerprint"`
-	LastFour           sql.NullString `db:"last_four"`
-	CardType           sql.NullString `db:"card_type"`
-	ExpMonth           sql.NullInt64  `db:"exp_month"`
-	ExpYear            sql.NullInt64  `db:"exp_year"`
-	PendingActivation  bool           `db:"pending_activation"` // not activated yet
-	MaxHours           sql.NullInt64  `db:"max_hours"`
-	FreeTrialExpiresAt pq.NullTime    `db:"free_trial_expires_at"`
-	CreatedAt          pq.NullTime    `db:"created_at"`
-	UpdatedAt          pq.NullTime    `db:"updated_at"`
+	ID                int64          `db:"id"`
+	UserID            int64          `db:"user_id"`
+	State             string         `db:"state"` // possible states: 'free', 'exempt', 'paid', 'payment_due', 'delinquent', 'no_card'
+	StripeID          sql.NullString `db:"stripe_id"`
+	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
+	LastFour          sql.NullString `db:"last_four"`
+	CardType          sql.NullString `db:"card_type"`
+	ExpMonth          sql.NullInt64  `db:"exp_month"`
+	ExpYear           sql.NullInt64  `db:"exp_year"`
+	PendingActivation bool           `db:"pending_activation"` // not activated yet
+	MaxHours          sql.NullInt64  `db:"max_hours"`
+	CreatedAt         *time.Time     `db:"created_at"`
+	UpdatedAt         *time.Time     `db:"updated_at"`
 }
 
 func (bp *BillingProfile) IsFreeTier() bool {

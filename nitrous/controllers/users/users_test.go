@@ -780,4 +780,39 @@ var _ = Describe("controllers/users", func() {
 			})
 		})
 	})
+
+	Describe("POST /api/v0/user/dismiss_first_time", func() {
+		doRequest := func() {
+			var err error
+			req, err = NewRequest("POST", "/api/v0/user/dismiss_first_time", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+t.Token)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should set the first_time to FALSE", func() {
+			Expect(u.FirstTime).To(BeTrue())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := map[string]interface{}{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["status"]).To(Equal("ok"))
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u.FirstTime).To(BeFalse())
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/user/dismiss_first_time"
+				authTokenInputs.Method = "POST"
+			})
+
+			ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
 })

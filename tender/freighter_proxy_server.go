@@ -4,12 +4,23 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
+)
+
+var (
+	errHostNotFound      = errors.New("Host not found")
+	hostsCache           HostsMap
+	hostsCacheLastUpdate time.Time
+	muHosts              sync.Mutex
+	// serves as identity to allow caching failed lookups
+	hostNotFound = &Host{}
 )
 
 // FreighterProxyServer let user proxy requests to the freighterd host. This is
@@ -17,8 +28,6 @@ import (
 // instal its SSL certificates for example.
 type FreighterProxyServer struct {
 	// direct access to database so we can fetch stuffs as fast as possible
-	// FIXME:
-	// - considering replace this with distributed datastore such as etcd
 	db *sql.DB
 	// expected DNS based domain for host's request. Request coming from this
 	// domain will be proxied to freighterd server on that host.
@@ -36,10 +45,66 @@ type FreighterProxyServer struct {
 	portMap map[int]int
 }
 
-// Returns a `http.Handler` which can be used to proxy requests to a freighterd
-// server on a Nitrous.IO host
+func DumpHostsCache() {
+	muHosts.Lock()
+	defer muHosts.Unlock()
+	log.Printf("hostsCache: %d hosts, last updated %s ago\n", len(hostsCache), time.Since(hostsCacheLastUpdate))
+	for slug, h := range hostsCache {
+		log.Printf(" %s: %s:%d\n", slug, h.IP, h.Port)
+	}
+}
+
+func RefreshHostsCache(db *sql.DB) error {
+	timeStart := time.Now()
+	m, err := getHosts(db)
+	if err != nil {
+		return err
+	}
+	n := len(m)
+	muHosts.Lock()
+	hostsCache = m
+	muHosts.Unlock()
+	hostsCacheLastUpdate = time.Now()
+	LogVerbosef("got %d hosts in %s\n", n, time.Since(timeStart))
+	return nil
+}
+
+func hostCacheGet(slug string) (*Host, bool) {
+	muHosts.Lock()
+	h, ok := hostsCache[slug]
+	muHosts.Unlock()
+	return h, ok
+}
+
+func hostCacheSet(slug string, host *Host) {
+	muHosts.Lock()
+	hostsCache[slug] = host
+	muHosts.Unlock()
+}
+
+func hostGet(db *sql.DB, slug string) (*Host, error) {
+	var err error
+	// get host id and host ip
+	// host ip will be the new destination for current request
+	host, ok := hostCacheGet(slug)
+	if !ok {
+		host, err = findHost(db, slug)
+		if err != nil {
+			host = hostNotFound
+		}
+		hostCacheSet(slug, host)
+	}
+	if host == hostNotFound {
+		return nil, errHostNotFound
+	}
+	return host, nil
+}
+
+// NewFreighterProxyServer returns a `http.Handler` which can be used to proxy
+// requests to a freighterd server on a Nitrous.IO host
 func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
 	db *sql.DB, caBytes []byte) http.Handler {
+
 	s := &FreighterProxyServer{
 		db:        db,
 		domain:    baseDomain,
@@ -65,34 +130,6 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// Naïve cache - replace with something like groupcache.
-type hostCache struct {
-	lock sync.RWMutex
-	data map[string]*Host
-}
-
-func newHostCache() *hostCache {
-	return &hostCache{
-		lock: sync.RWMutex{},
-		data: make(map[string]*Host),
-	}
-}
-
-func (h *hostCache) Get(slug string) (*Host, bool) {
-	h.lock.RLock()
-	defer h.lock.RUnlock()
-	host, ok := h.data[slug]
-	return host, ok
-}
-
-func (h *hostCache) Set(slug string, host *Host) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-	h.data[slug] = host
-}
-
-var hCache = newHostCache()
-
 // proxy the request to the right boxhost. We will switch the proxy strategy
 // depending on the type of the request
 // - if this is a normal HTTP, use `http.ReverseProxy`
@@ -110,18 +147,9 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		fp = p
 	}
 
-	// get host id and host ip
-	// host ip will be the new destination for current request
-	var host *Host
-	// FIXME Evict host from cache when host is terminated.
-	host, ok := hCache.Get(slug)
-	if !ok {
-		var err error
-		host, err = findHost(s.db, slug)
-		if err != nil {
-			return err
-		}
-		hCache.Set(slug, host)
+	host, err := hostGet(s.db, slug)
+	if err != nil {
+		return err
 	}
 
 	dest := hostToIP(r, host.IP, host.Port)

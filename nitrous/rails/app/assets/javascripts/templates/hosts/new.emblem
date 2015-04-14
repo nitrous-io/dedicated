@@ -21,14 +21,14 @@
             = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
         .ui.input-group
-          label.field-label for='hosts-new-region'
+          label#select-region.field-label for='hosts-new-region'
             | Region
           ul.ui.selectable-list.regions
             each region in App.regions
               App.RegionListItemView content=region selected=selectedRegion
 
         .ui.input-group
-          label.field-label
+          label#select-plan.field-label
             | Workspace Size
 
           ul.ui.selectable-list.plans
@@ -97,6 +97,10 @@
               i.spinner
               | Creating...
         else
+          .left
+            a click='showHelp target=view'
+              / i.fa.fa-info-circle
+              span.onboarding-trigger
           .right
             if hasPendingContainer
               button.ui.btn click='goBack' Back

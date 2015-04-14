@@ -30,5 +30,5 @@ check_file $SCRIPT
 for HOST in `cat $HOSTSFILE`; do
   echo "## ${HOST} ##" | tee -a ${RUN_LOG}
   ./build/hssh upload ${HOST} $SCRIPT:$REMOTESCRIPT 2>&1 | tee -a ${RUN_LOG}
-  ./build/hssh run ${HOST} "chmod 755 $REMOTESCRIPT && bash -c $REMOTESCRIPT" 2>&1 | tee -a ${RUN_LOG}
+  ./build/hssh run ${HOST} "chmod 755 $REMOTESCRIPT && sudo bash -c $REMOTESCRIPT" 2>&1 | tee -a ${RUN_LOG}
 done

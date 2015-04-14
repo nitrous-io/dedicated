@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -614,11 +613,7 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("CanCreateHosts()", func() {
-		var (
-			u        *user.User
-			paidplan *plan.Plan
-			freeplan *plan.Plan
-		)
+		var u *user.User
 
 		BeforeEach(func() {
 			u = &user.User{
@@ -632,84 +627,38 @@ var _ = Describe("models/user", func() {
 
 			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
-
-			paidplan = &plan.Plan{Slug: "1gb", Name: "1gb", MaxContainers: 1, Price: 500}
-			err = paidplan.Insert(db)
-			Expect(err).To(BeNil())
-
-			freeplan = &plan.Plan{Slug: "freetrial", Name: "freetrial", MaxContainers: 1, Price: 0}
-			err = freeplan.Insert(db)
-			Expect(err).To(BeNil())
 		})
 
-		It("succeeds for admin users", func() {
+		It("returns true, for admin users", func() {
 			u.Admin = true
-			err := u.CanCreateHosts(db, paidplan)
+			b, err := u.CanCreateHosts(db)
 			Expect(err).To(BeNil())
+			Expect(b).To(BeTrue())
 		})
 
-		It("succeeds for service accounts", func() {
-			u.ServiceAccount = true
-			err := u.CanCreateHosts(db, paidplan)
+		It("returns false, for non paid users", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
+
+			// add 2 hosts, so we know it's not the MAX_HOSTS check lets him in.
+			hs, err := CreateHostStack(db, &HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			_, err = CreateHostStack(db, &HostStack{
+				U:  u,
+				R:  hs.R,
+				P:  hs.P,
+				PT: hs.PT,
+			})
+			Expect(err).To(BeNil())
+
+			b, err := u.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+			Expect(b).To(BeFalse())
 		})
 
-		Context("for a free user account", func() {
-			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
-				Expect(err).To(BeNil())
-			})
-
-			It("returns ErrFreeTrialPlanNotFree when trying to create a host on a paid plan", func() {
-				err := u.CanCreateHosts(db, paidplan)
-				Expect(err).To(Equal(user.ErrFreeTrialPlanNotFree))
-			})
-
-			It("returns ErrFreeTrialOngoing when user is currently undergoing a free trial", func() {
-				// The user's billing profile's FreeTrialExpiresAt is used to
-				// determine when his free trial ends. We set it to a time in
-				// the future.
-				t := time.Now().Add(7 * 24 * time.Hour)
-				_, err := db.Exec(`UPDATE billing_profiles SET free_trial_expires_at = $1 WHERE user_id = $2;`, t, u.ID)
-				Expect(err).To(BeNil())
-
-				err = u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrFreeTrialOngoing))
-			})
-
-			It("returns ErrFreeTrialExpired when user's free trial has expired", func() {
-				// The user's billing profile's FreeTrialExpiresAt is used to
-				// determine when his free trial ends. We set it to a time in
-				// the past to indicate it's expired.
-				t := time.Now().Add(-24 * time.Hour)
-				_, err := db.Exec(`UPDATE billing_profiles SET free_trial_expires_at = $1 WHERE user_id = $2;`, t, u.ID)
-				Expect(err).To(BeNil())
-
-				err = u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrFreeTrialExpired))
-			})
-
-			It("only allows users to create a single host", func() {
-				_, err := CreateHostStack(db, &HostStack{U: u})
-				Expect(err).To(BeNil())
-
-				err = u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrMaxHostsExceeded))
-			})
-
-			It("only allows users to create a single host counting even terminated hosts", func() {
-				// Create a host and terminate it.
-				hs, err := CreateHostStack(db, &HostStack{U: u})
-				Expect(err).To(BeNil())
-				Expect(hs.H.Delete(db)).To(BeNil())
-
-				err = u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrMaxHostsExceeded))
-			})
-		})
-
-		ItChecksNumberOfHosts := func() {
-			It("returns ErrMaxHostsExceeded when owned hosts == max hosts", func() {
+		ItPerformsAdditionalChecks := func() {
+			It("returns false, when owned hosts == max hosts", func() {
 				hs, err := CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
 
@@ -723,21 +672,24 @@ var _ = Describe("models/user", func() {
 
 				// max hosts for the user is set to 2
 				// and user already has 2 hosts
-				err = u.CanCreateHosts(db, paidplan)
-				Expect(err).To(Equal(user.ErrMaxHostsExceeded))
+				b, err := u.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(b).To(BeFalse())
 			})
 
-			It("succeeds when owned hosts < max hosts", func() {
+			It("returns true, when owned hosts < max hosts", func() {
 				_, err := CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
 
-				err = u.CanCreateHosts(db, paidplan)
+				b, err := u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
 			})
 
-			It("succeeds when user has no hosts", func() {
-				err := u.CanCreateHosts(db, paidplan)
+			It("returns true, when user has no hosts", func() {
+				b, err := u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
 			})
 
 			It("ignores terminated hosts", func() {
@@ -756,46 +708,37 @@ var _ = Describe("models/user", func() {
 				err = hs2.H.Delete(db)
 				Expect(err).To(BeNil())
 
-				err = u.CanCreateHosts(db, paidplan)
+				b, err := u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
+				Expect(b).To(BeTrue())
 			})
 		}
 
 		Context("for a paid user account", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 
-			ItChecksNumberOfHosts()
-
-			It("returns ErrFreeTrialPaidUserDisallowed when trying to create a host on a free plan", func() {
-				err := u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrFreeTrialPaidUserDisallowed))
-			})
+			ItPerformsAdditionalChecks()
 		})
 
 		Context("for a payment_due user account", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StatePaymentDue, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'payment_due' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 
-			ItChecksNumberOfHosts()
-
-			It("returns ErrFreeTrialPaidUserDisallowed when trying to create a host on a free plan", func() {
-				err := u.CanCreateHosts(db, freeplan)
-				Expect(err).To(Equal(user.ErrFreeTrialPaidUserDisallowed))
-			})
+			ItPerformsAdditionalChecks()
 		})
 
 		Context("for a exempt user account", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateExempt, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 			})
 
-			ItChecksNumberOfHosts()
+			ItPerformsAdditionalChecks()
 		})
 	})
 

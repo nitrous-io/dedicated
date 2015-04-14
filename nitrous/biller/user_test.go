@@ -273,7 +273,7 @@ var _ = Describe("biller/user", func() {
 			Expect(items).To(HaveLen(0))
 		})
 
-		It("should not allow an hourly price of 0 if the billing profile is not free trial", func() {
+		It("should not allow an hourly price of 0 if the billing profile is not in free", func() {
 			hs1, err := CreateHostStack(db, &HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
@@ -290,7 +290,7 @@ var _ = Describe("biller/user", func() {
 
 			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring(`has a 0 HourlyPrice but Billing profile state is not "free"`))
+			Expect(err.Error()).To(ContainSubstring("has a 0 HourlyPrice but Billing profile state is incompatible"))
 		})
 
 		It("should collate all running and stopped usage", func() {
