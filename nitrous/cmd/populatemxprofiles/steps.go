@@ -38,3 +38,18 @@ func SetTemplates(jobs chan job, u *User) error {
 	}
 	return nil
 }
+
+func StampGithubAuthorized(jobs chan job, u *User) error {
+	if !u.GithubUsername.Valid {
+		return nil
+	}
+	if !u.CreatedAt.Valid {
+		logr.Debugf("Unexpected nil created at for user %s", u.Email)
+		return nil
+	}
+	jobs <- NewJob("setnx", u.ID, map[string]interface{}{
+		"github_username":        u.GithubUsername.String,
+		"github_authorized_date": u.CreatedAt.Time, // no date stored, use created_at as proxy
+	})
+	return nil
+}
