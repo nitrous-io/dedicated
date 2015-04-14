@@ -1,0 +1,190 @@
+@import 'website_variables'
+// --------------------------------------
+// What's new
+#whatsnew
+  .page-hero
+    height: 760px
+    user-select: none
+
+    .hero-tagline, .hero-visual
+      top: 50%
+      position: absolute
+      transform: translate3d(0,-45%,0)
+      -webkit-perspective: 1000
+      backface-visibility: hidden
+
+    .hero-tagline
+      width: 52%
+      right: 0
+      text-align: center
+      animation: .8s ease 1 hero-tagline-in
+
+      h2
+        font-size: 35px
+        font-family: $boldFont
+        padding-bottom: 4px
+
+      h3
+        font-size: 20px
+        color: rgba(255,255,255,.8)
+
+      .cta-get-started
+        border: 1px solid #FFF
+        background: #FFF
+
+      input[type="email"]
+        background: #FFF
+        color: $blueLink
+
+      input[type="submit"]
+        border: none
+        line-height: 42px
+        border-radius: 4px
+
+        &:hover
+          background: rgba($blueLink,.8)
+
+
+    .hero-visual
+      width: 47%
+      left: 0
+      animation: .8s ease 1 hero-visual-in
+
+      img
+        position: relative
+        right: -100%
+        transform: translateX(-100%)
+        border-radius: 2px
+        box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 16px 20px rgba(0,0,0,.1)
+
+  .new
+    color: $blueLink
+
+  em
+    text-transform: uppercase
+    font-size: 9px
+    background: $blueLink
+    border-radius: 2px
+    color: #FFF
+    font-weight: bold
+    position: relative
+    top: -2px
+    padding: 1px 3px
+    margin-right: 6px
+  
+  .grid-wrapper
+    padding-top: 60px
+  
+  .grid-item
+    margin-top: 20px
+    margin-bottom: 40px
+
+    img
+      border-radius: 4px
+  
+  .two-blocks
+    padding: 0
+    +clearFix
+  
+  .two-blocks .left, .two-blocks .right
+    width: 50%
+    height: auto
+    position: relative
+
+  .two-blocks .left
+    float: left
+
+  .two-blocks .right
+    float: right
+
+    &:after
+      content: ""
+      position: absolute
+      top: 0
+      left: 0
+      bottom: 0
+      border-left: 1px solid rgba(0,0,0,.05)
+
+  .table
+    margin: 30px auto 60px auto
+    position: relative
+    text-align: center
+    +clearFix
+
+    .col
+      width: auto
+      display: inline-block
+      position: relative
+      margin: 0 40px
+
+  .row
+    height: 44px
+    display: block
+    line-height: 44px
+    font-size: 16px
+    text-align: left
+    padding: 0 20px
+
+    span
+      margin: 0 auto
+      display: block
+
+    &.visual
+      height: 290px
+      margin: 0
+
+      img
+        width: 480px
+        height: auto
+        display: block
+        box-shadow: 0 1px 6px rgba(0,0,0,.2)
+
+    &.title
+      font-family: $boldFont
+      text-align: center
+      border-bottom: 1px solid rgba(0,0,0,.05)
+      margin-bottom: 20px
+      color: rgba(0,0,0,.6)
+
+    .fa-close
+      color: rgba(0,0,0,.2)
+
+    .fa-check
+      margin-right: 6px
+      color: #85D966
+
+    .fa-minus
+      margin-right: 8px
+      color: rgba(0,0,0,.45)
+
+  .btn
+    font-size: 13px
+
+  .left .col
+    right: -30px
+
+  .right .col
+    left: -30px
+
+
+.light
+  #whatsnew
+    .page-hero
+      background: #0099ED
+
+
+@keyframes hero-tagline-in
+  0%
+    opacity: 0
+    transform: translate3d(100px,-45%,0)
+  100%
+    opacity: 1
+    transform: translate3d(0,-45%,0)
+
+@keyframes hero-visual-in
+  0%
+    opacity: 0
+    transform: translate3d(-100px,-45%,0)
+  100%
+    opacity: 1
+    transform: translate3d(0,-45%,0)
