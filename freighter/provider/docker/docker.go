@@ -34,7 +34,7 @@ const (
 	nitrousEnvImage     = "NITROUS_IMAGE_VERSION"
 	nitrousEnvUser      = "NITROUS_USERNAME"
 	nitrousSlugFilename = ".nitrous-container-slug"
-	nitrousSlugFilepath = "/.nitrous-container-slug"
+	nitrousSlugFilepath = "/" + nitrousSlugFilename
 	nitrousSSHFilepath  = "/nitrous/ssh"
 )
 
