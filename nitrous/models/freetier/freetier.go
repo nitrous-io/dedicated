@@ -34,7 +34,7 @@ func CreateHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *pla
 			return ErrPaidPlanNotAllowed
 		}
 
-		usage, hosts, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
+		usage, hosts, err := hosttransition.CurrentDayUsageForUser(d, bp.UserID, now)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func StartHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, now tim
 		return nil
 	}
 
-	usage, _, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
+	usage, _, err := hosttransition.CurrentDayUsageForUser(d, bp.UserID, now)
 	if err != nil {
 		return err
 	}
