@@ -9,16 +9,9 @@
     form submit='create target="view"'
       .card-body
         .ui.input-group
-          if hasPendingContainer
-            .spec
-              if App.pendingContainerData.selectedTemplate
-                img src={App.pendingContainerData.selectedTemplate.iconUrl} class='template'
-              .description
-                span = name
-          else
-            label.field-label for='hosts-new-name'
-              | Name
-            = input type='text' id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+          label.field-label for='hosts-new-name'
+            | Workspace Name
+          App.HostNameTextField id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
         .ui.input-group
           label#select-region.field-label for='hosts-new-region'

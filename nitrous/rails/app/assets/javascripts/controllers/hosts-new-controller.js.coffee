@@ -14,6 +14,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   templateName: null
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
+  nameFieldEdited: false
+
   clear: ->
     @setProperties
       name: null
@@ -25,8 +27,9 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       saving: false
       bypassPreprovision: false
       templateName: null
+      nameFieldEdited: false
     if @get('hasPendingContainer')
-      @set('name', App.get('pendingContainerData.name'))
+      @set('name', App.get('user.username'))
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')

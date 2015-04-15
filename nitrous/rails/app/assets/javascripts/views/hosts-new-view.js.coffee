@@ -24,7 +24,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
   didInsertElement: ->
     @_super()
-    controller = @get 'controller'
 
     lastStatus = ""
     App.on "progressReceived", (ev) =>
@@ -52,7 +51,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
   willDestroyElement: ->
     @_super()
-    @$().off 'change.hosts-new'
 
   selectRegionDidChange: (->
     if App.get('onboardingScreen') == 'select-region'
@@ -69,3 +67,11 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
     showHelp: ->
       App.set 'onboardingScreen', 'select-region'
+
+App.HostNameTextField = Em.TextField.extend
+  click: ->
+    unless @get('targetObject.nameFieldEdited')
+      @$().select()
+
+  keyPress: ->
+    @set 'targetObject.nameFieldEdited', true
