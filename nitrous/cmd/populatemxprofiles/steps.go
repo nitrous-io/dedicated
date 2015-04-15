@@ -1,23 +1,17 @@
 package main
 
-import (
-	"time"
-
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
-)
-
-func SetConfirmed(jobs chan job, u *user.User) error {
+func SetConfirmed(jobs chan job, u *User) error {
 	if u.ConfirmedAt.Valid {
-		jobs <- job{mode: "setnx", uid: u.ID, p: map[string]interface{}{
+		jobs <- NewJob("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
-		}}
+		})
 	} else {
 		logr.Debugf("No confirmation for user %s", u.Email)
 	}
 	return nil
 }
 
-func SetTemplates(jobs chan job, u *user.User) error {
+func SetTemplates(jobs chan job, u *User) error {
 	var images, allImages []string
 	err := dbConn.Select(&allImages, `
 		SELECT COALESCE(templates.slug, containers.image) FROM containers
@@ -36,8 +30,9 @@ func SetTemplates(jobs chan job, u *user.User) error {
 		images = append(images, img)
 	}
 	if len(images) > 0 {
-		jobs <- job{mode: "set", uid: u.ID, p: map[string]interface{}{
-			"images_list": images}}
+		jobs <- NewJob("set", u.ID, map[string]interface{}{
+			"images_list": images,
+		})
 	} else {
 		logr.Debugf("No containers for user %s", u.Email)
 	}
