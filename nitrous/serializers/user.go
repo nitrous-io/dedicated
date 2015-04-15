@@ -23,6 +23,9 @@ type User struct {
 	PhoneCountryCode string          `json:"phone_country_code"`
 	PhoneAuthed      bool            `json:"phone_authed"`
 
+	MaxRunningTime int64 `json:"max_running_time,omitempty"`
+	RefreshPeriod  int64 `json:"refresh_period,omitempty"`
+
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
@@ -31,7 +34,7 @@ func SerializeUser(u *user.User) *User {
 	if u == nil {
 		return nil
 	}
-	return &User{
+	s := &User{
 		ID:               u.ID,
 		Name:             u.Name,
 		Username:         u.Username,
@@ -47,6 +50,15 @@ func SerializeUser(u *user.User) *User {
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}
+
+	if u.MaxRunningTime.Valid {
+		s.MaxRunningTime = u.MaxRunningTime.Int64
+	}
+	if u.RefreshPeriod.Valid {
+		s.RefreshPeriod = u.RefreshPeriod.Int64
+	}
+
+	return s
 }
 
 func SerializeUserWithProfiles(u *user.User, up *userprofile.UserProfile, bp *billingprofile.BillingProfile) *User {
