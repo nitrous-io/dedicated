@@ -103,12 +103,12 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(BeNil())
 				Expect(len(hosts)).To(Equal(1))
 
-				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
+				err = freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
 				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
 			})
 
 			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
+				err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
 				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 			})
 		})
@@ -120,34 +120,14 @@ var _ = Describe("models/freetier", func() {
 				Expect(h1.TerminatedAt).ToNot(BeNil())
 			})
 
-			It("Should be allowed to create new free host", func() {
-				err := freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-				Expect(err).To(BeNil())
+			It("Should not be allowed to create new free host", func() {
+				err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
 			})
 
 			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostAllowed(db, bp, paidPlan, rightNow)
+				err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
 				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-			})
-
-			It("Should be allowed if previous host did not exceed free time quota", func() {
-				err := insertHostTransition(db, h1.ID, "born", "running",
-					rightNow.Add(-5*time.Hour),
-					rightNow)
-				Expect(err).To(BeNil())
-
-				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-				Expect(err).To(BeNil())
-			})
-
-			It("Should not be allowed if max free time exceeded", func() {
-				err := insertHostTransition(db, h1.ID, "born", "running",
-					rightNow.Add(-11*time.Hour),
-					rightNow)
-				Expect(err).To(BeNil())
-
-				err = freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
-				Expect(err).To(Equal(freetier.ErrFreeTimeLimitExceeded))
 			})
 		})
 
@@ -197,7 +177,7 @@ var _ = Describe("models/freetier", func() {
 		})
 
 		It("Should not be allowed to create host with free plan", func() {
-			err := freetier.CreateHostAllowed(db, bp, freePlan, rightNow)
+			err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
 			Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
 		})
 	})

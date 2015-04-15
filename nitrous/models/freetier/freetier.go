@@ -18,39 +18,35 @@ var (
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
 )
 
-func hasNonTerminatedHost(hs []*host.Host) bool {
-	for _, h := range hs {
-		if h.TerminatedAt == nil {
-			return true
-		}
+// Checks whether a user of given billing profile can create new free tier host.
+// It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
+func CreateFreeTierHostAllowed(d *db.Database, bp *billingprofile.BillingProfile) error {
+	if !bp.IsFreeTier() {
+		return ErrFreePlanNotAllowed
 	}
-	return false
+
+	hosts, err := host.FindAllWithTerminated(d, bp.UserID)
+	if err != nil {
+		return err
+	}
+
+	if len(hosts) > 0 {
+		return ErrMaxFreeHostReached
+	}
+
+	return nil
 }
 
-func CreateHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan, now time.Time) error {
+// Checks whether a free/paid user can create a host of given plan.
+func CreateHostWithPlanAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan) error {
 	if bp.IsFreeTier() {
-		// Free tier users cannot create hosts with paid plan
-		if p.Price != 0 {
+		if !p.IsFree() {
+			// Free-tier user must upgrade their billing profile first before creating paid plan
 			return ErrPaidPlanNotAllowed
 		}
 
-		usage, hosts, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
-		if err != nil {
-			return err
-		}
+		return CreateFreeTierHostAllowed(d, bp)
 
-		// Skip if user don't have any host created
-		if len(hosts) == 0 {
-			return nil
-		}
-
-		if hasNonTerminatedHost(hosts) {
-			return ErrMaxFreeHostReached
-		}
-
-		if usage >= bp.MaxMinutes() {
-			return ErrFreeTimeLimitExceeded
-		}
 	} else {
 		// Paid users cannot create hosts with free plan
 		if p.IsFree() {
