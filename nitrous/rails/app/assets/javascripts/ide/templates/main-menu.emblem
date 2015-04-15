@@ -22,6 +22,18 @@
             a href='/app/#/account'
               | Account Settings
           li.separator
+          if App.usage
+            li
+              span.usage
+                if App.usage.expired
+                  | Daily usage exceeded
+                else
+                  = durationInWords App.usage.remaining
+                  |  of usage available
+                if App.usage.refreshIn
+                  ' , resets in
+                  = durationInWords App.usage.refreshIn
+            li.separator
           li
             a href='/app/#/logout'
               | Log Out

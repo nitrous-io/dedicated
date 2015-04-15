@@ -67,6 +67,18 @@
           li
             link-to 'billing' | Billing
           li.separator
+          if App.usage
+            li
+              span.usage
+                if App.usage.expired
+                  | Daily usage exceeded
+                else
+                  = durationInWords App.usage.remaining
+                  |  of usage available
+                if App.usage.refreshIn
+                  ' , resets in
+                  = durationInWords App.usage.refreshIn
+            li.separator
           li
             a href='http://docs.nitrous.io/' target='_blank' Help
           li.separator
