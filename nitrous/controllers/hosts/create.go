@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/nitrous-io/nitrous-common/flusher"
 
@@ -118,7 +117,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = freetier.CreateHostAllowed(db, bp, pl, time.Now())
+	err = freetier.CreateHostWithPlanAllowed(db, bp, pl)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreePlanNotAllowed:

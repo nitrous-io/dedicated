@@ -827,7 +827,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("paid_plan_not_allowed"))
 				})
 
-				It("responds with HTTP 403 Forbidden when user already has a non-terminated host", func() {
+				It("responds with HTTP 403 Forbidden when user has created host before", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
@@ -841,7 +841,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("max_free_host_reached"))
 				})
 
-				It("responds success if there is no non-terminated host", func() {
+				It("responds success if there is no host created before", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
