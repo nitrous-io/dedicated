@@ -117,3 +117,20 @@ func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
 
 	return nil
 }
+
+func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
+	// query for hosts where their owners have limits and the hosts have exceeded these limits
+	query := `SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+    FROM hosts
+    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+    INNER JOIN users ON hosts.user_id = users.id
+    WHERE last_running_at IS NOT NULL AND terminated_at IS NULL AND preprovisioned IS FALSE
+    AND state = $1 AND users.max_running_time IS NOT NULL AND users.refresh_period IS NOT NULL
+    AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+	hosts := []*host.Host{}
+	err := d.Select(&hosts, query, host.StateRunning)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}

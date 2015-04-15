@@ -12,7 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -41,7 +41,7 @@ var _ = Describe("models/freetier", func() {
 	BeforeEach(func() {
 		var err error
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		u = &user.User{
@@ -49,7 +49,7 @@ var _ = Describe("models/freetier", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
-		Expect(WrapInTransaction(db, u.Insert)).To(BeNil())
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -110,7 +110,7 @@ var _ = Describe("models/freetier", func() {
 						HourlyPrice: 3000,
 					}
 
-					_, err := CreateHostStack(db, &HostStack{
+					_, err := test.CreateHostStack(db, &test.HostStack{
 						H: h1,
 						U: u,
 						P: freePlan,
@@ -173,7 +173,7 @@ var _ = Describe("models/freetier", func() {
 				HourlyPrice: 3000,
 			}
 
-			_, err := CreateHostStack(db, &HostStack{
+			_, err := test.CreateHostStack(db, &test.HostStack{
 				H: h1,
 				U: u,
 			})
@@ -222,6 +222,123 @@ var _ = Describe("models/freetier", func() {
 			h1.LastRunningAt = pq.NullTime{time.Now().Add(-61 * time.Second), true}
 
 			Expect(freetier.StartHostAllowed(db, u, h1)).To(Equal(freetier.ErrFreeTimeLimitExceeded))
+		})
+	})
+
+	Describe("ExpiredHosts()", func() {
+		var (
+			u2             *user.User
+			h1, h2, h3, h4 *host.Host
+		)
+
+		BeforeEach(func() {
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			h1 = &host.Host{
+				Slug:        "my-host-1",
+				HourlyPrice: 3000,
+			}
+
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				H: h1,
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			h2 = &host.Host{
+				Slug:               "my-host-2",
+				HourlyPrice:        3000,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				State:              host.StateRunning,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h2.Insert(db)).To(BeNil())
+
+			h3 = &host.Host{
+				Slug:               "my-host-3",
+				HourlyPrice:        3000,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				State:              host.StateRunning,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h3.Insert(db)).To(BeNil())
+
+			h4 = &host.Host{
+				Slug:               "my-host-4",
+				HourlyPrice:        3000,
+				UserID:             u2.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				State:              host.StateRunning,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h4.Insert(db)).To(BeNil())
+
+			_, err = db.Exec("UPDATE users SET max_running_time = 60, refresh_period = 86400 WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE users SET max_running_time = 10, refresh_period = 86400 WHERE id = $1", u2.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should be empty if the hosts don't have any running times", func() {
+			res, err := freetier.ExpiredHosts(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(BeEmpty())
+		})
+
+		It("should include hosts that are past their max limit", func() {
+			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+			Expect(err).To(BeNil())
+
+			res, err := freetier.ExpiredHosts(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(HaveLen(3))
+			Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(ConsistOf([]int64{h1.ID, h2.ID, h4.ID}))
+		})
+
+		It("should not include hosts that are not running", func() {
+			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET state = 'orphan' WHERE id = $1", h1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+			Expect(err).To(BeNil())
+
+			res, err := freetier.ExpiredHosts(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(HaveLen(2))
+			Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
+		})
+
+		It("should not include hosts that are pre-provisioned", func() {
+			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET preprovisioned = TRUE WHERE id = $1", h1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+			Expect(err).To(BeNil())
+
+			res, err := freetier.ExpiredHosts(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(HaveLen(2))
+			Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
 		})
 	})
 })
