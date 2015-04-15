@@ -603,6 +603,32 @@ ul.ui.list
   .list-item
     display: flex
     flex-direction: row
+    
+    &.pending-removal
+      .left-accessory img
+        opacity: .4
+      .lines
+        opacity: .5
+
+    &.item-error
+      .gravatar
+        position: relative
+
+        &:after
+          content: "\f06a"
+          font-family: FontAwesome
+          position: absolute
+          top: 0
+          left: 0
+          width: 36px
+          height: 36px
+          color: #3D464C
+          text-align: center
+          font-size: 14px
+          line-height: 36px
+
+      .lines h4
+        opacity: .5
 
     span.sep
       color: $gray400
@@ -690,6 +716,18 @@ ul.ui.list
 
         p
           color: $n2oGray400
+  
+  &.with-margins
+    .list-item .left-accessory
+      padding: 0 0 0 16px
+      
+      .gravatar
+        background: $n2oGray850
+        margin-right: 0
+
+    .list-item:not(:last-of-type)
+      margin-bottom: 12px
+
 
 ul.ui.chips
   margin: 12px 0
