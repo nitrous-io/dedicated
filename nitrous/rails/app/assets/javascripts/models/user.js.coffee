@@ -30,7 +30,7 @@ App.User = klass = App.Model.extend
 
   dismissFirstTime: ->
     @set 'firstTime', false
-    @ajax "POST", "dismiss_first_time"
+    @ajax 'POST', 'dismiss_first_time'
 
 klass.reopenClass
   url: '/user'
