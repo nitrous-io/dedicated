@@ -31,23 +31,8 @@ func init() {
 }
 
 func main() {
-	// TODO: for now disabled, will be enabled by default when more tested
-	if false {
-		airbrake.Init(109646, "97d9ec92f0aeb42ac2fa0ba1bb6a4ded", "production")
-	}
-
-	// return if running in reexec mode, and the reexec func has already finished
-	if reexec.Init() {
-		return
-	}
-
-	// re-export the version so that it can be read elsewhere
-	freighter.Version = version
-
-	var (
-		flVersion    = flag.Bool("v", false, "Display the version and exit")
-		flConfigPath = flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
-	)
+	flVersion := flag.Bool("v", false, "Display the version and exit")
+	flConfigPath := flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
 	flag.Parse()
 
 	if *flVersion {
@@ -56,12 +41,6 @@ func main() {
 	}
 
 	logger := &util.Logger{Level: util.LogLevelDebug}
-
-	defer func() {
-		if r := recover(); r != nil {
-			logger.FatalExit(r)
-		}
-	}()
 
 	conf := &freighter.Config{}
 	// parse config file
@@ -74,6 +53,22 @@ func main() {
 			logger.FatalExit(err)
 		}
 	}
+
+	airbrake.Init(109646, conf.AirbrakeKey, "production")
+
+	// return if running in reexec mode, and the reexec func has already finished
+	if reexec.Init() {
+		return
+	}
+
+	// re-export the version so that it can be read elsewhere
+	freighter.Version = version
+
+	defer func() {
+		if r := recover(); r != nil {
+			logger.FatalExit(r)
+		}
+	}()
 
 	// setup data path
 	if _, err := os.Stat(conf.DataPath); err != nil {

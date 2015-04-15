@@ -6,6 +6,7 @@
   "tls_key": "test1.com.svr.key",
   "secret": "secret.base64.txt",
   "notify_url": "http://172.17.42.1:3333/api/v0/hosts/{slug}/freighterd_hook",
+  "airbrake_key": "",
   "listen": [
     { "proto": "unix", "address": "/var/run/freighterd.sock" },
     { "proto": "tcp", "address": "0.0.0.0:65333" }

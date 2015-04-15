@@ -39,18 +39,19 @@ func WaitForSSH(ctx *HostContext) error {
 }
 
 // create settings for the host with the provided dynamic properties.
-func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
+func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version, airbrakeKey string, publicKeys []string) *Settings {
 	settings := &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
 		Config: &freighter.Config{
-			DataPath:  "/var/lib/freighter",
-			TLSVerify: true,
-			CA:        TLSCALocation,
-			Cert:      TLSCertLocation,
-			Key:       TLSKeyLocation,
-			Secret:    SecretLocation,
-			NotifyURL: notifyURL,
+			DataPath:    "/var/lib/freighter",
+			TLSVerify:   true,
+			CA:          TLSCALocation,
+			Cert:        TLSCertLocation,
+			Key:         TLSKeyLocation,
+			Secret:      SecretLocation,
+			NotifyURL:   notifyURL,
+			AirbrakeKey: airbrakeKey,
 			Listen: []freighter.HostAddress{
 				{Proto: "unix", Address: "/var/run/freighterd.sock"},
 				{Proto: "tcp", Address: fmt.Sprintf("0.0.0.0:%d", DefaultPort)},

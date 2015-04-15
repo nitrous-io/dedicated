@@ -28,4 +28,6 @@ type Config struct {
 	NotifyURL string `json:"notify_url"`
 
 	Listen []HostAddress `json:"listen"`
+
+	AirbrakeKey string `json:"airbrake_key"`
 }

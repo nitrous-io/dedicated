@@ -123,6 +123,7 @@ func (h *Host) Settings() *host.Settings {
 		"http://google.com",
 		"secret",
 		h.Version,
+		"airbrakekey",
 		[]string{"pubkey1", "pubkey2"},
 	)
 }

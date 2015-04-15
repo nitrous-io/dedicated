@@ -21,10 +21,12 @@ var (
 	logToStdout  int32 = 1
 )
 
-// Init initializes airbrake. Must be called before any other calls.
+// Init initializes airbrake. Should be called before any other calls.
+// Should be called even if apiKey is "" (i.e. we don't want sending to
+// airbrake, because in addition to airbrake, it also logs to stdout)
 // apiKey is shown in airbrake dashboard.
 // env should be "dev", "production", "staging"
-// projectID is (I assume) the number in airbrake url e.g.
+// projectID is the number in airbrake url e.g.
 // https://actionio.airbrake.io/projects/109646/groups => 109646
 func Init(projectID int64, apiKey, env string) {
 	if notifier != nil {
@@ -135,36 +137,48 @@ func WaitFinished() {
 	wg.Wait()
 }
 
-func notify(errToSend error, req *http.Request) {
-	err := notifier.Notify(errToSend, req)
-	if err != nil {
-		log.Printf("notifier.Notify() failed with %s", err)
-	}
-}
-
 // Error sends error to airbrake. req is optional, if given info
 // from it will be sent to airbrake
 func Err(err error, req *http.Request) {
-	sendNotice(notifier.Notice(err, req, 3))
+	if notifier != nil {
+		sendNotice(notifier.Notice(err, req, 3))
+	} else {
+		log.Printf("%s", err)
+	}
 }
 
 // Errorf sends error message to aribrake.
 func Errorf(format string, args ...interface{}) {
-	err := errors.New(fmt.Sprintf(format, args...))
-	sendNotice(notifier.Notice(err, nil, 3))
+	msg := fmt.Sprintf(format, args...)
+	if notifier != nil {
+		err := errors.New(msg)
+		sendNotice(notifier.Notice(err, nil, 3))
+	} else {
+		log.Print(msg)
+	}
 }
 
 // Printf is exactly like Errorf. It's here to make it easy to change
 // log.Printf() => airbrake.Printf()
 func Printf(format string, args ...interface{}) {
-	err := errors.New(fmt.Sprintf(format, args...))
-	sendNotice(notifier.Notice(err, nil, 3))
+	msg := fmt.Sprintf(format, args...)
+	if notifier != nil {
+		err := errors.New(msg)
+		sendNotice(notifier.Notice(err, nil, 3))
+	} else {
+		log.Print(msg)
+	}
 }
 
 // LogWithReqErrorf sends error message tied to a given req to aribrake.
 func LogWithReqErrorf(req *http.Request, format string, args ...interface{}) {
-	err := errors.New(fmt.Sprintf(format, args...))
-	sendNotice(notifier.Notice(err, nil, 3))
+	msg := fmt.Sprintf(format, args...)
+	if notifier != nil {
+		err := errors.New(msg)
+		sendNotice(notifier.Notice(err, nil, 3))
+	} else {
+		log.Print(msg)
+	}
 }
 
 func shutdownAndQuit(msg string) {
@@ -182,12 +196,20 @@ func shutdownAndQuit(msg string) {
 // Fatalf sends error message to airbrake and exists the program, like log.Fatalf
 func Fatalf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	sendNotice(notifier.Notice(errors.New(msg), nil, 3))
-	shutdownAndQuit(msg)
+	if notifier != nil {
+		sendNotice(notifier.Notice(errors.New(msg), nil, 3))
+		shutdownAndQuit(msg)
+	} else {
+		log.Fatal(msg)
+	}
 }
 
 func Fatal(v ...interface{}) {
 	msg := fmt.Sprint(v...)
-	sendNotice(notifier.Notice(errors.New(msg), nil, 3))
-	shutdownAndQuit(msg)
+	if notifier != nil {
+		sendNotice(notifier.Notice(errors.New(msg), nil, 3))
+		shutdownAndQuit(msg)
+	} else {
+		log.Fatal(msg)
+	}
 }

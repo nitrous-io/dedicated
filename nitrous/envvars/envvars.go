@@ -55,6 +55,9 @@ var (
 	TwilioAccountSID string
 	TwilioAuthToken  string
 
+	// empty string is allowed; disables airbrake tracking on newly-built host freighters
+	AirbrakeKey string
+
 	// Controls whether 'update now' option is available to users.  Defaults to
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
 	// false
@@ -113,6 +116,8 @@ func init() {
 	TwilioNumber = os.Getenv("TWILIO_NUMBER")
 	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
 	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
+
+	AirbrakeKey = os.Getenv("AIRBRAKE_KEY")
 
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {
