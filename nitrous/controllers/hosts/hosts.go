@@ -478,9 +478,6 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishContainersStopped(env, h)
-	publishHostEvent(env, controllers.EventHostRestarted, h)
-
 	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
 	if err != nil {
 		tx.Rollback()
@@ -491,6 +488,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	publishContainersStopped(env, h)
+	publishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
 }

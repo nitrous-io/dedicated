@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -88,6 +89,10 @@ type Host struct {
 	TerminatedAt *time.Time `db:"terminated_at"`
 	CreatedAt    *time.Time `db:"created_at"`
 	UpdatedAt    *time.Time `db:"updated_at"`
+
+	// LastRunningAt records the last time a host became running, it is not reset when the host
+	// is no longer running but rather serves as a marker for systems such as freetier.
+	LastRunningAt pq.NullTime `db:"last_running_at"`
 
 	Secret string `db:"secret"`
 

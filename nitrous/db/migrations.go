@@ -1058,5 +1058,11 @@ func init() {
 				UPDATE users SET max_running_time = NULL, refresh_period = NULL;
 			`,
 		},
+		{
+			Version: "911",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN last_running_at timestamp without time zone DEFAULT NULL;
+			`,
+		},
 	}
 }
