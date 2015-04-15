@@ -52,6 +52,8 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       selectedTemplate: App.get('templates.firstObject')
       selectedOption: null
 
+      nameFieldEdited: false
+
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')
 
