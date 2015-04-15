@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 var (
@@ -17,6 +18,28 @@ var (
 	ErrMaxFreeHostReached    = errors.New("free tier user already has existing free host")
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
 )
+
+func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.State == billingprofile.StateFree {
+		err := CreateFreeTierHostAllowed(d, bp)
+		switch err {
+		case nil:
+			return plan.AllPlansForProvider(d, provider)
+		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+			return plan.PaidPlansForProvider(d, provider)
+		default:
+			return nil, err
+		}
+
+	} else {
+		return plan.PaidPlansForProvider(d, provider)
+	}
+}
 
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host

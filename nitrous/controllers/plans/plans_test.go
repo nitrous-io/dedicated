@@ -86,7 +86,7 @@ var _ = Describe("controllers/plans", func() {
 		}
 
 		Context("when plans exist", func() {
-			plans := []plan.Plan{
+			plans := []*plan.Plan{
 				{
 					Slug:  "free",
 					Price: 0,
@@ -144,7 +144,7 @@ var _ = Describe("controllers/plans", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("returns paid plans of the default provider", func() {
+				It("should return paid plans of the default provider", func() {
 					doRequest()
 					Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -158,13 +158,13 @@ var _ = Describe("controllers/plans", func() {
 				})
 			})
 
-			Context("when user is in free trial", func() {
+			Context("when user is in free tier", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
 					Expect(err).To(BeNil())
 				})
 
-				It("returns free plans of the default provider", func() {
+				It("should return free plans of the default provider", func() {
 					doRequest()
 					Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -175,6 +175,31 @@ var _ = Describe("controllers/plans", func() {
 					Expect(err).To(BeNil())
 
 					Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+				})
+
+				Context("When user has created a free-tier host", func() {
+					BeforeEach(func() {
+						_, err := CreateHostStack(db, &HostStack{
+							U: u,
+							// first plan fixture is free plan,
+							// but it doesn't really matter for this test
+							P: plans[0],
+						})
+						Expect(err).To(BeNil())
+					})
+
+					It("should return only paid plans", func() {
+						doRequest()
+						Expect(res.Code).To(Equal(http.StatusOK))
+
+						j := struct {
+							Plans []*serializers.Plan `json:"plans"`
+						}{}
+						err := json.NewDecoder(res.Body).Decode(&j)
+						Expect(err).To(BeNil())
+
+						Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"start", "shift", "turbo"}))
+					})
 				})
 			})
 		})
