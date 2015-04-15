@@ -122,6 +122,7 @@ func main() {
 		tender.VerboseLog = 1
 	}
 	installSignalHandlers()
+	initDNS()
 
 	db, err := connectDB(databaseURL)
 	if err != nil {
