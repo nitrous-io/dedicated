@@ -44,7 +44,6 @@ var _ = Describe("models/freetier", func() {
 
 	BeforeEach(func() {
 		var err error
-
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
@@ -53,24 +52,13 @@ var _ = Describe("models/freetier", func() {
 			Email:    "foo@example.com",
 			Password: "123456",
 		}
+		Expect(WrapInTransaction(db, u.Insert)).To(BeNil())
 
 		freePlan = &plan.Plan{
 			Slug:          "free plan",
 			Price:         0,
 			MaxContainers: 1,
 		}
-
-		h1 = &host.Host{
-			Slug:        "my-host-1",
-			HourlyPrice: 3000,
-		}
-
-		_, err = CreateHostStack(db, &HostStack{
-			H: h1,
-			U: u,
-			P: freePlan,
-		})
-		Expect(err).To(BeNil())
 
 		paidPlan = &plan.Plan{
 			Slug:          "paid plan",
@@ -97,74 +85,95 @@ var _ = Describe("models/freetier", func() {
 			Expect(err).To(BeNil())
 		})
 
-		Context("when host is running", func() {
-			It("free-tier user should only be allowed to create one free host", func() {
-				hosts, err := host.FindAllByUser(db, u)
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(1))
-
-				err = freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
-				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
-			})
-
-			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
-				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-			})
+		It("should be allowed to create free-tier host", func() {
+			err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+			Expect(err).To(BeNil())
 		})
 
-		Context("when host is terminated", func() {
-			BeforeEach(func() {
-				err := h1.Delete(db)
-				Expect(err).To(BeNil())
-				Expect(h1.TerminatedAt).ToNot(BeNil())
-			})
-
-			It("Should not be allowed to create new free host", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
-				Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
-			})
-
-			It("Should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
-				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-			})
+		It("should not be allowed to create host with paid plan", func() {
+			err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
+			Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 		})
 
-		Context("when host is stopped", func() {
+		Context("When there is host created", func() {
 			BeforeEach(func() {
-				h1.State = host.StateStopped
-				Expect(h1.Update(db)).To(BeNil())
+				h1 = &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 3000,
+				}
+
+				_, err := CreateHostStack(db, &HostStack{
+					H: h1,
+					U: u,
+					P: freePlan,
+				})
+				Expect(err).To(BeNil())
 			})
 
-			It("Should allow start if there is free time remaining", func() {
-				err := insertHostTransition(db, h1.ID, "born", "running",
-					rightNow.Add(-10*time.Hour),
-					rightNow.Add(-5*time.Hour))
-				Expect(err).To(BeNil())
+			Context("when host is running", func() {
+				It("free-tier user should only be allowed to create one free host", func() {
+					hosts, err := host.FindAllByUser(db, u)
+					Expect(err).To(BeNil())
+					Expect(len(hosts)).To(Equal(1))
 
-				err = freetier.StartHostAllowed(db, bp, rightNow)
-				Expect(err).To(BeNil())
+					err = freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+					Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+				})
 			})
 
-			It("Should disallow start if current month free time exceeded", func() {
-				err := insertHostTransition(db, h1.ID, "born", "running",
-					rightNow.Add(-26*time.Hour),
-					rightNow.Add(-5*time.Hour))
-				Expect(err).To(BeNil())
+			Context("when host is terminated", func() {
+				BeforeEach(func() {
+					err := h1.Delete(db)
+					Expect(err).To(BeNil())
+					Expect(h1.TerminatedAt).ToNot(BeNil())
+				})
 
-				err = freetier.StartHostAllowed(db, bp, rightNow)
-				Expect(err).To(Equal(freetier.ErrFreeTimeLimitExceeded))
+				It("Should not be allowed to create new free host", func() {
+					err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+					Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+				})
+
+				It("Should not be allowed to create host with paid plan", func() {
+					err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
+					Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
+				})
 			})
 
-			It("Should allow start when the the exceeded free time is in a previous month", func() {
-				err := insertHostTransition(db, h1.ID, "born", "running",
-					now.BeginningOfMonth().Add(-15*time.Hour),
-					now.BeginningOfMonth().Add(5*time.Hour))
-				Expect(err).To(BeNil())
+			Context("when host is stopped", func() {
+				BeforeEach(func() {
+					h1.State = host.StateStopped
+					Expect(h1.Update(db)).To(BeNil())
+				})
 
-				err = freetier.StartHostAllowed(db, bp, rightNow)
-				Expect(err).To(BeNil())
+				It("Should allow start if there is free time remaining", func() {
+					err := insertHostTransition(db, h1.ID, "born", "running",
+						rightNow.Add(-10*time.Hour),
+						rightNow.Add(-5*time.Hour))
+					Expect(err).To(BeNil())
+
+					err = freetier.StartHostAllowed(db, bp, rightNow)
+					Expect(err).To(BeNil())
+				})
+
+				It("Should disallow start if current month free time exceeded", func() {
+					err := insertHostTransition(db, h1.ID, "born", "running",
+						rightNow.Add(-26*time.Hour),
+						rightNow.Add(-5*time.Hour))
+					Expect(err).To(BeNil())
+
+					err = freetier.StartHostAllowed(db, bp, rightNow)
+					Expect(err).To(Equal(freetier.ErrFreeTimeLimitExceeded))
+				})
+
+				It("Should allow start when the the exceeded free time is in a previous month", func() {
+					err := insertHostTransition(db, h1.ID, "born", "running",
+						now.BeginningOfMonth().Add(-15*time.Hour),
+						now.BeginningOfMonth().Add(5*time.Hour))
+					Expect(err).To(BeNil())
+
+					err = freetier.StartHostAllowed(db, bp, rightNow)
+					Expect(err).To(BeNil())
+				})
 			})
 		})
 	})
