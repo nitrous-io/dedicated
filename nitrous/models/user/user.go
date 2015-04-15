@@ -330,12 +330,11 @@ func (u *User) paymentState(d db.QueryReceiver) (string, error) {
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
-	// admins have free reign
+	// admins and service accounts have free rein
 	if u.Admin || u.ServiceAccount {
 		return true, nil
 	}
 
-	// continue ONLY if the user is a paid, exempt or payment_due user
 	paymentState, err := u.paymentState(d)
 	if err != nil {
 		return false, err
@@ -356,7 +355,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return false, nil
 	}
 
-	// user is a paid/payment_due user, ensure max_hosts limit has not been reached
+	// ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u

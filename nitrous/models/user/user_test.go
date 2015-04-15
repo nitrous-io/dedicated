@@ -773,7 +773,7 @@ var _ = Describe("models/user", func() {
 			Expect(b).To(BeFalse())
 		})
 
-		ItPerformsAdditionalChecks := func() {
+		ItChecksNumberOfHosts := func() {
 			It("returns false, when owned hosts == max hosts", func() {
 				hs, err := CreateHostStack(db, &HostStack{U: u})
 				Expect(err).To(BeNil())
@@ -836,7 +836,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 			})
 
-			ItPerformsAdditionalChecks()
+			ItChecksNumberOfHosts()
 		})
 
 		Context("for a payment_due user account", func() {
@@ -845,7 +845,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 			})
 
-			ItPerformsAdditionalChecks()
+			ItChecksNumberOfHosts()
 		})
 
 		Context("for a exempt user account", func() {
@@ -854,7 +854,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 			})
 
-			ItPerformsAdditionalChecks()
+			ItChecksNumberOfHosts()
 		})
 	})
 
