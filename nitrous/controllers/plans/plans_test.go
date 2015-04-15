@@ -78,11 +78,28 @@ var _ = Describe("controllers/plans", func() {
 	})
 
 	Describe("GET /api/v0/plans", func() {
-		doRequest := func() {
-			req, err := NewRequest("GET", "/api/v0/plans", nil)
+		doRequest := func(url string, auth bool) {
+			req, err := NewRequest("GET", url, nil)
 			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer secret")
+
+			if auth {
+				req.Header.Set("Authorization", "Bearer secret")
+			}
+
 			handler.ServeHTTP(res, req)
+		}
+
+		fetchPlans := func(url string, auth bool) []string {
+			doRequest("/api/v0/plans", auth)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := struct {
+				Plans []*serializers.Plan `json:"plans"`
+			}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			return mapPlansToSlugs(j.Plans)
 		}
 
 		Context("when plans exist", func() {
@@ -138,6 +155,13 @@ var _ = Describe("controllers/plans", func() {
 				Expect(pt.Insert(db)).To(BeNil())
 			})
 
+			Context("When user is not logged in", func() {
+				It("should show all plans", func() {
+					plans := fetchPlans("/api/v0/plans", false)
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+				})
+			})
+
 			Context("when user is paid user", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
@@ -145,16 +169,13 @@ var _ = Describe("controllers/plans", func() {
 				})
 
 				It("should return paid plans of the default provider", func() {
-					doRequest()
-					Expect(res.Code).To(Equal(http.StatusOK))
+					plans := fetchPlans("/api/v0/plans", true)
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				})
 
-					j := struct {
-						Plans []*serializers.Plan `json:"plans"`
-					}{}
-					err := json.NewDecoder(res.Body).Decode(&j)
-					Expect(err).To(BeNil())
-
-					Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				It("should return all plans if all=true is provided", func() {
+					plans := fetchPlans("/api/v0/plans?all=true", true)
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 			})
 
@@ -165,16 +186,8 @@ var _ = Describe("controllers/plans", func() {
 				})
 
 				It("should return free plans of the default provider", func() {
-					doRequest()
-					Expect(res.Code).To(Equal(http.StatusOK))
-
-					j := struct {
-						Plans []*serializers.Plan `json:"plans"`
-					}{}
-					err := json.NewDecoder(res.Body).Decode(&j)
-					Expect(err).To(BeNil())
-
-					Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+					plans := fetchPlans("/api/v0/plans", true)
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 
 				Context("When user has created a free-tier host", func() {
@@ -189,23 +202,15 @@ var _ = Describe("controllers/plans", func() {
 					})
 
 					It("should return only paid plans", func() {
-						doRequest()
-						Expect(res.Code).To(Equal(http.StatusOK))
-
-						j := struct {
-							Plans []*serializers.Plan `json:"plans"`
-						}{}
-						err := json.NewDecoder(res.Body).Decode(&j)
-						Expect(err).To(BeNil())
-
-						Expect(mapPlansToSlugs(j.Plans)).To(ConsistOf([]string{"start", "shift", "turbo"}))
+						plans := fetchPlans("/api/v0/plans", true)
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 					})
 				})
 			})
 		})
 
 		It("returns empty plans array when no plans exist", func() {
-			doRequest()
+			doRequest("/api/v0/plans", true)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {

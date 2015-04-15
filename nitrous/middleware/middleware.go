@@ -103,7 +103,7 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
-func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r *http.Request) error {
+func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) error {
 	label := "nitrous.authenticate"
 	start := time.Now()
 	db := env.DB
@@ -138,7 +138,8 @@ func authenticate(tok string, mw Middleware, env *Env, w http.ResponseWriter, r 
 	mh.UpdateSince(label, start)
 	env.User = u
 	env.Token = t
-	return mw(env, w, r)
+
+	return nil
 }
 
 func Auth(mw Middleware) Middleware {
@@ -150,7 +151,12 @@ func Auth(mw Middleware) Middleware {
 			}
 			return err
 		}
-		return authenticate(tok, mw, env, w, r)
+
+		if err := Authenticate(tok, env, w, r); err != nil {
+			return err
+		}
+
+		return mw(env, w, r)
 	}
 }
 
@@ -203,7 +209,12 @@ func AuthQS(mw Middleware) Middleware {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_request"`)
 			return errInvalidRequest
 		}
-		return authenticate(tok, mw, env, w, r)
+		err := Authenticate(tok, env, w, r)
+		if err != nil {
+			return err
+		}
+
+		return mw(env, w, r)
 	}
 }
 

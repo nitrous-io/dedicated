@@ -87,6 +87,7 @@ func (s *Server) drawRoutes() {
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
+				"/plans":                    r("plans.Index", plans.Index),
 				"/regions":                  r("regions.Index", regions.Index),
 				"/templates":                r("templates.Index", templates.Index),
 				"/app_settings":             r("appsettings.Index", appsettings.Index),
@@ -137,7 +138,6 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/collaborators":    r("containercollabs.Index", containercollabs.Index),
 				"/billing/invoices":                   r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":              r("billing.CurrentUsage", billing.CurrentUsage),
-				"/plans":                              r("plans.Index", plans.Index),
 				"/admin/announcements/global":         r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":            r("announcements.ShowAll", announcements.ShowAll),
 				"/admin/amazon/hosts":                 r("amazon.Hosts", amazon.Hosts),
