@@ -12,7 +12,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   saving: false
   bypassPreprovision: false
   templateName: null
-  plans: App.get('plans')
+  plans: null
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
   nameFieldEdited: false
@@ -21,6 +21,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     @setProperties
       name: null
       plans: App.Plan.fetch().value
+      selectedPlan: @get('plans.firstObject')
       selectedRegion: App.get('regions.firstObject')
       error: null
       invalidField: null
@@ -33,17 +34,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
-  selectedPlan: (->
-    @get('plans.firstObject')
-  ).property 'plans'
-
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    unless @get('selectedPlan')
-      @set('selectedPlan', @get('plans.firstObject'))
+    @set('selectedPlan', @get('plans.firstObject'))
   ).observes 'plans.@each'
 
   regionsDidChange: (->
