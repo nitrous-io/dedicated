@@ -46,6 +46,7 @@ var (
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
 	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
+	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder

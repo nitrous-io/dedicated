@@ -44,8 +44,6 @@ var (
 		"You are not allowed to create a paid workspace")
 	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
 		"You can't create any more free workspaces")
-	errFreeTimeLimitExceeded = httperror.New(http.StatusForbidden, "free_time_limit_exceeded",
-		"You have exceeded your usage for this month")
 )
 
 // hostCreateRequest describes the JSON request used to create a host

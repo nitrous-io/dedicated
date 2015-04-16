@@ -16,7 +16,7 @@ var (
 	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 
-	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
+	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 )
 
