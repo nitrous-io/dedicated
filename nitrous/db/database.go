@@ -23,6 +23,7 @@ const (
 	CONTAINER_CREATE_LOCK
 	INVOICE_USER_LOCK
 	INVOICE_USER_PAY_LOCK
+	HOST_SHUTDOWN_LOCK
 )
 
 func NewDatabase(conn string) (*Database, error) {
