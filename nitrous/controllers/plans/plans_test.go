@@ -104,27 +104,11 @@ var _ = Describe("controllers/plans", func() {
 
 		Context("when plans exist", func() {
 			plans := []*plan.Plan{
-				{
-					Slug:  "free",
-					Price: 0,
-				},
-				{
-					Slug:  "start",
-					Price: 500,
-				},
-				{
-					Slug:  "shift",
-					Price: 1000,
-				},
-				{
-					Slug:  "turbo",
-					Price: 1500,
-				},
-				{
-					Slug:     "hidden",
-					Price:    2000,
-					Disabled: true,
-				},
+				{Slug: "free", Price: 0},
+				{Slug: "start", Price: 500},
+				{Slug: "shift", Price: 1000},
+				{Slug: "turbo", Price: 1500},
+				{Slug: "hidden", Price: 2000, Disabled: true},
 			}
 
 			BeforeEach(func() {

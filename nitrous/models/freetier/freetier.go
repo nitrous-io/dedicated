@@ -25,7 +25,7 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		return nil, err
 	}
 
-	if bp.State == billingprofile.StateFree {
+	if bp.IsFreeTier() {
 		err := CreateFreeTierHostAllowed(d, bp)
 		switch err {
 		case nil:
