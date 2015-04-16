@@ -225,6 +225,24 @@ var _ = Describe("models/freetier", func() {
 		})
 	})
 
+	Describe("StopHostAllowed()", func() {
+		BeforeEach(func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should be true if the user is in the paid tier", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(freetier.StopHostAllowed(db, u)).To(BeTrue())
+		})
+
+		It("should be false if the user is in the free tier", func() {
+			Expect(freetier.StopHostAllowed(db, u)).To(BeFalse())
+		})
+	})
+
 	Describe("ExpiredHosts()", func() {
 		var (
 			u2             *user.User

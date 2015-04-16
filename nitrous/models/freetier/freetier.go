@@ -81,6 +81,15 @@ func CreateHostWithPlanAllowed(d *db.Database, bp *billingprofile.BillingProfile
 	return nil
 }
 
+func StopHostAllowed(d *db.Database, u *user.User) (bool, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return false, err
+	}
+
+	return !bp.IsFreeTier(), nil
+}
+
 func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
 	bp, err := u.BillingProfile(d)
 	if err != nil {

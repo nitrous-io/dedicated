@@ -43,6 +43,8 @@ var (
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
+	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
+	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -336,6 +338,16 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
+
+	if err != nil {
+		return err
+	}
+
+	if !canStop {
+		return errStoppingNotAllowed
+	}
+
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostStopInvalidState
@@ -410,6 +422,16 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
+
+	if err != nil {
+		return err
+	}
+
+	if !canStop {
+		return errRestartingNotAllowed
+	}
+
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
