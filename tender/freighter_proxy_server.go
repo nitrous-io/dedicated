@@ -39,10 +39,6 @@ type FreighterProxyServer struct {
 	// default tls config to talk to remote freighterd server. whenever we
 	// proxy to a server, we have to copy this and set a server name
 	tlsConfig *tls.Config
-
-	// ports specified in this map will be forwarded.
-	// E.g. an entry of 443: 65333 will forward port 443 to 65333.
-	portMap map[int]int
 }
 
 func DumpHostsCache() {
@@ -102,14 +98,11 @@ func hostGet(db *sql.DB, slug string) (*Host, error) {
 
 // NewFreighterProxyServer returns a `http.Handler` which can be used to proxy
 // requests to a freighterd server on a Nitrous.IO host
-func NewFreighterProxyServer(baseDomain, tlsDomain string, portMap map[int]int,
-	db *sql.DB, caBytes []byte) http.Handler {
-
+func NewFreighterProxyServer(baseDomain, tlsDomain string, db *sql.DB, caBytes []byte) http.Handler {
 	s := &FreighterProxyServer{
 		db:        db,
 		domain:    baseDomain,
 		tlsDomain: tlsDomain,
-		portMap:   portMap,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -141,11 +134,6 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		return err
 	}
 	log.Printf("[INFO] request %v to %s", r, slug)
-
-	fp := parsePort(r)
-	if p, ok := s.portMap[fp]; ok {
-		fp = p
-	}
 
 	host, err := hostGet(s.db, slug)
 	if err != nil {
