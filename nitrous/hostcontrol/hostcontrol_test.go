@@ -55,10 +55,17 @@ var _ = Describe("hostcontrol", func() {
 
 	Describe("Stop()", func() {
 		var (
-			h *host.Host
+			h      *host.Host
+			events []hostcontrol.EventType
 		)
 
+		var evCallback = func(e hostcontrol.EventType) {
+			events = append(events, e)
+		}
+
 		BeforeEach(func() {
+			events = []hostcontrol.EventType{}
+
 			var err error
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
@@ -84,10 +91,11 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h)).To(BeNil())
+			Expect(hostcontrol.Stop(db, l, h, evCallback)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
+			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
 		})
 
 		It("sends the correct payload to hostbuilder", func() {
@@ -99,7 +107,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h)).To(BeNil())
+			Expect(hostcontrol.Stop(db, l, h, evCallback)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -111,27 +119,7 @@ var _ = Describe("hostcontrol", func() {
 			Expect(payload.ID).To(Equal(h.ProviderIdentifier.String), "invalid id")
 			Expect(payload.IPAddress).To(Equal(h.IPAddress.String), "invalid ip_address")
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
-		})
-
-		Context("when host is already stopped", func() {
-			It("allows host to be stopped", func() {
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				replaceTransport(hb, &test.FakeRoundTripper{
-					Message: stopOkResponse,
-					Status:  http.StatusOK,
-				})
-				hostcontrol.HostbuilderClient = hb
-
-				h.State = host.StateStopping
-				err := h.Update(db)
-				Expect(err).To(BeNil())
-
-				Expect(hostcontrol.Stop(db, l, h)).To(BeNil())
-
-				h, err = host.Find(db, u, h.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateStopped))
-			})
+			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
 		})
 
 		Context("when hostbuilder successfully stops the host", func() {
@@ -146,18 +134,19 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("updates the host state to stopped", func() {
-				Expect(hostcontrol.Stop(db, l, h)).To(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, evCallback)).To(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopped))
+				Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
 			})
 
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h)).To(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, evCallback)).To(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -171,6 +160,7 @@ var _ = Describe("hostcontrol", func() {
 					h.ID, host.StateStopped, host.StateStopping).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+				Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
 			})
 		})
 
@@ -186,19 +176,20 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("resets the host to its original state", func() {
-				Expect(hostcontrol.Stop(db, l, h)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, evCallback)).ToNot(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.IPAddress.String).To(Equal("127.0.0.1"))
 				Expect(h.State).To(Equal(host.StateRunning))
+				Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostUpdated))
 			})
 
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, evCallback)).ToNot(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -212,6 +203,7 @@ var _ = Describe("hostcontrol", func() {
 					h.ID, origState, host.StateStopping).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+				Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostUpdated))
 			})
 		})
 	})

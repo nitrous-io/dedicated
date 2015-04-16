@@ -10,6 +10,15 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
+type EventType int64
+type eventFunc func(ev EventType)
+
+const (
+	EventHostStopping EventType = iota + 1
+	EventHostStopped
+	EventHostUpdated
+)
+
 var HostbuilderClient *hostbuilderclient.Hostbuilder
 
 func init() {
@@ -20,7 +29,7 @@ func init() {
 	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
 }
 
-func Stop(db *db.Database, l *logger.Logger, h *host.Host) error {
+func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	origState := h.State
 	h.State = host.StateStopping
 
@@ -40,11 +49,14 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host) error {
 		return err
 	}
 
+	if ev != nil {
+		ev(EventHostStopping)
+	}
+
 	headers := map[string]string{
 		constants.NitrousUUIDHeader: "hostcontrol",
 	}
-
-	if _, err = HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers); err != nil {
+	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers); sErr != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
@@ -63,10 +75,11 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host) error {
 		if err := tx.Commit(); err != nil {
 			l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
 		}
-	}
-	// return error captured by block
-	if err != nil {
-		return err
+
+		if ev != nil {
+			ev(EventHostUpdated)
+		}
+		return sErr
 	}
 
 	h.State = host.StateStopped
@@ -87,5 +100,8 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host) error {
 		return err
 	}
 
+	if ev != nil {
+		ev(EventHostStopped)
+	}
 	return nil
 }

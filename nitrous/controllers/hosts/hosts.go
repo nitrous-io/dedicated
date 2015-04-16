@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -353,65 +354,17 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
-	origState := h.State
-	h.State = host.StateStopping
+	evHandler := func(ev hostcontrol.EventType) {
+		if ev == hostcontrol.EventHostStopping {
+			publishHostEvent(env, controllers.EventHostStopping, h)
+		}
+		if ev == hostcontrol.EventHostUpdated {
+			publishHostEvent(env, controllers.EventHostUpdated, h)
+		}
+	}
 
-	tx, err := env.DB.Beginx()
+	err = hostcontrol.Stop(env.DB, env.Logger, h, evHandler)
 	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	publishHostEvent(env, controllers.EventHostStopping, h)
-
-	if _, err = HostbuilderClient.Stop(h.Provider, h.MachineConfig(), hostbuilderHeaders(env)); err != nil {
-		// Rollback to previous state, log any errors while rolling back, but
-		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := env.DB.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Stop: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Stop: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
-		}
-
-		publishHostEvent(env, controllers.EventHostUpdated, h)
-		return err
-	}
-
-	h.State = host.StateStopped
-
-	tx, err = env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 

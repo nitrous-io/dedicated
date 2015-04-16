@@ -33,7 +33,7 @@ func main() {
 
 	for _, hst := range hosts {
 		logr.Infof("Starting shut down on host %d for user %d", hst.ID, hst.UserID)
-		err := hostcontrol.Stop(dbConn, logr, hst)
+		err := hostcontrol.Stop(dbConn, logr, hst, nil)
 		if err != nil {
 			logr.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 			continue
