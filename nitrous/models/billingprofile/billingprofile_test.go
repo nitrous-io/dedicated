@@ -57,6 +57,24 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 
+		It("billing profile should be cached when called with user.BillingProfile()", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`DELETE FROM billing_profiles WHERE user_id=$1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			// test that calling it doesn't hit the database and get error
+			bp2, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			Expect(bp2).To(Equal(bp))
+
+			// test that normal Find() still hit the database and get error
+			_, err = billingprofile.Find(db, u.ID)
+			Expect(err).ToNot(BeNil())
+		})
+
 		Context("when there's no billing profile for the given user id", func() {
 			It("returns error", func() {
 				p, err := billingprofile.Find(db, 9999)
