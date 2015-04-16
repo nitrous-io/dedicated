@@ -18,6 +18,8 @@
       right: 0
       text-align: center
       animation: .8s ease 1 hero-tagline-in
+      transition: .25s opacity
+      z-index: 5
 
       h2
         font-size: 35px
@@ -49,9 +51,19 @@
       width: 47%
       left: 0
       animation: .8s ease 1 hero-visual-in
+      transition: .4s cubic-bezier(.2,.6,.2,1.2)
+      z-index: 10
+
+      &:hover
+        transform: translate3d(-50%,-45%,0)
+        left: 50%
+
+        & + .hero-tagline
+          opacity: .3
 
       img
         position: relative
+        margin: 0 auto
         right: -100%
         transform: translateX(-100%)
         border-radius: 2px
@@ -73,7 +85,8 @@
     margin-right: 6px
   
   .grid-wrapper
-    padding-top: 60px
+    padding-top: 20px
+    padding-bottom: 0
   
   .grid-item
     margin-top: 20px

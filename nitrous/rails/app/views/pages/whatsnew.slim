@@ -7,16 +7,14 @@
   .page-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'whatsnew' }
-
+      
+      .hero-visual
+        = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
       
       .hero-tagline
         h2 Introducing Nitrous Pro
-        h3 Development environments without the pain
+        h3 Software Development Without the Pain
         = render 'layouts/cta_form'
-
-      .hero-visual
-        = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
-
 
   
   .notice.darker
@@ -125,7 +123,7 @@
       .table
         .col
           .row.title
-            span Free
+            span Lite
           .row
             span 
               i.fa.fa-minus
@@ -147,7 +145,7 @@
               i.fa.fa-minus
               | Very limited configuration
 
-          a.btn.grey-outline href="https://free.nitrous.io" Go to free.nitrous.io
+          a.btn.grey-outline href="https://lite.nitrous.io" Go to lite.nitrous.io
 
 
 
