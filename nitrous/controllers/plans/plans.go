@@ -29,8 +29,8 @@ func optionalLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	return env.User
 }
 
-func showPlans(d *db.Database, u *user.User, showAll bool) ([]*plan.Plan, error) {
-	if u == nil || showAll {
+func showPlans(d *db.Database, u *user.User, showEligible bool) ([]*plan.Plan, error) {
+	if u == nil || !showEligible {
 		return plan.AllPlansForProvider(d, provider)
 	} else {
 		return freetier.EligiblePlansForUser(d, u, provider)
@@ -40,9 +40,9 @@ func showPlans(d *db.Database, u *user.User, showAll bool) ([]*plan.Plan, error)
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := optionalLogin(env, w, r)
 
-	showAll, _ := strconv.ParseBool(r.FormValue("all"))
+	showEligible, _ := strconv.ParseBool(r.FormValue("eligible"))
 
-	pls, err := showPlans(env.DB, u, showAll)
+	pls, err := showPlans(env.DB, u, showEligible)
 	if err != nil {
 		return err
 	}

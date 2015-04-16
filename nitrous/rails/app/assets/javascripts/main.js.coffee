@@ -165,7 +165,7 @@ window.Lib = Ember.Namespace.create()
 App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
-  App.set 'plans', App.Plan.fetch({ all: true }).value
+  App.set 'plans', App.Plan.fetch().value
   App.set 'regions', App.Region.fetch().value
   App.set 'templates', App.Template.fetch().value
   Em.run.later(->

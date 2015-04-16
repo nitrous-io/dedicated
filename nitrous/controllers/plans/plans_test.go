@@ -90,7 +90,7 @@ var _ = Describe("controllers/plans", func() {
 		}
 
 		fetchPlans := func(url string, auth bool) []string {
-			doRequest("/api/v0/plans", auth)
+			doRequest("/api/v0/plans?eligible=true", auth)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {
@@ -141,7 +141,7 @@ var _ = Describe("controllers/plans", func() {
 
 			Context("When user is not logged in", func() {
 				It("should show all plans", func() {
-					plans := fetchPlans("/api/v0/plans", false)
+					plans := fetchPlans("/api/v0/plans?eligible=true", false)
 					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 			})
@@ -153,12 +153,12 @@ var _ = Describe("controllers/plans", func() {
 				})
 
 				It("should return paid plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans", true)
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
 					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 
-				It("should return all plans if all=true is provided", func() {
-					plans := fetchPlans("/api/v0/plans?all=true", true)
+				It("should return all plans if no query parameter is provided", func() {
+					plans := fetchPlans("/api/v0/plans", true)
 					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 			})
@@ -170,7 +170,7 @@ var _ = Describe("controllers/plans", func() {
 				})
 
 				It("should return free plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans", true)
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
 					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 
@@ -186,7 +186,7 @@ var _ = Describe("controllers/plans", func() {
 					})
 
 					It("should return only paid plans", func() {
-						plans := fetchPlans("/api/v0/plans", true)
+						plans := fetchPlans("/api/v0/plans?eligible=true", true)
 						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 					})
 				})
@@ -194,7 +194,7 @@ var _ = Describe("controllers/plans", func() {
 		})
 
 		It("returns empty plans array when no plans exist", func() {
-			doRequest("/api/v0/plans", true)
+			doRequest("/api/v0/plans?eligible=true", true)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {

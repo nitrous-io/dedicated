@@ -20,7 +20,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   clear: ->
     @setProperties
       name: null
-      plans: App.Plan.fetch().value
+      plans: App.Plan.fetch({ eligible: true }).value
       selectedPlan: @get('plans.firstObject')
       selectedRegion: App.get('regions.firstObject')
       error: null
