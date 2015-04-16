@@ -137,5 +137,8 @@ func main() {
 	port := uint16(3333)
 
 	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
-	svr.Start(host, port)
+	err = svr.Start(host, port)
+	if err != nil {
+		logr.Errorf("Error starting nitrousd: %s", err)
+	}
 }
