@@ -175,6 +175,7 @@ build_nitrous() {
   (build "nitrous/cmd/removeexpiredtokens")
   (build "nitrous/cmd/engagement")
   (build "nitrous/cmd/migrate")
+  (build "nitrous/cmd/hostshutdown")
   (build_assets)
 }
 
