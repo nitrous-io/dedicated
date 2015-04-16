@@ -80,6 +80,22 @@ type User struct {
 	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at"`
 	ConfirmedAt        pq.NullTime    `db:"confirmed_at"`
 	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email"`
+
+	// cached billing profile
+	billingProfile *billingprofile.BillingProfile
+}
+
+func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfile, error) {
+	if u.billingProfile == nil {
+		bp, err := billingprofile.Find(d, u.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		u.billingProfile = bp
+	}
+
+	return u.billingProfile, nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
