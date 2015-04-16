@@ -51,9 +51,12 @@ func isEmptyOrCommentLine(s string) bool {
 	return s[0] == '#'
 }
 
-// return key/value pairs for env strings
-func readEnvFileMust(path string) []string {
+// return env strings
+func readEnvFileMust(path string, withOsEnviron bool) []string {
 	var env []string
+	if withOsEnviron {
+		env = os.Environ()
+	}
 	lines := readLinesMust(path)
 	for _, l := range lines {
 		if isEmptyOrCommentLine(l) {
@@ -63,17 +66,23 @@ func readEnvFileMust(path string) []string {
 		if len(parts) != 2 {
 			log.Fatalf("Invalid env line: '%s'\n", l)
 		}
-		env = append(env, parts...)
+		env = append(env, l)
 	}
 	return env
 }
 
+func dumpEnv(env []string) {
+	for _, e := range env {
+		fmt.Printf("%s\n", e)
+	}
+}
+
 func startTenderMust() *exec.Cmd {
-	env := readEnvFileMust("t/.env-tender")
 	cmd := exec.Command("build/tender")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	cmd.Env = env
+	cmd.Env = readEnvFileMust("t/.env-tender", true)
+	//dumpEnv(cmd.Env)
 	err := cmd.Start()
 	exitIfErr(err)
 	return cmd

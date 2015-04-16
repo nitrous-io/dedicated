@@ -10,5 +10,5 @@ function setup() {
   psql -d tender_test -f tender/testdata/fixtures.sql
 }
 
-#setup
+setup
 go run ./t/test_tender.go
