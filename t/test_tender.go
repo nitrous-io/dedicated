@@ -127,7 +127,7 @@ func main() {
 	// TODO: heuristic to give tender time to boot up
 	// should do it by watching tender's stdout for specific lines
 	time.Sleep(time.Second * 5)
-	s, err := httpGet("http://foolishbastard.n2odev.com")
+	s, err := httpGet("http://local.n2odev.com")
 	exitIfErr(err)
 	fmt.Printf("s: '%s'\n", shortenString(s))
 	os.Exit(1)

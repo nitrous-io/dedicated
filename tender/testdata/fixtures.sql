@@ -44,3 +44,5 @@ INSERT INTO containers (slug, cid, host_id)
      VALUES ('python-app', 'qwer', (SELECT id FROM hosts WHERE slug='oldapp' LIMIT 1));
 INSERT INTO containers (slug, cid, host_id)
      VALUES ('nodejs-app', 'zxcv', (SELECT id FROM hosts WHERE slug='newapp' LIMIT 1));
+INSERT INTO containers (slug, cid, host_id)
+     VALUES ('local-app', 'zxcv', (SELECT id FROM hosts WHERE slug='local' LIMIT 1));
