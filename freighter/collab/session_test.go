@@ -1,7 +1,6 @@
 package collab_test
 
 import (
-	"bytes"
 	"reflect"
 	"runtime"
 	"testing"
@@ -75,31 +74,33 @@ func TestRegisterConnection(t *testing.T) {
 		t.Fatalf("should not be nil")
 	}
 
-	buf := &bytes.Buffer{}
-	c := &collab.Connection{Conn: buf}
+	c := &collab.Connection{}
+	s.RegisterConnection(c)
 
-	if _, ok := s.Connections[c]; ok {
-		t.Errorf("connection should not have been registered yet")
+	if len(s.Connections) != 0 {
+		t.Errorf("connection with no ID should not be registerable")
 	}
 
-	if buf.Len() != 0 {
-		t.Errorf("nothing should have been written to buffer yet")
+	c = &collab.Connection{ID: "1"}
+
+	if s.Connections[c.ID] == c {
+		t.Errorf("connection should not have been registered yet")
 	}
 
 	s.RegisterConnection(c)
 
-	if _, ok := s.Connections[c]; !ok {
-		t.Errorf("connection should be registered")
+	if s.Connections[c.ID] != c {
+		t.Errorf("connection should have been registered")
 	}
 
-	c2 := &collab.Connection{}
+	c2 := &collab.Connection{ID: "2"}
 	s.RegisterConnection(c2)
 
-	if _, ok := s.Connections[c]; !ok {
+	if s.Connections[c.ID] != c {
 		t.Errorf("previous connection should still be registered")
 	}
 
-	if _, ok := s.Connections[c2]; !ok {
+	if s.Connections[c2.ID] != c2 {
 		t.Errorf("new connection should also be registered")
 	}
 }
@@ -112,14 +113,14 @@ func TestUnregisterConnection(t *testing.T) {
 		t.Fatalf("should not be nil")
 	}
 
-	c := &collab.Connection{}
-	c2 := &collab.Connection{}
-	c3 := &collab.Connection{}
+	c := &collab.Connection{ID: "1"}
+	c2 := &collab.Connection{ID: "2"}
+	c3 := &collab.Connection{ID: "3"}
 	s.RegisterConnection(c)
 	s.RegisterConnection(c2)
 	s.RegisterConnection(c3)
 
-	if _, ok := s.Connections[c3]; !ok {
+	if s.Connections[c3.ID] != c3 {
 		t.Errorf("connection 3 should be registered")
 	}
 	if collab.GetSession(id) == nil {
@@ -128,13 +129,13 @@ func TestUnregisterConnection(t *testing.T) {
 
 	s.UnregisterConnection(c3)
 
-	if _, ok := s.Connections[c]; !ok {
+	if s.Connections[c.ID] != c {
 		t.Errorf("connection 1 should still be registered")
 	}
-	if _, ok := s.Connections[c2]; !ok {
+	if s.Connections[c2.ID] != c2 {
 		t.Errorf("connection 2 should still be registered")
 	}
-	if _, ok := s.Connections[c3]; ok {
+	if _, ok := s.Connections[c3.ID]; ok {
 		t.Errorf("connection 3 should no longer be registered")
 	}
 	if collab.GetSession(id) == nil {
@@ -143,7 +144,7 @@ func TestUnregisterConnection(t *testing.T) {
 
 	s.UnregisterConnection(c2)
 
-	if _, ok := s.Connections[c2]; ok {
+	if _, ok := s.Connections[c2.ID]; ok {
 		t.Errorf("connection 2 should no longer be registered")
 	}
 	if collab.GetSession(id) == nil {
@@ -152,6 +153,7 @@ func TestUnregisterConnection(t *testing.T) {
 
 	s.UnregisterConnection(c)
 	runtime.Gosched()
+
 	if collab.GetSession(id) != nil {
 		t.Errorf("session should no longer exist")
 	}
@@ -163,9 +165,9 @@ func TestUnregisterConnectionGlobally(t *testing.T) {
 	s := collab.NewSession("foo.rb", "")
 	s2 := collab.NewSession("bar.rb", "")
 
-	c := &collab.Connection{}
-	c2 := &collab.Connection{}
-	c3 := &collab.Connection{}
+	c := &collab.Connection{ID: "1"}
+	c2 := &collab.Connection{ID: "2"}
+	c3 := &collab.Connection{ID: "3"}
 
 	s.RegisterConnection(c)
 	s.RegisterConnection(c2)
@@ -175,24 +177,24 @@ func TestUnregisterConnectionGlobally(t *testing.T) {
 	s2.RegisterConnection(c3)
 
 	collab.UnregisterConnectionGlobally(c2)
-	if _, ok := s.Connections[c2]; ok {
+	if _, ok := s.Connections[c2.ID]; ok {
 		t.Errorf("connection 2 should no longer be registered in session 1")
 	}
-	if _, ok := s2.Connections[c2]; ok {
+	if _, ok := s2.Connections[c2.ID]; ok {
 		t.Errorf("connection 2 should no longer be registered in session 2")
 	}
 
-	if _, ok := s.Connections[c]; !ok {
+	if s.Connections[c.ID] != c {
 		t.Errorf("connection 1 is not affected in session 1")
 	}
-	if _, ok := s.Connections[c3]; !ok {
+	if s.Connections[c3.ID] != c3 {
 		t.Errorf("connection 3 is not affected in session 1")
 	}
 
-	if _, ok := s2.Connections[c]; !ok {
+	if s2.Connections[c.ID] != c {
 		t.Errorf("connection 1 is not affected in session 2")
 	}
-	if _, ok := s2.Connections[c3]; !ok {
+	if s2.Connections[c3.ID] != c3 {
 		t.Errorf("connection 3 is not affected in session 2")
 	}
 
@@ -201,4 +203,46 @@ func TestUnregisterConnectionGlobally(t *testing.T) {
 	// also locks sessionsLock
 	collab.UnregisterConnectionGlobally(c3)
 	collab.UnregisterConnectionGlobally(c)
+}
+
+func TestUpdateConnection(t *testing.T) {
+	collab.Sessions = map[string]*collab.Session{}
+
+	s := collab.NewSession("foo.rb", "")
+	s2 := collab.NewSession("bar.rb", "")
+
+	c := &collab.Connection{ID: "1"}
+	c2 := &collab.Connection{ID: "2"}
+	c3 := &collab.Connection{ID: "3"}
+
+	s.RegisterConnection(c)
+	s.RegisterConnection(c2)
+	s.RegisterConnection(c3)
+	s2.RegisterConnection(c)
+	s2.RegisterConnection(c2)
+	s2.RegisterConnection(c3)
+
+	c4 := &collab.Connection{ID: c2.ID}
+	collab.UpdateConnection(c4)
+
+	if s.Connections[c2.ID] != c4 {
+		t.Errorf("connection 2 in session 1 should be replaced with connection 4")
+	}
+	if s2.Connections[c2.ID] != c4 {
+		t.Errorf("connection 2 in session 2 should be replaced with connection 4")
+	}
+
+	if s.Connections[c.ID] != c {
+		t.Errorf("connection 1 is not affected in session 1")
+	}
+	if s.Connections[c3.ID] != c3 {
+		t.Errorf("connection 3 is not affected in session 1")
+	}
+
+	if s2.Connections[c.ID] != c {
+		t.Errorf("connection 1 is not affected in session 2")
+	}
+	if s2.Connections[c3.ID] != c3 {
+		t.Errorf("connection 3 is not affected in session 2")
+	}
 }

@@ -17,7 +17,7 @@ func init() {
 
 type Session struct {
 	ID          string
-	Connections map[*Connection]struct{}
+	Connections map[string]*Connection
 	Lock        sync.Mutex
 
 	*session.Session
@@ -38,15 +38,18 @@ func NewSession(id string, document string) *Session {
 	s := &Session{
 		ID:          id,
 		Session:     session.New(document),
-		Connections: map[*Connection]struct{}{},
+		Connections: map[string]*Connection{},
 	}
 	Sessions[id] = s
 	return s
 }
 
 func (s *Session) RegisterConnection(c *Connection) {
+	if c.ID == "" {
+		return
+	}
 	s.Lock.Lock()
-	s.Connections[c] = struct{}{}
+	s.Connections[c.ID] = c
 	s.AddClient(c.ID)
 	s.SetName(c.ID, c.Username)
 	s.Lock.Unlock()
@@ -54,25 +57,45 @@ func (s *Session) RegisterConnection(c *Connection) {
 
 func (s *Session) UnregisterConnection(c *Connection) {
 	s.Lock.Lock()
-	delete(s.Connections, c)
+	delete(s.Connections, c.ID)
 	s.RemoveClient(c.ID)
+	s.Lock.Unlock()
+
 	// close session asychronously
 	// if it's done synchronously, it will result in a deadlock
 	// because UnregisterConnectionGlobally also locks sessionsLock
 	go func() {
 		sessionsLock.Lock()
+		s.Lock.Lock()
 		if len(s.Connections) == 0 {
 			delete(Sessions, s.ID)
 		}
+		s.Lock.Unlock()
 		sessionsLock.Unlock()
 	}()
-	s.Lock.Unlock()
 }
 
 func UnregisterConnectionGlobally(c *Connection) {
 	sessionsLock.Lock()
 	for _, s := range Sessions {
 		s.UnregisterConnection(c)
+	}
+	sessionsLock.Unlock()
+}
+
+// goes though all registered connections, and updates
+// connections with same conn ID with the new conn
+func UpdateConnection(c *Connection) {
+	if c.ID == "" {
+		return
+	}
+	sessionsLock.Lock()
+	for _, s := range Sessions {
+		s.Lock.Lock()
+		if _, ok := s.Connections[c.ID]; ok {
+			s.Connections[c.ID] = c
+		}
+		s.Lock.Unlock()
 	}
 	sessionsLock.Unlock()
 }

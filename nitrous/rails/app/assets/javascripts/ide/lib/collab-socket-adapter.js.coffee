@@ -9,11 +9,15 @@ class ot.CollabSocketAdapter
       # noop
 
     sock.on "left|#{fileName}", (data) =>
-      clientId = data.client_id
+      clientId = data.conn_id
+      @trigger 'client_left', clientId
+
+    sock.on "disconnected|#{fileName}", (data) =>
+      clientId = data.conn_id
       @trigger 'client_left', clientId
 
     sock.on "joined|#{fileName}", (data) =>
-      clientId = data.client_id
+      clientId = data.conn_id
       name = data.username
       @trigger 'set_name', clientId, name
 
@@ -32,8 +36,10 @@ class ot.CollabSocketAdapter
       selection = data[1]
       @trigger 'selection', clientId, selection
 
-    sock.on "reconnect|#{fileName}", =>
+    @onReconnect = =>
       @trigger 'reconnect'
+
+    sock.on 'reconnect', @onReconnect
 
   sendOperation: (revision, operation, selection) ->
     @sock.send @fileName, 'op', revision, operation, selection
@@ -59,4 +65,5 @@ class ot.CollabSocketAdapter
     sock.off "ok|#{fileName}", this
     sock.off "op|#{fileName}", this
     sock.off "sel|#{fileName}", this
-    sock.off "reconnect|#{fileName}", this
+
+    sock.off "reconnect", @onReconnect

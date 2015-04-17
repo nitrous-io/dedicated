@@ -4,11 +4,20 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"sync"
+	"time"
 
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/ot.go/ot"
 	"github.com/nitrous-io/ot.go/ot/operation"
 	"github.com/nitrous-io/ot.go/ot/selection"
+)
+
+var (
+	ConnectionTimeout = 60 * time.Second
+
+	ActiveConnections     = map[string]int{}
+	activeConnectionsLock sync.Mutex
 )
 
 func init() {
@@ -20,12 +29,12 @@ type MessageReaderWriter interface {
 	io.Writer
 }
 
-func Handle(username string, ws MessageReaderWriter) {
+func Handle(ws MessageReaderWriter, username, connID string) {
 	var msgType int
 	var d []byte
 	var err error
 
-	c := NewConnection(username, ws)
+	c := onConnect(ws, username, connID)
 
 	for {
 		msgType, d, err = msgproto.ReadAndDecodeMessage(ws)
@@ -44,15 +53,7 @@ func Handle(username string, ws MessageReaderWriter) {
 		}
 	}
 
-	for _, s := range Sessions {
-		if _, ok := s.Connections[c]; ok {
-			c.Broadcast(s, "left", map[string]string{
-				"client_id": c.ID,
-			})
-		}
-	}
-
-	UnregisterConnectionGlobally(c)
+	onDisconnect(c)
 }
 
 // {"namespace": "something", "event": "create", args: ["#include <stdio.h>\n....", "asfasf", 123123] }
@@ -75,23 +76,62 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 		if !ok {
 			return ErrInvalidArg
 		}
-		join(c, msg.FileName, c.Username, doc)
+		onJoin(c, msg.FileName, c.Username, doc)
 	case "leave":
-		leave(c, msg.FileName)
+		onLeave(c, msg.FileName)
 	case "op":
-		op(c, msg.FileName, msg.Args)
+		onOp(c, msg.FileName, msg.Args)
 	case "sel":
 		data, ok := msg.Args[0].(map[string]interface{})
 		if !ok {
 			return ErrInvalidArg
 		}
-		sel(c, msg.FileName, data)
+		onSel(c, msg.FileName, data)
 	}
 
 	return nil
 }
 
-func join(c *Connection, fileName, username, doc string) {
+func onConnect(ws MessageReaderWriter, username, connID string) *Connection {
+	c := NewConnection(ws, username, connID)
+	// if connection id is given, this is a reconnect
+	if connID != "" {
+		UpdateConnection(c)
+	}
+	activeConnectionsLock.Lock()
+	ActiveConnections[c.ID]++
+	activeConnectionsLock.Unlock()
+	c.Send(nil, "connected", map[string]string{
+		"conn_id": c.ID,
+	})
+	return c
+}
+
+func onDisconnect(c *Connection) {
+	activeConnectionsLock.Lock()
+	if ActiveConnections[c.ID] > 0 {
+		ActiveConnections[c.ID]--
+	}
+	activeConnectionsLock.Unlock()
+
+	time.AfterFunc(ConnectionTimeout, func() {
+		activeConnectionsLock.Lock()
+		defer activeConnectionsLock.Unlock()
+		if ActiveConnections[c.ID] > 0 {
+			return
+		}
+		for _, s := range Sessions {
+			if _, ok := s.Connections[c.ID]; ok {
+				c.Broadcast(s, "disconnected", map[string]string{
+					"conn_id": c.ID,
+				})
+			}
+		}
+		UnregisterConnectionGlobally(c)
+	})
+}
+
+func onJoin(c *Connection, fileName, username, doc string) {
 	s := NewSession(fileName, doc)
 
 	c.Send(s, "doc", map[string]interface{}{
@@ -103,16 +143,16 @@ func join(c *Connection, fileName, username, doc string) {
 	s.RegisterConnection(c)
 
 	c.Send(s, "registered", map[string]string{
-		"client_id": c.ID,
+		"conn_id": c.ID,
 	})
 
 	c.Broadcast(s, "joined", map[string]string{
-		"client_id": c.ID,
-		"username":  c.Username,
+		"conn_id":  c.ID,
+		"username": c.Username,
 	})
 }
 
-func leave(c *Connection, fileName string) {
+func onLeave(c *Connection, fileName string) {
 	s := GetSession(fileName)
 	if s != nil {
 		s.UnregisterConnection(c)
@@ -120,11 +160,11 @@ func leave(c *Connection, fileName string) {
 
 	c.Send(s, "unregistered", nil)
 	c.Broadcast(s, "left", map[string]string{
-		"client_id": c.ID,
+		"conn_id": c.ID,
 	})
 }
 
-func op(c *Connection, fileName string, data []interface{}) {
+func onOp(c *Connection, fileName string, data []interface{}) {
 	s := GetSession(fileName)
 	if s == nil {
 		return
@@ -152,14 +192,12 @@ func op(c *Connection, fileName string, data []interface{}) {
 	// selection (optional)
 	if len(data) >= 3 {
 		selm, ok := data[2].(map[string]interface{})
-		if !ok {
-			return
+		if ok {
+			sel, err := selection.Unmarshal(selm)
+			if err == nil {
+				top.Meta = sel
+			}
 		}
-		sel, err := selection.Unmarshal(selm)
-		if err != nil {
-			return
-		}
-		top.Meta = sel
 	}
 
 	s.Lock.Lock()
@@ -183,7 +221,7 @@ func op(c *Connection, fileName string, data []interface{}) {
 	}
 }
 
-func sel(c *Connection, fileName string, data map[string]interface{}) {
+func onSel(c *Connection, fileName string, data map[string]interface{}) {
 	s := GetSession(fileName)
 	if s == nil {
 		return

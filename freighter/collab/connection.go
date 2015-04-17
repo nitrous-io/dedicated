@@ -22,21 +22,28 @@ type Connection struct {
 	Conn     io.Writer
 }
 
-func NewConnection(username string, conn io.Writer) *Connection {
-	nextConnIDLock.Lock()
+func NewConnection(conn io.Writer, username, id string) *Connection {
+	if id == "" {
+		nextConnIDLock.Lock()
+		id = strconv.FormatInt(nextConnID, 36)
+		nextConnID++
+		nextConnIDLock.Unlock()
+	}
 	c := &Connection{
-		ID:       strconv.FormatInt(nextConnID, 36),
+		ID:       id,
 		Username: username,
 		Conn:     conn,
 	}
-	nextConnID++
-	nextConnIDLock.Unlock()
 	return c
 }
 
 func (c *Connection) Send(s *Session, event string, data interface{}) error {
 	if c.Conn != nil {
-		e := []interface{}{s.ID, event, data}
+		var namespace string
+		if s != nil {
+			namespace = s.ID
+		}
+		e := []interface{}{namespace, event, data}
 		b := &bytes.Buffer{}
 		_, err := b.WriteString("d|")
 		if err != nil {
@@ -55,7 +62,7 @@ func (c *Connection) Send(s *Session, event string, data interface{}) error {
 }
 
 func (c *Connection) Broadcast(s *Session, event string, data interface{}) {
-	for conn, _ := range s.Connections {
+	for _, conn := range s.Connections {
 		if conn != c {
 			conn.Send(s, event, data)
 		}

@@ -10,13 +10,41 @@ import (
 )
 
 func TestNewConnection(t *testing.T) {
-	// TODO
+	b := &bytes.Buffer{}
+
+	// when id is specified
+	c := collab.NewConnection(b, "foo", "myid")
+
+	if actual, expected := reflect.TypeOf(c), reflect.TypeOf(&collab.Connection{}); expected != actual {
+		t.Fatalf("expected type %v, got %v", expected, actual)
+	}
+
+	if actual, expected := c.Conn, b; !reflect.DeepEqual(expected, actual) {
+		t.Errorf("expected Conn to equal %s, got %s", expected, actual)
+	}
+
+	if actual, expected := c.Username, "foo"; expected != actual {
+		t.Errorf("expected Username to equal %s, got %s", expected, actual)
+	}
+
+	if actual, expected := c.ID, "myid"; expected != actual {
+		t.Errorf("expected ID to equal %s, got %s", expected, actual)
+	}
+
+	// when id is not specified
+	c = collab.NewConnection(b, "foo", "")
+	c2 := collab.NewConnection(b, "foo", "")
+	c3 := collab.NewConnection(b, "foo", "")
+
+	if c.ID == c2.ID || c.ID == c3.ID || c2.ID == c3.ID {
+		t.Errorf("expected unique ID to be generated for each connection")
+	}
 }
 
 func TestSend(t *testing.T) {
 	b := &bytes.Buffer{}
 	s := collab.NewSession("foo.rb", "")
-	c := collab.NewConnection("", b)
+	c := collab.NewConnection(b, "user", "")
 	s.RegisterConnection(c)
 
 	data := map[string]interface{}{
@@ -55,9 +83,9 @@ func TestBroadcast(t *testing.T) {
 	b3 := &bytes.Buffer{}
 
 	s := collab.NewSession("foo.rb", "")
-	c := &collab.Connection{Conn: b}
-	c2 := &collab.Connection{Conn: b2}
-	c3 := &collab.Connection{Conn: b3}
+	c := collab.NewConnection(b, "u1", "")
+	c2 := collab.NewConnection(b2, "u2", "")
+	c3 := collab.NewConnection(b3, "u3", "")
 
 	s.RegisterConnection(c)
 	s.RegisterConnection(c2)

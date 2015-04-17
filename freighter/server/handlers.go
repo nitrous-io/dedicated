@@ -695,6 +695,9 @@ func (s *Server) wsCollab(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("Username needs to be specified")
 	}
 
+	// client sends conn_id if it is reconnecting
+	connID := r.FormValue("conn_id")
+
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 
@@ -705,7 +708,7 @@ func (s *Server) wsCollab(w http.ResponseWriter, r *http.Request) error {
 	ws := NewWebSocketConnection(conn, binary)
 	defer ws.Close()
 
-	collab.Handle(username, ws)
+	collab.Handle(ws, username, connID)
 
 	return nil
 }
