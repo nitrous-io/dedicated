@@ -116,8 +116,7 @@
       else
         button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
-      if App.canCreateContainers
-        button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
+      button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
   else
     if isTerminated
       .left

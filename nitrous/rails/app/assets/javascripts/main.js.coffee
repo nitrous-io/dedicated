@@ -136,7 +136,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property 'hosts.loaded', 'hosts.length'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
-  canCreateContainers: Em.computed.bool 'billingProfile.active'
 
   # TODO: Get this logic from server
   canCreateHosts: (->
