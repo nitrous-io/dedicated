@@ -28,14 +28,10 @@ App.IdeDocumentView = Em.View.extend
   otClient: null
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
-  init: ->
-    @documentPathDidChange()
-    @_super.apply this, arguments
-
   didInsertElement: ->
     @_super()
     @insertEditor()
-    @joinCollab()
+    @documentPathDidChange() # also invokes joinCollab
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void to avoid showing confirm dialog
@@ -416,9 +412,10 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.focused'
 
   documentPathDidChange: (->
-    if fileName = @get 'document.path.name'
-      @set 'mode', App.FileTypeDetect.detect fileName
-  ).observes 'document.path.name'
+    if fileName = @get 'document.path.absolutePath'
+      @set 'mode', App.FileTypeDetect.detect(fileName)
+      @joinCollab()
+  ).observes 'document.path.absolutePath'
 
   actions:
     didClickSave: ->

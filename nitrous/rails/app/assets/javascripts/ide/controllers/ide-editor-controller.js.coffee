@@ -126,9 +126,11 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath
-      saveDialog.set 'document.path', path
-      saveDialog.set 'document.clean', true
-      saveDialog.set 'document.focused', true
+      doc = saveDialog.get 'document'
+      doc.setProperties
+        path: path
+        clean: true
+        focused: true
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
       @set 'saveDialog.hide', true
