@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,6 +24,15 @@ On failure does os.Exit(1).
 
 const (
 	defaultFreighterPort = 65333
+	tlsDomain            = ".n2odev.com"
+	privCACertPath       = "script/certs/n2odevpro-ca.crt"
+
+	myCACertPath = "script/certs/n2odev.crt"
+	myCAKeyPath  = "script/certs/n2odev.key"
+)
+
+var (
+	privCACert []byte
 )
 
 func exitIfErr(err error) {
@@ -29,6 +40,12 @@ func exitIfErr(err error) {
 		fmt.Printf("got error: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+func readCertMust() {
+	d, err := ioutil.ReadFile(privCACertPath)
+	exitIfErr(err)
+	privCACert = d
 }
 
 func readLinesMust(path string) []string {
@@ -86,19 +103,57 @@ type FakeFreighterServer struct {
 }
 
 func (s *FakeFreighterServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("url: %s\n", r.URL)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("hello"))
 }
 
+// TcpKeepAliveListener sets TCP keep-alive timeouts on accepted
+// connections. It's used by ListenAndServe and ListenAndServeTLS so
+// dead TCP connections (e.g. closing laptop mid-download) eventually
+// go away.
+//
+// This is copied from net/http package
+type TcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
+}
+
 func simulateFreighterWorker() {
 	port := 61000
+	cert, err := tls.LoadX509KeyPair(myCACertPath, myCAKeyPath)
+	exitIfErr(err)
+	tlsConfig := &tls.Config{
+		NextProtos:   []string{"http/1.1"},
+		Certificates: []tls.Certificate{cert},
+	}
+	tlsConfig.BuildNameToCertificate()
+
 	fmt.Printf("starting fake freighter server on port %d\n", port)
 	addr := fmt.Sprintf(":%d", port)
-	err := http.ListenAndServe(addr, &FakeFreighterServer{})
-	if err != nil {
-		log.Fatalf("simulateFreighterWorker(): http.ListenAndServer() failed with %s", err)
+	srv := &http.Server{
+		Addr:      addr,
+		Handler:   &FakeFreighterServer{},
+		TLSConfig: tlsConfig,
 	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("simulateFreighterWorker(): net.Listen() failed with %s", err)
+	}
+	ln = tls.NewListener(TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	err = srv.Serve(ln)
+	exitIfErr(err)
 }
 
 func startTenderMust() *exec.Cmd {
@@ -138,12 +193,13 @@ func shortenString(s string) string {
 
 func main() {
 	fmt.Printf("starting tender tests\n")
+	readCertMust()
 	go simulateFreighterWorker()
 	cmdTender := startTenderMust()
 	// TODO: heuristic to give tender time to boot up
 	// should do it by watching tender's stdout for specific lines
 	time.Sleep(time.Second * 5)
-	uri := fmt.Sprintf("http://local.n2odev.com:%d", defaultFreighterPort)
+	uri := fmt.Sprintf("https://local.n2odev.com:%d", defaultFreighterPort)
 	s, err := httpGet(uri)
 	exitIfErr(err)
 	fmt.Printf("s: '%s'\n", shortenString(s))
