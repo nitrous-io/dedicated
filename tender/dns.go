@@ -12,7 +12,7 @@ var (
 	dnsPort    = "53"
 )
 
-func initDNS() {
+func InitDNS() {
 	config, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err == nil {
 		if len(config.Servers) > 0 {
