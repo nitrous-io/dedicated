@@ -13,11 +13,11 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
   ).property 'controller.selectedRegion', 'controller.selectedPlan', 'controller.saving'
 
   submitButtonLabel: (->
-    if App.get('newUser')
+    if @get('controller.hasNextStep')
       'Next'
     else
       'Create'
-  ).property 'App.newUser'
+  ).property 'controller.hasNextStep'
 
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
