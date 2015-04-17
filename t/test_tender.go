@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,8 +19,6 @@ that need to be started and running test logic.
 
 On failure does os.Exit(1).
 */
-
-// forego run -e t/.env-tender build/tender
 
 func exitIfErr(err error) {
 	if err != nil {
@@ -77,6 +78,14 @@ func dumpEnv(env []string) {
 	}
 }
 
+type FakeFreighterServer struct {
+}
+
+func simulateFreighterWorker() {
+	port := 65333
+	fmt.Printf("starting fake freighter server on port %d\n", port)
+}
+
 func startTenderMust() *exec.Cmd {
 	cmd := exec.Command("build/tender")
 	cmd.Stderr = os.Stderr
@@ -88,10 +97,39 @@ func startTenderMust() *exec.Cmd {
 	return cmd
 }
 
+func httpGet(uri string) (string, error) {
+	res, err := http.Get(uri)
+	if err != nil {
+		return "", err
+	}
+	d, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode != 200 {
+		return "", errors.New("Not 200")
+	}
+	return string(d), nil
+}
+
+func shortenString(s string) string {
+	maxLen := 78
+	if len(s) >= maxLen {
+		return s[:maxLen]
+	}
+	return s
+}
+
 func main() {
 	fmt.Printf("starting tender tests\n")
 	cmdTender := startTenderMust()
-	fmt.Printf("waiting 10 seconds before killing tender\n")
-	time.Sleep(time.Second * 10)
+	// TODO: heuristic to give tender time to boot up
+	// should do it by watching tender's stdout for specific lines
+	time.Sleep(time.Second * 5)
+	s, err := httpGet("http://foolishbastard.n2odev.com")
+	exitIfErr(err)
+	fmt.Printf("s: '%s'\n", shortenString(s))
+	os.Exit(1)
 	cmdTender.Process.Kill()
 }

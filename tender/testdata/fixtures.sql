@@ -34,6 +34,8 @@ INSERT INTO hosts (slug, ip_address, freighterd_port, state)
      VALUES ('oldapp', '10.0.0.1', 10001, 'running');
 INSERT INTO hosts (slug, ip_address, freighterd_port, state)
      VALUES ('newapp', '10.0.0.2', 10002, 'running');
+ INSERT INTO hosts (slug, ip_address, freighterd_port, state)
+      VALUES ('local', '127.0.0.1', 66000, 'running');
 
 -- containers
 INSERT INTO containers (slug, cid, host_id)
