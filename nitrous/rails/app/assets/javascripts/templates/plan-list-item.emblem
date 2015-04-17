@@ -3,13 +3,17 @@
     .name
       = name
     .price
-      span
-        ' $
-      strong
-        = totalPriceInDollars
-      em
-        '
-        | / mo.
+      if totalPriceInDollars
+        span
+          ' $
+        strong
+          = totalPriceInDollars
+        em
+          '
+          | / mo.
+      else
+        strong
+          | FREE
     table.specs
       tr
         td
