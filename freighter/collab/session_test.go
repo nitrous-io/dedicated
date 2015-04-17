@@ -208,11 +208,13 @@ func TestUnregisterConnectionGlobally(t *testing.T) {
 func TestUpdateConnection(t *testing.T) {
 	collab.Sessions = map[string]*collab.Session{}
 
+	buf := [][]byte{[]byte("foo"), []byte("bar")}
+
 	s := collab.NewSession("foo.rb", "")
 	s2 := collab.NewSession("bar.rb", "")
 
 	c := &collab.Connection{ID: "1"}
-	c2 := &collab.Connection{ID: "2"}
+	c2 := &collab.Connection{ID: "2", Buffer: buf}
 	c3 := &collab.Connection{ID: "3"}
 
 	s.RegisterConnection(c)
@@ -230,6 +232,9 @@ func TestUpdateConnection(t *testing.T) {
 	}
 	if s2.Connections[c2.ID] != c4 {
 		t.Errorf("connection 2 in session 2 should be replaced with connection 4")
+	}
+	if !reflect.DeepEqual(c4.Buffer, buf) {
+		t.Errorf("connection 2's buffer should be copied to connection 4's buffer")
 	}
 
 	if s.Connections[c.ID] != c {

@@ -17,9 +17,11 @@ var (
 )
 
 type Connection struct {
-	ID       string
-	Username string
-	Conn     io.Writer
+	ID         string
+	Username   string
+	Conn       io.Writer
+	Buffer     [][]byte
+	bufferLock sync.Mutex
 }
 
 func NewConnection(conn io.Writer, username, id string) *Connection {
@@ -33,6 +35,7 @@ func NewConnection(conn io.Writer, username, id string) *Connection {
 		ID:       id,
 		Username: username,
 		Conn:     conn,
+		Buffer:   [][]byte{},
 	}
 	return c
 }
@@ -53,9 +56,22 @@ func (c *Connection) Send(s *Session, event string, data interface{}) error {
 		if err != nil {
 			return err
 		}
+
+		// append to buffer
+		c.bufferLock.Lock()
+		c.Buffer = append(c.Buffer, b.Bytes())
+
+		for _, bytes := range c.Buffer {
+			_, err = c.Conn.Write(bytes)
+			if err != nil {
+				break
+			}
+			c.Buffer = c.Buffer[1:]
+		}
+		c.bufferLock.Unlock()
+
 		// data should be written with a single Write call to make sure only one
 		// websocket message (frame) is sent
-		_, err = c.Conn.Write(b.Bytes())
 		return err
 	}
 	return nil

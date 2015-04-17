@@ -92,7 +92,8 @@ func UpdateConnection(c *Connection) {
 	sessionsLock.Lock()
 	for _, s := range Sessions {
 		s.Lock.Lock()
-		if _, ok := s.Connections[c.ID]; ok {
+		if prev, ok := s.Connections[c.ID]; ok {
+			c.Buffer = prev.Buffer
 			s.Connections[c.ID] = c
 		}
 		s.Lock.Unlock()

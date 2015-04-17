@@ -1,16 +1,31 @@
 package collab_test
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/freighter/collab"
 )
 
+type Writer struct {
+	Written [][]byte
+}
+
+func (w *Writer) Write(p []byte) (n int, err error) {
+	w.Written = append(w.Written, p)
+	return len(p), nil
+}
+
+type ErroringWriter struct{}
+
+func (w *ErroringWriter) Write(p []byte) (n int, err error) {
+	return 0, errors.New("error")
+}
+
 func TestNewConnection(t *testing.T) {
-	b := &bytes.Buffer{}
+	b := &Writer{}
 
 	// when id is specified
 	c := collab.NewConnection(b, "foo", "myid")
@@ -42,7 +57,7 @@ func TestNewConnection(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	b := &bytes.Buffer{}
+	b := &Writer{}
 	s := collab.NewSession("foo.rb", "")
 	c := collab.NewConnection(b, "user", "")
 	s.RegisterConnection(c)
@@ -53,11 +68,11 @@ func TestSend(t *testing.T) {
 	}
 	err := c.Send(s, "foo", data)
 	if err != nil {
-		t.Fatalf("expected no error, got +%v", err)
+		t.Fatalf("this should not happen: %v", err)
 	}
 
 	var d []interface{}
-	j := b.Bytes()
+	j := b.Written[0]
 	if actual := string(j[:2]); actual != "d|" {
 		t.Fatalf(`should begin with "d|", got +s`, actual)
 	}
@@ -73,14 +88,52 @@ func TestSend(t *testing.T) {
 	if !reflect.DeepEqual(d, expected) {
 		t.Errorf("expected %+v to equal %+v", d, expected)
 	}
+
+	// when conn.Write fails, it should buffer and attempt to send
+	// the buffered writes on next Send.
+	b.Written = [][]byte{}
+	c.Conn = &ErroringWriter{}
+
+	err = c.Send(s, "e", "hello??")
+	if err == nil {
+		t.Fatalf("this should not happen")
+	}
+	err = c.Send(s, "e", "what's going on??")
+	if err == nil {
+		t.Fatalf("this should not happen")
+	}
+
+	if len(b.Written) > 0 {
+		t.Errorf("nothing should have been written to buffer yet")
+	}
+
+	c.Conn = b
+	err = c.Send(s, "e", "ok phew")
+	if err != nil {
+		t.Fatalf("this should not happen: %v", err)
+	}
+
+	if len(b.Written) != 3 {
+		t.Fatalf("3 writes should have happened")
+	}
+
+	if actual, expected := string(b.Written[0]), `d|["foo.rb","e","hello??"]`+"\n"; actual != expected {
+		t.Errorf("expected %s to have been written, got %s", expected, actual)
+	}
+	if actual, expected := string(b.Written[1]), `d|["foo.rb","e","what's going on??"]`+"\n"; actual != expected {
+		t.Errorf("expected %s to have been written, got %s", expected, actual)
+	}
+	if actual, expected := string(b.Written[2]), `d|["foo.rb","e","ok phew"]`+"\n"; actual != expected {
+		t.Errorf("expected %s to have been written, got %s", expected, actual)
+	}
 }
 
 func TestBroadcast(t *testing.T) {
 	collab.Sessions = map[string]*collab.Session{}
 
-	b := &bytes.Buffer{}
-	b2 := &bytes.Buffer{}
-	b3 := &bytes.Buffer{}
+	b := &Writer{}
+	b2 := &Writer{}
+	b3 := &Writer{}
 
 	s := collab.NewSession("foo.rb", "")
 	c := collab.NewConnection(b, "u1", "")
@@ -97,7 +150,7 @@ func TestBroadcast(t *testing.T) {
 	}
 	c.Broadcast(s, "foo", data)
 
-	if b.Len() != 0 {
+	if len(b.Written) != 0 {
 		t.Errorf("nothing should have been written to connection 1's buffer")
 	}
 
@@ -107,9 +160,9 @@ func TestBroadcast(t *testing.T) {
 		data,
 	}
 
-	for _, b := range []*bytes.Buffer{b2, b3} {
+	for _, b := range []*Writer{b2, b3} {
 		var d []interface{}
-		j := b.Bytes()
+		j := b.Written[0]
 		if actual := string(j[:2]); actual != "d|" {
 			t.Fatalf(`should begin with "d|", got +s`, actual)
 		}
