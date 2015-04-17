@@ -70,6 +70,7 @@ var _ = Describe("getHostname", func() {
 			{"hello.yammer.nitrousapp.com:65333", ".nitrousapp.com", "yammer"},
 			{"hello.dropbox.nitrousapp.com", ".nitrousapp.com", "dropbox"},
 			{"umm.hello.yammer.nitrousapp.com:65333", ".nitrousapp.com", "yammer"},
+			{"trailingdot.nitrousapp.com.", ".nitrousapp.com", "trailingdot"},
 		}
 
 		for _, tc := range testCases {

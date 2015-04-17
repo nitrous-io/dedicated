@@ -98,11 +98,15 @@ func hostToIP(req *http.Request, ip net.IP, port int) string {
 // winterfell.yammer.nitrousapp.com:8000, it will return host name as "yammer"
 // yammer.nitrousapp.com:65333, it will return host name as "yammer"
 // foo.bar.yammer.nitrousapp.com:65333, it will return host name as "yammer"
+// trailingdot.nitrousapp.com., it will return host name as "trailingdot"
 //
 // If there's mismatched in domain, the error will be ErrDomainMismatched
 func getHostname(url, baseDomain string) (string, error) {
 	var err error
-	domain := url
+
+	// if `url` argument comes from resolved CNAME DNS entry, it will have a
+	// trailing dot
+	domain := strings.TrimSuffix(url, ".")
 	if strings.Contains(url, ":") {
 		domain, _, err = net.SplitHostPort(url)
 		if err != nil {
