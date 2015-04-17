@@ -13,12 +13,10 @@
             small Pro
   ul.nav.right
     if App.user
-      li
-        a href='#' click='sendFeedback target="view"'
-          | Send Feedback
       li.ui.dropdown
         a href='#'
-          | New
+          / | New
+          i.fa.fa-plus
           .ui.dropdown-triangle
         ul.dropdown-menu
           li
@@ -63,6 +61,8 @@
         a href='#'
           img.gravatar src={App.user.gravatar}
           = App.user.username
+          if App.usage
+            .free free
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
@@ -74,14 +74,25 @@
             li
               span.usage
                 if App.usage.expired
-                  | Daily usage exceeded
+                  span
+                    i.fa.fa-exclamation-circle 
+                    | Daily usage exceeded
+                  if App.usage.refreshIn
+                    span 
+                      = durationInWords App.usage.refreshIn
+                      |  until reset
+                      
                 else
-                  = durationInWords App.usage.remaining
-                  |  of usage available
-                if App.usage.refreshIn
-                  ' , resets in
-                  = durationInWords App.usage.refreshIn
+                  span.left Usage left:
+                  span.right
+                    = durationInWords App.usage.remaining
+                  .progress-bar
+                    .progress-bar-inner style=App.usage.progressBarStyle
+
             li.separator
+          li
+            a href='#' click='sendFeedback target="view"'
+              | Send Feedback
           li
             a href='http://docs.nitrous.io/' target='_blank' Help
           li.separator
