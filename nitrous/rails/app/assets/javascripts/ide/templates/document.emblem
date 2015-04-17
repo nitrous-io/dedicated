@@ -1,25 +1,11 @@
-.ide-toolbar.top
+.code-editor
+
+.ide-toolbar.bottom.status-bar
   .ide-toolbar-btns
     button.ui.btn click='didClickSave target="view"' disabled=view.savingDisabled
-      i.fa.fa-download
-      '
       | Save
-    button.ui.btn click='didClickFind target="view"'
-      i.fa.fa-search
-      '
-      | Find
-    button.ui.btn.dropdown
-      span
-        = view.modeName
-      span.caret
-      ul.dropdown-menu.modes
-        each view.availableModes
-          li
-            a href='#' click='didSelectMode mode target="view"'
-              if active
-                i.fa.fa-check
-              = name
 
+  .ide-toolbar-btns
     button.ui.btn.dropdown
       span
         if view.softTabs
@@ -28,7 +14,6 @@
           ' Tab Size:
       span
         = view.tabSize
-      .ui.dropdown-triangle
 
       ul.dropdown-menu
         each view.availableTabSizes
@@ -45,4 +30,14 @@
               i.fa.fa-check
             | Soft Tabs (Spaces)
 
-.code-editor
+    button.ui.btn.dropdown
+      span
+        = view.modeName
+      span.caret
+      ul.dropdown-menu.modes.right
+        each view.availableModes
+          li
+            a href='#' click='didSelectMode mode target="view"'
+              if active
+                i.fa.fa-check
+              = name

@@ -24,16 +24,34 @@
     flex-grow: 1
     flex-basis: 0
 
-    .ide-toolbar
+    .ide-tab-bar
       transition: background-color .3s
 
     &:not(.active)
-      > .ide-toolbar, > .ide-document-views > .ide-document-view > .ide-toolbar
+      > .ide-tab-bar, > .ide-document-views > .ide-document-view > .ide-tab-bar
         background: $n2oGray800
 
         > .ide-toolbar-btns
           > .ui.btn
             color: $n2oGray400
+
+  .ide-toolbar.status-bar
+    display: flex
+    flex-direction: row
+    flex-wrap: wrap
+    background: $n2oGray800
+
+    .ui.btn
+      color: $n2oGray400
+      text-transform: none
+      height: 27px
+      font-size: 13px
+
+    .ide-toolbar-btns:first-of-type
+      flex-grow: 1
+
+    ul.dropdown-menu
+      bottom: 27px
 
   .split-panes
     display: flex
