@@ -199,7 +199,8 @@ App.IdeDocumentView = Em.View.extend
     doc = @get 'document.content'
 
     collabSocket.one "doc|#{fileName}", (data) =>
-      cm.setValue(data.document)
+      if data.document != doc
+        @set 'document.content', data.document
       serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
       editorAdapter = new ot.CodeMirrorAdapter(cm)
       otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
