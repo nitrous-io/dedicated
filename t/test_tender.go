@@ -20,6 +20,10 @@ that need to be started and running test logic.
 On failure does os.Exit(1).
 */
 
+const (
+	defaultFreighterPort = 65333
+)
+
 func exitIfErr(err error) {
 	if err != nil {
 		fmt.Printf("got error: %s\n", err)
@@ -81,9 +85,20 @@ func dumpEnv(env []string) {
 type FakeFreighterServer struct {
 }
 
+func (s *FakeFreighterServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("hello"))
+}
+
 func simulateFreighterWorker() {
-	port := 65333
+	port := 61000
 	fmt.Printf("starting fake freighter server on port %d\n", port)
+	addr := fmt.Sprintf(":%d", port)
+	err := http.ListenAndServe(addr, &FakeFreighterServer{})
+	if err != nil {
+		log.Fatalf("simulateFreighterWorker(): http.ListenAndServer() failed with %s", err)
+	}
 }
 
 func startTenderMust() *exec.Cmd {
@@ -123,11 +138,13 @@ func shortenString(s string) string {
 
 func main() {
 	fmt.Printf("starting tender tests\n")
+	go simulateFreighterWorker()
 	cmdTender := startTenderMust()
 	// TODO: heuristic to give tender time to boot up
 	// should do it by watching tender's stdout for specific lines
 	time.Sleep(time.Second * 5)
-	s, err := httpGet("http://local.n2odev.com")
+	uri := fmt.Sprintf("http://local.n2odev.com:%d", defaultFreighterPort)
+	s, err := httpGet(uri)
 	exitIfErr(err)
 	fmt.Printf("s: '%s'\n", shortenString(s))
 	os.Exit(1)
