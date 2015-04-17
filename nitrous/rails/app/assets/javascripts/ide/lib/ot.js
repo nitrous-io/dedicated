@@ -1,4 +1,4 @@
-// Modified, do not overwrite!
+// Heavily customized by Nitrous, do not overwrite!
 
 /*
  *    /\
@@ -15,6 +15,36 @@ if (typeof ot === 'undefined') {
   // Export for browsers
   var ot = {};
 }
+
+ot.rgb = function (color) {
+  return "rgb(" + color + ")";
+}
+
+ot.rgba = function (color, alpha) {
+  return "rgba(" + color + ", " + alpha + ")";
+}
+
+ot.colors = [
+  { bg:  '33, 150, 243', fg: '255, 255, 255' }, // blue 500
+  { bg:   '244, 67, 54', fg: '255, 255, 255' }, // red 500
+  { bg:   '76, 175, 80', fg:       '0, 0, 0' }, // green 500
+  { bg:  '255, 235, 59', fg:       '0, 0, 0' }, // yellow 500
+  { bg:   '0, 150, 136', fg: '255, 255, 255' }, // teal 500
+  { bg:   '233, 30, 99', fg: '255, 255, 255' }, // pink 500
+  { bg:  '156, 39, 176', fg: '255, 255, 255' }, // purple 500
+  { bg:   '255, 152, 0', fg:       '0, 0, 0' }, // orange 500
+  { bg:  '205, 220, 57', fg:       '0, 0, 0' }, // lime 500
+  { bg:   '255, 87, 34', fg: '255, 255, 255' }, // deep orange 500
+  { bg:   '0, 188, 212', fg:       '0, 0, 0' }, // cyan 500
+  { bg:   '121, 85, 72', fg: '255, 255, 255' }, // brown 500
+  { bg: '158, 158, 158', fg:       '0, 0, 0' }, // grey 500
+  { bg:   '63, 81, 181', fg: '255, 255, 255' }, // indigo 500
+  { bg:   '255, 193, 7', fg:       '0, 0, 0' }, // amber 500
+  { bg:  '139, 195, 74', fg:       '0, 0, 0' }, // light-green 500
+  { bg:   '3, 169, 244', fg:       '0, 0, 0' }, // light-blue 500
+  { bg:  '96, 125, 139', fg: '255, 255, 255' }, // blue-grey 500
+  { bg:  '103, 58, 183', fg: '255, 255, 255' }  // deep-purple 500
+];
 
 ot.TextOperation = (function () {
   'use strict';
@@ -1302,24 +1332,28 @@ ot.CodeMirrorAdapter = (function (global) {
 
     var cursorEl = document.createElement('span');
     cursorEl.className = 'ot-cursor';
-    cursorEl.style.borderLeftColor = color;
-    cursorEl.style.height = (cursorCoords.bottom - cursorCoords.top - 1) + 'px';
+    cursorEl.style.backgroundColor = ot.rgb(color.bg);
+    cursorEl.style.height = (cursorCoords.bottom - cursorCoords.top) + 'px';
+
+    var headEl = document.createElement('span');
+    headEl.className = 'ot-cursor-head';
+    headEl.style.backgroundColor = ot.rgb(color.bg);
 
     var nameEl = document.createElement('span');
     nameEl.className = 'ot-cursor-name';
-    nameEl.style.backgroundColor = color;
+    nameEl.style.backgroundColor = ot.rgb(color.bg);
+    nameEl.style.color = ot.rgb(color.fg);
     nameEl.textContent = name;
 
+    cursorEl.appendChild(headEl);
     cursorEl.appendChild(nameEl);
 
     return this.cm.setBookmark(cursorPos, { widget: cursorEl, insertLeft: true });
   };
 
   CodeMirrorAdapter.prototype.setOtherSelectionRange = function (range, color, clientId) {
-    var match = /^#([0-9a-fA-F]{6})$/.exec(color);
-    if (!match) { throw new Error("only six-digit hex colors are allowed."); }
-    var selectionClassName = 'selection-' + match[1];
-    var rule = '.' + selectionClassName + ' { background: ' + color + '; }';
+    var selectionClassName = 'ot-selection-' + color.bg.replace(/[^\d]/g, '');
+    var rule = '.' + selectionClassName + ' { background-color: ' + ot.rgba(color.bg, 0.25) + '; }';
     addStyleRule(rule);
 
     var anchorPos = this.cm.posFromIndex(range.anchor);
@@ -1337,9 +1371,10 @@ ot.CodeMirrorAdapter = (function (global) {
     for (var i = 0; i < selection.ranges.length; i++) {
       var range = selection.ranges[i];
       if (range.isEmpty()) {
-        selectionObjects[i] = this.setOtherCursor(range.head, color, clientId, name);
+        selectionObjects.push(this.setOtherCursor(range.head, color, clientId, name));
       } else {
-        selectionObjects[i] = this.setOtherSelectionRange(range, color, clientId);
+        selectionObjects.push(this.setOtherSelectionRange(range, color, clientId));
+        selectionObjects.push(this.setOtherCursor(range.head, color, clientId, name))
       }
     }
     return {
@@ -1456,15 +1491,17 @@ ot.EditorClient = (function () {
       this.listEl.appendChild(this.li);
     }
 
-    this.setColor(name ? hueFromName(name) : Math.random());
+    this.setColor();
     if (selection) { this.updateSelection(selection); }
   }
 
-  OtherClient.prototype.setColor = function (hue) {
-    this.hue = hue;
-    this.color = hsl2hex(hue, 0.75, 0.5);
-    this.lightColor = hsl2hex(hue, 0.5, 0.9);
-    if (this.li) { this.li.style.color = this.color; }
+  var nextColor = 0;
+
+  OtherClient.prototype.setColor = function () {
+    this.color = ot.colors[nextColor];
+    nextColor = (nextColor + 1) % ot.colors.length;
+
+    if (this.li) { this.li.style.className = ot.rgb(this.color.bg); }
   };
 
   OtherClient.prototype.setName = function (name) {
@@ -1475,8 +1512,6 @@ ot.EditorClient = (function () {
     if (!this.li.parentNode) {
       this.listEl.appendChild(this.li);
     }
-
-    this.setColor(hueFromName(name));
   };
 
   OtherClient.prototype.updateSelection = function (selection) {
@@ -1484,7 +1519,7 @@ ot.EditorClient = (function () {
     this.selection = selection;
     this.mark = this.editorAdapter.setOtherSelection(
       selection,
-      selection.position === selection.selectionEnd ? this.color : this.lightColor,
+      this.color,
       this.id,
       this.name
     );
@@ -1674,37 +1709,6 @@ ot.EditorClient = (function () {
     this.updateSelection();
     this.undoManager.transform(new WrappedOperation(operation, null));
   };
-
-  function rgb2hex (r, g, b) {
-    function digits (n) {
-      var m = Math.round(255*n).toString(16);
-      return m.length === 1 ? '0'+m : m;
-    }
-    return '#' + digits(r) + digits(g) + digits(b);
-  }
-
-  function hsl2hex (h, s, l) {
-    if (s === 0) { return rgb2hex(l, l, l); }
-    var var2 = l < 0.5 ? l * (1+s) : (l+s) - (s*l);
-    var var1 = 2 * l - var2;
-    var hue2rgb = function (hue) {
-      if (hue < 0) { hue += 1; }
-      if (hue > 1) { hue -= 1; }
-      if (6*hue < 1) { return var1 + (var2-var1)*6*hue; }
-      if (2*hue < 1) { return var2; }
-      if (3*hue < 2) { return var1 + (var2-var1)*6*(2/3 - hue); }
-      return var1;
-    };
-    return rgb2hex(hue2rgb(h+1/3), hue2rgb(h), hue2rgb(h-1/3));
-  }
-
-  function hueFromName (name) {
-    var a = 1;
-    for (var i = 0; i < name.length; i++) {
-      a = 17 * (a+name.charCodeAt(i)) % 360;
-    }
-    return a/360;
-  }
 
   // Set Const.prototype.__proto__ to Super.prototype
   function inherit (Const, Super) {
