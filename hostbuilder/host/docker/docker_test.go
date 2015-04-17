@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	dockerclient "github.com/fsouza/go-dockerclient"
 	dockertest "github.com/fsouza/go-dockerclient/testing"
 )
 
@@ -83,18 +85,69 @@ var _ = Describe("host/docker", func() {
 				Expect(info.IPAddress).To(Equal("127.0.0.1"))
 			})
 		})
-	})
 
-	It("fails on NewHost if freighterd_location is not a binary", func() {
-		cases := []string{"/no/such/file", "/etc/hosts"}
-		for _, loc := range cases {
-			_, err := docker.NewHost(
-				map[string]string{
-					"endpoint":            server.URL(),
-					"freighterd_location": loc,
-				}, `{}`)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("Error finding freighterd binary"))
-		}
+		Describe("Start", func() {
+			var h host.Host
+			var err error
+			var info *host.Info
+
+			Context("With docker location", func() {
+				BeforeEach(func() {
+					h, err = docker.NewHost(
+						map[string]string{
+							"endpoint":            server.URL(),
+							"freighterd_location": "/bin/true",
+							"docker_location":     "/bin/true",
+						},
+						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+					)
+					Expect(err).To(BeNil())
+					info, err = h.Create(ioutil.Discard)
+					Expect(err).To(BeNil())
+				})
+
+				It("should start the container", func() {
+					server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						var body dockerclient.HostConfig
+						defer r.Body.Close()
+						err := json.NewDecoder(r.Body).Decode(&body)
+						Expect(err).To(BeNil())
+						Expect(body.Binds).To(HaveLen(2))
+						Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
+						Expect(body.Binds[1]).To(Equal("/bin/true:/usr/bin/docker"))
+					}))
+					info, err = h.Start()
+					Expect(err).To(BeNil())
+				})
+			})
+
+			Context("Without docker location", func() {
+				BeforeEach(func() {
+					h, err = docker.NewHost(
+						map[string]string{
+							"endpoint":            server.URL(),
+							"freighterd_location": "/bin/true",
+						},
+						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+					)
+					Expect(err).To(BeNil())
+					info, err = h.Create(ioutil.Discard)
+					Expect(err).To(BeNil())
+				})
+
+				It("should start the container", func() {
+					server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						var body dockerclient.HostConfig
+						defer r.Body.Close()
+						err := json.NewDecoder(r.Body).Decode(&body)
+						Expect(err).To(BeNil())
+						Expect(body.Binds).To(HaveLen(1))
+						Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
+					}))
+					info, err = h.Start()
+					Expect(err).To(BeNil())
+				})
+			})
+		})
 	})
 })
