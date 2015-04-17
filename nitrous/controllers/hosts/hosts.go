@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
@@ -255,12 +254,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
-	bp, err := billingprofile.Find(db, h.UserID)
-	if err != nil {
-		return err
-	}
 
-	err = freetier.StartHostAllowed(db, bp, time.Now())
+	err := freetier.StartHostAllowed(db, env.User, h)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreeTimeLimitExceeded:

@@ -7,16 +7,17 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 var (
-	ErrFreePlanNotAllowed    = errors.New("paying user is not allowed to create a free tier workspace")
-	ErrPaidPlanNotAllowed    = errors.New("free tier user is not allowed to create a paid workspace")
-	ErrMaxFreeHostReached    = errors.New("free tier user already has existing free host")
+	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
+	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
+	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
+
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
+	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 )
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
@@ -80,17 +81,37 @@ func CreateHostWithPlanAllowed(d *db.Database, bp *billingprofile.BillingProfile
 	return nil
 }
 
-func StartHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, now time.Time) error {
-	if !bp.IsFreeTier() {
-		return nil
-	}
-
-	usage, _, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
+func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
+	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
 	}
 
-	if usage >= bp.MaxMinutes() {
+	if !bp.IsFreeTier() {
+		return nil
+	}
+
+	if !u.MaxRunningTime.Valid || !u.RefreshPeriod.Valid {
+		return nil
+	}
+
+	if !h.LastRunningAt.Valid {
+		return ErrLastRunningAtInvalid
+	}
+
+	lastTime := h.LastRunningAt.Time
+
+	now := time.Now().UTC()
+
+	// if the host was last running outside of the refresh period then the host can be started again
+	// regardless of the quota they have used (because the quota has been reset because we are in a new period)
+	refreshPeriod := lastTime.Add(time.Duration(u.RefreshPeriod.Int64) * time.Second)
+	if refreshPeriod.Before(now) {
+		return nil
+	}
+
+	used := int64(now.Sub(lastTime) / time.Second)
+	if used >= u.MaxRunningTime.Int64 {
 		return ErrFreeTimeLimitExceeded
 	}
 
