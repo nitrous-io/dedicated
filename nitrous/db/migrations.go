@@ -1024,5 +1024,31 @@ func init() {
 				UPDATE users SET first_time = FALSE;
 			`,
 		},
+		{
+			Version: "890",
+			Up: `
+				ALTER TABLE users ADD COLUMN phone character varying(255) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN phone_country_code character varying(255) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN phone_authed boolean DEFAULT false NOT NULL;
+				CREATE UNIQUE INDEX index_users_on_phone_and_phone_country_code ON users USING btree (phone, phone_country_code);
+			`,
+		},
+		{
+			Version: "900",
+			Up: `
+				CREATE TABLE verifications (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					phone character varying(255) NOT NULL,
+					code character varying(63) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				-- Allow only one verification at a time (i.e. only 1 phone per
+			    -- user) since we don't need to support multiple phones, for now.
+				CREATE UNIQUE INDEX index_verifications_on_user_id ON verifications USING btree (user_id);
+			`,
+		},
 	}
 }

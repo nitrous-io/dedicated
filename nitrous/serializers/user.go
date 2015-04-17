@@ -19,6 +19,9 @@ type User struct {
 	UnconfirmedEmail string          `json:"unconfirmed_email,omitempty"`
 	PromoCode        string          `json:"promo_code,omitempty"`
 	FirstTime        bool            `json:"first_time"`
+	Phone            string          `json:"phone"`
+	PhoneCountryCode string          `json:"phone_country_code"`
+	PhoneAuthed      bool            `json:"phone_authed"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -37,6 +40,9 @@ func SerializeUser(u *user.User) *User {
 		UnconfirmedEmail: u.UnconfirmedEmail.String,
 		PromoCode:        u.PromoCode.String,
 		FirstTime:        u.FirstTime,
+		Phone:            u.Phone.String,
+		PhoneCountryCode: u.PhoneCountryCode.String,
+		PhoneAuthed:      u.PhoneAuthed,
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,

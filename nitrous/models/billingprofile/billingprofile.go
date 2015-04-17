@@ -24,7 +24,7 @@ var (
 const (
 	// User with no card added (initial state)
 	StateNoCard = "no_card"
-	// Exempted users from paying
+	// User exempt from paying
 	StateExempt = "exempt"
 	// User under free tier
 	StateFree = "free"

@@ -43,6 +43,7 @@ var (
 	ErrPasswordBlank    = errors.New("password can't be blank")
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
 	ErrPasswordTooLong  = errors.New("password is too long (maximum is 30 characters)")
+	ErrPhoneInvalid     = errors.New("phone number is not valid")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
@@ -80,6 +81,10 @@ type User struct {
 	ConfirmationSentAt pq.NullTime    `db:"confirmation_sent_at"`
 	ConfirmedAt        pq.NullTime    `db:"confirmed_at"`
 	UnconfirmedEmail   sql.NullString `db:"unconfirmed_email"`
+
+	Phone            sql.NullString `db:"phone"`
+	PhoneCountryCode sql.NullString `db:"phone_country_code"`
+	PhoneAuthed      bool           `db:"phone_authed"`
 
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
@@ -232,6 +237,34 @@ func (u *User) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(u).StructScan(u)
 }
 
+func (u *User) UpdatePhone(d db.QueryReceiver, phone, country_code string) error {
+	// Both phone and country code are required.
+	if phone == "" || country_code == "" {
+		return ErrPhoneInvalid
+	}
+
+	// `phone_authed = false` condition prevents phone number from being updated
+	// if already been authed. This is because we use phone numbers to uniquely
+	// identify users, so we just prevent it from being changed once it's been
+	// authenticated. We might want to allow this to be changed in future.
+	return d.QueryRowx(`UPDATE users
+		SET phone = $1, phone_country_code = $2, updated_at = now()
+		WHERE id = $3 AND phone_authed = $4
+		RETURNING *`, phone, country_code, u.ID, false).StructScan(u)
+}
+
+func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {
+	// Both phone and country code are required.
+	if !u.Phone.Valid || !u.PhoneCountryCode.Valid {
+		return ErrPhoneInvalid
+	}
+
+	return d.QueryRowx(`UPDATE users
+		SET phone_authed = $1, updated_at = now()
+		WHERE id = $2
+		RETURNING *`, b, u.ID).StructScan(u)
+}
+
 func (u *User) Validate() error {
 	if u.Email == "" {
 		return ErrEmailBlank
@@ -275,6 +308,15 @@ func (u *User) DisplayName() string {
 	return name
 }
 
+// PhoneNumber returns the phone number including a "+" and the country code in
+// front, e.g. +16175551212 (US number) and +6588884444 (SG number).
+func (u *User) PhoneNumber() string {
+	if u.Phone.String == "" || u.PhoneCountryCode.String == "" {
+		return ""
+	}
+	return fmt.Sprintf("+%s%s", u.PhoneCountryCode.String, u.Phone.String)
+}
+
 func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
@@ -288,12 +330,11 @@ func (u *User) paymentState(d db.QueryReceiver) (string, error) {
 }
 
 func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
-	// admins have free reign
+	// admins and service accounts have free rein
 	if u.Admin || u.ServiceAccount {
 		return true, nil
 	}
 
-	// continue ONLY if the user is a paid, exempt or payment_due user
 	paymentState, err := u.paymentState(d)
 	if err != nil {
 		return false, err
@@ -314,7 +355,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return false, nil
 	}
 
-	// user is a paid/payment_due user, ensure max_hosts limit has not been reached
+	// ensure max_hosts limit has not been reached
 	var b bool
 	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
