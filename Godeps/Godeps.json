@@ -218,6 +218,22 @@
 			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
 		},
 		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/operation",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/selection",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/session",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
 			"ImportPath": "github.com/ogier/pflag",
 			"Rev": "e4f7d00f344b0954fa3791a8527d10ba7334eceb"
 		},
