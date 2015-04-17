@@ -25,6 +25,8 @@ App.IdeDocumentView = Em.View.extend
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
+  otClient: null
+
   init: ->
     this.documentPathDidChange()
     @_super.apply this, arguments
@@ -32,10 +34,14 @@ App.IdeDocumentView = Em.View.extend
   didInsertElement: ->
     @_super()
     this.insertEditor()
+    if @get 'document.path'
+      this.joinCollab()
 
   willDestroyElement: ->
     @_super()
     this.destroyEditor()
+    if @get 'document.path'
+      this.leaveCollab()
 
   modeName: (->
     CodeMirror.MODES[@get('mode')]
@@ -184,6 +190,33 @@ App.IdeDocumentView = Em.View.extend
   updateEditor: (setting) ->
     if editor = @get 'editor'
       editor.set setting, @get(setting)
+
+  joinCollab: ->
+    cm  = @get 'editor.codeMirror'
+    collabSocket = App.get 'router.ideController.collabSocket'
+    fileName = @get 'document.path.absolutePath'
+    doc = @get 'document.content'
+
+    collabSocket.one "doc|#{fileName}", (data) =>
+      cm.setValue(data.document)
+      serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
+      editorAdapter = new ot.CodeMirrorAdapter(cm)
+      otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
+      @set 'otClient', otClient
+
+    collabSocket.send(fileName, 'join', doc)
+
+  leaveCollab: ->
+    return unless otClient = @get 'otClient'
+    collabSocket = App.get 'router.ideController.collabSocket'
+
+    if fileName = @get 'document.path.absolutePath'
+      collabSocket.send(fileName, 'leave')
+
+    otClient.serverAdapter.off()
+    otClient.serverAdapter = null
+    otClient.editorAdapter = null
+    @set 'otClient', null
 
   modeDidChange: (->
     @updateEditor('mode')
