@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter"
+	"github.com/nitrous-io/dedicated/freighter/collab"
 	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/pkg/flusher"
 	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
@@ -677,6 +678,36 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 	}
+}
+
+func (s *Server) wsCollab(w http.ResponseWriter, r *http.Request) error {
+	id := mux.Vars(r)["id"]
+	info, err := s.provider.GetInfo(id)
+	if err != nil {
+		return err
+	}
+	if info.State != provider.ContainerStateRunning {
+		return fmt.Errorf("Cannot collaborate on stopped container %v", info.ID)
+	}
+
+	username := r.FormValue("username")
+	if username == "" {
+		return fmt.Errorf("Username needs to be specified")
+	}
+
+	// check if the client request to use BinaryMessage instead of TextMessage
+	binary, _ := strconv.ParseBool(r.FormValue("binary"))
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return fmt.Errorf("failed to upgrade websocket: %v", err)
+	}
+	ws := NewWebSocketConnection(conn, binary)
+	defer ws.Close()
+
+	collab.Handle(username, ws)
+
+	return nil
 }
 
 func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {

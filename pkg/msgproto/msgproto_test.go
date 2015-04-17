@@ -6,12 +6,12 @@ import (
 	"testing"
 )
 
-type FakeWebSocket struct {
+type fakeWebSocket struct {
 	messages [][]byte
 	currMsg  int
 }
 
-func (f *FakeWebSocket) ReadMessage() (int, []byte, error) {
+func (f *fakeWebSocket) ReadMessage() (int, []byte, error) {
 	if f.currMsg >= len(f.messages) {
 		return 0, nil, io.EOF
 	}
@@ -32,7 +32,7 @@ func strArrToBytesArr(a []string) [][]byte {
 func TestReadAndDecodeMessage(t *testing.T) {
 	msgs := []string{"d|t", "d|hey", "d|d|", "c|lola"}
 	exp := []string{"t", "hey", "d|", "lola"}
-	fake := &FakeWebSocket{
+	fake := &fakeWebSocket{
 		messages: strArrToBytesArr(msgs),
 	}
 	got := make([]string, 0)
