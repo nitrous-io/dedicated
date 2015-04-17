@@ -4,7 +4,6 @@ App.CollabSocket = App.EventedSocket.extend
   action: 'collab'
   binary: false
   connID: null
-  isReconnect: false
 
   extraParams: (->
     params = []
@@ -15,10 +14,6 @@ App.CollabSocket = App.EventedSocket.extend
     params.join('&')
   ).property 'App.user.username', 'connID'
 
-  didClose: (ev) ->
-    @set 'isReconnect', true
-    @_super.apply this, arguments
-
   handleMessage: (message) ->
     try
       message = JSON.parse message
@@ -27,10 +22,11 @@ App.CollabSocket = App.EventedSocket.extend
     [filename, event, data] = message
 
     if event == 'connected'
+      if @get('connID')
+        # connID is already set, it is a reconnect
+        @trigger 'reconnected'
       @set 'connID', data.conn_id
-
-      if @get 'isReconnect'
-        @trigger 'reconnect'
+      return
 
     if filename && event
       @trigger("#{event}|#{filename}", data)

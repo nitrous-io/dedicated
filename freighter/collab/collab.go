@@ -79,12 +79,14 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 		onJoin(c, msg.FileName, c.Username, doc)
 	case "leave":
 		onLeave(c, msg.FileName)
+	case "rejoin":
+		onRejoin(c, msg.FileName)
 	case "op":
 		onOp(c, msg.FileName, msg.Args)
 	case "sel":
 		data, ok := msg.Args[0].(map[string]interface{})
 		if !ok {
-			return ErrInvalidArg
+			onSel(c, msg.FileName, nil)
 		}
 		onSel(c, msg.FileName, data)
 	}
@@ -101,7 +103,7 @@ func onConnect(ws MessageReaderWriter, username, connID string) *Connection {
 	activeConnectionsLock.Lock()
 	ActiveConnections[c.ID]++
 	activeConnectionsLock.Unlock()
-	c.Send(nil, "connected", map[string]string{
+	c.Send("", "connected", map[string]string{
 		"conn_id": c.ID,
 	})
 	return c
@@ -134,7 +136,7 @@ func onDisconnect(c *Connection) {
 func onJoin(c *Connection, fileName, username, doc string) {
 	s := NewSession(fileName, doc)
 
-	c.Send(s, "doc", map[string]interface{}{
+	c.Send(fileName, "doc", map[string]interface{}{
 		"document": s.Document,
 		"revision": len(s.Session.Operations),
 		"clients":  s.Session.Clients,
@@ -142,7 +144,7 @@ func onJoin(c *Connection, fileName, username, doc string) {
 
 	s.RegisterConnection(c)
 
-	c.Send(s, "registered", map[string]string{
+	c.Send(fileName, "registered", map[string]string{
 		"conn_id": c.ID,
 	})
 
@@ -158,10 +160,19 @@ func onLeave(c *Connection, fileName string) {
 		s.UnregisterConnection(c)
 	}
 
-	c.Send(s, "unregistered", nil)
+	c.Send(fileName, "unregistered", nil)
 	c.Broadcast(s, "left", map[string]string{
 		"conn_id": c.ID,
 	})
+}
+
+func onRejoin(c *Connection, fileName string) {
+	s := GetSession(fileName)
+	if s != nil && s.Connections[c.ID] == c {
+		c.Send(fileName, "rejoined", nil)
+	} else {
+		c.Send(fileName, "rejoin_failed", nil)
+	}
 }
 
 func onOp(c *Connection, fileName string, data []interface{}) {
@@ -208,7 +219,7 @@ func onOp(c *Connection, fileName string, data []interface{}) {
 		return
 	}
 
-	err = c.Send(s, "ok", nil)
+	err = c.Send(fileName, "ok", nil)
 	if err != nil {
 		return
 	}
@@ -223,18 +234,15 @@ func onOp(c *Connection, fileName string, data []interface{}) {
 
 func onSel(c *Connection, fileName string, data map[string]interface{}) {
 	s := GetSession(fileName)
-	if s == nil {
+	if s == nil || data == nil {
 		return
 	}
-
 	sel, err := selection.Unmarshal(data)
 	if err != nil {
 		return
 	}
-
 	s.Lock.Lock()
-	defer s.Lock.Unlock()
-
 	s.SetSelection(c.ID, sel)
-	c.Broadcast(s, "sel", []interface{}{c.ID, sel.Marshal()})
+	c.Broadcast(s, "sel", []interface{}{c.ID, data})
+	s.Lock.Unlock()
 }

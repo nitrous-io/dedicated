@@ -40,12 +40,8 @@ func NewConnection(conn io.Writer, username, id string) *Connection {
 	return c
 }
 
-func (c *Connection) Send(s *Session, event string, data interface{}) error {
+func (c *Connection) Send(namespace, event string, data interface{}) error {
 	if c.Conn != nil {
-		var namespace string
-		if s != nil {
-			namespace = s.ID
-		}
 		e := []interface{}{namespace, event, data}
 		b := &bytes.Buffer{}
 		_, err := b.WriteString("d|")
@@ -78,9 +74,12 @@ func (c *Connection) Send(s *Session, event string, data interface{}) error {
 }
 
 func (c *Connection) Broadcast(s *Session, event string, data interface{}) {
+	if s == nil {
+		return
+	}
 	for _, conn := range s.Connections {
 		if conn != c {
-			conn.Send(s, event, data)
+			conn.Send(s.ID, event, data)
 		}
 	}
 }

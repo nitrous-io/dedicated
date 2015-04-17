@@ -58,35 +58,19 @@ func TestNewConnection(t *testing.T) {
 
 func TestSend(t *testing.T) {
 	b := &Writer{}
-	s := collab.NewSession("foo.rb", "")
 	c := collab.NewConnection(b, "user", "")
-	s.RegisterConnection(c)
 
 	data := map[string]interface{}{
 		"bar": "baz",
 		"qux": float64(123),
 	}
-	err := c.Send(s, "foo", data)
+	err := c.Send("foo.rb", "foo", data)
 	if err != nil {
 		t.Fatalf("this should not happen: %v", err)
 	}
 
-	var d []interface{}
-	j := b.Written[0]
-	if actual := string(j[:2]); actual != "d|" {
-		t.Fatalf(`should begin with "d|", got +s`, actual)
-	}
-	if err := json.Unmarshal(j[2:], &d); err != nil {
-		t.Fatalf("expected no error, got +%v", err)
-	}
-
-	expected := []interface{}{
-		s.ID,
-		"foo",
-		data,
-	}
-	if !reflect.DeepEqual(d, expected) {
-		t.Errorf("expected %+v to equal %+v", d, expected)
+	if actual, expected := string(b.Written[0]), `d|["foo.rb","foo",{"bar":"baz","qux":123}]`+"\n"; actual != expected {
+		t.Errorf("expected %s to have been written, got %s", expected, actual)
 	}
 
 	// when conn.Write fails, it should buffer and attempt to send
@@ -94,11 +78,11 @@ func TestSend(t *testing.T) {
 	b.Written = [][]byte{}
 	c.Conn = &ErroringWriter{}
 
-	err = c.Send(s, "e", "hello??")
+	err = c.Send("foo.rb", "e", "hello??")
 	if err == nil {
 		t.Fatalf("this should not happen")
 	}
-	err = c.Send(s, "e", "what's going on??")
+	err = c.Send("foo.rb", "e", "what's going on??")
 	if err == nil {
 		t.Fatalf("this should not happen")
 	}
@@ -108,7 +92,7 @@ func TestSend(t *testing.T) {
 	}
 
 	c.Conn = b
-	err = c.Send(s, "e", "ok phew")
+	err = c.Send("foo.rb", "e", "ok phew")
 	if err != nil {
 		t.Fatalf("this should not happen: %v", err)
 	}

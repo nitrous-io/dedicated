@@ -26,6 +26,7 @@ App.IdeDocumentView = Em.View.extend
   foldGutterClass: 'CodeMirror-foldgutter'
 
   otClient: null
+  shouldReloadDocument: false # set to true to reload doc and restart collab session
 
   init: ->
     @documentPathDidChange()
@@ -34,10 +35,7 @@ App.IdeDocumentView = Em.View.extend
   didInsertElement: ->
     @_super()
     @insertEditor()
-
-    if @get 'document.path'
-      @joinCollab()
-
+    @joinCollab()
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void to avoid showing confirm dialog
@@ -197,9 +195,11 @@ App.IdeDocumentView = Em.View.extend
       editor.set setting, @get(setting)
 
   joinCollab: ->
-    cm  = @get 'editor.codeMirror'
+    return unless fileName = @get 'document.path.absolutePath'
+    editor = @get 'editor'
+    editor.set 'readOnly', true
+    cm = editor.get 'codeMirror'
     collabSocket = App.get 'router.ideController.collabSocket'
-    fileName = @get 'document.path.absolutePath'
     doc = @get 'document.content'
 
     collabSocket.one "doc|#{fileName}", (data) =>
@@ -208,6 +208,11 @@ App.IdeDocumentView = Em.View.extend
       editorAdapter = new ot.CodeMirrorAdapter(cm)
       otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
       @set 'otClient', otClient
+      editor.set 'readOnly', false
+
+    collabSocket.on "rejoin_failed|#{fileName}", =>
+      editor.set 'readOnly', true
+      @set 'shouldReloadDocument', true
 
     collabSocket.send(fileName, 'join', doc)
 
@@ -217,11 +222,29 @@ App.IdeDocumentView = Em.View.extend
 
     if fileName = @get 'document.path.absolutePath'
       collabSocket.send(fileName, 'leave')
+      collabSocket.off "rejoin_failed|#{fileName}"
 
     otClient.serverAdapter.off()
     otClient.serverAdapter = null
+    otClient.editorAdapter.detach()
     otClient.editorAdapter = null
     @set 'otClient', null
+
+  shouldReloadDocumentDidChange: (->
+    return unless @get('shouldReloadDocument') && @get('controller.opsSocketReady')
+    @set 'shouldReloadDocument', false
+    doc = @get 'document'
+    return unless fileName = doc.get 'path.absolutePath'
+    @leaveCollab()
+    controller = @get 'controller'
+    opsSocket = controller.get 'opsSocket'
+    opsSocket.fetchFileContent fileName, (err, absolutePath, contentType, content) =>
+      if err || contentType?.match(/^image/)
+        controller.removeTab(doc, true)
+        return
+      doc.set 'content', content
+      @joinCollab()
+  ).observes 'shouldReloadDocument', 'controller.opsSocketReady'
 
   modeDidChange: (->
     @updateEditor('mode')

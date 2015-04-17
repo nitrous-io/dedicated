@@ -1,6 +1,6 @@
 App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
-  modelClass: App.Document
   content: null
+  modelClass: App.Document
   rootPane: null
   activePane: Em.computed.alias 'content'
   saveDialog: null
@@ -54,7 +54,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         userSettings[k.underscore()] = @get(k)
       userSettings.save()
 
-  removeTab: (tab, forceRemove = false) ->
+  removeTab: (tab, forceRemove=false) ->
     tab = @get 'activeTab' unless tab
     if tab.get('clean') || forceRemove
       @_super(tab)

@@ -36,10 +36,13 @@ class ot.CollabSocketAdapter
       selection = data[1]
       @trigger 'selection', clientId, selection
 
-    @onReconnect = =>
+    sock.on "rejoined|#{fileName}", =>
       @trigger 'reconnect'
 
-    sock.on 'reconnect', @onReconnect
+    @onReconnected = =>
+      @sock.send @fileName, 'rejoin'
+
+    sock.on 'reconnected', @onReconnected
 
   sendOperation: (revision, operation, selection) ->
     @sock.send @fileName, 'op', revision, operation, selection
@@ -66,4 +69,4 @@ class ot.CollabSocketAdapter
     sock.off "op|#{fileName}", this
     sock.off "sel|#{fileName}", this
 
-    sock.off "reconnect", @onReconnect
+    sock.off 'reconnected', @onReconnected
