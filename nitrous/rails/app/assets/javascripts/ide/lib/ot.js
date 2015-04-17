@@ -1,3 +1,5 @@
+// Modified, do not overwrite!
+
 /*
  *    /\
  *   /  \ ot 0.0.14
@@ -5,6 +7,8 @@
  *  \    /
  *   \  / (c) 2012-2014 Tim Baumann <tim@timbaumann.info> (http://timbaumann.info)
  *    \/ ot may be freely distributed under the MIT license.
+ *
+ *  Portions Copyright (c) 2015 Nitrous, Inc.
  */
 
 if (typeof ot === 'undefined') {
@@ -1292,20 +1296,22 @@ ot.CodeMirrorAdapter = (function (global) {
     };
   }());
 
-  CodeMirrorAdapter.prototype.setOtherCursor = function (position, color, clientId) {
+  CodeMirrorAdapter.prototype.setOtherCursor = function (position, color, clientId, name) {
     var cursorPos = this.cm.posFromIndex(position);
     var cursorCoords = this.cm.cursorCoords(cursorPos);
+
     var cursorEl = document.createElement('span');
-    cursorEl.className = 'other-client';
-    cursorEl.style.display = 'inline-block';
-    cursorEl.style.padding = '0';
-    cursorEl.style.marginLeft = cursorEl.style.marginRight = '-1px';
-    cursorEl.style.borderLeftWidth = '2px';
-    cursorEl.style.borderLeftStyle = 'solid';
+    cursorEl.className = 'ot-cursor';
     cursorEl.style.borderLeftColor = color;
-    cursorEl.style.height = (cursorCoords.bottom - cursorCoords.top) * 0.9 + 'px';
-    cursorEl.style.zIndex = 0;
-    cursorEl.setAttribute('data-clientid', clientId);
+    cursorEl.style.height = (cursorCoords.bottom - cursorCoords.top - 1) + 'px';
+
+    var nameEl = document.createElement('span');
+    nameEl.className = 'ot-cursor-name';
+    nameEl.style.backgroundColor = color;
+    nameEl.textContent = name;
+
+    cursorEl.appendChild(nameEl);
+
     return this.cm.setBookmark(cursorPos, { widget: cursorEl, insertLeft: true });
   };
 
@@ -1326,12 +1332,12 @@ ot.CodeMirrorAdapter = (function (global) {
     );
   };
 
-  CodeMirrorAdapter.prototype.setOtherSelection = function (selection, color, clientId) {
+  CodeMirrorAdapter.prototype.setOtherSelection = function (selection, color, clientId, name) {
     var selectionObjects = [];
     for (var i = 0; i < selection.ranges.length; i++) {
       var range = selection.ranges[i];
       if (range.isEmpty()) {
-        selectionObjects[i] = this.setOtherCursor(range.head, color, clientId);
+        selectionObjects[i] = this.setOtherCursor(range.head, color, clientId, name);
       } else {
         selectionObjects[i] = this.setOtherSelectionRange(range, color, clientId);
       }
@@ -1479,7 +1485,8 @@ ot.EditorClient = (function () {
     this.mark = this.editorAdapter.setOtherSelection(
       selection,
       selection.position === selection.selectionEnd ? this.color : this.lightColor,
-      this.id
+      this.id,
+      this.name
     );
   };
 
