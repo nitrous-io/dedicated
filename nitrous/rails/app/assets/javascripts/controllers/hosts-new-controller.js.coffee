@@ -47,6 +47,19 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       @set('selectedRegion', App.get('regions.firstObject'))
   ).observes 'App.regions.@each'
 
+  cardRequired: (->
+    App.get('billingProfile.no_card') ||
+    (App.get('billingProfile.free') && @get('selectedPlan.isPaidPlan'))
+  ).property 'App.billingProfile.no_card', 'App.billingProfile.free', 'selectedPlan.isPaidPlan'
+
+  phoneRequired: (->
+    return @get('selectedPlan.requiresPhone') && !App.get('user.phoneAuthed')
+  ).property 'selectedPlan.requiresPhone', 'App.user.phoneAuthed'
+
+  hasNextStep: (->
+    @get('cardRequired') || @get('phoneRequired')
+  ).property 'cardRequired', 'phoneRequired'
+
   actions:
     selectPlan: (plan)->
       @set 'selectedPlan', plan
@@ -72,13 +85,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           name: @get 'name'
       @set 'host', host
 
-      if @get('selectedPlan.requiresPhone')
-        if !App.get('user.phoneAuthed')
-          App.set('pendingHost', host)
-          @transitionToRoute 'add-phone'
-          return
+      if @get('phoneRequired')
+        App.set('pendingHost', host)
+        @transitionToRoute 'add-phone'
+        return
 
-      if App.get('newUser')
+      if @get('cardRequired')
         App.set('pendingHost', host)
         @transitionToRoute 'add-card'
         return
