@@ -17,6 +17,12 @@ App.IdeController = Em.ObjectController.extend
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
+  collabSocketReadyBinding: Em.Binding.oneWay 'collabSocket.started'
+  collabSocketNotReady: Em.computed.not 'collabSocketReady'
+
+  ideSocketsReady: Em.computed.and 'opsSocketReady', 'collabSocketReady'
+  ideSocketsNotReady: Em.computed.not 'ideSocketsReady'
+
   workspaceDir: 'code'
 
   initialize: ->

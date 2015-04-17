@@ -25,13 +25,14 @@ App.IdeDocumentView = Em.View.extend
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
+  collabMode: false
   otClient: null
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
   didInsertElement: ->
     @_super()
     @insertEditor()
-    @documentPathDidChange() # also invokes joinCollab
+    @documentPathDidChange() # also enables collab
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void to avoid showing confirm dialog
@@ -190,7 +191,8 @@ App.IdeDocumentView = Em.View.extend
     if editor = @get 'editor'
       editor.set setting, @get(setting)
 
-  joinCollab: ->
+  # don't call this method directly, instead, set collabMode to true
+  _joinCollab: ->
     return unless fileName = @get 'document.path.absolutePath'
     editor = @get 'editor'
     editor.set 'readOnly', true
@@ -214,6 +216,7 @@ App.IdeDocumentView = Em.View.extend
     collabSocket.send(fileName, 'join', doc)
 
   leaveCollab: ->
+    @set 'collabMode', false
     return unless otClient = @get 'otClient'
     collabSocket = App.get 'router.ideController.collabSocket'
 
@@ -226,6 +229,11 @@ App.IdeDocumentView = Em.View.extend
     otClient.editorAdapter.detach()
     otClient.editorAdapter = null
     @set 'otClient', null
+
+  collabModeDidChange: (->
+    if @get('collabMode') && @get('controller.collabSocketReady')
+      @_joinCollab()
+  ).observes 'collabMode', 'controller.collabSocketReady'
 
   shouldReloadDocumentDidChange: (->
     return unless @get('shouldReloadDocument') && @get('controller.opsSocketReady')
@@ -240,7 +248,7 @@ App.IdeDocumentView = Em.View.extend
         controller.removeTab(doc, true)
         return
       doc.set 'content', content
-      @joinCollab()
+      @set 'collabMode', true
   ).observes 'shouldReloadDocument', 'controller.opsSocketReady'
 
   modeDidChange: (->
@@ -419,7 +427,7 @@ App.IdeDocumentView = Em.View.extend
   documentPathDidChange: (->
     if fileName = @get 'document.path.absolutePath'
       @set 'mode', App.FileTypeDetect.detect(fileName)
-      @joinCollab()
+      @set 'collabMode', true
   ).observes 'document.path.absolutePath'
 
   actions:
