@@ -9,9 +9,7 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
-  opsSocketNotReady: (->
-    !@get 'opsSocketReady'
-  ).property 'opsSocketReady'
+  opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 

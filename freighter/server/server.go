@@ -257,6 +257,10 @@ func (s *Server) drawRoutes() {
 	}).HandlerFunc(s.wrapError(s.httpForward))
 
 	s.route("/", s.home, "GET")
+
+	// advertise features
+	s.route("/features", s.cors(s.features), "GET")
+
 	s.secretRoute("/containers", s.listContainers, "GET")
 	s.secretRoute("/containers", s.createContainer, "POST")
 	s.secretRoute("/containers/{id}", s.getContainerInfo, "GET")
@@ -290,9 +294,14 @@ func (s *Server) drawRoutes() {
 	s.route("/containers/{id}/logs", s.cors(s.wrapError(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
 	s.route("/containers/{id}/attach", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/attach", s.cors(s.wrapError(s.withContainerToken(s.wsAttachToContainer, "attach"))), "GET")
+
 	// handle container operations
 	s.route("/containers/{id}/ops", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/ops", s.cors(s.wrapError(s.withContainerToken(s.wsContainerOps, "ops"))), "GET")
+
+	// handle collab
+	s.route("/containers/{id}/collab", s.handleCORSPreflight, "OPTIONS")
+	s.route("/containers/{id}/collab", s.cors(s.wrapError(s.withContainerToken(s.wsCollab, "collab"))), "GET")
 
 	// handle download/upload files to a container
 	s.route("/containers/{id}/download", s.wrapError(s.withContainerToken(s.downloadContainerFile, "download")), "GET")

@@ -19,7 +19,7 @@
 
   .screen class={view.showImageScreen::hide}
     form submit='goNextOrCreate target="view"'
-      .card-body.bordered
+      .card-body class={App.user.advanced:bordered}
         .ui.input-group
           label.field-label
             | Stack Templates

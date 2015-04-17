@@ -30,12 +30,12 @@ var (
 	heartbeatMsg   byte = 'h'
 )
 
-type messageReader interface {
+type MessageReader interface {
 	ReadMessage() (int, []byte, error)
 }
 
 // returns type (DataMessage or CloseMessage)
-func ReadAndDecodeMessage(ws messageReader) (int, []byte, error) {
+func ReadAndDecodeMessage(ws MessageReader) (int, []byte, error) {
 	for {
 		_, d, err := ws.ReadMessage()
 		if err != nil {

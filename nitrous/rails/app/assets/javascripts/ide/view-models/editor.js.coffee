@@ -4,6 +4,8 @@ App.Editor = klass = Em.Object.extend
 
   text: null
 
+  readOnly: false
+
   autoCloseBrackets: null
   highlightLine: null
   keybindings: null
@@ -156,6 +158,12 @@ App.Editor = klass = Em.Object.extend
   swapLineUp: ->
     if cm = @get('codeMirror')
       cm.swapLineUp()
+
+  readOnlyDidChange: (->
+    if cm = @get 'codeMirror'
+      ro = @get 'readOnly'
+      cm.setOption 'readOnly', if ro then 'nocursor' else false
+  ).observes 'readOnly'
 
   modeDidChange: (->
     if cm = @get 'codeMirror'
