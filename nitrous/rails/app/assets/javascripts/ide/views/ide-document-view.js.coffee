@@ -155,7 +155,7 @@ App.IdeDocumentView = Em.View.extend
       editor.scrollTo(scroll)
 
     editor.on 'change', =>
-      unless @isDestroyed
+      unless @get 'isDestroyed'
         if @get('document.content') != (content = editor.get('text'))
           @set 'document.content', content
         if @get('document.clean') != (clean = editor.isClean())
@@ -384,12 +384,16 @@ App.IdeDocumentView = Em.View.extend
     @set 'document.clean', true
   ).observes 'document.replaceContentTrigger'
 
-  cleanDidChange: (->
-    if editor = @get 'editor'
-      documentIsClean = @get('document.clean')
+  documentReadOnlyDidChange: (->
+    @set 'editor.readOnly', @get('document.readOnly')
+  ).observes 'document.readOnly'
 
-      if editor.isClean() != documentIsClean
-        editor.markClean()
+  documentCleanDidChange: (->
+    return unless editor = @get 'editor'
+    documentIsClean = @get('document.clean')
+
+    if documentIsClean && editor.isClean() != documentIsClean
+      editor.markClean()
   ).observes 'document.clean'
 
   consoleHeightDidChange: (->

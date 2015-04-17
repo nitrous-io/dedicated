@@ -61,8 +61,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
-  saveGoDocument: (document) ->
-    path = document.get 'path'
+  saveGoDocument: (doc) ->
+    path = doc.get 'path'
     opsSocket = @get 'opsSocket'
     if !path || !opsSocket
       return
@@ -71,51 +71,62 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     env = []
     opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
       if err || cmdErr
-        document.set 'clean', true
+        doc.set 'clean', true
         return
       sidebarController = App.get 'router.ideSidebarController'
       if sidebarController
         sidebarController.refreshTextFileContent path
 
-  saveDocument: (document) ->
+  saveDocument: (doc) ->
     return unless @get 'opsSocketReady'
-    return if document.get('isImageFile')
+    return if doc.get('isImageFile')
+    opsSocket = @get 'opsSocket'
 
-    if path = document.get 'path'
-      if opsSocket = @get 'opsSocket'
-        path.incrementProperty 'loadCount'
-        opsSocket.writeFile path.get('absolutePath'), document.get('content'), (err, absolutePath) =>
-          path.decrementProperty 'loadCount'
-          if err
-            App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
-            return
-          Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
-          Mp.increment Mp.PropertyIDEFileSaveCount
+    if path = doc.get 'path'
+      path.incrementProperty 'loadCount'
+      doc.set 'readOnly', true
+      opsSocket.writeFile path.get('absolutePath'), doc.get('content'), (err, absolutePath) =>
+        path.decrementProperty 'loadCount'
+        doc.setProperties
+          readOnly: false
+          focused: true
+        if err
+          App.set 'flashMessage', { type: 'alert-error', text: "Error saving file '#{path.get('absolutePath')}'" }
+          return
+        Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
+        Mp.increment Mp.PropertyIDEFileSaveCount
 
-          ideController = App.get 'router.ideController'
-          hasCmdRun = ideController?.freighterSupports("hasCmdRun")
-          if hasCmdRun && path.get('absolutePath').match(/\.go$/)
-            @saveGoDocument(document)
-          else
-            document.set 'clean', true
+        ideController = App.get 'router.ideController'
+        hasCmdRun = ideController?.freighterSupports("hasCmdRun")
+        if hasCmdRun && path.get('absolutePath').match(/\.go$/)
+          @saveGoDocument(doc)
+        else
+          doc.set 'clean', true
     else
-      @set 'saveDialog', App.SaveDialog.create document: document
+      @set 'saveDialog', App.SaveDialog.create document: doc
 
   saveNewDocument: ->
     return unless @get 'opsSocketReady'
     saveDialog = @get 'saveDialog'
+    opsSocket = @get 'opsSocket'
+
     unless saveDialog.validate()
       saveDialog.set 'saving', true
-      documentContent = saveDialog.get 'document.content'
+      doc = saveDialog.get 'document'
+      docContent = doc.get 'content'
       # FIXME probably not the best way to scope to home path
       path = saveDialog.get 'path'
       homePath = App.get('container.homePath')
       absolutePath = "#{homePath}/#{path}"
-      if opsSocket = @get 'opsSocket'
-        opsSocket.writeNewFile absolutePath, documentContent, _.bind(@didWriteNewFileContent, this)
+      doc.set 'readOnly', true
+      opsSocket.writeNewFile absolutePath, docContent, _.bind(@didWriteNewFileContent, this)
 
   didWriteNewFileContent: (err, absolutePath) ->
     saveDialog = @get 'saveDialog'
+    doc = saveDialog.get 'document'
+    doc.setProperties
+      readOnly: false
+      focused: true
     if err
       # TODO: Freighter should be returning a proper error code for file exists.
       # Revisit after #381 is merged.
@@ -126,11 +137,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       saveDialog.set 'errors', errors
     else
       path = App.Path.create absolutePath: absolutePath
-      doc = saveDialog.get 'document'
       doc.setProperties
         path: path
         clean: true
-        focused: true
       sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshPath path.get('parentAbsolutePath')
       @set 'saveDialog.hide', true
