@@ -28,20 +28,25 @@ App.IdeDocumentView = Em.View.extend
   otClient: null
 
   init: ->
-    this.documentPathDidChange()
+    @documentPathDidChange()
     @_super.apply this, arguments
 
   didInsertElement: ->
     @_super()
-    this.insertEditor()
+    @insertEditor()
+
     if @get 'document.path'
-      this.joinCollab()
+      @joinCollab()
+
+    $(window).on "unload.#{@get('elementId')}", =>
+      @leaveCollab()
+      return # need to return void to avoid showing confirm dialog
 
   willDestroyElement: ->
     @_super()
-    this.destroyEditor()
-    if @get 'document.path'
-      this.leaveCollab()
+    @destroyEditor()
+    @leaveCollab()
+    $(window).off "unload.#{@get('elementId')}"
 
   modeName: (->
     CodeMirror.MODES[@get('mode')]
