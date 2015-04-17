@@ -32,6 +32,8 @@ var _ = Describe("user serializer", func() {
 			Phone:             sql.NullString{"88884444", true},
 			PhoneCountryCode:  sql.NullString{"65", true},
 			PhoneAuthed:       false,
+			MaxRunningTime:    sql.NullInt64{19, true},
+			RefreshPeriod:     sql.NullInt64{240, true},
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
 		}
@@ -49,6 +51,53 @@ var _ = Describe("user serializer", func() {
 				"email": "h.granger@hogwarts.edu",
 				"admin": true,
 				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"promo_code": "hogwarts",
+				"first_time": true,
+				"phone": "88884444",
+				"phone_country_code": "65",
+				"phone_authed": false,
+				"max_running_time": 19,
+				"refresh_period": 240,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
+		It("should omit an empty MaxRunningTime", func() {
+			model.MaxRunningTime = sql.NullInt64{0, false}
+			u := serializers.SerializeUser(model)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Emma Watson",
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"admin": true,
+				"promo_code": "hogwarts",
+				"first_time": true,
+				"phone": "88884444",
+				"phone_country_code": "65",
+				"phone_authed": false,
+				"refresh_period": 240,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
+		It("should omit an empty RefreshPeriod", func() {
+			model.RefreshPeriod = sql.NullInt64{0, false}
+			u := serializers.SerializeUser(model)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Emma Watson",
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"admin": true,
 				"promo_code": "hogwarts",
 				"first_time": true,
 				"phone": "88884444",

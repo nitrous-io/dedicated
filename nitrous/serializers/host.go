@@ -23,9 +23,10 @@ type Host struct {
 	Size               string `json:"size"`
 	State              string `json:"state"`
 
-	CreatedAt    *time.Time `json:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
-	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
+	CreatedAt     *time.Time `json:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
+	TerminatedAt  *time.Time `json:"terminated_at,omitempty"`
+	LastRunningAt *time.Time `json:"last_running_at,omitempty"`
 
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
@@ -66,6 +67,9 @@ func SerializeHost(h *host.Host) *Host {
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt
+	}
+	if h.LastRunningAt.Valid {
+		serialized.LastRunningAt = &h.LastRunningAt.Time
 	}
 	return serialized
 }

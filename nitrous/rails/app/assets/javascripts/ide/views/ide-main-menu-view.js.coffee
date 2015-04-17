@@ -59,9 +59,7 @@ App.IdeMainMenuView = Em.View.extend
   elementId: 'ide-main-menu-view'
 
   previewPortBinding: Em.Binding.oneWay 'App.container.previewPort'
-  dashboardURL: ( ->
-    "/app/#/containers/#{App.get 'container.slug'}"
-  ).property 'App.container.slug'
+  dashboardURLBinding: Em.Binding.oneWay 'App.dashboardURL'
 
   previewItems: (->
     baseItems = []

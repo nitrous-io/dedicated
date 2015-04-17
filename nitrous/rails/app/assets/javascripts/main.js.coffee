@@ -48,6 +48,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
   onboardingReady: false
   onboardingIDEOpen: false
 
+  fiveMinWarned: false
+  oneMinWarned: false
+  zeroWarned: false
+
   regionIndex: (->
     regions = @get('regions')
 
@@ -133,6 +137,79 @@ window.Nitrous = Em.Application.extend Em.Evented,
   singleHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 1
   ).property 'hosts.loaded', 'hosts.length'
+
+  # thanks to http://www.rvdh.de/2014/11/14/time-based-triggers-in-ember-js/
+  currentTimeMetronome: (->
+    interval = 1000
+    Ember.run.later this, =>
+      this.notifyPropertyChange('currentTimePulse')
+      this.currentTimeMetronome()
+    , interval
+  ).on 'init'
+
+  usage: (->
+    if @get('noHost') || !@get('billingProfile.free')
+      return
+
+    primaryHost = @get('hosts.firstObject')
+    unless primaryHost && (date = primaryHost.get('lastRunningAt'))
+      return
+
+    now = (new Date()).getTime()
+    refreshAt = new Date(date.getTime() + (@get('user.refreshPeriod')*1000))
+    used = (now - primaryHost.get('lastRunningAt').getTime())/1000
+
+    remaining = 0
+    refreshIn = null
+    if (r = refreshAt.getTime()) < now
+      remaining = App.get('user.maxRunningTime')
+    else
+      remaining = App.get('user.maxRunningTime') - used
+      refreshIn = (r - now)/1000
+
+    remaining = 0 if remaining < 0
+
+    {
+      refreshIn: refreshIn,
+      remaining: remaining,
+      expired: remaining == 0
+    }
+  ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
+
+  usageExpired: (->
+    return false unless @get 'usage'
+  )
+
+  notifyUsageWarning: (->
+    return unless @get('hosts.firstObject.state') == 'running'
+    return unless @get 'usage'
+
+    return if @get 'zeroWarned'
+    usage = @get 'usage'
+    if usage.remaining <= 0
+      App.snackbar.post 'You have exceeded your daily usage for the free tier, please consider upgrading.', sticky: true
+      @set 'zeroWarned', true
+      return
+
+    return if @get 'oneMinWarned'
+    if usage.remaining <= 60
+      App.snackbar.post 'Your workspace will be shutdown in less than a minute, please save your work.', sticky: true
+      @set 'oneMinWarned', true
+      return
+
+    return if @get 'fiveMinWarned'
+
+    if usage.remaining <= (5 * 60)
+      App.snackbar.post 'Your workspace will be shutdown in less than 5 minutes, please save your work.', sticky: true
+      @set 'fiveMinWarned', true
+  ).observes 'currentTimePulse', 'usage'
+
+  flushWarnings: (->
+    return unless @get('zeroWarned') && @get('oneMinWarned') && @get('fiveMinWarned')
+    @set 'zeroWarned', false
+    @set 'oneMinWarned', false
+    @set 'fiveMinWarned', false
+  ).observes 'hosts.firstObject.lastRunningAt'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 

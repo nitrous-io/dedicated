@@ -111,6 +111,38 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(created.PreviousState.String).To(Equal("running"))
 				Expect(created.CreatedAt.Unix()).To(Equal(t.Unix()))
 			})
+
+			It("should update the host running if the state becomes running", func() {
+				Expect(h1.LastRunningAt.Valid).To(BeFalse())
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				t := time.Now()
+				h1.State = "running"
+				err = hosttransition.Record(tx, h1, "born", t)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, "my-host-1")
+				Expect(err).To(BeNil())
+				Expect(h.LastRunningAt.Valid).To(BeTrue())
+			})
+
+			It("should not update the host running if the state becomes running", func() {
+				Expect(h1.LastRunningAt.Valid).To(BeFalse())
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+
+				t := time.Now()
+				h1.State = "terminated"
+				err = hosttransition.Record(tx, h1, "running", t)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, "my-host-1")
+				Expect(err).To(BeNil())
+				Expect(h.LastRunningAt.Valid).To(BeFalse())
+			})
 		})
 
 		Context("with existing transitions for host", func() {

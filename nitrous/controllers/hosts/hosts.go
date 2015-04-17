@@ -13,9 +13,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
@@ -44,6 +44,9 @@ var (
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
+	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
+	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
+	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -255,12 +258,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
-	bp, err := billingprofile.Find(db, h.UserID)
-	if err != nil {
-		return err
-	}
 
-	err = freetier.StartHostAllowed(db, bp, time.Now())
+	err := freetier.StartHostAllowed(db, env.User, h)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreeTimeLimitExceeded:
@@ -341,70 +340,32 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
+
+	if err != nil {
+		return err
+	}
+
+	if !canStop {
+		return errStoppingNotAllowed
+	}
+
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostStopInvalidState
 	}
 
-	origState := h.State
-	h.State = host.StateStopping
+	evHandler := func(ev hostcontrol.EventType) {
+		if ev == hostcontrol.EventHostStopping {
+			publishHostEvent(env, controllers.EventHostStopping, h)
+		}
+		if ev == hostcontrol.EventHostUpdated {
+			publishHostEvent(env, controllers.EventHostUpdated, h)
+		}
+	}
 
-	tx, err := env.DB.Beginx()
+	err = hostcontrol.Stop(env.DB, env.Logger, h, evHandler)
 	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	publishHostEvent(env, controllers.EventHostStopping, h)
-
-	if _, err = HostbuilderClient.Stop(h.Provider, h.MachineConfig(), hostbuilderHeaders(env)); err != nil {
-		// Rollback to previous state, log any errors while rolling back, but
-		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := env.DB.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Stop: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Stop: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
-		}
-
-		publishHostEvent(env, controllers.EventHostUpdated, h)
-		return err
-	}
-
-	h.State = host.StateStopped
-
-	tx, err = env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 
@@ -415,6 +376,16 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
+
+	if err != nil {
+		return err
+	}
+
+	if !canStop {
+		return errRestartingNotAllowed
+	}
+
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
@@ -478,9 +449,6 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishContainersStopped(env, h)
-	publishHostEvent(env, controllers.EventHostRestarted, h)
-
 	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
 	if err != nil {
 		tx.Rollback()
@@ -491,6 +459,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	publishContainersStopped(env, h)
+	publishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
 }
