@@ -10,6 +10,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
   opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocketReady'
 
+  collabEnabledBinding: Em.Binding.oneWay 'App.router.ideController.collabEnabled'
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
   collabSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.collabSocketReady'
 

@@ -5,6 +5,7 @@ App.IdeController = Em.ObjectController.extend
 
   opsSocket: null
   collabSocket: null
+  collabEnabled: true
 
   opsTimeoutAlert: null
   repository: null
@@ -20,7 +21,10 @@ App.IdeController = Em.ObjectController.extend
   collabSocketReadyBinding: Em.Binding.oneWay 'collabSocket.started'
   collabSocketNotReady: Em.computed.not 'collabSocketReady'
 
-  ideSocketsReady: Em.computed.and 'opsSocketReady', 'collabSocketReady'
+  ideSocketsReady: (->
+    @get('opsSocketReady') && ((@get('collabEnabled') && @get('collabSocketReady')) || !@get('collabEnabled'))
+  ).property 'opsSocketReady', 'collabSocketReady', 'collabEnabled'
+
   ideSocketsNotReady: Em.computed.not 'ideSocketsReady'
 
   workspaceDir: 'code'
@@ -37,8 +41,11 @@ App.IdeController = Em.ObjectController.extend
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: container)
       opsSocket.connect()
 
-      @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
-      collabSocket.connect()
+      App.CollabSocket.checkAvailability container, (ok) =>
+        @set 'collabEnabled', ok
+        if ok
+          @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
+          collabSocket.connect()
 
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()

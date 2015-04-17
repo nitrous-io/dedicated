@@ -125,6 +125,10 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.respond(w, http.StatusOK, jsonStatusOK)
 }
 
+func (s *Server) features(w http.ResponseWriter, r *http.Request) {
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"features": freighterFeatures})
+}
+
 func (s *Server) handleCORSPreflight(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "*")

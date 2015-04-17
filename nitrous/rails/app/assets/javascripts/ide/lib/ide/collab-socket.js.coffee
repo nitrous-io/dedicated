@@ -1,6 +1,6 @@
 #= require ./evented-socket
 
-App.CollabSocket = App.EventedSocket.extend
+App.CollabSocket = klass = App.EventedSocket.extend
   action: 'collab'
   binary: false
   connID: null
@@ -30,3 +30,19 @@ App.CollabSocket = App.EventedSocket.extend
 
     if filename && event
       @trigger("#{event}|#{filename}", data)
+
+klass.reopenClass
+  checkAvailability: (container, cb) ->
+    protocol = location.protocol
+    freighterdUrl = container.get 'freighterdUrl'
+    url = "#{protocol}//#{freighterdUrl}/features"
+    Em.$.ajax(
+      type: 'GET'
+      url: url
+    ).done((data) =>
+      if data.features && data.features.indexOf('collab') != -1
+        cb(true)
+      else
+        cb(false)
+    ).fail (jqxhr) =>
+      cb(false)

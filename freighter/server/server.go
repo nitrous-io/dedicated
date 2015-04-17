@@ -257,6 +257,10 @@ func (s *Server) drawRoutes() {
 	}).HandlerFunc(s.wrapError(s.httpForward))
 
 	s.route("/", s.home, "GET")
+
+	// advertise features
+	s.route("/features", s.cors(s.features), "GET")
+
 	s.secretRoute("/containers", s.listContainers, "GET")
 	s.secretRoute("/containers", s.createContainer, "POST")
 	s.secretRoute("/containers/{id}", s.getContainerInfo, "GET")
