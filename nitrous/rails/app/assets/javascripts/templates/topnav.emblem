@@ -15,7 +15,8 @@
     if App.user
       li.ui.dropdown
         a href='#'
-          | New
+          / | New
+          i.fa.fa-plus
           .ui.dropdown-triangle
         ul.dropdown-menu
           li
@@ -86,7 +87,7 @@
                   span.right
                     = durationInWords App.usage.remaining
                   .progress-bar
-                    .progress-bar-inner
+                    .progress-bar-inner style=App.usage.progressBarStyle
 
             li.separator
           li

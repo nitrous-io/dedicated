@@ -172,12 +172,12 @@ window.Nitrous = Em.Application.extend Em.Evented,
     remaining = 0 if remaining < 0
 
     {
-      # refreshIn: refreshIn,
-      # remaining: remaining,
-      # expired: remaining == 0,
-      refreshIn: 124,
-      remaining: 0,
-      expired: true,
+      refreshIn: refreshIn,
+      remaining: remaining,
+      expired: remaining == 0,
+      # refreshIn: 124,
+      # remaining: 0,
+      # expired: true,
       progressBarStyle: "width: 20%"
     }
   ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
