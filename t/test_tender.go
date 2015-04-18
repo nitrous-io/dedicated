@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -33,8 +36,94 @@ const (
 )
 
 var (
-	privCACert []byte
+	privCACert          []byte
+	stdoutSpy           *SpyWriter
+	stderrSpy           *SpyWriter
+	freighterBootedChan = make(chan string)
 )
+
+type PhraseToSpyOn struct {
+	s    []byte
+	seen bool
+	ch   chan string
+}
+
+// SpyWriter does a pass-through write to underlying writer and checks if
+// full lines contain phrases the caller asked to spy on. If yes, sends the
+// string to a specified channel, to notify the user
+type SpyWriter struct {
+	w            io.Writer
+	lineBuf      bytes.Buffer
+	mu           sync.Mutex
+	spiedPhrases []*PhraseToSpyOn
+}
+
+func NewSpyWriter(w io.Writer) *SpyWriter {
+	return &SpyWriter{
+		w: w,
+	}
+}
+
+func (w *SpyWriter) Write(d []byte) (int, error) {
+	n, err := w.w.Write(d)
+	if err != nil {
+		return n, err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	_, err = w.lineBuf.Write(d)
+	exitIfErr(err) // should never happen
+	// consume lines, checking if they contain phrases we spy on
+	for {
+		d := w.lineBuf.Bytes()
+		idx := bytes.IndexByte(d, '\n')
+		if idx == -1 {
+			break
+		}
+		buf := make([]byte, idx+1)
+		n, err := w.lineBuf.Read(buf)
+		exitIfErr(err) // should never happen
+		if n != idx+1 {
+			log.Fatalf("w.lineBuf: expected to read %d bytes, got %d", idx+1, n)
+		}
+		for _, p := range w.spiedPhrases {
+			if p.seen {
+				continue
+			}
+			if bytes.Index(buf, p.s) != -1 {
+				p.seen = true
+				if p.ch != nil {
+					p.ch <- string(p.s)
+				}
+			}
+		}
+	}
+	return n, nil
+}
+
+func (w *SpyWriter) SpyOn(s string, ch chan string) *PhraseToSpyOn {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	p := &PhraseToSpyOn{
+		s:    []byte(s),
+		seen: false,
+		ch:   ch,
+	}
+	w.spiedPhrases = append(w.spiedPhrases, p)
+	return p
+}
+
+func (w *SpyWriter) SeenPhrase(p *PhraseToSpyOn) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, p2 := range w.spiedPhrases {
+		if p == p2 {
+			return p.seen
+		}
+	}
+	log.Fatalf("unknown phrase to spy on: %#v", p)
+	return false
+}
 
 func exitIfErr(err error) {
 	if err != nil {
@@ -163,8 +252,13 @@ func simulateFreighterWorker() {
 
 func startTenderMust() *exec.Cmd {
 	cmd := exec.Command("build/tender")
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
+	stdoutSpy = NewSpyWriter(os.Stdout)
+	stdoutSpy.SpyOn("listening to port 443", freighterBootedChan)
+	stderrSpy = NewSpyWriter(os.Stdout)
+	stderrSpy.SpyOn("listening to port 443", freighterBootedChan)
+
+	cmd.Stderr = stderrSpy
+	cmd.Stdout = stdoutSpy
 	cmd.Env = readEnvFileMust("t/.env-tender", true)
 	//dumpEnv(cmd.Env)
 	err := cmd.Start()
@@ -204,9 +298,12 @@ func main() {
 	fmt.Printf("starting tender tests\n")
 	go simulateFreighterWorker()
 	cmdTender := startTenderMust()
-	// TODO: heuristic to give tender time to boot up
-	// should do it by watching tender's stdout for specific lines
-	time.Sleep(time.Second * 5)
+	select {
+	case s := <-freighterBootedChan:
+		fmt.Printf("freighter booted (phrase: %s)\n", s)
+	case <-time.After(5 * time.Second):
+		log.Fatalf("freighter didn't boot in 5 seconds\n")
+	}
 	uri := fmt.Sprintf("https://local.n2odev.com:%d", defaultFreighterPort)
 	s, err := httpGet(uri)
 	exitIfErr(err)
