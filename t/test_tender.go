@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,10 +26,10 @@ On failure does os.Exit(1).
 const (
 	defaultFreighterPort = 65333
 	tlsDomain            = ".n2odev.com"
-	privCACertPath       = "script/certs/n2odevpro-ca.crt"
 
-	myCACertPath = "script/certs/n2odev.crt"
-	myCAKeyPath  = "script/certs/n2odev.key"
+	myCACertPath = "script/certs/n2odevpro-ca.crt"
+	myCertPath   = "script/certs/n2odev.crt"
+	myKeyPath    = "script/certs/n2odev.key"
 )
 
 var (
@@ -40,12 +41,6 @@ func exitIfErr(err error) {
 		fmt.Printf("got error: %s\n", err)
 		os.Exit(1)
 	}
-}
-
-func readCertMust() {
-	d, err := ioutil.ReadFile(privCACertPath)
-	exitIfErr(err)
-	privCACert = d
 }
 
 func readLinesMust(path string) []string {
@@ -131,11 +126,21 @@ func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
 
 func simulateFreighterWorker() {
 	port := 61000
-	cert, err := tls.LoadX509KeyPair(myCACertPath, myCAKeyPath)
+	cert, err := tls.LoadX509KeyPair(myCertPath, myKeyPath)
 	exitIfErr(err)
+
+	d, err := ioutil.ReadFile(myCACertPath)
+	exitIfErr(err)
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(d); !ok {
+		exitIfErr(fmt.Errorf("Couldn't append CA certificate %s", myCACertPath))
+	}
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{cert},
+		ClientCAs:    certPool,
+		RootCAs:      certPool,
+		MinVersion:   tls.VersionTLS10,
 	}
 	tlsConfig.BuildNameToCertificate()
 
@@ -193,7 +198,6 @@ func shortenString(s string) string {
 
 func main() {
 	fmt.Printf("starting tender tests\n")
-	readCertMust()
 	go simulateFreighterWorker()
 	cmdTender := startTenderMust()
 	// TODO: heuristic to give tender time to boot up
