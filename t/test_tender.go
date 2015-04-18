@@ -173,7 +173,11 @@ func startTenderMust() *exec.Cmd {
 }
 
 func httpGet(uri string) (string, error) {
-	res, err := http.Get(uri)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	res, err := client.Get(uri)
 	if err != nil {
 		return "", err
 	}
