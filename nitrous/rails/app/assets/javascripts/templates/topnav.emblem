@@ -73,16 +73,20 @@
             li
               span.usage
                 if App.usage.expired
-                  | Daily usage exceeded
+                  span
+                    i.fa.fa-exclamation-circle 
+                    | Daily usage exceeded
                   if App.usage.refreshIn
-                  ' , resets in
-                  = durationInWords App.usage.refreshIn
+                    span 
+                      = durationInWords App.usage.refreshIn
+                      |  until reset
+                      
                 else
                   span.left Usage left:
                   span.right
                     = durationInWords App.usage.remaining
                   .progress-bar
-                    .progress-bar-inner style=App.usage.progressBarStyle
+                    .progress-bar-inner
 
             li.separator
           li
