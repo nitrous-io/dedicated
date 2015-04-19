@@ -533,6 +533,165 @@ const (
 	created                                 // indicates new container has been created
 )
 
+// Reconfig change a container configuration of a container with new dokcer api
+// This is the current implementation:
+//   1. Stop container.
+//   2. Rewrite /var/lib/docker/containers/<containerid>/config.json
+//   3. Rewrite /var/lib/docker/containers/<containerid>/hostconfig.json
+//   4. Start container
+
+func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.ContainerInfo, err error) {
+	var (
+	// cnName string
+	//		backupImageName string
+	// secret string
+	)
+
+	ret, err = p.Stop(id)
+	if err != nil {
+		if cn, e := p.GetInfo(id); e == nil {
+			ret = cn
+		}
+		return ret, err
+	}
+	// cnName = ret.Name
+
+	/*
+		secret, err = p.readSharedSecret(cnName)
+		if err != nil {
+			return ret, err
+		}
+	*/
+
+	/*
+		ak := p.containerAuthorizedKeys(cnName)
+			existingKeys, err := ak.Read()
+			if err != nil {
+				return ret, err
+			}
+	*/
+
+	// Unmarshal /var/lib/docker/containers/<containerid>/config.json.
+	jsonPath := fmt.Sprintf("/var/lib/docker/containers/%s/config.json", id)
+	b, err := ioutil.ReadFile(jsonPath)
+	if err != nil {
+		return ret, err
+	}
+
+	var container dockerclient.Container
+	err = json.Unmarshal(b, &container)
+	if err != nil {
+		return ret, err
+	}
+
+	// Unmarshal /var/lib/docker/containers/<containerid>/hostconfig.json.
+	hostConfigPath := fmt.Sprintf("/var/lib/docker/containers/%s/hostconfig.json", id)
+	b, err = ioutil.ReadFile(hostConfigPath)
+	if err != nil {
+		return ret, err
+	}
+
+	var hostConfig dockerclient.HostConfig
+	err = json.Unmarshal(b, &hostConfig)
+	if err != nil {
+		return ret, err
+	}
+
+	// Reset configs that are additive so that we can replace them when creatin
+	// a container from this image.
+	//container.Config.ExposedPorts = nil
+	container.Config.Volumes = nil
+	container.Volumes = nil
+	container.VolumesRW = nil
+
+	// Env is a special case because we rely on it to apply some defaults to
+	// Nitrous-blessed images based on Nitrous-specific env vars.
+	// FIXME This sucks because maintaining a list of env vars to preserve is
+	// pretty fragile.
+	/*
+		newEnv := []string{}
+		// Preserve Nitrous-specific env vars.
+		for _, envKey := range preservedEnvVars {
+			if val, ok := envValue(container.Config.Env, envKey); ok {
+				newEnv = append(newEnv, fmt.Sprintf("%s=%s", envKey, val))
+			}
+		}
+	*/
+	// Copy over all env vars from new config.
+	cfg, err := containerConfigFromJSON(configJSON)
+	if err != nil {
+		return ret, err
+	}
+	/*
+		for _, v := range cfg.Env {
+			newEnv = append(newEnv, v)
+		}
+		container.Config.Env = newEnv
+	*/
+
+	p.setDefaultContainerConfig(cfg)
+	cfg.Hostname = container.Config.Hostname
+	cfg.Image = container.Config.Image
+	container.HostConfig = &hostConfig
+
+	startConfig, err := p.mkHostConfig(&container, cfg, p.isNitrousImage(cfg.Image))
+	if err != nil {
+		return nil, err
+	}
+
+	// Change volume
+	volumes := make(map[string]string)
+	volumesRW := make(map[string]bool)
+	volumesConfig := make(map[string]struct{})
+	for _, mount := range startConfig.Binds {
+		dirs := strings.Split(mount, ":")
+		volumes[dirs[1]] = dirs[0]
+		volumesRW[dirs[1]] = true
+		volumesConfig[dirs[1]] = struct{}{}
+	}
+
+	container.Volumes = volumes
+	container.VolumesRW = volumesRW
+	container.Config.Volumes = volumesConfig
+
+	// Write new hostconfig back to /var/lib/docker/containers/<containerid>/hostconfig.json.
+	f, err := os.OpenFile(hostConfigPath, os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return ret, err
+	}
+	defer f.Close()
+	err = json.NewEncoder(f).Encode(startConfig)
+	if err != nil {
+		return ret, err
+	}
+
+	// Clean host config
+	container.HostConfig = nil
+
+	// Write new config back to /var/lib/docker/containers/<containerid>/config.json.
+	f, err = os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return ret, err
+	}
+	defer f.Close()
+	err = json.NewEncoder(f).Encode(container)
+	if err != nil {
+		return ret, err
+	}
+
+	// Send a request to reload a container from config.json and hostconfig.json
+	err = p.client.ReloadContainer(id)
+	if err != nil {
+		return ret, &provider.StartFailedError{Err: err}
+	}
+
+	if err := p.client.StartContainer(id, nil); err != nil {
+		return nil, err
+	}
+
+	return p.GetInfo(id)
+}
+
 // Reconfig recreates a container from its original image with new config,
 // since at this time docker container configs are frozen once set.
 // Reconfig *always* returns the container so that callers know what the
