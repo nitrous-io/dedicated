@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -584,23 +583,6 @@ var _ = Describe("controllers/users", func() {
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("validation_failed"))
 			Expect(errDesc).To(Equal("phone number already exists"))
-		})
-
-		It("responds with HTTP 503 Forbidden when phone number is not in the whitelist", func() {
-			// Put only Japan on the whitelist.
-			orig := users.PhoneCountryWhitelist
-			users.PhoneCountryWhitelist = map[string]string{
-				"Japan": "81",
-			}
-			defer func() {
-				users.PhoneCountryWhitelist = orig
-			}()
-			params := &url.Values{}
-			params.Set("phone", "88884444")
-			params.Set("phone_country_code", "65")
-
-			doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusForbidden))
 		})
 	})
 

@@ -201,38 +201,6 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-var PhoneCountryWhitelist = map[string]string{
-	"United States":  "1",
-	"Canada":         "1",
-	"United Kingdom": "44",
-	"Australia":      "61",
-	"New Zealand":    "64",
-	"Germany":        "49",
-	"France":         "33",
-	"Japan":          "81",
-	"Norway":         "47",
-	"Switzerland":    "41",
-	"Netherlands":    "31",
-	"Ireland":        "353",
-	"Austria":        "43",
-	"Sweden":         "46",
-	"Denmark":        "45",
-	"Iceland":        "354",
-	"Belgium":        "32",
-	"Finland":        "358",
-	"Italy":          "39",
-	"Singapore":      "65",
-}
-
-func inWhitelist(code string) bool {
-	for _, c := range PhoneCountryWhitelist {
-		if c == code {
-			return true
-		}
-	}
-	return false
-}
-
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
 
@@ -243,10 +211,6 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 	if phoneCountryCode == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "phone country code must be provided")
-	}
-
-	if !inWhitelist(phoneCountryCode) {
-		return httperror.New(http.StatusForbidden, "forbidden", "phone numbers from your country are not supported")
 	}
 
 	if err := u.UpdatePhone(env.DB, phone, phoneCountryCode); err != nil {
