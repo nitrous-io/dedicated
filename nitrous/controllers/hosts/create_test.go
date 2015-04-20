@@ -817,6 +817,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
 						billingprofile.StateFree, u.ID)
 					Expect(err).To(BeNil())
+					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
 				})
 
 				It("responds with error if paid plan is selected", func() {

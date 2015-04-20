@@ -18,7 +18,6 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -44,6 +43,8 @@ var (
 		"You are not allowed to create a paid workspace")
 	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
 		"You can't create any more free workspaces")
+	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
+		"You need to verify your phone before creating free workspace")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -110,12 +111,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	bp, err := billingprofile.Find(db, u.ID)
-	if err != nil {
-		return err
-	}
-
-	err = freetier.CreateHostWithPlanAllowed(db, bp, pl)
+	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreePlanNotAllowed:
@@ -126,6 +122,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errMaxFreeHostReached
 		case freetier.ErrFreeTimeLimitExceeded:
 			return errFreeTimeLimitExceeded
+		case freetier.ErrPhoneAuthRequired:
+			return errPhoneAuthRequired
 		default:
 			return err
 		}

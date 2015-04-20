@@ -35,7 +35,6 @@ var _ = Describe("models/freetier", func() {
 	var (
 		db *db.Database
 		u  *user.User
-		bp *billingprofile.BillingProfile
 	)
 
 	BeforeEach(func() {
@@ -80,23 +79,26 @@ var _ = Describe("models/freetier", func() {
 			Expect(paidPlan.Insert(db)).To(BeNil())
 		})
 
-		Context("When user is in free tier", func() {
+		Context("When user is in free tier and phone authenticated", func() {
 			BeforeEach(func() {
 				_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
 					billingprofile.StateFree, u.ID)
 				Expect(err).To(BeNil())
 
-				bp, err = billingprofile.Find(db, u.ID)
+				err = u.UpdatePhone(db, "005550006", "15")
+				Expect(err).To(BeNil())
+
+				err = u.UpdatePhoneAuthed(db, true)
 				Expect(err).To(BeNil())
 			})
 
 			It("should be allowed to create free-tier host", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
 				Expect(err).To(BeNil())
 			})
 
 			It("should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
+				err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
 				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 			})
 
@@ -124,7 +126,7 @@ var _ = Describe("models/freetier", func() {
 						Expect(err).To(BeNil())
 						Expect(len(hosts)).To(Equal(1))
 
-						err = freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+						err = freetier.CreateHostWithPlanAllowed(db, u, freePlan)
 						Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
 					})
 				})
@@ -137,27 +139,34 @@ var _ = Describe("models/freetier", func() {
 					})
 
 					It("Should not be allowed to create new free host", func() {
-						err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+						err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
 						Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
 					})
 
 					It("Should not be allowed to create host with paid plan", func() {
-						err := freetier.CreateHostWithPlanAllowed(db, bp, paidPlan)
+						err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
 						Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 					})
 				})
 			})
 		})
 
-		Context("When user is in paid tier", func() {
+		Context("When user is in free tier without phone verification", func() {
 			BeforeEach(func() {
-				var err error
-				bp, err = billingprofile.Find(db, u.ID)
+				_, err := db.Exec(`UPDATE billing_profiles SET state=$1, max_hours=10 WHERE user_id=$2;`,
+					billingprofile.StateFree, u.ID)
 				Expect(err).To(BeNil())
 			})
 
 			It("Should not be allowed to create host with free plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, bp, freePlan)
+				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+				Expect(err).To(Equal(freetier.ErrPhoneAuthRequired))
+			})
+		})
+
+		Context("When user is in paid tier", func() {
+			It("Should not be allowed to create host with free plan", func() {
+				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
 				Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
 			})
 		})
