@@ -36,21 +36,30 @@ func UpgradeHostToPaid(d *db.Database, u *user.User, h *host.Host) (*host.Host, 
 		return nil, ErrPaymentDetailsRequired
 	}
 
-	pl, err := plan.FindByID(d, h.PlanID)
+	if h.HourlyPrice > 0 {
+		return nil, ErrUpgradePaidNotAllowed
+	}
+
+	currentPlan, err := plan.FindByID(d, h.PlanID)
 	if err != nil {
 		return nil, err
 	}
 
-	if !pl.IsFree() {
+	if !currentPlan.IsFree() {
 		return nil, ErrUpgradePaidNotAllowed
 	}
 
-	if !pl.PaidPlanID.Valid {
+	if !currentPlan.PaidPlanID.Valid {
 		return nil, ErrUpgradeNotAvailable
 	}
 
-	h.PlanID = pl.PaidPlanID.Int64
-	h.HourlyPrice = pl.HourlyPrice()
+	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	if err != nil {
+		return nil, err
+	}
+
+	h.PlanID = paidPlan.ID
+	h.HourlyPrice = paidPlan.HourlyPrice()
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
 	err = h.Update(d)

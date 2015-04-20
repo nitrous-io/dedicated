@@ -309,12 +309,14 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at,
-			region_identifier)
-		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now(),
-			:region_identifier)
+		SET (user_id, region_id, plan_id, provider_template_id, slug, name, secret,
+			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
+			hourly_price, preprovisioned, freighterd_version, docker_version,
+			region_identifier, updated_at)
+		= (:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
+			:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
+			:hourly_price, :preprovisioned, :freighterd_version, :docker_version,
+			:region_identifier, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
