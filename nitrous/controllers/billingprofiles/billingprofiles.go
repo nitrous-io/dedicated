@@ -151,8 +151,5 @@ func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
 
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
-	if creditCode == "" {
-		creditCode = credittype.SignupCreditType
-	}
 	return credittype.FindValidCreditTypeByName(d, creditCode)
 }

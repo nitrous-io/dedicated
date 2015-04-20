@@ -1,6 +1,8 @@
 App.PromoCodeInfoMixin = Em.Mixin.create
   promoCodeInfo: (->
-    promoCode = @get('promoCode') || 'Signup_Credit'
+    promoCode = @get('promoCode')
+    if !promoCode
+      return null
     info = Em.ObjectProxy.create()
     Em.$.ajax(
       type: 'GET',
