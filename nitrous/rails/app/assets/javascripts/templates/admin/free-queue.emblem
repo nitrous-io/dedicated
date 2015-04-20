@@ -1,0 +1,33 @@
+.card-header.bordered
+  h2 Admin &mdash; Free Queue
+
+.card-body.bordered
+  .right
+    button.ui.btn.icon click='refresh'
+      i.fa.fa-refresh
+  table.ui.table
+    tbody
+      tr
+        th Username
+        th Phone Country
+        th Email
+        th Created At
+        th
+      = if queue.length
+        = each queue
+          tr
+            td
+              = username
+            td
+              = phoneCountryCode
+            td
+              = email
+            td
+              = basicdatetime createdAt
+            td.actions
+              button.ui.btn.raised click='approve this' Approve
+              button.ui.btn.raised click='reject this' Reject
+      = else
+        tr
+          td colspan="5"
+            | Free queue is empty
