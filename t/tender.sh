@@ -8,4 +8,4 @@ set -o pipefail
 
 make image
 docker run --privileged=true --rm nitrousio/dedicated-dev:latest \
-  /bin/bash -c ./t/run-tender-in-docker.sh
+  /bin/bash -c ./t/tender-in-docker.sh
