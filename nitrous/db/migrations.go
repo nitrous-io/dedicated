@@ -1064,5 +1064,13 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN last_running_at timestamp without time zone DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "920",
+			Up: `
+				-- We regard all existing users as legit users so that they're
+				-- not rudely asked for their phone.
+				UPDATE users SET phone_authed = TRUE;
+			`,
+		},
 	}
 }

@@ -12,7 +12,6 @@ App.Plan = klass = App.Model.extend
   memory: attr()
   storage: attr()
   mostPopular: attr('boolean', as: 'most_popular')
-  requiresPhone: attr('boolean', as: 'requires_phone', serialize: false)
 
   inputId: (->
     if slug = @get 'slug'

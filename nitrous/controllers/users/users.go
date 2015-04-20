@@ -201,38 +201,6 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-var PhoneCountryWhitelist = map[string]string{
-	"United States":  "1",
-	"Canada":         "1",
-	"United Kingdom": "44",
-	"Australia":      "61",
-	"New Zealand":    "64",
-	"Germany":        "49",
-	"France":         "33",
-	"Japan":          "81",
-	"Norway":         "47",
-	"Switzerland":    "41",
-	"Netherlands":    "31",
-	"Ireland":        "353",
-	"Austria":        "43",
-	"Sweden":         "46",
-	"Denmark":        "45",
-	"Iceland":        "354",
-	"Belgium":        "32",
-	"Finland":        "358",
-	"Italy":          "39",
-	"Singapore":      "65",
-}
-
-func inWhitelist(code string) bool {
-	for _, c := range PhoneCountryWhitelist {
-		if c == code {
-			return true
-		}
-	}
-	return false
-}
-
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
 
@@ -243,10 +211,6 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 	if phoneCountryCode == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "phone country code must be provided")
-	}
-
-	if !inWhitelist(phoneCountryCode) {
-		return httperror.New(http.StatusForbidden, "forbidden", "phone numbers from your country are not supported")
 	}
 
 	if err := u.UpdatePhone(env.DB, phone, phoneCountryCode); err != nil {
@@ -302,8 +266,41 @@ func sendVerificationCode(d *db.Database, l *logger.Logger, u *user.User) error 
 	return nil
 }
 
+var PhoneCountryWhitelist = map[string]string{
+	"United States":  "1",
+	"Canada":         "1",
+	"United Kingdom": "44",
+	"Australia":      "61",
+	"New Zealand":    "64",
+	"Germany":        "49",
+	"France":         "33",
+	"Japan":          "81",
+	"Norway":         "47",
+	"Switzerland":    "41",
+	"Netherlands":    "31",
+	"Ireland":        "353",
+	"Austria":        "43",
+	"Sweden":         "46",
+	"Denmark":        "45",
+	"Iceland":        "354",
+	"Belgium":        "32",
+	"Finland":        "358",
+	"Italy":          "39",
+	"Singapore":      "65",
+}
+
+func inWhitelist(code string) bool {
+	for _, c := range PhoneCountryWhitelist {
+		if c == code {
+			return true
+		}
+	}
+	return false
+}
+
 func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
+	d := env.DB
 
 	code := r.PostFormValue("code")
 	if code == "" {
@@ -314,7 +311,7 @@ func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 			"we do not have your phone number in our records")
 	}
 
-	v, err := verification.Find(env.DB, u.ID, u.PhoneNumber())
+	v, err := verification.Find(d, u.ID, u.PhoneNumber())
 	if err != nil {
 		return err
 	}
@@ -322,8 +319,23 @@ func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return httperror.New(http.StatusBadRequest, "validation_failed", "code is incorrect")
 	}
 
-	if err := u.UpdatePhoneAuthed(env.DB, true); err != nil {
+	if err := u.UpdatePhoneAuthed(d, true); err != nil {
 		return err
+	}
+
+	// If user's phone country is in whitelist, we set user's billing profile to
+	// free so that user is eligible for the free tier plan.
+	bp, err := billingprofile.Find(d, u.ID)
+	if err != nil {
+		return err
+	}
+	if bp.State == billingprofile.StateNoCard &&
+		inWhitelist(u.PhoneCountryCode.String) {
+		bp.State = billingprofile.StateFree
+		err := bp.Update(d)
+		if err != nil {
+			return err
+		}
 	}
 
 	env.Status = http.StatusOK
