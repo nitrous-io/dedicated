@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -633,13 +635,18 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		It("sets phone_authed to true if verification code is correct", func() {
-			// Update user's phone and add an existing verification.
-			err := u.UpdatePhone(db, "88884444", "65")
-			Expect(err).To(BeNil())
-			v, err := verification.Generate(db, u.ID, u.PhoneNumber())
-			Expect(err).To(BeNil())
+		var v *verification.Verification
 
+		BeforeEach(func() {
+			var err error
+			// Update user's phone and add an existing verification.
+			err = u.UpdatePhone(db, "88884444", "65")
+			Expect(err).To(BeNil())
+			v, err = verification.Generate(db, u.ID, u.PhoneNumber())
+			Expect(err).To(BeNil())
+		})
+
+		It("sets phone_authed to true if verification code is correct", func() {
 			params := &url.Values{}
 			params.Set("code", v.Code)
 			doRequest(params)
@@ -648,7 +655,7 @@ var _ = Describe("controllers/users", func() {
 
 			// Verify response is { "verified": true }.
 			j := map[string]bool{}
-			err = json.Unmarshal(res.Body.Bytes(), &j)
+			err := json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
 			Expect(j["verified"]).To(BeTrue())
 
@@ -657,13 +664,56 @@ var _ = Describe("controllers/users", func() {
 			Expect(u2.PhoneAuthed).To(BeTrue())
 		})
 
-		It("responds with HTTP 400 Bad Request if verification code is wrong", func() {
-			// Update user's phone and add an existing verification.
-			err := u.UpdatePhone(db, "88884444", "65")
+		It("sets user's billing profile to free tier if phone number belongs to a whitelisted country", func() {
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
-			v, err := verification.Generate(db, u.ID, u.PhoneNumber())
+			Expect(bp.State).To(Equal(billingprofile.StateFree))
+		})
+
+		It("does not change user's billing profile to free tier if phone number does not belong to a whitelisted country", func() {
+			// Put only Japan on the whitelist.
+			orig := users.PhoneCountryWhitelist
+			users.PhoneCountryWhitelist = map[string]string{
+				"Japan": "81",
+			}
+			defer func() {
+				users.PhoneCountryWhitelist = orig
+			}()
+
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StateNoCard))
+		})
+
+		It("does not change a paid user's billing profile", func() {
+			// Set user's billing profile to paid.
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
 			Expect(err).To(BeNil())
 
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+		})
+
+		It("responds with HTTP 400 Bad Request if verification code is wrong", func() {
 			code := "WRONGCODE!"
 			Expect(code).NotTo(Equal(v.Code))
 			params := &url.Values{}
@@ -677,12 +727,6 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("responds with HTTP 400 Bad Request when code is not given", func() {
-			// Update user's phone and add an existing verification.
-			err := u.UpdatePhone(db, "88884444", "65")
-			Expect(err).To(BeNil())
-			_, err = verification.Generate(db, u.ID, u.PhoneNumber())
-			Expect(err).To(BeNil())
-
 			doRequest(nil)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, _ := test.ErrorSlug(res.Body)
@@ -690,6 +734,21 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		It("responds with HTTP 400 Bad Request if user has not given us his phone number", func() {
+			// Create another user that does not have a phone in his record.
+			u = &user.User{
+				Username: "anotheruser",
+				Password: "123456",
+				Email:    "anotheruser@example.com",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "anothertoken",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
 			params := &url.Values{}
 			params.Set("code", "SOMECODE")
 			doRequest(params)
