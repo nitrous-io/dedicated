@@ -133,7 +133,7 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		log.Printf("[WARN] domain: %s but got request for %q that we can't handle", s.domain, r.Host)
 		return err
 	}
-	log.Printf("[INFO] request %v to %s", r, slug)
+	log.Printf("[INFO] request %v from %s to %s", r, r.RemoteAddr, slug)
 
 	host, err := hostGet(s.db, slug)
 	if err != nil {
@@ -151,6 +151,17 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		tlsConfig = &tls.Config{}
 		*tlsConfig = *s.tlsConfig
 		tlsConfig.ServerName = slug + s.tlsDomain
+	}
+
+	// needed to talk via tls to our fake freighter, probably because the
+	// certificate is to n2odev.com but we dial 127.0.0.1 as per ip_address
+	// in db schema
+	if true {
+		if tlsConfig != nil {
+			tlsConfig.InsecureSkipVerify = true
+		} else {
+			log.Printf("no tlsConfig")
+		}
 	}
 
 	if proxy.IsWebsocket(r) {

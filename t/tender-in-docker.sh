@@ -52,6 +52,20 @@ function setup_certificates() {
   dpkg-reconfigure -f noninteractive ca-certificates
 }
 
+# On Ubuntu Go reads certificates from /etc/ssl/certs/ca-certificates.crt:
+# https://sourcegraph.com/github.com/golang/go@ac452349e4f40c30d50f9922bf2c4592e748ce5e/.tree/src/crypto/x509/root_linux.go#startline=8&endline=8
+# This rebuilds that file from certificates in /usr/share/ca-certificates and
+# /usr/local/share/ca-certificates
+function setup_certificates() {
+  #ls -lah /etc/ssl/certs/ca-certificates.crt
+  cp script/certs/n2odev.crt /usr/local/share/ca-certificates
+  cp script/certs/n2odevpro-ca.crt /usr/local/share/ca-certificates
+  chmod 0644 /usr/local/share/ca-certificates/n2odev.crt
+  chmod 0644 /usr/local/share/ca-certificates/n2odevpro-ca.crt
+  update-ca-certificates
+  #ls -lah /etc/ssl/certs/ca-certificates.crt
+}
+
 function cat_etc_resolv_conf() {
   echo "/etc/resolv.conf start"
   cat /etc/resolv.conf
@@ -61,10 +75,8 @@ function cat_etc_resolv_conf() {
 
 function setup() {
   setup_etc_hosts
-  #ls -lah /etc/ssl/certs/ca-certificates.crt
-  #setup_certificates
+  setup_certificates
   #setup_certificates3
-  #ls -lah /etc/ssl/certs/ca-certificates.crt
   make tender
   /etc/init.d/postgresql start
   psql -d tender_test -f tender/testdata/fixtures.sql

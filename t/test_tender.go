@@ -187,7 +187,7 @@ type FakeFreighterServer struct {
 }
 
 func (s *FakeFreighterServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("url: %s\n", r.URL)
+	fmt.Printf("url: %s from %s\n", r.URL, r.RemoteAddr)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("hello"))
@@ -203,8 +203,8 @@ type TcpKeepAliveListener struct {
 	*net.TCPListener
 }
 
-func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
+func (l TcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := l.AcceptTCP()
 	if err != nil {
 		return
 	}
@@ -213,25 +213,47 @@ func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	return tc, nil
 }
 
-func simulateFreighterWorker() {
-	port := 61000
-	cert, err := tls.LoadX509KeyPair(myCertPath, myKeyPath)
-	exitIfErr(err)
-
-	d, err := ioutil.ReadFile(myCACertPath)
-	exitIfErr(err)
-	certPool := x509.NewCertPool()
-	if ok := certPool.AppendCertsFromPEM(d); !ok {
-		exitIfErr(fmt.Errorf("Couldn't append CA certificate %s", myCACertPath))
+// from freighter/freighter/server.go
+// given:
+// - a certificate authority
+// - a certificate signed by the CA
+// - a private key for the certificate
+// return a proper tls config that can be used with tls.NewListener to secure a
+// net.Listener
+func getTLSConfig(caPath, certPath, keyPath string) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't load X509 key pair (%s, %s): %s. Key encrypted?",
+			certPath, keyPath, err)
 	}
+	file, err := ioutil.ReadFile(caPath)
+	if err != nil {
+		return nil, fmt.Errorf("Couldn't read CA certificate %s: %s", caPath, err)
+	}
+	certPool := x509.NewCertPool()
+	if ok := certPool.AppendCertsFromPEM(file); !ok {
+		return nil, fmt.Errorf("Couldn't append CA certificate %s", caPath)
+	}
+
+	// by default, we dont require any client cert i.e. no authentication
+	// as long as the client supplies the correct CA, it's allowed to talk to
+	// the server's endpoints
 	tlsConfig := &tls.Config{
 		NextProtos:   []string{"http/1.1"},
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    certPool,
-		RootCAs:      certPool,
 		MinVersion:   tls.VersionTLS10,
 	}
-	tlsConfig.BuildNameToCertificate()
+
+	return tlsConfig, nil
+}
+
+func simulateFreighterWorker() {
+	port := 61000
+
+	tlsConfig, err := getTLSConfig(myCACertPath, myCertPath, myKeyPath)
+	exitIfErr(err)
+	//tlsConfig.BuildNameToCertificate()
 
 	fmt.Printf("starting fake freighter server on port %d\n", port)
 	addr := fmt.Sprintf(":%d", port)
@@ -240,13 +262,13 @@ func simulateFreighterWorker() {
 		Handler:   &FakeFreighterServer{},
 		TLSConfig: tlsConfig,
 	}
-
-	ln, err := net.Listen("tcp", addr)
+	var l net.Listener
+	l, err = net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("simulateFreighterWorker(): net.Listen() failed with %s", err)
 	}
-	ln = tls.NewListener(TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
-	err = srv.Serve(ln)
+	l = tls.NewListener(l, tlsConfig)
+	err = srv.Serve(l)
 	exitIfErr(err)
 }
 
@@ -271,12 +293,21 @@ func httpGet(uri string) (string, error) {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
-	res, err := client.Get(uri)
+	if true {
+		client = http.DefaultClient
+	}
+	req, err := http.NewRequest("GET", uri, nil)
+	if err != nil {
+		return "", err
+	}
+	res, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	d, err := ioutil.ReadAll(res.Body)
 	res.Body.Close()
+	//fmt.Printf("req: %#+v\n", req)
+	//fmt.Printf("req url: %#+v\n", req.URL)
 	if err != nil {
 		return "", err
 	}
