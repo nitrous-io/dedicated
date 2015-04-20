@@ -266,29 +266,6 @@ func sendVerificationCode(d *db.Database, l *logger.Logger, u *user.User) error 
 	return nil
 }
 
-var PhoneCountryWhitelist = map[string]string{
-	"United States":  "1",
-	"Canada":         "1",
-	"United Kingdom": "44",
-	"Australia":      "61",
-	"New Zealand":    "64",
-	"Germany":        "49",
-	"France":         "33",
-	"Japan":          "81",
-	"Norway":         "47",
-	"Switzerland":    "41",
-	"Netherlands":    "31",
-	"Ireland":        "353",
-	"Austria":        "43",
-	"Sweden":         "46",
-	"Denmark":        "45",
-	"Iceland":        "354",
-	"Belgium":        "32",
-	"Finland":        "358",
-	"Italy":          "39",
-	"Singapore":      "65",
-}
-
 func inWhitelist(code string) bool {
 	for _, c := range PhoneCountryWhitelist {
 		if c == code {
