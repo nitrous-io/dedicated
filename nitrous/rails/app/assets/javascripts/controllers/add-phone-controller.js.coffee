@@ -9,7 +9,7 @@ App.AddPhoneController = Em.ObjectController.extend
 
   invalidOTP: false
 
-  whitelist: null
+  countryList: null
 
   clear: ->
     @_super.apply this, arguments

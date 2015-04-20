@@ -5,15 +5,16 @@
 .card-body
 
   .notice-text
-    p To create a free workspace, we require your phone number to verify that you're a real person.
-    p A verification code will be sent to your phone via SMS.
+    p We require your phone number to verify that you're a real person.
+    p We will only use this number to send a verification code to your phone via
+      SMS.
 
   form submit="savePhone" autocomplete="on"
     .ui.input-group
       label.field-label for='phone-country-code'
         | Country Code
       .ui.select.phone-country-code
-        Ember.Select id='phone-country-code' name='phone-country-code' content=whitelist optionValuePath='content.code' optionLabelPath='content.name' disabled=view.phoneFormDisabled value=phoneCountryCode required=true prompt='Select your country'
+        Ember.Select id='phone-country-code' name='phone-country-code' content=countryList optionValuePath='content.code' optionLabelPath='content.name' disabled=view.phoneFormDisabled value=phoneCountryCode required=true prompt='Select your country'
 
     .ui.input-group
       label.field-label for='phone'
