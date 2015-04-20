@@ -18,6 +18,7 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       controller.clear()
 
     countryList = [
+      { name: "United States (+1)", code: "1" }
       { name: "Afghanistan (+93)", code: "93" }
       { name: "Albania (+355)", code: "355" }
       { name: "Algeria (+213)", code: "213" }
@@ -226,7 +227,6 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       { name: "Ukraine (+380)", code: "380" }
       { name: "United Arab Emirates (+971)", code: "971" }
       { name: "United Kingdom (+44)", code: "44" }
-      { name: "United States (+1)", code: "1" }
       { name: "Uruguay (+598)", code: "598" }
       { name: "Uzbekistan (+998)", code: "998" }
       { name: "Vanuatu (+678)", code: "678" }
