@@ -541,12 +541,25 @@ const (
 //   4. Start container
 
 func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.ContainerInfo, err error) {
-	var (
-	// cnName string
-	//		backupImageName string
-	// secret string
-	)
+	var state reconfigState
 
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		// Recover from errors.
+		p.logger.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
+
+		switch state {
+		case stopped:
+			if cn, err := p.Start(id, ""); err != nil {
+				p.logger.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
+			} else {
+				ret = cn
+			}
+		}
+	}()
 	ret, err = p.Stop(id)
 	if err != nil {
 		if cn, e := p.GetInfo(id); e == nil {
@@ -554,22 +567,7 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 		}
 		return ret, err
 	}
-	// cnName = ret.Name
-
-	/*
-		secret, err = p.readSharedSecret(cnName)
-		if err != nil {
-			return ret, err
-		}
-	*/
-
-	/*
-		ak := p.containerAuthorizedKeys(cnName)
-			existingKeys, err := ak.Read()
-			if err != nil {
-				return ret, err
-			}
-	*/
+	state = stopped
 
 	// Unmarshal /var/lib/docker/containers/<containerid>/config.json.
 	jsonPath := fmt.Sprintf("/var/lib/docker/containers/%s/config.json", id)
