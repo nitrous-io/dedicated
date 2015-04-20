@@ -597,7 +597,7 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 		return ret, err
 	}
 
-	// Reset configs that are additive so that we can replace them when creatin
+	// Reset configs that are additive so that we can replace them when creating
 	// a container from this image.
 	container.Config.Volumes = nil
 	container.Volumes = nil
@@ -608,32 +608,32 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 	// Nitrous-blessed images based on Nitrous-specific env vars.
 	// FIXME This sucks because maintaining a list of env vars to preserve is
 	// pretty fragile.
-	/*
-		newEnv := []string{}
-		// Preserve Nitrous-specific env vars.
-		for _, envKey := range preservedEnvVars {
-			if val, ok := envValue(container.Config.Env, envKey); ok {
-				newEnv = append(newEnv, fmt.Sprintf("%s=%s", envKey, val))
-			}
+
+	newEnv := []string{}
+	// Preserve Nitrous-specific env vars.
+	for _, envKey := range preservedEnvVars {
+		if val, ok := envValue(container.Config.Env, envKey); ok {
+			newEnv = append(newEnv, fmt.Sprintf("%s=%s", envKey, val))
 		}
-	*/
+	}
+
 	// Copy over all env vars from new config.
 	cfg, err := containerConfigFromJSON(configJSON)
 	if err != nil {
 		return ret, err
 	}
-	/*
-		for _, v := range cfg.Env {
-			newEnv = append(newEnv, v)
-		}
-		container.Config.Env = newEnv
-	*/
+
+	for _, v := range cfg.Env {
+		newEnv = append(newEnv, v)
+	}
+	container.Config.Env = newEnv
 
 	p.setDefaultContainerConfig(cfg)
 	cfg.Hostname = container.Config.Hostname
 	cfg.Image = container.Config.Image
 	container.HostConfig = &hostConfig
 
+	// Setup HostConfig
 	startConfig, err := p.mkHostConfig(&container, cfg, p.isNitrousImage(cfg.Image))
 	if err != nil {
 		return nil, err
@@ -643,22 +643,21 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 	volumes := make(map[string]string)
 	volumesRW := make(map[string]bool)
 	volumesConfig := make(map[string]struct{})
-	exposedPorts := make(map[dockerclient.Port]struct{})
 	for _, bind := range startConfig.Binds {
 		dirs := strings.Split(bind, ":")
 		volumes[dirs[1]] = dirs[0]
 		volumesRW[dirs[1]] = true
 		volumesConfig[dirs[1]] = struct{}{}
 	}
-	sadfsf
-
-	for portBind, _ := range startConfig.PortBindings {
-		exposedPorts[portBind] = struct{}{}
-	}
-
 	container.Volumes = volumes
 	container.VolumesRW = volumesRW
 	container.Config.Volumes = volumesConfig
+
+	// Change port bindings
+	exposedPorts := make(map[dockerclient.Port]struct{})
+	for portBind, _ := range startConfig.PortBindings {
+		exposedPorts[portBind] = struct{}{}
+	}
 	container.Config.ExposedPorts = exposedPorts
 
 	// Write new config back to /var/lib/docker/containers/<containerid>/config.json.

@@ -67,6 +67,30 @@ var _ = Describe("NewReconfig", func() {
 		})
 		Expect(extraHosts).To(Equal([]string{fmt.Sprintf("host:%s", reconfig.Gateway)}))
 	})
+
+	It("changes the container environment variables", func() {
+		var configJSON string
+
+		configJSON = `{
+			"Env": ["BRANCH=master","APP_ENV=staging","VERSION=1.0.0"]
+		}:`
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
+		defer cleanupFn()
+		defer removeBackupImages(prov)
+		Expect(err).To(BeNil())
+
+		configJSON = `{
+			"Env": ["BRANCH=release","APP_ENV=production","SECRET=secret"]
+		}`
+		reconfig, err := prov.NewReconfig(info.ID, configJSON)
+		if reconfig != nil {
+			defer test.CleanUpContainer(info.ID)
+		}
+
+		Expect(err).To(BeNil())
+		Expect(reconfig.ID).To(Equal(info.ID), "container ID should not be changed after reconfig")
+		assertEnv(reconfig.ID, []string{"BRANCH=release", "APP_ENV=production", "SECRET=secret"}, nil)
+	})
 	/*
 		It("changes the container settings", func() {
 			var configJSON string
