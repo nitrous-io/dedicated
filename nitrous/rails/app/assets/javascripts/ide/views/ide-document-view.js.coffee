@@ -194,6 +194,7 @@ App.IdeDocumentView = Em.View.extend
   # don't call this method directly, instead, set collabMode to true
   _joinCollab: ->
     return unless fileName = @get 'document.path.absolutePath'
+    return if @get 'otClient'
     editor = @get 'editor'
     editor.set 'readOnly', true
     cm = editor.get 'codeMirror'
