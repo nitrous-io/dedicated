@@ -387,7 +387,7 @@ nav
     text-transform: uppercase
     background: $blueLink
     border-radius: 3px
-    padding: 4px 5px 3px 5px
+    padding: 3px 5px 3px 5px
     margin-right: 6px
     font-size: 8px
     letter-spacing: .6px
@@ -817,7 +817,7 @@ article
   .grid-item
     text-align: left
 
-    
+
 
 // --------------------------------------
 // Box
@@ -1390,6 +1390,10 @@ h4 + .box-wrapper
   .box-wrapper + .centered:last-of-type
     padding-top: 60px
 
+.ide + .features
+  .box-wrapper
+    padding: 0 20px
+
 .profiles
   .profile
     width: 1004px
@@ -1693,9 +1697,9 @@ h4 + .box-wrapper
 // --------------------------------------
 // Pulled out
 .pull-wrapper
-  width: 900px
+  width: 96%
   margin: 0 auto
-
+  padding-bottom: 60px
   +clearFix
 
   .section-title
@@ -1705,48 +1709,69 @@ h4 + .box-wrapper
   .item
     padding: 20px 0
 
+  h3, h4, .big-title
+    text-align: left
+    display: block
+
   h4
     font-weight: 400
-    text-align: left
     font-size: 14px
-    display: block
     padding: 0 0 6px 0
 
   h4, p
     color: #a5b3be
+  
+  .pull-left, .pull-right
+    position: relative
+
+  .pull-left
+    width: 35%
+    float: left
+
+  .pull-right
+    width: 65%
+    float: right
+
+    img
+      float: right
 
 
-.pull-left
-  float: left
-  position: relative
-  a
-    border: 0
-  &, img
-    width: 398px
-    height: 304px
-    background: #1C2227
-  img
-    box-shadow: 0 2px 20px rgba(0,0,0,.2)
-  .app-icon
-    width: 92px
-    height: 92px
-    background: transparent
-    position: absolute
-    bottom: -14px
-    right: -10px
-    border-radius: 92px
-
-.pull-right
-  width: 428px
-  float: right
-
-  .item
+.nitrous-desktop
+  .pull-wrapper
+    width: 900px
     padding-bottom: 0
 
-    h4
-      font-family: $boldFont
-      font-weight: 300
+  .pull-left
+    a
+      border: 0
 
+    &, img
+      width: 398px
+      height: 304px
+      background: #1C2227
+
+    img
+      box-shadow: 0 2px 20px rgba(0,0,0,.2)
+
+    .app-icon
+      width: 92px
+      height: 92px
+      background: transparent
+      position: absolute
+      bottom: -14px
+      right: -10px
+      border-radius: 92px
+
+  .pull-right
+    width: 428px
+
+    .item
+      padding-bottom: 0
+
+      h4
+        font-family: $boldFont
+        font-weight: 300
+  
   .download-btns
     padding: 24px 0 0 0
 
@@ -1760,6 +1785,7 @@ h4 + .box-wrapper
       background-size: 32px 256px
       border: 0
       border-radius: 4px
+
       &.osx
         background-position: 4px 5px
       &.windows
@@ -1776,6 +1802,7 @@ h4 + .box-wrapper
           background-position: 4px -156px
         &.linux
           background-position: 4px -220px
+
 
 
 // --------------------------------------
