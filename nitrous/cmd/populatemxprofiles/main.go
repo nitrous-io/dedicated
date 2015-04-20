@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lib/pq"
 
@@ -38,6 +39,9 @@ var (
 	logr    *logger.Logger
 	tracker analytics.Tracker
 	dbConn  *db.Database
+
+	workerDelay     = 1 * time.Millisecond
+	liveWorkerDelay = 500 * time.Millisecond // adjust to be kind to Mixpanel
 )
 
 func init() {
@@ -99,6 +103,7 @@ func makeJobs() <-chan job {
 func worker(jobs <-chan job) {
 	for j := range jobs {
 		j.Process()
+		time.Sleep(workerDelay)
 	}
 }
 
@@ -119,6 +124,7 @@ func main() {
 	}
 	tracker = &DryTracker{}
 	if len(os.Args) > 1 && os.Args[1] == "--live-run" {
+		workerDelay = liveWorkerDelay
 		tracker = analytics.NewMixpanelTracker(envvars.MixpanelToken)
 		logr.Warn("Live run!")
 	}
