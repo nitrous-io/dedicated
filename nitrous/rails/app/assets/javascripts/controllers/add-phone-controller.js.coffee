@@ -51,7 +51,7 @@ App.AddPhoneController = Em.ObjectController.extend
           @set 'invalidOTP', true
           return
         user.set('phoneAuthed', true)
-        @transitionToRoute 'hosts.new'
+        @transitionToRoute 'home'
       , (jqxhr) =>
         @set 'verifying', false
         App.postError(jqxhr.responseJSON, 'That code is incorrect.')
