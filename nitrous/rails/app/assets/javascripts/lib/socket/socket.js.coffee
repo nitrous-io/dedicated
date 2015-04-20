@@ -8,6 +8,7 @@ Lib.Socket = Em.Object.extend Em.Evented,
   init: ->
     @_super.apply this, arguments
     @_conn = conn = new SocketConnection # not using @set to reduce overhead
+    @_conn.heartbeatInterval = @constructor.heartbeatInterval
 
     conn.onbeforeopen   = => @willOpen()
     conn.onopen    = (ev) => @didOpen(ev)

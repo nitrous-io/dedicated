@@ -1,6 +1,6 @@
 #= require ./evented-socket
 
-App.OpsSocket = App.EventedSocket.extend
+App.OpsSocket = klass = App.EventedSocket.extend
   action: 'ops'
   binary: true
 
@@ -63,3 +63,6 @@ App.OpsSocket = App.EventedSocket.extend
       use_regexp: useRegexp
       file_pattern: filePattern
     @send 'finder', 'search', request, callback
+
+klass.reopenClass
+  heartbeatInterval: 2000

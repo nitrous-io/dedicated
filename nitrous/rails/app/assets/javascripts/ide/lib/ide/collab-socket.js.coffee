@@ -32,6 +32,8 @@ App.CollabSocket = klass = App.EventedSocket.extend
       @trigger("#{event}|#{filename}", data)
 
 klass.reopenClass
+  heartbeatInterval: 2000
+
   checkAvailability: (container, cb) ->
     protocol = location.protocol
     freighterdUrl = container.get 'freighterdUrl'
