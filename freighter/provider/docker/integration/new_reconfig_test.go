@@ -1,12 +1,15 @@
 package integration
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Reconfig", func() {
+var _ = Describe("NewReconfig", func() {
 	It("changes the container volumes", func() {
 		var configJSON string
 
@@ -31,6 +34,38 @@ var _ = Describe("Reconfig", func() {
 		Expect(reconfig.Volumes).To(HaveLen(1))
 		Expect(reconfig.Volumes).ToNot(HaveKey("dotfiles"))
 		Expect(reconfig.Volumes).To(HaveKey("/etc/shared"))
+	})
+
+	It("changes the container port bindings", func() {
+		var configJSON string
+
+		configJSON = `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}:`
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
+		defer cleanupFn()
+		defer removeBackupImages(prov)
+		Expect(err).To(BeNil())
+
+		configJSON = `{
+			"PortBindings": ["private:4567:8910", "public:1111:2222"]
+		}`
+		reconfig, err := prov.NewReconfig(info.ID, configJSON)
+		if reconfig != nil {
+			defer test.CleanUpContainer(info.ID)
+		}
+
+		extraHostsJson, _ := inspectFieldJSON(info.ID, "HostConfig.ExtraHosts")
+		var extraHosts []string
+		json.Unmarshal([]byte(extraHostsJson), &extraHosts)
+
+		Expect(err).To(BeNil())
+		Expect(reconfig.ID).To(Equal(info.ID), "container ID should not be changed after reconfig")
+		assertPort(reconfig.ID, []interface{}{
+			fmt.Sprintf("8910/tcp -> %s:4567", reconfig.Gateway),
+			"2222/tcp -> 0.0.0.0:1111",
+		})
+		Expect(extraHosts).To(Equal([]string{fmt.Sprintf("host:%s", reconfig.Gateway)}))
 	})
 	/*
 		It("changes the container settings", func() {

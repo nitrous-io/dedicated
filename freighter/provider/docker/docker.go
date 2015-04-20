@@ -599,10 +599,10 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 
 	// Reset configs that are additive so that we can replace them when creatin
 	// a container from this image.
-	//container.Config.ExposedPorts = nil
 	container.Config.Volumes = nil
 	container.Volumes = nil
 	container.VolumesRW = nil
+	container.Config.ExposedPorts = nil
 
 	// Env is a special case because we rely on it to apply some defaults to
 	// Nitrous-blessed images based on Nitrous-specific env vars.
@@ -643,33 +643,26 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 	volumes := make(map[string]string)
 	volumesRW := make(map[string]bool)
 	volumesConfig := make(map[string]struct{})
-	for _, mount := range startConfig.Binds {
-		dirs := strings.Split(mount, ":")
+	exposedPorts := make(map[dockerclient.Port]struct{})
+	for _, bind := range startConfig.Binds {
+		dirs := strings.Split(bind, ":")
 		volumes[dirs[1]] = dirs[0]
 		volumesRW[dirs[1]] = true
 		volumesConfig[dirs[1]] = struct{}{}
+	}
+	sadfsf
+
+	for portBind, _ := range startConfig.PortBindings {
+		exposedPorts[portBind] = struct{}{}
 	}
 
 	container.Volumes = volumes
 	container.VolumesRW = volumesRW
 	container.Config.Volumes = volumesConfig
-
-	// Write new hostconfig back to /var/lib/docker/containers/<containerid>/hostconfig.json.
-	f, err := os.OpenFile(hostConfigPath, os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
-		return ret, err
-	}
-	defer f.Close()
-	err = json.NewEncoder(f).Encode(startConfig)
-	if err != nil {
-		return ret, err
-	}
-
-	// Clean host config
-	container.HostConfig = nil
+	container.Config.ExposedPorts = exposedPorts
 
 	// Write new config back to /var/lib/docker/containers/<containerid>/config.json.
-	f, err = os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return ret, err
 	}
@@ -679,13 +672,24 @@ func (p *DockerProvider) NewReconfig(id, configJSON string) (ret *provider.Conta
 		return ret, err
 	}
 
-	// Send a request to reload a container from config.json and hostconfig.json
+	b, err = ioutil.ReadFile(hostConfigPath)
+	if err != nil {
+		return ret, err
+	}
+
+	// Send a request to reload a container from config.json
 	err = p.client.ReloadContainer(id)
 	if err != nil {
 		return ret, &provider.StartFailedError{Err: err}
 	}
 
-	if err := p.client.StartContainer(id, nil); err != nil {
+	// FIXME: dockerclient.StartContainer always sends HostConfig when starting a container
+	// Because RestartPolicy of dockerclient.HostConfig has default value which can't be nil
+	// It make the daemon to reset HostConfig in daemon and disk with empty config.
+	// Check https://github.com/docker/docker/blob/master/daemon/start.go#L25
+	// It requires updated HostConfig to start a container instead of just starting a container
+	// dockerclient.StartContainer need to be changed to be able to start container with empty HostConfig
+	if err := p.client.StartContainer(id, startConfig); err != nil {
 		return nil, err
 	}
 
