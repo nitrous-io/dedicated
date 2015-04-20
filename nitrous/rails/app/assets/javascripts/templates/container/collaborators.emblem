@@ -1,7 +1,7 @@
 = container-tab-bar selected='collaborators' model=model
 .card-body
   if model.canEdit
-    unless records.length
+    unless hasRecords
       p.hint-text.with-padding
         i.fa.fa-info-circle
         | Share this container with other users by inviting them. Collaborators can work with you in real-time in the IDE and have full console access.
