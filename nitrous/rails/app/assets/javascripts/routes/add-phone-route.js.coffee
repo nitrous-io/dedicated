@@ -22,6 +22,7 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       { name: "Australia (+61)", code: "61" }
       { name: "Canada (+1)", code: "1" }
       { name: "United Kingdom (+44)", code: "44" }
+      { name: "────────────────────", code: "disabled" }
       { name: "Afghanistan (+93)", code: "93" }
       { name: "Albania (+355)", code: "355" }
       { name: "Algeria (+213)", code: "213" }
