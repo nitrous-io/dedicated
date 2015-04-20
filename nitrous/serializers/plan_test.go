@@ -38,30 +38,7 @@ var _ = Describe("plan serializer", func() {
 				"cpu": "2",
 				"memory": "1 GB",
 				"storage": "20 GB",
-				"most_popular": true,
-				"requires_phone": false
-			}`))
-		})
-
-		It("serializes requires_phone as true if plan is free", func() {
-			model.Price = 0
-			model.BasePrice = 0
-
-			p := serializers.SerializePlan(model)
-			b, err := json.Marshal(p)
-			Expect(err).To(BeNil())
-			Expect(b).To(MatchJSON(`{
-				"id": 123,
-				"slug": "1gb",
-				"name": "Small",
-				"max_containers": 3,
-				"price": 0,
-				"base_price": 0,
-				"cpu": "2",
-				"memory": "1 GB",
-				"storage": "20 GB",
-				"most_popular": true,
-				"requires_phone": true
+				"most_popular": true
 			}`))
 		})
 	})
