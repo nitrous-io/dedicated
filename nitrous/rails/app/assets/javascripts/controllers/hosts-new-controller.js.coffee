@@ -82,8 +82,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       if App.get('pendingContainerData')
         App.set('pendingContainerData', null)
         @transitionToRoute 'containers.new'
-        return
-      @transitionToRoute 'home.index'
+      else
+        @transitionToRoute 'home.index'
 
     create: (host) ->
       if !host
@@ -97,6 +97,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
       if @get('cardRequired')
         App.set('pendingHost', host)
+
         @transitionToRoute 'add-card'
         return
 
