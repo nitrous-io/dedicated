@@ -22,11 +22,12 @@
 
       input.ui.btn.primary type='submit' disabled=view.phoneFormDisabled value='Save'
 
-      .note
-        p
-          ' A verification code has been sent to
-          strong = fullPhone
-          ' . Please enter it below.
+      if otpSent
+        .note
+          p
+            ' A verification code has been sent to
+            strong = fullPhone
+            ' . Please enter it below.
 
   if otpSent
     hr
