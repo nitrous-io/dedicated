@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -19,7 +20,46 @@ var (
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
+
+	ErrPaymentDetailsRequired = errors.New("payment details required before upgrading free plan")
+	ErrUpgradePaidNotAllowed  = errors.New("cannot upgrade host with paid plan")
+	ErrUpgradeNotAvailable    = errors.New("host has no upgradable paid plan")
 )
+
+func UpgradeHostToPaid(d *db.Database, u *user.User, h *host.Host) (*host.Host, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.IsFreeTier() {
+		return nil, ErrPaymentDetailsRequired
+	}
+
+	pl, err := plan.FindByID(d, h.PlanID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !pl.IsFree() {
+		return nil, ErrUpgradePaidNotAllowed
+	}
+
+	if !pl.PaidPlanID.Valid {
+		return nil, ErrUpgradeNotAvailable
+	}
+
+	h.PlanID = pl.PaidPlanID.Int64
+	h.HourlyPrice = pl.HourlyPrice()
+	h.LastRunningAt = pq.NullTime{Valid: false}
+
+	err = h.Update(d)
+	if err != nil {
+		return nil, err
+	}
+
+	return h, nil
+}
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
 	bp, err := u.BillingProfile(d)

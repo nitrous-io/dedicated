@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"database/sql"
 	"math"
 	"time"
 
@@ -8,19 +9,20 @@ import (
 )
 
 type Plan struct {
-	ID            int64      `db:"id"`
-	Name          string     `db:"name"`
-	Slug          string     `db:"slug"`
-	MaxContainers int64      `db:"max_containers"`
-	Price         int64      `db:"price"`
-	BasePrice     int64      `db:"base_price"`
-	CPU           string     `db:"cpu"`
-	Memory        string     `db:"memory"`
-	Storage       string     `db:"storage"`
-	Disabled      bool       `db:"disabled"`
-	MostPopular   bool       `db:"most_popular"`
-	CreatedAt     *time.Time `db:"created_at"`
-	UpdatedAt     *time.Time `db:"updated_at"`
+	ID            int64         `db:"id"`
+	Name          string        `db:"name"`
+	Slug          string        `db:"slug"`
+	MaxContainers int64         `db:"max_containers"`
+	Price         int64         `db:"price"`
+	BasePrice     int64         `db:"base_price"`
+	CPU           string        `db:"cpu"`
+	Memory        string        `db:"memory"`
+	Storage       string        `db:"storage"`
+	Disabled      bool          `db:"disabled"`
+	MostPopular   bool          `db:"most_popular"`
+	PaidPlanID    sql.NullInt64 `db:"paid_plan_id"`
+	CreatedAt     *time.Time    `db:"created_at"`
+	UpdatedAt     *time.Time    `db:"updated_at"`
 }
 
 type PlanPricing struct {
@@ -108,8 +110,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id)
 		RETURNING *;`)
 	if err != nil {
 		return err
