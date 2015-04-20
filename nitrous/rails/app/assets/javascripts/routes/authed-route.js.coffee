@@ -8,17 +8,12 @@ App.AuthedRoute = Em.Route.extend
           safeRoute = transition.targetName.indexOf("billing.") != -1 || transition.targetName.indexOf("add-card") != -1
           unless safeRoute
             @checkForBillingIssues()
-        # FIXME ADMINONLY failure handler below
         , (jqxhr) =>
-          if jqxhr?.responseJSON?.error == 'beta_closed'
-            App.set 'token', null
-            @transitionTo 'login'
-          else
-            transition.abort()
-            # retry in 5 seconds
-            Em.run.later(this, ->
-              transition.retry()
-            , 5000)
+          transition.abort()
+          # retry in 5 seconds
+          Em.run.later(this, ->
+            transition.retry()
+          , 5000)
     else
       @transitionTo 'login'
 
