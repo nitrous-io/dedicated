@@ -18,6 +18,11 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       controller.clear()
 
     countryList = [
+      { name: "United States (+1)", code: "1" }
+      { name: "Canada (+1)", code: "1" }
+      { name: "United Kingdom (+44)", code: "44" }
+      { name: "Australia (+61)", code: "61" }
+      { name: "────────────────────", code: "disabled" }
       { name: "Afghanistan (+93)", code: "93" }
       { name: "Albania (+355)", code: "355" }
       { name: "Algeria (+213)", code: "213" }
@@ -30,7 +35,6 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       { name: "Armenia (+374)", code: "374" }
       { name: "Aruba (+297)", code: "297" }
       { name: "Ascension (+247)", code: "247" }
-      { name: "Australia (+61)", code: "61" }
       { name: "Austria (+43)", code: "43" }
       { name: "Azerbaijan (+994)", code: "994" }
       { name: "Bahamas (+1)", code: "1" }
@@ -53,7 +57,6 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       { name: "Burundi (+257)", code: "257" }
       { name: "Cambodia (+855)", code: "855" }
       { name: "Cameroon (+237)", code: "237" }
-      { name: "Canada (+1)", code: "1" }
       { name: "Canary Islands (+3491)", code: "3491" }
       { name: "Cape Verde (+238)", code: "238" }
       { name: "Cayman Islands (+1345)", code: "1345" }
@@ -225,8 +228,6 @@ App.AddPhoneRoute = App.AuthedRoute.extend
       { name: "Uganda (+256)", code: "256" }
       { name: "Ukraine (+380)", code: "380" }
       { name: "United Arab Emirates (+971)", code: "971" }
-      { name: "United Kingdom (+44)", code: "44" }
-      { name: "United States (+1)", code: "1" }
       { name: "Uruguay (+598)", code: "598" }
       { name: "Uzbekistan (+998)", code: "998" }
       { name: "Vanuatu (+678)", code: "678" }

@@ -3,6 +3,7 @@ App.AddPhoneView = Em.View.extend
   classNames: ['ui', 'card']
 
   didInsertElement: ->
+    this.$('option[value="disabled"]').attr('disabled', true)
     Em.run.scheduleOnce 'afterRender', this, ->
       @$('[autofocus]').focus()
 
