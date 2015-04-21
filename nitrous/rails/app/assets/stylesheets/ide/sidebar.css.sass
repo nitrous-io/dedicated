@@ -4,7 +4,7 @@
   display: flex
   flex-shrink: 0
   width: 250px
-  margin-right: 1px
+  border-right: 1px solid $n2oGray1000
   user-select: none
 
   .sidebar-body
@@ -29,6 +29,14 @@
           font-size: 14px
           font-weight: 500
           color: $n2oGray300
+
+      &.top
+        .ui.btn.dropdown
+          position: relative
+          text-transform: none
+
+          &.open
+            background: rgba($n2oGray400, .4) !important
 
       &.bottom
         text-align: center

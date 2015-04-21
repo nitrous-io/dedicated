@@ -3,22 +3,28 @@
     h2
       = App.router.ideController.content.name
     .ide-toolbar-btns
-      button.ui.btn.icon title='Set Home Folder As Root' click='didClickSetHomeAsRoot target="view"' disabled=opsSocketNotReady
-        i.fa.fa-home
-      button.ui.btn.icon title='Refresh Tree' click='didClickRefresh target="view"' disabled=opsSocketNotReady
-        i.fa.fa-refresh
+      button.ui.btn click='didClickUpload target="view"' title='Upload Files' disabled=opsSocketNotReady
+        i.fa.fa-upload
+      button.ui.dropdown.btn.icon title='Settings' disabled=opsSocketNotReady
+        i.fa.fa-cog
+        ul.dropdown-menu.right
+          li
+            a href='#' click='didClickSetHomeAsRoot target="view"'
+              | Set Home Folder As Root
+          li
+            a href='#' click='didClickRefresh target="view"'
+              | Refresh Tree
+          li.separator
+          li
+            a href='#' click='didClickShowHidden target="view"'
+              if hiddenFilesVisible
+                | Hide Hidden Files
+              else
+                | Show Hidden Files
+
   .tree contextMenu='didRightClickBackground target="view"'
     ul.root
       App.IdePathView path=rootPath
-  .ide-toolbar.bottom
-    .ide-toolbar-btns
-      button.ui.btn click='didClickUpload target="view"'
-        | Upload Files
-      button.ui.btn click='didClickShowHidden target="view"' disabled=opsSocketNotReady
-        if hiddenFilesVisible
-          | Hide Hidden
-        else
-          | Show Hidden
   App.IdeSidebarBorderView
 
 App.IdePathContextMenuView viewName="contextMenuView"
