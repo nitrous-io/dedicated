@@ -1,6 +1,6 @@
 package main
 
-func SetConfirmed(jobs chan job, u *User) error {
+func GenConfirmedJobs(jobs chan job, u *User) error {
 	if u.ConfirmedAt.Valid {
 		jobs <- NewJob("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
@@ -11,7 +11,7 @@ func SetConfirmed(jobs chan job, u *User) error {
 	return nil
 }
 
-func SetTemplates(jobs chan job, u *User) error {
+func GenTemplatesJobs(jobs chan job, u *User) error {
 	var images, allImages []string
 	err := dbConn.Select(&allImages, `
 		SELECT COALESCE(templates.slug, containers.image) FROM containers
@@ -39,7 +39,7 @@ func SetTemplates(jobs chan job, u *User) error {
 	return nil
 }
 
-func StampGithubAuthorized(jobs chan job, u *User) error {
+func GenGithubAuthorizedJobs(jobs chan job, u *User) error {
 	if !u.GithubUsername.Valid {
 		return nil
 	}

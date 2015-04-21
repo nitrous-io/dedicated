@@ -81,9 +81,9 @@ func makeJobs() <-chan job {
 	type stepFn func(chan job, *User) error
 
 	steps := map[string]stepFn{
-		"set confirmed":     SetConfirmed,
-		"set templates":     SetTemplates,
-		"github authorized": StampGithubAuthorized,
+		"gen confirmed":         GenConfirmedJobs,
+		"gen templates":         GenTemplatesJobs,
+		"gen github authorized": GenGithubAuthorizedJobs,
 	}
 
 	go func() {
