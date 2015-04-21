@@ -21,7 +21,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -52,9 +52,10 @@ var _ = Describe("controllers/billingprofiles", func() {
 		authTokenInputs = AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
-			Username: "foo",
-			Password: "123456",
-			Email:    "foo@example.com",
+			Username:  "foo",
+			Password:  "123456",
+			Email:     "foo@example.com",
+			PromoCode: sql.NullString{credittype.SignupCreditType, true},
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
