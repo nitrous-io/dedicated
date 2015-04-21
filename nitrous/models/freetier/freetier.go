@@ -22,7 +22,7 @@ var (
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 
 	ErrPaymentDetailsRequired = errors.New("payment details required before upgrading free plan")
-	ErrUpgradePaidNotAllowed  = errors.New("cannot upgrade host with paid plan")
+	ErrUpgradePaidNotAllowed  = errors.New("host is already in paid plan")
 	ErrUpgradeNotAvailable    = errors.New("host has no upgradable paid plan")
 )
 

@@ -47,6 +47,8 @@ var (
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
 	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
+	errPaymentDetailsRequired   = httperror.New(http.StatusForbidden, "payment_details_required", "payment details required before upgrading free plan")
+	errUpgradePaidNotAllowed    = httperror.New(http.StatusConflict, "upgrade_paid_not_allowed", "host is already in paid plan")
 )
 
 var HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -209,12 +211,20 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 func PaidUpgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	h2, err := freetier.UpgradeHostToPaid(env.DB, env.User, h)
-	if err != nil {
+	switch err {
+	case freetier.ErrPaymentDetailsRequired:
+		return errPaymentDetailsRequired
+
+	case freetier.ErrUpgradePaidNotAllowed:
+		return errUpgradePaidNotAllowed
+
+	case nil:
+		serializeHost(env, h2)
+		return nil
+
+	default:
 		return err
 	}
-
-	serializeHost(env, h2)
-	return nil
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
