@@ -48,7 +48,7 @@ themesMenu = menu 'Themes', _.map [
   else
     menuItem theme.label,
       callback: (controller) ->
-        controller.viewSelectTheme theme.name
+        controller.windowSelectTheme theme.name
       checked: (->
         if currentTheme = App.get('router.ideEditorController.theme')
           currentTheme == theme.name
@@ -164,44 +164,6 @@ App.IdeMainMenuView = Em.View.extend
             controller.fileClose()
       ]
       menu 'Edit', [
-        menuItem 'Find',
-          macKey: ['command+f'], pcKey: ['ctrl+f']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editFind()
-        menuItem 'Find Next',
-          macKey: ['command+g'], pcKey: ['ctrl+g']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editFindNext()
-        menuItem 'Select Next',
-          macKey: ['command+d'], pcKey: ['ctrl+d']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editSelectNext()
-        menuItem 'Find Previous',
-          macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editFindPrevious()
-        menuItem 'Find in Project...',
-          macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
-          disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
-          disabled: true
-          callback: (controller) ->
-            controller.editFindInProject()
-        separator
-        menuItem 'Replace',
-          macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editReplace()
-        menuItem 'Replace All',
-          macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.editReplaceAll()
-        separator
         menuItem 'Go to Line...',
           macKey: ['command+l'], pcKey: ['ctrl+l']
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
@@ -243,29 +205,48 @@ App.IdeMainMenuView = Em.View.extend
             'vim' == App.get('router.ideEditorController.keybindings')
           ).property 'App.router.ideEditorController.keybindings'
       ]
+      menu 'Find', [
+        menuItem 'Find',
+          macKey: ['command+f'], pcKey: ['ctrl+f']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findFind()
+        separator
+        menuItem 'Find Next',
+          macKey: ['command+g'], pcKey: ['ctrl+g']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findFindNext()
+        menuItem 'Select Next',
+          macKey: ['command+d'], pcKey: ['ctrl+d']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findSelectNext()
+        menuItem 'Find Previous',
+          macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findFindPrevious()
+        separator
+        menuItem 'Replace',
+          macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findReplace()
+        menuItem 'Replace All',
+          macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findReplaceAll()
+        separator
+        menuItem 'Find in Files...',
+          macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+          disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
+          disabled: true
+          callback: (controller) ->
+            controller.findFindInFiles()
+      ]
       menu 'View', [
-        menuItem 'Themes', submenu: themesMenu
-        separator
-        menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
-          controller.viewSelectNextTab()
-        menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
-          controller.viewSelectPreviousTab()
-        separator
-        menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
-          controller.viewFocusConsole()
-        menuItem 'Minimize Console',
-          hideBinding: Em.Binding.oneWay('App.consoleMinimized')
-          callback: (controller) ->
-            controller.viewMinimizeConsole()
-        menuItem 'Restore Console',
-          hide: (->
-            !App.get('consoleMinimized')
-          ).property('App.consoleMinimized')
-          callback: (controller) ->
-            controller.viewRestoreConsole()
-        menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
-          controller.viewToggleFullScreenConsole()
-        separator
         menuItem 'Split Editor Pane Vertically', macKey: 'shift+ctrl+\\', pcKey: 'shift+ctrl+\\', callback: (controller) ->
           controller.viewSplitEditorPaneVertically()
         menuItem 'Split Editor Pane Horizontally', macKey: 'shift+ctrl+-', pcKey: 'shift+ctrl+-', callback: (controller) ->
@@ -274,10 +255,11 @@ App.IdeMainMenuView = Em.View.extend
           controller.viewCloseEditorPane()
         separator
         menuItem 'Ruler', submenu: rulerMenu
-        menuItem 'Show Trailing Whitespace',
+        menuItem 'Wrap Long Lines',
           callback: (controller) ->
-            controller.viewToggleTrailingSpace()
-          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
+            controller.viewToggleWrapLines()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
+        separator
         menuItem 'Show Line Numbers',
           callback: (controller) ->
             controller.viewToggleLineNumbers()
@@ -290,10 +272,33 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.viewToggleMatchBrackets()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.matchBrackets')
-        menuItem 'Wrap Long Lines',
+        menuItem 'Show Trailing Whitespace',
           callback: (controller) ->
-            controller.viewToggleWrapLines()
-          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.wrapLines')
+            controller.viewToggleTrailingSpace()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
+      ]
+      menu 'Window', [
+        menuItem 'Editor Theme', submenu: themesMenu
+        separator
+        menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
+          controller.windowSelectNextTab()
+        menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
+          controller.windowSelectPreviousTab()
+        separator
+        menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
+          controller.windowFocusConsole()
+        menuItem 'Minimize Console',
+          hideBinding: Em.Binding.oneWay('App.consoleMinimized')
+          callback: (controller) ->
+            controller.windowMinimizeConsole()
+        menuItem 'Restore Console',
+          hide: (->
+            !App.get('consoleMinimized')
+          ).property('App.consoleMinimized')
+          callback: (controller) ->
+            controller.windowRestoreConsole()
+        menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
+          controller.windowToggleFullScreenConsole()
       ]
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')
