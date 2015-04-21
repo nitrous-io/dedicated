@@ -48,9 +48,15 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).observes 'App.regions.@each'
 
   cardRequired: (->
-    App.get('billingProfile.no_card') ||
-    (App.get('billingProfile.free') && @get('selectedPlan.isPaidPlan'))
-  ).property 'App.billingProfile.no_card', 'App.billingProfile.free', 'selectedPlan.isPaidPlan'
+    if App.get('billingProfile.exempt')
+      return false
+
+    # otherwise a paid plan must have a card
+    if @get('selectedPlan.isPaidPlan')
+      return !App.get('billingProfile.hasCard')
+
+    false
+  ).property 'App.billingProfile.hasCard', 'selectedPlan.isPaidPlan'
 
   hasNextStep: (->
     @get('cardRequired')
