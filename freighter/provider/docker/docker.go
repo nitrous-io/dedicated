@@ -669,12 +669,6 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		return ret, &provider.StartFailedError{Err: err}
 	}
 
-	// FIXME: dockerclient.StartContainer always sends HostConfig when starting a container
-	// Because RestartPolicy of dockerclient.HostConfig has default value which can't be nil
-	// It make the daemon to reset HostConfig in daemon and disk with empty config.
-	// Check https://github.com/docker/docker/blob/master/daemon/start.go#L25
-	// It requires updated HostConfig to start a container instead of just starting a container
-	// dockerclient.StartContainer need to be changed to be able to start container with empty HostConfig
 	if err := p.client.StartContainer(id, startConfig); err != nil {
 		return ret, &provider.StartFailedError{Err: err}
 	}
