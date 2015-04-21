@@ -32,15 +32,16 @@
         .inner
 
 
-  /.notice
-    /.container
-      /p
-        /a href='/pricing#free'
-          /span.free Free
-          /strong Try out Nitrous.
-          /| Free plan available with the ability to upgrade later.
-          /span.link Let's go
-          /i.fa.fa-chevron-right
+  .notice
+    .container
+      p
+        a href='https://lite.nitrous.io'
+          span.free Lite
+          | The original Nitrous is now called 
+          strong Nitrous Lite
+          | , and will be sunset on July 1st, 2015
+          span.link Learn more
+          i.fa.fa-chevron-right
 
 
   article.featurette.ide.attached-bottom
@@ -64,53 +65,38 @@
 
   article.features
     .container
-      h3.big-title Why you'll love Nitrous
-      .box-wrapper.three.centered
-        .box
-          .visual
-            = image_tag 'home/featurette-terminal.svg', width: '58px', height: '51px', class: 'visual', alt: 'Built-in Terminal'
-          h3.section-title Built-in Terminal
+
+      .box-wrapper.three
+        .box.terminal
+          h3.with-icon Built-in Terminal
           p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
 
-        .box
-          .visual
-            = image_tag 'home/featurette-code.svg', width: '58px', height: '45px', class: 'visual', alt: 'Code on Nitrous'
-          h3.section-title Zero-to-code in seconds
+        .box.code
+          h3.with-icon Zero-to-code in seconds
           p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
 
-        .box
-          .visual
-            = image_tag 'home/featurette-workspaces.svg', width: '58px', height: '57px', class: 'visual', alt: 'Powerful Containers'
-          h3.section-title Powerful Containers
-          p Create &amp; develop on multiple containers within a workspace, or create custom containers using Docker images.
+        .box.containers
+          h3.with-icon Powerful Containers
+          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
 
-
-      .box-wrapper.three.centered
-        .box
-          .visual
-            = image_tag 'home/featurette-github.svg', width: '58px', height: '58px', class: 'visual', alt: 'Github integration'
-          h3.section-title GitHub integration
+      .box-wrapper.three
+        .box.github
+          h3.with-icon GitHub integration
           p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
 
-        .box
-          .visual
-            = image_tag 'home/featurette-collab.svg', width: '58px', height: '58px', class: 'visual', alt: 'Collaboration'
-          h3.section-title Collaboration
-          p Code collaboratively with anyone. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+        .box.collaboration
+          h3.with-icon Collaboration
+          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
 
-        .box
-          .visual
-            = image_tag 'home/featurette-snapshots.svg', width: '58px', height: '50px', class: 'visual', alt: 'Nitrous Snapshots'
-          h3.section-title Snapshots
-          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot and revert to it at any time.
-
+        .box.snapshots
+          h3.with-icon Snapshots
+          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot to preserve the state of your project's environment at any time.
 
       .centered
-        a href="/features"
-          | Learn more about the features
-          i.fa.fa-chevron-right
+        a class="btn white-outline" href="/features"
+          | Learn more
 
-  article.lighter
+  article.nitrous-desktop.lighter
     .container
       .pull-wrapper
         .pull-left
@@ -123,8 +109,7 @@
           .item
             h4 Manage cloud environments
             p
-              a href="#" Nitrous Sync&nbsp;
-              | (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+              | Nitrous Sync (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
 
           .item
             h4 Use your favorite editor

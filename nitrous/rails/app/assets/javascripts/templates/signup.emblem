@@ -12,11 +12,10 @@
           p
             ' Sign up and receive
             span
-              | $
+              ' $
               = currency promoCodeInfo.content
-              '
-              ' Free
-            | Credit
+            '
+            | credit
 
       .ui.input-group
         label.field-label for='signup-username'
