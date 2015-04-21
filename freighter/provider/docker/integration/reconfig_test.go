@@ -27,9 +27,7 @@ var _ = Describe("Reconfig", func() {
 			"Mounts": ["shared:/etc/shared"]
 		}`
 		reconfig, err := prov.Reconfig(info.ID, configJSON)
-		if reconfig != nil {
-			defer test.CleanUpContainer(info.ID)
-		}
+		defer test.CleanUpContainer(info.ID)
 
 		Expect(err).To(BeNil())
 		Expect(reconfig.ID).To(Equal(info.ID), "container ID should not be changed after reconfig")
@@ -53,9 +51,7 @@ var _ = Describe("Reconfig", func() {
 			"PortBindings": ["private:4567:8910", "public:1111:2222"]
 		}`
 		reconfig, err := prov.Reconfig(info.ID, configJSON)
-		if reconfig != nil {
-			defer test.CleanUpContainer(info.ID)
-		}
+		defer test.CleanUpContainer(info.ID)
 
 		extraHostsJson, _ := inspectFieldJSON(info.ID, "HostConfig.ExtraHosts")
 		var extraHosts []string
@@ -85,9 +81,7 @@ var _ = Describe("Reconfig", func() {
 			"Env": ["BRANCH=release","APP_ENV=production","SECRET=secret"]
 		}`
 		reconfig, err := prov.Reconfig(info.ID, configJSON)
-		if reconfig != nil {
-			defer test.CleanUpContainer(info.ID)
-		}
+		defer test.CleanUpContainer(info.ID)
 
 		Expect(err).To(BeNil())
 		Expect(reconfig.ID).To(Equal(info.ID), "container ID should not be changed after reconfig")
@@ -118,9 +112,8 @@ var _ = Describe("Reconfig", func() {
 				"Env": ["BRANCH=master","RAILS_ENV=staging"]
 			}`
 		reconfig1, err := prov.Reconfig(info.ID, configJSON)
-		if reconfig1 != nil {
-			defer test.CleanUpContainer(info.ID)
-		}
+		defer test.CleanUpContainer(info.ID)
+
 		Expect(err).To(BeNil())
 		Expect(reconfig1.ID).To(Equal(info.ID), "container ID should not be changed after reconfig")
 		assertEnv(reconfig1.ID, []string{"BRANCH=master", "RAILS_ENV=staging"}, nil)
@@ -139,9 +132,8 @@ var _ = Describe("Reconfig", func() {
 				"PortBindings": ["public:4000:4000"]
 			}`
 		reconfig2, err := prov.Reconfig(reconfig1.ID, configJSON)
-		if reconfig2 != nil {
-			defer test.CleanUpContainer(info.ID)
-		}
+		defer test.CleanUpContainer(info.ID)
+
 		Expect(err).To(BeNil())
 		assertEnv(reconfig2.ID, []string{"PAGER=less"}, []string{"LANG"})
 		assertPort(reconfig2.ID, []interface{}{
@@ -161,7 +153,7 @@ var _ = Describe("Reconfig", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("starts back the original container when it fails after stopping", func() {
+	It("starts back the container when it fails after stopping", func() {
 		configJSON := `{
 			"PortBindings": ["private:1234:2345", "public:2345:3456"]
 		}`
@@ -209,6 +201,31 @@ var _ = Describe("Reconfig", func() {
 
 		// After reconfig, the old host port bindings should still not be specified in config port bindings
 		Expect(config2.ConfigPortBindings).To(ConsistOf([]string{"public::1337/tcp", "public::8080/tcp"}))
+	})
+
+	It("changes the container setting but cannot start it when given a config that prevents it from starting", func() {
+		configJSON := `{
+			"PortBindings": ["private:1234:2345", "public:2345:3456"]
+		}`
+		prov, info, cleanupFn, err := startContainer("busybox", configJSON)
+		defer cleanupFn()
+		Expect(err).To(BeNil())
+
+		reconfigCn, err := prov.Reconfig(info.ID, `{
+			"PortBindings": ["private:1111:2345", "public:1111:3456"]
+		}`) // Binding to the same port twice will cause container to not start.
+		Expect(err).To(HaveOccurred())
+		Expect(reconfigCn).NotTo(BeNil())
+		defer test.CleanUpContainer(reconfigCn.ID)
+
+		state, err := inspectField(reconfigCn.ID, "State.Running")
+		Expect(err).To(BeNil())
+		Expect(state).To(Equal("false"))
+
+		config, err := prov.GetConfig(reconfigCn.ID)
+		Expect(err).To(BeNil())
+
+		Expect(config.ConfigPortBindings).To(ConsistOf([]string{"private:1111:2345/tcp", "public:1111:3456/tcp"}))
 	})
 
 	It("removes built-in volumes when reconfig mount options do not include them", func() {

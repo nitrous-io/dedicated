@@ -624,6 +624,10 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	volumesConfig := make(map[string]struct{})
 	for _, bind := range startConfig.Binds {
 		dirs := strings.Split(bind, ":")
+		if len(dirs) <= 2 {
+			p.logger.Errorf("reconfig: Invalid volume binding: %s", bind)
+			continue
+		}
 		volumes[dirs[1]] = dirs[0]
 		volumesConfig[dirs[1]] = struct{}{}
 		if len(dirs) > 2 && dirs[2] == "ro" {
@@ -636,7 +640,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	container.VolumesRW = volumesRW
 	container.Config.Volumes = volumesConfig
 
-	// Change port bindings
+	// Change exposed ports
 	exposedPorts := make(map[dockerclient.Port]struct{})
 	for portBind, _ := range startConfig.PortBindings {
 		exposedPorts[portBind] = struct{}{}
@@ -672,7 +676,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	// It requires updated HostConfig to start a container instead of just starting a container
 	// dockerclient.StartContainer need to be changed to be able to start container with empty HostConfig
 	if err := p.client.StartContainer(id, startConfig); err != nil {
-		return nil, err
+		return ret, &provider.StartFailedError{Err: err}
 	}
 
 	return p.GetInfo(id)
