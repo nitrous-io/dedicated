@@ -47,6 +47,10 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'no_card'
   ).property('state')
 
+  isFreeOrNoCardState: (->
+    @get('state') == 'no_card' || @get('state') == 'free'
+  ).property('state')
+
   # override the default save method
   save: (params, options) ->
     adapter = Ember.get(@constructor, 'adapter')
