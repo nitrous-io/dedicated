@@ -9,8 +9,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -126,8 +128,13 @@ var _ = Describe("controllers/userprofiles", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		Context("when advanced param is set to true", func() {
-			It("responds with updated user profile serialized as JSON'", func() {
+		Context("when user is a paid user", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("allows advanced settings", func() {
 				params := &url.Values{}
 				params.Set("advanced", "true")
 
@@ -143,27 +150,48 @@ var _ = Describe("controllers/userprofiles", func() {
 			})
 		})
 
-		Context("when advanced param is set to false", func() {
-			It("responds with updated user profile serialized as JSON'", func() {
+		Context("when user is a free tier user", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not allow advanced settings", func() {
 				params := &url.Values{}
-				params.Set("advanced", "false")
+				params.Set("advanced", "true")
 
 				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Code).To(Equal(http.StatusForbidden))
 
-				j := struct {
-					UserProfile serializers.UserProfile `json:"user_profile"`
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
+				up, err := userprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())
-				Expect(j.UserProfile.Advanced).To(Equal(false))
+				Expect(up.Advanced).To(BeFalse())
+			})
+		})
+
+		Context("when user has no card on record", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateNoCard, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not allow advanced settings", func() {
+				params := &url.Values{}
+				params.Set("advanced", "true")
+
+				res := doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				up, err := userprofile.Find(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(up.Advanced).To(BeFalse())
 			})
 		})
 
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/user/profile"
-				authTokenInputs.Method = "GET"
+				authTokenInputs.Method = "POST"
 			})
 
 			ItRequiresAuthToken(&authTokenInputs)
