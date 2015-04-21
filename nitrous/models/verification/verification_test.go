@@ -16,6 +16,16 @@ func Test(t *testing.T) {
 	RunSpecs(t, "models/verification")
 }
 
+func isNumeric(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 var _ = Describe("models/verification", func() {
 	var (
 		db *db.Database
@@ -43,11 +53,12 @@ var _ = Describe("models/verification", func() {
 	})
 
 	Describe("Generate()", func() {
-		It("generates a verification for the user with a 6-character alpha-numeric code", func() {
+		It("generates a verification for the user with a 6-character numeric code", func() {
 			v, err := verification.Generate(db, u.ID, "+6588884444")
 			Expect(err).To(BeNil())
 
 			Expect(v.Code).To(HaveLen(6))
+			Expect(isNumeric(v.Code)).To(BeTrue())
 			Expect(v.UserID).To(Equal(u.ID))
 
 			// Should be saved to database.
