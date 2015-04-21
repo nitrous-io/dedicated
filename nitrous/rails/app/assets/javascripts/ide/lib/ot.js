@@ -1564,11 +1564,13 @@ ot.EditorClient = (function () {
       operation: function (operation) {
         self.applyServer(TextOperation.fromJSON(operation));
       },
-      selection: function (clientId, selection) {
+      selection: function (clientId, selection, revision) {
         if (selection) {
-          self.getClientObject(clientId).updateSelection(
-            self.transformSelection(Selection.fromJSON(selection))
-          );
+          if ((revision == null) || (revision && revision >= self.revision)) {
+            self.getClientObject(clientId).updateSelection(
+              self.transformSelection(Selection.fromJSON(selection))
+            );
+          }
         } else {
           self.getClientObject(clientId).removeSelection();
         }
@@ -1697,7 +1699,7 @@ ot.EditorClient = (function () {
 
   EditorClient.prototype.sendSelection = function (selection) {
     if (this.state instanceof Client.AwaitingWithBuffer) { return; }
-    this.serverAdapter.sendSelection(selection);
+    this.serverAdapter.sendSelection(selection, this.revision);
   };
 
   EditorClient.prototype.sendOperation = function (revision, operation) {

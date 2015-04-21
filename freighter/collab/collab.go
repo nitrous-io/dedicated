@@ -84,11 +84,7 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 	case "op":
 		onOp(c, msg.FileName, msg.Args)
 	case "sel":
-		data, ok := msg.Args[0].(map[string]interface{})
-		if !ok {
-			onSel(c, msg.FileName, nil)
-		}
-		onSel(c, msg.FileName, data)
+		onSel(c, msg.FileName, msg.Args)
 	}
 
 	return nil
@@ -232,17 +228,40 @@ func onOp(c *Connection, fileName string, data []interface{}) {
 	}
 }
 
-func onSel(c *Connection, fileName string, data map[string]interface{}) {
+func onSel(c *Connection, fileName string, data []interface{}) {
+	// data: [selection, revision?]
+	if len(data) == 0 {
+		return
+	}
+
 	s := GetSession(fileName)
 	if s == nil || data == nil {
 		return
 	}
-	sel, err := selection.Unmarshal(data)
-	if err != nil {
+
+	// selection
+	var sel *selection.Selection
+	var err error
+	selm, ok := data[0].(map[string]interface{})
+	if ok {
+		sel, err = selection.Unmarshal(selm)
+		if err != nil {
+			return
+		}
+	} else {
 		return
 	}
+
+	// revision
+	var rev int
+	if len(data) >= 2 {
+		if revf, ok := data[1].(float64); ok {
+			rev = int(revf)
+		}
+	}
+
 	s.Lock.Lock()
 	s.SetSelection(c.ID, sel)
-	c.Broadcast(s, "sel", []interface{}{c.ID, data})
+	c.Broadcast(s, "sel", []interface{}{c.ID, selm, rev})
 	s.Lock.Unlock()
 }

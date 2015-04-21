@@ -34,7 +34,8 @@ class ot.CollabSocketAdapter
     sock.on "sel|#{fileName}", (data) =>
       clientId = data[0]
       selection = data[1]
-      @trigger 'selection', clientId, selection
+      revision = data[2]
+      @trigger 'selection', clientId, selection, revision
 
     sock.on "rejoined|#{fileName}", =>
       @trigger 'reconnect'
@@ -47,8 +48,8 @@ class ot.CollabSocketAdapter
   sendOperation: (revision, operation, selection) ->
     @sock.send @fileName, 'op', revision, operation, selection
 
-  sendSelection: (selection) ->
-    @sock.send @fileName, 'sel', selection
+  sendSelection: (selection, revision) ->
+    @sock.send @fileName, 'sel', selection, revision
 
   registerCallbacks: (cb) ->
     @callbacks = cb
