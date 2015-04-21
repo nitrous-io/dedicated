@@ -226,19 +226,18 @@ window.Nitrous = Em.Application.extend Em.Evented,
   # TODO: Get this logic from server
   canCreateHosts: (->
     if @get('billingProfile.isNoCardState')
-      true
+      return true
 
-    else if @get('billingProfile.free') && (@get('hosts.length') > 0)
-      false
+    if @get('billingProfile.free') && (@get('hosts.length') > 0)
+      return false
 
-    else if !@get('billingProfile.active')
-      false
+    if !@get('billingProfile.active')
+      return false
 
-    else if maxHosts = @get('userProfile.maxHosts')
-      @get('hosts.loaded') && (@get('hosts.length') < maxHosts)
+    if maxHosts = @get('userProfile.maxHosts')
+      return @get('hosts.loaded') && (@get('hosts.length') < maxHosts)
 
-    else
-      true
+    return true
 
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active', 
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
