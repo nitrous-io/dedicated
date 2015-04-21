@@ -120,26 +120,26 @@ var _ = Describe("controllers/freequeue", func() {
 				Expect(err).To(BeNil())
 
 				fq1 = &freequeue.FreeQueue{
-					UserID:        u1.ID,
-					TemplateSlug:  "tmpl1",
-					ContainerName: "nm",
-					RegionSlug:    "slug1",
+					UserID:                u1.ID,
+					ContainerTemplateSlug: "tmpl1",
+					ContainerName:         "nm",
+					RegionSlug:            "slug1",
 				}
 				Expect(fq1.Insert(db)).To(BeNil())
 
 				fq2 = &freequeue.FreeQueue{
-					UserID:        u2.ID,
-					TemplateSlug:  "tmpl1",
-					ContainerName: "nm",
-					RegionSlug:    "slug1",
+					UserID:                u2.ID,
+					ContainerTemplateSlug: "tmpl1",
+					ContainerName:         "nm",
+					RegionSlug:            "slug1",
 				}
 				Expect(fq2.Insert(db)).To(BeNil())
 
 				fq3 = &freequeue.FreeQueue{
-					UserID:        u3.ID,
-					TemplateSlug:  "tmpl1",
-					ContainerName: "nm",
-					RegionSlug:    "slug1",
+					UserID:                u3.ID,
+					ContainerTemplateSlug: "tmpl1",
+					ContainerName:         "nm",
+					RegionSlug:            "slug1",
 				}
 				Expect(fq3.Insert(db)).To(BeNil())
 
@@ -181,10 +181,10 @@ var _ = Describe("controllers/freequeue", func() {
 			Expect(err).To(BeNil())
 
 			fq = &freequeue.FreeQueue{
-				UserID:        u1.ID,
-				TemplateSlug:  "tmpl1",
-				ContainerName: "nm",
-				RegionSlug:    "region1",
+				UserID:                u1.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				RegionSlug:            "region1",
 			}
 			Expect(fq.Insert(db)).To(BeNil())
 

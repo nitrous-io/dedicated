@@ -42,9 +42,10 @@ type FreeQueue struct {
 	ActionedBy sql.NullInt64 `db:"actioned_by"`
 	ActionedAt pq.NullTime   `db:"actioned_at"`
 
-	TemplateSlug  string `db:"template_slug"`
-	ContainerName string `db:"container_name"`
-	RegionSlug    string `db:"region_slug"`
+	ContainerTemplateSlug string `db:"container_template_slug"`
+	ContainerName         string `db:"container_name"`
+	HostName              string `db:"host_name"`
+	RegionSlug            string `db:"region_slug"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -63,8 +64,8 @@ type FreeQueueWithUser struct {
 
 func (f *FreeQueue) Insert(db *db.Database) error {
 	nstmt, err := db.PrepareNamed(`INSERT INTO free_queue
-    (user_id, template_slug, container_name, region_slug)
-    VALUES (:user_id, :template_slug, :container_name, :region_slug)
+    (user_id, container_template_slug, container_name, host_name, region_slug)
+    VALUES (:user_id, :container_template_slug, :container_name, :host_name, :region_slug)
     RETURNING *;`)
 	if err != nil {
 		return err
