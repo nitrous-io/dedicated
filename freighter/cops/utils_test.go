@@ -1,9 +1,66 @@
 package cops
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestGetContainerPID(t *testing.T) {
+	// save current value to restore later
+	newState, oldState := newStateDir, oldStateDir
+	defer func() {
+		newStateDir, oldStateDir = newState, oldState
+	}()
+
+	// create tmp directory for storing states
+	tmpNewState, err := ioutil.TempDir("", "new-state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpNewState)
+	tmpOldState, err := ioutil.TempDir("", "old-state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpOldState)
+
+	// assign global var to new tmp vars
+	newStateDir, oldStateDir = tmpNewState, tmpOldState
+
+	// test new state path
+	var stateFile string
+	os.MkdirAll(filepath.Join(newStateDir, "123"), 0755)
+	stateFile = filepath.Join(newStateDir, "123", "state.json")
+	if err := ioutil.WriteFile(stateFile, []byte(`{"init_process_pid": 234}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	os.MkdirAll(filepath.Join(oldStateDir, "987"), 0755)
+	stateFile = filepath.Join(oldStateDir, "987", "state.json")
+	if err := ioutil.WriteFile(stateFile, []byte(`{"init_pid": 765}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		containerID string
+		pid         int
+		hasError    bool
+	}{
+		{"123", 234, false},
+		{"987", 765, false},
+		{"300", 0, true},
+	} {
+		pid, err := GetContainerPID(tc.containerID)
+		if err != nil && !tc.hasError {
+			t.Errorf("failed to get pid %v", err)
+		}
+		if pid != tc.pid {
+			t.Errorf("pid(%d), expected %d", pid, tc.pid)
+		}
+	}
+}
 
 func TestRemoveBogusFromStderr(t *testing.T) {
 	tests := []string{

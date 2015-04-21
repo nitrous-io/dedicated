@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+var (
+	newStateDir = "/var/run/docker/execdriver/native"
+	oldStateDir = "/var/lib/docker/execdriver/native"
+)
+
 // docker's native driver stores container state in /var/lib/docker/execdriver/native/container_id/state.json
 // we are only interested in InitPid because we want to join namespace of that pid
 type containerState struct {
@@ -23,11 +28,11 @@ func GetContainerPID(containerID string) (pid int, err error) {
 	var oldFormat bool
 	state := &containerState{}
 	// in docker > 1.6, state is stored in /var/run/docker
-	statePath := filepath.Join("/var/run/docker/execdriver/native", containerID, "state.json")
+	statePath := filepath.Join(newStateDir, containerID, "state.json")
 	stateFile, err := os.Open(statePath)
 	if os.IsNotExist(err) {
 		oldFormat = true
-		statePath = filepath.Join("/var/lib/docker/execdriver/native", containerID, "state.json")
+		statePath = filepath.Join(oldStateDir, containerID, "state.json")
 		stateFile, err = os.Open(statePath)
 	}
 	if err != nil {
