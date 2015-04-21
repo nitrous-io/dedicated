@@ -113,6 +113,11 @@ func handleBillingError(err error) error {
 }
 
 func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
+	if user.PromoCode.String == "" || !user.PromoCode.Valid {
+		// promo_code is '' or NULL, return
+		return
+	}
+
 	ct, err := creditForUser(d, user)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -151,8 +156,5 @@ func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
 
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
-	if creditCode == "" {
-		creditCode = credittype.SignupCreditType
-	}
 	return credittype.FindValidCreditTypeByName(d, creditCode)
 }

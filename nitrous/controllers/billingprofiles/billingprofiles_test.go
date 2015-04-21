@@ -21,7 +21,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -52,9 +52,10 @@ var _ = Describe("controllers/billingprofiles", func() {
 		authTokenInputs = AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
-			Username: "foo",
-			Password: "123456",
-			Email:    "foo@example.com",
+			Username:  "foo",
+			Password:  "123456",
+			Email:     "foo@example.com",
+			PromoCode: sql.NullString{credittype.SignupCreditType, true},
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -243,6 +244,36 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			It("should not award if the billing profile was previously activated", func() {
 				_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = false WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+
+			It("should not award if promo code is null", func() {
+				_, err := db.Exec(`UPDATE users SET promo_code = NULL WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+
+			It("should not award if promo code is empty string", func() {
+				_, err := db.Exec(`UPDATE users SET promo_code = '' WHERE id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 
 				p := &url.Values{}

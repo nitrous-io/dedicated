@@ -6,16 +6,17 @@
 
   form submit='signup'
     .card-body
-      .free-credit class={promoCodeInfo.content:show}
-        .notice-text
-          h5 Limited Time Promotion
-          p
-            ' Sign up and receive
-            span
-              ' $
-              = currency promoCodeInfo.content
-            '
-            | credit
+      if promoCodeInfo
+        .free-credit class={promoCodeInfo.content:show}
+          .notice-text
+            h5 Limited Time Promotion
+            p
+              ' Sign up and receive
+              span
+                ' $
+                = currency promoCodeInfo.content
+              '
+              | credit
 
       .ui.input-group
         label.field-label for='signup-username'
