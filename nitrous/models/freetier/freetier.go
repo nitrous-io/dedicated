@@ -7,50 +7,70 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 var (
-	ErrFreePlanNotAllowed    = errors.New("paying user is not allowed to create a free tier workspace")
-	ErrPaidPlanNotAllowed    = errors.New("free tier user is not allowed to create a paid workspace")
-	ErrMaxFreeHostReached    = errors.New("free tier user already has existing free host")
-	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded monthly usage quota")
+	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
+	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
+	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
+
+	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
+	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 )
 
-func hasNonTerminatedHost(hs []*host.Host) bool {
-	for _, h := range hs {
-		if h.TerminatedAt == nil {
-			return true
-		}
+func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return nil, err
 	}
-	return false
+
+	if bp.IsFreeTier() {
+		err := CreateFreeTierHostAllowed(d, bp)
+		switch err {
+		case nil:
+			return plan.AllPlansForProvider(d, provider)
+		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+			return plan.PaidPlansForProvider(d, provider)
+		default:
+			return nil, err
+		}
+
+	} else {
+		return plan.PaidPlansForProvider(d, provider)
+	}
 }
 
-func CreateHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan, now time.Time) error {
+// Checks whether a user of given billing profile can create new free tier host.
+// It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
+func CreateFreeTierHostAllowed(d *db.Database, bp *billingprofile.BillingProfile) error {
+	if !bp.IsFreeTier() {
+		return ErrFreePlanNotAllowed
+	}
+
+	hosts, err := host.FindAllWithTerminated(d, bp.UserID)
+	if err != nil {
+		return err
+	}
+
+	if len(hosts) > 0 {
+		return ErrMaxFreeHostReached
+	}
+
+	return nil
+}
+
+// Checks whether a free/paid user can create a host of given plan.
+func CreateHostWithPlanAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *plan.Plan) error {
 	if bp.IsFreeTier() {
-		// Free tier users cannot create hosts with paid plan
-		if p.Price != 0 {
+		if !p.IsFree() {
+			// Free-tier user must upgrade their billing profile first before creating paid plan
 			return ErrPaidPlanNotAllowed
 		}
 
-		usage, hosts, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
-		if err != nil {
-			return err
-		}
+		return CreateFreeTierHostAllowed(d, bp)
 
-		// Skip if user don't have any host created
-		if len(hosts) == 0 {
-			return nil
-		}
-
-		if hasNonTerminatedHost(hosts) {
-			return ErrMaxFreeHostReached
-		}
-
-		if usage >= bp.MaxMinutes() {
-			return ErrFreeTimeLimitExceeded
-		}
 	} else {
 		// Paid users cannot create hosts with free plan
 		if p.IsFree() {
@@ -61,19 +81,65 @@ func CreateHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, p *pla
 	return nil
 }
 
-func StartHostAllowed(d *db.Database, bp *billingprofile.BillingProfile, now time.Time) error {
-	if !bp.IsFreeTier() {
-		return nil
+func StopHostAllowed(d *db.Database, u *user.User) (bool, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return false, err
 	}
 
-	usage, _, err := hosttransition.CurrentMonthUsageForUser(d, bp.UserID, now)
+	return !bp.IsFreeTier(), nil
+}
+
+func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
+	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
 	}
 
-	if usage >= bp.MaxMinutes() {
+	if !bp.IsFreeTier() {
+		return nil
+	}
+
+	if !u.MaxRunningTime.Valid || !u.RefreshPeriod.Valid {
+		return nil
+	}
+
+	if !h.LastRunningAt.Valid {
+		return ErrLastRunningAtInvalid
+	}
+
+	lastTime := h.LastRunningAt.Time
+
+	now := time.Now().UTC()
+
+	// if the host was last running outside of the refresh period then the host can be started again
+	// regardless of the quota they have used (because the quota has been reset because we are in a new period)
+	refreshPeriod := lastTime.Add(time.Duration(u.RefreshPeriod.Int64) * time.Second)
+	if refreshPeriod.Before(now) {
+		return nil
+	}
+
+	used := int64(now.Sub(lastTime) / time.Second)
+	if used >= u.MaxRunningTime.Int64 {
 		return ErrFreeTimeLimitExceeded
 	}
 
 	return nil
+}
+
+func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
+	// query for hosts where their owners have limits and the hosts have exceeded these limits
+	query := `SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+    FROM hosts
+    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+    INNER JOIN users ON hosts.user_id = users.id
+    WHERE last_running_at IS NOT NULL AND terminated_at IS NULL AND preprovisioned IS FALSE
+    AND state = $1 AND users.max_running_time IS NOT NULL AND users.refresh_period IS NOT NULL
+    AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+	hosts := []*host.Host{}
+	err := d.Select(&hosts, query, host.StateRunning)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
 }

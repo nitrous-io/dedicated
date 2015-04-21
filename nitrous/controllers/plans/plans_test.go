@@ -6,19 +6,29 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func mapPlansToSlugs(plans []*serializers.Plan) []string {
+	slugs := make([]string, len(plans))
+	for i, plan := range plans {
+		slugs[i] = plan.Slug
+	}
+	return slugs
+}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -27,19 +37,38 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/plans", func() {
 	var (
-		db  *db.Database
-		svr *server.Server
-		res *httptest.ResponseRecorder
+		db      *db.Database
+		u       *user.User
+		res     *httptest.ResponseRecorder
+		handler *mux.Router
 	)
 
 	BeforeEach(func() {
 		var err error
-
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
+
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr := NewTestServer("", db, logger, NewFakeTracker())
+
+		handler = svr.Router()
 		res = httptest.NewRecorder()
+
+		u = &user.User{
+			Username: "tokenuser",
+			Password: "123456",
+			Email:    "tokenuser@example.com",
+		}
+		err = WrapInTransaction(db, u.Insert)
+		Expect(err).To(BeNil())
+		Expect(u.ID).NotTo(BeZero())
+
+		t := &token.Token{
+			UserID: u.ID,
+			Token:  "secret",
+		}
+		err = t.Insert(db)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -49,14 +78,38 @@ var _ = Describe("controllers/plans", func() {
 	})
 
 	Describe("GET /api/v0/plans", func() {
-		doRequest := func() {
-			req, err := NewRequest("GET", "/api/v0/plans", nil)
+		doRequest := func(url string, auth bool) {
+			req, err := NewRequest("GET", url, nil)
 			Expect(err).To(BeNil())
-			svr.Router().ServeHTTP(res, req)
+
+			if auth {
+				req.Header.Set("Authorization", "Bearer secret")
+			}
+
+			handler.ServeHTTP(res, req)
+		}
+
+		fetchPlans := func(url string, auth bool) []string {
+			doRequest("/api/v0/plans?eligible=true", auth)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := struct {
+				Plans []*serializers.Plan `json:"plans"`
+			}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			return mapPlansToSlugs(j.Plans)
 		}
 
 		Context("when plans exist", func() {
-			var planSlugs = []string{"start", "shift", "turbo"}
+			plans := []*plan.Plan{
+				{Slug: "free", Price: 0},
+				{Slug: "start", Price: 500},
+				{Slug: "shift", Price: 1000},
+				{Slug: "turbo", Price: 1500},
+				{Slug: "hidden", Price: 2000, Disabled: true},
+			}
 
 			BeforeEach(func() {
 				r := region.Region{
@@ -65,58 +118,83 @@ var _ = Describe("controllers/plans", func() {
 				}
 				Expect(r.Insert(db)).To(BeNil())
 
-				for _, n := range planSlugs {
-					pl := plan.Plan{Slug: n}
+				for _, pl := range plans {
 					Expect(pl.Insert(db)).To(BeNil())
-					t := providertemplate.ProviderTemplate{
+					pt := providertemplate.ProviderTemplate{
 						PlanID:   pl.ID,
 						RegionID: r.ID,
 						Provider: envvars.DefaultProvider,
 					}
-					Expect(t.Insert(db)).To(BeNil())
+					Expect(pt.Insert(db)).To(BeNil())
 				}
-
-				// Add a disabled plan - it should not be returned.
-				pl := plan.Plan{Slug: "super-turbo", Disabled: true}
-				Expect(pl.Insert(db)).To(BeNil())
-				t := providertemplate.ProviderTemplate{
-					PlanID:   pl.ID,
-					RegionID: r.ID,
-					Provider: envvars.DefaultProvider,
-				}
-				Expect(t.Insert(db)).To(BeNil())
 
 				// Add a plan belonging to another provider - it should not be returned.
-				pl = plan.Plan{Slug: "start-windows-azure"}
+				pl := plan.Plan{Slug: "start-windows-azure", Price: 3000}
 				Expect(pl.Insert(db)).To(BeNil())
-				t = providertemplate.ProviderTemplate{
+				pt := providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
 					RegionID: r.ID,
 					Provider: "windows-azure",
 				}
-				Expect(t.Insert(db)).To(BeNil())
+				Expect(pt.Insert(db)).To(BeNil())
 			})
 
-			It("returns valid plans of the default provider", func() {
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+			Context("When user is not logged in", func() {
+				It("should show all plans", func() {
+					plans := fetchPlans("/api/v0/plans?eligible=true", false)
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+				})
+			})
 
-				j := struct {
-					Plans []serializers.Plan `json:"plans"`
-				}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				Expect(j.Plans).To(HaveLen(3))
-				slugs := make([]string, 0, len(planSlugs))
-				for _, pl := range j.Plans {
-					slugs = append(slugs, pl.Slug)
-				}
-				Expect(slugs).To(ConsistOf(planSlugs))
+			Context("when user is paid user", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("should return paid plans of the default provider", func() {
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				})
+
+				It("should return all plans if no query parameter is provided", func() {
+					plans := fetchPlans("/api/v0/plans", true)
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+				})
+			})
+
+			Context("when user is in free tier", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("should return free plans of the default provider", func() {
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+				})
+
+				Context("When user has created a free-tier host", func() {
+					BeforeEach(func() {
+						_, err := CreateHostStack(db, &HostStack{
+							U: u,
+							// first plan fixture is free plan,
+							// but it doesn't really matter for this test
+							P: plans[0],
+						})
+						Expect(err).To(BeNil())
+					})
+
+					It("should return only paid plans", func() {
+						plans := fetchPlans("/api/v0/plans?eligible=true", true)
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+					})
+				})
 			})
 		})
 
 		It("returns empty plans array when no plans exist", func() {
-			doRequest()
+			doRequest("/api/v0/plans?eligible=true", true)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {

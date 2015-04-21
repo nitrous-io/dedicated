@@ -1,6 +1,7 @@
 App.IdeSidebarView = Em.View.extend
   templateName: 'ide/sidebar'
   elementId: 'ide-sidebar-view'
+  classNameBindings: ['App.fileTreeHidden:hidden']
 
   showContextMenu: (event, path) ->
     return if @get('controller.opsSocketNotReady') || path.get('loading')
@@ -11,10 +12,11 @@ App.IdeSidebarView = Em.View.extend
     contextMenuView = @get 'contextMenuView'
     contextMenuView.hide()
 
-  _consoleHeightDidChange: (->
-    consoleHeight = App.get 'router.ideLayoutController.consoleHeight'
-    @$().css 'paddingBottom', (consoleHeight + 4)
-  ).observes 'App.router.ideLayoutController.consoleHeight'
+  _fileTreeHiddenDidChange: (->
+    $this = @$()
+    ml = if App.get 'fileTreeHidden' then -$this.outerWidth() else 0
+    $this.css('margin-left': ml)
+  ).observes 'App.fileTreeHidden'
 
   actions:
     didClickSetHomeAsRoot: ->

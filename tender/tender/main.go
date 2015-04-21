@@ -122,6 +122,7 @@ func main() {
 		tender.VerboseLog = 1
 	}
 	installSignalHandlers()
+	tender.InitDNS()
 
 	db, err := connectDB(databaseURL)
 	if err != nil {
@@ -133,8 +134,6 @@ func main() {
 		log.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
-	freighterPortMap := map[int]int{freighterdForwardPort: int(freighterdPort)}
-
 	timeStart := time.Now()
 	tender.RefreshContainersCache(db)
 	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
@@ -145,7 +144,7 @@ func main() {
 
 	go refreshCachesWorker(db)
 
-	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, freighterPortMap, db, privCACert)
+	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
 	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert)
 
 	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)

@@ -38,6 +38,14 @@ App.Plan = klass = App.Model.extend
       cpDollars.toString()
   ).property 'price', 'basePrice'
 
+  isPaidPlan: (->
+    return (@get('price') > 0) || (@get('basePrice') > 0)
+  ).property 'price', 'basePrice'
+
+  isFreePlan: (->
+    return (@get('price') == 0) && (@get('basePrice') == 0)
+  ).property 'price', 'basePrice'
+
 klass.reopenClass
   url: '/plans'
   primaryKey: 'id'

@@ -9,6 +9,7 @@
 #= require ../components/ui-connectivity-indicator-component
 #= require ../views/snackbar-view
 #= require_tree ./helpers
+#= require_tree ../helpers
 #= require_tree ./templates
 #= require ../templates/components/ui-connectivity-indicator
 #= require ../templates/snackbar

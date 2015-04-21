@@ -27,27 +27,27 @@ App.IdeMainMenuController = Em.Controller.extend
     if sidebarController = App.get 'router.ideSidebarController'
       sidebarController.refreshAll()
 
-  editFind: ->
+  findFind: ->
     activeDocumentSet 'findTrigger', true
 
-  editFindNext: ->
+  findFindNext: ->
     activeDocumentSet 'findNextTrigger', true
 
-  editSelectNext: ->
+  findSelectNext: ->
     activeDocumentSet 'selectNextTrigger', true
 
-  editFindPrevious: ->
+  findFindPrevious: ->
     activeDocumentSet 'findPrevTrigger', true
 
-  editFindInProject: ->
+  findFindInFiles: ->
     if controller = @get 'controllers.ideFindInProject'
       path = this.get('controllers.ideSidebar.rootPath')?.absolutePath
       controller.showFindDialog(path)
 
-  editReplace: ->
+  findReplace: ->
     activeDocumentSet 'replaceTrigger', true
 
-  editReplaceAll: ->
+  findReplaceAll: ->
     activeDocumentSet 'replaceAllTrigger', true
 
   editGoToLine: ->
@@ -70,40 +70,46 @@ App.IdeMainMenuController = Em.Controller.extend
   editSplitSelectionIntoLines: (type) ->
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
 
-  viewFocusConsole: ->
+  windowFocusConsole: ->
     if doc = @get 'controllers.ideEditor.activeTab'
       doc.set 'focused', false
     if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', true
 
-  viewFocusEditor: ->
+  windowFocusEditor: ->
     if doc = @get 'controllers.ideEditor.activeTab'
       doc.set 'focused', true
     if consoleSession = @get 'controllers.ideConsole.activeTab'
       consoleSession.set 'focused', false
 
-  viewSelectNextTab: ->
+  windowSelectNextTab: ->
     if editorController = @get 'controllers.ideEditor'
       editorController.makeNextTabActive()
 
-  viewSelectPreviousTab: ->
+  windowSelectPreviousTab: ->
     if editorController = @get 'controllers.ideEditor'
       editorController.makePreviousTabActive()
 
-  viewMinimizeConsole: ->
+  windowMinimizeConsole: ->
     App.set 'consoleMinimized', true
     App.set 'consoleFullscreen', false
 
-  viewRestoreConsole: ->
+  windowRestoreConsole: ->
     App.set 'consoleMinimized', false
-    @viewFocusConsole()
+    @windowFocusConsole()
 
-  viewToggleFullScreenConsole: ->
+  windowToggleFullScreenConsole: ->
     App.toggleProperty 'consoleFullscreen'
     App.set('consoleMinimized', false) if App.get('consoleFullscreen')
     window.setTimeout(=>
-      @viewFocusConsole()
+      @windowFocusConsole()
     , 50)
+
+  windowHideFileTree: ->
+    App.set 'fileTreeHidden', true
+
+  windowShowFileTree: ->
+    App.set 'fileTreeHidden', false
 
   viewSplitEditorPaneVertically: ->
     App.get('router.ideEditorController').splitActivePaneVertically()
@@ -114,7 +120,7 @@ App.IdeMainMenuController = Em.Controller.extend
   viewCloseEditorPane: ->
     App.get('router.ideEditorController').closeActivePane()
 
-  viewSelectTheme: (theme) ->
+  windowSelectTheme: (theme) ->
     if editorController = @get 'controllers.ideEditor'
       editorController.set 'theme', theme
 

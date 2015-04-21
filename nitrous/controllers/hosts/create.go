@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/nitrous-io/nitrous-common/flusher"
 
@@ -45,8 +44,6 @@ var (
 		"You are not allowed to create a paid workspace")
 	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
 		"You can't create any more free workspaces")
-	errFreeTimeLimitExceeded = httperror.New(http.StatusForbidden, "free_time_limit_exceeded",
-		"You have exceeded your usage for this month")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -118,7 +115,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = freetier.CreateHostAllowed(db, bp, pl, time.Now())
+	err = freetier.CreateHostWithPlanAllowed(db, bp, pl)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreePlanNotAllowed:

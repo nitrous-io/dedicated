@@ -195,14 +195,14 @@ window.NitrousTerminal =
   handleSwitchConsoleEditorEvent: (ev) ->
     if parentWindow
       Terminal.cancel ev
-      parentWindow.App.get('router.ideMainMenuController').viewFocusEditor()
+      parentWindow.App.get('router.ideMainMenuController').windowFocusEditor()
       return false
     true
 
   handleFullConsoleScreenEvent: (ev) ->
     if parentWindow
       Terminal.cancel ev
-      parentWindow.App.get('router.ideMainMenuController').viewToggleFullScreenConsole()
+      parentWindow.App.get('router.ideMainMenuController').windowToggleFullScreenConsole()
       return false
     true
 

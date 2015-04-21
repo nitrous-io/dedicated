@@ -149,11 +149,30 @@ type containerWithInfo struct {
 	env   []string
 }
 
+// try CNAME resolve host and do getHostname() on resolved name (if any)
+func getCNAMEHostname(host, domain string) (string, error) {
+	var err error
+	if strings.Contains(host, ":") {
+		host, _, err = net.SplitHostPort(host)
+		if err != nil {
+			return "", err
+		}
+	}
+	cname, err := resolveDNSCname(host)
+	if err != nil {
+		return "", err
+	}
+	return getHostname(cname.Target, domain)
+}
+
 func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
 	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
-		log.Printf("[WARN] domain: %s but got request for %q that we can't handle", s.domain, r.Host)
-		return err
+		slug, err = getCNAMEHostname(r.Host, s.domain)
+		if err != nil {
+			log.Printf("[WARN] domain: %s but got request for %q that we can't handle", s.domain, r.Host)
+			return err
+		}
 	}
 
 	log.Printf("[INFO] request %+v to %s", r, slug)

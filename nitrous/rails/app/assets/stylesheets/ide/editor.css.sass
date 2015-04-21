@@ -1,6 +1,18 @@
 @import 'variables'
 @import 'mixins'
 
+@keyframes ot-cursor-name-fade-out
+  from
+    opacity: 1
+  to
+    opacity: 0
+
+@keyframes ot-cursor-head-fade-in
+  from
+    opacity: 0
+  to
+    opacity: 1
+
 #ide-editor-view
   display: flex
   flex-direction: column
@@ -24,16 +36,34 @@
     flex-grow: 1
     flex-basis: 0
 
-    .ide-toolbar
+    .ide-tab-bar
       transition: background-color .3s
 
     &:not(.active)
-      > .ide-toolbar, > .ide-document-views > .ide-document-view > .ide-toolbar
+      > .ide-tab-bar, > .ide-document-views > .ide-document-view > .ide-tab-bar
         background: $n2oGray800
 
         > .ide-toolbar-btns
           > .ui.btn
             color: $n2oGray400
+
+  .ide-toolbar.status-bar
+    display: flex
+    flex-direction: row
+    flex-wrap: wrap
+    background: $n2oGray800
+
+    .ui.btn
+      color: $n2oGray400
+      text-transform: none
+      height: 27px
+      font-size: 13px
+
+    .ide-toolbar-btns:first-of-type
+      flex-grow: 1
+
+    ul.dropdown-menu
+      bottom: 27px
 
   .split-panes
     display: flex
@@ -79,6 +109,44 @@
           height: 376px
           overflow-y: auto
 
+  .ot-cursor
+    display: inline-block
+    vertical-align: bottom
+    margin: 0 -1px
+    width: 2px
+
+    &:hover
+      .ot-cursor-name
+        animation: none
+        opacity: 1
+
+    .ot-cursor-name
+      position: absolute
+      margin-top: -17px
+      margin-left: -2px
+      padding: 0 4px
+      border-radius: 2px
+      color: white
+      opacity: 1
+      font-size: 10px
+      pointer-events: none
+      animation: ot-cursor-name-fade-out .3s forwards
+      animation-delay: 3s
+      white-space: nowrap
+      overflow: hidden
+      text-overflow: clip
+
+    .ot-cursor-head
+      position: absolute
+      width: 6px
+      height: 6px
+      margin-top: -5px
+      margin-left: -2px
+      border-radius: 2px
+      opacity: 0
+      animation: ot-cursor-head-fade-in .3s forwards
+      animation-delay: 3s
+
   .code-editor
     display: flex
     flex-grow: 1
@@ -89,6 +157,14 @@
     flex-grow: 1
     flex-direction: column
     height: 0
+
+  .CodeMirror-cursor
+    border-left-width: 2px !important
+    margin-left: -1px
+
+  .CodeMirror-code
+    pre
+      word-break: break-all
 
   .CodeMirror-scroll
     flex-grow: 1
@@ -175,13 +251,14 @@
 
       .notice
         flex-shrink: 0
-        font-size: 14px
+        font-size: 13px
         padding: 6px 10px
         background: $n2oGray700
         color: $n2oGray200
+        border-bottom: 1px solid $n2oGray1000
 
         i
-          padding: 0 5px 0 0
+          padding: 0 6px 0 0
 
       iframe
         flex-grow: 1

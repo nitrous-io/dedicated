@@ -11,15 +11,18 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,26 +41,26 @@ var _ = Describe("controllers/users", func() {
 		req             *http.Request
 		svr             *server.Server
 		params          *url.Values
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 		u               *user.User
 		t               *token.Token
 	)
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = NewTestServer("", db, logger, NewFakeTracker())
+		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-		authTokenInputs = AuthTokenInputs{Handler: handler}
+		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 		u = &user.User{
 			Username: "tokenuser",
 			Password: "123456",
 			Email:    "tokenuser@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
@@ -78,7 +81,7 @@ var _ = Describe("controllers/users", func() {
 	Describe("POST /api/v0/users/email_signup", func() {
 		doRequest := func() {
 			var err error
-			req, err = NewFormRequest("POST", "/api/v0/users/email_signup", params)
+			req, err = test.NewFormRequest("POST", "/api/v0/users/email_signup", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -124,7 +127,7 @@ var _ = Describe("controllers/users", func() {
 	Describe("POST /api/v0/users", func() {
 		doRequest := func() {
 			var err error
-			req, err = NewFormRequest("POST", "/api/v0/users", params)
+			req, err = test.NewFormRequest("POST", "/api/v0/users", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -301,17 +304,17 @@ var _ = Describe("controllers/users", func() {
 	Describe("PUT /api/v0/user", func() {
 		doRequest := func(params *url.Values) {
 			var err error
-			req, err = NewAuthedFormRequest(t, "PUT", "/api/v0/users", params)
+			req, err = test.NewAuthedFormRequest(t, "PUT", "/api/v0/users", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			params := &url.Values{}
 			params.Set("name", "Something")
 			doRequest(params)
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		Context("when valid fields are given", func() {
@@ -359,7 +362,7 @@ var _ = Describe("controllers/users", func() {
 					Password: "123456",
 					Email:    "taken@example.com",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				params := &url.Values{}
@@ -369,7 +372,7 @@ var _ = Describe("controllers/users", func() {
 
 			It("responds with 400 bad request", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("validation_failed"))
 				Expect(errDesc).To(Equal("email is taken"))
 			})
@@ -384,7 +387,7 @@ var _ = Describe("controllers/users", func() {
 
 			It("responds with 400 bad request", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("validation_failed"))
 				Expect(errDesc).To(ContainSubstring("too short"))
 			})
@@ -408,7 +411,7 @@ var _ = Describe("controllers/users", func() {
 
 		Context("when an email is sent in the request", func() {
 			var (
-				fakeMailer *FakeMailer
+				fakeMailer *test.FakeMailer
 				origMailer mailer.Mailer
 			)
 
@@ -417,7 +420,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 
 				origMailer = user.Mailer
-				fakeMailer = &FakeMailer{}
+				fakeMailer = &test.FakeMailer{}
 				user.Mailer = fakeMailer
 			})
 
@@ -488,10 +491,279 @@ var _ = Describe("controllers/users", func() {
 		})
 	})
 
+	Describe("POST /api/v0/user/phone", func() {
+		doRequest := func(params *url.Values) {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "POST", "/api/v0/user/phone", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("updates the user's phone and phone_country_code", func() {
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+			params.Set("phone_country_code", "65")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			updated, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(updated.Phone.String).To(Equal("88884444"))
+			Expect(updated.PhoneCountryCode.String).To(Equal("65"))
+			Expect(*updated.UpdatedAt).To(BeTemporally(">", *u.UpdatedAt))
+
+			var j struct {
+				User *serializers.User `json:"user"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.User.Username).To(Equal("tokenuser"))
+			Expect(j.User.Phone).To(Equal("88884444"))
+			Expect(j.User.PhoneCountryCode).To(Equal("65"))
+			Expect(j.User.PhoneAuthed).To(BeFalse())
+		})
+
+		It("creates a verification record for the user's phone", func() {
+			// Confirm that user doesn't already have a verification record.
+			v, err := verification.Find(db, u.ID, "+6588884444")
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+			params.Set("phone_country_code", "65")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			v, err = verification.Find(db, u.ID, "+6588884444")
+			Expect(err).To(BeNil())
+			Expect(v.UserID).To(Equal(u.ID))
+			Expect(v.Phone).To(Equal("+6588884444"))
+			Expect(v.Code).NotTo(BeEmpty())
+		})
+
+		It("responds with HTTP 400 Bad Request when phone is not given", func() {
+			params := &url.Values{}
+			params.Set("phone_country_code", "65")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("validation_failed"))
+		})
+
+		It("responds with HTTP 400 Bad Request when phone_country_code is not given", func() {
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("validation_failed"))
+		})
+
+		It("responds with HTTP 400 Bad Request when phone number is already in the database", func() {
+			// Create another user with a phone number.
+			u2 := &user.User{
+				Username: "anotheruser",
+				Password: "123456",
+				Email:    "anotheruser@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+			phone := "88884444"
+			phoneCountryCode := "65"
+			_, err = db.Exec(`UPDATE users SET phone = $1, phone_country_code = $2, phone_authed = $3 WHERE id = $4;`, phone, phoneCountryCode, true, u2.ID)
+
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+			params.Set("phone_country_code", "65")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("validation_failed"))
+			Expect(errDesc).To(Equal("phone number already exists"))
+		})
+	})
+
+	Describe("POST /api/v0/user/resend_phone_code", func() {
+		doRequest := func() {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "POST", "/api/v0/user/resend_phone_code", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("creates a new verification for the user's phone", func() {
+			// Update user's phone and add an existing verification.
+			err := u.UpdatePhone(db, "88884444", "65")
+			Expect(err).To(BeNil())
+			v1, err := verification.Generate(db, u.ID, u.PhoneNumber())
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			v2, err := verification.Find(db, u.ID, "+6588884444")
+			Expect(err).To(BeNil())
+			Expect(v2.Phone).To(Equal("+6588884444"))
+			Expect(v2.Code).NotTo(Equal(v1.Code))
+
+			// Verify response is { "sent": true }.
+			j := map[string]bool{}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["sent"]).To(BeTrue())
+		})
+
+		It("responds with HTTP 400 Bad Request if user has not given us his phone number", func() {
+			Expect(u.Phone.String).To(BeEmpty())
+			Expect(u.PhoneCountryCode.String).To(BeEmpty())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+
+	Describe("POST /api/v0/user/verify_phone", func() {
+		doRequest := func(params *url.Values) {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "POST", "/api/v0/user/verify_phone", params)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		var v *verification.Verification
+
+		BeforeEach(func() {
+			var err error
+			// Update user's phone and add an existing verification.
+			err = u.UpdatePhone(db, "88884444", "65")
+			Expect(err).To(BeNil())
+			v, err = verification.Generate(db, u.ID, u.PhoneNumber())
+			Expect(err).To(BeNil())
+		})
+
+		It("sets phone_authed to true if verification code is correct", func() {
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			// Verify response is { "verified": true }.
+			j := map[string]bool{}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["verified"]).To(BeTrue())
+
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u2.PhoneAuthed).To(BeTrue())
+		})
+
+		It("sets user's billing profile to free tier if phone number belongs to a whitelisted country", func() {
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StateFree))
+		})
+
+		It("does not change user's billing profile to free tier if phone number does not belong to a whitelisted country", func() {
+			// Put only Japan on the whitelist.
+			orig := users.PhoneCountryWhitelist
+			users.PhoneCountryWhitelist = map[string]string{
+				"Japan": "81",
+			}
+			defer func() {
+				users.PhoneCountryWhitelist = orig
+			}()
+
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StateNoCard))
+		})
+
+		It("does not change a paid user's billing profile", func() {
+			// Set user's billing profile to paid.
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StatePaid, u.ID)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("code", v.Code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+		})
+
+		It("responds with HTTP 400 Bad Request if verification code is wrong", func() {
+			code := "WRONGCODE!"
+			Expect(code).NotTo(Equal(v.Code))
+			params := &url.Values{}
+			params.Set("code", code)
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("validation_failed"))
+			Expect(errDesc).To(Equal("code is incorrect"))
+		})
+
+		It("responds with HTTP 400 Bad Request when code is not given", func() {
+			doRequest(nil)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("validation_failed"))
+		})
+
+		It("responds with HTTP 400 Bad Request if user has not given us his phone number", func() {
+			// Create another user that does not have a phone in his record.
+			u = &user.User{
+				Username: "anotheruser",
+				Password: "123456",
+				Email:    "anotheruser@example.com",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "anothertoken",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("code", "SOMECODE")
+			doRequest(params)
+
+			doRequest(nil)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+		})
+	})
+
 	Describe("GET /api/v0/user", func() {
 		doRequest := func(token string) {
 			var err error
-			req, err = NewRequest("GET", "/api/v0/user", nil)
+			req, err = test.NewRequest("GET", "/api/v0/user", nil)
 			Expect(err).To(BeNil())
 			if token != "" {
 				req.Header.Set("Authorization", "Bearer "+token)
@@ -530,7 +802,7 @@ var _ = Describe("controllers/users", func() {
 
 			Context("when user has billing issues", func() {
 				BeforeEach(func() {
-					MarkDelinquentUser(db, u)
+					test.MarkDelinquentUser(db, u)
 					doRequest("foobarbazqux")
 				})
 
@@ -558,7 +830,7 @@ var _ = Describe("controllers/users", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
@@ -567,7 +839,7 @@ var _ = Describe("controllers/users", func() {
 			var err error
 			params := &url.Values{}
 			params.Set("token", token)
-			req, err = NewRequest("POST", "/api/v0/user/confirm", params)
+			req, err = test.NewRequest("POST", "/api/v0/user/confirm", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -594,7 +866,7 @@ var _ = Describe("controllers/users", func() {
 					Password: "123456",
 					Email:    "qux@example.com",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = 'ABCD' WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
@@ -653,7 +925,7 @@ var _ = Describe("controllers/users", func() {
 			params := &url.Values{}
 			params.Set("token", token)
 			params.Set("app_token", appToken)
-			req, err = NewRequest("POST", "/api/v0/user/resend_confirm", params)
+			req, err = test.NewRequest("POST", "/api/v0/user/resend_confirm", params)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
@@ -679,7 +951,7 @@ var _ = Describe("controllers/users", func() {
 					Password: "123456",
 					Email:    "qux@example.com",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1, confirmation_token = 'ABCD' WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
@@ -726,7 +998,7 @@ var _ = Describe("controllers/users", func() {
 					Password: "123456",
 					Email:    "qux@example.com",
 				}
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				t = &token.Token{
@@ -784,7 +1056,7 @@ var _ = Describe("controllers/users", func() {
 	Describe("POST /api/v0/user/dismiss_first_time", func() {
 		doRequest := func() {
 			var err error
-			req, err = NewRequest("POST", "/api/v0/user/dismiss_first_time", nil)
+			req, err = test.NewRequest("POST", "/api/v0/user/dismiss_first_time", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer "+t.Token)
 			handler.ServeHTTP(res, req)
@@ -812,7 +1084,7 @@ var _ = Describe("controllers/users", func() {
 				authTokenInputs.Method = "POST"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 })

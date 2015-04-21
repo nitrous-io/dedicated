@@ -6,6 +6,11 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "bitbucket.org/pkg/inflect",
+			"Comment": "go.r60-12",
+			"Rev": "8961c3750a47b8c0b3e118d52513b97adf85a7e8"
+		},
+		{
 			"ImportPath": "code.google.com/p/go.text/encoding/japanese",
 			"Comment": "null-116",
 			"Rev": "5b2527008a4c8988ca9dc6f010ebfb9dae67150b"
@@ -213,6 +218,22 @@
 			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
 		},
 		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/operation",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/selection",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
+			"ImportPath": "github.com/nitrous-io/ot.go/ot/session",
+			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
+		},
+		{
 			"ImportPath": "github.com/ogier/pflag",
 			"Rev": "e4f7d00f344b0954fa3791a8527d10ba7334eceb"
 		},
@@ -250,12 +271,17 @@
 			"Rev": "fdd4865a8a8eb649d9cb5b1370e3a12e7f75b5de"
 		},
 		{
-			"ImportPath": "github.com/tent/http-link-go",
-			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
+			"ImportPath": "github.com/subosito/figo",
+			"Rev": "4f2709582c104a76b1ef6c24d47a682ec1b085c3"
 		},
 		{
-			"ImportPath": "github.com/vaughan0/go-ini",
-			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+			"ImportPath": "github.com/subosito/twilio",
+			"Comment": "v0.0.1-22-gca29365",
+			"Rev": "ca29365f195cd8e9dfb805d4b8aca69ce8057564"
+		},
+		{
+			"ImportPath": "github.com/tent/http-link-go",
+			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
 		},
 		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",

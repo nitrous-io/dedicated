@@ -13,4 +13,5 @@ Em.Handlebars.helper 'durationInWords', (duration) ->
       components.push "#{minutes}m"
     if seconds > 0 || minutes > 0 || days > 0 || hours > 0
       components.push "#{seconds}s"
+    return "0s" if components.length == 0
     components.join(' ')

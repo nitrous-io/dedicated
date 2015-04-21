@@ -24,7 +24,7 @@ var (
 const (
 	// User with no card added (initial state)
 	StateNoCard = "no_card"
-	// Exempted users from paying
+	// User exempt from paying
 	StateExempt = "exempt"
 	// User under free tier
 	StateFree = "free"
@@ -88,7 +88,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
-func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
+func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
 	}
@@ -110,10 +110,22 @@ func (b *BillingProfile) UpdateCard(d db.QueryReceiver, token string) error {
 	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
 	b.PendingActivation = false
 
-	if err := b.Update(d); err != nil {
+	tx, err := d.Beginx()
+	if err != nil {
+		return err
+	}
+
+	if err := b.Update(tx); err != nil {
+		tx.Rollback()
 		return fmt.Errorf("Billing profile update failed. Reason - %s", err)
 	}
-	return nil
+
+	if _, err := tx.Exec("UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;", b.UserID); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("User update failed. Reason - %s", err)
+	}
+
+	return tx.Commit()
 }
 
 func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {

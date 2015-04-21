@@ -20,6 +20,7 @@ class window.SocketConnection
   binaryMode: false
 
   heartbeatTimer: null
+  heartbeatInterval: 5000
 
   constructor: (url, protocols) ->
     @url = url
@@ -71,7 +72,7 @@ class window.SocketConnection
       @retries = 0
       @heartbeatTimer = window.setInterval(=>
         @send 'h'
-      , 5000)
+      , @heartbeatInterval)
 
     ws._onclose = =>
       ws.removeEventListener 'open',  ws._onopen,  false
@@ -100,7 +101,7 @@ class window.SocketConnection
     if @binaryMode && typeof(data) == 'string'
       data = utf8Encode(data)
 
-    @ws.send(data)
+    @ws?.send(data)
 
   close: (retry=false) ->
     if ws = @ws

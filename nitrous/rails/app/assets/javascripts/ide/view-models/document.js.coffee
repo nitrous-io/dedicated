@@ -21,6 +21,8 @@ App.Document = App.TabContent.extend
   selections: null
   scrollPosition: null
 
+  readOnly: false
+
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"
   ).property 'path.name'

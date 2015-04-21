@@ -1,6 +1,6 @@
 .ui.card
   h2.card-header
-    | Find In Project
+    | Find in Files
   form submit='didClickFind target="view"'
     .card-body
       .ui.input-group

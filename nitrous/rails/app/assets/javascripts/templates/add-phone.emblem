@@ -1,0 +1,43 @@
+.card-header.bordered
+  h2
+    | Add a Phone
+
+.card-body
+
+  .notice-text
+    p We require your phone number to verify that you're a real person.
+    p We will only use this number to send a verification code to your phone via
+      SMS.
+
+  form submit="savePhone" autocomplete="on"
+    .ui.input-group
+      label.field-label for='phone-country-code'
+        | Country Code
+      .ui.select.phone-country-code
+        Ember.Select id='phone-country-code' name='phone-country-code' content=countryList optionValuePath='content.code' optionLabelPath='content.name' disabled=view.phoneFormDisabled value=phoneCountryCode required=true prompt='Select your country'
+
+    .ui.input-group
+      label.field-label for='phone'
+        | Phone Number
+      = input type='text' id='phone' name='phone' disabled=view.phoneFormDisabled value=phone required=true autofocus=true
+
+      input.ui.btn.primary type='submit' disabled=view.phoneFormDisabled value='Save'
+
+      if otpSent
+        .note
+          p
+            ' A verification code has been sent to
+            strong = fullPhone
+            ' . Please enter it below.
+
+  if otpSent
+    hr
+
+    form submit="verifyOTP"
+      .ui.input-group
+        label.field-label for='otp'
+          | Verification Code
+        = input type='text' id='otp' name='otp' classNameBindings='invalidOTP:error' disabled=verifying value=otp
+
+        input.ui.btn.primary type='submit' disabled=view.resendOTPDisabled value='Verify'
+        a.ui.btn href='#' click='resendOTP' Resend Code

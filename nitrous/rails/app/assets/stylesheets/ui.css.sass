@@ -108,13 +108,20 @@
         border-top: 1px solid $n2oGray600
         margin: 8px 0
 
-      > a
+      > a, > span
         display: block
         height: $dropdownMenuItemHeight
         line-height: $dropdownMenuItemHeight
         padding: 0 24px
         color: $n2oGray200
         transition: background-color .2s
+
+        &.usage
+          white-space: initial
+          height: initial
+          line-height: 22px
+          color: $n2oGray300
+          min-width: 200px
 
         .fa
           width: 24px
@@ -604,6 +611,32 @@ ul.ui.list
     display: flex
     flex-direction: row
 
+    &.pending-removal
+      .left-accessory img
+        opacity: .4
+      .lines
+        opacity: .5
+
+    &.item-error
+      .gravatar
+        position: relative
+
+        &:after
+          content: "\f06a"
+          font-family: FontAwesome
+          position: absolute
+          top: 0
+          left: 0
+          width: 36px
+          height: 36px
+          color: #3D464C
+          text-align: center
+          font-size: 14px
+          line-height: 36px
+
+      .lines h4
+        opacity: .5
+
     span.sep
       color: $gray400
       margin: 0 5px
@@ -690,6 +723,18 @@ ul.ui.list
 
         p
           color: $n2oGray400
+
+  &.with-margins
+    .list-item .left-accessory
+      padding: 0 0 0 16px
+
+      .gravatar
+        background: $n2oGray850
+        margin-right: 0
+
+    .list-item:not(:last-of-type)
+      margin-bottom: 12px
+
 
 ul.ui.chips
   margin: 12px 0
@@ -944,7 +989,7 @@ ul.ui.snackbar
       display: inline-block
       vertical-align: bottom
 
-      > a
+      > a, > span
         display: inline-block
         padding: 0 12px
         color: $n2oGray200

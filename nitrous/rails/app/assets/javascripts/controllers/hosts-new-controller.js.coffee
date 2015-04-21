@@ -12,35 +12,49 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   saving: false
   bypassPreprovision: false
   templateName: null
+  plans: null
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
+
+  nameFieldEdited: false
 
   clear: ->
     @setProperties
       name: null
+      plans: App.Plan.fetch({ eligible: true }).value
+      selectedPlan: @get('plans.firstObject')
       selectedRegion: App.get('regions.firstObject')
-      selectedPlan: App.get('plans.firstObject')
       error: null
       invalidField: null
       host: null
       saving: false
       bypassPreprovision: false
       templateName: null
+      nameFieldEdited: false
+
     if @get('hasPendingContainer')
-      @set('name', App.get('pendingContainerData.name'))
+      @set('name', App.get('user.username'))
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    unless @get('selectedPlan')
-      @set('selectedPlan', App.get('plans.firstObject'))
-  ).observes 'App.plans.@each'
+    @set('selectedPlan', @get('plans.firstObject'))
+  ).observes 'plans.@each'
 
   regionsDidChange: (->
     unless @get('selectedRegion')
       @set('selectedRegion', App.get('regions.firstObject'))
   ).observes 'App.regions.@each'
+
+  cardRequired: (->
+    App.get('billingProfile.no_card') ||
+    (App.get('billingProfile.free') && @get('selectedPlan.isPaidPlan'))
+  ).property 'App.billingProfile.no_card', 'App.billingProfile.free', 'selectedPlan.isPaidPlan'
+
+  hasNextStep: (->
+    @get('cardRequired')
+  ).property 'cardRequired'
 
   actions:
     selectPlan: (plan)->
@@ -67,7 +81,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           name: @get 'name'
       @set 'host', host
 
-      if App.get('newUser')
+      if @get('cardRequired')
         App.set('pendingHost', host)
         @transitionToRoute 'add-card'
         return

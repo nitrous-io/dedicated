@@ -9,6 +9,7 @@ import (
 
 	"github.com/jinzhu/now"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
@@ -75,10 +76,10 @@ func UsageListForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time
 		ceiling(
 			cast(
 				EXTRACT(
-					EPOCH FROM 
-						LEAST(COALESCE(ended_at, $2), $2) 
+					EPOCH FROM
+						LEAST(COALESCE(ended_at, $2), $2)
 						- GREATEST(created_at, $1)
-				) 
+				)
 				as integer
 			) / 60.0
 		) minutes,
@@ -148,10 +149,10 @@ func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int6
 	return usage, hosts, nil
 }
 
-func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.Time) error {
+func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time) error {
 	hT := &HostTransition{
-		HostID:    host.ID,
-		State:     host.State,
+		HostID:    h.ID,
+		State:     h.State,
 		CreatedAt: &enactedAt,
 	}
 
@@ -162,7 +163,7 @@ func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.T
 	var prevId int64
 	err := tx.QueryRowx(
 		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
-		host.ID).Scan(&prevId)
+		h.ID).Scan(&prevId)
 
 	if err != nil && err != sql.ErrNoRows {
 		return err
@@ -180,5 +181,19 @@ func Record(tx *sqlx.Tx, host *host.Host, previousState string, enactedAt time.T
       VALUES (:host_id, :previous_state, :state, :created_at)`,
 		hT)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	if h.State == host.StateRunning {
+		h.LastRunningAt = pq.NullTime{time.Now(), true}
+		nstmt, err := tx.PrepareNamed(`UPDATE hosts SET last_running_at = :last_running_at
+			WHERE id = :id RETURNING last_running_at;`)
+		if err != nil {
+			return err
+		}
+		return nstmt.QueryRowx(h).Scan(&h.LastRunningAt)
+	}
+
+	return nil
 }

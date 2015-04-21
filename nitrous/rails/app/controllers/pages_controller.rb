@@ -20,6 +20,9 @@ class PagesController < ApplicationController
   def stack
   end
 
+  def whatsnew
+  end
+
   def plan_changes
   end
 end

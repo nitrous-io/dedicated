@@ -3,10 +3,10 @@ containerStoppedMessage = 'Container is not running. Please start your container
 App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder', 'ideGotoLine']
 
-  eventsSocket: null
   opsSocket: null
-  commandSocket: null
-  opsSocketReady: null
+  collabSocket: null
+  collabEnabled: true
+
   opsTimeoutAlert: null
   repository: null
   errorDialog: null
@@ -16,10 +16,16 @@ App.IdeController = Em.ObjectController.extend
   opsConnectionLost: false
 
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
-  commandSocketReadyBinding: Em.Binding.oneWay 'commandSocket.started'
-
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
-  commandSocketNotReady: Em.computed.not 'commandSocketReady'
+
+  collabSocketReadyBinding: Em.Binding.oneWay 'collabSocket.started'
+  collabSocketNotReady: Em.computed.not 'collabSocketReady'
+
+  ideSocketsReady: (->
+    @get('opsSocketReady') && ((@get('collabEnabled') && @get('collabSocketReady')) || !@get('collabEnabled'))
+  ).property 'opsSocketReady', 'collabSocketReady', 'collabEnabled'
+
+  ideSocketsNotReady: Em.computed.not 'ideSocketsReady'
 
   workspaceDir: 'code'
 
@@ -34,6 +40,12 @@ App.IdeController = Em.ObjectController.extend
 
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: container)
       opsSocket.connect()
+
+      App.CollabSocket.checkAvailability container, (ok) =>
+        @set 'collabEnabled', ok
+        if ok
+          @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
+          collabSocket.connect()
 
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()

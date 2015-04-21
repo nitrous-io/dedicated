@@ -17,6 +17,8 @@ App.Host = klass = App.Model.extend
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
+  lastUpdatedAt: attr('date', as: 'last_updated_at', serialize: false)
+  lastRunningAt: attr('date', as: 'last_running_at', serialize: false)
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
   upgradeAvailable: attr(as: 'upgrade_available', serialize: false)
@@ -75,8 +77,8 @@ App.Host = klass = App.Model.extend
 
   region: (->
     if regionId = @get('regionId')
-      App.get('regions').findBy('id', regionId)
-  ).property 'regionId', 'App.regions.@each'
+      App.get('regionIndex')[regionId]
+  ).property 'regionId', 'App.regionIndex'
 
   plan: (->
     if planId = @get('planId')

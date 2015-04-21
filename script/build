@@ -42,7 +42,7 @@ build() {
   # this prevents go from looking at test-only directory
   godep go build \
     -o "$BUILD_DIR/$binary" \
-    -x -ldflags "$LDFLAGS" \
+    -ldflags "$LDFLAGS" \
     github.com/nitrous-io/dedicated/$app
 
   # this file is useful for release to know the current version
@@ -175,6 +175,7 @@ build_nitrous() {
   (build "nitrous/cmd/removeexpiredtokens")
   (build "nitrous/cmd/engagement")
   (build "nitrous/cmd/migrate")
+  (build "nitrous/cmd/hostshutdown")
   (build_assets)
 }
 

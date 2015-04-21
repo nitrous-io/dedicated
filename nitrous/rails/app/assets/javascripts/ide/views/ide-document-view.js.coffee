@@ -25,17 +25,23 @@ App.IdeDocumentView = Em.View.extend
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
-  init: ->
-    this.documentPathDidChange()
-    @_super.apply this, arguments
+  collabMode: false
+  otClient: null
+  shouldReloadDocument: false # set to true to reload doc and restart collab session
 
   didInsertElement: ->
     @_super()
-    this.insertEditor()
+    @insertEditor()
+    @documentPathDidChange() # also enables collab
+    $(window).on "unload.#{@get('elementId')}", =>
+      @leaveCollab()
+      return # need to return void to avoid showing confirm dialog
 
   willDestroyElement: ->
     @_super()
-    this.destroyEditor()
+    @destroyEditor()
+    @leaveCollab()
+    $(window).off "unload.#{@get('elementId')}"
 
   modeName: (->
     CodeMirror.MODES[@get('mode')]
@@ -150,7 +156,7 @@ App.IdeDocumentView = Em.View.extend
       editor.scrollTo(scroll)
 
     editor.on 'change', =>
-      unless @isDestroyed
+      unless @get 'isDestroyed'
         if @get('document.content') != (content = editor.get('text'))
           @set 'document.content', content
         if @get('document.clean') != (clean = editor.isClean())
@@ -184,6 +190,67 @@ App.IdeDocumentView = Em.View.extend
   updateEditor: (setting) ->
     if editor = @get 'editor'
       editor.set setting, @get(setting)
+
+  # don't call this method directly, instead, set collabMode to true
+  _joinCollab: ->
+    return unless fileName = @get 'document.path.absolutePath'
+    return if @get 'otClient'
+    editor = @get 'editor'
+    editor.set 'readOnly', true
+    cm = editor.get 'codeMirror'
+    collabSocket = App.get 'router.ideController.collabSocket'
+    doc = @get 'document.content'
+
+    collabSocket.one "doc|#{fileName}", (data) =>
+      if data.document != doc
+        @set 'document.content', data.document
+      serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
+      editorAdapter = new ot.CodeMirrorAdapter(cm)
+      otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
+      @set 'otClient', otClient
+      editor.set 'readOnly', false
+
+    collabSocket.on "rejoin_failed|#{fileName}", =>
+      editor.set 'readOnly', true
+      @set 'shouldReloadDocument', true
+
+    collabSocket.send(fileName, 'join', doc)
+
+  leaveCollab: ->
+    @set 'collabMode', false
+    return unless otClient = @get 'otClient'
+    collabSocket = App.get 'router.ideController.collabSocket'
+
+    if fileName = @get 'document.path.absolutePath'
+      collabSocket.send(fileName, 'leave')
+      collabSocket.off "rejoin_failed|#{fileName}"
+
+    otClient.serverAdapter.off()
+    otClient.serverAdapter = null
+    otClient.editorAdapter.detach()
+    otClient.editorAdapter = null
+    @set 'otClient', null
+
+  collabModeDidChange: (->
+    if @get('collabMode') && @get('controller.collabSocketReady')
+      @_joinCollab()
+  ).observes 'collabMode', 'controller.collabSocketReady'
+
+  shouldReloadDocumentDidChange: (->
+    return unless @get('shouldReloadDocument') && @get('controller.opsSocketReady')
+    @set 'shouldReloadDocument', false
+    doc = @get 'document'
+    return unless fileName = doc.get 'path.absolutePath'
+    @leaveCollab()
+    controller = @get 'controller'
+    opsSocket = controller.get 'opsSocket'
+    opsSocket.fetchFileContent fileName, (err, absolutePath, contentType, content) =>
+      if err || contentType?.match(/^image/)
+        controller.removeTab(doc, true)
+        return
+      doc.set 'content', content
+      @set 'collabMode', true
+  ).observes 'shouldReloadDocument', 'controller.opsSocketReady'
 
   modeDidChange: (->
     @updateEditor('mode')
@@ -327,12 +394,16 @@ App.IdeDocumentView = Em.View.extend
     @set 'document.clean', true
   ).observes 'document.replaceContentTrigger'
 
-  cleanDidChange: (->
-    if editor = @get 'editor'
-      documentIsClean = @get('document.clean')
+  documentReadOnlyDidChange: (->
+    @set 'editor.readOnly', @get('document.readOnly')
+  ).observes 'document.readOnly'
 
-      if editor.isClean() != documentIsClean
-        editor.markClean()
+  documentCleanDidChange: (->
+    return unless editor = @get 'editor'
+    documentIsClean = @get('document.clean')
+
+    if documentIsClean && editor.isClean() != documentIsClean
+      editor.markClean()
   ).observes 'document.clean'
 
   consoleHeightDidChange: (->
@@ -355,17 +426,14 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.focused'
 
   documentPathDidChange: (->
-    if fileName = @get 'document.path.name'
-      @set 'mode', App.FileTypeDetect.detect fileName
-  ).observes 'document.path.name'
+    if fileName = @get 'document.path.absolutePath'
+      @set 'mode', App.FileTypeDetect.detect(fileName)
+      @set 'collabMode', true
+  ).observes 'document.path.absolutePath'
 
   actions:
     didClickSave: ->
       @get('controller').saveDocument @get('document')
-
-    didClickFind: ->
-      if document = @get('document')
-        document.set 'findTrigger', true
 
     didSelectMode: (selectedMode) ->
       @set 'mode', selectedMode

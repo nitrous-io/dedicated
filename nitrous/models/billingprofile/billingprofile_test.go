@@ -57,6 +57,24 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 
+		It("billing profile should be cached when called with user.BillingProfile()", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`DELETE FROM billing_profiles WHERE user_id=$1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			// test that calling it doesn't hit the database and get error
+			bp2, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			Expect(bp2).To(Equal(bp))
+
+			// test that normal Find() still hit the database and get error
+			_, err = billingprofile.Find(db, u.ID)
+			Expect(err).ToNot(BeNil())
+		})
+
 		Context("when there's no billing profile for the given user id", func() {
 			It("returns error", func() {
 				p, err := billingprofile.Find(db, 9999)
@@ -148,6 +166,21 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(bp.ExpYear.Int64).To(Equal(int64(2018)))
 				Expect(bp.PendingActivation).To(BeFalse())
+			})
+
+			It("removes the time restrictions on a user", func() {
+				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{7200, true}))
+				Expect(u.RefreshPeriod).To(Equal(sql.NullInt64{86400, true}))
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(BeNil())
+
+				u2, err := user.FindByUsername(db, "qux")
+				Expect(err).To(BeNil())
+				Expect(u2.MaxRunningTime).To(Equal(sql.NullInt64{0, false}))
+				Expect(u2.RefreshPeriod).To(Equal(sql.NullInt64{0, false}))
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
