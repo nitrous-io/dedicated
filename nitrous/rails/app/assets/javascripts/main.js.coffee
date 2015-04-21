@@ -90,10 +90,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
     set.sortBy('username')
   ).property 'sharedContainers.@each'
 
-  newUser: (->
-    @get('billingProfile') && @get('billingProfile.cardRequired')
-  ).property 'billingProfile', 'billingProfile.cardRequired'
-
   showOnboarding: (->
     @get('user.firstTime') && @get('onboardingReady') && !@get('freeQueue')
   ).property 'onboardingReady', 'user.firstTime'
@@ -233,12 +229,23 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   # TODO: Get this logic from server
   canCreateHosts: (->
-    return true if @get('newUser')
-    return false unless @get('billingProfile.active')
-    if maxHosts = @get('userProfile.maxHosts')
-      return @get('hosts.loaded') && @get('hosts.length') < maxHosts
-    true
-  ).property 'billingProfile.active', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
+    if @get('billingProfile.isNoCardState')
+      true
+
+    else if @get('billingProfile.free') && (@get('hosts.length') > 0)
+      false
+
+    else if !@get('billingProfile.active')
+      false
+
+    else if maxHosts = @get('userProfile.maxHosts')
+      @get('hosts.loaded') && (@get('hosts.length') < maxHosts)
+
+    else
+      true
+
+  ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active', 
+    'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
   logout: (cb) ->
     Em.$.ajax(
