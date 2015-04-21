@@ -26,6 +26,63 @@ var (
 	ErrUpgradeNotAvailable    = errors.New("host has no upgradable paid plan")
 )
 
+// Do the upgrading of a host to its paid plan
+// No permission checking here
+func doUpgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) (*host.Host, error) {
+	if !currentPlan.PaidPlanID.Valid {
+		return nil, ErrUpgradeNotAvailable
+	}
+
+	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	if err != nil {
+		return nil, err
+	}
+
+	h.PlanID = paidPlan.ID
+	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.LastRunningAt = pq.NullTime{Valid: false}
+
+	err = h.Update(d)
+	if err != nil {
+		return nil, err
+	}
+
+	return h, nil
+}
+
+// Upgrade all hosts to paid for free-tier user
+// just upgraded to paid tier
+func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
+	hosts, err := host.FindAllByUser(d, u)
+	if err != nil {
+		return err
+	}
+
+	// Free tier user should only have one host
+	// after upgrading, but putting this in a loop anyway
+	for _, h := range hosts {
+		if h.HourlyPrice == 0 {
+			p, err := plan.FindByID(d, h.PlanID)
+			if err != nil {
+				return err
+			}
+
+			_, err = doUpgradeHostToPaid(d, h, p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Mannually upgrade an existing host to paid.
+// This is currently not needed as we perform automatic upgrade
+// when free-tier user upgrade to paid plan.
+//
+// Leaving this here in case we want to allow paid user
+// to continue use free-tier host in future.
 func UpgradeHostToPaid(d *db.Database, u *user.User, h *host.Host) (*host.Host, error) {
 	bp, err := u.BillingProfile(d)
 	if err != nil {
@@ -49,25 +106,7 @@ func UpgradeHostToPaid(d *db.Database, u *user.User, h *host.Host) (*host.Host, 
 		return nil, ErrUpgradePaidNotAllowed
 	}
 
-	if !currentPlan.PaidPlanID.Valid {
-		return nil, ErrUpgradeNotAvailable
-	}
-
-	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
-	if err != nil {
-		return nil, err
-	}
-
-	h.PlanID = paidPlan.ID
-	h.HourlyPrice = paidPlan.HourlyPrice()
-	h.LastRunningAt = pq.NullTime{Valid: false}
-
-	err = h.Update(d)
-	if err != nil {
-		return nil, err
-	}
-
-	return h, nil
+	return doUpgradeHostToPaid(d, h, currentPlan)
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {

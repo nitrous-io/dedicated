@@ -591,7 +591,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	b := &billingprofile.BillingProfile{
 		UserID:            u.ID,
 		StripeID:          sql.NullString{c.ID, true},
-		State:             "paid",
+		State:             billingprofile.StatePaid,
 		LastFour:          sql.NullString{crd.LastFour, true},
 		CardType:          sql.NullString{string(crd.Brand), true},
 		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
