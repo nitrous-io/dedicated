@@ -92,7 +92,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property 'billingProfile', 'billingProfile.cardRequired'
 
   showOnboarding: (->
-    @get('user.firstTime') && @get('onboardingReady')
+    @get('user.firstTime') && @get('onboardingReady') && !@get('freeQueue')
   ).property 'onboardingReady', 'user.firstTime'
 
   desktopDownloadUrl: (->

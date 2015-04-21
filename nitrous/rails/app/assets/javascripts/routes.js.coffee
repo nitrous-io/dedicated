@@ -8,6 +8,8 @@ App.Router.map ->
   @route 'pricing'
 
   @resource 'home', path: '/', ->
+    @resource 'free-tier', path: '/free-tier'
+
     @resource 'containers', path: '/containers', ->
       @route 'new'
 
