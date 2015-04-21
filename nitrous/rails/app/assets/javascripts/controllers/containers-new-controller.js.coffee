@@ -93,7 +93,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       App.snackbar.post("Your new container “#{name}” was created successfully.", sticky: true)
       @set 'createdContainer', container
       @set 'saving', false
-      Mp.unionUser {Mp.PropertyImagesList: template or repository}
+      p = {}
+      p[Mp.PropertyImagesList] = template or repository
+      Mp.unionUser(p)
       App.set 'onboardingScreen', null
       if App.get 'onboardingIDEOpen'
         @send 'openIDE'
