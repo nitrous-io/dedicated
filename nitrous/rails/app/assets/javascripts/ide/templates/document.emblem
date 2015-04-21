@@ -16,7 +16,7 @@
       button.ui.btn.disabled title='Upgrade your workspace to enable collaborative editing.'
         | Collab Disabled
 
-    button.ui.btn.dropdown
+    .ui.btn.dropdown
       span
         if view.softTabs
           ' Soft Tabs:
@@ -40,7 +40,7 @@
               i.fa.fa-check
             | Soft Tabs (Spaces)
 
-    button.ui.btn.dropdown
+    .ui.btn.dropdown
       span
         = view.modeName
       span.caret
