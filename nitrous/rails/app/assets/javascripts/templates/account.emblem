@@ -54,29 +54,30 @@ form submit='updateDetails'
       else
         button.ui.btn.raised click='githubAuthorize' Connect with GitHub
 
-.card-header.bordered
-  h2 Settings
+unless App.billingProfile.isFreeOrNoCardState
+  .card-header.bordered
+    h2 Settings
 
-form submit='updateSettings'
-  .card-body
-    .ui.input-group
-      ul.ui.checkbox-group
-        li
-          .ui.checkbox
-            = input type='checkbox' id='account-advanced' checked=advanced
-            label
-          label for='account-advanced' Show Advanced Container Management Options
-          p.note-text
-            strong
-              ' Warning:
-            ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.
-            | Use at your own risk. Enable this option only if you know what you are doing.
+  form submit='updateSettings'
+    .card-body
+      .ui.input-group
+        ul.ui.checkbox-group
+          li
+            .ui.checkbox
+              = input type='checkbox' id='account-advanced' checked=advanced
+              label
+            label for='account-advanced' Show Advanced Container Management Options
+            p.note-text
+              strong
+                ' Warning:
+              ' Using advanced container management features may affect the stability, security, and performance of your workspaces, or may even render them unusable.
+              | Use at your own risk. Enable this option only if you know what you are doing.
 
-  .card-footer.bordered
-    .right
-      if updatingSettings
-        button.ui.btn disabled='disabled'
-          i.spinner
-          | Applying...
-      else
-        input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'
+    .card-footer.bordered
+      .right
+        if updatingSettings
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Applying...
+        else
+          input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'
