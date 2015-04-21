@@ -41,7 +41,16 @@ func doUpgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) (
 	h.HourlyPrice = paidPlan.HourlyPrice()
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
-	err = h.Update(d)
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (plan_id, size, hourly_price, last_running_at)
+		= (:plan_id, :size, :hourly_price, :last_running_at)
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return nil, err
+	}
+
+	err = nstmt.QueryRowx(h).StructScan(h)
 	if err != nil {
 		return nil, err
 	}
