@@ -57,7 +57,7 @@ var _ = Describe("models/freetier", func() {
 		}
 	})
 
-	Describe("CreateHostWithPlanAllowed()", func() {
+	Context("with free and paid plans", func() {
 		var (
 			paidPlan, freePlan *plan.Plan
 		)
@@ -77,6 +77,36 @@ var _ = Describe("models/freetier", func() {
 				PaidPlanID:    sql.NullInt64{Valid: true, Int64: paidPlan.ID},
 			}
 			Expect(freePlan.Insert(db)).To(BeNil())
+		})
+
+		Describe("UpgradeFreeUserHosts()", func() {
+			BeforeEach(func() {
+				h := &host.Host{
+					Slug:        "my-free-host",
+					HourlyPrice: 0,
+				}
+
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					H: h,
+					U: u,
+					P: freePlan,
+				})
+				Expect(err).To(BeNil())
+
+				Expect(h.UserID).To(Equal(u.ID))
+				Expect(h.PlanID).To(Equal(freePlan.ID))
+				Expect(h.HourlyPrice).To(Equal(0))
+
+				err = freetier.UpgradeFreeUserHosts(db, u)
+				Expect(err).To(BeNil())
+
+				h2, err := host.FindByIdentifier(db, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(h2.UserID).To(Equal(u.ID))
+				Expect(h2.PlanID).To(Equal(paidPlan.ID))
+				Expect(h2.HourlyPrice).To(Equal(100))
+			})
 		})
 
 		Context("When user is in free tier and phone authenticated", func() {
