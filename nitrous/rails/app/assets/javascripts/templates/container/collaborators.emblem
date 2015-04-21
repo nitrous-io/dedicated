@@ -2,9 +2,9 @@
 .card-body
   if model.canEdit
     unless hasRecords
-      p.hint-text.with-padding
+      .notice-text
         i.fa.fa-info-circle
-        | Share this container with other users by inviting them. Collaborators can work with you in real-time in the IDE and have full console access.
+        | Collaborators can work with you in real-time in the IDE and have full console access.
 
 
   if records.loaded
