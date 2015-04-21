@@ -21,6 +21,7 @@ App.Router.map ->
 
     @resource 'hosts', path: '/workspaces', ->
       @route 'new'
+      @route 'queue'
 
     @resource 'host', path: '/workspaces/:hostSlug', ->
       @route 'registries'

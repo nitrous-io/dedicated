@@ -124,8 +124,17 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         async: true
         bypass_preprovision: @get('bypassPreprovision')
         template_name: @get('templateName')
+        container_template_slug: App.get('pendingContainerData.selectedTemplate.slug')
+        container_name: App.get('pendingContainerData.name')
 
-      host.save(params, json: true).catch (jqxhr) => # host.save
+      host.save(params, json: true).catch (jqxhr) =>
+        # If host creation failed because of a queue, we redirect to the
+        # "you're in a queue" page.
+        if jqxhr.responseJSON?.error == 'free_queue_required'
+          App.set('pendingHost', null)
+          App.set('pendingContainerData', null)
+          @transitionToRoute 'hosts.queue'
+
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
