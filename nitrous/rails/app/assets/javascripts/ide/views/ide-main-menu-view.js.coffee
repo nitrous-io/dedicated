@@ -299,6 +299,17 @@ App.IdeMainMenuView = Em.View.extend
             controller.windowRestoreConsole()
         menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
           controller.windowToggleFullScreenConsole()
+        separator
+        menuItem 'Hide File Tree',
+          hideBinding: Em.Binding.oneWay('App.fileTreeHidden')
+          callback: (controller) ->
+            controller.windowHideFileTree()
+        menuItem 'Show File Tree',
+          hide: (->
+            !App.get('fileTreeHidden')
+          ).property('App.fileTreeHidden')
+          callback: (controller) ->
+            controller.windowShowFileTree()
       ]
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')

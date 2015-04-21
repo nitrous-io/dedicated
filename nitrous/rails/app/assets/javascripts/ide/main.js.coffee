@@ -42,6 +42,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   consoleFullscreen: false
   consoleMinimized: false
+  fileTreeHidden: false
 
   fiveMinWarned: false
   oneMinWarned: false

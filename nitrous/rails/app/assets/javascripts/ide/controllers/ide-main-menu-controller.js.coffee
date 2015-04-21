@@ -105,6 +105,12 @@ App.IdeMainMenuController = Em.Controller.extend
       @windowFocusConsole()
     , 50)
 
+  windowHideFileTree: ->
+    App.set 'fileTreeHidden', true
+
+  windowShowFileTree: ->
+    App.set 'fileTreeHidden', false
+
   viewSplitEditorPaneVertically: ->
     App.get('router.ideEditorController').splitActivePaneVertically()
 
