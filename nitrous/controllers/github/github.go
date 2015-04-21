@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/google/go-github/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -219,6 +220,12 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
 		return mh.Error(errUpdateFailed, errLabel)
 	}
+	env.Tracker.SetProfileProps("set", userId, map[string]interface{}{
+		"github_username": gitHubUserName,
+	}, env.Logger)
+	env.Tracker.SetProfileProps("setnx", userId, map[string]interface{}{
+		"github_authorized_date": time.Now(),
+	}, env.Logger)
 	http.Redirect(w, r, "/app#/account", http.StatusTemporaryRedirect)
 	return nil
 }

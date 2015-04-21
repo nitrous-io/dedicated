@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -38,6 +39,7 @@ var _ = Describe("controllers/github", func() {
 		res *httptest.ResponseRecorder
 		t   *token.Token
 		u   *user.User
+		ft  *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -47,7 +49,9 @@ var _ = Describe("controllers/github", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		ft = test.NewFakeTracker()
 		svr = server.NewServer("", db, logger, nil)
+		svr.Tracker = ft
 		res = httptest.NewRecorder()
 
 		u = &user.User{
@@ -111,6 +115,17 @@ var _ = Describe("controllers/github", func() {
 			Expect(err).To(BeNil())
 			Expect(gitHubUserName.String).To(Equal("kjk"))
 			Expect(gitHubToken.String).To(Equal("tokenAsJson"))
+
+			// and tracks authorization on mixpanel
+			Expect(ft.PropsCalled).To(HaveLen(2))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.Mode).To(Equal("set"))
+			Expect(pc.PropsSet["github_username"]).To(Equal("kjk"))
+			pc2 := ft.PropsCalled[1]
+			Expect(pc2.UserID).To(Equal(u.ID))
+			Expect(pc2.Mode).To(Equal("setnx"))
+			Expect(pc2.PropsSet["github_authorized_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 		})
 	})
 
