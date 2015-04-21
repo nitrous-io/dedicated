@@ -2,6 +2,7 @@ package cops
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,14 +20,24 @@ func GetPath(name string) string {
 // docker's native driver stores container state in /var/lib/docker/execdriver/native/container_id/state.json
 // we are only interested in InitPid because we want to join namespace of that pid
 type containerState struct {
+	// InitPid is used in docker < 1.6
 	InitPid int `json:"init_pid"`
+	// InitProcessPid is used in docker >= 1.6
+	InitProcessPid int `json:"init_process_pid"`
 }
 
 // GetContainerPID returns the pid of the container's init process
-func GetContainerPID(containerID string) (int, error) {
+func GetContainerPID(containerID string) (pid int, err error) {
+	var oldFormat bool
 	state := &containerState{}
-	statePath := filepath.Join("/var/lib/docker/execdriver/native", containerID, "state.json")
+	// in docker > 1.6, state is stored in /var/run/docker
+	statePath := filepath.Join("/var/run/docker/execdriver/native", containerID, "state.json")
 	stateFile, err := os.Open(statePath)
+	if os.IsNotExist(err) {
+		oldFormat = true
+		statePath = filepath.Join("/var/lib/docker/execdriver/native", containerID, "state.json")
+		stateFile, err = os.Open(statePath)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -35,7 +46,15 @@ func GetContainerPID(containerID string) (int, error) {
 		return 0, err
 	}
 
-	return state.InitPid, nil
+	if oldFormat {
+		pid = state.InitPid
+	} else {
+		pid = state.InitProcessPid
+	}
+	if pid == 0 {
+		return 0, fmt.Errorf("invalid state %s", statePath)
+	}
+	return pid, nil
 }
 
 func sendErr(c chan *Message, orig *Message, err error) chan *Message {
