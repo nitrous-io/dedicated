@@ -1091,5 +1091,12 @@ func init() {
 				CREATE UNIQUE INDEX index_free_queue_on_user_id ON free_queue USING btree (user_id);
 			`,
 		},
+		{
+			Version: "931",
+			Up: `
+				ALTER TABLE free_queue ADD COLUMN host_name character varying(255) NOT NULL;
+				ALTER TABLE free_queue RENAME COLUMN template_slug to container_template_slug;
+			`,
+		},
 	}
 }

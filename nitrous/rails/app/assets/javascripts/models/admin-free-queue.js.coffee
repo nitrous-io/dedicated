@@ -4,8 +4,9 @@ attr = SM.attr
 App.AdminFreeQueue = klass = App.Model.extend
   id: attr('number', serialize: false)
   userId: attr('number', as: 'user_id', serialize: false)
-  templateSlug: attr('string', as: 'template_slug', serialize: false)
+  containerTemplateSlug: attr('string', as: 'container_template_slug', serialize: false)
   containerName: attr('string', as: 'container_name', serialize: false)
+  hostName: attr('string', as: 'host_name', serialize: false)
   username: attr('string', as: 'username', serialize: false)
   state: attr('string', as: 'state', serialize: false)
   name: attr('string', as: 'name', serialize: false)

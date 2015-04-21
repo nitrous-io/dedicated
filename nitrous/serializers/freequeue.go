@@ -12,8 +12,9 @@ type FreeQueueWithUser struct {
 
 	State string `json:"state"`
 
-	TemplateSlug  string `json:"template_slug"`
-	ContainerName string `json:"container_name"`
+	ContainerTemplateSlug string `json:"container_template_slug"`
+	ContainerName         string `json:"container_name"`
+	HostName              string `json:"host_name"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -31,19 +32,20 @@ func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUs
 		return nil
 	}
 	return &FreeQueueWithUser{
-		ID:               f.ID,
-		UserID:           f.UserID,
-		State:            f.State,
-		TemplateSlug:     f.TemplateSlug,
-		ContainerName:    f.ContainerName,
-		CreatedAt:        f.CreatedAt,
-		UpdatedAt:        f.UpdatedAt,
-		Username:         f.Username,
-		Name:             f.Name,
-		Email:            f.Email,
-		Phone:            f.Phone.String,
-		PhoneCountryCode: f.PhoneCountryCode.String,
-		PhoneAuthed:      f.PhoneAuthed,
+		ID:     f.ID,
+		UserID: f.UserID,
+		State:  f.State,
+		ContainerTemplateSlug: f.ContainerTemplateSlug,
+		ContainerName:         f.ContainerName,
+		HostName:              f.HostName,
+		CreatedAt:             f.CreatedAt,
+		UpdatedAt:             f.UpdatedAt,
+		Username:              f.Username,
+		Name:                  f.Name,
+		Email:                 f.Email,
+		Phone:                 f.Phone.String,
+		PhoneCountryCode:      f.PhoneCountryCode.String,
+		PhoneAuthed:           f.PhoneAuthed,
 	}
 }
 

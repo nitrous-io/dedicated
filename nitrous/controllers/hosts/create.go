@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -45,6 +46,10 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
+	errFreeQueueRequired = httperror.New(http.StatusForbidden, "free_queue_required",
+		"Your workspace has been added to the queue")
+	errFreeQueueExists = httperror.New(http.StatusBadRequest, "free_queue_exists",
+		"You already have a workspace in queue. We will email you when it's ready.")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -59,6 +64,11 @@ type createOpts struct {
 	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
 	Name   string `json:"name"`
 	Async  bool   `json:"async"`
+
+	// Container-related fields for when we want to create a container on the
+	// host as well.
+	ContainerName         string `json:"container_name"`
+	ContainerTemplateSlug string `json:"container_template_slug"`
 
 	// the following fields are only available to admin for now
 	Provider           string `json:"provider"`            // use to change provider. Also look at TemplateName
@@ -114,6 +124,29 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
+		case freetier.ErrFreeQueueRequired:
+			// Check whether user has already queued.
+			if _, err := freequeue.Find(db, u.ID); err != nil {
+				if err != sql.ErrNoRows {
+					return err
+				}
+			} else {
+				return errFreeQueueExists
+			}
+
+			// Add host and container to free queue.
+			fq := &freequeue.FreeQueue{
+				UserID:                u.ID,
+				ContainerTemplateSlug: options.ContainerTemplateSlug,
+				ContainerName:         options.ContainerName,
+				HostName:              options.Name,
+				RegionSlug:            reg.Slug,
+			}
+			if err := fq.Insert(db); err != nil {
+				return err
+			}
+
+			return errFreeQueueRequired
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed
 		case freetier.ErrPaidPlanNotAllowed:
@@ -260,11 +293,13 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 		opts = j.Opts
 	} else {
 		opts = &createOpts{
-			Size:         r.FormValue("size"),
-			Region:       r.FormValue("region"),
-			Name:         r.FormValue("name"),
-			Provider:     r.FormValue("provider"),
-			TemplateName: r.FormValue("template_name"),
+			Size:                  r.FormValue("size"),
+			Region:                r.FormValue("region"),
+			Name:                  r.FormValue("name"),
+			Provider:              r.FormValue("provider"),
+			TemplateName:          r.FormValue("template_name"),
+			ContainerTemplateSlug: r.FormValue("container_template_slug"),
+			ContainerName:         r.FormValue("container_name"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))

@@ -21,6 +21,7 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -821,6 +822,52 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(err).To(BeNil())
 				})
 
+				It("creates a free queue record and responds with HTTP 403 Forbidden with a free_queue_required error", func() {
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					params.Set("container_template_slug", "rails")
+					params.Set("container_name", "my container")
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusForbidden))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("free_queue_required"))
+
+					fqs, err := freequeue.FindAllPending(db)
+					Expect(err).To(BeNil())
+					Expect(fqs).To(HaveLen(1))
+					Expect(fqs[0].UserID).To(Equal(u.ID))
+					Expect(fqs[0].ContainerTemplateSlug).To(Equal(params.Get("container_template_slug")))
+					Expect(fqs[0].ContainerName).To(Equal(params.Get("container_name")))
+					Expect(fqs[0].HostName).To(Equal(params.Get("name")))
+					Expect(fqs[0].RegionSlug).To(Equal(params.Get("region")))
+				})
+
+				It("responds with HTTP 400 Bad Request if user already has a free queue record", func() {
+					fq := &freequeue.FreeQueue{
+						UserID:                u.ID,
+						ContainerTemplateSlug: "rails",
+						ContainerName:         "my ror",
+						HostName:              "my workspace",
+						RegionSlug:            "sgp[",
+					}
+					Expect(fq.Insert(db)).To(BeNil())
+
+					_, err := db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					params.Set("container_template_slug", "rails")
+					params.Set("container_name", "my container")
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("free_queue_exists"))
+				})
+
 				It("responds with error if paid plan is selected", func() {
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusForbidden))
@@ -841,14 +888,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					errType, _ := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("max_free_host_reached"))
-				})
-
-				It("responds success if there is no host created before", func() {
-					_, err := db.Exec(`UPDATE plans SET price=0;`)
-					Expect(err).To(BeNil())
-
-					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 			})
 		})
