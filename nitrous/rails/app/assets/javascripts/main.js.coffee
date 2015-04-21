@@ -179,9 +179,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
     expired = remaining == 0
     percent = 0
     if expired
-      percent = ((refreshPeriod - refreshIn) / refreshPeriod) * 100
+      percent = 100 - (((refreshPeriod - refreshIn) / refreshPeriod) * 100)
     else
-      percent = 100 - ((remaining / maxRun) * 100)
+      percent = ((remaining / maxRun) * 100)
 
     {
       refreshIn: refreshIn,
