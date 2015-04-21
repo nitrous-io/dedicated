@@ -5,6 +5,12 @@
     button.ui.btn click='didClickSave target="view"' disabled=view.savingDisabled
       | Save
 
+    button.ui.btn click='didClickFind target="view"'
+      | Find
+
+    button.ui.btn click='didClickReplace target="view"'
+      | Replace
+
   .ide-toolbar-btns
     unless collabEnabled
       button.ui.btn.disabled title='Upgrade your workspace to enable collaborative editing.'

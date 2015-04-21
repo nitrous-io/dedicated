@@ -435,6 +435,14 @@ App.IdeDocumentView = Em.View.extend
     didClickSave: ->
       @get('controller').saveDocument @get('document')
 
+    didClickFind: ->
+      if doc = @get('document')
+        doc.set 'findTrigger', true
+
+    didClickReplace: ->
+      if doc = @get('document')
+        doc.set 'replaceTrigger', true
+
     didSelectMode: (selectedMode) ->
       @set 'mode', selectedMode
 
