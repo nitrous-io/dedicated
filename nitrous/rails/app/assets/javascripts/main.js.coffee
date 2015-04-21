@@ -182,17 +182,13 @@ window.Nitrous = Em.Application.extend Em.Evented,
     else
       percent = ((remaining / maxRun) * 100)
 
-    {
+    return {
       refreshIn: refreshIn,
       remaining: remaining,
       expired: expired,
       progressBarStyle: "width: #{percent}%"
     }
   ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
-
-  usageExpired: (->
-    return false unless @get 'usage'
-  )
 
   notifyUsageWarning: (->
     return unless @get('hosts.firstObject.state') == 'running'

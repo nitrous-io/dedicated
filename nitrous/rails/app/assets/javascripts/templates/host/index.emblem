@@ -110,13 +110,19 @@
 .card-footer.bordered
   if isRunning
     .left
-      button.ui.btn click='restart' Restart
-      if supportsStopStart
-        button.ui.btn click='stop' Stop
+      if App.billingProfile.free
+        button.ui.btn click='upgrade-paid' Upgrade
+
       else
-        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+        button.ui.btn click='restart' Restart
+
+        if supportsStopStart
+          button.ui.btn click='stop' Stop
+        else
+          button.ui.btn click='showTerminateDialog target="view"' Terminate...
     .right
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
+
   else
     if isTerminated
       .left
@@ -127,16 +133,23 @@
           button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
       else
         if isStopped
-          if supportsStopStart
+          if App.billingProfile.free
             .left
-              button.ui.btn click='showTerminateDialog target="view"' Terminate...
+              button.ui.btn click='upgrade-paid' Upgrade
+
             .right
-              button.ui.btn.primary click='start' Start
-          else
-            .left
-              button.ui.btn disabled='disabled'
-                i.spinner
-                | Please Wait...
+              button.ui.btn.primary disabled=App.usage.expired click='start' Start
+          else 
+            if supportsStopStart
+              .left
+                button.ui.btn click='showTerminateDialog target="view"' Terminate...
+              .right
+                button.ui.btn.primary click='start' Start
+            else
+              .left
+                button.ui.btn disabled='disabled'
+                  i.spinner
+                  | Please Wait...
         else
           .left
             button.ui.btn disabled='disabled'
