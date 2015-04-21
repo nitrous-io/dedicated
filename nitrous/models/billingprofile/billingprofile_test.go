@@ -308,6 +308,7 @@ var _ = Describe("models/billingprofile", func() {
 				State: billingprofile.StateNoCard,
 			}
 			Expect(bp.IsCardRequired()).To(BeTrue())
+			Expect(bp.IsFreeOrCardRequired()).To(BeTrue())
 		})
 
 		It("should be false otherwise", func() {
@@ -315,6 +316,7 @@ var _ = Describe("models/billingprofile", func() {
 				State: billingprofile.StatePaid,
 			}
 			Expect(bp.IsCardRequired()).To(BeFalse())
+			Expect(bp.IsFreeOrCardRequired()).To(BeFalse())
 		})
 	})
 
