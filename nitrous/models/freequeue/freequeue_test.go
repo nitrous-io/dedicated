@@ -90,6 +90,32 @@ var _ = Describe("models/freequeue", func() {
 		})
 	})
 
+	Describe("FindPending()", func() {
+		It("returns a user's pending host", func() {
+			f := &freequeue.FreeQueue{
+				UserID:                u1.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				HostName:              "my workspace",
+				RegionSlug:            "slug1",
+			}
+			Expect(f.Insert(db)).To(BeNil())
+
+			fq, err := freequeue.FindPending(db, u1.ID)
+			Expect(err).To(BeNil())
+			Expect(fq.UserID).To(Equal(u1.ID))
+			Expect(fq.ContainerTemplateSlug).To(Equal("tmpl1"))
+			Expect(fq.ContainerName).To(Equal("nm"))
+			Expect(fq.HostName).To(Equal("my workspace"))
+			Expect(fq.RegionSlug).To(Equal("slug1"))
+		})
+
+		It("returns an error if user has no pending host", func() {
+			_, err := freequeue.FindPending(db, u1.ID)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Context("finding by state", func() {
 		var fq1, fq2, fq3 *freequeue.FreeQueue
 
@@ -127,9 +153,9 @@ var _ = Describe("models/freequeue", func() {
 			Expect(err).To(BeNil())
 		})
 
-		Describe("FindPending()", func() {
+		Describe("FindAllPending()", func() {
 			It("should find pending", func() {
-				res, err := freequeue.FindPending(db)
+				res, err := freequeue.FindAllPending(db)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(2))
 				Expect([]freequeue.FreeQueue{res[0].FreeQueue, res[1].FreeQueue}).To(ConsistOf([]freequeue.FreeQueue{*fq1, *fq2}))
@@ -137,9 +163,9 @@ var _ = Describe("models/freequeue", func() {
 			})
 		})
 
-		Describe("FindApproved()", func() {
+		Describe("FindAllApproved()", func() {
 			It("should find approved", func() {
-				res, err := freequeue.FindApproved(db)
+				res, err := freequeue.FindAllApproved(db)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))
 				Expect([]freequeue.FreeQueue{res[0].FreeQueue}).To(Equal([]freequeue.FreeQueue{*fq3}))

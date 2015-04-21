@@ -109,11 +109,19 @@ func Action(tx *sqlx.Tx, id int64, expectedState, newState string, userID int64)
 	return fq, nil
 }
 
-func FindPending(db *db.Database) ([]*FreeQueueWithUser, error) {
+func FindPending(db *db.Database, userID int64) (*FreeQueue, error) {
+	fq := &FreeQueue{}
+	if err := db.Get(fq, `SELECT * FROM free_queue WHERE user_id = $1 AND state = $2;`, userID, StatePending); err != nil {
+		return nil, err
+	}
+	return fq, nil
+}
+
+func FindAllPending(db *db.Database) ([]*FreeQueueWithUser, error) {
 	return findWithState(db, StatePending)
 }
 
-func FindApproved(db *db.Database) ([]*FreeQueueWithUser, error) {
+func FindAllApproved(db *db.Database) ([]*FreeQueueWithUser, error) {
 	return findWithState(db, StateApproved)
 }
 

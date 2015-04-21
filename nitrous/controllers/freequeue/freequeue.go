@@ -37,7 +37,7 @@ func init() {
 }
 
 func pending(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	pending, err := freequeue.FindPending(env.DB)
+	pending, err := freequeue.FindAllPending(env.DB)
 	if err != nil {
 		return err
 	}
