@@ -11,6 +11,7 @@
         th Username
         th Phone Country
         th Email
+        th Confirmed
         th Created At
         th
       = if queue.length
@@ -22,6 +23,11 @@
               = phoneCountryCode
             td
               = email
+            td
+              if emailConfirmed
+                | Y
+              else
+                | N
             td
               = basicdatetime createdAt
             td.actions

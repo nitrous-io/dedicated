@@ -29,6 +29,7 @@ type FreeQueueWithUser struct {
 	Phone            string `json:"phone"`
 	PhoneCountryCode string `json:"phone_country_code"`
 	PhoneAuthed      bool   `json:"phone_authed"`
+	EmailConfirmed   bool   `json:"email_confirmed"`
 }
 
 func SerializeFreeQueue(f *freequeue.FreeQueue) *FreeQueue {
@@ -69,6 +70,7 @@ func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUs
 		Phone:            f.Phone.String,
 		PhoneCountryCode: f.PhoneCountryCode.String,
 		PhoneAuthed:      f.PhoneAuthed,
+		EmailConfirmed:   f.EmailConfirmed,
 	}
 }
 
