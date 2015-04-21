@@ -91,7 +91,8 @@ func makeJobs() <-chan job {
 		for _, u := range users {
 			for name, fn := range steps {
 				if err := fn(jobs, u); err != nil {
-					logr.Errorf("User %s, step %s: %v", u.Email, name, err)
+					logr.Fatalf("User %s, step %s: %v", u.Email, name, err)
+					os.Exit(1)
 				}
 			}
 		}
