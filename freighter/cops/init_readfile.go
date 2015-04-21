@@ -44,7 +44,7 @@ func readFileInit() {
 // This should be used only for file. For directory, it's best to use docker's
 // built-in copy
 func ReadFromContainer(id string, localPath string, w io.Writer) error {
-	initPID, err := GetContainerPID(id)
+	initPID, err := getContainerPID(id)
 	if err != nil {
 		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}

@@ -23,8 +23,8 @@ type containerState struct {
 	InitProcessPid int `json:"init_process_pid"`
 }
 
-// GetContainerPID returns the pid of the container's init process
-func GetContainerPID(containerID string) (pid int, err error) {
+// getContainerPID returns the pid of the container's init process
+func getContainerPID(containerID string) (pid int, err error) {
 	var oldFormat bool
 	state := &containerState{}
 	// in docker > 1.6, state is stored in /var/run/docker

@@ -52,7 +52,7 @@ func TestGetContainerPID(t *testing.T) {
 		{"987", 765, false},
 		{"300", 0, true},
 	} {
-		pid, err := GetContainerPID(tc.containerID)
+		pid, err := getContainerPID(tc.containerID)
 		if err != nil && !tc.hasError {
 			t.Errorf("failed to get pid %v", err)
 		}
