@@ -58,6 +58,8 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
   dragEnd: (event) ->
     @_super.apply this, arguments
     tab = klass.draggedTab
+    # TODO: fix drag-dropping of tabs with unsaved changes
+    return if !tab.get('clean')
     fromPane = klass.draggedTabEditorPane
     toPane = klass.dropEditorPane
     controller = @get 'controller'
