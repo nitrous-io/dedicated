@@ -111,7 +111,7 @@
   if isRunning
     .left
       if App.billingProfile.free
-        button.ui.btn click='upgrade-paid' Upgrade
+        button.ui.btn click='upgradePaid' Upgrade
 
       else
         button.ui.btn click='restart' Restart
@@ -135,7 +135,7 @@
         if isStopped
           if App.billingProfile.free
             .left
-              button.ui.btn click='upgrade-paid' Upgrade
+              button.ui.btn click='upgradePaid' Upgrade
 
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start

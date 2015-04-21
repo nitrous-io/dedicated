@@ -61,7 +61,11 @@ App.AddCardController = Em.ObjectController.extend
       else
         @set 'saving', true
 
-        App.get('billingProfile').addCard(
+        billingProfile = App.get('billingProfile')
+        wasFreeTier = billingProfile.get('free')
+        console.log('user was free tier:', wasFreeTier, billingProfile)
+        
+        billingProfile.addCard(
           name: @get('name'),
           number: @get('number'),
           exp_month: @get('expMonth'),
@@ -73,9 +77,13 @@ App.AddCardController = Em.ObjectController.extend
           @set 'saving', false
           App.snackbar.post "Credit card added."
           App.refreshUsage()
+          
+          billingProfile.reload()
 
           if App.get('pendingHost')
             @transitionToRoute 'hosts.new'
+          else if wasFreeTier
+            @transitionToRoute 'hosts.index'
           else
             @transitionToRoute 'billing'
 

@@ -29,6 +29,9 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
     newContainer: ->
       @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }
 
+    upgradePaid: ->
+      @transitionToRoute 'add-card'
+
     upgrade: ->
       host = @get('model')
       events = App.get 'eventsSocket'
