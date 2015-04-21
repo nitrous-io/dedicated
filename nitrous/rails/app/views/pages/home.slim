@@ -52,7 +52,14 @@
         br
         | Run web servers, databases, caches and more, right from your Web browser.
       .full-visual
-        = image_tag 'home/ide-featurette.png', width: '970px', height: '567px', alt: 'A full-featured IDE in your browser'
+        .window-controls
+          span
+          span
+          span
+        video autoplay="autoplay" loop="loop" muted="true"
+          source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.webm" type="video/webm"
+          source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.mp4" type="video/mp4"
+
         .annotation-dot.tooltip.blue.zoom data-id="1" data-tooltip="Browse, upload, manage files and folders, just as you would on your desktop"
           .target
         .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
