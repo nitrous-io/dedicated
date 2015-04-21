@@ -1,6 +1,7 @@
 package host_test
 
 import (
+	"bytes"
 	"io/ioutil"
 	"time"
 
@@ -14,6 +15,24 @@ import (
 
 var _ = Describe("context", func() {
 	Describe("Run", func() {
+		It("does not print progress if the description is empty", func() {
+			b := bytes.NewBuffer(nil)
+			h := &dummy.Host{ID: "123"}
+			hctx := host.NewContext(context.Background(), h, nil, b)
+
+			var counter int
+			err := hctx.Run(host.Step{
+				Func: func(*host.HostContext) error {
+					counter++
+					return nil
+				},
+				Timeout: 10 * time.Millisecond,
+			})
+
+			Expect(err).To(BeNil())
+			Expect(b.String()).To(BeEmpty(), "unexpected progress data")
+		})
+
 		It("stops when the context times out", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 			defer cancel()
