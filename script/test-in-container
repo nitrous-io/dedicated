@@ -18,7 +18,7 @@ if [[ "$APP" = "shell" ]]; then
 			--privileged=true \
 			--rm \
 			--volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
-			--volume $DOCKER_BIN:/usr/bin/docker \
+			--volume "$DOCKER_BIN":/usr/bin/docker \
 			-it \
 			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
 	fi
@@ -35,7 +35,7 @@ else
 		docker run \
 			--privileged=true \
 			--rm \
-			--volume $DOCKER_BIN:/usr/bin/docker \
+			--volume "$DOCKER_BIN":/usr/bin/docker \
 			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
 	fi
 fi
