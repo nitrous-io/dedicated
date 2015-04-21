@@ -120,11 +120,6 @@ var _ = Describe("models/freetier", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("should not be able to upgrade host", func() {
-					_, err := freetier.UpgradeHostToPaid(db, u, h1)
-					Expect(err).To(Equal(freetier.ErrPaymentDetailsRequired))
-				})
-
 				Context("when host is running", func() {
 					It("free-tier user should only be allowed to create one free host", func() {
 						hosts, err := host.FindAllByUser(db, u)
@@ -173,43 +168,6 @@ var _ = Describe("models/freetier", func() {
 			It("Should not be allowed to create host with free plan", func() {
 				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
 				Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
-			})
-
-			It("Should be able to upgrade existing free host", func() {
-				h1 := &host.Host{
-					Slug:        "my-free-host",
-					HourlyPrice: 0,
-				}
-
-				_, err := test.CreateHostStack(db, &test.HostStack{
-					H: h1,
-					U: u,
-					P: freePlan,
-				})
-				Expect(err).To(BeNil())
-
-				h2, err := freetier.UpgradeHostToPaid(db, u, h1)
-				Expect(err).To(BeNil())
-
-				Expect(h2.PlanID).To(Equal(paidPlan.ID))
-				Expect(h2.HourlyPrice).To(Equal(paidPlan.HourlyPrice()))
-			})
-
-			It("Should not be able to upgrade paid host", func() {
-				h1 := &host.Host{
-					Slug:        "my-paid-host",
-					HourlyPrice: 100,
-				}
-
-				_, err := test.CreateHostStack(db, &test.HostStack{
-					H: h1,
-					U: u,
-					P: paidPlan,
-				})
-				Expect(err).To(BeNil())
-
-				_, err = freetier.UpgradeHostToPaid(db, u, h1)
-				Expect(err).To(Equal(freetier.ErrUpgradePaidNotAllowed))
 			})
 		})
 

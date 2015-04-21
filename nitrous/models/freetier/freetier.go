@@ -21,10 +21,7 @@ var (
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
-
-	ErrPaymentDetailsRequired = errors.New("payment details required before upgrading free plan")
-	ErrUpgradePaidNotAllowed  = errors.New("host is already in paid plan")
-	ErrUpgradeNotAvailable    = errors.New("host has no upgradable paid plan")
+	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
 
 // Do the upgrading of a host to its paid plan
@@ -77,38 +74,6 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	}
 
 	return nil
-}
-
-// Mannually upgrade an existing host to paid.
-// This is currently not needed as we perform automatic upgrade
-// when free-tier user upgrade to paid plan.
-//
-// Leaving this here in case we want to allow paid user
-// to continue use free-tier host in future.
-func UpgradeHostToPaid(d *db.Database, u *user.User, h *host.Host) (*host.Host, error) {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return nil, err
-	}
-
-	if bp.IsFreeTier() {
-		return nil, ErrPaymentDetailsRequired
-	}
-
-	if h.HourlyPrice > 0 {
-		return nil, ErrUpgradePaidNotAllowed
-	}
-
-	currentPlan, err := plan.FindByID(d, h.PlanID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !currentPlan.IsFree() {
-		return nil, ErrUpgradePaidNotAllowed
-	}
-
-	return doUpgradeHostToPaid(d, h, currentPlan)
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
