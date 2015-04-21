@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
@@ -145,6 +146,7 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates":           r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":    r("providertemplates.Show", providertemplates.Show),
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
+				"/admin/free_queue/pending":           r("freequeue.Pending", freequeue.Pending),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 			},
 			"POST": {
@@ -184,6 +186,7 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 				"/admin/terminate_unaccounted_host":        r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
+				"/admin/free_queue/{id}/action":            r("freequeue.Action", freequeue.Action),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),

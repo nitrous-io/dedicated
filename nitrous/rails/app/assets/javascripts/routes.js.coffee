@@ -48,3 +48,4 @@ App.Router.map ->
       @route 'template-edit', path: '/template/:templateSlug/edit'
       @route 'announcements', path: '/announcements'
       @route 'announcements-new', path: '/announcements/new'
+      @route 'free-queue', path: '/free_queue'

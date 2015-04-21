@@ -39,6 +39,9 @@
               a href='#' click='switchUser target="view"'
                 | Switch User
             li
+              = link-to 'admin.free-queue'
+                | Free Queue
+            li
               = link-to 'admin.announcements'
                 | Announcements
             li
