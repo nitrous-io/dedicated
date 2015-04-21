@@ -344,6 +344,7 @@ nav
 
     .more
       position: relative
+
       span
         padding: 0 6px 0 0
       i
@@ -397,7 +398,8 @@ nav
 
   span.link
     color: $blueLink
-    padding-left: 4px
+    padding-left: 6px
+    font-weight: 500
 
 
   // ------------------------------------
@@ -728,6 +730,9 @@ article
 
   p
     line-height: 23px
+
+    &.solo
+      font-size: 16px
 
   sup
     font-size: 9px
@@ -1538,8 +1543,10 @@ h4 + .box-wrapper
   .pricing-container
     position: relative
     padding-bottom: 80px
-
     +clearFix
+
+    & + p
+      padding-bottom: 40px
 
   .pricing-block
     ul
@@ -2447,6 +2454,9 @@ input[type="range"]
 .dark
   background: $n2oGray900
   color: $n2oGray100
+
+  .notice
+    background: rgba(255,255,255,.9)
 
   .unread
     &:after
