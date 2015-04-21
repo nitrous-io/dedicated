@@ -150,6 +150,10 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 			Timeout:     5 * time.Minute,
 		},
 		{
+			Func:    host.WaitForSSH,
+			Timeout: 5 * time.Minute,
+		},
+		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
 		},
