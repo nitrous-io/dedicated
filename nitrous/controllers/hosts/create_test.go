@@ -843,12 +843,15 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(errType).To(Equal("max_free_host_reached"))
 				})
 
-				It("responds success if there is no host created before", func() {
+				It("responds with HTTP 403 Forbidden with a free_queue_required error if there is no host created before", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
 					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
+					Expect(res.Code).To(Equal(http.StatusForbidden))
+
+					errType, _ := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("free_queue_required"))
 				})
 			})
 		})

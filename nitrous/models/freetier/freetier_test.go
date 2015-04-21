@@ -92,9 +92,9 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should be allowed to create free-tier host", func() {
+			It("should be allowed to create free-tier host but in a queue", func() {
 				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-				Expect(err).To(BeNil())
+				Expect(err).To(Equal(freetier.ErrFreeQueueRequired))
 			})
 
 			It("should not be allowed to create host with paid plan", func() {

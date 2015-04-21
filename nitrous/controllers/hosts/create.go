@@ -45,6 +45,8 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
+	errFreeQueueRequired = httperror.New(http.StatusForbidden, "free_queue_required",
+		"Your workspace will be added to the queue")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -114,6 +116,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
+		case freetier.ErrFreeQueueRequired:
+			return errFreeQueueRequired
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed
 		case freetier.ErrPaidPlanNotAllowed:
