@@ -257,6 +257,36 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(count).To(Equal(0))
 			})
 
+			It("should not award if promo code is null", func() {
+				_, err := db.Exec(`UPDATE users SET promo_code = NULL WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+
+			It("should not award if promo code is empty string", func() {
+				_, err := db.Exec(`UPDATE users SET promo_code = '' WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var count int
+				err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+
 			It("should award if the billing profile was not previously activated", func() {
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")

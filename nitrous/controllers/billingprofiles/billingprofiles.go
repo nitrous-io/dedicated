@@ -113,6 +113,11 @@ func handleBillingError(err error) error {
 }
 
 func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
+	if user.PromoCode.String == "" || !user.PromoCode.Valid {
+		// promo_code is '' or NULL, return
+		return
+	}
+
 	ct, err := creditForUser(d, user)
 	if err != nil {
 		if err == sql.ErrNoRows {
