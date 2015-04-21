@@ -538,7 +538,8 @@ const (
 //   1. Stop container.
 //   2. Rewrite /var/lib/docker/containers/<containerid>/config.json
 //   3. Rewrite /var/lib/docker/containers/<containerid>/hostconfig.json
-//   4. Start container
+//   4. Reload a container
+//   5. Start container
 
 func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.ContainerInfo, err error) {
 	var state reconfigState
@@ -560,6 +561,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 			}
 		}
 	}()
+
 	ret, err = p.Stop(id)
 	if err != nil {
 		if cn, e := p.GetInfo(id); e == nil {
