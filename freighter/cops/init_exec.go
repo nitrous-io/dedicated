@@ -212,7 +212,7 @@ func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
 // process.
 // This is run in the parent process
 func Start(id string, env []string) (*exec.Cmd, io.Writer, io.Reader, error) {
-	initPID, err := GetContainerPID(id)
+	initPID, err := getContainerPID(id)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
