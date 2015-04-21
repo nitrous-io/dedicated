@@ -503,27 +503,6 @@ func (p *DockerProvider) ListContainerKeys(containerId string) ([]string, error)
 	return []string{k}, nil
 }
 
-// This is a copy of the Image struct in docker/image for unmarshalling JSON in
-// /var/lib/docker/graph/<imageid>/json.
-// FIXME This is fucking ugly though. But I don't know of a better way to edit
-// only specific fields in /var/lib/docker/graph/<imageid>/json other than
-// regexes and string replacement shenanigans.
-type dockerImage struct {
-	ID              string              `json:"id"`
-	Parent          string              `json:"parent,omitempty"`
-	Comment         string              `json:"comment,omitempty"`
-	Created         time.Time           `json:"created"`
-	Container       string              `json:"container,omitempty"`
-	ContainerConfig dockerclient.Config `json:"container_config,omitempty"`
-	DockerVersion   string              `json:"docker_version,omitempty"`
-	Author          string              `json:"author,omitempty"`
-	Config          dockerclient.Config `json:"config,omitempty"`
-	Architecture    string              `json:"architecture,omitempty"`
-	OS              string              `json:"os,omitempty"`
-	Checksum        string              `json:"checksum"`
-	Size            int64
-}
-
 type reconfigState int
 
 const (
