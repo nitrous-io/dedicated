@@ -6,7 +6,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 )
 
-type FreeQueueWithUser struct {
+type FreeQueue struct {
 	ID     int64 `json:"id"`
 	UserID int64 `json:"user_id"`
 
@@ -15,10 +15,14 @@ type FreeQueueWithUser struct {
 	ContainerTemplateSlug string `json:"container_template_slug"`
 	ContainerName         string `json:"container_name"`
 	HostName              string `json:"host_name"`
+	RegionSlug            string `json:"region_slug"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+}
 
+type FreeQueueWithUser struct {
+	*FreeQueue
 	Username         string `json:"username"`
 	Name             string `json:"name"`
 	Email            string `json:"email"`
@@ -27,25 +31,44 @@ type FreeQueueWithUser struct {
 	PhoneAuthed      bool   `json:"phone_authed"`
 }
 
-func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUser {
+func SerializeFreeQueue(f *freequeue.FreeQueue) *FreeQueue {
 	if f == nil {
 		return nil
 	}
-	return &FreeQueueWithUser{
+	return &FreeQueue{
 		ID:     f.ID,
 		UserID: f.UserID,
 		State:  f.State,
 		ContainerTemplateSlug: f.ContainerTemplateSlug,
 		ContainerName:         f.ContainerName,
 		HostName:              f.HostName,
+		RegionSlug:            f.RegionSlug,
 		CreatedAt:             f.CreatedAt,
 		UpdatedAt:             f.UpdatedAt,
-		Username:              f.Username,
-		Name:                  f.Name,
-		Email:                 f.Email,
-		Phone:                 f.Phone.String,
-		PhoneCountryCode:      f.PhoneCountryCode.String,
-		PhoneAuthed:           f.PhoneAuthed,
+	}
+}
+
+func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUser {
+	if f == nil {
+		return nil
+	}
+	return &FreeQueueWithUser{
+		FreeQueue: &FreeQueue{
+			ID:     f.ID,
+			UserID: f.UserID,
+			State:  f.State,
+			ContainerTemplateSlug: f.ContainerTemplateSlug,
+			ContainerName:         f.ContainerName,
+			HostName:              f.HostName,
+			CreatedAt:             f.CreatedAt,
+			UpdatedAt:             f.UpdatedAt,
+		},
+		Username:         f.Username,
+		Name:             f.Name,
+		Email:            f.Email,
+		Phone:            f.Phone.String,
+		PhoneCountryCode: f.PhoneCountryCode.String,
+		PhoneAuthed:      f.PhoneAuthed,
 	}
 }
 

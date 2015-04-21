@@ -14,6 +14,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -70,6 +72,105 @@ var _ = Describe("controllers/freequeue", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("GET /api/v0/free_queue", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/free_queue", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("should return an error if there is no place in the freequeu", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errorSlug, errorDesc := test.ErrorSlug(res.Body)
+			Expect(errorSlug).To(Equal("not_in_queue"))
+			Expect(errorDesc).To(Equal("you do not have a place in the queue"))
+		})
+
+		Context("with a free queue", func() {
+			var fq *freequeue.FreeQueue
+
+			BeforeEach(func() {
+				fq = &freequeue.FreeQueue{
+					UserID:                u.ID,
+					ContainerTemplateSlug: "tmpl1",
+					ContainerName:         "nm",
+					RegionSlug:            "slug1",
+					HostName:              "name1",
+				}
+				Expect(fq.Insert(db)).To(BeNil())
+			})
+
+			It("should return an error if free queue is found but a host has previously been created", func() {
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						Slug:        "my-host-1",
+						HourlyPrice: 2000,
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				errorSlug, errorDesc := test.ErrorSlug(res.Body)
+				Expect(errorSlug).To(Equal("queue_used"))
+				Expect(errorDesc).To(Equal("you have already used your host allocation"))
+			})
+
+			It("should return an error if free queue is found but a host has previously been terminated", func() {
+				hs, err := test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						Slug:        "my-host-1",
+						HourlyPrice: 2000,
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", hs.H.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				errorSlug, errorDesc := test.ErrorSlug(res.Body)
+				Expect(errorSlug).To(Equal("queue_used"))
+				Expect(errorDesc).To(Equal("you have already used your host allocation"))
+			})
+
+			It("should serialize the response with the template", func() {
+				t := &template.Template{
+					Slug:        "tmpl1",
+					Name:        sql.NullString{"Ruby on Rails", true},
+					Description: sql.NullString{"A Rails stack template", true},
+					Image:       "rails:4.2",
+					Type:        template.TypeStack,
+					Config:      `{ "ports": ["private:5432:5432", "public:2222:22"], "publish_all": true }`,
+				}
+				err := t.Insert(db)
+				Expect(err).To(BeNil())
+
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					FreeQueue *serializers.FreeQueue `json:"free_queue"`
+					Template  *serializers.Template  `json:"template"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.FreeQueue.ID).To(Equal(fq.ID))
+				Expect(j.Template.ID).To(Equal(t.ID))
+			})
+
+		})
 	})
 
 	Describe("GET /api/v0/admin/free_queue/pending", func() {
@@ -306,9 +407,9 @@ var _ = Describe("controllers/freequeue", func() {
 				Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Pro\" <mailer@nitrous.io>"))
 				Expect(fakeMailer.Subject).To(Equal("Your Nitrous workspace is ready!"))
 				Expect(fakeMailer.Body).To(ContainSubstring("Great news bar!"))
-				Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/quick-create?template=tmpl1&name=nm&region=region1"))
+				Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/free-tier"))
 				Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Great news bar!</h3>"))
-				Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/quick-create?template=tmpl1&name=nm&region=region1" target="_blank`))
+				Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/free-tier" target="_blank`))
 			})
 		})
 	})
