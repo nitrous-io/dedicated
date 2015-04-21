@@ -90,8 +90,8 @@ var _ = Describe("models/freequeue", func() {
 		})
 	})
 
-	Describe("FindPending()", func() {
-		It("returns a user's pending host", func() {
+	Describe("Find()", func() {
+		It("returns a user's free queue record", func() {
 			f := &freequeue.FreeQueue{
 				UserID:                u1.ID,
 				ContainerTemplateSlug: "tmpl1",
@@ -101,7 +101,7 @@ var _ = Describe("models/freequeue", func() {
 			}
 			Expect(f.Insert(db)).To(BeNil())
 
-			fq, err := freequeue.FindPending(db, u1.ID)
+			fq, err := freequeue.Find(db, u1.ID)
 			Expect(err).To(BeNil())
 			Expect(fq.UserID).To(Equal(u1.ID))
 			Expect(fq.ContainerTemplateSlug).To(Equal("tmpl1"))
@@ -111,7 +111,7 @@ var _ = Describe("models/freequeue", func() {
 		})
 
 		It("returns an error if user has no pending host", func() {
-			_, err := freequeue.FindPending(db, u1.ID)
+			_, err := freequeue.Find(db, u1.ID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
