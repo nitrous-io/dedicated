@@ -15,9 +15,7 @@
     if App.user
       li.ui.dropdown
         a href='#'
-          / | New
           i.fa.fa-plus
-          .ui.dropdown-triangle
         ul.dropdown-menu
           li
             link-to 'containers.new' | New Container...
