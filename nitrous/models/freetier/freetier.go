@@ -1,6 +1,7 @@
 package freetier
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
@@ -39,6 +40,7 @@ func doUpgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) (
 	}
 
 	h.PlanID = paidPlan.ID
+	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
 	h.HourlyPrice = paidPlan.HourlyPrice()
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
