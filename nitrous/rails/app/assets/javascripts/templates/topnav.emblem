@@ -73,13 +73,12 @@
               span.usage
                 if App.usage.expired
                   span
-                    i.fa.fa-exclamation-circle 
+                    i.fa.fa-exclamation-circle
                     | Daily usage exceeded
                   if App.usage.refreshIn
-                    span 
+                    span
                       = durationInWords App.usage.refreshIn
                       |  until reset
-                      
                 else
                   span.left Usage left:
                   span.right
