@@ -17,19 +17,42 @@
         h3
           | Get your team, students, or workshop all on the same page in seconds.
 
-  
+  - if false
+    / article.featurette.extra-padding.anywhere
+    /   .container
+    /     .pull-wrapper
+    /       .pull-left
+    /         h3.big-title 
+    /           | Work from anywhere
+    /         h4
+    /           | Be productive on any machine and any operating system – you're just a Web browser away from a predictable and consistent development box.
+
+    /       .pull-right
+    /         = image_tag 'home/anywhere-visual-alt.png', width: '536px', height: '231px', alt: 'Work from anywhere with Nitrous'
+            
+    /     .box-wrapper.four
+    /       .box
+    /         p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
+    /       .box
+    /         p.version.anywhere-logo.osx OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
+    /       .box
+    /         p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
+    /       .box
+    /         p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
+
+
   article.featurette.extra-padding.anywhere
     .container
-      .pull-wrapper
-        .pull-left
-          h3.big-title 
-            | Work from anywhere
-          h4
-            | Be productive on any machine and any operating system – you're just a Web browser away from a predictable and consistent development box.
 
-        .pull-right
-          = image_tag 'home/anywhere-visual-alt.png', width: '536px', height: '231px', alt: 'Work from anywhere with Nitrous'
-          
+      .full-visual
+        = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
+
+      h3.big-title Work from anywhere
+      h4
+        | Be productive on any machine and any operating system – you're just
+        br
+        | a Web browser away from a predictable and consistent development box
+
       .box-wrapper.four
         .box
           p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
@@ -39,29 +62,6 @@
           p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
         .box
           p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
-
-
-  / article.featurette.extra-padding.anywhere
-  /   .container
-
-  /     .full-visual
-  /       = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
-
-  /     h3.big-title Work from anywhere
-  /     h4
-  /       | Be productive on any machine and any operating system – you're just
-  /       br
-  /       | a Web browser away from a predictable and consistent development box
-
-  /     .box-wrapper.four
-  /       .box
-  /         p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
-  /       .box
-  /         p.version.anywhere-logo.osx OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
-  /       .box
-  /         p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
-  /       .box
-  /         p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
 
 
   article.featurette.attached-bottom
