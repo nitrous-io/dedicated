@@ -101,7 +101,7 @@ App.IdeMainMenuView = Em.View.extend
     baseItems = []
     if App.get('container.env.NITROUS_README_URL')
       baseItems.push(
-        menuItem 'View container README', callback: (controller) ->
+        menuItem 'View README', callback: (controller) ->
           controller.helpNitrousReadme()
         separator
       )
