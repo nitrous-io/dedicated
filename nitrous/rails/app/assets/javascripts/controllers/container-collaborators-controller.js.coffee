@@ -17,7 +17,7 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
 
   hasRecords: (->
     # TODO: @callumj fix when 'records' has content this return false
-    @get('records').length > 0 || @get('pending')?.length > 0
+    (@get('records.length') > 0) || (@get('pending.length') > 0)
   ).property 'pending.@each', 'records.@each'
 
   clear: ->
