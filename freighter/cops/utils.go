@@ -9,14 +9,6 @@ import (
 	"strings"
 )
 
-// if the path is not absolute, start from the current directory
-func GetPath(name string) string {
-	if len(name) > 0 && name[0] == '/' {
-		return name
-	}
-	return "./" + name
-}
-
 // docker's native driver stores container state in /var/lib/docker/execdriver/native/container_id/state.json
 // we are only interested in InitPid because we want to join namespace of that pid
 type containerState struct {
