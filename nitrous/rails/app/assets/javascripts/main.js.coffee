@@ -156,23 +156,38 @@ window.Nitrous = Em.Application.extend Em.Evented,
       return
 
     now = (new Date()).getTime()
-    refreshAt = new Date(date.getTime() + (@get('user.refreshPeriod')*1000))
+    maxRun = @get('user.maxRunningTime')
+    refreshPeriod = @get('user.refreshPeriod')
+
+    refreshAt = new Date(date.getTime() + (refreshPeriod*1000))
     used = (now - primaryHost.get('lastRunningAt').getTime())/1000
 
     remaining = 0
     refreshIn = null
     if (r = refreshAt.getTime()) < now
-      remaining = App.get('user.maxRunningTime')
+      remaining = maxRun
     else
-      remaining = App.get('user.maxRunningTime') - used
+      remaining = maxRun - used
       refreshIn = (r - now)/1000
 
-    remaining = 0 if remaining < 0
+    # correct for overruns or underuns
+    if remaining > maxRun
+      remaining = maxRun
+    else if remaining < 0
+      remaining = 0
+
+    expired = remaining == 0
+    percent = 0
+    if expired
+      percent = 100 - (((refreshPeriod - refreshIn) / refreshPeriod) * 100)
+    else
+      percent = ((remaining / maxRun) * 100)
 
     {
       refreshIn: refreshIn,
       remaining: remaining,
-      expired: remaining == 0
+      expired: expired,
+      progressBarStyle: "width: #{percent}%"
     }
   ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
 
