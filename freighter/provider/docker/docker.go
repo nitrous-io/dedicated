@@ -669,6 +669,8 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		return ret, &provider.StartFailedError{Err: err}
 	}
 
+	// FIXME: Once dockerclient is upgraded to latest,
+	// startConfig doesn't have to be sent to start a container.
 	if err := p.client.StartContainer(id, startConfig); err != nil {
 		return ret, &provider.StartFailedError{Err: err}
 	}
