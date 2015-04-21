@@ -126,11 +126,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		switch err {
 		case freetier.ErrFreeQueueRequired:
 			// Check whether user has already queued.
-			if _, err := freequeue.Find(db, u.ID); err != nil {
+			if fq, err := freequeue.Find(db, u.ID); err != nil {
 				if err != sql.ErrNoRows {
 					return err
 				}
 			} else {
+				if fq.State == freequeue.StateApproved {
+					break
+				}
 				return errFreeQueueExists
 			}
 

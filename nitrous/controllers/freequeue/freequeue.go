@@ -2,7 +2,7 @@ package freequeue
 
 import (
 	"bytes"
-	"fmt"
+	"database/sql"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
+	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -29,11 +30,46 @@ var (
 	errInvalidState          = httperror.New(http.StatusBadRequest, "invalid_request", "the provided `new_state` is invalid")
 	errInconsistentState     = httperror.New(http.StatusConflict, "inconsistent_state", "the provided `expected_state` does not match the current state")
 
+	errNotInQueue = httperror.New(http.StatusNotFound, "not_in_queue", "you do not have a place in the queue")
+	errQueueUsed  = httperror.New(http.StatusForbidden, "queue_used", "you have already used your host allocation")
+
 	Mailer mailer.Mailer
 )
 
 func init() {
 	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+}
+
+func ForCurrentUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	fq, err := freequeue.Find(env.DB, env.User.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotInQueue
+		}
+		return err
+	}
+
+	var hostsExist bool
+	err = env.DB.QueryRow(`SELECT COUNT(*) > 0 FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE LIMIT 1;`, env.User.ID).Scan(&hostsExist)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if hostsExist {
+		return errQueueUsed
+	}
+
+	tmpl, err := template.Find(env.DB, fq.ContainerTemplateSlug)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"free_queue": serializers.SerializeFreeQueue(fq),
+		"template":   serializers.SerializeTemplate(tmpl),
+	}
+	return nil
 }
 
 func pending(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -116,7 +152,7 @@ func sendMail(tx *sqlx.Tx, fq *freequeue.FreeQueue) error {
 		Scheme:   "https",
 		Host:     host,
 		Path:     "/app/",
-		Fragment: fmt.Sprintf("/quick-create?template=%s&name=%s&region=%s", fq.ContainerTemplateSlug, fq.ContainerName, fq.RegionSlug),
+		Fragment: "/free-tier",
 	}
 
 	tmplData := struct {

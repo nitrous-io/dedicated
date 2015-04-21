@@ -1,8 +1,11 @@
 .card-header.bordered
-  if hasPendingContainer
-    h2 Select Your Plan
+  if saving
+    h2 Creating Workspace
   else
-    h2 New Workspace
+    if hasPendingContainer
+      h2 Select Your Plan
+    else
+      h2 New Workspace
 
 .screens
   .screen class={view.hideProgress::hide}

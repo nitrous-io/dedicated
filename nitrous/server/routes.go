@@ -148,6 +148,7 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/free_queue/pending":           r("freequeue.Pending", freequeue.Pending),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
+				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
 			},
 			"POST": {
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),

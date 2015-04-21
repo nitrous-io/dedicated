@@ -14,6 +14,7 @@ App.AdminFreeQueue = klass = App.Model.extend
   phone: attr('string', as: 'phone', serialize: false)
   phoneCountryCode: attr('string', as: 'phone_country_code', serialize: false)
   phoneAuthed: attr('bool', as: 'phone_authed', serialize: false)
+  emailConfirmed: attr('bool', as: 'email_confirmed', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'updated_at', serialize: false)
 

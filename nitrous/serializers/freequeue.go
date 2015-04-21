@@ -6,7 +6,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 )
 
-type FreeQueueWithUser struct {
+type FreeQueue struct {
 	ID     int64 `json:"id"`
 	UserID int64 `json:"user_id"`
 
@@ -15,16 +15,38 @@ type FreeQueueWithUser struct {
 	ContainerTemplateSlug string `json:"container_template_slug"`
 	ContainerName         string `json:"container_name"`
 	HostName              string `json:"host_name"`
+	RegionSlug            string `json:"region_slug"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+}
 
+type FreeQueueWithUser struct {
+	*FreeQueue
 	Username         string `json:"username"`
 	Name             string `json:"name"`
 	Email            string `json:"email"`
 	Phone            string `json:"phone"`
 	PhoneCountryCode string `json:"phone_country_code"`
 	PhoneAuthed      bool   `json:"phone_authed"`
+	EmailConfirmed   bool   `json:"email_confirmed"`
+}
+
+func SerializeFreeQueue(f *freequeue.FreeQueue) *FreeQueue {
+	if f == nil {
+		return nil
+	}
+	return &FreeQueue{
+		ID:     f.ID,
+		UserID: f.UserID,
+		State:  f.State,
+		ContainerTemplateSlug: f.ContainerTemplateSlug,
+		ContainerName:         f.ContainerName,
+		HostName:              f.HostName,
+		RegionSlug:            f.RegionSlug,
+		CreatedAt:             f.CreatedAt,
+		UpdatedAt:             f.UpdatedAt,
+	}
 }
 
 func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUser {
@@ -32,20 +54,23 @@ func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUs
 		return nil
 	}
 	return &FreeQueueWithUser{
-		ID:     f.ID,
-		UserID: f.UserID,
-		State:  f.State,
-		ContainerTemplateSlug: f.ContainerTemplateSlug,
-		ContainerName:         f.ContainerName,
-		HostName:              f.HostName,
-		CreatedAt:             f.CreatedAt,
-		UpdatedAt:             f.UpdatedAt,
-		Username:              f.Username,
-		Name:                  f.Name,
-		Email:                 f.Email,
-		Phone:                 f.Phone.String,
-		PhoneCountryCode:      f.PhoneCountryCode.String,
-		PhoneAuthed:           f.PhoneAuthed,
+		FreeQueue: &FreeQueue{
+			ID:     f.ID,
+			UserID: f.UserID,
+			State:  f.State,
+			ContainerTemplateSlug: f.ContainerTemplateSlug,
+			ContainerName:         f.ContainerName,
+			HostName:              f.HostName,
+			CreatedAt:             f.CreatedAt,
+			UpdatedAt:             f.UpdatedAt,
+		},
+		Username:         f.Username,
+		Name:             f.Name,
+		Email:            f.Email,
+		Phone:            f.Phone.String,
+		PhoneCountryCode: f.PhoneCountryCode.String,
+		PhoneAuthed:      f.PhoneAuthed,
+		EmailConfirmed:   f.EmailConfirmed,
 	}
 }
 

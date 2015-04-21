@@ -60,6 +60,7 @@ type FreeQueueWithUser struct {
 	Phone            sql.NullString `db:"phone"`
 	PhoneCountryCode sql.NullString `db:"phone_country_code"`
 	PhoneAuthed      bool           `db:"phone_authed"`
+	EmailConfirmed   bool           `db:"email_confirmed"`
 }
 
 func (f *FreeQueue) Insert(db *db.Database) error {
@@ -128,7 +129,9 @@ func FindAllApproved(db *db.Database) ([]*FreeQueueWithUser, error) {
 func findWithState(db *db.Database, state string) ([]*FreeQueueWithUser, error) {
 	fq := []*FreeQueueWithUser{}
 	err := db.Select(&fq, `SELECT
-		free_queue.*, users.username, users.name, users.email, users.phone, users.phone_country_code, users.phone_authed
+		free_queue.*,
+		users.username, users.name, users.email, users.phone, users.phone_country_code, users.phone_authed,
+		(users.confirmed_at IS NOT NULL) email_confirmed
 		FROM free_queue
 		INNER JOIN users ON free_queue.user_id = users.id
 		WHERE state = $1
