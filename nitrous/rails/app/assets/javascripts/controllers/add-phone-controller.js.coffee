@@ -67,3 +67,5 @@ App.AddPhoneController = Em.ObjectController.extend
         App.postError(jqxhr.responseJSON, 'There was an error sending an SMS to your phone, please try another number.')
         @set 'saving', false
 
+    editPhone: ->
+      @set 'otpSent', false

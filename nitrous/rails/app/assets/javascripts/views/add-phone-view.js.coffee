@@ -14,3 +14,7 @@ App.AddPhoneView = Em.View.extend
   resendOTPDisabled: (->
     @get('controller.saving') || @get('controller.verifying')
   ).property 'controller.saving', 'controller.verifying'
+
+  editPhoneDisabled: (->
+    @get('controller.saving') || @get('controller.verifying')
+  ).property 'controller.saving', 'controller.verifying'
