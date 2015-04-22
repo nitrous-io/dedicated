@@ -110,7 +110,7 @@ App.IdeMainMenuView = Em.View.extend
         url: 'http://docs.nitrous.io/'
         target: '_blank'
       menuItem 'Web IDE Overview',
-        url: 'http://help.nitrous.io/ide-general'
+        url: 'http://docs.nitrous.io/v1.0/docs/web-ide-overview'
         target: '_blank'
       menuItem 'Frequently Asked Questions',
         url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
