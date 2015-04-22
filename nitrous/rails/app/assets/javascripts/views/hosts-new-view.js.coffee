@@ -19,7 +19,12 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
       'Create'
   ).property 'controller.hasNextStep'
 
-  hideProgress: Em.computed.not('controller.saving')
+  hideProgress: (->
+    if @get('controller.selectedPlan.isFreePlan')
+      return true
+    !@get('controller.saving')
+  ).property 'controller.saving', 'controller.selectedPlan.isFreePlan'
+
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
 
   didInsertElement: ->
