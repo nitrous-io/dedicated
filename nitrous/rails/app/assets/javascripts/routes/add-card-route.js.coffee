@@ -12,3 +12,8 @@ App.AddCardRoute = App.AuthedRoute.extend
      @_super.apply this, arguments
      unless controller.get 'saving'
        controller.clear()
+
+  resetController: (controller, isExiting, transition) ->
+    if isExiting
+      # Reset query params so they're not sticky.
+      controller.set('upgradingFromFree', false)
