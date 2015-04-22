@@ -92,6 +92,27 @@ var _ = Describe("controllers/freequeue", func() {
 			Expect(errorDesc).To(Equal("you do not have a place in the queue"))
 		})
 
+		It("should return an error if there if a freequeue record was soft deleted", func() {
+			fq := &freequeue.FreeQueue{
+				UserID:                u.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				RegionSlug:            "slug1",
+				HostName:              "name1",
+			}
+			Expect(fq.Insert(db)).To(BeNil())
+
+			_, err := db.Exec("UPDATE free_queue SET deleted_at = now() WHERE id = $1", fq.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errorSlug, errorDesc := test.ErrorSlug(res.Body)
+			Expect(errorSlug).To(Equal("not_in_queue"))
+			Expect(errorDesc).To(Equal("you do not have a place in the queue"))
+		})
+
 		Context("with a free queue", func() {
 			var fq *freequeue.FreeQueue
 

@@ -91,7 +91,7 @@ var _ = Describe("models/freequeue", func() {
 	})
 
 	Describe("Cancel()", func() {
-		It("returns should delete the free_queue assigned to the user", func() {
+		It("returns should soft delete the free_queue assigned to the user", func() {
 			f1 := &freequeue.FreeQueue{
 				UserID:                u1.ID,
 				ContainerTemplateSlug: "tmpl1",
@@ -113,6 +113,10 @@ var _ = Describe("models/freequeue", func() {
 			Expect(freequeue.Cancel(db, u1.ID)).To(BeNil())
 			_, err := freequeue.Find(db, u1.ID)
 			Expect(err).To(Equal(sql.ErrNoRows))
+
+			fq := &freequeue.FreeQueue{}
+			Expect(db.Get(fq, `SELECT * FROM free_queue WHERE id = $1;`, f1.ID)).To(BeNil())
+			Expect(fq.ID).To(Equal(f1.ID))
 
 			_, err = freequeue.Find(db, u2.ID)
 			Expect(err).To(BeNil())
