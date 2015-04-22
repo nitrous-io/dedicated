@@ -18,14 +18,14 @@ const (
 
 var (
 	logr             *logger.Logger
-	hostsCh          chan *host.Host
 	timeBetweenStops time.Duration = time.Minute
-	wgHostsStopped   sync.WaitGroup
 )
 
 func main() {
+	var wg sync.WaitGroup
+
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
-	hostsCh = make(chan *host.Host)
+	hostsCh := make(chan *host.Host)
 	logr.Infof("starting hosts shutdown, %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
@@ -37,30 +37,26 @@ func main() {
 	}
 
 	for i := 0; i < nWorkers; i++ {
-		go controlHostWorker(dbConn, &wgHostsStopped, hostsCh)
+		go controlHostWorker(dbConn, &wg, hostsCh)
 	}
 
 	for {
 		timeStart := time.Now()
-		stopExpiredHosts(dbConn)
+		hosts, err := freetier.ExpiredHosts(dbConn)
+		if err != nil {
+			logr.FatalfExit("freetier.ExpiredHosts() failed with '%s'", err)
+		}
+
+		for _, hst := range hosts {
+			wg.Add(1)
+			hostsCh <- hst
+		}
+		wg.Wait()
+		logr.Infof("Stopped %d hosts in %s", len(hosts), time.Since(timeStart))
+
 		toSleep := time.Since(timeStart) - timeBetweenStops
 		time.Sleep(toSleep) // doesn't sleep if toSleep < 0
 	}
-}
-
-func stopExpiredHosts(dbConn *db.Database) {
-	timeStart := time.Now()
-	hosts, err := freetier.ExpiredHosts(dbConn)
-	if err != nil {
-		logr.FatalfExit("freetier.ExpiredHosts() failed with '%s'", err)
-	}
-
-	for _, hst := range hosts {
-		wgHostsStopped.Add(1)
-		hostsCh <- hst
-	}
-	wgHostsStopped.Wait()
-	logr.Infof("Stopped %d hosts in %s", len(hosts), time.Since(timeStart))
 }
 
 func controlHostWorker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
