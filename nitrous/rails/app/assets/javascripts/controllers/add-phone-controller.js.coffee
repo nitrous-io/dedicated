@@ -54,6 +54,8 @@ App.AddPhoneController = Em.ObjectController.extend
           @set 'invalidOTP', true
           return
         user.set('phoneAuthed', true)
+        App.refreshBillingProfile()
+        
         @transitionToRoute 'home'
       , (jqxhr) =>
         @set 'verifying', false

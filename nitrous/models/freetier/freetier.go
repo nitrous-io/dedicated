@@ -1,10 +1,13 @@
 package freetier
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -19,7 +22,68 @@ var (
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
+	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
+
+func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) error {
+	if !currentPlan.PaidPlanID.Valid {
+		return ErrUpgradeNotAvailable
+	}
+
+	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	if err != nil {
+		return err
+	}
+
+	h.PlanID = paidPlan.ID
+	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
+	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
+	h.LastRunningAt = pq.NullTime{Valid: false}
+
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (plan_id, size, hourly_price, max_containers, last_running_at)
+		= (:plan_id, :size, :hourly_price, max_containers, :last_running_at)
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+
+	err = nstmt.QueryRowx(h).StructScan(h)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Upgrade all hosts to paid for free-tier user
+// just upgraded to paid tier
+func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
+	hosts, err := host.FindAllByUser(d, u)
+	if err != nil {
+		return err
+	}
+
+	// Free tier user should only have one host
+	// after upgrading, but putting this in a loop anyway
+	for _, h := range hosts {
+		if h.HourlyPrice == 0 {
+			p, err := plan.FindByID(d, h.PlanID)
+			if err != nil {
+				return err
+			}
+
+			err = upgradeHostToPaid(d, h, p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
 	bp, err := u.BillingProfile(d)
@@ -154,11 +218,19 @@ func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
     FROM hosts
     INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
     INNER JOIN users ON hosts.user_id = users.id
-    WHERE last_running_at IS NOT NULL AND terminated_at IS NULL AND preprovisioned IS FALSE
-    AND state = $1 AND users.max_running_time IS NOT NULL AND users.refresh_period IS NOT NULL
-    AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+    INNER JOIN billing_profiles bp ON bp.user_id = users.id
+    WHERE 
+    	last_running_at IS NOT NULL 
+    	AND terminated_at IS NULL 
+    	AND preprovisioned IS FALSE
+    	AND bp.state = $1
+    	AND hosts.state = $2 
+    	AND users.max_running_time IS NOT NULL 
+    	AND users.refresh_period IS NOT NULL
+    	AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+
 	hosts := []*host.Host{}
-	err := d.Select(&hosts, query, host.StateRunning)
+	err := d.Select(&hosts, query, billingprofile.StateFree, host.StateRunning)
 	if err != nil {
 		return nil, err
 	}

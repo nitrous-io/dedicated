@@ -26,7 +26,10 @@ App.IdeDocumentView = Em.View.extend
   foldGutterClass: 'CodeMirror-foldgutter'
 
   collabMode: false
+
   otClient: Em.computed.alias 'document.otClient'
+  # if set, it will be used when otClient is initialized
+  otUndoManagerOverride: Em.computed.alias 'document.otUndoManagerOverride'
 
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
@@ -37,6 +40,7 @@ App.IdeDocumentView = Em.View.extend
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void to avoid showing confirm dialog
+    @focusedDidChange()
 
   willDestroyElement: ->
     @_super()
@@ -213,8 +217,12 @@ App.IdeDocumentView = Em.View.extend
       serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
       editorAdapter = new ot.CodeMirrorAdapter(cm)
       otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
+      if undoManager = @get 'otUndoManagerOverride'
+        otClient.undoManager = undoManager
+        @set 'otUndoManagerOverride', null
       @set 'otClient', otClient
       editor.set 'readOnly', false
+      @focusedDidChange()
 
     collabSocket.on "rejoin_failed|#{fileName}", =>
       editor.set 'readOnly', true
@@ -412,19 +420,27 @@ App.IdeDocumentView = Em.View.extend
       editor.markClean()
   ).observes 'document.clean'
 
-  consoleHeightDidChange: (->
-    if editor = @get 'editor'
-      editor.refresh()
-  ).observes 'App.router.ideLayoutController.consoleHeight'
+  consoleFullscreenDidChange: (->
+    consoleFullscreen = App.get 'consoleFullscreen'
+    editor = @get 'editor'
+    if editor && !consoleFullscreen
+      Em.run.scheduleOnce 'afterRender', ->
+        editor.refresh()
+  ).observes 'App.consoleFullscreen'
 
-  editorWidthDidChange: (->
-    if editor = @get 'editor'
-      editor.refresh()
-  ).observes 'App.router.ideLayoutController.sidebarWidth'
+  activeDidChange: (->
+    editor = @get 'editor'
+    active = @get 'document.active'
+    if editor && active
+      Em.run.scheduleOnce 'afterRender', ->
+        editor.refresh()
+  ).observes 'document.active'
 
   focusedDidChange: (->
-    if editor = @get 'editor'
-      if focused = @get 'document.focused'
+    editor = @get 'editor'
+    focused = @get 'document.focused'
+    if editor && focused
+      Em.run.scheduleOnce 'afterRender', ->
         editor.refresh()
         editor.focus()
   ).observes 'document.focused'

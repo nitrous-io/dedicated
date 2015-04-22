@@ -57,26 +57,58 @@ var _ = Describe("models/freetier", func() {
 		}
 	})
 
-	Describe("CreateHostWithPlanAllowed()", func() {
+	Context("with free and paid plans", func() {
 		var (
 			paidPlan, freePlan *plan.Plan
 		)
 
 		BeforeEach(func() {
-			freePlan = &plan.Plan{
-				Slug:          "free plan",
-				Price:         0,
-				MaxContainers: 1,
-			}
-			Expect(freePlan.Insert(db)).To(BeNil())
-
 			paidPlan = &plan.Plan{
 				Slug:          "paid plan",
 				Price:         100,
 				MaxContainers: 2,
 			}
-
 			Expect(paidPlan.Insert(db)).To(BeNil())
+
+			freePlan = &plan.Plan{
+				Slug:          "free plan",
+				Price:         0,
+				MaxContainers: 1,
+				PaidPlanID:    sql.NullInt64{Valid: true, Int64: paidPlan.ID},
+			}
+			Expect(freePlan.Insert(db)).To(BeNil())
+		})
+
+		Describe("UpgradeFreeUserHosts()", func() {
+			BeforeEach(func() {
+				h := &host.Host{
+					Slug:        "my-free-host",
+					HourlyPrice: 0,
+				}
+
+				_, err := test.CreateHostStack(db, &test.HostStack{
+					H: h,
+					U: u,
+					P: freePlan,
+				})
+				Expect(err).To(BeNil())
+
+				Expect(h.UserID).To(Equal(u.ID))
+				Expect(h.PlanID).To(Equal(freePlan.ID))
+				Expect(h.HourlyPrice).To(Equal(0))
+				Expect(h.MaxContainers).To(Equal(1))
+
+				err = freetier.UpgradeFreeUserHosts(db, u)
+				Expect(err).To(BeNil())
+
+				h2, err := host.FindByIdentifier(db, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(h2.UserID).To(Equal(u.ID))
+				Expect(h2.PlanID).To(Equal(paidPlan.ID))
+				Expect(h2.HourlyPrice).To(Equal(100))
+				Expect(h2.MaxContainers).To(Equal(2))
+			})
 		})
 
 		Context("When user is in free tier and phone authenticated", func() {
@@ -108,8 +140,8 @@ var _ = Describe("models/freetier", func() {
 				)
 				BeforeEach(func() {
 					h1 = &host.Host{
-						Slug:        "my-host-1",
-						HourlyPrice: 3000,
+						Slug:        "my-free-host",
+						HourlyPrice: 0,
 					}
 
 					_, err := test.CreateHostStack(db, &test.HostStack{
@@ -319,63 +351,94 @@ var _ = Describe("models/freetier", func() {
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h4.Insert(db)).To(BeNil())
-
-			_, err = db.Exec("UPDATE users SET max_running_time = 60, refresh_period = 86400 WHERE id = $1", u.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE users SET max_running_time = 10, refresh_period = 86400 WHERE id = $1", u2.ID)
-			Expect(err).To(BeNil())
 		})
 
-		It("should be empty if the hosts don't have any running times", func() {
-			res, err := freetier.ExpiredHosts(db)
-			Expect(err).To(BeNil())
-			Expect(res).To(BeEmpty())
+		Context("when user is in free tier", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE users SET max_running_time = 60, refresh_period = 86400 WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE users SET max_running_time = 10, refresh_period = 86400 WHERE id = $1", u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE billing_profiles SET state=$1 WHERE user_id IN ($2, $3)",
+					billingprofile.StateFree, u.ID, u2.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should be empty if the hosts don't have any running times", func() {
+				res, err := freetier.ExpiredHosts(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(BeEmpty())
+			})
+
+			It("should include hosts that are past their max limit", func() {
+				_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+				Expect(err).To(BeNil())
+
+				res, err := freetier.ExpiredHosts(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(3))
+				Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(ConsistOf([]int64{h1.ID, h2.ID, h4.ID}))
+			})
+
+			It("should not include hosts that are not running", func() {
+				_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET state = 'orphan' WHERE id = $1", h1.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+				Expect(err).To(BeNil())
+
+				res, err := freetier.ExpiredHosts(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(2))
+				Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
+			})
+
+			It("should not include hosts that are pre-provisioned", func() {
+				_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET preprovisioned = TRUE WHERE id = $1", h1.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+				Expect(err).To(BeNil())
+
+				res, err := freetier.ExpiredHosts(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(2))
+				Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
+			})
 		})
 
-		It("should include hosts that are past their max limit", func() {
-			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
-			Expect(err).To(BeNil())
+		Context("when user is in paid tier", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE billing_profiles SET state=$1 WHERE user_id IN ($2, $3)",
+					billingprofile.StatePaid, u.ID, u2.ID)
+				Expect(err).To(BeNil())
+			})
 
-			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
-			Expect(err).To(BeNil())
+			It("should not include hosts whose user is not in free-tier", func() {
+				// paid user hosts should not have last_running_at set. But we set here anyway
+				// and make it the same condition as "should include hosts that are past their max limit"
+				// just to be sure that paid users' hosts are never selected
+				_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
+				Expect(err).To(BeNil())
 
-			res, err := freetier.ExpiredHosts(db)
-			Expect(err).To(BeNil())
-			Expect(res).To(HaveLen(3))
-			Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(ConsistOf([]int64{h1.ID, h2.ID, h4.ID}))
-		})
+				_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
+				Expect(err).To(BeNil())
 
-		It("should not include hosts that are not running", func() {
-			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET state = 'orphan' WHERE id = $1", h1.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
-			Expect(err).To(BeNil())
-
-			res, err := freetier.ExpiredHosts(db)
-			Expect(err).To(BeNil())
-			Expect(res).To(HaveLen(2))
-			Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
-		})
-
-		It("should not include hosts that are pre-provisioned", func() {
-			_, err := db.Exec("UPDATE hosts SET last_running_at = (now() - interval '61 seconds') WHERE id = $1 OR id = $2", h1.ID, h2.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET preprovisioned = TRUE WHERE id = $1", h1.ID)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET last_running_at = (now() - interval '55 seconds') WHERE id = $1 OR id = $2", h3.ID, h4.ID)
-			Expect(err).To(BeNil())
-
-			res, err := freetier.ExpiredHosts(db)
-			Expect(err).To(BeNil())
-			Expect(res).To(HaveLen(2))
-			Expect([]int64{res[0].ID, res[1].ID}).To(ConsistOf([]int64{h2.ID, h4.ID}))
+				res, err := freetier.ExpiredHosts(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(0))
+			})
 		})
 	})
 })

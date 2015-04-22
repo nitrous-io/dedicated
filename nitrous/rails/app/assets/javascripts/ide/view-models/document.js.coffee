@@ -7,6 +7,7 @@ App.Document = App.TabContent.extend
   contentType: 'text'
 
   otClient: null
+  otUndoManagerOverride: null
 
   findTrigger: null
   findNextTrigger: null

@@ -14,13 +14,21 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   templateName: null
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
+  sortedPlans: null
 
   nameFieldEdited: false
 
   clear: ->
+    plans = @get 'plans'
+
+    sortedPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
+      contentBinding: Em.Binding.oneWay 'App.eligiblePlans'
+      sortProperties: ['totalPrice']
+
     @setProperties
       name: null
-      selectedPlan: @get('plans')?.findBy('isPaidPlan')
+      sortedPlans: sortedPlans
+      selectedPlan: plans?.findBy('isPaidPlan')
       selectedRegion: App.get('regions.firstObject')
       error: null
       invalidField: null
@@ -33,7 +41,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
-    @get('plans')?.reload()
+    plans?.reload()
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
@@ -82,8 +90,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       if App.get('pendingContainerData')
         App.set('pendingContainerData', null)
         @transitionToRoute 'containers.new'
-        return
-      @transitionToRoute 'home.index'
+      else
+        @transitionToRoute 'home.index'
 
     create: (host) ->
       if !host
@@ -97,6 +105,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
       if @get('cardRequired')
         App.set('pendingHost', host)
+
         @transitionToRoute 'add-card'
         return
 

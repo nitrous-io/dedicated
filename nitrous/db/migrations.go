@@ -1098,5 +1098,11 @@ func init() {
 				ALTER TABLE free_queue RENAME COLUMN template_slug to container_template_slug;
 			`,
 		},
+		{
+			Version: "940",
+			Up: `
+				ALTER TABLE plans ADD COLUMN paid_plan_id bigint DEFAULT NULL;
+			`,
+		},
 	}
 }

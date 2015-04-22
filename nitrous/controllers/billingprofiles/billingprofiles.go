@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -38,17 +39,19 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+	u := env.User
+
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	existing, err := billingprofile.Find(db, env.User.ID)
+	existing, err := billingprofile.Find(db, u.ID)
 	if err != nil {
 		return err
 	}
 
-	bp, err := env.User.ActivateBillingProfile(db, cardToken)
+	bp, err := u.ActivateBillingProfile(db, cardToken)
 	if err != nil {
 		return handleBillingError(err)
 	}
@@ -60,8 +63,13 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		if err != nil {
 			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %+v", err)
 		} else if count <= 1 {
-			awardCredits(db, env.Logger, env.User)
+			awardCredits(db, env.Logger, u)
 		}
+	}
+
+	err = freetier.UpgradeFreeUserHosts(db, u)
+	if err != nil {
+		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %s", err)
 	}
 
 	env.Status = http.StatusCreated

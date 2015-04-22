@@ -91,6 +91,14 @@ App.Container = klass = App.Model.extend
     @get('name') || @get('slug')
   ).property 'slug'
 
+  stateForDisplay: (->
+    switch state = @get('state')
+      when 'host_stopped'
+        'workspace stopped'
+      else
+        state
+  ).property 'state'
+
   exitCodeString: (->
    if (code = @get 'exitCode')?
      code.toString()
