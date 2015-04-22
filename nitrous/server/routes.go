@@ -208,7 +208,8 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
-				"/logout": r("tokens.Logout", tokens.Logout),
+				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
+				"/logout":                                 r("tokens.Logout", tokens.Logout),
 			},
 		}
 
