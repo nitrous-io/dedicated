@@ -4,6 +4,7 @@ App.AddPhoneController = Em.ObjectController.extend
   otp: null
 
   otpSent: false
+  otpAttempts: 0
   saving: false
   verifying: false
 
@@ -34,6 +35,7 @@ App.AddPhoneController = Em.ObjectController.extend
 
       user = App.get('user')
       user.updatePhone(@get('phone'), @get('phoneCountryCode')).then (resp) =>
+        Mp.timestamp Mp.PropertyPhoneNumberSaved
         @set 'otpSent', true
         @set 'saving', false
       , (jqxhr) =>
@@ -45,6 +47,7 @@ App.AddPhoneController = Em.ObjectController.extend
 
       user = App.get('user')
       user.verifyPhone(@get('otp')).then (resp) =>
+        Mp.timestamp Mp.PropertyPhoneNumberVerified
         @set 'verifying', false
         if !resp.verified
           App.postError 'That code is incorrect.'
@@ -58,12 +61,20 @@ App.AddPhoneController = Em.ObjectController.extend
         @set 'invalidOTP', true
 
     resendOTP: ->
+      if @get('otpAttempts') >= 3
+        App.postError 'Too many attempts.'
+        return
+      @incrementProperty 'otpAttempts'
       @set 'saving', true
 
       App.get('user').resendPhoneCode().then (resp) =>
+        Mp.increment Mp.PropertyPhoneNumberSMSCount
         @set 'saving', false
         App.snackbar.post "A new verification code has been sent to #{@get 'fullPhone'}"
       , (jqxhr) =>
+        Mp.increment Mp.PropertyPhoneNumberSMSCount
         App.postError(jqxhr.responseJSON, 'There was an error sending an SMS to your phone, please try another number.')
         @set 'saving', false
 
+    editPhone: ->
+      @set 'otpSent', false

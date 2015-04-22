@@ -501,7 +501,7 @@ var _ = Describe("controllers/users", func() {
 
 		It("updates the user's phone and phone_country_code", func() {
 			params := &url.Values{}
-			params.Set("phone", "88884444")
+			params.Set("phone", "(888)8-44-44 Ծ_Ծ") // test stripping of non-numeric
 			params.Set("phone_country_code", "65")
 
 			doRequest(params)
