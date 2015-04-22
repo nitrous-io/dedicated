@@ -166,6 +166,11 @@ App.IdeDocumentView = Em.View.extend
       if !@get 'document.focused'
         @set 'document.focused', true
 
+      parentView = @get 'parentView'
+      if parentView instanceof App.IdeEditorPaneView
+        Em.run.scheduleOnce 'afterRender', =>
+          parentView.get('editorPane')?.makeActive()
+
     editor.on 'blur', =>
       if @get 'document.focused'
         @set 'document.focused', false
@@ -414,9 +419,7 @@ App.IdeDocumentView = Em.View.extend
   editorWidthDidChange: (->
     if editor = @get 'editor'
       editor.refresh()
-  ).observes(
-    'App.router.ideLayoutController.sidebarWidth',
-  )
+  ).observes 'App.router.ideLayoutController.sidebarWidth'
 
   focusedDidChange: (->
     if editor = @get 'editor'
