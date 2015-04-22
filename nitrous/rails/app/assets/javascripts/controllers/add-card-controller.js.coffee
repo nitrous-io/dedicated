@@ -1,6 +1,10 @@
 #= require jquery.payment
 
 App.AddCardController = Em.ObjectController.extend
+  queryParams: ['upgradingFromFree']
+  # To indicate whether user is upgrading from free tier.
+  upgradingFromFree: false
+
   name: null
   number: null
   expMonth: null
@@ -63,7 +67,7 @@ App.AddCardController = Em.ObjectController.extend
 
         billingProfile = App.get('billingProfile')
         wasFreeTier = billingProfile.get('free')
-        
+
         billingProfile.addCard(
           name: @get('name'),
           number: @get('number'),

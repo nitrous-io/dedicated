@@ -23,6 +23,12 @@ form autocomplete='on' submit='save'
               = App.pendingHost.plan.totalPriceInDollars
               | /mo.)
 
+    if upgradingFromFree
+      .notice-text
+        p
+          i.fa.fa-info-circle
+          | Upgrading to a paid plan will remove the daily usage limit and allow you to use the desktop app.
+
     .ui.input-group
       label#cardholders-name.field-label for='card-name'
         | Cardholder's Name
