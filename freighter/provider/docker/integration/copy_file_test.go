@@ -51,6 +51,7 @@ var _ = Describe("CopyFile", func() {
 		r, w := io.Pipe()
 		errCh := make(chan error, 1)
 		go func() {
+			defer w.Close()
 			err := prov.CopyFile(info.ID, "/copydir", w)
 			errCh <- err
 		}()
