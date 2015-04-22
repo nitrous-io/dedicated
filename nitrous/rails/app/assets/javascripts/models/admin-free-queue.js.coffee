@@ -7,6 +7,7 @@ App.AdminFreeQueue = klass = App.Model.extend
   containerTemplateSlug: attr('string', as: 'container_template_slug', serialize: false)
   containerName: attr('string', as: 'container_name', serialize: false)
   hostName: attr('string', as: 'host_name', serialize: false)
+  regionSlug: attr('string', as: 'region_slug', serialize: false)
   username: attr('string', as: 'username', serialize: false)
   state: attr('string', as: 'state', serialize: false)
   name: attr('string', as: 'name', serialize: false)

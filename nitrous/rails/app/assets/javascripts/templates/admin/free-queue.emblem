@@ -9,8 +9,10 @@
     tbody
       tr
         th Username
-        th Phone Country
         th Email
+        th Phone Country
+        th Region
+        th Template
         th Confirmed
         th Created At
         th
@@ -20,9 +22,13 @@
             td
               = username
             td
+              = email
+            td
               = phoneCountryCode
             td
-              = email
+              = regionSlug
+            td
+              = containerTemplateSlug
             td
               if emailConfirmed
                 | Y
