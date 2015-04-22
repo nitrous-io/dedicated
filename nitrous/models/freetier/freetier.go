@@ -24,16 +24,14 @@ var (
 	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
 
-// Do the upgrading of a host to its paid plan
-// No permission checking here
-func doUpgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) (*host.Host, error) {
+func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) error {
 	if !currentPlan.PaidPlanID.Valid {
-		return nil, ErrUpgradeNotAvailable
+		return ErrUpgradeNotAvailable
 	}
 
 	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	h.PlanID = paidPlan.ID
@@ -47,15 +45,15 @@ func doUpgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) (
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = nstmt.QueryRowx(h).StructScan(h)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return h, nil
+	return nil
 }
 
 // Upgrade all hosts to paid for free-tier user
@@ -75,7 +73,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 				return err
 			}
 
-			_, err = doUpgradeHostToPaid(d, h, p)
+			err = upgradeHostToPaid(d, h, p)
 			if err != nil {
 				return err
 			}
