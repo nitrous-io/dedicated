@@ -1,10 +1,13 @@
 .card-header.bordered
   h2 You're in the Queue
 
-.card-body.bordered.centered
+.card-body.centered
   
   .visual
     .sparks-combo
+      .spark
+      .spark
+      .spark
       .spark
       .spark
       .spark
@@ -16,6 +19,7 @@
     .wave-b.cold.rainbow
 
     .happy-nitrous
+      .happy-face
 
 
   .content-wrapper
