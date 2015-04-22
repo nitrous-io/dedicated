@@ -38,11 +38,12 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 	h.PlanID = paidPlan.ID
 	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
 	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (plan_id, size, hourly_price, last_running_at)
-		= (:plan_id, :size, :hourly_price, :last_running_at)
+		SET (plan_id, size, hourly_price, max_containers, last_running_at)
+		= (:plan_id, :size, :hourly_price, max_containers, :last_running_at)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
