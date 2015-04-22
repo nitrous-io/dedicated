@@ -148,7 +148,7 @@ func TestBroadcast(t *testing.T) {
 		var d []interface{}
 		j := b.Written[0]
 		if actual := string(j[:2]); actual != "d|" {
-			t.Fatalf(`should begin with "d|", got +s`, actual)
+			t.Fatalf(`should begin with "d|", got %s`, actual)
 		}
 		if err := json.Unmarshal(j[2:], &d); err != nil {
 			t.Fatalf("expected no error, got +%v", err)
