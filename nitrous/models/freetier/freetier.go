@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -216,11 +217,19 @@ func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
     FROM hosts
     INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
     INNER JOIN users ON hosts.user_id = users.id
-    WHERE last_running_at IS NOT NULL AND terminated_at IS NULL AND preprovisioned IS FALSE
-    AND state = $1 AND users.max_running_time IS NOT NULL AND users.refresh_period IS NOT NULL
-    AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+    INNER JOIN billing_profiles bp ON bp.user_id = users.id
+    WHERE 
+    	last_running_at IS NOT NULL 
+    	AND terminated_at IS NULL 
+    	AND preprovisioned IS FALSE
+    	AND bp.state = $1
+    	AND hosts.state = $2 
+    	AND users.max_running_time IS NOT NULL 
+    	AND users.refresh_period IS NOT NULL
+    	AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
+
 	hosts := []*host.Host{}
-	err := d.Select(&hosts, query, host.StateRunning)
+	err := d.Select(&hosts, query, billingprofile.StateFree, host.StateRunning)
 	if err != nil {
 		return nil, err
 	}
