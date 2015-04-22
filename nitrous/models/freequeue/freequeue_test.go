@@ -90,6 +90,35 @@ var _ = Describe("models/freequeue", func() {
 		})
 	})
 
+	Describe("Cancel()", func() {
+		It("returns should delete the free_queue assigned to the user", func() {
+			f1 := &freequeue.FreeQueue{
+				UserID:                u1.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				HostName:              "my workspace",
+				RegionSlug:            "slug1",
+			}
+			Expect(f1.Insert(db)).To(BeNil())
+
+			f2 := &freequeue.FreeQueue{
+				UserID:                u2.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				HostName:              "my workspace",
+				RegionSlug:            "slug1",
+			}
+			Expect(f2.Insert(db)).To(BeNil())
+
+			Expect(freequeue.Cancel(db, u1.ID)).To(BeNil())
+			_, err := freequeue.Find(db, u1.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			_, err = freequeue.Find(db, u2.ID)
+			Expect(err).To(BeNil())
+		})
+	})
+
 	Describe("Find()", func() {
 		It("returns a user's free queue record", func() {
 			f := &freequeue.FreeQueue{

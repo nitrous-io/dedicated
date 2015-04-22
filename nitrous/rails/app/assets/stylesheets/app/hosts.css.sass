@@ -177,3 +177,77 @@
 
     &.show
       height: 340px
+
+#hosts-queue-view
+  .card-body
+    &.centered
+      text-align: center
+
+    .visual
+      margin: -16px -16px 0 -16px
+      position: relative
+      overflow: hidden
+
+    .content-wrapper
+      padding: 60px 0 0 0
+      cursor: default
+
+      h2
+        padding: 0 0 10px 0
+
+      p
+        margin: 10px 0 0 0
+        clear: both
+
+        & + p
+          margin-top: 4px
+
+      p.bigger
+        width: 80%
+        margin: 10px auto
+        line-height: 23px
+        font-weight: 300
+
+      a.circle
+        width: 44px
+        height: 44px
+        display: inline-block
+        margin: 20px 10px 0 10px
+        border: 1px solid $n2oGray700
+        border-radius: 44px
+        background: $n2oGray700
+        text-align: center
+        transition: background .15s
+
+        &:hover
+          background: #55ACEE
+
+        .fa
+          line-height: 44px
+          color: #FFF
+          font-size: 18px
+      
+      .box-wrapper
+        display: flex
+        flex-direction: row
+        flex-wrap: nowrap
+        margin: 60px -16px -16px -16px
+        padding: 26px
+        background: rgba(0,0,0,.05)
+        border-top: 1px solid #2A3239
+
+        .box
+          padding: 10px 20px
+          text-align: left
+
+          h3
+            font-size: 16px
+
+          p
+            font-weight: 200
+            font-size: 14px
+            line-height: 20px
+
+
+
+
