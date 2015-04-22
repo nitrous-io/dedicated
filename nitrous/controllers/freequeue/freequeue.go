@@ -72,6 +72,19 @@ func ForCurrentUser(env *middleware.Env, w http.ResponseWriter, r *http.Request)
 	return nil
 }
 
+func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := freequeue.Cancel(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+	return nil
+}
+
 func pending(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	pending, err := freequeue.FindAllPending(env.DB)
 	if err != nil {
