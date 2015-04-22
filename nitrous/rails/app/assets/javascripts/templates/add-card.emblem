@@ -7,21 +7,22 @@
 
 form autocomplete='on' submit='save'
   .card-body
-    if App.pendingContainerData
-      .ui.input-group
-        .spec
-          if App.pendingContainerData.selectedTemplate
-            img src={App.pendingContainerData.selectedTemplate.iconUrl} class='template'
-          .description
-            span = App.pendingContainerData.name
-            | &middot;
-            span = App.pendingHost.region.name
-            | &middot;
-            span
-              = App.pendingHost.plan.name
-              | ($
-              = App.pendingHost.plan.totalPriceInDollars
-              | /mo.)
+    if App.pendingHost
+      if App.pendingContainerData
+        .ui.input-group
+          .spec
+            if App.pendingContainerData.selectedTemplate
+              img src={App.pendingContainerData.selectedTemplate.iconUrl} class='template'
+            .description
+              span = App.pendingContainerData.name
+              | &middot;
+              span = App.pendingHost.region.name
+              | &middot;
+              span
+                = App.pendingHost.plan.name
+                | ($
+                = App.pendingHost.plan.totalPriceInDollars
+                | /mo.)
 
     if upgradingFromFree
       .notice-text
