@@ -35,6 +35,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   templates: null
   billingUsage: null
 
+  eligiblePlans: null
+
   terminalJsPath: null
   terminalCssPath: null
 
@@ -276,6 +278,7 @@ App.on 'fetchUser', (user) ->
   billingProfile.load user.get('_billingProfile')
   App.set 'billingProfile', billingProfile
 
+  App.loadPlans()
   App.refreshUsage()
   App.refreshBillingProfile()
   App.refreshInvoices()
@@ -309,6 +312,9 @@ App.refreshInvoices = ->
   invoices = App.Invoice.fetch().value
   App.set('invoices', invoices)
   invoices
+
+App.loadPlans = ->
+  App.set 'eligiblePlans', App.Plan.fetch({ eligible: true }).value
 
 App.didChangeTitle()
 
