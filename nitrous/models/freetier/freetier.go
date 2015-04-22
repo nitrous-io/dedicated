@@ -92,8 +92,9 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 		return ErrFreeQueueRequired
 
 	} else {
-		// Paid users cannot create hosts with free plan
-		if p.IsFree() {
+		// Paid users cannot create hosts with free plan. Doesn't apply to admin
+		// users so that we can test more easily
+		if p.IsFree() && !u.Admin {
 			return ErrFreePlanNotAllowed
 		}
 	}
