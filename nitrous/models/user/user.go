@@ -42,7 +42,7 @@ var (
 	ErrUsernameInvalid  = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
 	ErrPasswordBlank    = errors.New("password can't be blank")
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
-	ErrPasswordTooLong  = errors.New("password is too long (maximum is 30 characters)")
+	ErrPasswordTooLong  = errors.New("password is too long (maximum is 100 characters)")
 	ErrPhoneInvalid     = errors.New("phone number is not valid")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
@@ -230,9 +230,9 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at, 
+		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at,
 			confirmation_token, max_running_time, refresh_period, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at, 
+		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at,
 			:confirmation_token, :max_running_time, :refresh_period, now())
 		WHERE id = :id
 		RETURNING *;`)
@@ -297,7 +297,7 @@ func (u *User) Validate() error {
 		if passwordLen < 6 {
 			return ErrPasswordTooShort
 		}
-		if passwordLen > 30 {
+		if passwordLen > 100 {
 			return ErrPasswordTooLong
 		}
 	}
