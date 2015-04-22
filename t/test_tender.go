@@ -30,9 +30,13 @@ const (
 	defaultFreighterPort = 65333
 	tlsDomain            = ".n2odev.com"
 
-	myCACertPath = "script/certs/n2odevpro-ca.crt"
-	myCertPath   = "script/certs/n2odev.crt"
-	myKeyPath    = "script/certs/n2odev.key"
+	//myCACertPath = "script/certs/n2odevpro-ca.crt"
+	//myCertPath   = "script/certs/n2odev.crt"
+	//myKeyPath    = "script/certs/n2odev.key"
+
+	myCACertPath = "nitrous/dev/n2odevpro-ca.crt"
+	myCertPath   = "nitrous/dev/n2odev.crt"
+	myKeyPath    = "nitrous/dev/n2odev.key"
 )
 
 var (

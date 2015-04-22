@@ -156,7 +156,7 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 	// needed to talk via tls to our fake freighter, probably because the
 	// certificate is to n2odev.com but we dial 127.0.0.1 as per ip_address
 	// in db schema
-	if true {
+	if false {
 		if tlsConfig != nil {
 			tlsConfig.InsecureSkipVerify = true
 		} else {

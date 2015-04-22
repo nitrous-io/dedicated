@@ -42,7 +42,7 @@ function setup_certificates3() {
   dpkg-reconfigure -f noninteractive ca-certificates
 }
 
-function setup_certificates() {
+function setup_certificates4() {
   cp script/certs/n2odev.crt /usr/local/share/ca-certificates
   cp script/certs/n2odevpro-ca.crt /usr/local/share/ca-certificates
   chmod 0644 /usr/local/share/ca-certificates/n2odev.crt
@@ -56,10 +56,20 @@ function setup_certificates() {
 # https://sourcegraph.com/github.com/golang/go@ac452349e4f40c30d50f9922bf2c4592e748ce5e/.tree/src/crypto/x509/root_linux.go#startline=8&endline=8
 # This rebuilds that file from certificates in /usr/share/ca-certificates and
 # /usr/local/share/ca-certificates
-function setup_certificates() {
+function setup_certificates_1() {
   #ls -lah /etc/ssl/certs/ca-certificates.crt
   cp script/certs/n2odev.crt /usr/local/share/ca-certificates
   cp script/certs/n2odevpro-ca.crt /usr/local/share/ca-certificates
+  chmod 0644 /usr/local/share/ca-certificates/n2odev.crt
+  chmod 0644 /usr/local/share/ca-certificates/n2odevpro-ca.crt
+  update-ca-certificates
+  #ls -lah /etc/ssl/certs/ca-certificates.crt
+}
+
+function setup_certificates() {
+  #ls -lah /etc/ssl/certs/ca-certificates.crt
+  cp nitrous/dev/n2odev.crt /usr/local/share/ca-certificates
+  cp nitrous/dev/n2odevpro-ca.crt /usr/local/share/ca-certificates
   chmod 0644 /usr/local/share/ca-certificates/n2odev.crt
   chmod 0644 /usr/local/share/ca-certificates/n2odevpro-ca.crt
   update-ca-certificates
