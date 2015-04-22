@@ -48,6 +48,7 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
 	type pHost struct {
 		host.Host
+		UserAdmin     bool   `db:"user_admin"`
 		PlanPrice     int64  `db:"plan_price"`
 		PlanBasePrice int64  `db:"plan_base_price"`
 		PlanStorage   string `db:"plan_storage"`
@@ -56,11 +57,14 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 	h := &pHost{}
 	err := d.Get(h, `SELECT
 		hosts.*,
+		users.admin user_admin,
 		plans.price plan_price,
 		plans.base_price plan_base_price,
 		plans.storage plan_storage,
 		plans.memory plan_memory
-		FROM hosts INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1`, hostID)
+		FROM hosts
+		INNER JOIN users ON users.id = hosts.user_id
+		INNER JOIN plans ON plans.id = hosts.plan_id WHERE hosts.id = $1`, hostID)
 	if err != nil {
 		return 0, []invoiceitem.InvoiceItem{}, err
 	}
@@ -115,11 +119,11 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		if err != nil {
 			return 0, []invoiceitem.InvoiceItem{}, err
 		}
-		if bp.State != billingprofile.StateFree {
-			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.HourlyPrice)
+		if bp.State != billingprofile.StateFree && !h.UserAdmin {
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.Host.ID)
 		}
 		if bp.MaxHours.Valid && i.Hours.Int64 > bp.MaxHours.Int64 {
-			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d exceeds the maximum hours of the billing profile (%d vs %d)", h.HourlyPrice, i.Hours.Int64, bp.MaxHours.Int64)
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d exceeds the maximum hours of the billing profile (%d vs %d)", h.Host.ID, i.Hours.Int64, bp.MaxHours.Int64)
 		}
 		i.ItemType = invoiceitem.ItemTypeFreeCompute
 	}
