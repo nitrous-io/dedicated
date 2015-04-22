@@ -140,10 +140,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     }
   ).property 'currentTimePulse', 'host.last_running_at', 'user.maxRunningTime', 'user.refreshPeriod', 'user.free'
 
-  usageExpired: (->
-    return false unless @get 'usage'
-  )
-
   notifyUsageWarning: (->
     return unless @get('host.state') == 'running'
     return unless @get 'usage'

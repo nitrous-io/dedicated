@@ -52,29 +52,39 @@ App.AddCardController = Em.ObjectController.extend
       # causing Ember to not know about a changed attribute, we force an update
       @set 'expiration', Em.$('#card-expiration').val()
       @set 'invalidField', null
-      @set 'saving', true
       exp = $.payment.cardExpiryVal @get('expiration')
       @set 'expMonth', exp.month
       @set 'expYear', exp.year
       if !@valid()
         App.postError "Invalid #{@get 'invalidField'}"
-        @set 'saving', false
+
       else
-        App.get('billingProfile').addCard(
+        @set 'saving', true
+
+        billingProfile = App.get('billingProfile')
+        wasFreeTier = billingProfile.get('free')
+        
+        billingProfile.addCard(
           name: @get('name'),
           number: @get('number'),
           exp_month: @get('expMonth'),
           exp_year: @get('expYear'),
           cvc: @get('cvc'),
           zipcode: @get('zipcode')
+
         ).then =>
           @set 'saving', false
           App.snackbar.post "Credit card added."
           App.refreshUsage()
+          App.refreshBillingProfile()
+
           if App.get('pendingHost')
             @transitionToRoute 'hosts.new'
+          else if wasFreeTier
+            @transitionToRoute 'hosts.index'
           else
             @transitionToRoute 'billing'
+
         , (errorMsg) =>
           @set 'saving', false
           @processErrorMessage(errorMsg)
@@ -84,5 +94,5 @@ App.AddCardController = Em.ObjectController.extend
       if App.get('pendingHost')
         App.set('pendingHost', null)
         @transitionToRoute 'hosts.new'
-        return
-      @transitionToRoute 'billing'
+      else
+        @transitionToRoute 'billing'

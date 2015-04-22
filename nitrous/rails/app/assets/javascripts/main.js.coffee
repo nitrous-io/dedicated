@@ -90,10 +90,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
     set.sortBy('username')
   ).property 'sharedContainers.@each'
 
-  newUser: (->
-    @get('billingProfile') && @get('billingProfile.cardRequired')
-  ).property 'billingProfile', 'billingProfile.cardRequired'
-
   showOnboarding: (->
     @get('user.firstTime') && @get('onboardingReady') && !@get('freeQueue')
   ).property 'onboardingReady', 'user.firstTime'
@@ -186,17 +182,13 @@ window.Nitrous = Em.Application.extend Em.Evented,
     else
       percent = ((remaining / maxRun) * 100)
 
-    {
+    return {
       refreshIn: refreshIn,
       remaining: remaining,
       expired: expired,
       progressBarStyle: "width: #{percent}%"
     }
   ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
-
-  usageExpired: (->
-    return false unless @get 'usage'
-  )
 
   notifyUsageWarning: (->
     return unless @get('hosts.firstObject.state') == 'running'
@@ -233,12 +225,22 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   # TODO: Get this logic from server
   canCreateHosts: (->
-    return true if @get('newUser')
-    return false unless @get('billingProfile.active')
+    if @get('billingProfile.isNoCardState')
+      return true
+
+    if @get('billingProfile.free') && (@get('hosts.length') > 0)
+      return false
+
+    if !@get('billingProfile.active')
+      return false
+
     if maxHosts = @get('userProfile.maxHosts')
-      return @get('hosts.loaded') && @get('hosts.length') < maxHosts
-    true
-  ).property 'billingProfile.active', 'userProfile.maxHosts', 'hosts.loaded', 'hosts.length'
+      return @get('hosts.loaded') && (@get('hosts.length') < maxHosts)
+
+    return true
+
+  ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active', 
+    'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
   logout: (cb) ->
     Em.$.ajax(

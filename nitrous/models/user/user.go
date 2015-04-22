@@ -230,8 +230,10 @@ func (u *User) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
-		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at, confirmation_token, updated_at)
-		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at, :confirmation_token, now())
+		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at, 
+			confirmation_token, max_running_time, refresh_period, updated_at)
+		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at, 
+			:confirmation_token, :max_running_time, :refresh_period, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -569,7 +571,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 }
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
-func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billingprofile.BillingProfile, error) {
+func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingprofile.BillingProfile, error) {
 	params := &stripe.CustomerParams{
 		Token: token,
 		Email: u.Email,
@@ -591,7 +593,7 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 	b := &billingprofile.BillingProfile{
 		UserID:            u.ID,
 		StripeID:          sql.NullString{c.ID, true},
-		State:             "paid",
+		State:             billingprofile.StatePaid,
 		LastFour:          sql.NullString{crd.LastFour, true},
 		CardType:          sql.NullString{string(crd.Brand), true},
 		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
@@ -600,9 +602,29 @@ func (u *User) ActivateBillingProfile(d db.QueryReceiver, token string) (*billin
 		PendingActivation: false,
 	}
 
-	err = b.Update(d)
+	u.MaxRunningTime = sql.NullInt64{Valid: false}
+	u.RefreshPeriod = sql.NullInt64{Valid: false}
+
+	tx, err := d.Beginx()
 	if err != nil {
+		return nil, err
+	}
+
+	err = b.Update(tx)
+	if err != nil {
+		tx.Rollback()
 		return nil, fmt.Errorf("Billing profile update failed for user %s. Reason - %s", u.Username, err)
 	}
+
+	err = u.Update(tx)
+	if err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("Update failed for user %s. Reason - %s", u.Username, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
 	return b, nil
 }
