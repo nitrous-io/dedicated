@@ -26,7 +26,8 @@ App.IdeDocumentView = Em.View.extend
   foldGutterClass: 'CodeMirror-foldgutter'
 
   collabMode: false
-  otClient: null
+  otClient: Em.computed.alias 'document.otClient'
+
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
   didInsertElement: ->

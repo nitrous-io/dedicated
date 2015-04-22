@@ -1104,20 +1104,26 @@ ot.CodeMirrorAdapter = (function (global) {
     bind(this, 'onFocus');
     bind(this, 'onBlur');
 
+    this.attach();
+  }
+
+  CodeMirrorAdapter.prototype.attach = function () {
+    var cm = this.cm;
     cm.on('changes', this.onChanges);
     cm.on('change', this.onChange);
     cm.on('cursorActivity', this.onCursorActivity);
     cm.on('focus', this.onFocus);
     cm.on('blur', this.onBlur);
-  }
+  };
 
   // Removes all event listeners from the CodeMirror instance.
   CodeMirrorAdapter.prototype.detach = function () {
-    this.cm.off('changes', this.onChanges);
-    this.cm.off('change', this.onChange);
-    this.cm.off('cursorActivity', this.onCursorActivity);
-    this.cm.off('focus', this.onFocus);
-    this.cm.off('blur', this.onBlur);
+    var cm = this.cm;
+    cm.off('changes', this.onChanges);
+    cm.off('change', this.onChange);
+    cm.off('cursorActivity', this.onCursorActivity);
+    cm.off('focus', this.onFocus);
+    cm.off('blur', this.onBlur);
   };
 
   function cmpPos (a, b) {
