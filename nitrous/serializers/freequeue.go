@@ -61,6 +61,7 @@ func SerializeFreeQueueWithUser(f *freequeue.FreeQueueWithUser) *FreeQueueWithUs
 			ContainerTemplateSlug: f.ContainerTemplateSlug,
 			ContainerName:         f.ContainerName,
 			HostName:              f.HostName,
+			RegionSlug:            f.RegionSlug,
 			CreatedAt:             f.CreatedAt,
 			UpdatedAt:             f.UpdatedAt,
 		},
