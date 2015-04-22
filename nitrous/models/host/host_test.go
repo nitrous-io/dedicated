@@ -390,7 +390,6 @@ var _ = Describe("models/host", func() {
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
-				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
@@ -424,7 +423,6 @@ var _ = Describe("models/host", func() {
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
-				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
@@ -497,7 +495,6 @@ var _ = Describe("models/host", func() {
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
-				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
 			})
 
 			It("returns an error when the matching record is not shared with the user", func() {
@@ -525,7 +522,6 @@ var _ = Describe("models/host", func() {
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
-				Expect(h.SupportsStopStart).To(Equal(hs.PT.SupportsStopStart))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
 			})
 
