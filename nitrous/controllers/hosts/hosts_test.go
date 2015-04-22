@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -1664,14 +1665,14 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event, slug string) {
+			checkStoppedEvent := func(evt *controllers.Event) string {
 				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
 				evtData, ok := evt.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				cn, ok := evtData["container"].(*serializers.Container)
 				Expect(ok).To(BeTrue())
-				Expect(cn.Slug).To(Equal(slug))
 				Expect(cn.State).To(Equal(container.StateStopped.String()))
+				return cn.Slug
 			}
 
 			It("publishes container stopped events", func() {
@@ -1698,13 +1699,19 @@ var _ = Describe("controllers/hosts", func() {
 					}
 				}()
 
+				var slugs []string
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for container stopped events")
 				case <-finished:
-					checkStoppedEvent(stopEvents[0], c1.Slug)
-					checkStoppedEvent(stopEvents[1], c2.Slug)
+					slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					slugs = append(slugs, checkStoppedEvent(stopEvents[1]))
 				}
+				// order of containers stopped is non-deterministic, so check expected
+				// slugs in sorted order
+				sort.Strings(slugs)
+				Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
+				Expect(slugs[1]).To(Equal(c1.Slug)) // rails-box
 			})
 		})
 
@@ -2069,13 +2076,13 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event, slug string) {
+			checkStoppedEvent := func(evt *controllers.Event) string {
 				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
 				evtData, ok := evt.Data.(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				cn, ok := evtData["container"].(*serializers.Container)
-				Expect(cn.Slug).To(Equal(slug))
 				Expect(cn.State).To(Equal(container.StateStopped.String()))
+				return cn.Slug
 			}
 
 			It("publishes container stopped events", func() {
@@ -2102,13 +2109,19 @@ var _ = Describe("controllers/hosts", func() {
 					}
 				}()
 
+				var slugs []string
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for container stopped events")
 				case <-finished:
-					checkStoppedEvent(stopEvents[0], c1.Slug)
-					checkStoppedEvent(stopEvents[1], c2.Slug)
+					slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					slugs = append(slugs, checkStoppedEvent(stopEvents[1]))
 				}
+				// order of receiving events is non-deterministic, so check expected
+				// slugs in sorted order
+				sort.Strings(slugs)
+				Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
+				Expect(slugs[1]).To(Equal(c1.Slug)) // rails-box
 			})
 		})
 
