@@ -4,6 +4,7 @@ App.AddPhoneController = Em.ObjectController.extend
   otp: null
 
   otpSent: false
+  otpAttempts: 0
   saving: false
   verifying: false
 
@@ -58,6 +59,10 @@ App.AddPhoneController = Em.ObjectController.extend
         @set 'invalidOTP', true
 
     resendOTP: ->
+      if @get('otpAttempts') >= 3
+        App.postError 'Too many attempts.'
+        return
+      @incrementProperty 'otpAttempts'
       @set 'saving', true
 
       App.get('user').resendPhoneCode().then (resp) =>
