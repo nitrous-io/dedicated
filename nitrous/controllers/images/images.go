@@ -324,8 +324,7 @@ func convertImage(img *freighterclient.Image) *image.Image {
 }
 
 func Pull(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := r.ParseForm()
-	if err != nil {
+	if err := r.ParseForm(); err != nil {
 		return err
 	}
 

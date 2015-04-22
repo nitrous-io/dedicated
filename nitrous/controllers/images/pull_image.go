@@ -1,6 +1,7 @@
 package images
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -105,7 +106,7 @@ func PullImage(host *host.Host, options url.Values, env *middleware.Env, writer 
 
 	repo := options.Get("repository")
 	if repo == "" {
-		repo = controllers.DefaultImage
+		return nil, errors.New("repository is required")
 	}
 	update, err := strconv.ParseBool(options.Get("update"))
 	if err != nil {

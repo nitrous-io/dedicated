@@ -44,8 +44,10 @@ func init() {
 
 var _ = Describe("controllers/images/pull", func() {
 	var (
-		db  *db.Database
-		env *middleware.Env
+		db            *db.Database
+		env           *middleware.Env
+		fakeFreighter *freighterServer
+		ctx           *imgTestCtx
 	)
 
 	BeforeEach(func() {
@@ -58,20 +60,20 @@ var _ = Describe("controllers/images/pull", func() {
 			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
 			DB:      db,
 		}
+
+		fakeFreighter = newFreighterServer("scratch", "latest")
+		ctx = newImgTestCtx(fakeFreighter, db)
+		fakeFreighter.start(db, ctx)
 	})
 
 	AfterEach(func() {
 		if db != nil {
 			db.Close()
 		}
+		fakeFreighter.Close()
 	})
 
 	It("creates an image record", func() {
-		fs := newFreighterServer("scratch", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
 		rI, err := ctx.doPull(env, url.Values{
 			"repository": []string{"scratch"},
 			"name":       []string{"scratcher v1 test"},
@@ -92,28 +94,13 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(rI.ID).To(Equal(i.ID))
 	})
 
-	It("uses the default image if repository is not given", func() {
-		fs := newFreighterServer("nitrousio/ubuntu", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
+	It("requires repository param", func() {
 		_, err := ctx.doPull(env, url.Values{}, false, nil)
-		Expect(err).To(BeNil())
-
-		u, h := ctx.user, ctx.host
-		i, err := image.Find(db, u, h, "nitrousio/ubuntu:latest")
-		Expect(err).To(BeNil(), "failed to store image in db")
-		Expect(i.Slug).To(Equal("nitrousio/ubuntu"))
-		Expect(i.Tag).To(Equal("latest"))
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("removes the image and emits images removed event when freighter failed to pull image", func() {
-		fs := newFreighterServer("scratch", "latest")
-		fs.pullError = true
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
+		fakeFreighter.pullError = true
 
 		u, h := ctx.user, ctx.host
 		ch := env.Events.Subscribe(u.Topic())
@@ -149,11 +136,6 @@ var _ = Describe("controllers/images/pull", func() {
 	})
 
 	It("writes with progress data on status", func() {
-		fs := newFreighterServer("scratch", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
 		var wr bytes.Buffer
 		_, err := ctx.doPull(env, url.Values{
 			"repository": []string{"scratch"},
@@ -165,11 +147,6 @@ var _ = Describe("controllers/images/pull", func() {
 	})
 
 	It("publishes an image pulled event with the pulled image", func() {
-		fs := newFreighterServer("scratch", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
 		u, h := ctx.user, ctx.host
 		ch := env.Events.Subscribe(u.Topic())
 		defer env.Events.Unsubscribe(ch, u.Topic())
@@ -202,11 +179,7 @@ var _ = Describe("controllers/images/pull", func() {
 	})
 
 	It("returns an error and emits image pull failed event", func() {
-		fs := newFreighterServer("scratch", "latest")
-		fs.pullError = true
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
+		fakeFreighter.pullError = true
 
 		ch := env.Events.Subscribe(ctx.user.Topic())
 		defer env.Events.Unsubscribe(ch, ctx.user.Topic())
@@ -242,12 +215,8 @@ var _ = Describe("controllers/images/pull", func() {
 
 	Context("when image already exists", func() {
 		It("updates the existing image record with the new info from Freighter", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			ctx.insertImage(fs, db)
-			fs.imageUpdated = true
-			fs.start(db, ctx)
-			defer fs.Close()
+			ctx.insertImage(fakeFreighter, db)
+			fakeFreighter.imageUpdated = true
 
 			_, err := ctx.doPull(env, url.Values{
 				"repository": []string{"scratch"},
@@ -260,13 +229,8 @@ var _ = Describe("controllers/images/pull", func() {
 		})
 
 		It("does not update the existing image record if update=false", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			ctx.insertImage(fs, db)
-
-			fs.imageUpdated = false
-			fs.start(db, ctx)
-			defer fs.Close()
+			ctx.insertImage(fakeFreighter, db)
+			fakeFreighter.imageUpdated = false
 
 			_, err := ctx.doPull(env, url.Values{
 				"repository": []string{"scratch"},
@@ -279,14 +243,9 @@ var _ = Describe("controllers/images/pull", func() {
 		})
 
 		It("does not remove the image when freighter fails to pull image", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			ctx.insertImage(fs, db)
-
-			fs.imageUpdated = true
-			fs.pullError = true
-			fs.start(db, ctx)
-			defer fs.Close()
+			ctx.insertImage(fakeFreighter, db)
+			fakeFreighter.imageUpdated = true
+			fakeFreighter.pullError = true
 
 			_, err := ctx.doPull(env, url.Values{
 				"repository": []string{"scratch"},
@@ -297,14 +256,9 @@ var _ = Describe("controllers/images/pull", func() {
 		})
 
 		It("does not emit images removed event when freighter fails to pull image", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			ctx.insertImage(fs, db)
-
-			fs.imageUpdated = true
-			fs.pullError = true
-			fs.start(db, ctx)
-			defer fs.Close()
+			ctx.insertImage(fakeFreighter, db)
+			fakeFreighter.imageUpdated = true
+			fakeFreighter.pullError = true
 
 			ch := env.Events.Subscribe(ctx.user.Topic())
 			defer env.Events.Unsubscribe(ch, ctx.user.Topic())
@@ -348,11 +302,6 @@ var _ = Describe("controllers/images/pull", func() {
 	})
 
 	It("should update the progress publisher's ID and Slug", func() {
-		fs := newFreighterServer("scratch", "latest")
-		ctx := newImgTestCtx(fs, db)
-		fs.start(db, ctx)
-		defer fs.Close()
-
 		ctx.pp = &controllers.ProgressPublisher{}
 
 		_, err := ctx.doPull(env, url.Values{
