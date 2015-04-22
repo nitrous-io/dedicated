@@ -17,8 +17,23 @@ App.HomeIndexView = Em.View.extend
       @get('controller').send 'redirectToFirstHost'
   ).observes 'App.noHost', 'App.hosts.loaded'
 
+  redirectToHostNew: ->
+    @get('controller').send 'redirectToHostNew'
+
+  redirectToContainerNew: ->
+    @get('controller').send 'redirectToContainerNew'
+
   didInsertElement: ->
     @_super()
+    if App.get("billingProfile.free")
+      if App.get('hostSaving')
+        @redirectToHostNew()
+        return
+
+      if App.get('containerSaving')
+        @redirectToContainerNew()
+        return
+
     @handleFreeTier()
     @handleNoHost()
     @redirectToFirstHost()

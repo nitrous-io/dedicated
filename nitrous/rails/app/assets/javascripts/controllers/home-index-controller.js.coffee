@@ -18,3 +18,9 @@ App.HomeIndexController = Em.Controller.extend
         slug = App.get('hosts.firstObject.slug')
 
       @transitionToRoute 'host.index', slug
+
+    redirectToHostNew: ->
+      @transitionToRoute 'hosts.new'
+
+    redirectToContainerNew: ->
+      @transitionToRoute 'containers.new'
