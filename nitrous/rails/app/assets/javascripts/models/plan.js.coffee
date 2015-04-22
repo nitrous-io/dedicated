@@ -28,15 +28,20 @@ App.Plan = klass = App.Model.extend
       "#{name} - #{memory} ram / #{storage} ssd / #{cpu} cpu"
   ).property 'name', 'price', 'cpu', 'memory', 'storage'
 
-  totalPriceInDollars: (->
-    if cp = @get 'price'
-      if bp = @get 'basePrice'
-        cp = cp + bp
-      cpDollars = cp / 100
-      if cpDollars != Math.floor(cpDollars)
-        cpDollars = cpDollars.toFixed(2)
-      cpDollars.toString()
+  totalPrice: (->
+    cp = @getWithDefault 'price', 0
+    bp = @getWithDefault 'basePrice', 0
+    cp + bp
   ).property 'price', 'basePrice'
+
+  totalPriceInDollars: (->
+    tp = @getWithDefault 'totalPrice', 0
+    return if tp == 0
+    tpd = tp / 100
+    if tpd != Math.floor(tpd)
+      tpd = tpd.toFixed(2)
+    tpd.toString()
+  ).property 'totalPrice'
 
   isPaidPlan: (->
     return (@get('price') > 0) || (@get('basePrice') > 0)
