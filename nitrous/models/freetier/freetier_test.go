@@ -170,6 +170,16 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
 			})
 		})
+
+		Context("When admin user is in paid tier", func() {
+			It("Should be allowed to create host with free plan", func() {
+				u.Admin = true
+				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+				u.Admin = false
+				Expect(err).To(BeNil())
+			})
+		})
+
 	})
 
 	Describe("StartHostAllowed()", func() {
