@@ -63,7 +63,9 @@ func All(d db.QueryReceiver) ([]*ProviderTemplate, error) {
 func Find(d db.QueryReceiver, region *region.Region, plan *plan.Plan, provider string) (*ProviderTemplate, error) {
 	pt := &ProviderTemplate{}
 	err := d.Get(pt, `SELECT * FROM provider_templates
-	WHERE region_id = $1 AND plan_id = $2 AND provider = $3`, region.ID, plan.ID, provider)
+		WHERE disabled = false AND
+		region_id = $1 AND plan_id = $2 AND provider = $3`,
+		region.ID, plan.ID, provider)
 	if err != nil {
 		return nil, err
 	}
