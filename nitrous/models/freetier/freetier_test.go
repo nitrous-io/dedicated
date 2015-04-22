@@ -96,6 +96,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h.UserID).To(Equal(u.ID))
 				Expect(h.PlanID).To(Equal(freePlan.ID))
 				Expect(h.HourlyPrice).To(Equal(0))
+				Expect(h.MaxContainers).To(Equal(1))
 
 				err = freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
@@ -106,6 +107,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.UserID).To(Equal(u.ID))
 				Expect(h2.PlanID).To(Equal(paidPlan.ID))
 				Expect(h2.HourlyPrice).To(Equal(100))
+				Expect(h2.MaxContainers).To(Equal(2))
 			})
 		})
 
