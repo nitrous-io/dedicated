@@ -6,7 +6,7 @@
       th State
       td colspan='3'
         .state-indicator class={state}
-        = state
+        = stateForDisplay
 
     tr
       th Slug

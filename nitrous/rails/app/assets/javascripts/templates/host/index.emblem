@@ -139,7 +139,7 @@
 
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start
-          else 
+          else
             if supportsStopStart
               .left
                 button.ui.btn click='showTerminateDialog target="view"' Terminate...
