@@ -40,6 +40,7 @@ App.IdeDocumentView = Em.View.extend
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void to avoid showing confirm dialog
+    @focusedDidChange()
 
   willDestroyElement: ->
     @_super()
@@ -221,6 +222,7 @@ App.IdeDocumentView = Em.View.extend
         @set 'otUndoManagerOverride', null
       @set 'otClient', otClient
       editor.set 'readOnly', false
+      @focusedDidChange()
 
     collabSocket.on "rejoin_failed|#{fileName}", =>
       editor.set 'readOnly', true
@@ -418,19 +420,27 @@ App.IdeDocumentView = Em.View.extend
       editor.markClean()
   ).observes 'document.clean'
 
-  consoleHeightDidChange: (->
-    if editor = @get 'editor'
-      editor.refresh()
-  ).observes 'App.router.ideLayoutController.consoleHeight'
+  consoleFullscreenDidChange: (->
+    consoleFullscreen = App.get 'consoleFullscreen'
+    editor = @get 'editor'
+    if editor && !consoleFullscreen
+      Em.run.scheduleOnce 'afterRender', ->
+        editor.refresh()
+  ).observes 'App.consoleFullscreen'
 
-  editorWidthDidChange: (->
-    if editor = @get 'editor'
-      editor.refresh()
-  ).observes 'App.router.ideLayoutController.sidebarWidth'
+  activeDidChange: (->
+    editor = @get 'editor'
+    active = @get 'document.active'
+    if editor && active
+      Em.run.scheduleOnce 'afterRender', ->
+        editor.refresh()
+  ).observes 'document.active'
 
   focusedDidChange: (->
-    if editor = @get 'editor'
-      if focused = @get 'document.focused'
+    editor = @get 'editor'
+    focused = @get 'document.focused'
+    if editor && focused
+      Em.run.scheduleOnce 'afterRender', ->
         editor.refresh()
         editor.focus()
   ).observes 'document.focused'

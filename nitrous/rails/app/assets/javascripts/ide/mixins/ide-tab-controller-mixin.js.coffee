@@ -56,8 +56,7 @@ App.IdeTabControllerMixin = Em.Mixin.create
       content = @get 'content'
       content.forEach (t) ->
         t.set 'active', t == tab
-        Em.run.next ->
-          t.set 'focused', t == tab
+        t.set 'focused', t == tab
 
   removeTab: (tab) ->
     tab = @get 'activeTab' unless tab

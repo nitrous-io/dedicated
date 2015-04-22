@@ -23,6 +23,7 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
 
   dragEnter: (event) ->
     @_super.apply this, arguments
+    return unless klass.draggedTab
     @incrementProperty 'dragEnters'
     currentPane = @get('parentView.editorPane')
     currentTab = @get 'content'
