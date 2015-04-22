@@ -14,17 +14,19 @@ func Base64(n uint) (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-const alphaNumericDict = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+const (
+	numericDict = "0123456789"
+)
 
-// AlphaNumeric generates a random alpha-numeric string of length n.
-func AlphaNumeric(n uint) (string, error) {
+// Numeric generates a random numeric string of length n.
+func Numeric(n uint) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	bl := byte(len(alphaNumericDict))
+	bl := byte(len(numericDict))
 	for k, v := range b {
-		b[k] = alphaNumericDict[v%bl]
+		b[k] = numericDict[v%bl]
 	}
 	return string(b), nil
 }

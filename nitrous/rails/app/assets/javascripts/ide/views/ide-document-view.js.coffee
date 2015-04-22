@@ -26,7 +26,8 @@ App.IdeDocumentView = Em.View.extend
   foldGutterClass: 'CodeMirror-foldgutter'
 
   collabMode: false
-  otClient: null
+  otClient: Em.computed.alias 'document.otClient'
+
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
   didInsertElement: ->
@@ -165,6 +166,11 @@ App.IdeDocumentView = Em.View.extend
     editor.on 'focus', =>
       if !@get 'document.focused'
         @set 'document.focused', true
+
+      parentView = @get 'parentView'
+      if parentView instanceof App.IdeEditorPaneView
+        Em.run.scheduleOnce 'afterRender', =>
+          parentView.get('editorPane')?.makeActive()
 
     editor.on 'blur', =>
       if @get 'document.focused'
@@ -414,9 +420,7 @@ App.IdeDocumentView = Em.View.extend
   editorWidthDidChange: (->
     if editor = @get 'editor'
       editor.refresh()
-  ).observes(
-    'App.router.ideLayoutController.sidebarWidth',
-  )
+  ).observes 'App.router.ideLayoutController.sidebarWidth'
 
   focusedDidChange: (->
     if editor = @get 'editor'
@@ -434,6 +438,14 @@ App.IdeDocumentView = Em.View.extend
   actions:
     didClickSave: ->
       @get('controller').saveDocument @get('document')
+
+    didClickFind: ->
+      if doc = @get('document')
+        doc.set 'findTrigger', true
+
+    didClickReplace: ->
+      if doc = @get('document')
+        doc.set 'replaceTrigger', true
 
     didSelectMode: (selectedMode) ->
       @set 'mode', selectedMode

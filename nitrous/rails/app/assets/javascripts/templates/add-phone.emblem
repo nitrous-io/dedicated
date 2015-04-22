@@ -1,6 +1,6 @@
 .card-header.bordered
   h2
-    | Add a Phone
+    | Add a Phone Number
 
 .card-body
 
@@ -40,4 +40,5 @@
         = input type='text' id='otp' name='otp' classNameBindings='invalidOTP:error' disabled=verifying value=otp
 
         input.ui.btn.primary type='submit' disabled=view.resendOTPDisabled value='Verify'
-        a.ui.btn href='#' click='resendOTP' Resend Code
+        a.ui.btn href='#' click='resendOTP' disabled=view.resendOTPDisabled Resend Code
+        a.ui.btn href='#' click='editPhone' disabled=view.editPhoneDisabled Edit Number

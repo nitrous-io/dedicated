@@ -12,6 +12,7 @@ App.HostsNewRoute = App.AuthedRoute.extend
     pendingHost = App.get('pendingHost')
     if pendingHost && !App.get('newUser')
       controller.set('host', pendingHost)
+      controller.set 'name', pendingHost.get('name')
       App.set('pendingHost', null)
       controller.send 'create', pendingHost
       return

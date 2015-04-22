@@ -16,7 +16,7 @@ type Verification struct {
 }
 
 func Generate(d *db.Database, userID int64, phone string) (*Verification, error) {
-	rnd, err := securerandom.AlphaNumeric(6)
+	rnd, err := securerandom.Numeric(6)
 	if err != nil {
 		return nil, err
 	}

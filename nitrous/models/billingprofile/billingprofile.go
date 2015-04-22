@@ -151,6 +151,10 @@ func (p *BillingProfile) HasBillingIssues() bool {
 	return p.State == StateDelinquent
 }
 
+func (p *BillingProfile) IsFreeOrCardRequired() bool {
+	return p.IsFreeTier() || p.IsCardRequired()
+}
+
 func HandleStripeError(err error) error {
 	if e, ok := err.(*stripe.Error); ok {
 		if e.Code == stripe.CardDeclined {

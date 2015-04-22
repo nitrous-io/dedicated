@@ -35,6 +35,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   templates: null
   billingUsage: null
 
+  eligiblePlans: null
+
   terminalJsPath: null
   terminalCssPath: null
 
@@ -47,6 +49,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   onboardingScreen: null
   onboardingReady: false
   onboardingIDEOpen: false
+  temporaryScreen: null
 
   fiveMinWarned: false
   oneMinWarned: false
@@ -92,7 +95,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property 'billingProfile', 'billingProfile.cardRequired'
 
   showOnboarding: (->
-    @get('user.firstTime') && @get('onboardingReady')
+    @get('user.firstTime') && @get('onboardingReady') && !@get('freeQueue')
   ).property 'onboardingReady', 'user.firstTime'
 
   desktopDownloadUrl: (->
@@ -156,23 +159,38 @@ window.Nitrous = Em.Application.extend Em.Evented,
       return
 
     now = (new Date()).getTime()
-    refreshAt = new Date(date.getTime() + (@get('user.refreshPeriod')*1000))
+    maxRun = @get('user.maxRunningTime')
+    refreshPeriod = @get('user.refreshPeriod')
+
+    refreshAt = new Date(date.getTime() + (refreshPeriod*1000))
     used = (now - primaryHost.get('lastRunningAt').getTime())/1000
 
     remaining = 0
     refreshIn = null
     if (r = refreshAt.getTime()) < now
-      remaining = App.get('user.maxRunningTime')
+      remaining = maxRun
     else
-      remaining = App.get('user.maxRunningTime') - used
+      remaining = maxRun - used
       refreshIn = (r - now)/1000
 
-    remaining = 0 if remaining < 0
+    # correct for overruns or underuns
+    if remaining > maxRun
+      remaining = maxRun
+    else if remaining < 0
+      remaining = 0
+
+    expired = remaining == 0
+    percent = 0
+    if expired
+      percent = 100 - (((refreshPeriod - refreshIn) / refreshPeriod) * 100)
+    else
+      percent = ((remaining / maxRun) * 100)
 
     {
       refreshIn: refreshIn,
       remaining: remaining,
-      expired: remaining == 0
+      expired: expired,
+      progressBarStyle: "width: #{percent}%"
     }
   ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
 
@@ -260,6 +278,7 @@ App.on 'fetchUser', (user) ->
   billingProfile.load user.get('_billingProfile')
   App.set 'billingProfile', billingProfile
 
+  App.loadPlans()
   App.refreshUsage()
   App.refreshBillingProfile()
   App.refreshInvoices()
@@ -293,6 +312,9 @@ App.refreshInvoices = ->
   invoices = App.Invoice.fetch().value
   App.set('invoices', invoices)
   invoices
+
+App.loadPlans = ->
+  App.set 'eligiblePlans', App.Plan.fetch({ eligible: true }).value
 
 App.didChangeTitle()
 

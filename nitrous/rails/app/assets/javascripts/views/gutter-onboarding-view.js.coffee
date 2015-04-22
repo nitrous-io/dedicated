@@ -12,6 +12,7 @@ App.GutterOnboardingView = Em.View.extend
   showSelectRegion: Em.computed.equal 'screen', 'select-region'
   showSelectPlan: Em.computed.equal 'screen', 'select-plan'
   showCardholdersName: Em.computed.equal 'screen', 'cardholders-name'
+  showFreeTierTip: Em.computed.equal 'screen', 'free-tier-tip'
 
   showNextButton: (->
     @get('nextScreen')?.indexOf('waiting-') == -1
@@ -19,7 +20,14 @@ App.GutterOnboardingView = Em.View.extend
 
   didInsertElement: ->
     @_super()
-    $('#onboarding-view').on('DOMNodeInserted', @positionCards)
+    $('#onboarding-view').on 'DOMNodeInserted', (ev)=>
+      @positionCards()
+      if ev.target && ev.target.className.indexOf('card') != -1
+        jq = $(ev.target)
+        return unless jq
+        offset = jq.offset()
+        return unless offset.top > 0
+        $("window, body").scrollTop(offset.top)
     $(window).on('resize', @positionCards)
 
   positionCards: ->

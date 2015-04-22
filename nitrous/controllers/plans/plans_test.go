@@ -167,6 +167,9 @@ var _ = Describe("controllers/plans", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
 					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
 				})
 
 				It("should return free plans of the default provider", func() {

@@ -72,12 +72,19 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
         if originalIndex < dropIndex
           dropIndex -= 1
 
+      return if originalIndex == dropIndex
+
       fromPane.makeActive()
-      controller.removeTab(tab)
+      if tab instanceof App.Document
+        tab.get('otClient.editorAdapter')?.detach()
+      controller.removeTab(tab, true)
       tab.set 'active', false
       toPane.insertAt(dropIndex, tab)
       toPane.makeActive()
       controller.makeTabActive(tab)
+      if tab instanceof App.Document
+        Em.run.scheduleOnce 'afterRender', this, ->
+          tab.get('otClient.editorAdapter')?.attach()
 
     klass.draggedTab = null
     klass.draggedTabEditorPane = null

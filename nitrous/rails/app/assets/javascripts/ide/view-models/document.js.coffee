@@ -4,6 +4,9 @@ untitledCount = 0
 
 App.Document = App.TabContent.extend
   isDocumentTab: true
+  contentType: 'text'
+
+  otClient: null
 
   findTrigger: null
   findNextTrigger: null

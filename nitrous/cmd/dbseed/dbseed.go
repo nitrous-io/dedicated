@@ -360,10 +360,11 @@ func creditTypes(d db.QueryReceiver) error {
 		return err
 	}
 
+	// we keep Signup_Credit in db but we no longer want to apply it, so it's not Active
 	cType := &credittype.CreditType{
 		Name:         credittype.SignupCreditType,
 		Description:  sql.NullString{"Awarded to users for signing up", true},
-		Active:       true,
+		Active:       false,
 		DefaultValue: 500, // $5
 	}
 	if err := cType.Insert(d); err != nil {

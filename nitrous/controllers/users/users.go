@@ -204,7 +204,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
 
-	phone := r.PostFormValue("phone")
+	phone := sanitizePhone(r.PostFormValue("phone"))
 	phoneCountryCode := r.PostFormValue("phone_country_code")
 	if phone == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "phone must be provided")
@@ -454,4 +454,14 @@ func userResponse(env *middleware.Env, u *user.User) {
 		"user": serializers.SerializeUser(u),
 	}
 	return
+}
+
+func sanitizePhone(phoneNum string) string {
+	onlyNumeric := func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}
+	return strings.Map(onlyNumeric, phoneNum)
 }

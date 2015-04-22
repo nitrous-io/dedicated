@@ -8,6 +8,8 @@ App.Router.map ->
   @route 'pricing'
 
   @resource 'home', path: '/', ->
+    @resource 'free-tier', path: '/free-tier'
+
     @resource 'containers', path: '/containers', ->
       @route 'new'
 
@@ -21,6 +23,7 @@ App.Router.map ->
 
     @resource 'hosts', path: '/workspaces', ->
       @route 'new'
+      @route 'queue'
 
     @resource 'host', path: '/workspaces/:hostSlug', ->
       @route 'registries'
@@ -48,3 +51,4 @@ App.Router.map ->
       @route 'template-edit', path: '/template/:templateSlug/edit'
       @route 'announcements', path: '/announcements'
       @route 'announcements-new', path: '/announcements/new'
+      @route 'free-queue', path: '/free_queue'

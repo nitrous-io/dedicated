@@ -46,7 +46,7 @@ func copyInit() {
 
 // Copy contents of the reader into the path inside container
 func CopyToContainer(id string, localPath string, r io.Reader) error {
-	initPID, err := GetContainerPID(id)
+	initPID, err := getContainerPID(id)
 	if err != nil {
 		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}

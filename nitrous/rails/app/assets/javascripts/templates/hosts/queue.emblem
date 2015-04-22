@@ -1,0 +1,6 @@
+.card-header.bordered
+  h2 You're in the Queue
+
+.card-body.bordered
+  p Your request to create a free workspace has been received. We'll email
+    you when it's ready to be activated.

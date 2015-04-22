@@ -113,6 +113,12 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     unless primaryHost && (date = new Date(primaryHost.last_running_at))
       return
 
+    # if this is container shared by another user, don't apply usage restrictions
+    # that way free user accessing container shared by paid user won't be kicked out
+    user = @get('user')
+    if primaryHost.user_id != user.id
+      return
+
     now = (new Date()).getTime()
     refreshAt = new Date(date.getTime() + (@get('user.refreshPeriod')*1000))
     used = (now - date.getTime())/1000

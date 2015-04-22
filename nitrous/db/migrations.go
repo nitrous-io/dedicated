@@ -1072,5 +1072,31 @@ func init() {
 				UPDATE users SET phone_authed = TRUE;
 			`,
 		},
+		{
+			Version: "930",
+			Up: `
+				CREATE TABLE free_queue (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					state character varying(20) DEFAULT 'pending' NOT NULL,
+					actioned_by bigint REFERENCES users(id) DEFAULT NULL,
+					actioned_at timestamp without time zone DEFAULT NULL,
+					region_slug character varying(255) NOT NULL,
+					template_slug character varying(255) NOT NULL,
+					container_name character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE UNIQUE INDEX index_free_queue_on_user_id ON free_queue USING btree (user_id);
+			`,
+		},
+		{
+			Version: "931",
+			Up: `
+				ALTER TABLE free_queue ADD COLUMN host_name character varying(255) NOT NULL;
+				ALTER TABLE free_queue RENAME COLUMN template_slug to container_template_slug;
+			`,
+		},
 	}
 }

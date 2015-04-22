@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -31,6 +33,15 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if v, err := strconv.ParseBool(r.FormValue("advanced")); err == nil {
+		bp, err := billingprofile.Find(db, env.User.ID)
+		if err != nil {
+			return err
+		}
+		// Users in free tier or without a credit card on record are not allowed
+		// to change the Advanced setting.
+		if bp.IsFreeOrCardRequired() {
+			return httperror.New(http.StatusForbidden, "forbidden", "User not allowed to change Advanced setting")
+		}
 		p.Advanced = v
 
 		err = p.Update(db)

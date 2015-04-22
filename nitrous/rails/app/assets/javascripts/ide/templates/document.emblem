@@ -5,12 +5,18 @@
     button.ui.btn click='didClickSave target="view"' disabled=view.savingDisabled
       | Save
 
+    button.ui.btn click='didClickFind target="view"'
+      | Find
+
+    button.ui.btn click='didClickReplace target="view"'
+      | Replace
+
   .ide-toolbar-btns
     unless collabEnabled
       button.ui.btn.disabled title='Upgrade your workspace to enable collaborative editing.'
         | Collab Disabled
 
-    button.ui.btn.dropdown
+    .ui.btn.dropdown
       span
         if view.softTabs
           ' Soft Tabs:
@@ -34,7 +40,7 @@
               i.fa.fa-check
             | Soft Tabs (Spaces)
 
-    button.ui.btn.dropdown
+    .ui.btn.dropdown
       span
         = view.modeName
       span.caret

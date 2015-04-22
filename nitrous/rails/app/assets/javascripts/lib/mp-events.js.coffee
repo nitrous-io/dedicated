@@ -30,5 +30,14 @@ Object.assign window.Mp,
   EventViewedLogin: "Viewed Login"
   EventViewedPricing: "Viewed Pricing"
 
+  # suffix conventions
+  # _date : timestamp
+  # _count : incremented property
+  # _list : array/list
   PropertyIDEFileSaveCount: "ide_file_save_count"
   PropertyIDEStartCount: "ide_start_count"
+  PropertyConfirmedEmail: "confirmed_email_date"
+  PropertyImagesList: "images_list"
+  PropertyPhoneNumberSaved: "phone_number_date"
+  PropertyPhoneNumberVerified: "phone_number_verified_date"
+  PropertyPhoneNumberSMSCount: "phone_number_sms_count"

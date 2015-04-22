@@ -15,6 +15,10 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
     return x
   ).property 'pending.@each', 'records.@each.pendingRemove'
 
+  hasRecords: (->
+    (@get('records.length') > 0) || (@get('pending.length') > 0)
+  ).property 'pending.@each', 'records.@each'
+
   clear: ->
     @setProperties
       pending: Em.A()

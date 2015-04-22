@@ -50,3 +50,14 @@ if view.showCardholdersName
       p
         | You’re doing great! Just one last step before you can use your new workspace.
       = partial 'partials/onboarding-card-footer'
+
+if view.showFreeTierTip
+  .card data-target="#select-plan" data-arrow="top-right"
+    .card-inner
+      h2
+        | Free workspace
+      p
+        | Your request to create a free workspace will be added to a queue. To skip the queue and begin working immediately, please select a paid plan.
+      .card-footer
+        .left
+          a.ui.text-btn href='#' click='dismissTemporary' Dismiss

@@ -4,6 +4,7 @@ App.AuthedRoute = Em.Route.extend
 
     if !App.get('token')
       @transitionTo 'login'
+      return
 
     user = App.get('user')
     if user && !user.get('phoneAuthed')

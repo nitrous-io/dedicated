@@ -12,7 +12,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   saving: false
   bypassPreprovision: false
   templateName: null
-  plans: null
+  plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
 
   nameFieldEdited: false
@@ -20,8 +20,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   clear: ->
     @setProperties
       name: null
-      plans: App.Plan.fetch({ eligible: true }).value
-      selectedPlan: @get('plans.firstObject')
+      selectedPlan: @get('plans')?.findBy('isPaidPlan')
       selectedRegion: App.get('regions.firstObject')
       error: null
       invalidField: null
@@ -34,13 +33,22 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
+    @get('plans')?.reload()
+
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    @set('selectedPlan', @get('plans.firstObject'))
+    @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
   ).observes 'plans.@each'
+
+  selectedPlanDidChange: (->
+    if @get('selectedPlan.isFreePlan')
+      App.set 'temporaryScreen', 'free-tier-tip'
+    else
+      App.set 'temporaryScreen', null
+  ).observes 'selectedPlan'
 
   regionsDidChange: (->
     unless @get('selectedRegion')
@@ -48,9 +56,15 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).observes 'App.regions.@each'
 
   cardRequired: (->
-    App.get('billingProfile.no_card') ||
-    (App.get('billingProfile.free') && @get('selectedPlan.isPaidPlan'))
-  ).property 'App.billingProfile.no_card', 'App.billingProfile.free', 'selectedPlan.isPaidPlan'
+    if App.get('billingProfile.exempt')
+      return false
+
+    # otherwise a paid plan must have a card
+    if @get('selectedPlan.isPaidPlan')
+      return !App.get('billingProfile.hasCard')
+
+    false
+  ).property 'App.billingProfile.hasCard', 'selectedPlan.isPaidPlan'
 
   hasNextStep: (->
     @get('cardRequired')
@@ -124,8 +138,17 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         async: true
         bypass_preprovision: @get('bypassPreprovision')
         template_name: @get('templateName')
+        container_template_slug: App.get('pendingContainerData.selectedTemplate.slug')
+        container_name: App.get('pendingContainerData.name')
 
-      host.save(params, json: true).catch (jqxhr) => # host.save
+      host.save(params, json: true).catch (jqxhr) =>
+        # If host creation failed because of a queue, we redirect to the
+        # "you're in a queue" page.
+        if jqxhr.responseJSON?.error == 'free_queue_required'
+          App.set('pendingHost', null)
+          App.set('pendingContainerData', null)
+          @transitionToRoute 'hosts.queue'
+
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]

@@ -31,6 +31,9 @@
     &.clear-top
       padding-top: 0
 
+    > .right
+      text-align: right
+
   .card-footer
     padding: $containerPadding
     display: flex
@@ -76,6 +79,20 @@
 .ui.dropdown
   user-select: none
 
+  div.free
+    background: $lightBlue500
+    color: #FFF
+    text-transform: uppercase
+    position: relative
+    font-size: 8px
+    line-height: 22px
+    padding: 2px 4px
+    margin-left: 4px
+    margin-right: 6px
+    border-radius: 2px
+    display: inline
+    top: -2px
+
   &.open
     ul.dropdown-menu
       z-index: 11
@@ -120,8 +137,48 @@
           white-space: initial
           height: initial
           line-height: 22px
+          display: block
+          position: relative
           color: $n2oGray300
           min-width: 200px
+          cursor: default
+          padding-top: 4px
+          padding-bottom: 4px
+          opacity: .8
+
+          &:hover
+            background: transparent
+
+          span
+            display: inline-block
+
+          i, .fa
+            width: auto
+            margin: 0 4px 0 0
+            padding: 0
+
+          .left, .right
+            display: inline-block
+
+          .right
+            text-align: right
+            float: right
+            cursor: default
+          
+          .progress-bar, .progress-bar-inner
+            height: 6px
+            display: block
+            border-radius: 6px
+
+          .progress-bar
+            width: 100%
+            margin: 4px 0
+            background: $n2oGray900
+
+          .progress-bar-inner
+            background: #818C96
+
+
 
         .fa
           width: 24px
@@ -393,6 +450,9 @@ a.ui.text-btn
 
   .note
     font-size: 11px
+
+  #feedback-message
+    resize: none
 
 .ui.select
   position: relative

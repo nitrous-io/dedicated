@@ -49,7 +49,7 @@ func infoInit() {
 
 // Get FileInfo of a file inside the container
 func GetFileInfo(id string, localPath string) (*FileInfo, error) {
-	initPID, err := GetContainerPID(id)
+	initPID, err := getContainerPID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}

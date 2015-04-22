@@ -36,7 +36,10 @@ func (ctx *HostContext) Run(step Step) error {
 	if w == nil {
 		w = ioutil.Discard
 	}
-	fmt.Fprintf(w, "%s...", step.Description)
+	printing := step.Description != ""
+	if printing {
+		fmt.Fprintf(w, "%s...", step.Description)
+	}
 
 	var (
 		ch                      = make(chan error, 1)
@@ -54,13 +57,19 @@ func (ctx *HostContext) Run(step Step) error {
 	select {
 	case err := <-ch:
 		if err != nil {
-			fmt.Fprintf(w, "%s... Failed!", step.Description)
+			if printing {
+				fmt.Fprintf(w, "%s... Failed!", step.Description)
+			}
 			return err
 		}
-		fmt.Fprintf(w, "%s... Done!", step.Description)
+		if printing {
+			fmt.Fprintf(w, "%s... Done!", step.Description)
+		}
 		return nil
 	case <-stepCtx.Done():
-		fmt.Fprintf(w, "%s... Failed!", step.Description)
+		if printing {
+			fmt.Fprintf(w, "%s... Failed!", step.Description)
+		}
 		return stepCtx.Err()
 	}
 }
