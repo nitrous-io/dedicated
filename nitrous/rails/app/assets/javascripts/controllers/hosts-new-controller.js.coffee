@@ -33,7 +33,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
-    @get('plans')?.reload()
+    App.loadPlans()
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
