@@ -9,11 +9,12 @@ screens = [
     "cardholders-name",
     "waiting-create",
     "thank-you",
-    "waiting-finish"
+    "waiting-finish",
+    "extra",
+    "free-tier-tip"
   ]
 
 App.OnboardingController = Em.ObjectController.extend
-  screenBinding: 'App.onboardingScreen'
   openIDEBinding: 'App.onboardingIDEOpen'
 
   bindEvents: (->
@@ -25,8 +26,12 @@ App.OnboardingController = Em.ObjectController.extend
 
   startWelcome: (->
     if App.get 'onboardingReady'
-      @set 'screen', 'welcome'
+      App.set 'onboardingScreen', 'welcome'
   ).observes 'App.onboardingReady'
+
+  screen: (->
+    App.get('temporaryScreen') || App.get('onboardingScreen')
+  ).property 'App.onboardingScreen', 'App.temporaryScreen'
 
   nextScreen: (->
     curIndex = screens.indexOf(@get 'screen')
@@ -52,18 +57,23 @@ App.OnboardingController = Em.ObjectController.extend
 
   clear: ->
     @_super.apply this, arguments
-    @set 'screen', 'welcome'
+    App.set 'onboardingScreen', 'welcome'
 
   actions:
     dismissOnboarding: ->
-      @set 'screen', null
+      App.set 'onboardingScreen', null
       App.set 'onboardingReady', false
       App.get('user').dismissFirstTime()
 
+    dismissTemporary: ->
+      App.set 'temporaryScreen', null
+
     nextScreen: ->
-      @set 'screen', @get 'nextScreen'
+      App.set 'onboardingScreen', @get 'nextScreen'
 
     handleTransition: (url)->
+      App.set 'temporaryScreen', null
+
       return unless @get 'screen'
 
       screen = null
@@ -82,6 +92,6 @@ App.OnboardingController = Em.ObjectController.extend
       newIndex = screens.indexOf(screen)
       if newIndex <= curIndex
         screen = 'go-back'
-      @set 'screen', screen
+      App.set 'onboardingScreen', screen
 
 
