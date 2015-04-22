@@ -130,13 +130,28 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	}
 
 	// Save record to db first to reserve name (since it's globally unique).
-	if err := cn.Insert(tx); err != nil {
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+	attempts := 5
+	for i := 0; i < attempts; i++ { // limit attempts in case we're near exhaustion
+		err := cn.Insert(tx)
+		if err == nil {
+			break
+		}
+		e, ok := err.(*pq.Error)
+		switch {
+		case !ok, e.Code.Name() != "unique_violation":
+			return nil, err
+		case e.Constraint != "index_containers_on_slug":
 			if validationErr, ok := validations[e.Constraint]; ok {
 				return nil, validationErr
+			} else {
+				return nil, err
 			}
+		case i < attempts-1:
+			cn.Slug = slugbuilder.Build(options.Get("name"))
+			continue
+		default:
+			return nil, validations[e.Constraint]
 		}
-		return nil, err
 	}
 
 	cl, err := controllers.NewFreighterClient(tx, h, env.UUID)
