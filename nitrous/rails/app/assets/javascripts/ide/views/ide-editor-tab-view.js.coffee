@@ -75,16 +75,15 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
       return if originalIndex == dropIndex
 
       fromPane.makeActive()
+      tab.set 'focused', false
       if tab instanceof App.Document
-        tab.get('otClient.editorAdapter')?.detach()
+        undoManager = tab.get('otClient.undoManager')
+        tab.set 'otUndoManagerOverride', undoManager
       controller.removeTab(tab, true)
       tab.set 'active', false
       toPane.insertAt(dropIndex, tab)
       toPane.makeActive()
       controller.makeTabActive(tab)
-      if tab instanceof App.Document
-        Em.run.scheduleOnce 'afterRender', this, ->
-          tab.get('otClient.editorAdapter')?.attach()
 
     klass.draggedTab = null
     klass.draggedTabEditorPane = null
@@ -93,6 +92,7 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
       dragEnters: 0
       dropLeft: false
       dropRight: false
+    false
 
   drop: (event) ->
     @_super.apply this, arguments

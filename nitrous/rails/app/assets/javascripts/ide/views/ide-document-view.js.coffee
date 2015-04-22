@@ -26,7 +26,10 @@ App.IdeDocumentView = Em.View.extend
   foldGutterClass: 'CodeMirror-foldgutter'
 
   collabMode: false
+
   otClient: Em.computed.alias 'document.otClient'
+  # if set, it will be used when otClient is initialized
+  otUndoManagerOverride: Em.computed.alias 'document.otUndoManagerOverride'
 
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
@@ -213,6 +216,9 @@ App.IdeDocumentView = Em.View.extend
       serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
       editorAdapter = new ot.CodeMirrorAdapter(cm)
       otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
+      if undoManager = @get 'otUndoManagerOverride'
+        otClient.undoManager = undoManager
+        @set 'otUndoManagerOverride', null
       @set 'otClient', otClient
       editor.set 'readOnly', false
 
