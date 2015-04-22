@@ -47,8 +47,9 @@ type FreeQueue struct {
 	HostName              string `db:"host_name"`
 	RegionSlug            string `db:"region_slug"`
 
-	CreatedAt *time.Time `db:"created_at"`
-	UpdatedAt *time.Time `db:"updated_at"`
+	CreatedAt *time.Time  `db:"created_at"`
+	UpdatedAt *time.Time  `db:"updated_at"`
+	DeletedAt pq.NullTime `db:"deleted_at"`
 }
 
 type FreeQueueWithUser struct {
@@ -88,7 +89,7 @@ func Action(tx *sqlx.Tx, id int64, expectedState, newState string, userID int64)
 	}
 
 	var success bool
-	err := tx.QueryRow("SELECT true FROM free_queue WHERE id = $1 AND actioned_by IS NULL AND state = $2 FOR UPDATE;", id, expectedState).Scan(&success)
+	err := tx.QueryRow("SELECT true FROM free_queue WHERE id = $1 AND deleted_at IS NULL AND actioned_by IS NULL AND state = $2 FOR UPDATE;", id, expectedState).Scan(&success)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrInconsistentState
@@ -111,13 +112,13 @@ func Action(tx *sqlx.Tx, id int64, expectedState, newState string, userID int64)
 }
 
 func Cancel(db *db.Database, userID int64) error {
-	_, err := db.Exec(`DELETE FROM free_queue WHERE user_id = $1;`, userID)
+	_, err := db.Exec(`UPDATE free_queue SET deleted_at = now() WHERE user_id = $1 AND deleted_at IS NULL;`, userID)
 	return err
 }
 
 func Find(db *db.Database, userID int64) (*FreeQueue, error) {
 	fq := &FreeQueue{}
-	if err := db.Get(fq, `SELECT * FROM free_queue WHERE user_id = $1;`, userID); err != nil {
+	if err := db.Get(fq, `SELECT * FROM free_queue WHERE user_id = $1 AND deleted_at IS NULL;`, userID); err != nil {
 		return nil, err
 	}
 	return fq, nil
@@ -140,6 +141,7 @@ func findWithState(db *db.Database, state string) ([]*FreeQueueWithUser, error) 
 		FROM free_queue
 		INNER JOIN users ON free_queue.user_id = users.id
 		WHERE state = $1
+		AND deleted_at IS NULL
 		ORDER BY free_queue.created_at DESC;`, state)
 	if err != nil {
 		return nil, err
