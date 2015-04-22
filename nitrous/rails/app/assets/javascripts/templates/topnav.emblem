@@ -19,12 +19,13 @@
         ul.dropdown-menu
           li
             link-to 'containers.new' | New Container...
-          if App.canCreateHosts
-            li
-              link-to 'hosts.new'| New Workspace...
-          else
-            li.disabled
-              a href='#' title=view.newHostTitle New Workspace...
+          unless App.billingProfile.free
+            if App.canCreateHosts
+              li
+                link-to 'hosts.new'| New Workspace...
+            else
+              li.disabled
+                a href='#' title=view.newHostTitle New Workspace...
       if App.user.admin
         li.ui.dropdown
           a href='#'
