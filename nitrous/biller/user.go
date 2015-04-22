@@ -120,10 +120,10 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 			return 0, []invoiceitem.InvoiceItem{}, err
 		}
 		if bp.State != billingprofile.StateFree && !h.UserAdmin {
-			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.HourlyPrice)
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.Host.ID)
 		}
 		if bp.MaxHours.Valid && i.Hours.Int64 > bp.MaxHours.Int64 {
-			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d exceeds the maximum hours of the billing profile (%d vs %d)", h.HourlyPrice, i.Hours.Int64, bp.MaxHours.Int64)
+			return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d exceeds the maximum hours of the billing profile (%d vs %d)", h.Host.ID, i.Hours.Int64, bp.MaxHours.Int64)
 		}
 		i.ItemType = invoiceitem.ItemTypeFreeCompute
 	}
