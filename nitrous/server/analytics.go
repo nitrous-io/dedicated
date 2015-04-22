@@ -18,6 +18,7 @@ const (
 	EventHostStopped    = "Host Stopped"
 	EventHostRestarted  = "Host Restarted"
 	EventHostTerminated = "Host Terminated"
+	EventHostUpgraded   = "Host Upgraded"
 
 	EventImageBuilt   = "Image Built"
 	EventImagePulled  = "Image Pulled"
@@ -39,4 +40,8 @@ const (
 
 	EventContainerCollabAdded   = "Container Collaborator Added"
 	EventContainerCollabRemoved = "Container Collaborator Removed"
+
+	EventBillingProfileActivated = "Billing Profile Activated"
+
+	EventInvoiceManuallyPaid = "Invoice Manually Paid"
 )
