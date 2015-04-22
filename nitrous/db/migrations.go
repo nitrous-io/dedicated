@@ -1104,5 +1104,11 @@ func init() {
 				ALTER TABLE plans ADD COLUMN paid_plan_id bigint DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "943",
+			Up: `
+				CREATE INDEX index_containers_on_host_id ON containers USING btree (host_id);
+			`,
+		},
 	}
 }
