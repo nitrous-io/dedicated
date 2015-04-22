@@ -38,3 +38,6 @@ Object.assign window.Mp,
   PropertyIDEStartCount: "ide_start_count"
   PropertyConfirmedEmail: "confirmed_email_date"
   PropertyImagesList: "images_list"
+  PropertyPhoneNumberSaved: "phone_number_date"
+  PropertyPhoneNumberVerified: "phone_number_verified_date"
+  PropertyPhoneNumberSMSCount: "phone_number_sms_count"
