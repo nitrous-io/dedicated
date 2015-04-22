@@ -83,7 +83,7 @@ var _ = Describe("controllers/freequeue", func() {
 			return res
 		}
 
-		It("should return an error if there is no place in the freequeu", func() {
+		It("should return an error if there is no place in the freequeue", func() {
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 
@@ -170,6 +170,33 @@ var _ = Describe("controllers/freequeue", func() {
 				Expect(j.Template.ID).To(Equal(t.ID))
 			})
 
+		})
+	})
+
+	Describe("DELETE /api/v0/free_queue", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "DELETE", "/api/v0/free_queue", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		It("should perform a delete", func() {
+			fq := &freequeue.FreeQueue{
+				UserID:                u.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				RegionSlug:            "slug1",
+				HostName:              "name1",
+			}
+			Expect(fq.Insert(db)).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			_, err := freequeue.Find(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 	})
 

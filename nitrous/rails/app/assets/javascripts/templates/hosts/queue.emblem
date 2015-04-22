@@ -1,6 +1,54 @@
 .card-header.bordered
   h2 You're in the Queue
 
-.card-body.bordered
-  p Your request to create a free workspace has been received. We'll email
-    you when it's ready to be activated.
+.card-body.centered
+  
+  .visual
+    .sparks-combo
+      .spark
+      .spark
+      .spark
+      .spark
+      .spark
+      .spark
+      .spark
+
+    .wave-a.hot.rainbow
+    .wave-a.cold.rainbow
+    .wave-b.hot.rainbow
+    .wave-b.cold.rainbow
+
+    .happy-nitrous
+      .happy-face
+
+
+  .content-wrapper
+    h2
+      | Your free cloud machine is almost ready!
+
+    p.bigger
+      | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform. Please tweet and share your excitement — if we notice good use cases, we are more likely to bump you up in line!
+
+    a.circle.tweet href="https://twitter.com/intent/tweet?text=I%E2%80%99m%20ditching%20localhost%20for%20the%20cloud%2C%20signup%20for%20%40nitrousio%20today!" target="_blank"
+      i.fa.fa-twitter
+
+
+    .box-wrapper
+      .box
+        h3 What is Nitrous Pro
+        p
+          ' We built Nitrous Pro, our new collaborative development platform, from the experiences of over 200,000 developers. Nitrous Pro brings a variety of improvements to our IDE, desktop application and real-time collaboration.
+          a href="/whatsnew" target="blank" Read about
+          |  the updates.
+
+      .box
+        h3 Why a waiting list?
+        p
+          | Building dedicated, lightning-fast development environments for thousands of users is a difficult technological problem. Our goal is to ensure your experience is faster and more stable than your own computer. Therefore, we need to thoughtfully control the number of new workspaces being created.
+
+      .box
+        h3 How long do I have to wait?
+        p
+          ' We are working incredibly hard to meet demand for our new cloud workspaces and will let in as many free users as we can each day. If you'd like to skip the line, you can create a paid workspace
+          a href='#' click=cancel without waiting
+          | .

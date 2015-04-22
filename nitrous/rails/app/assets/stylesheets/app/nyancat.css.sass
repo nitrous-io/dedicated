@@ -1,0 +1,220 @@
+#hosts-queue-view
+  .card-body
+    background-image: linear-gradient(to bottom, rgba(0,0,0,0.29) 0%,rgba(0,0,0,0) 50%,rgba(0,0,0,0) 100%)
+
+  .visual
+    height: 160px
+
+    .happy-nitrous
+      width: 190px
+      height: 125px
+      position: absolute
+      top: 34px
+      left: 50%
+      margin-left: -95px
+      background: image_url('app/hosts-queue/cloud.png') 0 0 no-repeat
+      background-size: 190px 125px
+
+      .happy-face
+        width: 104px
+        height: 48px
+        position: absolute
+        background: image_url('app/hosts-queue/cloud-face.png') 0 0 no-repeat
+        background-size: 104px 48px
+        animation: happyface 1s steps(2) infinite
+
+    .sparks-combo
+      width: 100%
+      position: absolute
+      animation: spaaace 2s steps(2) infinite
+
+    .spark
+      width: 40px
+      height: 40px
+      background: linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat, linear-gradient(white, white) no-repeat
+      position: absolute
+      background-color: transparent
+
+    .spark:nth-child(1)
+      top: 0
+      left: 20px
+      animation: sparkly 700ms 0ms steps(1) infinite both
+
+    .spark:nth-child(2)
+      top: 120px
+      left: 170px
+      animation: sparkly 700ms 200ms steps(1) infinite both
+
+    .spark:nth-child(3)
+      top: 20px
+      left: 480px
+      animation: sparkly 700ms 400ms steps(1) infinite both
+
+    .spark:nth-child(4)
+      top: 120px
+      left: 600px
+      animation: sparkly 700ms 600ms steps(1) infinite both
+
+    .spark:nth-child(5)
+      top: 0
+      left: 740px
+      animation: sparkly 700ms 0ms steps(1) infinite both
+
+    .spark:nth-child(6)
+      top: 120px
+      left: 890px
+      animation: sparkly 700ms 200ms steps(1) infinite both
+    
+    .spark:nth-child(7)
+      top: 72px
+      left: 1060px
+      animation: sparkly 700ms 200ms steps(1) infinite both
+    
+
+
+    .rainbow
+      background: none
+      height: 90px
+      width: 50%
+      position: absolute
+      top: 69%
+      right: 50%
+      margin-right: 0
+
+    .hot
+      &:after, &:before
+        content: ""
+        position: absolute
+        left: 0
+        right: 0
+        height: 50%
+
+    .cold
+      &:after, &:before
+        content: ""
+        position: absolute
+        left: 0
+        right: 0
+        height: 50%
+
+    .hot
+      &:after, &:before
+        top: 0
+
+    .cold
+      &:after, &:before
+        bottom: 0
+
+    .wave-a
+      margin-top: -54px
+      animation: wavy 700ms 0ms steps(2) infinite both
+
+    .wave-b
+      margin-top: -59px
+      animation: wavy 700ms 350ms steps(2) infinite both
+
+
+    .hot
+      background-image: linear-gradient(to right, #f00 49px, transparent 49px, transparent 92px)
+      &:after
+        background-image: linear-gradient(to right, #f90 49px, transparent 49px, transparent 92px)
+      &:before
+        background-image: linear-gradient(to right, #ff0 49px, transparent 49px, transparent 92px)
+
+    .cold
+      &:after
+        background-image: linear-gradient(to right, #3f0 49px, transparent 49px, transparent 92px)
+        background-position: left top
+      &:before
+        background-image: linear-gradient(to right, #09f 49px, transparent 49px, transparent 92px)
+      background-image: linear-gradient(to right, #63f 49px, transparent 49px, transparent 92px)
+
+    .rainbow
+      background-size: 92px 17px
+      background-repeat: repeat-x
+
+    .hot
+      &:after, &:before
+        background-size: 92px 17px
+        background-repeat: repeat-x
+
+    .cold
+      &:after, &:before
+        background-size: 92px 17px
+        background-repeat: repeat-x
+
+    .wave-a
+      &.hot, &.cold:after
+        background-position: left top
+      &.hot:after, &.cold:before
+        background-position: left center
+      &.hot:before, &.cold
+        background-position: left bottom
+
+    .wave-b
+      &.hot, &.cold:after
+        background-position: 46px top
+      &.hot:after, &.cold:before
+        background-position: 46px center
+      &.hot:before, &.cold
+        background-position: 46px bottom
+
+
+
+@keyframes sparkly
+  0%
+    background-size: 6px 6px, 6px 6px, 6px 6px, 6px 6px, 0 0, 0 0, 0 0, 0 0
+    background-position: 17px 17px, 17px 17px, 17px 17px, 17px 17px, 0 0, 0 0, 0 0, 0 0
+
+  16%
+    background-size: 6px 6px, 6px 6px, 6px 6px, 6px 6px, 0 0, 0 0, 0 0, 0 0
+    background-position: 17px 0, 34px 17px, 17px 34px, 0 17px, 0 0, 0 0, 0 0, 0 0
+
+  33%
+    background-size: 6px 6px, 6px 6px, 6px 6px, 6px 6px, 5px 5px, 5px 5px, 5px 5px, 5px 5px
+    background-position: 17px 0, 34px 17px, 17px 34px, 0 17px, 6px 6px, 29px 6px, 29px 29px, 6px 29px
+
+  50%
+    background-size: 6px 6px, 6px 6px, 6px 6px, 6px 6px, 6px 11px, 6px 11px, 11px 6px, 11px 6px
+    background-position: 17px 17px, 17px 17px, 17px 17px, 17px 17px, 17px 0, 17px 29px, 0 17px, 29px 17px
+
+  66%
+    background-size: 6px 11px, 6px 11px, 11px 6px, 11px 6px, 0 0, 0 0, 0 0, 0 0
+    background-position: 17px 6px, 17px 23px, 6px 17px, 23px 17px, 0 0, 0 0, 0 0, 0 0
+
+  83%
+    background-size: 5px 6px, 5px 6px, 6px 5px, 6px 5px, 0 0, 0 0, 0 0, 0 0
+    background-position: 17px 11px, 17px 22px, 11px 17px, 22px 17px, 0 0, 0 0, 0 0, 0 0
+
+  100%
+    background-size: 6px 6px, 6px 6px, 6px 6px, 6px 6px, 0 0, 0 0, 0 0, 0 0
+    background-position: 17px 17px, 17px 17px, 17px 17px, 17px 17px, 0 0, 0 0, 0 0, 0 0
+
+
+@keyframes wavy
+  0%
+    margin-top: -54px
+
+  100%
+    margin-top: -59px
+
+
+@keyframes spaaace
+  0%
+    transform: translate3d(0,0,0)
+  50%
+    transform: translate3d(-392px,0,0)
+  100%
+    transform: translate3d(-784px,0,0)
+
+
+@keyframes happyface
+  0%
+    top: 54px
+    left: 74px
+  50%
+    top: 58px
+    left: 70px
+  100%
+    top: 54px
+    left: 70px
