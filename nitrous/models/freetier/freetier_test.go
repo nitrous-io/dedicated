@@ -33,9 +33,8 @@ func insertHostTransition(db *db.Database, hostID int64, prevState, state string
 
 var _ = Describe("models/freetier", func() {
 	var (
-		db     *db.Database
-		u      *user.User
-		uAdmin *user.User
+		db *db.Database
+		u  *user.User
 	)
 
 	BeforeEach(func() {
@@ -50,13 +49,6 @@ var _ = Describe("models/freetier", func() {
 			Password: "123456",
 		}
 		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
-		uAdmin = &user.User{
-			Username: "adminfoo",
-			Email:    "adminfoo@example.com",
-			Password: "123456",
-		}
-		Expect(test.WrapInTransaction(db, uAdmin.Insert)).To(BeNil())
-		uAdmin.Admin = true
 	})
 
 	AfterEach(func() {
@@ -181,7 +173,9 @@ var _ = Describe("models/freetier", func() {
 
 		Context("When admin user is in paid tier", func() {
 			It("Should be allowed to create host with free plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, uAdmin, freePlan)
+				u.Admin = true
+				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+				u.Admin = false
 				Expect(err).To(BeNil())
 			})
 		})
