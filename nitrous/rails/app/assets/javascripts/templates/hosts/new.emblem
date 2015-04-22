@@ -28,7 +28,7 @@
             | Workspace Size
 
           ul.ui.selectable-list.plans
-            each plan in plans
+            each plan in sortedPlans
               App.PlanListItemView content=plan selected=selectedPlan
 
         if App.user.admin
