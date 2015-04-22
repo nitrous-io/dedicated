@@ -120,6 +120,20 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt.Provider).To(Equal("digitalocean"))
 		})
 
+		It("does not include disabled provider templates", func() {
+			orig, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, disabled)
+				VALUES ($1, $2, $3, $4, $5, $6);`,
+				r.ID, p1.ID, "do-512MB-disabled", "digitalocean", "", true)
+			Expect(err).To(BeNil())
+
+			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(pt.ID).To(Equal(orig.ID))
+		})
+
 		It("returns an error when wanted provider template record does not exist", func() {
 			pt, err := providertemplate.Find(db, &region.Region{ID: 9001}, &plan.Plan{ID: 9002}, "digitalocean")
 			Expect(err).To(MatchError(sql.ErrNoRows))
