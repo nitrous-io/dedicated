@@ -21,7 +21,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     @setProperties
       name: null
       plans: App.Plan.fetch({ eligible: true }).value
-      selectedPlan: @get('plans.firstObject')
+      selectedPlan: @get('plans')?.findBy('isPaidPlan')
       selectedRegion: App.get('regions.firstObject')
       error: null
       invalidField: null
@@ -39,8 +39,15 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    @set('selectedPlan', @get('plans.firstObject'))
+    @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
   ).observes 'plans.@each'
+
+  selectedPlanDidChange: (->
+    if @get('selectedPlan.isFreePlan')
+      App.set 'temporaryScreen', 'free-tier-tip'
+    else
+      App.set 'temporaryScreen', null
+  ).observes 'selectedPlan'
 
   regionsDidChange: (->
     unless @get('selectedRegion')
