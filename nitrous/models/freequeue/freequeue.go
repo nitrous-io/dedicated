@@ -110,6 +110,11 @@ func Action(tx *sqlx.Tx, id int64, expectedState, newState string, userID int64)
 	return fq, nil
 }
 
+func Cancel(db *db.Database, userID int64) error {
+	_, err := db.Exec(`DELETE FROM free_queue WHERE user_id = $1;`, userID)
+	return err
+}
+
 func Find(db *db.Database, userID int64) (*FreeQueue, error) {
 	fq := &FreeQueue{}
 	if err := db.Get(fq, `SELECT * FROM free_queue WHERE user_id = $1;`, userID); err != nil {
