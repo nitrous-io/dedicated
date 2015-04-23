@@ -86,6 +86,11 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
+	if u.Admin {
+		// return all plans for admin
+		return plan.AllPlansForProvider(d, provider)
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return nil, err
@@ -130,6 +135,10 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
 func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
+	if u.Admin {
+		return nil
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -157,6 +166,10 @@ func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
 
 // Checks whether a free/paid user can create a host of given plan.
 func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error {
+	if u.Admin {
+		return nil
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -177,7 +190,7 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 	} else {
 		// Paid users cannot create hosts with free plan. Doesn't apply to admin
 		// users so that we can test more easily
-		if p.IsFree() && !u.Admin {
+		if p.IsFree() {
 			return ErrFreePlanNotAllowed
 		}
 	}
