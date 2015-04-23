@@ -605,6 +605,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}
 
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
+	p.logger.Warnf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
 
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
@@ -622,8 +623,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 
 	if err = h.Update(p.db); err != nil {
+		p.logger.Errorf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
+	p.logger.Warnf("provisionTracer: updated h: %+v", h)
 	return h, nil
 }
 
