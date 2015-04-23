@@ -7,16 +7,16 @@
   .page-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'whatsnew' }
-      
+
       .hero-visual
         = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
-      
+
       .hero-tagline
         h2 Introducing Nitrous Pro
         h3 Software Development Without the Pain
         = render 'layouts/cta_form'
 
-  
+
   .notice.darker
     .container
       .left
@@ -89,7 +89,7 @@
             | Split editing
           p You can now have multiple files opened at once thanks to the new split editing mode
 
-      
+
   article.two-blocks
     .left
       .table
@@ -97,23 +97,23 @@
           .row.title
             span Pro
           .row
-            span 
+            span
               i.fa.fa-check
               | Whole new IDE
           .row
-            span 
+            span
               i.fa.fa-check
               | Full root access
           .row
-            span 
+            span
               i.fa.fa-check
               | Auto-save
           .row
-            span 
+            span
               i.fa.fa-check
               | Private, dedicated machine
           .row
-            span 
+            span
               i.fa.fa-check
               | Fully configurable containers
 
@@ -125,30 +125,27 @@
           .row.title
             span Lite
           .row
-            span 
+            span
               i.fa.fa-minus
               | Previous IDE version
           .row
-            span 
+            span
               i.fa.fa-minus
               | No root access
           .row
-            span 
+            span
               i.fa.fa-minus
               | Manual file save
           .row
-            span 
+            span
               i.fa.fa-minus
               | Shared resources
           .row
-            span 
+            span
               i.fa.fa-minus
               | Very limited configuration
 
           a.btn.grey-outline href="https://lite.nitrous.io" Go to lite.nitrous.io
-
-
-
 
 
   = render partial: 'layouts/cta', locals: { theme: 'darker' }
