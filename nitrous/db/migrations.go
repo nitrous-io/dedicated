@@ -1124,5 +1124,11 @@ func init() {
 				ALTER TABLE provider_templates DROP COLUMN supports_start_stop;
 			`,
 		},
+		{
+			Version: "961",
+			Up: `
+				CREATE SEQUENCE containers_slug_seq START WITH 100000 CACHE 1;
+			`,
+		},
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -18,7 +19,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
 
 type CreateResult struct {
@@ -69,7 +69,6 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 	}
 
-	slug := slugbuilder.Build(options.Get("name"))
 	name := options.Get("name")
 	imageSlug := options.Get("image")
 	templateSlug := options.Get("template")
@@ -78,7 +77,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		imageSlug = controllers.DefaultImage
 	}
 
-	if slug == "" {
+	if name == "" {
 		return nil, errNameRequired
 	}
 
@@ -90,6 +89,13 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	if err != nil {
 		return nil, err
 	}
+
+	var containerSequence int
+	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
+	if err != nil {
+		log.Errorf("Failed to get next value of container slug sequense")
+	}
+	slug := fmt.Sprintf("%s-%d", strings.ToLower(name), containerSequence)
 
 	cn := &container.Container{
 		UserID: env.User.ID,
