@@ -124,7 +124,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
-		case freetier.ErrFreeQueueRequired:
+		case freequeue.ErrFreeQueueRequired:
 			// Add host and container to free queue.
 			fq := &freequeue.FreeQueue{
 				UserID:                u.ID,
@@ -140,7 +140,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 			return errFreeQueueRequired
 
-		case freetier.ErrFreeQueueAwaiting:
+		case freequeue.ErrFreeQueueAwaiting:
 			return errFreeQueueExists
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed

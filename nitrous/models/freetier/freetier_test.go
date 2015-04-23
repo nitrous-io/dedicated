@@ -127,7 +127,7 @@ var _ = Describe("models/freetier", func() {
 
 			It("should be disallowed for not being in a free queue", func() {
 				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-				Expect(err).To(Equal(freetier.ErrFreeQueueRequired))
+				Expect(err).To(Equal(freequeue.ErrFreeQueueRequired))
 			})
 
 			Context("When user is in free queue", func() {
@@ -146,7 +146,7 @@ var _ = Describe("models/freetier", func() {
 
 				It("should be disallowed if have joined free queue but not approved", func() {
 					err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-					Expect(err).To(Equal(freetier.ErrFreeQueueAwaiting))
+					Expect(err).To(Equal(freequeue.ErrFreeQueueAwaiting))
 				})
 
 				Context("When user is approved in free queue", func() {

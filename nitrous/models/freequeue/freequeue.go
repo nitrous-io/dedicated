@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 const (
@@ -31,6 +32,8 @@ var (
 
 	ErrInvalidState      = errors.New("Provided state is not valid")
 	ErrInconsistentState = errors.New("Provided record was in an unexpected state")
+	ErrFreeQueueRequired = errors.New("free tier workspace must join queue and cannot be created immediately")
+	ErrFreeQueueAwaiting = errors.New("user is awaiting in free queue to be approved")
 )
 
 type FreeQueue struct {
@@ -62,6 +65,25 @@ type FreeQueueWithUser struct {
 	PhoneCountryCode sql.NullString `db:"phone_country_code"`
 	PhoneAuthed      bool           `db:"phone_authed"`
 	EmailConfirmed   bool           `db:"email_confirmed"`
+}
+
+// Checks whether a user is in free queue and has been approved
+func UserApproved(d *db.Database, u *user.User) error {
+	fq, err := Find(d, u.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		} else {
+			// User is not in free queue
+			return ErrFreeQueueRequired
+		}
+
+	} else if fq.State != StateApproved {
+		return ErrFreeQueueAwaiting
+	} else {
+		// user is approved to create freetier host
+		return nil
+	}
 }
 
 func (f *FreeQueue) Insert(db *db.Database) error {

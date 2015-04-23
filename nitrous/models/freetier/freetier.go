@@ -19,8 +19,6 @@ var (
 	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 	ErrPhoneAuthRequired  = errors.New("phone authentication required")
-	ErrFreeQueueRequired  = errors.New("free tier workspace must join queue and cannot be created immediately")
-	ErrFreeQueueAwaiting  = errors.New("user is awaiting in free queue to be approved")
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
@@ -154,21 +152,7 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 			return err
 		}
 
-		fq, err := freequeue.Find(d, u.ID)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return err
-			} else {
-				// User is not in free queue
-				return ErrFreeQueueRequired
-			}
-
-		} else if fq.State != freequeue.StateApproved {
-			return ErrFreeQueueAwaiting
-		} else {
-			// user is approved to create freetier host
-			return nil
-		}
+		return freequeue.UserApproved(d, u)
 
 	} else {
 		// Paid users cannot create hosts with free plan. Doesn't apply to admin
