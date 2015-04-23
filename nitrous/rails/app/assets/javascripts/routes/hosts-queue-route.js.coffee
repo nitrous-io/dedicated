@@ -2,7 +2,7 @@
 
 App.HostsQueueRoute = App.AuthedRoute.extend
   activate: ->
-    App.set 'title', "You're in the Queue"
+    App.set 'title', "You've been added to the waitlist"
 
   renderTemplate: ->
     @render 'hosts/queue', outlet: 'content'
