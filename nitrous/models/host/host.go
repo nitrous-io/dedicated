@@ -130,9 +130,9 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllByUser(db *db.Database, user *user.User) ([]*Host, error) {
+func FindAllByUser(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND state NOT IN ($2, $3) ORDER BY id;", user.ID, StateOrphan, StateMigrating)
+	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND state NOT IN ($2, $3) ORDER BY id;", userID, StateOrphan, StateMigrating)
 	if err != nil {
 		return nil, err
 	}

@@ -154,7 +154,7 @@ var _ = Describe("models/freetier", func() {
 
 				Context("when host is running", func() {
 					It("free-tier user should only be allowed to create one free host", func() {
-						hosts, err := host.FindAllByUser(db, u)
+						hosts, err := host.FindAllByUser(db, u.ID)
 						Expect(err).To(BeNil())
 						Expect(len(hosts)).To(Equal(1))
 

@@ -91,7 +91,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		hosts = []*host.Host{h}
 	} else {
-		hosts, err = host.FindAllByUser(db, env.User)
+		hosts, err = host.FindAllByUser(db, env.User.ID)
 		if err != nil {
 			return err
 		}

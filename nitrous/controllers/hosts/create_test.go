@@ -264,7 +264,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
 
 		// Test that we use the host ID and secret as Apt user/pass.
-		hosts, err := host.FindAllByUser(db, u)
+		hosts, err := host.FindAllByUser(db, u.ID)
 		Expect(err).To(BeNil())
 		Expect(hosts).To(HaveLen(1))
 		h := hosts[0]
@@ -301,7 +301,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(slugbuilder.IsValid(config["name"].(string))).To(BeTrue(), "invalid slug set in name")
 
 		// Test that we use the host ID and secret as Apt user/pass.
-		hosts, err := host.FindAllByUser(db, u)
+		hosts, err := host.FindAllByUser(db, u.ID)
 		Expect(err).To(BeNil())
 		Expect(hosts).To(HaveLen(1))
 		h := hosts[0]
@@ -328,7 +328,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("creates a host record for the user", func() {
 			doRequest(params)
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -360,7 +360,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			}`
 			doJsonRequest(jsonStr)
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -383,7 +383,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("creates a keypair associated with that host", func() {
 			doRequest(params)
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -400,7 +400,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("creates a shared secret for the host", func() {
 			doRequest(params)
-			hosts, _ := host.FindAllByUser(db, u)
+			hosts, _ := host.FindAllByUser(db, u.ID)
 
 			Expect(hosts[0].Secret).NotTo(BeEmpty())
 			req := rt.Requests[0]
@@ -411,7 +411,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("creates a cert associated with that host", func() {
 			doRequest(params)
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			crt, err := cert.Find(db, hosts[0].ID)
@@ -429,7 +429,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := json.Unmarshal([]byte(req.FormValue("config")), &config)
 			Expect(err).To(BeNil())
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].FreighterdVersion).ToNot(BeEmpty())
@@ -442,7 +442,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			doRequest(params)
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			vol, err := volume.Find(db, hosts[0].ID, "shared")
@@ -496,7 +496,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}
 			}
 
-			hosts, _ := host.FindAllByUser(db, u)
+			hosts, _ := host.FindAllByUser(db, u.ID)
 			Expect(j.Host.ID).To(Equal(hosts[0].ID))
 			Expect(j.Host.UserID).To(Equal(u.ID))
 			Expect(j.Host.RegionID).To(Equal(hs.R.ID))
@@ -519,7 +519,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			doRequest(params)
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			h := hosts[0]
@@ -571,7 +571,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 
@@ -587,7 +587,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			params.Set("name", "Rails-Host")
 			doRequest(params)
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].Slug).To(HavePrefix("rails-host"))
@@ -609,7 +609,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ProviderTemplateID).To(Equal(hs.PT.ID))
@@ -632,7 +632,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			hosts, err := host.FindAllByUser(db, u)
+			hosts, err := host.FindAllByUser(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ProviderTemplateID).To(Equal(pt2.ID))
@@ -652,7 +652,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			params.Set("template_name", "usw2-huge-disabled")
 			doRequest(params)
 
-			hosts, _ := host.FindAllByUser(db, u)
+			hosts, _ := host.FindAllByUser(db, u.ID)
 			Expect(hosts).To(HaveLen(1))
 			Expect(hosts[0].ProviderTemplateID).To(Equal(stack.PT.ID))
 			Expect(hosts[0].RegionID).To(Equal(stack.R.ID), "failed to override supplied region")
@@ -750,7 +750,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusAccepted))
 
 				Eventually(func() (string, error) {
-					hosts, err := host.FindAllByUser(db, u)
+					hosts, err := host.FindAllByUser(db, u.ID)
 					if err != nil {
 						return "", err
 					}
@@ -760,7 +760,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				}).Should(Equal(host.StateRunning))
 
 				Eventually(func() (string, error) {
-					hosts, err := host.FindAllByUser(db, u)
+					hosts, err := host.FindAllByUser(db, u.ID)
 					if err != nil {
 						return "", err
 					}
@@ -788,7 +788,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				case <-time.After(100 * time.Millisecond):
 					Fail("timeout while waiting for EventHostCreated")
 				case <-finished:
-					hosts, err := host.FindAllByUser(db, u)
+					hosts, err := host.FindAllByUser(db, u.ID)
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 					h := hosts[0]

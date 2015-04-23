@@ -78,7 +78,7 @@ func init() {
 }
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	hosts, err := host.FindAllByUser(env.DB, env.User)
+	hosts, err := host.FindAllByUser(env.DB, env.User.ID)
 	if err != nil {
 		return err
 	}
