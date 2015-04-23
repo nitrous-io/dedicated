@@ -17,16 +17,15 @@ const (
 )
 
 var (
-	logr             *logger.Logger
-	timeBetweenStops time.Duration = time.Minute
+	logr          *logger.Logger
+	checkInterval time.Duration = 5 * time.Second
 )
 
 func main() {
 	var wg sync.WaitGroup
 
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
-	hostsCh := make(chan *host.Host)
-	logr.Infof("starting hosts shutdown, %d workers", nWorkers)
+	logr.Infof("starting host shutdown service with %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
@@ -36,11 +35,13 @@ func main() {
 		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
 	}
 
+	hostsCh := make(chan *host.Host)
 	for i := 0; i < nWorkers; i++ {
-		go controlHostWorker(dbConn, &wg, hostsCh)
+		go worker(dbConn, &wg, hostsCh)
 	}
 
-	for {
+	ticker := time.NewTicker(checkInterval)
+	for _ = range ticker.C {
 		timeStart := time.Now()
 		hosts, err := freetier.ExpiredHosts(dbConn)
 		if err != nil {
@@ -53,14 +54,12 @@ func main() {
 		}
 		wg.Wait()
 		logr.Infof("Stopped %d hosts in %s", len(hosts), time.Since(timeStart))
-
-		toSleep := time.Since(timeStart) - timeBetweenStops
-		time.Sleep(toSleep) // doesn't sleep if toSleep < 0
 	}
 }
 
-func controlHostWorker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
+func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 	for h := range ch {
+		logr.Infof("worker: received host %d", h.ID)
 		controlHost(dbConn, h)
 		wg.Done()
 	}
