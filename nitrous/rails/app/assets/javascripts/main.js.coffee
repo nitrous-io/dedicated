@@ -223,6 +223,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @set 'fiveMinWarned', false
   ).observes 'hosts.firstObject.lastRunningAt'
 
+  reloadEligiblePlans: (->
+    @get('eligiblePlans')?.reload()
+  ).observes 'billingProfile.state'
+
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 
   # TODO: Get this logic from server
