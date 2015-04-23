@@ -28,6 +28,7 @@ form autocomplete='on' submit='save'
       .notice-text
         p
           i.fa.fa-info-circle
+          '
           | Upgrading to a paid plan will remove the daily usage limit and allow you to use the desktop app.
 
     .ui.input-group
