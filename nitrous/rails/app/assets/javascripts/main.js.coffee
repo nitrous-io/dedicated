@@ -292,8 +292,10 @@ App.on 'fetchUser', (user) ->
   App.refreshInvoices()
   App.loadSettings()
 
-  App.set 'eventsSocket', socket = App.EventMessageHandler.create()
-  socket.connect()
+  # make sure that we only set eventsSocket once
+  unless App.get 'eventsSocket'
+    App.set 'eventsSocket', socket = App.EventMessageHandler.create()
+    socket.connect()
 
 App.loadSettings = ->
   headers = {}
