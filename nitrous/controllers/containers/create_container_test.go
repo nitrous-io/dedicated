@@ -112,6 +112,9 @@ var _ = Describe("CreateContainer", func() {
 			Image:   "elixir",
 			ImageID: "abc123",
 		}
+
+		_, err = db.Exec(`ALTER SEQUENCE containers_slug_seq RESTART WITH 10000;`)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
