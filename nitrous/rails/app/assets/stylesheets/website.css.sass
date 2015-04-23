@@ -1564,7 +1564,7 @@ h4 + .box-wrapper
 
   .pricing-container
     position: relative
-    padding-bottom: 80px
+    padding-bottom: 60px
     +clearFix
 
     & + p
@@ -1704,11 +1704,61 @@ h4 + .box-wrapper
         border-color: #0099ED
         *, strong
           color: #FFF
+    
+
+    .horizontal
+      width: 940px
+      margin: 40px auto 0 auto
+      padding: 16px 20px 16px 20px
+      border-radius: 4px !important
+      
+      .title, .details
+        float: left
+        line-height: 40px
+        font-size: 15px
+
+      .title
+        margin-right: 20px
+        font-size: 16px
+
+      .details
+        margin: 0 8px 0 6px
+
+        strong
+          font-size: inherit
+
+        .fa
+          color: #A5B3BE
+          padding-right: 8px
+
+        &:nth-child(odd)
+          background: transparent !important
+
+
+      .btn.blue
+        width: 90px
+        float: right
+        margin: 0 10px
+        background: transparent
+        color: #A5B3BE
+        border: 1px solid #A5B3BE
+
+
+      &.active
+        transform: scale(1)
+
+        .btn.blue
+          border: 1px solid transparent
+
+        .fa
+          color: #FFF
 
 
   .paid, .selectable
     +transition(.2s ease-out)
     +webkitFix
+
+
 
 
 
