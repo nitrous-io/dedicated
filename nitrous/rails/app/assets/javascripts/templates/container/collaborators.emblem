@@ -4,6 +4,7 @@
     unless hasRecords
       .notice-text
         i.fa.fa-info-circle
+        '
         | Collaborators can work with you in real-time in the IDE and have full console access.
 
 

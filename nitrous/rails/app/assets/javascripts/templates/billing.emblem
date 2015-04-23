@@ -37,8 +37,8 @@ if App.billingUsage
     if App.billingProfile.exempt
       .notice-text
         i.fa.fa-info
-          '
-          | You are using a payment exempt Nitrous account. The charges below are for informational purposes only.
+        '
+        | You are using a payment exempt Nitrous account. The charges below are for informational purposes only.
     .invoice-item
       table.ui.table.horizontal
         tbody
@@ -77,8 +77,8 @@ if App.billingUsage
     if App.billingProfile.exempt
       .notice-text
         i.fa.fa-info
-          '
-          | You are using a payment exempt Nitrous account. The invoices below are for informational purposes only.
+        '
+        | You are using a payment exempt Nitrous account. The invoices below are for informational purposes only.
   else
     p.hint-text
       i.fa.fa-exclamation-circle

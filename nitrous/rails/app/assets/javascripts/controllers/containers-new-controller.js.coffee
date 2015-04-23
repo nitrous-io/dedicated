@@ -13,7 +13,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   image: null
   privileged: false
-  saving: false
+  savingBinding: 'App.containerSaving'
   pullingImage: false
   createdContainer: null
   openingIDE: false

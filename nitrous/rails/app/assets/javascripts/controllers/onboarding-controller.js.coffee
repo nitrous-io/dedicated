@@ -81,7 +81,7 @@ App.OnboardingController = Em.ObjectController.extend
         return if (@screen == 'welcome') || (url.indexOf('runCreate') != -1)
         screen = 'pick-container'
       if url.indexOf('workspaces/new') != -1
-        return if (@screen == 'thank-you')
+        return if (@screen == 'thank-you') || App.get('hostSaving')
         screen = 'select-region'
       if url.indexOf('workspaces/add-card') != -1
         screen = 'cardholders-name'

@@ -42,8 +42,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   eventsSocket: null
 
+  hostSaving: false
   pendingHost: null
 
+  containerSaving: false
   pendingContainerData: null
 
   onboardingScreen: null
@@ -239,7 +241,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
     return true
 
-  ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active', 
+  ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
   logout: (cb) ->

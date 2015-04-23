@@ -688,7 +688,7 @@ var _ = Describe("models/user", func() {
 				{"123456", nil},
 				{"fQ@*($&($()ZXv897ua]oo", nil},
 				{"ffffffffffffffffffffffffffffff", nil},
-				{"fffffffffffffffffffffffffffffff", user.ErrPasswordTooLong},
+				{"fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", user.ErrPasswordTooLong},
 			}
 
 			for _, t := range tests {

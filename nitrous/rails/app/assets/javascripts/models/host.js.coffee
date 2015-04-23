@@ -22,7 +22,6 @@ App.Host = klass = App.Model.extend
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
   upgradeAvailable: attr(as: 'upgrade_available', serialize: false)
-  supportsStopStart: attr('boolean', as: 'supports_stop_start', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')

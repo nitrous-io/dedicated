@@ -115,11 +115,7 @@
 
       else
         button.ui.btn click='restart' Restart
-
-        if supportsStopStart
-          button.ui.btn click='stop' Stop
-        else
-          button.ui.btn click='showTerminateDialog target="view"' Terminate...
+        button.ui.btn click='stop' Stop
     .right
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
 
@@ -140,16 +136,10 @@
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start
           else
-            if supportsStopStart
-              .left
-                button.ui.btn click='showTerminateDialog target="view"' Terminate...
-              .right
-                button.ui.btn.primary click='start' Start
-            else
-              .left
-                button.ui.btn disabled='disabled'
-                  i.spinner
-                  | Please Wait...
+            .left
+              button.ui.btn click='showTerminateDialog target="view"' Terminate...
+            .right
+              button.ui.btn.primary click='start' Start
         else
           .left
             button.ui.btn disabled='disabled'

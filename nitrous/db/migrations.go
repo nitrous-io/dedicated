@@ -1104,5 +1104,25 @@ func init() {
 				ALTER TABLE plans ADD COLUMN paid_plan_id bigint DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "943",
+			Up: `
+				CREATE INDEX index_containers_on_host_id ON containers USING btree (host_id);
+			`,
+		},
+		{
+			Version: "950",
+			Up: `
+				ALTER TABLE free_queue ADD COLUMN deleted_at timestamp without time zone DEFAULT NULL;
+				DROP INDEX index_free_queue_on_user_id;
+				CREATE UNIQUE INDEX index_free_queue_on_user_id ON free_queue USING btree (user_id) WHERE deleted_at IS NULL;
+			`,
+		},
+		{
+			Version: "960",
+			Up: `
+				ALTER TABLE provider_templates DROP COLUMN supports_start_stop;
+			`,
+		},
 	}
 }

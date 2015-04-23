@@ -9,7 +9,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   error: null
   invalidField: null
   host: null
-  saving: false
+  savingBinding: 'App.hostSaving'
   bypassPreprovision: false
   templateName: null
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'

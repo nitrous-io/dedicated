@@ -10,11 +10,13 @@ App.FreeTierController = Em.ObjectController.extend
     else
       App.FreeQueue.load().then =>
         @_redirect()
+      , =>
+        @transitionToRoute 'home.index'
 
   _redirect: ->
     fq = App.get "freeQueue"
     unless fq
-      @transitionToRoute 'home'
+      @transitionToRoute 'home.index'
       return
 
     if fq.get("state") != "approved"
