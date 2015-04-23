@@ -37,6 +37,8 @@ var nsStack []string = []string{}
 var (
 	defaultStopTimeout = 15 * time.Minute
 	defaultKillTimeout = 1 * time.Minute
+	// to prevent over-filling log file, we shorten how much of the response we log
+	maxLoggedResponseLen = 120
 )
 
 type Server struct {
@@ -237,7 +239,11 @@ func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
 	w.WriteHeader(status)
 	w.Write(data)
 	uuid := w.Header().Get(constants.NitrousUUIDHeader)
-	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
+	str := string(data)
+	if len(str) > maxLoggedResponseLen {
+		str = str[:maxLoggedResponseLen] + "..."
+	}
+	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, str)
 }
 
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
