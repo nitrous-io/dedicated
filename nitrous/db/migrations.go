@@ -1118,5 +1118,11 @@ func init() {
 				CREATE UNIQUE INDEX index_free_queue_on_user_id ON free_queue USING btree (user_id) WHERE deleted_at IS NULL;
 			`,
 		},
+		{
+			Version: "960",
+			Up: `
+				ALTER TABLE provider_templates DROP COLUMN supports_start_stop;
+			`,
+		},
 	}
 }

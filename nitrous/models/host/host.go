@@ -29,9 +29,8 @@ var (
 )
 
 type ProviderTemplate struct {
-	Provider          string        `db:"provider"`
-	SupportsStopStart bool          `db:"supports_start_stop"`
-	Config            hstore.Hstore `db:"config"`
+	Provider string        `db:"provider"`
+	Config   hstore.Hstore `db:"config"`
 }
 
 const (
@@ -174,14 +173,14 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.user_id = $1 AND hosts.slug = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.user_id = $1 AND hosts.id = $2
@@ -203,7 +202,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
@@ -212,7 +211,7 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
@@ -238,14 +237,14 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.slug = $1
 			AND terminated_at IS NULL;`, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.supports_start_stop, pt.config
+			`SELECT hosts.*, pt.provider, pt.config
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			WHERE hosts.id = $1
