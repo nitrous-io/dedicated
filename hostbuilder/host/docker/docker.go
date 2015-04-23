@@ -343,6 +343,26 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	return host, nil
 }
 
+func (h *Host) start() (*host.Info, error) {
+	binds := []string{
+		fmt.Sprintf("%s:/freighterd", h.FreighterdLocation),
+	}
+	if h.DockerLocation != "" {
+		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
+	}
+	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
+		Privileged:      true,
+		PublishAllPorts: true,
+		Binds:           binds,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return h.Info()
+}
+
 func (h *Host) updateConfigFile(container *dockerclient.Container, w io.Writer) error {
 	cfg := &configFile{}
 
