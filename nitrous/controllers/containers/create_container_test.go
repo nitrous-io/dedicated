@@ -209,6 +209,38 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(res.Container, c)
 	})
 
+	FIt("attempts multiple times to avoid taken slugs", func() {
+		c := &container.Container{
+			UserID: hs.U.ID,
+			HostID: hs.H.ID,
+			Image:  "nitrous-base",
+			Slug:   "ubuntu-1234",
+		}
+		err := c.Insert(db)
+		Expect(err).To(BeNil())
+
+		attempts := 0
+		fn := func(n string) string {
+			attempts++
+			if attempts < 2 {
+				return c.Slug
+			} else {
+				return "unique-slug"
+			}
+		}
+		oldBuilder := slugbuilder.Builder
+		slugbuilder.Builder = fn
+		defer func() { slugbuilder.Builder = oldBuilder }()
+
+		_, err = containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		cn, err := container.Find(db, hs.U, "unique-slug")
+		Expect(err).To(BeNil())
+		Expect(cn.ID).To(Equal(c.ID))
+		Expect(attempts).To(Equal(2))
+	})
+
 	It("updates the user to set first_time as FALSE", func() {
 		_, err := db.Exec("UPDATE users SET first_time = TRUE WHERE id = $1", env.User.ID)
 		Expect(err).To(BeNil())
