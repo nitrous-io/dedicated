@@ -1,5 +1,5 @@
 .card-header.bordered
-  h2 You're in the Queue
+  h2 Status
 
 .card-body.centered
   
@@ -24,10 +24,13 @@
 
   .content-wrapper
     h2
-      | Your free cloud machine is almost ready!
+      | You have been added to the free waitlist!
+
+    p
+      | There are more than 1000 people ahead of you&hellip; thank you for being patient!
 
     p.bigger
-      | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform. Please tweet and share your excitement — if we notice good use cases, we are more likely to bump you up in line!
+      | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform. Please tweet and share your excitement — good use cases are more likely to be prioritized!
 
     a.circle.tweet href="https://twitter.com/intent/tweet?text=I%E2%80%99m%20ditching%20localhost%20for%20the%20cloud%2C%20signup%20for%20%40nitrousio%20today!" target="_blank"
       i.fa.fa-twitter
