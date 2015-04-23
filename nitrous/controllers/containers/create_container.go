@@ -94,6 +94,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
 	if err != nil {
 		log.Errorf("Failed to get next value of container slug sequense")
+		return nil, err
 	}
 	slug := slugbuilder.BuildWithNumber(name, containerSequence)
 
