@@ -69,7 +69,6 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 	}
 
-	slug := slugbuilder.Build(options.Get("name"))
 	name := options.Get("name")
 	imageSlug := options.Get("image")
 	templateSlug := options.Get("template")
@@ -78,7 +77,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		imageSlug = controllers.DefaultImage
 	}
 
-	if slug == "" {
+	if name == "" {
 		return nil, errNameRequired
 	}
 
@@ -90,6 +89,14 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	if err != nil {
 		return nil, err
 	}
+
+	var containerSequence int
+	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
+	if err != nil {
+		log.Errorf("Failed to get next value of container slug sequense")
+		return nil, err
+	}
+	slug := slugbuilder.BuildWithNumber(name, containerSequence)
 
 	cn := &container.Container{
 		UserID: env.User.ID,

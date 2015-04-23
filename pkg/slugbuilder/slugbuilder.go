@@ -36,11 +36,26 @@ func Build(n string) string {
 	n = strings.ToLower(n)
 	n = nonAlphaNumericsRegex.ReplaceAllString(n, "-")
 	slug := fmt.Sprintf("%s-%v", n, random(1000, 9999))
-	slug = repeatedDashesRegex.ReplaceAllString(slug, "-")
-	return dashesAtStartOrEndRegex.ReplaceAllString(slug, "")
+	return sanitize(slug)
+}
+
+func BuildWithNumber(n string, number int) string {
+	if len(n) == 0 {
+		return ""
+	}
+
+	n = strings.ToLower(n)
+	n = nonAlphaNumericsRegex.ReplaceAllString(n, "-")
+	slug := fmt.Sprintf("%s-%v", n, number)
+	return sanitize(slug)
 }
 
 // IsValid is intended to be used as a test helper
 func IsValid(slug string) bool {
 	return validSlugRegex.MatchString(slug)
+}
+
+func sanitize(slug string) string {
+	slug = repeatedDashesRegex.ReplaceAllString(slug, "-")
+	return dashesAtStartOrEndRegex.ReplaceAllString(slug, "")
 }
