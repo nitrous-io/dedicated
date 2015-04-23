@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -19,6 +20,7 @@ var (
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 	ErrPhoneAuthRequired  = errors.New("phone authentication required")
 	ErrFreeQueueRequired  = errors.New("free tier workspace must join queue and cannot be created immediately")
+	ErrFreeQueueAwaiting  = errors.New("user is awaiting in free queue to be approved")
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
@@ -152,8 +154,21 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 			return err
 		}
 
-		// All free tier create hosts requests are added to a queue.
-		return ErrFreeQueueRequired
+		fq, err := freequeue.Find(d, u.ID)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return err
+			} else {
+				// User is not in free queue
+				return ErrFreeQueueRequired
+			}
+
+		} else if fq.State != freequeue.StateApproved {
+			return ErrFreeQueueAwaiting
+		} else {
+			// user is approved to create freetier host
+			return nil
+		}
 
 	} else {
 		// Paid users cannot create hosts with free plan. Doesn't apply to admin

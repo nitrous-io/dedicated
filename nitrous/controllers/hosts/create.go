@@ -125,30 +125,23 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		switch err {
 		case freetier.ErrFreeQueueRequired:
-			fq, err := freequeue.Find(db, u.ID)
-			if err != nil {
-				if err != sql.ErrNoRows {
-					return err
-				}
-
-				// Add host and container to free queue.
-				fq := &freequeue.FreeQueue{
-					UserID:                u.ID,
-					ContainerTemplateSlug: options.ContainerTemplateSlug,
-					ContainerName:         options.ContainerName,
-					HostName:              options.Name,
-					RegionSlug:            reg.Slug,
-				}
-
-				if err := fq.Insert(db); err != nil {
-					return err
-				}
-
-				return errFreeQueueRequired
-
-			} else if fq.State != freequeue.StateApproved {
-				return errFreeQueueExists
+			// Add host and container to free queue.
+			fq := &freequeue.FreeQueue{
+				UserID:                u.ID,
+				ContainerTemplateSlug: options.ContainerTemplateSlug,
+				ContainerName:         options.ContainerName,
+				HostName:              options.Name,
+				RegionSlug:            reg.Slug,
 			}
+
+			if err := fq.Insert(db); err != nil {
+				return err
+			}
+
+			return errFreeQueueRequired
+
+		case freetier.ErrFreeQueueAwaiting:
+			return errFreeQueueExists
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed
 		case freetier.ErrPaidPlanNotAllowed:
