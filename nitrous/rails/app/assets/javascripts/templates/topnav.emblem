@@ -98,7 +98,7 @@
             link-to 'logout' | Log Out
     else
       li
-        link-to 'pricing' | Pricing
+        a href='/pricing' Pricing
       li
         a href='http://docs.nitrous.io/' target='_blank' Documentation
       li.primary
