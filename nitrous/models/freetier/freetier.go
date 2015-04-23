@@ -93,18 +93,38 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 
 	if bp.IsFreeTier() {
 		err := CreateFreeTierHostAllowed(d, u)
+		if err != nil {
+			switch err {
+			case ErrPhoneAuthRequired:
+				// return all plans if user is just registered
+				// and have not verify phone number
+				return plan.AllPlansForProvider(d, provider)
+
+			case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+				// return paid plans if user already created free host
+				// or if user is not in free tier
+				return plan.PaidPlansForProvider(d, provider)
+			}
+		}
+
+		err = freequeue.UserApproved(d, u)
 		switch err {
-		case nil, ErrPhoneAuthRequired:
-			return plan.AllPlansForProvider(d, provider)
-		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+		case nil, freequeue.ErrFreeQueueAwaiting:
+			// return paid plans if user is approved or already awaiting,
 			return plan.PaidPlansForProvider(d, provider)
-		default:
-			return nil, err
+
+		case freequeue.ErrFreeQueueRequired:
+			// return all plans if user is not yet enqueue
+			return plan.AllPlansForProvider(d, provider)
 		}
 
 	} else {
+		// return only paid plans for non-free-tier user
 		return plan.PaidPlansForProvider(d, provider)
 	}
+
+	// return only paid plans if there is any unexpected errors
+	return plan.PaidPlansForProvider(d, provider)
 }
 
 // Checks whether a user of given billing profile can create new free tier host.
