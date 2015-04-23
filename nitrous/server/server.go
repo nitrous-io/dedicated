@@ -157,7 +157,7 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 			RemoteAddr:  middleware.GetRemoteAddr(r),
 		}, w, r)
 		if err != nil {
-			s.HandleError(w, err)
+			s.HandleError(w, r, err)
 		}
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
@@ -183,15 +183,15 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			UUID:        uuidStr,
 		}
 		if err := mw(env, w, r); err != nil {
-			s.HandleError(w, err)
+			s.HandleError(w, r, err)
 			return
 		}
 		if env.Status == 0 || env.Data == nil {
-			s.HandleError(w, errors.New("Status and/or Data not set"))
+			s.HandleError(w, r, errors.New("Status and/or Data not set"))
 			return
 		}
 
-		s.RespondEncodeJSON(w, env.Status, env.Data)
+		s.RespondEncodeJSON(w, r, env.Status, env.Data)
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
@@ -210,7 +210,7 @@ func (s *Server) static(prefix string, dir string) {
 		}
 		_, err := os.Stat(path.Join(s.root, dir, rpath))
 		if os.IsNotExist(err) {
-			s.RespondJSON(w, http.StatusNotFound, jsonNotFound)
+			s.RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
 			return
 		}
 		s.logger.Infof("Static asset: %v", r.URL.Path)
@@ -221,7 +221,7 @@ func (s *Server) static(prefix string, dir string) {
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
-func (s *Server) HandleError(w http.ResponseWriter, err error) {
+func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		e = s.serverError(err).(*httperror.Error)
@@ -230,29 +230,33 @@ func (s *Server) HandleError(w http.ResponseWriter, err error) {
 	if err != nil {
 		j = []byte(`{"error":"internal_server_error"}`)
 	}
-	s.RespondJSON(w, e.Code, j)
+	s.RespondJSON(w, r, e.Code, j)
 }
 
-func (s *Server) RespondJSON(w http.ResponseWriter, status int, data []byte) {
+func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
 	w.Write(data)
 	uuid := w.Header().Get(constants.NitrousUUIDHeader)
+
 	str := string(data)
 	if len(str) > maxLoggedResponseLen {
-		str = str[:maxLoggedResponseLen] + "..."
+		shouldTruncate := strings.Contains(r.URL.Path, "/admin/")
+		if shouldTruncate {
+			str = fmt.Sprintf("TRUNC (from: %d) %s...", len(str), str[:maxLoggedResponseLen])
+		}
 	}
 	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, str)
 }
 
-func (s *Server) RespondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
+func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.HandleError(w, err)
+		s.HandleError(w, r, err)
 		return
 	}
-	s.RespondJSON(w, status, j)
+	s.RespondJSON(w, r, status, j)
 }
 
 // This is called when the error is not a *httperror.Error*, i.e. there's
