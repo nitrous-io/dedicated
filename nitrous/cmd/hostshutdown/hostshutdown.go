@@ -1,6 +1,9 @@
 package main
 
 import (
+	"sync"
+	"time"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -9,36 +12,61 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-var (
-	logr *logger.Logger
+const (
+	nWorkers = 4
 )
 
-func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
-}
+var (
+	logr          *logger.Logger
+	checkInterval time.Duration = 5 * time.Second
+)
 
 func main() {
+	var wg sync.WaitGroup
+
+	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logr.Infof("starting host shutdown service with %d workers", nWorkers)
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
 	}
 
-	hosts, err := freetier.ExpiredHosts(dbConn)
-	if err != nil {
-		logr.FatalExit(err)
+	hostsCh := make(chan *host.Host)
+	for i := 0; i < nWorkers; i++ {
+		go worker(dbConn, &wg, hostsCh)
 	}
 
-	for _, hst := range hosts {
-		controlHost(dbConn, hst)
+	ticker := time.NewTicker(checkInterval)
+	for _ = range ticker.C {
+		timeStart := time.Now()
+		hosts, err := freetier.ExpiredHosts(dbConn)
+		if err != nil {
+			logr.FatalfExit("freetier.ExpiredHosts() failed with '%s'", err)
+		}
+
+		for _, hst := range hosts {
+			wg.Add(1)
+			hostsCh <- hst
+		}
+		wg.Wait()
+		logr.Infof("Stopped %d hosts in %s", len(hosts), time.Since(timeStart))
 	}
 }
 
-func controlHost(d *db.Database, hst *host.Host) {
-	tx, err := d.Beginx()
+func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
+	for h := range ch {
+		logr.Infof("worker: received host %d", h.ID)
+		controlHost(dbConn, h)
+		wg.Done()
+	}
+}
+
+func controlHost(dbConn *db.Database, hst *host.Host) {
+	tx, err := dbConn.Beginx()
 	if err != nil {
 		logr.Errorf("Unable to start transaction, err: %v", err)
 		return
@@ -56,10 +84,11 @@ func controlHost(d *db.Database, hst *host.Host) {
 	}
 
 	logr.Infof("Starting shut down on host %d for user %d", hst.ID, hst.UserID)
-	err = hostcontrol.Stop(d, logr, hst, nil)
+	timeStart := time.Now()
+	err = hostcontrol.Stop(dbConn, logr, hst, nil)
 	if err != nil {
 		logr.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 		return
 	}
-	logr.Infof("Successfully shut down host %d for user %d", hst.ID, hst.UserID)
+	logr.Infof("Successfully shut down host %d for user %d in %s", hst.ID, hst.UserID, time.Since(timeStart))
 }
