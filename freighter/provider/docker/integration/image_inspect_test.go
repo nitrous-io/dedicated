@@ -68,8 +68,9 @@ var _ = Describe("InspectImage", func() {
 		Expect(err).To(MatchError(provider.ErrImageNotFound))
 	})
 
-	It("should fetch the latest image information from official repository", func() {
-		img, _ := prov.InspectImage("library/hello-world:latest", true)
+	PIt("should fetch the latest image information from official repository", func() {
+		img, err := prov.InspectImage("library/hello-world:latest", true)
+		Expect(err).To(BeNil())
 		Expect(img).ToNot(BeNil())
 		Expect(img.ID).ToNot(BeEmpty())
 		Expect(img.Tag).To(Equal("latest"))
