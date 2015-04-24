@@ -1,14 +1,15 @@
 package hostbuilderclient
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/httpclient"
@@ -25,38 +26,26 @@ func NewHostbuilder(url string) *Hostbuilder {
 	client := httpclient.New("")
 	tr := &http.Transport{
 		DisableKeepAlives: true,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: false},
+		Dial: (&net.Dialer{
+			// Max time for dial to complete (not the entire HTTP request).
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
 	}
 	client.Client.Transport = tr
+	// No HTTP request to hostbuilder should take longer than this.
+	client.Client.Timeout = 10 * time.Minute
 	return &Hostbuilder{URL: url, Client: client}
 }
 
-func appendURLArgs(endpoint string, urlArgs map[string]string) string {
-	if len(urlArgs) == 0 {
-		return endpoint
-	}
-	p := url.Values{}
-	n := 0
-	for k, v := range urlArgs {
-		if v != "" {
-			p.Set(k, v)
-			n++
-		}
-	}
-	if n > 0 {
-		endpoint += "?" + p.Encode()
-	}
-	return endpoint
-}
-
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	var endpoint string
 	if path == "" {
 		endpoint = hb.URL + "/hosts"
 	} else {
 		endpoint = hb.URL + "/hosts/" + path
 	}
-	endpoint = appendURLArgs(endpoint, urlArgs)
+	endpoint += "?" + urlArgs.Encode()
 
 	p := url.Values{}
 	p.Set("provider", provider)
@@ -67,13 +56,7 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	p.Set("config", string(cg))
 
-	//TODO: probably we need to timeout the request,
-	//but leaving it out for now, for the sake of simplicity.
-	nHeaders := http.Header{}
-	for k, v := range headers {
-		nHeaders.Set(k, v)
-	}
-	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, nHeaders)
+	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, headers)
 	if err != nil {
 		return nil, fmt.Errorf("hostbuilder failed to post: %s, err: %s", endpoint, err)
 	}
@@ -101,29 +84,29 @@ type OperationFn func(provider string, config Config) (*hostbuilder.Response, er
 
 // Create sends POST /hosts request to hostbuilder and stream response back to
 // the provided writer
-func (hb *Hostbuilder) Create(provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Create(provider string, config Config, out io.Writer, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts"
 	return hb.stream(endpoint, provider, config, out, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Update(provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Update(provider string, config Config, out io.Writer, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts/update"
 	return hb.stream(endpoint, provider, config, out, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Delete(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Delete(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	return hb.defaultRequestHandler("delete", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Start(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Start(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	return hb.defaultRequestHandler("start", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Stop(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Stop(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	return hb.defaultRequestHandler("stop", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Restart(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Restart(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	return hb.defaultRequestHandler("restart", provider, config, headers, urlArgs)
 }
 
@@ -155,7 +138,7 @@ func (hb *Hostbuilder) List(provider string) ([]*hostbuilder.Response, error) {
 	return j.Hosts, nil
 }
 
-func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.Writer, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	p := url.Values{}
 	p.Set("provider", provider)
 
@@ -165,15 +148,8 @@ func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.W
 	}
 	p.Set("config", string(cg))
 
-	//TODO: probably we need to timeout the request,
-	//but leaving it out for now, for the sake of simplicity.
-	nHeaders := http.Header{}
-	for k, v := range headers {
-		nHeaders.Set(k, v)
-	}
-
-	endpoint = appendURLArgs(endpoint, urlArgs)
-	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, nHeaders)
+	endpoint += "?" + urlArgs.Encode()
+	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, headers)
 	if err != nil {
 		return nil, err
 	}

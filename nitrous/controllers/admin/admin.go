@@ -3,16 +3,17 @@ package admin
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -36,15 +37,7 @@ var (
 	UpdateHost               = VerifyAdmin(updateHost)
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
-
-func init() {
-	hostbuilderURL := envvars.HostBuilderURL
-	if hostbuilderURL == "" {
-		panic("HOSTBUILDER_URL is not set")
-	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-}
+var HostbuilderClient = provisioner.HostbuilderClient
 
 func switchUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
@@ -148,10 +141,11 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errHostIsNotUnaccounted
 	}
 
-	urlArgs := map[string]string{
-		"uid": "admin",
-	}
-	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID}, urlArgs)
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, env.UUID)
+	urlArgs := url.Values{}
+	urlArgs.Set("uid", "admin")
+	resp, err := HostbuilderClient.Delete(provider, config, headers, urlArgs)
 	if err != nil {
 		return err
 	}

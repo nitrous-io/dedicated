@@ -1854,6 +1854,11 @@ func (rt *FakeRoundTripper) Reset() {
 	rt.requests = nil
 }
 
+func (rt *FakeRoundTripper) CancelRequest(req *http.Request) {
+	// No-op. Satisfy http.Transport.CancelRequest() that's needed when
+	// setting timeout on a http.Client.
+}
+
 // parses base64-encoded auth information string
 func parseRegistryAuth(s string) (dockerclient.AuthConfiguration, error) {
 	a := dockerclient.AuthConfiguration{}

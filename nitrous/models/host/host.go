@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"time"
@@ -408,10 +409,10 @@ func (h *Host) ProxyHostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
 }
 
-func URLArgsFromHost(h *Host) map[string]string {
-	return map[string]string{
-		"id":   fmt.Sprintf("%d", h.ID),
-		"uid":  fmt.Sprintf("%d", h.UserID),
-		"slug": h.Slug,
-	}
+func URLArgsFromHost(h *Host) url.Values {
+	v := url.Values{}
+	v.Set("id", fmt.Sprintf("%d", h.ID))
+	v.Set("uid", fmt.Sprintf("%d", h.UserID))
+	v.Set("slug", h.Slug)
+	return v
 }

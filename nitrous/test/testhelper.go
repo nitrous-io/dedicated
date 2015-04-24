@@ -288,3 +288,8 @@ func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 func (rt *FakeRoundTripper) Reset() {
 	rt.Requests = nil
 }
+
+func (rt *FakeRoundTripper) CancelRequest(req *http.Request) {
+	// No-op. Satisfy http.Transport.CancelRequest() that's needed when
+	// setting timeout on a http.Client.
+}

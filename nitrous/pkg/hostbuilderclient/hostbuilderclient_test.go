@@ -52,16 +52,16 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			{"stream":"finished: create droplet"}
 			{"provider":"digitalocean","id":"some_id","ip_address":"0.0.0.0","freighterd_port":65333}
 			`
-			prepareHandlers("POST", "/hosts", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_GOOD"}})
+			header := http.Header{}
+			header.Set("NITROUS", "IS_GOOD")
+			prepareHandlers("POST", "/hosts", http.StatusOK, response, header)
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			out := bytes.NewBuffer(nil)
 			info, err := hb.Create("digitalocean", hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
-			}, out, map[string]string{
-				"NITROUS": "IS_GOOD",
-			}, nil)
+			}, out, header, nil)
 
 			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
 			Expect(err).To(BeNil(), "unexpected error for POST /hosts")
@@ -81,15 +81,15 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			{"stream":"failed: create droplet"}
 			{"error":"failed to create droplet because of some reason", "provider": "digitalocean"}
 			`
-			prepareHandlers("POST", "/hosts", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
+			header := http.Header{}
+			header.Set("NITROUS", "IS_FAST")
+			prepareHandlers("POST", "/hosts", http.StatusOK, response, header)
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			info, err := hb.Create("digitalocean", hostbuilderclient.Config{
 				"name":        "doublerainbow",
 				"public_keys": []string{"value1", "value2"},
-			}, ioutil.Discard, map[string]string{
-				"NITROUS": "IS_FAST",
-			}, nil)
+			}, ioutil.Discard, header, nil)
 			Expect(err).ToNot(BeNil(), "failed to return error when the build failed")
 			Expect(info).To(Equal(&hostbuilder.Response{
 				Provider: "digitalocean",
@@ -105,15 +105,15 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			{"stream":"finished: renaming host"}
 			{"provider":"digitalocean","id":"some_id","ip_address":"0.0.0.0","freighterd_port":65333}
 			`
-			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_PRETTY"}})
+			header := http.Header{}
+			header.Set("NITROUS", "IS_PRETTY")
+			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, header)
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			out := bytes.NewBuffer(nil)
 			info, err := hb.Update("digitalocean", hostbuilderclient.Config{
 				"name": "doublerainbow",
-			}, out, map[string]string{
-				"NITROUS": "IS_PRETTY",
-			}, nil)
+			}, out, header, nil)
 
 			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
 			Expect(err).To(BeNil())
@@ -132,14 +132,14 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 			{"stream":"failed: renaming host"}
 			{"error":"failed to rename host because reasons", "id": "i-232x"}
 			`
-			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, http.Header{"NITROUS": []string{"IS_FAST"}})
+			header := http.Header{}
+			header.Set("NITROUS", "IS_FAST")
+			prepareHandlers("POST", "/hosts/update", http.StatusOK, response, header)
 			hb = hostbuilderclient.NewHostbuilder(srv.URL())
 
 			info, err := hb.Update("digitalocean", hostbuilderclient.Config{
 				"name": "doublerainbow",
-			}, ioutil.Discard, map[string]string{
-				"NITROUS": "IS_FAST",
-			}, nil)
+			}, ioutil.Discard, header, nil)
 			Expect(err).ToNot(BeNil())
 			Expect(info).To(Equal(&hostbuilder.Response{
 				ID:    "i-232x",
@@ -152,16 +152,18 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
 		doRequest := func() (*hostbuilder.Response, error) {
+			header := http.Header{}
+			header.Set("NITROUS", "IS_CLOUD")
 			return hb.Delete("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
-			}, map[string]string{
-				"NITROUS": "IS_CLOUD",
-			}, nil)
+			}, header, nil)
 		}
 
 		Context("when hostbuilder deletes the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/delete", http.StatusOK, `{"status":"ok"}`, http.Header{"NITROUS": []string{"IS_CLOUD"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_CLOUD")
+				prepareHandlers("POST", "/hosts/delete", http.StatusOK, `{"status":"ok"}`, header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -173,6 +175,8 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 		Context("when hostbuilder fails to delete the host", func() {
 			BeforeEach(func() {
+				header := http.Header{}
+				header.Set("NITROUS", "IS_CLOUD")
 				prepareHandlers("POST", "/hosts/delete", http.StatusBadRequest, "some_error", http.Header{"NITROUS": []string{"IS_CLOUD"}})
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
@@ -188,16 +192,18 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 		var hb *hostbuilderclient.Hostbuilder
 
 		doRequest := func() (*hostbuilder.Response, error) {
+			header := http.Header{}
+			header.Set("NITROUS", "IS_IDE")
 			return hb.Start("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
-			}, map[string]string{
-				"NITROUS": "IS_IDE",
-			}, nil)
+			}, header, nil)
 		}
 
 		Context("when hostbuilder starts the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/start", http.StatusOK, `{"status":"ok"}`, http.Header{"NITROUS": []string{"IS_IDE"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_IDE")
+				prepareHandlers("POST", "/hosts/start", http.StatusOK, `{"status":"ok"}`, header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -209,7 +215,9 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 		Context("when hostbuilder fails to start the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/start", http.StatusBadRequest, "some_error", http.Header{"NITROUS": []string{"IS_IDE"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_IDE")
+				prepareHandlers("POST", "/hosts/start", http.StatusBadRequest, "some_error", header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -222,16 +230,18 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 	Describe("Stop()", func() {
 		doRequest := func() (*hostbuilder.Response, error) {
+			header := http.Header{}
+			header.Set("NITROUS", "IS_SAAS")
 			return hb.Stop("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
-			}, map[string]string{
-				"NITROUS": "IS_SAAS",
-			}, nil)
+			}, header, nil)
 		}
 
 		Context("when hostbuilder stops the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/stop", http.StatusOK, `{"status":"ok"}`, http.Header{"NITROUS": []string{"IS_SAAS"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_SAAS")
+				prepareHandlers("POST", "/hosts/stop", http.StatusOK, `{"status":"ok"}`, header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -243,7 +253,9 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 		Context("when hostbuilder fails to stop the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/stop", http.StatusBadRequest, "some_error", http.Header{"NITROUS": []string{"IS_SAAS"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_SAAS")
+				prepareHandlers("POST", "/hosts/stop", http.StatusBadRequest, "some_error", header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -256,16 +268,18 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 	Describe("Restart()", func() {
 		doRequest := func() (*hostbuilder.Response, error) {
+			header := http.Header{}
+			header.Set("NITROUS", "IS_AJAX")
 			return hb.Restart("digitalocean", hostbuilderclient.Config{
 				"id": "hostid",
-			}, map[string]string{
-				"NITROUS": "IS_AJAX",
-			}, nil)
+			}, header, nil)
 		}
 
 		Context("when hostbuilder restarts the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/restart", http.StatusOK, `{"status":"ok"}`, http.Header{"NITROUS": []string{"IS_AJAX"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_AJAX")
+				prepareHandlers("POST", "/hosts/restart", http.StatusOK, `{"status":"ok"}`, header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
@@ -277,7 +291,9 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 
 		Context("when hostbuilder fails to restart the host", func() {
 			BeforeEach(func() {
-				prepareHandlers("POST", "/hosts/restart", http.StatusBadRequest, "some_error", http.Header{"NITROUS": []string{"IS_AJAX"}})
+				header := http.Header{}
+				header.Set("NITROUS", "IS_AJAX")
+				prepareHandlers("POST", "/hosts/restart", http.StatusBadRequest, "some_error", header)
 				hb = hostbuilderclient.NewHostbuilder(srv.URL())
 			})
 
