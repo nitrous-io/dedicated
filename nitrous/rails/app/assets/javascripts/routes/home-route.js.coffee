@@ -20,3 +20,6 @@ App.HomeRoute = App.AuthedRoute.extend
     downloadDesktopApp: ->
       Mp.track Mp.EventDashboardUserClickedDownloadDesktopApp
       window.open App.get('desktopDownloadUrl'), '_blank'
+
+    upgradePaid: ->
+      @transitionTo 'add-card', queryParams: { upgradingFromFree: true }
