@@ -31,7 +31,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/isarchive"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -49,14 +49,14 @@ var _ = Describe("controllers/images", func() {
 	var (
 		db              *db.Database
 		svr             *server.Server
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
 
 		u  *user.User
 		t  *token.Token
-		hs *HostStack
+		hs *test.HostStack
 	)
 
 	makeDockerfile := func(tmpdir string) string {
@@ -82,20 +82,20 @@ var _ = Describe("controllers/images", func() {
 		var err error
 
 		mockClient = &freighterclient.MockClient{}
-		StubDefaultFreighterFn(mockClient)
+		test.StubDefaultFreighterFn(mockClient)
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
-		authTokenInputs = AuthTokenInputs{Handler: svr.Router()}
+		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		u = &user.User{
 			Username: "foo",
 			Password: "123456",
 			Email:    "foo@example.com",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t = &token.Token{
@@ -105,7 +105,7 @@ var _ = Describe("controllers/images", func() {
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
 
-		hs, err = CreateHostStack(db, &HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
 				Slug:      "foo",
 				IPAddress: sql.NullString{"127.0.0.1", true},
@@ -119,12 +119,12 @@ var _ = Describe("controllers/images", func() {
 		if db != nil {
 			db.Close()
 		}
-		UnstubFreighterFn()
+		test.UnstubFreighterFn()
 	})
 
 	Describe("GET /api/v0/hosts/{slug}/images", func() {
 		doRequest := func(host string, params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images", host), params)
+			req, err := test.NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images", host), params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -182,7 +182,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("should allow the user even if it has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest("foo", nil)
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
@@ -348,13 +348,13 @@ var _ = Describe("controllers/images", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
 	Describe("GET /api/v0/images", func() {
 		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "GET", "/api/v0/images", params)
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/images", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -370,7 +370,7 @@ var _ = Describe("controllers/images", func() {
 		)
 
 		BeforeEach(func() {
-			hs2, err := CreateHostStack(db, &HostStack{
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:      "bar",
 					IPAddress: sql.NullString{"127.0.0.1", true},
@@ -421,9 +421,9 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest(nil)
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("responds with images from the database augmented with data from Freighter", func() {
@@ -521,7 +521,7 @@ var _ = Describe("controllers/images", func() {
 				authTokenInputs.Method = "GET"
 			})
 
-			ItRequiresAuthToken(&authTokenInputs)
+			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
 
@@ -558,13 +558,13 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			params := map[string]string{
 				"slug": "",
 				"code": "FROM scratch",
 			}
 			res := doRequest("foo", params, map[string]io.Reader{})
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("requires slug", func() {
@@ -575,7 +575,7 @@ var _ = Describe("controllers/images", func() {
 			res := doRequest("foo", params, map[string]io.Reader{})
 
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("slug is required"))
 		})
@@ -589,7 +589,7 @@ var _ = Describe("controllers/images", func() {
 			res := doRequest("foo", params, map[string]io.Reader{})
 
 			Expect(mockClient.BuildImageCalled).To(Equal(0))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(ContainSubstring("file is required"))
 		})
@@ -622,7 +622,7 @@ var _ = Describe("controllers/images", func() {
 			res := doRequest("foo", params, nil)
 
 			Expect(mockClient.BuildImageCalled).To(Equal(1))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 
 			// removes image record
@@ -982,7 +982,7 @@ var _ = Describe("controllers/images", func() {
 				res := doRequest("foo", params, nil)
 
 				Expect(mockClient.BuildImageCalled).To(Equal(1))
-				errType, _ := ErrorSlug(res.Body)
+				errType, _ := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
 
 				i2, err := image.Find(db, u, hs.H, "scratcher:mytag")
@@ -1009,7 +1009,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		doRequest := func(host, image string) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
+			req, err := test.NewAuthedRequest(t, "DELETE", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, image), nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -1017,9 +1017,9 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest("foo", "nitrousio/elixir")
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("calls RemoveImage", func() {
@@ -1058,7 +1058,7 @@ var _ = Describe("controllers/images", func() {
 			It("returns HTTP 400", func() {
 				res := doRequest("foo", "nonexistent")
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("image_not_found"))
 				Expect(errDesc).To(Equal("image does not exist"))
 			})
@@ -1072,7 +1072,7 @@ var _ = Describe("controllers/images", func() {
 			It("returns HTTP 400", func() {
 				res := doRequest("foo", "nitrousio/elixir")
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_request"))
 				Expect(errDesc).To(ContainSubstring("image is being used"))
 			})
@@ -1143,7 +1143,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		doRequest := func(host, image string, params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/tag", host, image), params)
+			req, err := test.NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%s/tag", host, image), params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -1151,12 +1151,12 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest("foo", "nitrousio/scratch", &url.Values{
 				"tag":  []string{"staging"},
 				"name": []string{"staging v1 from scratch"},
 			})
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("creates an image record", func() {
@@ -1245,7 +1245,7 @@ var _ = Describe("controllers/images", func() {
 		It("requires tag param", func() {
 			res := doRequest("foo", "dontcare", nil)
 			Expect(mockClient.TagImageCalled).To(Equal(0))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("tag is required"))
 		})
@@ -1263,7 +1263,7 @@ var _ = Describe("controllers/images", func() {
 			mockClient.TagImageError = &freighterclient.StatusError{Code: 418}
 			res := doRequest("foo", "nitrousio/scratch", &url.Values{"tag": []string{"staging"}})
 			Expect(mockClient.TagImageCalled).To(Equal(1))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 		})
 
@@ -1271,7 +1271,7 @@ var _ = Describe("controllers/images", func() {
 			It("returns HTTP 400", func() {
 				res := doRequest("foo", "nonexistent", &url.Values{"tag": []string{"staging"}})
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("image_not_found"))
 				Expect(errDesc).To(Equal("image does not exist"))
 			})
@@ -1280,7 +1280,7 @@ var _ = Describe("controllers/images", func() {
 
 	Describe("GET /api/v0/hosts/{slug}/images/{image}", func() {
 		doRequest := func(host, img string, params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, img), params)
+			req, err := test.NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/hosts/%v/images/%v", host, img), params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -1288,9 +1288,9 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest("foo", "nitrousio/elixir", nil)
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("should inform of not found errors", func() {
@@ -1299,7 +1299,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.InspectImageCalled).To(Equal(1))
 			Expect(mockClient.InspectImageReceivedImage).To(Equal("nitrousio/elixir"))
 			Expect(res.Code).To(Equal(http.StatusNotFound))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("image_not_found"))
 			Expect(errDesc).To(ContainSubstring("image does not exist"))
 		})
@@ -1310,7 +1310,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(mockClient.InspectImageCalled).To(Equal(1))
 			Expect(mockClient.InspectImageReceivedImage).To(Equal("example.com/nitrousio/elixir"))
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(ContainSubstring("you do not have access to this image"))
 		})
@@ -1320,7 +1320,7 @@ var _ = Describe("controllers/images", func() {
 			res := doRequest("foo", "example.com/nitrousio/scratch", nil)
 			Expect(mockClient.InspectImageCalled).To(Equal(1))
 			Expect(mockClient.InspectImageReceivedImage).To(Equal("example.com/nitrousio/scratch"))
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
 		})
 
@@ -1386,7 +1386,7 @@ var _ = Describe("controllers/images", func() {
 		}
 
 		doRequest := func(host string, params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
+			req, err := test.NewAuthedFormRequest(t, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/pull", host), params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -1416,9 +1416,9 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("should block if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			res := doRequest("foo", &url.Values{"repository": []string{"scratch"}})
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("should emit a image pulling event", func() {
