@@ -456,7 +456,8 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	config["apt_location"] = opts.AptLocation
 	config["apt_dist"] = opts.AptDist
 
-	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
+	urlArgs := host.URLArgsFromHost(h)
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	if err != nil {
 		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
@@ -604,7 +605,8 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		return nil, err
 	}
 
-	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
+	urlArgs := host.URLArgsFromHost(h)
+	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	p.logger.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
 
 	if hostinfo != nil {

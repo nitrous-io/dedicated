@@ -211,7 +211,8 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+		urlArgs := host.URLArgsFromHost(h)
+		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 		if err != nil {
 			return err
 		}
@@ -289,7 +290,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
-	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+	urlArgs := host.URLArgsFromHost(h)
+	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
@@ -411,7 +413,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+	urlArgs := host.URLArgsFromHost(h)
+	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.

@@ -31,13 +31,32 @@ func NewHostbuilder(url string) *Hostbuilder {
 	return &Hostbuilder{URL: url, Client: client}
 }
 
-func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config Config, headers map[string]string) (*hostbuilder.Response, error) {
+func appendURLArgs(endpoint string, urlArgs map[string]string) string {
+	if len(urlArgs) == 0 {
+		return endpoint
+	}
+	p := url.Values{}
+	n := 0
+	for k, v := range urlArgs {
+		if v != "" {
+			p.Set(k, v)
+			n++
+		}
+	}
+	if n > 0 {
+		endpoint += "?" + p.Encode()
+	}
+	return endpoint
+}
+
+func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
 	var endpoint string
 	if path == "" {
 		endpoint = hb.URL + "/hosts"
 	} else {
 		endpoint = hb.URL + "/hosts/" + path
 	}
+	endpoint = appendURLArgs(endpoint, urlArgs)
 
 	p := url.Values{}
 	p.Set("provider", provider)
@@ -82,30 +101,30 @@ type OperationFn func(provider string, config Config) (*hostbuilder.Response, er
 
 // Create sends POST /hosts request to hostbuilder and stream response back to
 // the provided writer
-func (hb *Hostbuilder) Create(provider string, config Config, out io.Writer, headers map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Create(provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts"
-	return hb.stream(endpoint, provider, config, out, headers)
+	return hb.stream(endpoint, provider, config, out, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Update(provider string, config Config, out io.Writer, headers map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) Update(provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts/update"
-	return hb.stream(endpoint, provider, config, out, headers)
+	return hb.stream(endpoint, provider, config, out, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Delete(provider string, config Config, headers map[string]string) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("delete", provider, config, headers)
+func (hb *Hostbuilder) Delete(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("delete", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Start(provider string, config Config, headers map[string]string) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("start", provider, config, headers)
+func (hb *Hostbuilder) Start(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("start", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Stop(provider string, config Config, headers map[string]string) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("stop", provider, config, headers)
+func (hb *Hostbuilder) Stop(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("stop", provider, config, headers, urlArgs)
 }
 
-func (hb *Hostbuilder) Restart(provider string, config Config, headers map[string]string) (*hostbuilder.Response, error) {
-	return hb.defaultRequestHandler("restart", provider, config, headers)
+func (hb *Hostbuilder) Restart(provider string, config Config, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("restart", provider, config, headers, urlArgs)
 }
 
 func (hb *Hostbuilder) List(provider string) ([]*hostbuilder.Response, error) {
@@ -136,7 +155,7 @@ func (hb *Hostbuilder) List(provider string) ([]*hostbuilder.Response, error) {
 	return j.Hosts, nil
 }
 
-func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.Writer, headers map[string]string) (*hostbuilder.Response, error) {
+func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.Writer, headers map[string]string, urlArgs map[string]string) (*hostbuilder.Response, error) {
 	p := url.Values{}
 	p.Set("provider", provider)
 
@@ -152,6 +171,8 @@ func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.W
 	for k, v := range headers {
 		nHeaders.Set(k, v)
 	}
+
+	endpoint = appendURLArgs(endpoint, urlArgs)
 	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, nHeaders)
 	if err != nil {
 		return nil, err

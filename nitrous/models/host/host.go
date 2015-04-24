@@ -407,3 +407,11 @@ func (h *Host) CertHostname() string {
 func (h *Host) ProxyHostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
 }
+
+func URLArgsFromHost(h *Host) map[string]string {
+	return map[string]string{
+		"id":   fmt.Sprintf("%d", h.ID),
+		"uid":  fmt.Sprintf("%d", h.UserID),
+		"slug": h.Slug,
+	}
+}

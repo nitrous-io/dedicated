@@ -148,7 +148,10 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errHostIsNotUnaccounted
 	}
 
-	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID})
+	urlArgs := map[string]string{
+		"uid": "admin",
+	}
+	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID}, urlArgs)
 	if err != nil {
 		return err
 	}
