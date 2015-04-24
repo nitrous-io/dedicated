@@ -28,34 +28,23 @@ var (
 	logr           *logger.Logger
 	providerToSeed string
 
+	amazonPlanConfig = `{
+		"source_ami": "ami-8b6450bb",
+		"instance_type": "t2.micro",
+		"region_id": "us-west-2",
+		"storage_size": "8",
+		"security_group_id": "sg-491c282c",
+		"subnet_id": "subnet-3e0e045c"
+	}`
+
 	// default configuration for amazon provider
 	// FIXME: replace this with proper configuration once the AMIs/security
 	// groups for all supported regions are in place
 	amazonRegionConfig = map[string]string{
-		"1gb": `{
-			"source_ami": "ami-030f2333",
-			"instance_type": "t2.micro",
-			"region_id": "us-west-2",
-			"storage_size": "8",
-			"security_group_id": "sg-491c282c",
-			"subnet_id": "subnet-3e0e045c"
-		}`,
-		"2gb": `{
-			"source_ami": "ami-030f2333",
-			"instance_type": "t2.micro",
-			"region_id": "us-west-2",
-			"storage_size": "8",
-			"security_group_id": "sg-491c282c",
-			"subnet_id": "subnet-3e0e045c"
-		}`,
-		"4gb": `{
-			"source_ami": "ami-030f2333",
-			"instance_type": "t2.micro",
-			"region_id": "us-west-2",
-			"storage_size": "8",
-			"security_group_id": "sg-491c282c",
-			"subnet_id": "subnet-3e0e045c"
-		}`,
+		"free": amazonPlanConfig,
+		"1gb":  amazonPlanConfig,
+		"2gb":  amazonPlanConfig,
+		"4gb":  amazonPlanConfig,
 	}
 
 	// Point every region to use us-west-2 in dev
