@@ -13,6 +13,20 @@
   javascript:
     pages.Home.init();
 
+
+.notice-banner
+  .container
+    p
+      ' The original Nitrous.io is now called
+      strong Nitrous Lite
+      ' . If you were a Nitrous.io user
+      strong before April 22nd
+      | , you can 
+      a.btn.blue-outline href="https://lite.nitrous.io/users/sign_in" 
+        | Log In
+
+    a href="#" class="close" &times;
+
 .page
   .hero
     .container
@@ -32,15 +46,17 @@
         .inner
 
 
-  .notice
+  .notice.dark
     .container
       p
-        a href='https://lite.nitrous.io'
-          span.free Note
-          ' Looking for the original Nitrous? It is now called
+        a href='http://blog.nitrous.io/2015/04/23/nitrous-pro-faq.html'
+          span.free News
+          ' The original 
+          strong Nitrous.io
+          '  is now called
           strong Nitrous Lite
           ' , and will be sunset on July 1, 2015
-          span.link Go to Nitrous Lite
+          span.link Learn more
           i.fa.fa-chevron-right
 
   article.featurette.ide.attached-bottom
