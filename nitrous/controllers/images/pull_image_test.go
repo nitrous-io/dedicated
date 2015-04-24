@@ -31,16 +31,11 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/test"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/flusher"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func init() {
-	cert.KeyLen = 512
-}
 
 var _ = Describe("controllers/images/pull", func() {
 	var (
@@ -421,7 +416,7 @@ func (s *freighterServer) address() (string, int64) {
 func (s *freighterServer) start(db *db.Database, ctx *imgTestCtx) {
 	crt, err := cert.Find(db, ctx.host.ID)
 	Expect(err).To(BeNil(), "no cert found for host")
-	s.Server.TLS, err = TLSConfig(ctx.host.Hostname(), []byte(crt.ServerCert), []byte(crt.ServerKey))
+	s.Server.TLS, err = test.TLSConfig([]byte(crt.ServerCert), []byte(crt.ServerKey))
 	Expect(err).To(BeNil(), "bad tls config")
 	s.StartTLS()
 }
@@ -463,7 +458,7 @@ func newImgTestCtx(fs *freighterServer, db *db.Database) *imgTestCtx {
 		Email:    "foo@example.com",
 	}
 
-	err = WrapInTransaction(db, u.Insert)
+	err = test.WrapInTransaction(db, u.Insert)
 	Expect(err).To(BeNil(), "failed to setup test user")
 
 	t := &token.Token{
@@ -473,7 +468,7 @@ func newImgTestCtx(fs *freighterServer, db *db.Database) *imgTestCtx {
 	err = t.Insert(db)
 	Expect(err).To(BeNil(), "failed to setup test user's token")
 
-	hs, err := CreateHostStack(db, &HostStack{
+	hs, err := test.CreateHostStack(db, &test.HostStack{
 		H: &host.Host{
 			Slug:           "foo",
 			IPAddress:      sql.NullString{fsHost, true},
@@ -483,7 +478,7 @@ func newImgTestCtx(fs *freighterServer, db *db.Database) *imgTestCtx {
 	})
 	Expect(err).To(BeNil(), "failed to prepare host stack")
 
-	hs, err = GenerateHostCert(db, hs)
+	hs, err = test.GenerateHostCert(db, hs)
 	Expect(err).To(BeNil(), "failed to generate host cert")
 
 	return &imgTestCtx{

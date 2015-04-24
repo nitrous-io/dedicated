@@ -13,7 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/logger"
 
@@ -30,7 +30,7 @@ var _ = Describe("controllers/images", func() {
 	BeforeEach(func() {
 		var err error
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil)
 	})
@@ -49,13 +49,13 @@ var _ = Describe("controllers/images", func() {
 			defer fs.Close()
 
 			u, h := ctx.user, ctx.host
-			MarkDelinquentUser(db, u)
+			test.MarkDelinquentUser(db, u)
 			ctx.insertImage(fs, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
-			VerifyDelinquentUserResponse(res)
+			test.VerifyDelinquentUserResponse(res)
 		})
 
 		It("calls images/push on the freighter server", func() {
@@ -85,7 +85,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(BeNil(), "failed to find image after push")
 
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{})
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("repository is required"))
 			Expect(fs.pushCalled).To(BeFalse())
@@ -102,7 +102,7 @@ var _ = Describe("controllers/images", func() {
 			Expect(err).To(BeNil(), "failed to find image after push")
 
 			res := ctx.doPush(svr, "foo", "scratchy:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
-			errType, _ := ErrorSlug(res.Body)
+			errType, _ := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("image_not_found"))
 			Expect(fs.pushCalled).To(BeFalse())
 		})
@@ -121,7 +121,7 @@ var _ = Describe("controllers/images", func() {
 			fs.pushUnAuthed = true
 
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("registry_auth_failed"))
 			Expect(errDesc).To(Equal(freighterclient.ErrImagePushAuthRequired.Error()))
 			Expect(fs.pushCalled).To(BeTrue())
@@ -208,7 +208,7 @@ var _ = Describe("controllers/images", func() {
 				ctx.insertImage(fs, db)
 
 				res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
-				errType, _ := ErrorSlug(res.Body)
+				errType, _ := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("internal_server_error"))
 
 				var e *controllers.Event
@@ -255,7 +255,7 @@ var _ = Describe("controllers/images", func() {
 })
 
 func (c *imgTestCtx) doPush(svr *server.Server, host, slug string, params *url.Values) *httptest.ResponseRecorder {
-	req, err := NewAuthedFormRequest(c.token, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%v/push", host, slug), params)
+	req, err := test.NewAuthedFormRequest(c.token, "POST", fmt.Sprintf("/api/v0/hosts/%v/images/%v/push", host, slug), params)
 	Expect(err).To(BeNil(), "failed to POST images/push")
 	res := httptest.NewRecorder()
 	svr.Router().ServeHTTP(res, req)
