@@ -149,7 +149,7 @@ func Update(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	publishHostEvent(env, controllers.EventHostUpdated, h)
+	PublishHostEvent(env, controllers.EventHostUpdated, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -246,7 +246,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishHostEvent(env, controllers.EventHostDestroyed, h)
+	PublishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -286,7 +286,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	publishHostEvent(env, controllers.EventHostStarting, h)
+	PublishHostEvent(env, controllers.EventHostStarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
 	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
@@ -314,7 +314,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
 		}
 
-		publishHostEvent(env, controllers.EventHostUpdated, h)
+		PublishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
@@ -338,7 +338,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	publishHostEvent(env, controllers.EventHostStarted, h)
+	PublishHostEvent(env, controllers.EventHostStarted, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -361,10 +361,10 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	evHandler := func(ev hostcontrol.EventType) {
 		if ev == hostcontrol.EventHostStopping {
-			publishHostEvent(env, controllers.EventHostStopping, h)
+			PublishHostEvent(env, controllers.EventHostStopping, h)
 		}
 		if ev == hostcontrol.EventHostUpdated {
-			publishHostEvent(env, controllers.EventHostUpdated, h)
+			PublishHostEvent(env, controllers.EventHostUpdated, h)
 		}
 	}
 
@@ -373,8 +373,8 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	publishContainersStopped(env, h)
-	publishHostEvent(env, controllers.EventHostStopped, h)
+	PublishContainersStopped(env, h)
+	PublishHostEvent(env, controllers.EventHostStopped, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -413,7 +413,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	publishHostEvent(env, controllers.EventHostRestarting, h)
+	PublishHostEvent(env, controllers.EventHostRestarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
 	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
@@ -441,7 +441,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
 		}
 
-		publishHostEvent(env, controllers.EventHostUpdated, h)
+		PublishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
@@ -468,8 +468,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishContainersStopped(env, h)
-	publishHostEvent(env, controllers.EventHostRestarted, h)
+	PublishContainersStopped(env, h)
+	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -485,7 +485,7 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
-			publishHostEvent(env, controllers.EventHostUpgraded, h)
+			PublishHostEvent(env, controllers.EventHostUpgraded, h)
 			serializeHost(env, h)
 			return nil
 		}
@@ -498,7 +498,7 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	publishHostEvent(env, controllers.EventHostUpgrading, h)
+	PublishHostEvent(env, controllers.EventHostUpgrading, h)
 	env.Status = http.StatusAccepted
 	env.Data = map[string]interface{}{
 		"status": "accepted",
@@ -573,7 +573,7 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 	}
 }
 
-func publishHostEvent(env *middleware.Env, name controllers.EventName, h *host.Host) {
+func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.Host) {
 	env.Events.Publish(
 		controllers.NewEvent(name, map[string]*serializers.Host{
 			"host": serializers.SerializeHost(h),
@@ -582,7 +582,7 @@ func publishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 	)
 }
 
-func publishContainersStopped(env *middleware.Env, h *host.Host) {
+func PublishContainersStopped(env *middleware.Env, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		env.Logger.Errorf("hosts.Stop: Unable to list host containers: %v", err)

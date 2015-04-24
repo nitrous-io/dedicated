@@ -238,7 +238,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				publishProvisionFailure(h, err)
 				return
 			}
-			publishHostEvent(env, controllers.EventHostCreated, h)
+			PublishHostEvent(env, controllers.EventHostCreated, h)
 		}()
 		env.Status = http.StatusAccepted
 	} else {
@@ -246,7 +246,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			publishProvisionFailure(h, err)
 			return err
 		}
-		publishHostEvent(env, controllers.EventHostCreated, h)
+		PublishHostEvent(env, controllers.EventHostCreated, h)
 		env.Status = http.StatusCreated
 	}
 	env.Data = map[string]interface{}{

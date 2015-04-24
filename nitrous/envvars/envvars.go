@@ -9,6 +9,7 @@ import (
 
 var (
 	AESKey             string
+	TrustKey           string
 	Debug              string
 	DefaultAptDist     string
 	DefaultAptLocation string
@@ -68,6 +69,7 @@ const (
 
 func init() {
 	AESKey = os.Getenv("AES_KEY")
+	TrustKey = os.Getenv("TRUST_KEY")
 	Debug = os.Getenv("DEBUG")
 	DefaultAptDist = os.Getenv("DEFAULT_APT_DIST")
 	DefaultAptLocation = os.Getenv("DEFAULT_APT_LOCATION")

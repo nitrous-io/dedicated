@@ -603,10 +603,12 @@ func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 
 	data := map[string]interface{}{
 		"container": serializers.SerializeContainer(c),
-		"initiated_by": map[string]interface{}{
+	}
+	if env.User != nil {
+		data["initiated_by"] = map[string]interface{}{
 			"username": env.User.Username,
 			"id":       env.User.ID,
-		},
+		}
 	}
 	if add != nil {
 		for k, v := range add {
