@@ -379,6 +379,31 @@ nav
         span, iframe, & > div
           vertical-align: top !important
 
+    .search-container
+      width: 50%
+      position: relative
+      margin: 0 auto
+      top: 6px
+
+      .fa, input
+        display: block
+      
+      .fa-search
+        font-size: 14px
+        position: absolute
+        top: 10px
+        left: 12px
+        color: #BFBFBF
+
+      input
+        width: 92%
+        padding: 8px 10px 8px 32px
+        font-size: 14px
+        border-radius: 2px
+        border: 1px solid rgba(0,0,0,0.1)
+
+
+
 
   span.free
     position: relative
@@ -474,6 +499,12 @@ nav
 .stack-ubuntu
   .notice .active
     color: $ubuntu
+.stack-docker
+  .notice .active
+    color: $docker
+.stack-rust
+  .notice .active
+    color: $rust
 
 
 .form-wrapper
@@ -1161,6 +1192,10 @@ h4 + .box-wrapper
 .stacks + .centered
   margin-top: 20px
 
+#features
+  .stacks
+    li:nth-child(n + 15)
+      display: none
 
 .stack
   display: inline-block
@@ -1291,7 +1326,7 @@ h4 + .box-wrapper
   display: inline-block
   background-image: image_url("home/lang-logos.png")
   background-repeat: no-repeat
-  background-size: 94px 1410px
+  background-size: 94px 1504px
 
   &.ruby
     background-position: 0 0
@@ -1323,6 +1358,8 @@ h4 + .box-wrapper
     background-position: 0 (-94px*13)
   &.docker
     background-position: 0 (-94px*14)
+  &.rust
+    background-position: 0 (-94px*15)
   &.nitrous
     width: 206px
     background-image: image_url("home/nitrous-logo.png")
@@ -2615,6 +2652,9 @@ input[type="range"]
       +heroLogoGrid(#0099ED,1004px,380px)
 
   .stacks-home
+    .big
+      display: none
+
     .page-hero
       +heroLogoGrid(#0099ED,1004px,380px)
 
@@ -2748,6 +2788,8 @@ input[type="range"]
   background: $ubuntu
 .stack-docker .page-hero
   background: $docker
+.stack-rust .page-hero
+  background: $rust
 
 
 // --------------------------------------

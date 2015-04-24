@@ -43,3 +43,6 @@ ubuntu:
 docker:
   name: 'Docker'
   about: "Docker is an open-source project that automates the deployment of applications inside software containers, by providing an additional layer of abstraction and automation of operating-system-level virtualization on Linux."
+rust:
+  name: 'Rust'
+  about: "Rust is a systems programming language that runs blazingly fast, prevents almost all crashes, and eliminates data races."
