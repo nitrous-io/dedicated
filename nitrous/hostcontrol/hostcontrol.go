@@ -56,7 +56,8 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	headers := map[string]string{
 		constants.NitrousUUIDHeader: "hostcontrol",
 	}
-	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers); sErr != nil {
+	urlArgs := host.URLArgsFromHost(h)
+	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState

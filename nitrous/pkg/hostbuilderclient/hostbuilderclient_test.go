@@ -61,7 +61,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"public_keys": []string{"value1", "value2"},
 			}, out, map[string]string{
 				"NITROUS": "IS_GOOD",
-			})
+			}, nil)
 
 			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
 			Expect(err).To(BeNil(), "unexpected error for POST /hosts")
@@ -89,7 +89,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"public_keys": []string{"value1", "value2"},
 			}, ioutil.Discard, map[string]string{
 				"NITROUS": "IS_FAST",
-			})
+			}, nil)
 			Expect(err).ToNot(BeNil(), "failed to return error when the build failed")
 			Expect(info).To(Equal(&hostbuilder.Response{
 				Provider: "digitalocean",
@@ -113,7 +113,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"name": "doublerainbow",
 			}, out, map[string]string{
 				"NITROUS": "IS_PRETTY",
-			})
+			}, nil)
 
 			Expect(out.String()).To(Equal(response), "response not the same as the hostbuilder stream")
 			Expect(err).To(BeNil())
@@ -139,7 +139,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"name": "doublerainbow",
 			}, ioutil.Discard, map[string]string{
 				"NITROUS": "IS_FAST",
-			})
+			}, nil)
 			Expect(err).ToNot(BeNil())
 			Expect(info).To(Equal(&hostbuilder.Response{
 				ID:    "i-232x",
@@ -156,7 +156,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_CLOUD",
-			})
+			}, nil)
 		}
 
 		Context("when hostbuilder deletes the host", func() {
@@ -192,7 +192,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_IDE",
-			})
+			}, nil)
 		}
 
 		Context("when hostbuilder starts the host", func() {
@@ -226,7 +226,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_SAAS",
-			})
+			}, nil)
 		}
 
 		Context("when hostbuilder stops the host", func() {
@@ -260,7 +260,7 @@ var _ = Describe("pkg/hostbuilderclient", func() {
 				"id": "hostid",
 			}, map[string]string{
 				"NITROUS": "IS_AJAX",
-			})
+			}, nil)
 		}
 
 		Context("when hostbuilder restarts the host", func() {
