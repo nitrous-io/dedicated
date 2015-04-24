@@ -112,6 +112,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
     if token = @get('token')
       window.localStorage.setItem('token', token)
     else
+      # clear admin token if App.token is unset
       App.set('adminToken', null)
       window.localStorage.removeItem('token')
   ).observes 'token'
@@ -256,21 +257,34 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
-  logout: (newToken=null) ->
-    Em.$.ajax(
+  logoutRequest: (token) ->
+    Em.$.ajax
       type: 'DELETE'
       url: "/api/v0/logout"
       cache: false
-      headers: { Authorization: "Bearer #{@get 'token'}" }
-    ).always ->
-      App.set 'token', newToken
+      headers: { Authorization: "Bearer #{token}" }
+
+  logout: ->
+    if(adminToken = @get('adminToken'))
+      # Logout admin in parallel while
+      # logging out switched user
+      @set('adminToken', null)
+
+      # Fire and forget
+      @logoutRequest(adminToken)
+
+    @logoutRequest(@get('token'))
+    .always =>
+      @set('token', null)
       Mp.track Mp.EventUserLoggedOut
 
   switchBackAdmin: ->
-    adminToken = App.get('adminToken')
-    App.set('adminToken', null)
+    userToken = @get('token')
+    adminToken = @get('adminToken')
+    @set('adminToken', null)
 
-    @logout(adminToken).then ->
+    @logoutRequest(userToken).then =>
+      @set('token', adminToken)
       Em.run.next ->
         location.href = "/"
 

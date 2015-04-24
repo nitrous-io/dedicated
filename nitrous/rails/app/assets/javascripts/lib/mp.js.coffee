@@ -19,12 +19,14 @@ window.Mp =
     @identify()
 
   identify: ->
+    return false unless @initialized
+    
     user = App?.get('user')
 
     # do not track if user is switched from admin
     adminToken = App?.get('adminToken')
 
-    if !@initialized || !user || adminToken
+    if !user || adminToken
       @identified = false
       return false
 
