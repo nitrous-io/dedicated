@@ -1,7 +1,6 @@
 package hostbuilderclient
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +24,6 @@ func NewHostbuilder(url string) *Hostbuilder {
 	client := httpclient.New("")
 	tr := &http.Transport{
 		DisableKeepAlives: true,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: false},
 	}
 	client.Client.Transport = tr
 	return &Hostbuilder{URL: url, Client: client}

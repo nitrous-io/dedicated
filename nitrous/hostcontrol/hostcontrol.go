@@ -2,11 +2,10 @@ package hostcontrol
 
 import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -19,15 +18,7 @@ const (
 	EventHostUpdated
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
-
-func init() {
-	hostbuilderURL := envvars.HostBuilderURL
-	if hostbuilderURL == "" {
-		panic("HOSTBUILDER_URL is not set")
-	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-}
+var HostbuilderClient = provisioner.HostbuilderClient
 
 func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	origState := h.State

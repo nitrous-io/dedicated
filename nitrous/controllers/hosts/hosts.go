@@ -23,8 +23,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -49,18 +49,12 @@ var (
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
+var HostbuilderClient = provisioner.HostbuilderClient
 var defaultProvider string
 var aesKey string
 var fv, dv string
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
-	if hostbuilderURL == "" {
-		panic("HOSTBUILDER_URL is not set")
-	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-
 	aesKey = envvars.AESKey
 	if aesKey == "" {
 		panic("AES_KEY is not defined")

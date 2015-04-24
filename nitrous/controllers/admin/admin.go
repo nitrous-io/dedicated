@@ -7,13 +7,13 @@ import (
 	"regexp"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -37,15 +37,7 @@ var (
 	UpdateHost               = VerifyAdmin(updateHost)
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
-
-func init() {
-	hostbuilderURL := envvars.HostBuilderURL
-	if hostbuilderURL == "" {
-		panic("HOSTBUILDER_URL is not set")
-	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-}
+var HostbuilderClient = provisioner.HostbuilderClient
 
 func switchUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB

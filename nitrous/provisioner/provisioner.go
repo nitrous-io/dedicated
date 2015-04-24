@@ -216,6 +216,23 @@ func (p *Provisioner) Start() error {
 		return nil
 	}
 
+	// Allow provisioner to be restarted with SIGUSR2.
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGUSR2)
+		<-ch
+
+		p.logger.Infof("provisioner: SIGUSR2 received, restarting")
+		p.Stop()
+		// Replace hostbuilder client with a new one.
+		hostbuilderURL := envvars.HostBuilderURL
+		if hostbuilderURL == "" {
+			panic("provisioner: HOSTBUILDER_URL is not set")
+		}
+		HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
+		p.Start()
+	}()
+
 	if p.config == nil {
 		return ErrPreprovisionerNotConfigured
 	}
@@ -320,15 +337,6 @@ func (p *Provisioner) Stop() {
 		close(p.stop)
 		<-p.stopped
 	}
-
-	// Allow pre-provisioner to be started again with SIGUSR2.
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGUSR2)
-		<-ch
-		p.logger.Infof("provisioner: SIGUSR2 received, re-starting")
-		p.Start()
-	}()
 }
 
 func (p *Provisioner) IsRunning() bool {
