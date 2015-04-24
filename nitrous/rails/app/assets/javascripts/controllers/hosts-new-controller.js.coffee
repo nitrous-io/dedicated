@@ -15,6 +15,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
+  countryDict: null
 
   nameFieldEdited: false
 
@@ -37,6 +38,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       bypassPreprovision: false
       templateName: null
       nameFieldEdited: false
+      countryDict: null
 
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
