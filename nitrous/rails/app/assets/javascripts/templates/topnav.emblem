@@ -56,6 +56,7 @@
             li
               a href='#' click='updateAdminHosts target="view"'
                 | Update My Hosts
+
       li.ui.dropdown
         a href='#'
           img.gravatar src={App.user.gravatar}
@@ -94,6 +95,10 @@
           li
             a href='http://docs.nitrous.io/' target='_blank' Help
           li.separator
+          if App.adminToken
+            li
+              a href='#' click='switchBackAdmin target="view"'
+                | Switch Back Admin
           li
             link-to 'logout' | Log Out
     else
