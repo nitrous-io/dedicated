@@ -1,6 +1,8 @@
 package hostcontrol
 
 import (
+	"net/http"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -44,9 +46,8 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 		ev(EventHostStopping)
 	}
 
-	headers := map[string]string{
-		constants.NitrousUUIDHeader: "hostcontrol",
-	}
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 	urlArgs := host.URLArgsFromHost(h)
 	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
 		// Rollback to previous state, log any errors while rolling back, but

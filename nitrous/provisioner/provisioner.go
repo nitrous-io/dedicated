@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -758,8 +759,10 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 	return config, nil
 }
 
-func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) map[string]string {
-	return map[string]string{constants.NitrousUUIDHeader: opts.UUID}
+func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) http.Header {
+	h := http.Header{}
+	h.Set(constants.NitrousUUIDHeader, opts.UUID)
+	return h
 }
 
 // generateKey generates and returns a private key together with its public key.

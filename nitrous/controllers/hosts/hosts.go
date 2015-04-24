@@ -548,10 +548,10 @@ func requireAuth(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="nitrous"`)
 }
 
-func hostbuilderHeaders(env *middleware.Env) map[string]string {
-	return map[string]string{
-		constants.NitrousUUIDHeader: env.UUID,
-	}
+func hostbuilderHeaders(env *middleware.Env) http.Header {
+	h := http.Header{}
+	h.Set(constants.NitrousUUIDHeader, env.UUID)
+	return h
 }
 
 func serializeHost(env *middleware.Env, h *host.Host) {
