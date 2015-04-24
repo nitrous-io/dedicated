@@ -3,6 +3,7 @@ package hosts
 import (
 	"database/sql"
 	"encoding/base64"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -208,6 +209,9 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		urlArgs := host.URLArgsFromHost(h)
 		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 		if err != nil {
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				env.Logger.Errorf("hostbuilder timeout deleting host: %v", e)
+			}
 			return err
 		}
 	}
@@ -287,6 +291,10 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	urlArgs := host.URLArgsFromHost(h)
 	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			env.Logger.Errorf("hostbuilder timeout starting host: %v", e)
+		}
+
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
@@ -410,6 +418,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	urlArgs := host.URLArgsFromHost(h)
 	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			env.Logger.Errorf("hostbuilder timeout restarting host: %v", e)
+		}
+
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState

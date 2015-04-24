@@ -1,6 +1,7 @@
 package hostcontrol
 
 import (
+	"net"
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -50,6 +51,10 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 	urlArgs := host.URLArgsFromHost(h)
 	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			l.Errorf("hostbuilder timeout stopping host: %v", e)
+		}
+
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState

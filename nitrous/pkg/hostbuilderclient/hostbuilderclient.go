@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/nitrous-common/httpclient"
@@ -24,8 +26,15 @@ func NewHostbuilder(url string) *Hostbuilder {
 	client := httpclient.New("")
 	tr := &http.Transport{
 		DisableKeepAlives: true,
+		Dial: (&net.Dialer{
+			// Max time for dial to complete (not the entire HTTP request).
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
 	}
 	client.Client.Transport = tr
+	// No HTTP request to hostbuilder should take longer than this.
+	client.Client.Timeout = 10 * time.Minute
 	return &Hostbuilder{URL: url, Client: client}
 }
 
@@ -47,8 +56,6 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 	}
 	p.Set("config", string(cg))
 
-	//TODO: probably we need to timeout the request,
-	//but leaving it out for now, for the sake of simplicity.
 	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, headers)
 	if err != nil {
 		return nil, fmt.Errorf("hostbuilder failed to post: %s, err: %s", endpoint, err)
@@ -141,8 +148,6 @@ func (hb *Hostbuilder) stream(endpoint, provider string, config Config, out io.W
 	}
 	p.Set("config", string(cg))
 
-	//TODO: probably we need to timeout the request,
-	//but leaving it out for now, for the sake of simplicity.
 	endpoint += "?" + urlArgs.Encode()
 	response, err := hb.Client.PostFormWithHeaders(endpoint, &p, headers)
 	if err != nil {

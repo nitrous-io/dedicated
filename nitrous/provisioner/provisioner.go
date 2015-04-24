@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -468,6 +469,9 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	urlArgs := host.URLArgsFromHost(h)
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			p.logger.Errorf("hostbuilder timeout updating host: %v", e)
+		}
 		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
 
@@ -617,14 +621,15 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	urlArgs := host.URLArgsFromHost(h)
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	p.logger.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
-
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 		h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	}
-
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			p.logger.Debugf("provisionTracer: hostbuilder timeout creating host: %v", e)
+		}
 		err = &HostbuilderError{Err: err}
 		return nil, err
 	}
