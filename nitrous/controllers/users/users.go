@@ -363,8 +363,7 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	err = u.ConfirmEmail(db)
-	if err != nil {
+	if err = u.ConfirmEmail(db); err != nil {
 		if err == user.ErrConfirmationLapsed {
 			return httperror.New(http.StatusBadRequest, "confirmation_expired", err.Error())
 		} else if err == user.ErrConfirmationAlreadyCompleted {
@@ -372,6 +371,9 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}
 		return err
 	}
+	env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
+		"confirmed_email_date": u.ConfirmedAt,
+	}, env.Logger)
 
 	return env.Login(u, w)
 }

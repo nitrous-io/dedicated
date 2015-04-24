@@ -36,7 +36,7 @@ Object.assign window.Mp,
   # _list : array/list
   PropertyIDEFileSaveCount: "ide_file_save_count"
   PropertyIDEStartCount: "ide_start_count"
-  PropertyConfirmedEmail: "confirmed_email_date"
+  PropertyConfirmedEmail: "confirmed_email_date" # backend
   PropertyImagesList: "images_list"
   PropertyPhoneNumberSaved: "phone_number_date"
   PropertyPhoneNumberVerified: "phone_number_verified_date"
