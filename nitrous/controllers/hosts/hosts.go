@@ -3,6 +3,7 @@ package hosts
 import (
 	"database/sql"
 	"encoding/base64"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -23,8 +24,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -49,18 +50,12 @@ var (
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
-var HostbuilderClient *hostbuilderclient.Hostbuilder
+var HostbuilderClient = provisioner.HostbuilderClient
 var defaultProvider string
 var aesKey string
 var fv, dv string
 
 func init() {
-	hostbuilderURL := envvars.HostBuilderURL
-	if hostbuilderURL == "" {
-		panic("HOSTBUILDER_URL is not set")
-	}
-	HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-
 	aesKey = envvars.AESKey
 	if aesKey == "" {
 		panic("AES_KEY is not defined")
@@ -211,8 +206,12 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
-		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+		urlArgs := host.URLArgsFromHost(h)
+		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 		if err != nil {
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				env.Logger.Errorf("hostbuilder timeout deleting host: %v", e)
+			}
 			return err
 		}
 	}
@@ -289,8 +288,13 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 	publishHostEvent(env, controllers.EventHostStarting, h)
 
-	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+	urlArgs := host.URLArgsFromHost(h)
+	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			env.Logger.Errorf("hostbuilder timeout starting host: %v", e)
+		}
+
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
@@ -411,8 +415,13 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	publishHostEvent(env, controllers.EventHostRestarting, h)
 
-	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env))
+	urlArgs := host.URLArgsFromHost(h)
+	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			env.Logger.Errorf("hostbuilder timeout restarting host: %v", e)
+		}
+
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
@@ -551,10 +560,10 @@ func requireAuth(w http.ResponseWriter) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="nitrous"`)
 }
 
-func hostbuilderHeaders(env *middleware.Env) map[string]string {
-	return map[string]string{
-		constants.NitrousUUIDHeader: env.UUID,
-	}
+func hostbuilderHeaders(env *middleware.Env) http.Header {
+	h := http.Header{}
+	h.Set(constants.NitrousUUIDHeader, env.UUID)
+	return h
 }
 
 func serializeHost(env *middleware.Env, h *host.Host) {

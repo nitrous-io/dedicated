@@ -112,8 +112,17 @@ window.Nitrous = Em.Application.extend Em.Evented,
     if token = @get('token')
       window.localStorage.setItem('token', token)
     else
+      # clear admin token if App.token is unset
+      App.set('adminToken', null)
       window.localStorage.removeItem('token')
   ).observes 'token'
+
+  didChangeAdminToken: (->
+    if token = @get('adminToken')
+      window.localStorage.setItem('adminToken', token)
+    else
+      window.localStorage.removeItem('adminToken')
+  ).observes 'adminToken'
 
   activateStripe: (->
     if settings = @get('settings')
@@ -129,7 +138,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   identifyUserInMixpanel: (->
     if @get('user')
       Mp.identify()
-  ).observes 'user'
+  ).observes 'user', 'adminToken'
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
@@ -248,19 +257,40 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
-  logout: (cb) ->
-    Em.$.ajax(
+  logoutRequest: (token) ->
+    Em.$.ajax
       type: 'DELETE'
       url: "/api/v0/logout"
       cache: false
-      headers: { Authorization: "Bearer #{@get 'token'}" }
-    ).always ->
-      App.set 'token', null
+      headers: { Authorization: "Bearer #{token}" }
+
+  logout: ->
+    if(adminToken = @get('adminToken'))
+      # Logout admin in parallel while
+      # logging out switched user
+      @set('adminToken', null)
+
+      # Fire and forget
+      @logoutRequest(adminToken)
+
+    @logoutRequest(@get('token'))
+    .always =>
+      @set('token', null)
       Mp.track Mp.EventUserLoggedOut
-      cb?()
+
+  switchBackAdmin: ->
+    userToken = @get('token')
+    adminToken = @get('adminToken')
+    @set('adminToken', null)
+
+    @logoutRequest(userToken).then =>
+      @set('token', adminToken)
+      Em.run.next ->
+        location.href = "/"
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
+  adminToken: window.localStorage.getItem('adminToken')
 
 window.Lib = Ember.Namespace.create()
 

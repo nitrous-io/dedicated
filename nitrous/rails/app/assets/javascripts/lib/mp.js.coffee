@@ -20,7 +20,16 @@ window.Mp =
 
   identify: ->
     return false unless @initialized
-    return false unless user = App?.get('user')
+    
+    user = App?.get('user')
+
+    # do not track if user is switched from admin
+    adminToken = App?.get('adminToken')
+
+    if !user || adminToken
+      @identified = false
+      return false
+
     name = user.get('name')
 
     # alias should only be used when the user signed up

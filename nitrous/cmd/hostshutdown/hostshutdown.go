@@ -53,7 +53,9 @@ func main() {
 			hostsCh <- hst
 		}
 		wg.Wait()
-		logr.Infof("Stopped %d hosts in %s", len(hosts), time.Since(timeStart))
+		if n := len(hosts); n > 0 {
+			logr.Infof("Stopped %d hosts in %s", n, time.Since(timeStart))
+		}
 	}
 }
 

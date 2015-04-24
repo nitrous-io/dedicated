@@ -6,18 +6,36 @@ APP=${1:?"app name is required"}
 
 # if APP is shell, then we just launch a shell inside the current container
 if [[ "$APP" = "shell" ]]; then
-  exec docker run \
-    --privileged=true \
-    --rm \
-    --volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
-    -it \
-    nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
+	if [[ -z $DOCKER_BIN ]]; then
+		exec docker run \
+			--privileged=true \
+			--rm \
+			--volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
+			-it \
+			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
+	else
+		exec docker run \
+			--privileged=true \
+			--rm \
+			--volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
+			--volume "$DOCKER_BIN":/usr/bin/docker \
+			-it \
+			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
+	fi
 else
   VERSION=${2="latest"}
   SUITE=${3}
 
-  docker run \
-    --privileged=true \
-    --rm \
-    nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
+	if [[ -z $DOCKER_BIN ]]; then
+		docker run \
+			--privileged=true \
+			--rm \
+			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
+	else
+		docker run \
+			--privileged=true \
+			--rm \
+			--volume "$DOCKER_BIN":/usr/bin/docker \
+			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
+	fi
 fi

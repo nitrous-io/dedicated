@@ -21,3 +21,6 @@ App.TopnavView = Em.View.extend
 
     updateAdminHosts: ->
       App.trigger 'show-update-hosts', App.get('hosts')
+
+    switchBackAdmin: ->
+      App.switchBackAdmin()

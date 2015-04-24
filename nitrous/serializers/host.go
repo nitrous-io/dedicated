@@ -7,21 +7,22 @@ import (
 )
 
 type Host struct {
-	ID                 int64  `json:"id"`
-	UserID             int64  `json:"user_id"`
-	RegionID           int64  `json:"region_id"`
-	PlanID             int64  `json:"plan_id"`
-	Slug               string `json:"slug"`
-	Name               string `json:"name"`
-	IPAddress          string `json:"ip_address"`
-	FreighterdPort     int64  `json:"freighterd_port"`
-	FreighterdVersion  string `json:"freighterd_version"`
-	DockerVersion      string `json:"docker_version"`
-	ProviderIdentifier string `json:"provider_identifier"`
-	Hostname           string `json:"hostname"`       // where we can access the host i.e. slug.nitrouspro.com
-	ProxyHostname      string `json:"proxy_hostname"` // slug.nitrousproxy.com
-	Size               string `json:"size"`
-	State              string `json:"state"`
+	ID                 int64   `json:"id"`
+	UserID             int64   `json:"user_id"`
+	RegionID           int64   `json:"region_id"`
+	PlanID             int64   `json:"plan_id"`
+	Slug               string  `json:"slug"`
+	Name               string  `json:"name"`
+	IPAddress          string  `json:"ip_address"`
+	FreighterdPort     int64   `json:"freighterd_port"`
+	FreighterdVersion  string  `json:"freighterd_version"`
+	DockerVersion      string  `json:"docker_version"`
+	ProviderIdentifier string  `json:"provider_identifier"`
+	Hostname           string  `json:"hostname"`       // where we can access the host i.e. slug.nitrouspro.com
+	ProxyHostname      string  `json:"proxy_hostname"` // slug.nitrousproxy.com
+	Size               string  `json:"size"`
+	State              string  `json:"state"`
+	Username           *string `json:"username,omitempty"`
 
 	CreatedAt     *time.Time `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
@@ -65,6 +66,9 @@ func SerializeHost(h *host.Host) *Host {
 	}
 	if h.LastRunningAt.Valid {
 		serialized.LastRunningAt = &h.LastRunningAt.Time
+	}
+	if h.Username.Valid {
+		serialized.Username = &h.Username.String
 	}
 	return serialized
 }

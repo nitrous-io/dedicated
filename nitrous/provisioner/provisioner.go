@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -216,6 +218,23 @@ func (p *Provisioner) Start() error {
 		return nil
 	}
 
+	// Allow provisioner to be restarted with SIGUSR2.
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGUSR2)
+		<-ch
+
+		p.logger.Infof("provisioner: SIGUSR2 received, restarting")
+		p.Stop()
+		// Replace hostbuilder client with a new one.
+		hostbuilderURL := envvars.HostBuilderURL
+		if hostbuilderURL == "" {
+			panic("provisioner: HOSTBUILDER_URL is not set")
+		}
+		HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
+		p.Start()
+	}()
+
 	if p.config == nil {
 		return ErrPreprovisionerNotConfigured
 	}
@@ -253,7 +272,7 @@ func (p *Provisioner) Start() error {
 						return
 					}
 					if numOrphans > 0 {
-						p.logger.Warnf("provisioner: %d orphan(s) in region %d, skipping job",
+						p.logger.Debugf("provisioner: %d orphan(s) in region %d, skipping job",
 							numOrphans, pt.RegionID)
 						continue
 					}
@@ -320,15 +339,6 @@ func (p *Provisioner) Stop() {
 		close(p.stop)
 		<-p.stopped
 	}
-
-	// Allow pre-provisioner to be started again with SIGUSR2.
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGUSR2)
-		<-ch
-		p.logger.Infof("provisioner: SIGUSR2 received, re-starting")
-		p.Start()
-	}()
 }
 
 func (p *Provisioner) IsRunning() bool {
@@ -456,8 +466,12 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	config["apt_location"] = opts.AptLocation
 	config["apt_dist"] = opts.AptDist
 
-	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
+	urlArgs := host.URLArgsFromHost(h)
+	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			p.logger.Errorf("hostbuilder timeout updating host: %v", e)
+		}
 		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
 
@@ -604,16 +618,18 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		return nil, err
 	}
 
-	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts))
-	p.logger.Warnf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
-
+	urlArgs := host.URLArgsFromHost(h)
+	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
+	p.logger.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 		h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
 	}
-
 	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
+			p.logger.Debugf("provisionTracer: hostbuilder timeout creating host: %v", e)
+		}
 		err = &HostbuilderError{Err: err}
 		return nil, err
 	}
@@ -623,10 +639,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 
 	if err = h.Update(p.db); err != nil {
-		p.logger.Errorf("provisionTracer: update err: %+v h: %+v ", err, h)
+		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
-	p.logger.Warnf("provisionTracer: updated h: %+v", h)
+	p.logger.Debugf("provisionTracer: updated h: %+v", h)
 	return h, nil
 }
 
@@ -748,8 +764,10 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 	return config, nil
 }
 
-func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) map[string]string {
-	return map[string]string{constants.NitrousUUIDHeader: opts.UUID}
+func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) http.Header {
+	h := http.Header{}
+	h.Set(constants.NitrousUUIDHeader, opts.UUID)
+	return h
 }
 
 // generateKey generates and returns a private key together with its public key.

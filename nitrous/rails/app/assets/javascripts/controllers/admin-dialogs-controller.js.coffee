@@ -38,7 +38,15 @@ App.AdminDialogsController = Em.Controller.extend
         login: @get 'login'
 
       App.User.adapter.ajax('POST', '/admin/switch_user', data).done((d) =>
-        App.set 'token', d.access_token
+        unless App.get('adminToken')
+          # If App.adminToken is already set, it means we have switched from
+          # one admin to another admin user, and try to switch once more as
+          # the switched admin user. Hence we don't override the original 
+          # adminToken so that when switching back it is the first original admin.
+          App.set('adminToken', App.get('token'))
+
+        App.set('token', d.access_token)
+
         @set 'closeSwitchUser', true
         App.snackbar.post("Successfully logged in as #{@get('login')}")
 

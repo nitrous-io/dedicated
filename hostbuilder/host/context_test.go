@@ -34,14 +34,14 @@ var _ = Describe("context", func() {
 		})
 
 		It("stops when the context times out", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 			hctx := host.NewContext(ctx, &dummy.Host{ID: "123"}, nil, ioutil.Discard)
 
 			var counter int
 			err := hctx.Run(host.Step{
 				Func: func(*host.HostContext) error {
-					time.Sleep(10 * time.Millisecond)
+					time.Sleep(200 * time.Millisecond)
 					counter++
 					return nil
 				},
@@ -62,7 +62,7 @@ var _ = Describe("context", func() {
 					counter++
 					return nil
 				},
-				Timeout: 10 * time.Millisecond,
+				Timeout: 100 * time.Millisecond,
 			})
 
 			Expect(counter).To(Equal(1))
