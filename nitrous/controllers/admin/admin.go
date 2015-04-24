@@ -3,6 +3,7 @@ package admin
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/gorilla/mux"
@@ -148,9 +149,8 @@ func terminateUnaccountedHost(env *middleware.Env, w http.ResponseWriter, r *htt
 		return errHostIsNotUnaccounted
 	}
 
-	urlArgs := map[string]string{
-		"uid": "admin",
-	}
+	urlArgs := url.Values{}
+	urlArgs.Set("uid", "admin")
 	resp, err := HostbuilderClient.Delete(provider, config, map[string]string{constants.NitrousUUIDHeader: env.UUID}, urlArgs)
 	if err != nil {
 		return err
