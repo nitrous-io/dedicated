@@ -1,45 +1,46 @@
-.card-header.bordered
-  h2 Admin &mdash; Free Queue
+.ui.card
+  .card-header.bordered
+    h2 Admin &mdash; Free Queue
 
-.card-body.bordered
-  .right
-    button.ui.btn.icon click='refresh'
-      i.fa.fa-refresh
-  table.ui.table
-    tbody
-      tr
-        th Username
-        th Email
-        th Phone Country
-        th Region
-        th Template
-        th Confirmed
-        th Created At
-        th
-      = if queue.length
-        = each queue
-          tr
-            td
-              = username
-            td
-              = email
-            td
-              = phoneCountryCode
-            td
-              = regionSlug
-            td
-              = containerTemplateSlug
-            td
-              if emailConfirmed
-                | Y
-              else
-                | N
-            td
-              = basicdatetime createdAt
-            td.actions
-              button.ui.btn.raised click='approve this' Approve
-              button.ui.btn.raised click='reject this' Reject
-      = else
+  .card-body.bordered
+    .right
+      button.ui.btn.icon click='refresh'
+        i.fa.fa-refresh
+    table.ui.table
+      tbody
         tr
-          td colspan="5"
-            | Free queue is empty
+          th Username
+          th Email
+          th Phone Country
+          th Region
+          th Template
+          th Confirmed
+          th Created At
+          th
+        = if queue.length
+          = each queue
+            tr
+              td
+                = username
+              td
+                = email
+              td
+                = phoneCountryCode
+              td
+                = regionSlug
+              td
+                = containerTemplateSlug
+              td
+                if emailConfirmed
+                  | Y
+                else
+                  | N
+              td
+                = basicdatetime createdAt
+              td.actions
+                button.ui.btn.raised click='approve this' Approve
+                button.ui.btn.raised click='reject this' Reject
+        = else
+          tr
+            td colspan="5"
+              | Free queue is empty
