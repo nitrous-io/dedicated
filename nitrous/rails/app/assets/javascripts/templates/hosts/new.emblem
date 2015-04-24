@@ -11,6 +11,13 @@
   .screen class={view.hideProgress::hide}
     form submit='create target="view"'
       .card-body
+        if App.billingProfile.isNoCardState
+          .notice-text
+            i.fa.fa-info-circle
+            '
+            | Free workspaces are currently unavailable for&nbsp;
+            = view.country
+
         .ui.input-group
           label.field-label for='hosts-new-name'
             | Workspace Name

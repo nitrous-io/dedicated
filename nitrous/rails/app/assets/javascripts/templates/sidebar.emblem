@@ -54,9 +54,17 @@ if App.groupedSharedContainers.length
                       = container.state
 
 .app-download
-  h3 Get Desktop Sync
-  p Install Nitrous desktop app to work on your code using your favorite editor.
+  if App.billingProfile.free
+    h3 Desktop Sync
+    p Nitrous desktop app allows you to work on your code using your favorite editor. Available for paid users.
 
-  a.ui.btn.raised href='#' click='downloadDesktopApp'
-    i.fa.fa-download
-    | &nbsp; Free Download
+    a.ui.btn.raised href='#' click='upgradePaid'
+      i.fa.fa-credit-card
+      | &nbsp; Upgrade to paid
+  else
+    h3 Get Desktop Sync
+    p Install Nitrous desktop app to work on your code using your favorite editor.
+
+    a.ui.btn.raised href='#' click='downloadDesktopApp'
+      i.fa.fa-download
+      | &nbsp; Free Download
