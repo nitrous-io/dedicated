@@ -2,8 +2,6 @@ package test
 
 import (
 	"bytes"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,28 +14,19 @@ import (
 	"os/user"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	nuser "github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/gomega"
 	bc "golang.org/x/crypto/bcrypt"
-)
-
-var (
-	// default certPool for test. This will only be calculated once
-	certPoolLock sync.Once
-	certPool     *x509.CertPool
 )
 
 func init() {
@@ -211,34 +200,6 @@ func TempDir() (string, error) {
 
 func RandomName(name string) string {
 	return fmt.Sprintf("%v-%v-%v", name, time.Now().UnixNano(), rand.Intn(1000))
-}
-
-func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, error) {
-	var err error
-	certPoolLock.Do(func() {
-		var caInfo *certauth.CAInfo
-		caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
-		if err != nil {
-			return
-		}
-		certPool = x509.NewCertPool()
-		certPool.AddCert(caInfo.X509Cert)
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	return &tls.Config{
-		NextProtos:   []string{"http/1.1"},
-		Certificates: []tls.Certificate{tlsCert},
-		RootCAs:      certPool,
-		ServerName:   hostname,
-	}, nil
 }
 
 func WrapInTransaction(db *db.Database, fn func(tx *sqlx.Tx) error) error {

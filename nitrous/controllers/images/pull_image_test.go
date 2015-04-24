@@ -37,10 +37,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func init() {
-	cert.KeyLen = 512
-}
-
 var _ = Describe("controllers/images/pull", func() {
 	var (
 		db  *db.Database
@@ -420,7 +416,7 @@ func (s *freighterServer) address() (string, int64) {
 func (s *freighterServer) start(db *db.Database, ctx *imgTestCtx) {
 	crt, err := cert.Find(db, ctx.host.ID)
 	Expect(err).To(BeNil(), "no cert found for host")
-	s.Server.TLS, err = test.TLSConfig(ctx.host.Hostname(), []byte(crt.ServerCert), []byte(crt.ServerKey))
+	s.Server.TLS, err = test.TLSConfig([]byte(crt.ServerCert), []byte(crt.ServerKey))
 	Expect(err).To(BeNil(), "bad tls config")
 	s.StartTLS()
 }
