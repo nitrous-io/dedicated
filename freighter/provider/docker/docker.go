@@ -503,6 +503,27 @@ func (p *DockerProvider) ListContainerKeys(containerId string) ([]string, error)
 	return []string{k}, nil
 }
 
+// This is a copy of the Image struct in docker/image for unmarshalling JSON in
+// /var/lib/docker/graph/<imageid>/json.
+// FIXME This is fucking ugly though. But I don't know of a better way to edit
+// only specific fields in /var/lib/docker/graph/<imageid>/json other than
+// regexes and string replacement shenanigans.
+type dockerImage struct {
+	ID              string              `json:"id"`
+	Parent          string              `json:"parent,omitempty"`
+	Comment         string              `json:"comment,omitempty"`
+	Created         time.Time           `json:"created"`
+	Container       string              `json:"container,omitempty"`
+	ContainerConfig dockerclient.Config `json:"container_config,omitempty"`
+	DockerVersion   string              `json:"docker_version,omitempty"`
+	Author          string              `json:"author,omitempty"`
+	Config          dockerclient.Config `json:"config,omitempty"`
+	Architecture    string              `json:"architecture,omitempty"`
+	OS              string              `json:"os,omitempty"`
+	Checksum        string              `json:"checksum"`
+	Size            int64
+}
+
 type reconfigState int
 
 const (
@@ -512,17 +533,24 @@ const (
 	created                                 // indicates new container has been created
 )
 
-// Reconfig change a container configuration of a container with new dokcer api
+// Reconfig recreates a container from its original image with new config,
+// since at this time docker container configs are frozen once set.
+// Reconfig *always* returns the container so that callers know what the
+// container is, since the container can be in various states.
+//
 // This is the current implementation:
 //   1. Stop container.
-//   2. Rewrite /var/lib/docker/containers/<containerid>/config.json
-//   3. Rewrite /var/lib/docker/containers/<containerid>/hostconfig.json
-//   4. Reload a container
-//   5. Start container
-
+//   2. Commit container to image.
+//   3. Rewrite /var/lib/docker/graph/<imageid>/json with configJSON (leaving fields we don't care about unchanged).
+//   4. Terminates the old container.
+//   5. Create a new container from the image of the old container.
 func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.ContainerInfo, err error) {
-	var state reconfigState
-
+	var (
+		state           reconfigState
+		cnName          string
+		backupImageName string
+		secret          string
+	)
 	defer func() {
 		if err == nil {
 			return
@@ -532,6 +560,56 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		p.logger.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
 
 		switch state {
+		case created:
+			// Do nothing.
+		case terminated:
+			// Restore from backup image.
+			if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+				p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+					id, backupImageName, err)
+			} else {
+				ret = cn
+			}
+		case terminateError:
+			p.logger.Infof("reconfig: error while terminating original container: %v", err)
+
+			// When we run into an error terminating the old container, either:
+			// 1. old container was actually terminated
+			//    -> restore from backup image.
+			// 2. old container was not terminated
+			//    -> try to start old container, otherwise restore from backup image.
+			// This sometimes happens when we run into this bug:
+			//   https://github.com/docker/docker/issues/2714
+			//   https://github.com/docker/docker/issues/3823
+
+			// Handle old container actually terminated.
+			if _, err := p.GetInfo(id); err != nil {
+				// Restore from backup image.
+				p.logger.Infof("reconfig: error getting container info: %v", err)
+
+				if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+					p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+						id, backupImageName, err)
+				} else {
+					ret = cn
+				}
+				return
+			}
+
+			// Handle old container not terminated.
+			if cn, err := p.Start(id, ""); err != nil {
+				// Restore from backup image.
+				p.logger.Infof("reconfig: error starting original container %s: %v", id, err)
+
+				if cn, err := p.CreateStart(cnName, backupImageName, secret, ""); err != nil {
+					p.logger.Errorf("reconfig: failed to restore original container %s from %s after failure: %v",
+						id, backupImageName, err)
+				} else {
+					ret = cn
+				}
+			} else {
+				ret = cn
+			}
 		case stopped:
 			if cn, err := p.Start(id, ""); err != nil {
 				p.logger.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
@@ -549,133 +627,110 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		return ret, err
 	}
 	state = stopped
+	cnName = ret.Name
 
-	// Unmarshal /var/lib/docker/containers/<containerid>/config.json.
-	jsonPath := fmt.Sprintf("/var/lib/docker/containers/%s/config.json", id)
+	secret, err = p.readSharedSecret(cnName)
+	if err != nil {
+		return ret, err
+	}
+
+	ak := p.containerAuthorizedKeys(cnName)
+	existingKeys, err := ak.Read()
+	if err != nil {
+		return ret, err
+	}
+
+	backupImageName = fmt.Sprintf("%s-backup-%d", cnName, time.Now().UnixNano())
+	_, err = p.Commit(id, backupImageName)
+	if err != nil {
+		return ret, err
+	}
+
+	imageName := fmt.Sprintf("%s-reconfig-%d", cnName, time.Now().UnixNano())
+	img, err := p.Commit(id, imageName)
+	if err != nil {
+		return ret, err
+	}
+
+	// Unmarshal /var/lib/docker/graph/<imageid>/json.
+	// This assumes the docker daemon we're interacting with is running locally.
+	jsonPath := fmt.Sprintf("/var/lib/docker/graph/%s/json", img.ID)
 	b, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
 		return ret, err
 	}
 
-	var container dockerclient.Container
-	err = json.Unmarshal(b, &container)
-	if err != nil {
-		return ret, err
-	}
-
-	// Unmarshal /var/lib/docker/containers/<containerid>/hostconfig.json.
-	hostConfigPath := fmt.Sprintf("/var/lib/docker/containers/%s/hostconfig.json", id)
-	b, err = ioutil.ReadFile(hostConfigPath)
-	if err != nil {
-		return ret, err
-	}
-
-	var hostConfig dockerclient.HostConfig
-	err = json.Unmarshal(b, &hostConfig)
+	var graph dockerImage
+	err = json.Unmarshal(b, &graph)
 	if err != nil {
 		return ret, err
 	}
 
 	// Reset configs that are additive so that we can replace them when creating
 	// a container from this image.
-	container.Config.Volumes = nil
-	container.Volumes = nil
-	container.VolumesRW = nil
-	container.Config.ExposedPorts = nil
+	graph.Config.Volumes = nil
+	graph.Config.PortSpecs = nil
+	graph.Config.ExposedPorts = nil
 
 	// Env is a special case because we rely on it to apply some defaults to
 	// Nitrous-blessed images based on Nitrous-specific env vars.
 	// FIXME This sucks because maintaining a list of env vars to preserve is
 	// pretty fragile.
-
 	newEnv := []string{}
 	// Preserve Nitrous-specific env vars.
 	for _, envKey := range preservedEnvVars {
-		if val, ok := envValue(container.Config.Env, envKey); ok {
+		if val, ok := envValue(graph.Config.Env, envKey); ok {
 			newEnv = append(newEnv, fmt.Sprintf("%s=%s", envKey, val))
 		}
 	}
-
 	// Copy over all env vars from new config.
 	cfg, err := containerConfigFromJSON(configJSON)
 	if err != nil {
 		return ret, err
 	}
-
 	for _, v := range cfg.Env {
 		newEnv = append(newEnv, v)
 	}
-	container.Config.Env = newEnv
+	graph.Config.Env = newEnv
 
-	p.setDefaultContainerConfig(cfg)
-	cfg.Hostname = container.Config.Hostname
-	cfg.Image = container.Config.Image
-	container.HostConfig = &hostConfig
-
-	// Setup HostConfig
-	startConfig, err := p.mkHostConfig(&container, cfg, p.isNitrousImage(cfg.Image))
-	if err != nil {
-		return nil, err
-	}
-
-	// Change volume
-	volumes := make(map[string]string)
-	volumesRW := make(map[string]bool)
-	volumesConfig := make(map[string]struct{})
-	for _, bind := range startConfig.Binds {
-		dirs := strings.Split(bind, ":")
-		if len(dirs) <= 2 {
-			p.logger.Errorf("reconfig: Invalid volume binding: %s", bind)
-			continue
-		}
-		volumes[dirs[1]] = dirs[0]
-		volumesConfig[dirs[1]] = struct{}{}
-		if len(dirs) > 2 && dirs[2] == "ro" {
-			volumesRW[dirs[1]] = false
-		} else {
-			volumesRW[dirs[1]] = true
-		}
-	}
-	container.Volumes = volumes
-	container.VolumesRW = volumesRW
-	container.Config.Volumes = volumesConfig
-
-	// Change exposed ports
-	exposedPorts := make(map[dockerclient.Port]struct{})
-	for portBind, _ := range startConfig.PortBindings {
-		exposedPorts[portBind] = struct{}{}
-	}
-	container.Config.ExposedPorts = exposedPorts
-
-	// Write new config back to /var/lib/docker/containers/<containerid>/config.json.
+	// Write new config back to /var/lib/docker/graph/<imageid>/json.
 	f, err := os.OpenFile(jsonPath, os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return ret, err
 	}
 	defer f.Close()
-	err = json.NewEncoder(f).Encode(container)
+	err = json.NewEncoder(f).Encode(graph)
 	if err != nil {
 		return ret, err
 	}
 
-	b, err = ioutil.ReadFile(hostConfigPath)
+	// Terminate the existing container.
+	_, err = p.Terminate(id, false)
 	if err != nil {
+		state = terminateError
 		return ret, err
 	}
+	state = terminated
 
-	// Send a request to reload a container from config.json
-	err = p.client.ReloadContainer(id)
+	errf := "reconfig failed on %s during %s after termination: %s" // (id, step, error)
+	newCn, err := p.create(cnName, img.Name, secret, configJSON)
+	if err != nil {
+		return ret, fmt.Errorf(errf, id, "create", err)
+	}
+	ret = newCn
+	state = created
+
+	err = p.AddUserKeys(newCn.ID, existingKeys)
+	if err != nil {
+		return ret, fmt.Errorf(errf, id, "public_keys", err)
+	}
+
+	startedCn, err := p.Start(newCn.ID, configJSON)
 	if err != nil {
 		return ret, &provider.StartFailedError{Err: err}
 	}
 
-	// FIXME: Once dockerclient is upgraded to latest,
-	// startConfig doesn't have to be sent to start a container.
-	if err := p.client.StartContainer(id, startConfig); err != nil {
-		return ret, &provider.StartFailedError{Err: err}
-	}
-
-	return p.GetInfo(id)
+	return startedCn, nil
 }
 
 // Logs gets stdout and stderr logs from a container. If successful, the logs

@@ -215,17 +215,7 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+nitrousSlugFilepath, nitrousSlugFilepath+":ro", &newCfg)
 
 	// ExtraHosts is only available in Docker 1.3.0+.
-	newExtraHost := fmt.Sprintf("host:%s", p.gateway)
-	isNewExtraHostExist := false
-	for _, extraHost := range newCfg.ExtraHosts {
-		if extraHost == newExtraHost {
-			isNewExtraHostExist = true
-			break
-		}
-	}
-	if !isNewExtraHostExist {
-		newCfg.ExtraHosts = append(newCfg.ExtraHosts, newExtraHost)
-	}
+	newCfg.ExtraHosts = append(newCfg.ExtraHosts, fmt.Sprintf("host:%s", p.gateway))
 
 	return &newCfg, nil
 }

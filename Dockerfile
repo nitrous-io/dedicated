@@ -1,4 +1,4 @@
-From nitrousio/nitrous-ubuntu-dind:14.04-1.6.0-nitrous1
+From nitrousio/ubuntu-dind:14.04
 MAINTAINER Nitrous.IO <eng@nitrous.io>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,6 +18,9 @@ RUN git clone -b buildroot-2014.02 https://github.com/jpetazzo/docker-busybox.gi
 
 # Get "ubuntu-bare" compressed image so that we can load it instead of pulling
 RUN wget https://github.com/nitrous-io/docker-ubuntu-bare/releases/download/ubuntu-bare-v1/ubuntu-bare.tar.gz -O /root/ubuntu-bare.tar.gz
+
+# get latest docker binary
+RUN wget https://get.docker.com/builds/Linux/x86_64/docker-1.4.1 -O /usr/bin/docker && chmod +x /usr/bin/docker
 
 RUN locale-gen en_US.utf8
 
