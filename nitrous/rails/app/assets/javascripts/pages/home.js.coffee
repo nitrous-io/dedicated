@@ -15,9 +15,11 @@ pages.Home =
       $pattern.addClass('fadeIn')
     , 250
 
-    window.setTimeout ->
-      $(".notice-banner").addClass('visible')
-    , 920
+    if window.location.search == '?l=1'
+      # users redirected from www.nitrous.io will have this querystring
+      window.setTimeout ->
+        $(".notice-banner").addClass('visible')
+      , 920
 
     # Webkit only
     if (navigator.userAgent.indexOf('AppleWebKit') != -1)
