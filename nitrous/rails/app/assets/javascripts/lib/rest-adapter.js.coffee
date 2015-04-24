@@ -15,7 +15,7 @@ App.RESTAdapter = SM.RESTAdapter.extend
       else if jqxhr.responseJSON && jqxhr.responseJSON.error == 'confirmation_lapsed'
         if App.get('token') && App.get('token').length > 0
           App.set 'resendConfirmationAppToken', App.get 'token'
-          App.logout ->
+          App.logout().then ->
             App.trigger 'confirmation-lapsed'
         if jqxhr.responseJSON.error_description
           App.snackbar.post(jqxhr.responseJSON.error_description)

@@ -112,8 +112,16 @@ window.Nitrous = Em.Application.extend Em.Evented,
     if token = @get('token')
       window.localStorage.setItem('token', token)
     else
+      App.set('adminToken', null)
       window.localStorage.removeItem('token')
   ).observes 'token'
+
+  didChangeAdminToken: (->
+    if token = @get('adminToken')
+      window.localStorage.setItem('adminToken', token)
+    else
+      window.localStorage.removeItem('adminToken')
+  ).observes 'adminToken'
 
   activateStripe: (->
     if settings = @get('settings')
@@ -129,7 +137,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   identifyUserInMixpanel: (->
     if @get('user')
       Mp.identify()
-  ).observes 'user'
+  ).observes 'user', 'adminToken'
 
   noHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 0
@@ -248,19 +256,27 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
-  logout: (cb) ->
+  logout: (newToken=null) ->
     Em.$.ajax(
       type: 'DELETE'
       url: "/api/v0/logout"
       cache: false
       headers: { Authorization: "Bearer #{@get 'token'}" }
     ).always ->
-      App.set 'token', null
+      App.set 'token', newToken
       Mp.track Mp.EventUserLoggedOut
-      cb?()
+
+  switchBackAdmin: ->
+    adminToken = App.get('adminToken')
+    App.set('adminToken', null)
+
+    @logout(adminToken).then ->
+      Em.run.next ->
+        location.href = "/"
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
+  adminToken: window.localStorage.getItem('adminToken')
 
 window.Lib = Ember.Namespace.create()
 
