@@ -23,8 +23,10 @@ import (
 
 var _ = Describe("controllers/images", func() {
 	var (
-		db  *db.Database
-		svr *server.Server
+		db            *db.Database
+		svr           *server.Server
+		fakeFreighter *freighterServer
+		ctx           *imgTestCtx
 	)
 
 	BeforeEach(func() {
@@ -33,24 +35,24 @@ var _ = Describe("controllers/images", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil)
+
+		fakeFreighter = newFreighterServer("scratch", "latest")
+		ctx = newImgTestCtx(fakeFreighter, db)
+		fakeFreighter.start(db, ctx)
 	})
 
 	AfterEach(func() {
 		if db != nil {
 			db.Close()
 		}
+		fakeFreighter.Close()
 	})
 
 	Describe("POST /api/v0/hosts/{slug}/images/{image}/push", func() {
 		It("should block if the user has billing issues", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			fs.start(db, ctx)
-			defer fs.Close()
-
 			u, h := ctx.user, ctx.host
 			MarkDelinquentUser(db, u)
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
@@ -59,28 +61,19 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("calls images/push on the freighter server", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			fs.start(db, ctx)
-			defer fs.Close()
-
 			u, h := ctx.user, ctx.host
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 			Expect(res.Code).To(Equal(http.StatusOK))
-			Expect(fs.pushCalled).To(BeTrue())
+			Expect(fakeFreighter.pushCalled).To(BeTrue())
 		})
 
 		It("requires repository param", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			defer fs.Close()
-
 			u, h := ctx.user, ctx.host
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
@@ -88,56 +81,42 @@ var _ = Describe("controllers/images", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("repository is required"))
-			Expect(fs.pushCalled).To(BeFalse())
+			Expect(fakeFreighter.pushCalled).To(BeFalse())
 		})
 
 		It("returns 404 if the image could not be located", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			defer fs.Close()
-
 			u, h := ctx.user, ctx.host
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
 			res := ctx.doPush(svr, "foo", "scratchy:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 			errType, _ := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("image_not_found"))
-			Expect(fs.pushCalled).To(BeFalse())
+			Expect(fakeFreighter.pushCalled).To(BeFalse())
 		})
 
 		It("returns 401 if freighterclient returns an ErrImagePushAuthRequired", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			fs.start(db, ctx)
-			defer fs.Close()
-
 			u, h := ctx.user, ctx.host
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 			_, err := image.Find(db, u, h, "scratch:latest")
 			Expect(err).To(BeNil(), "failed to find image after push")
 
-			fs.pushUnAuthed = true
+			fakeFreighter.pushUnAuthed = true
 
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("registry_auth_failed"))
 			Expect(errDesc).To(Equal(freighterclient.ErrImagePushAuthRequired.Error()))
-			Expect(fs.pushCalled).To(BeTrue())
+			Expect(fakeFreighter.pushCalled).To(BeTrue())
 		})
 
 		Context("event publishing", func() {
 			It("publishes an image pushing event with progress data", func() {
-				fs := newFreighterServer("scratch", "latest")
-				ctx := newImgTestCtx(fs, db)
-				fs.start(db, ctx)
-				defer fs.Close()
-
 				u, h := ctx.user, ctx.host
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
-				ctx.insertImage(fs, db)
+				ctx.insertImage(fakeFreighter, db)
 
 				ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 
@@ -159,15 +138,10 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("publishes an image pushed event with the image and the target repository", func() {
-				fs := newFreighterServer("scratch", "latest")
-				ctx := newImgTestCtx(fs, db)
-				fs.start(db, ctx)
-				defer fs.Close()
-
 				u, h := ctx.user, ctx.host
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
-				ctx.insertImage(fs, db)
+				ctx.insertImage(fakeFreighter, db)
 
 				res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -196,16 +170,12 @@ var _ = Describe("controllers/images", func() {
 			})
 
 			It("publishes an image pushed failed event with the image, target repository and the error", func() {
-				fs := newFreighterServer("scratch", "latest")
-				fs.pushError = true
-				ctx := newImgTestCtx(fs, db)
-				fs.start(db, ctx)
-				defer fs.Close()
+				fakeFreighter.pushError = true
 
 				u, h := ctx.user, ctx.host
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
-				ctx.insertImage(fs, db)
+				ctx.insertImage(fakeFreighter, db)
 
 				res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 				errType, _ := ErrorSlug(res.Body)
@@ -238,12 +208,7 @@ var _ = Describe("controllers/images", func() {
 		})
 
 		It("returns a 202 Accepted when the async param is sent", func() {
-			fs := newFreighterServer("scratch", "latest")
-			ctx := newImgTestCtx(fs, db)
-			fs.start(db, ctx)
-			defer fs.Close()
-
-			ctx.insertImage(fs, db)
+			ctx.insertImage(fakeFreighter, db)
 
 			params := &url.Values{}
 			params.Set("async", "true")
@@ -267,7 +232,7 @@ func (s *freighterServer) pushImage(w http.ResponseWriter, r *http.Request) {
 
 	if s.pushUnAuthed {
 		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintln(w, `{"error":"Bob? Is that you?"}`)
+		fmt.Fprintln(w, `{"error":"RJ? Is that you?"}`)
 		return
 	}
 
