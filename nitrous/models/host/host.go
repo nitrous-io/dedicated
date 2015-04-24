@@ -101,6 +101,9 @@ type Host struct {
 
 	*ProviderTemplate
 
+	// Optional username field
+	Username sql.NullString `db:"username"`
+
 	// not the ideal but convenient place so that it's easy to construct
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
@@ -114,9 +117,11 @@ func (h *Host) IsFreeTier() bool {
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.* FROM hosts
+	err := db.Select(&hosts, `SELECT hosts.*, username FROM hosts
 		INNER JOIN provider_templates pt
-		  ON hosts.provider_template_id = pt.id
+			ON hosts.provider_template_id = pt.id
+		INNER JOIN users
+			ON users.id = hosts.user_id
 		WHERE hosts.terminated_at IS NULL AND pt.provider = $1
 		ORDER BY id;`, provider)
 	if err != nil {

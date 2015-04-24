@@ -50,6 +50,7 @@
             th HID
             th PID
             th Slug
+            th Username
             th DB State
             th Region
             th Plan
@@ -64,6 +65,7 @@
               td.id = host.id
               td.id = host.provider_identifier
               td.slug = host.slug
+              td.username = host.username
               td.state = host.state
               td.region 
                 = region-slug host.region_id
@@ -86,6 +88,7 @@
             th HID
             th PID
             th Slug
+            th Username
             th DB State
             th Live State
             th EC2 Region
@@ -102,6 +105,7 @@
               td.id = entry.db_host.id
               td.id = entry.live_host.id
               td.slug = entry.db_host.slug
+              td.username = entry.db_host.username
               td.state = entry.db_host.state
               td.state = entry.live_host.state
               td.region = entry.live_host.region
