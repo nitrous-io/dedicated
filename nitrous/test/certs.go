@@ -14,9 +14,15 @@ import (
 )
 
 var (
+	// default caInfo for test. This will only be calculated once
+	caInfoLock sync.Once
+	caInfo     *certauth.CAInfo
 	// default certPool for test. This will only be calculated once
 	certPoolLock sync.Once
 	certPool     *x509.CertPool
+	// default cert for test. This will only be calculated once
+	crtLock sync.Once
+	crt     *cert.Cert
 )
 
 func init() {
@@ -25,18 +31,16 @@ func init() {
 
 func TLSConfig(certPEM []byte, keyPEM []byte) (*tls.Config, error) {
 	var err error
-	certPoolLock.Do(func() {
-		var caInfo *certauth.CAInfo
+	caInfoLock.Do(func() {
 		caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
-		if err != nil {
-			return
-		}
-		certPool = x509.NewCertPool()
-		certPool.AddCert(caInfo.X509Cert)
 	})
 	if err != nil {
 		return nil, err
 	}
+	certPoolLock.Do(func() {
+		certPool = x509.NewCertPool()
+		certPool.AddCert(caInfo.X509Cert)
+	})
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
@@ -56,17 +60,20 @@ func TLSConfig(certPEM []byte, keyPEM []byte) (*tls.Config, error) {
 // only when needed.  It deletes any existing cert for
 // that host.
 func GenerateHostCert(db *db.Database, hs *HostStack) (*HostStack, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	var err error
+	caInfoLock.Do(func() {
+		caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// in test, use a single hostname so we dont have to regenerate them
-	hostname := fmt.Sprintf("*.%s", envvars.HostHostname)
-	crt, err := cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
-	if err != nil {
-		return nil, err
-	}
+	crtLock.Do(func() {
+		// in test, use a single hostname so we dont have to regenerate them
+		hostname := fmt.Sprintf("*.%s", envvars.HostHostname)
+		crt, err = cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
+	})
+
 	tx, err := db.Beginx()
 	if err != nil {
 		tx.Rollback()
