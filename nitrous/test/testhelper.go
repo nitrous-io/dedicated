@@ -16,6 +16,7 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -31,6 +32,12 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/gomega"
 	bc "golang.org/x/crypto/bcrypt"
+)
+
+var (
+	// default certPool for test. This will only be calculated once
+	certPoolLock sync.Once
+	certPool     *x509.CertPool
 )
 
 func init() {
@@ -207,12 +214,19 @@ func RandomName(name string) string {
 }
 
 func TLSConfig(hostname string, certPEM []byte, keyPEM []byte) (*tls.Config, error) {
-	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+	var err error
+	certPoolLock.Do(func() {
+		var caInfo *certauth.CAInfo
+		caInfo, err = certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath)
+		if err != nil {
+			return
+		}
+		certPool = x509.NewCertPool()
+		certPool.AddCert(caInfo.X509Cert)
+	})
 	if err != nil {
 		return nil, err
 	}
-	certPool := x509.NewCertPool()
-	certPool.AddCert(caInfo.X509Cert)
 
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
