@@ -25,6 +25,11 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
     !@get('controller.saving')
   ).property 'controller.saving', 'controller.selectedPlan.isFreePlan'
 
+  country: (->
+    countries = @get('controller.countryDict')
+    countries[App.get('user.phoneCountryCode')]
+  ).property 'controller.countryDict', 'App.user.phoneCountryCode'
+
   indeterminateProgress: Em.computed.none('controller.host.progress.progressDetail.start')
 
   didInsertElement: ->
