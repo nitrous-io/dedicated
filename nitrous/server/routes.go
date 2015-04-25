@@ -188,6 +188,7 @@ func (s *Server) drawRoutes() {
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 				"/admin/terminate_unaccounted_host":        r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
 				"/admin/free_queue/{id}/action":            r("freequeue.Action", freequeue.Action),
+				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),

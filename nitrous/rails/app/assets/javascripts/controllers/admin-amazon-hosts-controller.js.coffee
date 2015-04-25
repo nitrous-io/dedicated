@@ -37,16 +37,23 @@ selectedHosts = (entries) ->
   entries.filter (entry) ->
     entry.uiState.get('selected')
 
-# Used for double db+live entries. After filtering out 
-# the selected hosts we extract out the db_host field 
+# Used for double db+live entries. After filtering out
+# the selected hosts we extract out the db_host field
 # to get the DB host entry
 selectedDbHosts = (entries) ->
   selectedHosts(entries).map (entry) ->
     entry.db_host
 
 App.AdminAmazonHostsController = Em.Controller.extend
+  showFixBorn: false
+  hostbuilderLog: null
+  saving: false
+
   clear: ->
     @refreshHosts()
+    @set 'showFixBorn', false
+    @set 'hostbuilderLog', null
+    @set 'saving', false
 
   # Fetch the latest host list from the server.
   # This will uncheck all checkbox states.
@@ -78,6 +85,9 @@ App.AdminAmazonHostsController = Em.Controller.extend
     @set('targetHosts', [])
     @set('selectedAction', null)
     @set('availableActions', [])
+    @set('showFixBorn', false)
+    @set('hostbuilderLog', null)
+    @set('saving', false)
     ui.hideModal('#action-modal-dialog')
 
   # Generic way of showing an action dialog
@@ -91,7 +101,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
     ui.showModal('#action-modal-dialog')
 
   # Perform a host action on selected host.
-  # Always succeeds and action failure will 
+  # Always succeeds and action failure will
   # be posted to the snackbar and then ignored.
   performActionOnHost: (action, host) ->
     App.snackbar.post("#{action.progressName} #{getHostSlug(host)}...")
@@ -108,7 +118,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
 
   # Bulk perform a host action on list of selected hosts.
   # The action is performed in parallel to all hosts.
-  # After all actions completed a snackbar is posted to 
+  # After all actions completed a snackbar is posted to
   # inform the completion
   performActionOnHosts: (action, hosts) ->
     if hosts.length == 1
@@ -127,6 +137,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @showActionDialog([host], healthyHostActions(host))
 
     showProblemHostDialog: (host) ->
+      @set('showFixBorn', true)
       @showActionDialog([host], problemHostActions)
 
     showUnaccountedHostDialog: (host) ->
@@ -164,3 +175,19 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @closeDialog()
       @refreshHosts()
       @performActionOnHosts(action, hosts)
+
+    fixBorn: ->
+      return unless @get 'hostbuilderLog'
+      host = @get 'targetHosts.firstObject'
+      @set 'saving', true
+      Em.$.ajax(
+        type: 'POST'
+        data: { host_builder: @get('hostbuilderLog') }
+        url: "/api/v0/admin/amazon/fix_born/#{host.id}"
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+      ).done((data, status, jqxhr) =>
+        @closeDialog()
+        @refreshHosts()
+      ).fail (jqxhr) =>
+        @set 'saving', false
+        App.postError(jqxhr.responseJSON, 'Failed to fix born!')
