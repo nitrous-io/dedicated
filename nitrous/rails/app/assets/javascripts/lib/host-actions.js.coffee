@@ -86,7 +86,7 @@ hostActions =
           ip_address: ip
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
-Lib.HostActions = 
+Lib.HostActions =
   hostActions: hostActions
 
   # Actions available to a healthy host depends on

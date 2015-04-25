@@ -67,9 +67,9 @@
               td.slug = host.slug
               td.username = host.username
               td.state = host.state
-              td.region 
+              td.region
                 = region-slug host.region_id
-              td.plan 
+              td.plan
                 = plan-slug host.plan_id
 
     .actions
@@ -78,7 +78,7 @@
     h3
       ' Inconsistent :
       = hosts.inconsistent_hosts.length
-    
+
     .card-body.bordered
       table.ui.table
         tbody
@@ -109,9 +109,9 @@
               td.state = entry.db_host.state
               td.state = entry.live_host.state
               td.region = entry.live_host.region
-              td.region 
+              td.region
                 = region-slug entry.db_host.region_id
-              td.plan 
+              td.plan
                 = plan-slug entry.db_host.plan_id
 
     .actions
@@ -147,9 +147,9 @@
               td.slug = entry.db_host.slug
               td.state = entry.db_host.state
               td.region = entry.live_host.region
-              td.region 
+              td.region
                 = region-slug entry.db_host.region_id
-              td.plan 
+              td.plan
                 = plan-slug entry.db_host.plan_id
 
     .actions
@@ -164,6 +164,23 @@
 #action-modal-dialog.ui.modal
   .ui.card
     unless selectedAction
+      if showFixBorn
+        h2.card-header
+          | Apply Hostbuilder settings
+        .card-body
+          p
+            .ui.input-group
+              = input type='text' required=true placeholder='Paste Hostbuilder log' value=hostbuilderLog
+        .card-footer
+          .right
+            button.ui.btn click='cancelAction' Cancel
+            if saving
+              button.ui.btn disabled='disabled'
+                i.spinner
+                | Fixing...
+            else
+              button.ui.btn click='fixBorn' Fix
+
       h2.card-header
         | Perform Action
       .card-body
@@ -181,12 +198,12 @@
 
     else
       h2.card-header
-        | Confirm 
+        | Confirm
         = selectedAction.name
 
       .card-body
         p
-          | Are you ABSOLUTELY sure you want to 
+          | Are you ABSOLUTELY sure you want to
           = selectedAction.name
           ' the following host(s):
         p
@@ -198,5 +215,5 @@
         .right
           button.ui.btn click='cancelAction' Cancel
           button.ui.btn.danger.terminate-btn click='confirmAction'
-            | Confirm 
+            | Confirm
             = selectedAction.name
