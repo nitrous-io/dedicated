@@ -85,11 +85,10 @@ App.AdminAmazonHostsController = Em.Controller.extend
 
     regionFilter = @get('regionFilter')
     if regionFilter != ''
-      region = App.get('regionSlugIndex')[regionFilter]
-      if region
-        regionId = region.get('id')
+      regions = App.get('regionSlugIndex')[regionFilter]
+      if regions
         hosts = hosts.filter (host) ->
-          host.db_host.region_id == regionId
+          regions.indexOf(host.db_host.region_id) != -1
       else
         return []
 

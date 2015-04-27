@@ -72,7 +72,17 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
     index = {}
     for region in regions.get('content')
-      index[region.get('slug')] = region
+      slug = region.get('slug')
+      regionId = region.get('id')
+
+      # fuzzy match indexing
+      for i in [1...slug.length+1]
+        key = slug.slice(0, i)
+
+        if index[key]
+          index[key].push(regionId)
+        else
+          index[key] = [regionId]
 
     return index
   ).property 'regions'
