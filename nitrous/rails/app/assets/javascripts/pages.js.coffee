@@ -24,7 +24,7 @@ if $("body").hasClass("stacks-home")
 if $("body").hasClass("introducing")
   parallax = ->
     scrolltop = window.pageYOffset
-    parallaxEl.style.top = -scrolltop * .2 + 'px'
+    parallaxEl.style.top = -scrolltop * .03 + 'px'
     return
 
   window.requestAnimationFrame = window.requestAnimationFrame or window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame or window.msRequestAnimationFrame or (f) ->
