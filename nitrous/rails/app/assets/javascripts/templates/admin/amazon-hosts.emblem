@@ -3,6 +3,55 @@
     h2 Admin &mdash; Amazon Hosts
 
   .card-body.bordered
+    unless fetchingHosts
+      button.ui.btn.raised click='refreshHosts' Refresh
+    else
+      button.ui.btn.raised disabled=true Refreshing..
+
+    if showHealthyHosts
+      button.ui.btn.raised click='hideHealthyHosts' Hide Healthy Hosts
+    else
+      button.ui.btn.raised click='unhideHealthyHosts' Show Healthy Hosts
+
+    if showHealthyHosts
+      h3
+        ' Healthy:
+        = hosts.healthy_hosts.length
+
+      .card-body.bordered
+        table.ui.table
+          tbody
+            tr
+              th.checkbox
+              th.actions Actions
+              th HID
+              th PID
+              th Slug
+              th State
+              th EC2 Region
+              th Region
+              th Plan
+
+            = each entry in hosts.healthy_hosts
+              tr
+                td.ui.checkbox
+                  = input type='checkbox' checked=entry.uiState.selected
+                  label
+                td.actions
+                  button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
+                td.id = entry.db_host.id
+                td.id = entry.live_host.id
+                td.slug = entry.db_host.slug
+                td.state = entry.db_host.state
+                td.region = entry.live_host.region
+                td.region
+                  = region-slug entry.db_host.region_id
+                td.plan
+                  = plan-slug entry.db_host.plan_id
+
+      .actions
+        button.ui.btn.raised click='showHealthyHostBulkDialog' Bulk Healthy Host Actions
+
     h3
       ' Unaccounted :
       = hosts.unaccounted_hosts.length
@@ -116,44 +165,6 @@
 
     .actions
       button.ui.btn.raised click='showInconsistentHostBulkDialog' Bulk Inconsistent Host Actions
-
-    h3
-      ' Healthy:
-      = hosts.healthy_hosts.length
-
-    .card-body.bordered
-      table.ui.table
-        tbody
-          tr
-            th.checkbox
-            th.actions Actions
-            th HID
-            th PID
-            th Slug
-            th State
-            th EC2 Region
-            th Region
-            th Plan
-
-          = each entry in hosts.healthy_hosts
-            tr
-              td.ui.checkbox
-                = input type='checkbox' checked=entry.uiState.selected
-                label
-              td.actions
-                button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
-              td.id = entry.db_host.id
-              td.id = entry.live_host.id
-              td.slug = entry.db_host.slug
-              td.state = entry.db_host.state
-              td.region = entry.live_host.region
-              td.region
-                = region-slug entry.db_host.region_id
-              td.plan
-                = plan-slug entry.db_host.plan_id
-
-    .actions
-      button.ui.btn.raised click='showHealthyHostBulkDialog' Bulk Healthy Host Actions
 
     .card-body.bordered
       unless fetchingHosts

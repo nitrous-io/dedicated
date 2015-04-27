@@ -47,6 +47,8 @@ selectedDbHosts = (entries) ->
 App.AdminAmazonHostsController = Em.Controller.extend
   showFixBorn: false
   hostbuilderLog: null
+  showHealthyHosts: false
+  showProblemHosts: true
   saving: false
 
   clear: ->
@@ -132,6 +134,12 @@ App.AdminAmazonHostsController = Em.Controller.extend
   actions:
     refreshHosts: ->
       @refreshHosts()
+
+    hideHealthyHosts: ->
+      @set 'showHealthyHosts', false
+
+    unhideHealthyHosts: ->
+      @set 'showHealthyHosts', true
 
     showHealthyHostDialog: (host) ->
       @showActionDialog([host], healthyHostActions(host))
