@@ -67,6 +67,16 @@ window.Nitrous = Em.Application.extend Em.Evented,
     return index
   ).property 'regions'
 
+  regionSlugIndex: (->
+    regions = @get('regions')
+
+    index = {}
+    for region in regions.get('content')
+      index[region.get('slug')] = region
+
+    return index
+  ).property 'regions'
+
   planIndex: (->
     plans = @get('plans')
 

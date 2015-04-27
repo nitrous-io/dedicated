@@ -50,6 +50,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
   showHealthyHosts: false
   showProblemHosts: true
   saving: false
+  regionFilter: ''
 
   clear: ->
     @refreshHosts()
@@ -76,6 +77,24 @@ App.AdminAmazonHostsController = Em.Controller.extend
     , =>
       @set('fetchingHosts', false)
     )
+
+  healthyHosts: (->
+    hosts = @get('hosts.healthy_hosts')
+    regionFilter = @get('regionFilter')
+    
+    if regionFilter != ''
+      region = App.get('regionSlugIndex')[regionFilter]
+      
+      if region
+        regionId = region.get('id')
+        return hosts.filter (host) ->
+          host.db_host.region_id == regionId
+      else
+        return []
+    else
+      return hosts
+
+  ).property 'hosts', 'regionFilter'
 
   # Use for displaying list of selected hosts
   # concatenated into a comma-separated string.

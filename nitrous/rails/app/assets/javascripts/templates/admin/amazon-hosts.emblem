@@ -23,6 +23,11 @@
         ' Healthy:
         = hosts.healthy_hosts.length
 
+      .ui.input-group
+        label.field-label for='region-filter'
+          | Region Filter
+        = input type='text' id='region-filter' name='region-filter' value=regionFilter
+
       .card-body.bordered
         table.ui.table
           tbody
@@ -37,7 +42,7 @@
               th Region
               th Plan
 
-            = each entry in hosts.healthy_hosts
+            = each entry in healthyHosts
               tr
                 td.ui.checkbox
                   = input type='checkbox' checked=entry.uiState.selected
