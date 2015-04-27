@@ -28,6 +28,17 @@ type HostList struct {
 	UnaccountedHosts  []*LiveHost  `json:"unaccounted_hosts"`
 }
 
+type Healthcheck struct {
+	Passed            bool     `json:"passed"`
+	HealthyCount      int      `json:"healthy_count"`
+	Inconsistent      []string `json:"inconsistent"`
+	Dangling          []string `json:"dangling"`
+	Unaccounted       []string `json:"unaccounted"`
+	InconsistentCount int      `json:"inconsistent_count"`
+	DanglingCount     int      `json:"dangling_count"`
+	UnaccountedCount  int      `json:"unaccounted_count"`
+}
+
 func SerializeLiveHost(h *hostbuilder.Response) *LiveHost {
 	if h == nil {
 		return nil
@@ -74,5 +85,37 @@ func SerializeHostList(list *groupedhosts.HostList) *HostList {
 		InconsistentHosts: SerializeHostEntries(list.InconsistentHosts),
 		DanglingHosts:     SerializeAdminHosts(list.DanglingHosts),
 		UnaccountedHosts:  SerializeLiveHosts(list.UnaccountedHosts),
+	}
+}
+
+func SerializeHealthcheck(list *groupedhosts.HostList) *Healthcheck {
+	healthyCount := len(list.HealthyHosts)
+	inconsistentCount := len(list.InconsistentHosts)
+	danglingCount := len(list.DanglingHosts)
+	unaccountedCount := len(list.UnaccountedHosts)
+	passed := inconsistentCount == 0 && danglingCount == 0 && unaccountedCount == 0
+
+	inconsistent := []string{}
+	for _, h := range list.InconsistentHosts {
+		inconsistent = append(inconsistent, h.DBHost.Slug)
+	}
+	dangling := []string{}
+	for _, h := range list.DanglingHosts {
+		dangling = append(dangling, h.Slug)
+	}
+	unaccounted := []string{}
+	for _, h := range list.UnaccountedHosts {
+		unaccounted = append(unaccounted, h.ID)
+	}
+
+	return &Healthcheck{
+		Passed:            passed,
+		Inconsistent:      inconsistent,
+		Dangling:          dangling,
+		Unaccounted:       unaccounted,
+		HealthyCount:      healthyCount,
+		InconsistentCount: inconsistentCount,
+		DanglingCount:     danglingCount,
+		UnaccountedCount:  unaccountedCount,
 	}
 }

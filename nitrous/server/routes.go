@@ -141,6 +141,7 @@ func (s *Server) drawRoutes() {
 				"/billing/current_usage":              r("billing.CurrentUsage", billing.CurrentUsage),
 				"/admin/announcements/global":         r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":            r("announcements.ShowAll", announcements.ShowAll),
+				"/admin/amazon/healthcheck":           r("amazon.Healthcheck", amazon.Healthcheck),
 				"/admin/amazon/hosts":                 r("amazon.Hosts", amazon.Hosts),
 				"/admin/hosts":                        r("admin.Hosts", admin.Hosts),
 				"/admin/provider_templates":           r("providertemplates.Index", providertemplates.Index),
