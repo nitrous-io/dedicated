@@ -77,3 +77,16 @@ func (cv *ContainerVolume) Delete(d db.QueryReceiver) error {
 	_, err := d.Exec(`DELETE FROM container_volumes WHERE id = $1`, cv.ID)
 	return err
 }
+
+func BelongsToContainer(d db.QueryReceiver, v *volume.Volume) (bool, error) {
+	var rows []int
+	err := d.Select(&rows, `SELECT 1 FROM container_volumes WHERE volume_id = $1 LIMIT 1`, v.ID)
+	if err != nil {
+		return false, err
+	}
+
+	if len(rows) > 0 {
+		return true, nil
+	}
+	return false, nil
+}
