@@ -47,7 +47,6 @@ App.ConfirmEmailController = Em.Controller.extend
       @set 'confirming', false
       App.snackbar.post 'Your email has been confirmed'
       Mp.track Mp.EventUserConfirmedEmail
-      Mp.timestamp Mp.PropertyConfirmedEmail
       Em.run.next =>
         @transitionToRoute 'home.index'
     , (jqxhr) =>

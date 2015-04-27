@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
+
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -44,6 +46,7 @@ var _ = Describe("controllers/users", func() {
 		authTokenInputs test.AuthTokenInputs
 		u               *user.User
 		t               *token.Token
+		ft              *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -51,7 +54,8 @@ var _ = Describe("controllers/users", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
+		ft = test.NewFakeTracker()
+		svr = test.NewTestServer("", db, logger, ft)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
@@ -899,6 +903,17 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(t).ToNot(BeNil())
 				Expect(t.UserID).To(Equal(u.ID))
+
+				// and track the confirmation on mixpanel
+				Expect(ft.PropsCalled).To(HaveLen(1))
+				pc := ft.PropsCalled[0]
+				Expect(pc.UserID).To(Equal(u.ID))
+				Expect(pc.Mode).To(Equal("setnx"))
+				ctime, ok := pc.PropsSet["confirmed_email_date"]
+				Expect(ok).To(BeTrue())
+				pqt, ok := ctime.(pq.NullTime)
+				Expect(ok).To(BeTrue())
+				Expect(pqt.Time).To(BeTemporally("~", time.Now(), time.Minute))
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
