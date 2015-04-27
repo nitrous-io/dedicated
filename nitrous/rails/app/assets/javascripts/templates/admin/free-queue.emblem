@@ -36,7 +36,7 @@
                 else
                   | N
               td
-                = basicdatetime createdAt
+                = ago createdAt
               td.actions
                 button.ui.btn.raised click='approve this' Approve
                 button.ui.btn.raised click='reject this' Reject
