@@ -1661,7 +1661,10 @@ h4 + .box-wrapper
   margin: 40px auto 0 auto
 
   .item
+    -webkit-column-break-inside: avoid
+    page-break-inside: avoid
     column-break-inside: avoid
+    break-inside: avoid
     margin-bottom: 60px
     h4
       margin-bottom: 8px
@@ -1890,6 +1893,25 @@ h4 + .box-wrapper
   .item
     border-left: 2px solid rgba(255,255,255,.2)
     padding-left: 16px
+
+
+// --------------------------------------
+// Parallax
+.parallax
+  height: 480px
+  overflow: hidden
+  border: 0 !important
+  background: $blueLink image_url('home/chromeos-blue-bg.jpg') 0 0 no-repeat
+  background-size: cover
+
+  img
+    position: relative
+    margin: 0 auto
+    display: block
+    box-shadow: 0 2px 20px rgba(0,0,0,.4)
+    +webkitFix
+    
+
 
 
 // --------------------------------------
@@ -2829,6 +2851,17 @@ input[type="range"]
 
   .ripple:hover
     box-shadow: 0 0 0 transparent
+
+
+  .qa
+    h4 
+      color: rgba(0,0,0,.6)
+
+    p
+      color: rgba(0,0,0,.8)
+
+    .item
+      border-left: 2px solid rgba(0,0,0,.05)
 
 
 
