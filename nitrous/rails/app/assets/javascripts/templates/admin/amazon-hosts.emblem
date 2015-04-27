@@ -66,8 +66,11 @@
                 td.username = entry.db_host.username
                 td.state = entry.db_host.state
                 td.region = entry.live_host.region
+
                 td.region
-                  = region-slug entry.db_host.region_id
+                  a click='filterRegion entry.db_host.region_id'
+                    = region-slug entry.db_host.region_id
+
                 td.plan
                   = plan-slug entry.db_host.plan_id
 

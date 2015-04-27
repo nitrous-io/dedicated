@@ -82,7 +82,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
 
   healthyHosts: (->
     hosts = @get('hosts.healthy_hosts')
-    
+
     regionFilter = @get('regionFilter')
     if regionFilter != ''
       region = App.get('regionSlugIndex')[regionFilter]
@@ -176,6 +176,11 @@ App.AdminAmazonHostsController = Em.Controller.extend
 
     unhideProblemHosts: ->
       @set 'showProblemHosts', true
+
+    filterRegion: (regionId) ->
+      regionSlug = App.get('regionIndex')[regionId]?.get('slug')
+      if regionSlug
+        @set 'regionFilter', regionSlug
 
     showHealthyHostDialog: (host) ->
       @showActionDialog([host], healthyHostActions(host))
