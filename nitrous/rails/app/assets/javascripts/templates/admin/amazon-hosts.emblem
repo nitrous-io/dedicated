@@ -47,6 +47,7 @@
               th HID
               th PID
               th Slug
+              th Username
               th State
               th EC2 Region
               th Region
@@ -62,6 +63,7 @@
                 td.id = entry.db_host.id
                 td.id = entry.live_host.id
                 td.slug = entry.db_host.slug
+                td.username = entry.db_host.username
                 td.state = entry.db_host.state
                 td.region = entry.live_host.region
                 td.region
