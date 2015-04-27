@@ -28,6 +28,16 @@
           | Region Filter
         = input type='text' id='region-filter' name='region-filter' value=regionFilter
 
+      .ui.input-group
+        label.field-label for='slug-filter'
+          | Slug Filter
+        = input type='text' id='slug-filter' name='slug-filter' value=slugFilter
+
+      .ui.input-group
+        label.field-label for='username-filter'
+          | Username Filter
+        = input type='text' id='username-filter' name='username-filter' value=usernameFilter
+
       .card-body.bordered
         table.ui.table
           tbody
