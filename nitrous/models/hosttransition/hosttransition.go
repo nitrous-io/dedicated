@@ -165,10 +165,11 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
 		h.ID).Scan(&prevId)
 
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if err != sql.ErrNoRows {
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	} else {
 		// set previous
 		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, hT.CreatedAt, prevId)
 		if err != nil {
