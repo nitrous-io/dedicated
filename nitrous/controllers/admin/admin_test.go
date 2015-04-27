@@ -101,12 +101,12 @@ var _ = Describe("controllers/admin", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("responds with a 400 Bad Request, if there's no matching user for the given login'", func() {
+			It("responds with a 404 Not Found, if there's no matching user for the given login'", func() {
 				params := &url.Values{}
 				params.Set("login", "bar")
 
 				res := doRequest(t, params)
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
 			Context("when there's a matching user for the given login", func() {
