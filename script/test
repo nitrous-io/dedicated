@@ -55,8 +55,7 @@ if [ "$APP" == "all" ]; then
   run test_app pkg
   run test_app hostbuilder
   run test_db nitrous
-  # FIXME put back after 20150422 launch
-  #run test_with_docker freighter
+  run test_with_docker freighter
   run test_db tender
   run test_db compass
 elif [ "$APP" == "hostbuilder" ]; then
