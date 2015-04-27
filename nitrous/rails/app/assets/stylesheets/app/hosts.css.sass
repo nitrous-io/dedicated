@@ -198,6 +198,8 @@
       
 
       h3.waitlist
+        width: 80%
+        margin: 0 auto
         padding: 0 0 20px 0
         font-weight: 200
         font-size: 18px
@@ -213,13 +215,13 @@
           margin-top: 4px
 
       p.bigger
-        width: 80%
-        margin: 10px auto
+        width: 50%
+        margin: 40px auto 0 auto
         line-height: 23px
         font-weight: 300
+        color: rgba(255,255,255,.5)
       
-
-      a.btn.tweet
+      a.btn.outline
         height: 44px
         display: inline-block
         margin: 20px 0 0 0
@@ -236,9 +238,29 @@
         .fa
           font-size: 18px
 
+
+      a.btn.survey
+        &:hover
+          background: #B4C0CA
+          border: 1px solid #B4C0CA
+
+          span, .fa
+            color: #2A3239
+
+
+      a.btn.tweet
         &:hover
           background: #55ACEE
+          color: #FFF
           border: 1px solid #55ACEE
+
+
+      a.btn.duo
+        border-radius: 3px 0 0 3px
+
+        & + .duo
+          border-radius: 0 3px 3px 0
+          margin-left: -1px
 
 
       a.circle
