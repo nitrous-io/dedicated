@@ -13,6 +13,11 @@
     else
       button.ui.btn.raised click='unhideHealthyHosts' Show Healthy Hosts
 
+    if showProblemHosts
+      button.ui.btn.raised click='hideProblemHosts' Hide Problem Hosts
+    else
+      button.ui.btn.raised click='unhideProblemHosts' Show Problem Hosts
+
     if showHealthyHosts
       h3
         ' Healthy:
@@ -52,119 +57,120 @@
       .actions
         button.ui.btn.raised click='showHealthyHostBulkDialog' Bulk Healthy Host Actions
 
-    h3
-      ' Unaccounted :
-      = hosts.unaccounted_hosts.length
-    .card-body.bordered
-      table.ui.table
-        tbody
-          tr
-            th.checkbox
-            th.actions Actions
-            th PID
-            th Slug
-            th State
-            th EC2 Region
-            th IP Address
-            th Freighterd Port
-
-          = each host in hosts.unaccounted_hosts
+    if showProblemHosts
+      h3
+        ' Unaccounted :
+        = hosts.unaccounted_hosts.length
+      .card-body.bordered
+        table.ui.table
+          tbody
             tr
-              td.ui.checkbox
-                = input type='checkbox' checked=host.uiState.selected
-                label
-              td.actions
-                button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
-              td title=id
-                = host.id
-              td = host.name
-              td = host.state
-              td = host.region
-              td = host.ip_address
-              td = host.freighterd_port
+              th.checkbox
+              th.actions Actions
+              th PID
+              th Slug
+              th State
+              th EC2 Region
+              th IP Address
+              th Freighterd Port
 
-    .actions
-      button.ui.btn.raised click='showUnaccountedHostBulkDialog' Bulk Unaccounted Host Actions
+            = each host in hosts.unaccounted_hosts
+              tr
+                td.ui.checkbox
+                  = input type='checkbox' checked=host.uiState.selected
+                  label
+                td.actions
+                  button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
+                td title=id
+                  = host.id
+                td = host.name
+                td = host.state
+                td = host.region
+                td = host.ip_address
+                td = host.freighterd_port
 
-    h3
-      ' Dangling :
-      = hosts.dangling_hosts.length
+      .actions
+        button.ui.btn.raised click='showUnaccountedHostBulkDialog' Bulk Unaccounted Host Actions
 
-    .card-body.bordered
-      table.ui.table
-        tbody
-          tr
-            th.checkbox
-            th.actions Actions
-            th HID
-            th PID
-            th Slug
-            th Username
-            th DB State
-            th Region
-            th Plan
+      h3
+        ' Dangling :
+        = hosts.dangling_hosts.length
 
-          = each host in hosts.dangling_hosts
+      .card-body.bordered
+        table.ui.table
+          tbody
             tr
-              td.ui.checkbox
-                = input type='checkbox' checked=host.uiState.selected
-                label
-              td.actions
-                button.ui.btn.raised click='showProblemHostDialog host' Actions
-              td.id = host.id
-              td.id = host.provider_identifier
-              td.slug = host.slug
-              td.username = host.username
-              td.state = host.state
-              td.region
-                = region-slug host.region_id
-              td.plan
-                = plan-slug host.plan_id
+              th.checkbox
+              th.actions Actions
+              th HID
+              th PID
+              th Slug
+              th Username
+              th DB State
+              th Region
+              th Plan
 
-    .actions
-      button.ui.btn.raised click='showDanglingHostBulkDialog' Bulk Dangling Host Actions
+            = each host in hosts.dangling_hosts
+              tr
+                td.ui.checkbox
+                  = input type='checkbox' checked=host.uiState.selected
+                  label
+                td.actions
+                  button.ui.btn.raised click='showProblemHostDialog host' Actions
+                td.id = host.id
+                td.id = host.provider_identifier
+                td.slug = host.slug
+                td.username = host.username
+                td.state = host.state
+                td.region
+                  = region-slug host.region_id
+                td.plan
+                  = plan-slug host.plan_id
 
-    h3
-      ' Inconsistent :
-      = hosts.inconsistent_hosts.length
+      .actions
+        button.ui.btn.raised click='showDanglingHostBulkDialog' Bulk Dangling Host Actions
 
-    .card-body.bordered
-      table.ui.table
-        tbody
-          tr
-            th.checkbox
-            th.actions Actions
-            th HID
-            th PID
-            th Slug
-            th Username
-            th DB State
-            th Live State
-            th EC2 Region
-            th Region
-            th Plan
+      h3
+        ' Inconsistent :
+        = hosts.inconsistent_hosts.length
 
-          = each entry in hosts.inconsistent_hosts
+      .card-body.bordered
+        table.ui.table
+          tbody
             tr
-              td.ui.checkbox
-                = input type='checkbox' checked=entry.uiState.selected
-                label
-              td.actions
-                button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
-              td.id = entry.db_host.id
-              td.id = entry.live_host.id
-              td.slug = entry.db_host.slug
-              td.username = entry.db_host.username
-              td.state = entry.db_host.state
-              td.state = entry.live_host.state
-              td.region = entry.live_host.region
-              td.region
-                = region-slug entry.db_host.region_id
-              td.plan
-                = plan-slug entry.db_host.plan_id
+              th.checkbox
+              th.actions Actions
+              th HID
+              th PID
+              th Slug
+              th Username
+              th DB State
+              th Live State
+              th EC2 Region
+              th Region
+              th Plan
 
-    .actions
-      button.ui.btn.raised click='showInconsistentHostBulkDialog' Bulk Inconsistent Host Actions
+            = each entry in hosts.inconsistent_hosts
+              tr
+                td.ui.checkbox
+                  = input type='checkbox' checked=entry.uiState.selected
+                  label
+                td.actions
+                  button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
+                td.id = entry.db_host.id
+                td.id = entry.live_host.id
+                td.slug = entry.db_host.slug
+                td.username = entry.db_host.username
+                td.state = entry.db_host.state
+                td.state = entry.live_host.state
+                td.region = entry.live_host.region
+                td.region
+                  = region-slug entry.db_host.region_id
+                td.plan
+                  = plan-slug entry.db_host.plan_id
+
+      .actions
+        button.ui.btn.raised click='showInconsistentHostBulkDialog' Bulk Inconsistent Host Actions
 
     .card-body.bordered
       unless fetchingHosts

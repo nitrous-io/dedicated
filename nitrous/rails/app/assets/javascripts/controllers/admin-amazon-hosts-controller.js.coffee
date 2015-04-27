@@ -141,6 +141,12 @@ App.AdminAmazonHostsController = Em.Controller.extend
     unhideHealthyHosts: ->
       @set 'showHealthyHosts', true
 
+    hideProblemHosts: ->
+      @set 'showProblemHosts', false
+
+    unhideProblemHosts: ->
+      @set 'showProblemHosts', true
+
     showHealthyHostDialog: (host) ->
       @showActionDialog([host], healthyHostActions(host))
 
