@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -58,7 +58,7 @@ func createErrorSpy() (func(error), func() error) {
 
 var _ = Describe("models/announcement", func() {
 	var (
-		db         *dbLib.Database
+		db         *ndb.Database
 		h1, h2, h3 *host.Host
 		u1, u2     *user.User
 		expiry     time.Time
