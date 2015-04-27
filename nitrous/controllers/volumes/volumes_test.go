@@ -351,6 +351,9 @@ var _ = Describe("controllers/volumes", func() {
 			It("returns 403 without destroying volume", func() {
 				doRequest("deprecated")
 				Expect(mockClient.RemoveVolumeCalled).To(Equal(0))
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
+				Expect(err).To(BeNil())
+				Expect(v).NotTo(BeNil())
 				Expect(res.Code).To(Equal(http.StatusForbidden))
 			})
 		})

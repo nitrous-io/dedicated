@@ -19,7 +19,7 @@ import (
 var (
 	errNotFound                 = httperror.New(http.StatusNotFound, "volume_not_found", "volume could not be found")
 	errCannotDeleteSystemVolume = httperror.New(http.StatusForbidden, "forbidden", "system volume cannot be deleted")
-	errCannotDeleteVolumeInUse  = httperror.New(http.StatusForbidden, "forbidden", "the volume is being used")
+	errCannotDeleteVolumeInUse  = httperror.New(http.StatusForbidden, "forbidden", "cannot delete volume that's being used by a container")
 )
 
 var (
@@ -70,8 +70,8 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errCannotDeleteSystemVolume
 	}
 
-	isContainerExist, err := cvolume.IsContainerExist(db, vol)
-	if isContainerExist {
+	belongsToContainer, err := cvolume.BelongsToContainer(db, vol)
+	if belongsToContainer {
 		return errCannotDeleteVolumeInUse
 	}
 

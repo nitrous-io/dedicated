@@ -78,7 +78,7 @@ func (cv *ContainerVolume) Delete(d db.QueryReceiver) error {
 	return err
 }
 
-func IsContainerExist(d db.QueryReceiver, v *volume.Volume) (bool, error) {
+func BelongsToContainer(d db.QueryReceiver, v *volume.Volume) (bool, error) {
 	var rows []int
 	err := d.Select(&rows, `SELECT 1 FROM container_volumes WHERE volume_id = $1 LIMIT 1`, v.ID)
 	if err != nil {
@@ -88,5 +88,5 @@ func IsContainerExist(d db.QueryReceiver, v *volume.Volume) (bool, error) {
 	if len(rows) > 0 {
 		return true, nil
 	}
-	return false, err
+	return false, nil
 }
