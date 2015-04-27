@@ -3,13 +3,17 @@ package amazon_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/amazon"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -18,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -37,6 +42,7 @@ const hbLog = `2015/04/23 17:34:39 uuid=d2cc8693 Created host: &{Provider:amazon
 
 var _ = Describe("controllers/amazon", func() {
 	var (
+		svr     *server.Server
 		db      *db.Database
 		handler *mux.Router
 
@@ -52,7 +58,7 @@ var _ = Describe("controllers/amazon", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr := server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, logger, nil)
 		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()
@@ -240,9 +246,16 @@ var _ = Describe("controllers/amazon", func() {
 		})
 
 		Context("when the requester is an admin", func() {
-			var hs1 *test.HostStack
+			var (
+				hs1        *test.HostStack
+				mockClient *freighterclient.MockClient
+			)
 
 			BeforeEach(func() {
+
+				mockClient = &freighterclient.MockClient{}
+				test.StubDefaultFreighterFn(mockClient)
+
 				var err error
 
 				_, err = db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
@@ -436,6 +449,98 @@ var _ = Describe("controllers/amazon", func() {
 				Expect(hT.State).To(Equal("running"))
 				Expect(hT.CreatedAt).To(Equal(h.CreatedAt))
 				Expect(hT.EndedAt.IsZero()).To(BeFalse())
+			})
+
+			It("should create a host volume if it does not exist in the DB", func() {
+				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				vol, err := volume.Find(db, hs1.H.ID, "shared")
+				Expect(err).To(BeNil())
+				Expect(vol.Slug).To(Equal("shared"))
+				Expect(vol.Name).To(Equal("Shared Volume"))
+				Expect(vol.System).To(BeTrue())
+
+				Expect(mockClient.ListVolumesCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeSlug).To(Equal("shared"))
+			})
+
+			It("should not create a host volume if it does exist in the DB", func() {
+				sVol := &volume.Volume{
+					HostID: hs1.H.ID,
+					Slug:   "shared",
+					Name:   "Shared Volume",
+					System: true,
+				}
+				Expect(sVol.Insert(db)).To(BeNil())
+
+				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(mockClient.ListVolumesCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeSlug).To(Equal("shared"))
+			})
+
+			It("should not create a host volume on the host if it already exists", func() {
+				mockClient.ListVolumesReturn = []string{"shared"}
+
+				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(mockClient.ListVolumesCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeCalled).To(Equal(0))
+			})
+
+			It("should abort the transaction if the create volume failed", func() {
+				mockClient.CreateVolumeError = errors.New("I am an error :(")
+
+				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				errT, errDesc := test.ErrorSlug(res.Body)
+				Expect(errT).To(Equal("create_volume_failed"))
+				Expect(errDesc).To(Equal("I am an error :("))
+
+				h, err := host.FindByIdentifier(db, "healthy-host-1")
+				Expect(err).To(BeNil())
+				Expect(h.ProviderIdentifier).ToNot(Equal(sql.NullString{"i-c425e333", true}))
+
+				Expect(mockClient.ListVolumesCalled).To(Equal(1))
+				Expect(mockClient.CreateVolumeCalled).To(Equal(1))
+			})
+
+			It("should publish a host updated event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventHostUpdated {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting shared volume created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventHostUpdated))
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					h, err := host.FindByIdentifier(db, "healthy-host-1")
+					Expect(err).To(BeNil())
+					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
+				}
 			})
 
 		})
