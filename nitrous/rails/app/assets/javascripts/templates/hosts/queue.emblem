@@ -36,7 +36,7 @@
       i.fa.fa-twitter
       span Tweet
 
-    a.btn.survey.outline.duo href="https://actionio.wufoo.com/forms/m12kgvzr15pr6pm/" target="_blank"
+    a.btn.survey.outline.duo href=view.wufooURL target="_blank"
       i.fa.fa-check-square-o
       span Take the survey
 
