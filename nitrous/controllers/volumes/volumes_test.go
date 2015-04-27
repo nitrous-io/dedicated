@@ -15,6 +15,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -325,6 +327,34 @@ var _ = Describe("controllers/volumes", func() {
 				Expect(err).To(BeNil())
 				Expect(v).NotTo(BeNil())
 				Expect(v.Slug).To(Equal("deprecated"))
+			})
+		})
+
+		Context("when volumes is being used by a container", func() {
+			BeforeEach(func() {
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
+				Expect(err).To(BeNil())
+				c := &container.Container{
+					UserID: u.ID,
+					HostID: hs.H.ID,
+					Slug:   "go-123456",
+					Name:   sql.NullString{"go", true},
+					Image:  "go-image",
+				}
+				err = c.Insert(db)
+				Expect(err).To(BeNil())
+				cv := cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+				err = cv.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns 403 without destroying volume", func() {
+				doRequest("deprecated")
+				Expect(mockClient.RemoveVolumeCalled).To(Equal(0))
+				v, err := volume.Find(db, hs.H.ID, "deprecated")
+				Expect(err).To(BeNil())
+				Expect(v).NotTo(BeNil())
+				Expect(res.Code).To(Equal(http.StatusForbidden))
 			})
 		})
 	})

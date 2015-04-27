@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -18,6 +19,7 @@ import (
 var (
 	errNotFound                 = httperror.New(http.StatusNotFound, "volume_not_found", "volume could not be found")
 	errCannotDeleteSystemVolume = httperror.New(http.StatusForbidden, "forbidden", "system volume cannot be deleted")
+	errCannotDeleteVolumeInUse  = httperror.New(http.StatusForbidden, "forbidden", "cannot delete volume that's being used by a container")
 )
 
 var (
@@ -66,6 +68,11 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	if vol.System {
 		return errCannotDeleteSystemVolume
+	}
+
+	belongsToContainer, err := cvolume.BelongsToContainer(db, vol)
+	if belongsToContainer {
+		return errCannotDeleteVolumeInUse
 	}
 
 	cl, err := controllers.NewFreighterClient(db, h, env.UUID)

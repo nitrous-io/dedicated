@@ -148,4 +148,21 @@ var _ = Describe("models/volume", func() {
 			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 	})
+
+	Describe("BelongsToContainer()", func() {
+		It("returns true when there are containers that are associated with a given volume", func() {
+			cv := &cvolume.ContainerVolume{ContainerID: cnr.ID, VolumeID: vol.ID}
+			Expect(cv.Insert(db)).To(BeNil())
+
+			exist, err := cvolume.BelongsToContainer(db, vol)
+			Expect(err).To(BeNil())
+			Expect(exist).To(Equal(true))
+		})
+
+		It("returns false when there is no container that are associated with a given volume", func() {
+			exist, err := cvolume.BelongsToContainer(db, vol)
+			Expect(err).To(BeNil())
+			Expect(exist).To(Equal(false))
+		})
+	})
 })
