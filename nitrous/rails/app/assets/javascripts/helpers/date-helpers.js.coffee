@@ -15,7 +15,7 @@ Em.Handlebars.helper 'basicdatetime', (date) ->
     return
   yr = date.getFullYear()
   mnt = (date.getMonth() + 1)
-  day = (date.getDay() + 1)
+  day = (date.getDate())
   hr = date.getHours()
   if hr == 0
     hr = 12
