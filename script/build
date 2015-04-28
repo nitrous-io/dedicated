@@ -14,6 +14,8 @@ die() {
   echo $* && exit 1
 }
 
+CLOUDFRONT_ENDPOINT=${CLOUDFRONT_ENDPOINT:=disabled}
+
 # get version of an binary
 BUILD_NUMBER=${BUILD_NUMBER:=0}
 
@@ -192,6 +194,7 @@ if [ "$IN_DOCKER" == "true" ]; then
     --rm \
     -e BUILD_IN_DOCKER=true \
     -e BUILD_NUMBER=$BUILD_NUMBER \
+    -e CLOUDFRONT_ENDPOINT=$CLOUDFRONT_ENDPOINT \
     -i \
     nitrousio/dedicated-dev \
     /bin/bash -c "./script/build $APP false"
