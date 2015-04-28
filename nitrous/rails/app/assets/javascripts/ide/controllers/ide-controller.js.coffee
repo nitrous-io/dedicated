@@ -51,9 +51,11 @@ App.IdeController = Em.ObjectController.extend
       evSocket.connect()
 
       ['container.stopped', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
-        evSocket.on 'container.reconfigured', (data) =>
+        evSocket.on evt, (data) =>
           if @get('content.id') == data?.container?.id
             App.get('container').setProperties(data.container)
+            if data.config
+              App.get('container').set('config', data.config)
 
       evSocket.on 'container.stopped', (data) =>
         if @get('content.id') == data?.container?.id
