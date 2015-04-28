@@ -20,7 +20,7 @@ window.Mp =
 
   identify: ->
     return false unless @initialized
-    
+
     user = App?.get('user')
 
     # do not track if user is switched from admin

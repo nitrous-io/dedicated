@@ -10,12 +10,16 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 var FixFromBorn = admin.VerifyAdmin(fixFromBorn)
@@ -36,11 +40,12 @@ var (
 	errHostMissing   = httperror.New(http.StatusNotFound, "host_not_found", "host not found")
 )
 
-func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {
 	db := env.DB
 
 	id := mux.Vars(r)["id"]
-	h, err := host.FindByIdentifier(env.DB, id)
+	var h *host.Host
+	h, err = host.FindByIdentifier(env.DB, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errHostMissing
@@ -90,6 +95,15 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			if err := tx.Rollback(); err != nil {
+				env.Logger.Errorf("Error on tx Rollback, err: %+v", err)
+			}
+			return
+		}
+	}()
+
 	h.ProviderIdentifier = parsedHost.ProviderIdentifier
 	h.RegionIdentifier = parsedHost.RegionIdentifier
 	h.IPAddress = parsedHost.IPAddress
@@ -107,12 +121,10 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
 
 	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
-		tx.Rollback()
 		return err
 	}
 
@@ -127,14 +139,70 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
       ($1, $2, $3, $4, $5);`, h.ID, host.StateBorn, host.StateRunning, h.CreatedAt, endedAt)
 
 		if err != nil {
-			tx.Rollback()
 			return err
+		}
+	}
+
+	sVol, err := volume.Find(db, h.ID, "shared")
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if sVol == nil || err == sql.ErrNoRows {
+		sVol = &volume.Volume{
+			HostID: h.ID,
+			Slug:   "shared",
+			Name:   "Shared Volume",
+			System: true,
+		}
+
+		if err := sVol.Insert(tx); err != nil {
+			return err
+		}
+	}
+
+	cl, err := controllers.NewFreighterClient(tx, h, env.UUID)
+	if err != nil {
+		return err
+	}
+
+	vols, err := cl.ListVolumes()
+	if err != nil {
+		return err
+	}
+
+	foundShared := false
+	for _, vol := range vols {
+		if vol == "shared" {
+			foundShared = true
+			break
+		}
+	}
+
+	if !foundShared {
+		_, err = cl.CreateVolume(sVol.Slug)
+		if err != nil {
+			return httperror.New(http.StatusInternalServerError, "create_volume_failed", err.Error())
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		return err
+	}
+
+	u, err := user.FindByID(db, h.UserID)
+	if err != nil {
+		env.Logger.Errorf("Error locating user %d, err: %v", h.UserID, err)
+	}
+
+	if u != nil {
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventHostUpdated, map[string]*serializers.Host{
+				"host": serializers.SerializeHost(h),
+			}),
+			u.Topic(),
+		)
 	}
 
 	env.Status = http.StatusOK

@@ -17,8 +17,10 @@ App.RESTAdapter = SM.RESTAdapter.extend
           App.set 'resendConfirmationAppToken', App.get 'token'
           App.logout().then ->
             App.trigger 'confirmation-lapsed'
+          , ->
+            App.trigger 'confirmation-lapsed'
         if jqxhr.responseJSON.error_description
-          App.snackbar.post(jqxhr.responseJSON.error_description)
+          App.postError(jqxhr.responseJSON, "Confirmation token has expired")
     ajax
 
   logout: ->
