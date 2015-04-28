@@ -71,7 +71,16 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
-        App.set('sharedContainers', App.SharedContainer.fetch().value)
+        containerData = data.container
+        if container = findContainer(containerData, false)
+          container.get("collaborators").reload()
+          return # container belongs to us, no need for shared container update
+
+        if App.get('sharedContainers')
+          App.get('sharedContainers').reload()
+        else
+          App.set('sharedContainers', App.SharedContainer.fetch().value)
+
         if evt == "collaborator.added" && data.container.user_id != App.get('user.id')
             App.snackbar.post("#{data.initiated_by.username} has added to you to #{data.container.slug}")
 
@@ -116,11 +125,12 @@ findAllContainers = ->
 findAllSharedContainers = ->
   App.get('sharedContainers')
 
-findContainer = (data) ->
+findContainer = (data, shared = true) ->
   pk = App.Container.primaryKey
   c = findAllContainers()?.findBy(pk, data[pk])
   if c
     return c
+  return unless shared
   return findAllSharedContainers()?.findBy(pk, data[pk])
 
 findAllHosts = ->

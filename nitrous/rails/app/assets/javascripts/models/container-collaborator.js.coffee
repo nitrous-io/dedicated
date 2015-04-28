@@ -11,8 +11,6 @@ App.ContainerCollaborator = klass = App.Model.extend
   gravatarHash: attr('string', as: 'gravatar_hash', serialize: false)
   name: attr('string', as: 'name', serialize: false)
 
-  pendingRemove: attr('boolean', serialize: false)
-
   gravatar: (->
     "https://secure.gravatar.com/avatar/#{@get('gravatarHash')}?default=retro&secure=true&size=72"
   ).property 'gravatarHash'
