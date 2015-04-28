@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -33,6 +37,14 @@ func main() {
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
+	}
+
+	if envvars.WebHostname == "" {
+		logr.FatalfExit("WEB_HOSTNAME is not defined")
+	}
+
+	if envvars.TrustKey == "" {
+		logr.FatalfExit("TRUST_KEY is not defined")
 	}
 
 	hostsCh := make(chan *host.Host)
@@ -93,4 +105,11 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 		return
 	}
 	logr.Infof("Successfully shut down host %d for user %d in %s", hst.ID, hst.UserID, time.Since(timeStart))
+
+	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
+	c := httpclient.New("")
+	resp, _ := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
+		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.ID, err)
+	}
 }

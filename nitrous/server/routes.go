@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http/pprof"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
@@ -20,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -217,6 +219,21 @@ func (s *Server) drawRoutes() {
 
 		for method, routes := range authed {
 			s.drawRouteData(method, true, routes)
+		}
+
+		maintenance := map[string]map[string]routeData{
+			"POST": {
+				"user_refresh/{id}": r("maintenance.UserRefresh", maintenance.UserRefresh),
+			},
+		}
+
+		for method, routes := range maintenance {
+			for path, r := range routes {
+				path = fmt.Sprintf("/maintenance/%s", path)
+				final := mw.Call("nitrous."+r.label, r.mw)
+				final = mw.VerifyTrust(final)
+				s.routeJSON(path, final, method)
+			}
 		}
 	})
 

@@ -61,7 +61,7 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 // Upgrade all hosts to paid for free-tier user
 // just upgraded to paid tier
 func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
-	hosts, err := host.FindAllByUser(d, u)
+	hosts, err := host.FindAllByUser(d, u.ID)
 	if err != nil {
 		return err
 	}
