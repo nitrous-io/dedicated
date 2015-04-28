@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -482,9 +480,9 @@ func (s *Server) wsContainerLogs(w http.ResponseWriter, r *http.Request) error {
 	return s.provider.Logs(id, shell.NewShellWriter(stream), follow, timestamps, tail)
 }
 
-// wsNewShell creates a new shell to a container using protocol specified in
+// wsShell creates a new shell to a container using protocol specified in
 // pkg/shell/protocol.go
-func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 
 	info, err := s.provider.GetInfo(id)
@@ -496,20 +494,25 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("Cannot attach to stopped container %v", containerID)
 	}
 
+	// client sends shell_id if it is reconnecting
+	shellID := r.FormValue("shell_id")
+
 	command := r.FormValue("command")
 	width := getFormInt(r, "width")
 	height := getFormInt(r, "height")
+
 	// check if the client request to use BinaryMessage instead of TextMessage
 	binary, _ := strconv.ParseBool(r.FormValue("binary"))
 	// check if the client wants to have a TTY. Usually the client who wants a
 	// stdin pipe will not need a TTY
 	noTTY, _ := strconv.ParseBool(r.FormValue("notty"))
 
-	sh, err := shell.OpenShell(containerID, command, noTTY)
+	sh, err := shell.OpenShell(containerID, shellID, command, noTTY)
 	if err != nil {
-		fmt.Printf("wsNewShell: failed to open a shell for container %v, err: %s\n", containerID, err)
+		fmt.Printf("wsShell: failed to open a shell for container %v, err: %s\n", containerID, err)
 		return err
 	}
+	shellID = sh.ID
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -518,24 +521,34 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 	stream := NewWebSocketConnection(conn, binary)
 	defer stream.Close()
 
-	// given the shell an ID so we can multiplex the shell IO later given its
-	// id i.e. gomux style
-	shellID := randomString()
-	s.shells[shellID] = sh
+	stream.Write([]byte(fmt.Sprintf("i|%s", shellID)))
 
 	// create stdin/stdout stream with the shell protocol
 	msgCh := make(chan shell.Message, messageQueueSize)
+
 	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
 	stdout := shell.NewShellWriter(stream)
 
 	attached := make(chan struct{}, 1)
 	ch := sh.Attach(stdin, stdout, attached)
 
+	end := func() {
+		stdout.Close()
+		stdin.Close()
+		sh.Destroy()
+	}
+
 	for {
 		select {
 		case err := <-ch:
-			log.Printf("exited with err %v", err)
-			stdout.Close() // Inform client that server has closed connection.
+			if err != nil {
+				log.Printf("exited with err %v", err)
+			}
+			if err == shell.ErrDetached {
+				// detaching stale connection, don't end
+				return nil
+			}
+			end()
 			return nil
 		case <-attached:
 			// when the client first attached, resize immediately with the
@@ -545,6 +558,9 @@ func (s *Server) wsNewShell(w http.ResponseWriter, r *http.Request) error {
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
+			case *shell.CloseMsg:
+				end()
+				return nil
 			default:
 				log.Println("shell: got unknown msg ", msg)
 			}
@@ -1189,15 +1205,6 @@ func setupFakePath(path string) error {
 func (s *Server) stopFreighterd() error {
 	s.logger.Infof("Sending freighter process signal to terminate...")
 	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
-}
-
-func randomString() string {
-	id := make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, id)
-	if err != nil {
-		panic(err)
-	}
-	return hex.EncodeToString(id)
 }
 
 func getFormInt(r *http.Request, k string) int {

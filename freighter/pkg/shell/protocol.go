@@ -71,8 +71,9 @@ func (m *CloseMsg) String() string {
 	return fmt.Sprintf("close: %s", m.msg)
 }
 
-type websocketReader interface {
+type websocketReadCloser interface {
 	NextReader() (messageType int, r io.Reader, err error)
+	Close() error
 }
 
 // ShellReader handles client input which allows type:
@@ -81,7 +82,7 @@ type websocketReader interface {
 // - c|
 // - h
 type ShellReader struct {
-	socket websocketReader
+	socket websocketReadCloser
 
 	// cached reader, which is reset whenever the messages is EOF
 	reader io.Reader
@@ -92,7 +93,7 @@ type ShellReader struct {
 	MessageType int
 }
 
-func NewShellReader(ws websocketReader, ch chan Message, t int) io.Reader {
+func NewShellReader(ws websocketReadCloser, ch chan Message, t int) *ShellReader {
 	return &ShellReader{socket: ws, msgChan: ch, MessageType: t}
 }
 
@@ -129,7 +130,7 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 		return 0, nil
 	}
 	// if this is a new message, we takes out the protocol prefix
-	if newMessage && n > 2 {
+	if newMessage && n >= 2 {
 		// detect client input, copy everything back to p without the prefix
 		if bytes.Equal(buf[0:2], dataMsg) {
 			i := copy(p, buf[2:n])
@@ -157,6 +158,13 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 	return 0, nil
 }
 
+func (s *ShellReader) Close() error {
+	if s.socket == nil {
+		return nil
+	}
+	return s.socket.Close()
+}
+
 // ShellWriter takes data written to it and writes it as a data message of the
 // form "d|server_output". It writes server output to be sent to the client.
 type ShellWriter struct {
@@ -174,8 +182,14 @@ func (s *ShellWriter) Write(p []byte) (int, error) {
 	buf := make([]byte, l+len(dataMsg))
 	copy(buf[0:2], dataMsg)
 	copy(buf[2:], p)
-	_, err := s.writer.Write(buf)
-	return l, err
+	n, err := s.writer.Write(buf)
+	if n > 0 {
+		n -= 2
+		if n < 0 {
+			n = 0
+		}
+	}
+	return n, err
 }
 
 // Close sends a close message to the client, but does not close the underlying

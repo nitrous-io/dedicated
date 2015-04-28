@@ -56,7 +56,7 @@ func (s *Server) drawRoutes() {
 
 	// handle websocket custom protocol
 	s.route("/containers/{id}/shell", s.handleCORSPreflight, "OPTIONS")
-	s.route("/containers/{id}/shell", s.cors(s.wrapError(s.withContainerToken(s.wsNewShell, "shell"))), "GET")
+	s.route("/containers/{id}/shell", s.cors(s.wrapError(s.withContainerToken(s.wsShell, "shell"))), "GET")
 	s.route("/containers/{id}/logs", s.handleCORSPreflight, "OPTIONS")
 	s.route("/containers/{id}/logs", s.cors(s.wrapError(s.withContainerToken(s.wsContainerLogs, "logs"))), "GET")
 	s.route("/containers/{id}/attach", s.handleCORSPreflight, "OPTIONS")

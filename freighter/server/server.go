@@ -15,7 +15,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter"
-	"github.com/nitrous-io/dedicated/freighter/pkg/shell"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -49,13 +48,11 @@ func init() {
 }
 
 type Server struct {
-	logger   *util.Logger
-	provider provider.Provider
-	router   *mux.Router
-	conf     *freighter.Config
-	secret   string
-	// collection of current attached shells
-	shells    map[string]*shell.Shell
+	logger    *util.Logger
+	provider  provider.Provider
+	router    *mux.Router
+	conf      *freighter.Config
+	secret    string
 	listeners []net.Listener
 	runner    Runner
 }
@@ -69,7 +66,6 @@ func NewServer(logger *util.Logger, provider provider.Provider, conf *freighter.
 		provider: provider,
 		router:   mux.NewRouter(),
 		conf:     conf,
-		shells:   map[string]*shell.Shell{},
 		runner:   &realRunner{},
 	}
 	svr.drawRoutes()

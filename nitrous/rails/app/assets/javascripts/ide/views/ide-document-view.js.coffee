@@ -39,7 +39,7 @@ App.IdeDocumentView = Em.View.extend
     @documentPathDidChange() # also enables collab
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
-      return # need to return void to avoid showing confirm dialog
+      return # need to return void
     @focusedDidChange()
 
   willDestroyElement: ->
