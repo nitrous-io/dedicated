@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -64,7 +65,7 @@ func main() {
 	c := httpclient.New(t.Token)
 	resp, err := c.GetAuthed(url, nil)
 	if err != nil {
-		logr.FatalfExit("healthcheck: endpoint error: %+v", err)
+		logr.FatalfExit("healthcheck: endpoint error: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -81,9 +82,10 @@ func main() {
 			os.Exit(0)
 		}
 	}
-	logr.Error("Healthcheck failed")
+	logparts := []string{"Healthcheck failed"}
 	for k, v := range h {
-		fmt.Printf("%s: %v\n", k, v)
+		logparts = append(logparts, fmt.Sprintf("%s: %v", k, v))
 	}
+	logr.Error(strings.Join(logparts, ","))
 	os.Exit(1)
 }
