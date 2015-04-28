@@ -1,6 +1,6 @@
 #= require ../lib/host-actions
 
-{ healthyHostActions, healthyHostBulkActions, problemHostActions, unaccountedHostActions } = Lib.HostActions
+{ healthyHostActions, healthyHostBulkActions, problemHostActions, inconsistentHostActions, unaccountedHostActions } = Lib.HostActions
 
 # For displaying identifier of a host
 # Use host.slug if it is a DB host
@@ -184,8 +184,11 @@ App.AdminAmazonHostsController = Em.Controller.extend
     showHealthyHostDialog: (host) ->
       @showActionDialog([host], healthyHostActions(host))
 
-    showProblemHostDialog: (host) ->
+    showInconsistentDialog: (host) ->
       @set('showFixBorn', true)
+      @showActionDialog([host], inconsistentHostActions)
+
+    showProblemHostDialog: (host) ->
       @showActionDialog([host], problemHostActions)
 
     showUnaccountedHostDialog: (host) ->
@@ -199,7 +202,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
     showInconsistentHostBulkDialog: ->
       hosts = @get('hosts').inconsistent_hosts
       selected = selectedDbHosts(hosts)
-      @showActionDialog(selected, problemHostActions)
+      @showActionDialog(selected, inconsistentHostActions)
 
     showDanglingHostBulkDialog: ->
       hosts = @get('hosts').dangling_hosts

@@ -65,6 +65,22 @@ hostActions =
         url: "/api/v0/hosts/#{host.slug}"
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
+  setLiveState:
+    name: 'Update State'
+    progressName: 'Updating state'
+    description: 'This will update the host db state to "running".'
+    successMessage: 'Successfully updated host state'
+    failureMessage: 'Failed to update host state!'
+    perform: (host) ->
+      Em.$.ajax
+        type: 'POST'
+        url: '/api/v0/admin/change_host_state'
+        data:
+          slug: host.slug
+          old_state: host.state
+          new_state: 'running'
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+
   terminateUnaccounted:
     name: 'Terminate'
     progressName: 'Terminating'
@@ -102,4 +118,5 @@ Lib.HostActions =
   # Put other types of common collection of host actions into array
   healthyHostBulkActions: [hostActions.update, hostActions.terminate]
   problemHostActions: [hostActions.terminate]
+  inconsistentHostActions: [hostActions.setLiveState, hostActions.terminate]
   unaccountedHostActions: [hostActions.terminateUnaccounted]

@@ -363,8 +363,8 @@ var _ = Describe("controllers/admin", func() {
 		doRequest := func(slug, oldState, newState string) *httptest.ResponseRecorder {
 			params := &url.Values{}
 			params.Set("slug", slug)
-			params.Set("old-state", oldState)
-			params.Set("new-state", newState)
+			params.Set("old_state", oldState)
+			params.Set("new_state", newState)
 
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/admin/change_host_state", params)
 			Expect(err).To(BeNil())

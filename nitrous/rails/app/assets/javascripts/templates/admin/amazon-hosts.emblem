@@ -177,7 +177,7 @@
                   = input type='checkbox' checked=entry.uiState.selected
                   label
                 td.actions
-                  button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
+                  button.ui.btn.raised click='showInconsistentDialog entry.db_host' Actions
                 td.id = entry.db_host.id
                 td.id = entry.live_host.id
                 td.slug = entry.db_host.slug
@@ -254,4 +254,5 @@
           button.ui.btn click='cancelAction' Cancel
           button.ui.btn.danger.terminate-btn click='confirmAction'
             | Confirm
+            ' 
             = selectedAction.name

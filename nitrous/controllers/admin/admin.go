@@ -119,12 +119,12 @@ func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		return errHostSlugRequired
 	}
 
-	oldState := r.FormValue("old-state")
+	oldState := r.FormValue("old_state")
 	if oldState == "" {
 		return errOldStateRequired
 	}
 
-	newState := r.FormValue("new-state")
+	newState := r.FormValue("new_state")
 	if newState == "" {
 		return errNewStateRequired
 	}
