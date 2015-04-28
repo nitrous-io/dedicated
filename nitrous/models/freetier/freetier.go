@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -18,7 +19,6 @@ var (
 	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
 	ErrMaxFreeHostReached = errors.New("free tier user already has existing free host")
 	ErrPhoneAuthRequired  = errors.New("phone authentication required")
-	ErrFreeQueueRequired  = errors.New("free tier workspace must join queue and cannot be created immediately")
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
@@ -86,6 +86,11 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
+	if u.Admin {
+		// return all plans for admin
+		return plan.AllPlansForProvider(d, provider)
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return nil, err
@@ -93,23 +98,47 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 
 	if bp.IsFreeTier() {
 		err := CreateFreeTierHostAllowed(d, u)
+		if err != nil {
+			switch err {
+			case ErrPhoneAuthRequired:
+				// return all plans if user is just registered
+				// and have not verify phone number
+				return plan.AllPlansForProvider(d, provider)
+
+			case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+				// return paid plans if user already created free host
+				// or if user is not in free tier
+				return plan.PaidPlansForProvider(d, provider)
+			}
+		}
+
+		err = freequeue.UserApproved(d, u)
 		switch err {
-		case nil, ErrPhoneAuthRequired:
-			return plan.AllPlansForProvider(d, provider)
-		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+		case nil, freequeue.ErrFreeQueueAwaiting:
+			// return paid plans if user is approved or already awaiting,
 			return plan.PaidPlansForProvider(d, provider)
-		default:
-			return nil, err
+
+		case freequeue.ErrFreeQueueRequired:
+			// return all plans if user is not yet enqueue
+			return plan.AllPlansForProvider(d, provider)
 		}
 
 	} else {
+		// return only paid plans for non-free-tier user
 		return plan.PaidPlansForProvider(d, provider)
 	}
+
+	// return only paid plans if there is any unexpected errors
+	return plan.PaidPlansForProvider(d, provider)
 }
 
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
 func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
+	if u.Admin {
+		return nil
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -137,6 +166,10 @@ func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
 
 // Checks whether a free/paid user can create a host of given plan.
 func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error {
+	if u.Admin {
+		return nil
+	}
+
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -152,13 +185,12 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 			return err
 		}
 
-		// All free tier create hosts requests are added to a queue.
-		return ErrFreeQueueRequired
+		return freequeue.UserApproved(d, u)
 
 	} else {
 		// Paid users cannot create hosts with free plan. Doesn't apply to admin
 		// users so that we can test more easily
-		if p.IsFree() && !u.Admin {
+		if p.IsFree() {
 			return ErrFreePlanNotAllowed
 		}
 	}

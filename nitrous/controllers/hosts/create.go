@@ -124,19 +124,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
-		case freetier.ErrFreeQueueRequired:
-			// Check whether user has already queued.
-			if fq, err := freequeue.Find(db, u.ID); err != nil {
-				if err != sql.ErrNoRows {
-					return err
-				}
-			} else {
-				if fq.State == freequeue.StateApproved {
-					break
-				}
-				return errFreeQueueExists
-			}
-
+		case freequeue.ErrFreeQueueRequired:
 			// Add host and container to free queue.
 			fq := &freequeue.FreeQueue{
 				UserID:                u.ID,
@@ -145,11 +133,15 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				HostName:              options.Name,
 				RegionSlug:            reg.Slug,
 			}
+
 			if err := fq.Insert(db); err != nil {
 				return err
 			}
 
 			return errFreeQueueRequired
+
+		case freequeue.ErrFreeQueueAwaiting:
+			return errFreeQueueExists
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed
 		case freetier.ErrPaidPlanNotAllowed:

@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -124,60 +125,93 @@ var _ = Describe("models/freetier", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("should be allowed to create free-tier host but in a queue", func() {
+			It("should be disallowed for not being in a free queue", func() {
 				err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-				Expect(err).To(Equal(freetier.ErrFreeQueueRequired))
+				Expect(err).To(Equal(freequeue.ErrFreeQueueRequired))
 			})
 
-			It("should not be allowed to create host with paid plan", func() {
-				err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
-				Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
-			})
-
-			Context("When there is host created", func() {
-				var (
-					h1 *host.Host
-				)
+			Context("When user is in free queue", func() {
 				BeforeEach(func() {
-					h1 = &host.Host{
-						Slug:        "my-free-host",
-						HourlyPrice: 0,
+					fq := &freequeue.FreeQueue{
+						UserID:                u.ID,
+						ContainerTemplateSlug: "rails",
+						ContainerName:         "my-rails-app",
+						HostName:              "my-free-host",
+						RegionSlug:            "sfo",
 					}
 
-					_, err := test.CreateHostStack(db, &test.HostStack{
-						H: h1,
-						U: u,
-						P: freePlan,
-					})
+					err := fq.Insert(db)
 					Expect(err).To(BeNil())
 				})
 
-				Context("when host is running", func() {
-					It("free-tier user should only be allowed to create one free host", func() {
-						hosts, err := host.FindAllByUser(db, u)
-						Expect(err).To(BeNil())
-						Expect(len(hosts)).To(Equal(1))
-
-						err = freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-						Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
-					})
+				It("should be disallowed if have joined free queue but not approved", func() {
+					err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+					Expect(err).To(Equal(freequeue.ErrFreeQueueAwaiting))
 				})
 
-				Context("when host is terminated", func() {
+				Context("When user is approved in free queue", func() {
 					BeforeEach(func() {
-						err := h1.Delete(db)
+						_, err := db.Exec(`UPDATE free_queue SET state=$1 WHERE user_id=$2;`,
+							freequeue.StateApproved, u.ID)
 						Expect(err).To(BeNil())
-						Expect(h1.TerminatedAt).ToNot(BeNil())
 					})
 
-					It("Should not be allowed to create new free host", func() {
+					It("should be allowed if have joined free queue and approved", func() {
 						err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
-						Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+						Expect(err).To(BeNil())
 					})
 
-					It("Should not be allowed to create host with paid plan", func() {
+					It("should not be allowed to create host with paid plan", func() {
 						err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
 						Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
+					})
+
+					Context("When there is host created", func() {
+						var (
+							h1 *host.Host
+						)
+						BeforeEach(func() {
+							h1 = &host.Host{
+								Slug:        "my-free-host",
+								HourlyPrice: 0,
+							}
+
+							_, err := test.CreateHostStack(db, &test.HostStack{
+								H: h1,
+								U: u,
+								P: freePlan,
+							})
+							Expect(err).To(BeNil())
+						})
+
+						Context("when host is running", func() {
+							It("free-tier user should only be allowed to create one free host", func() {
+								hosts, err := host.FindAllByUser(db, u)
+								Expect(err).To(BeNil())
+								Expect(len(hosts)).To(Equal(1))
+
+								err = freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+								Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+							})
+						})
+
+						Context("when host is terminated", func() {
+							BeforeEach(func() {
+								err := h1.Delete(db)
+								Expect(err).To(BeNil())
+								Expect(h1.TerminatedAt).ToNot(BeNil())
+							})
+
+							It("Should not be allowed to create new free host", func() {
+								err := freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+								Expect(err).To(Equal(freetier.ErrMaxFreeHostReached))
+							})
+
+							It("Should not be allowed to create host with paid plan", func() {
+								err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
+								Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
+							})
+						})
 					})
 				})
 			})

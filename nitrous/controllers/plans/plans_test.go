@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -185,6 +186,26 @@ var _ = Describe("controllers/plans", func() {
 							// but it doesn't really matter for this test
 							P: plans[0],
 						})
+						Expect(err).To(BeNil())
+					})
+
+					It("should return only paid plans", func() {
+						plans := fetchPlans("/api/v0/plans?eligible=true", true)
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+					})
+				})
+
+				Context("when user has joined the free queue", func() {
+					BeforeEach(func() {
+						fq := &freequeue.FreeQueue{
+							UserID:                u.ID,
+							ContainerTemplateSlug: "rails",
+							ContainerName:         "my-rails-app",
+							HostName:              "my-free-host",
+							RegionSlug:            "sfo",
+						}
+
+						err := fq.Insert(db)
 						Expect(err).To(BeNil())
 					})
 
