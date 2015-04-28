@@ -12,6 +12,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 )
 
+const danglingGracePeriod = 10 * time.Minute
+
 var (
 	// matches the agreed format for testing images `create-test-#{region}-#{image_id}-#{unix_epoch}`
 	nonNitrousHosts = regexp.MustCompile(`(?i)^create-test-(\w+)-(\d+)-(\d{10,})$`)
@@ -57,9 +59,13 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 		if pid.Valid {
 			entry := index.getEntry(pid.String)
 			entry.DBHost = dbHost
-		} else {
-			danglingHosts = append(danglingHosts, dbHost)
+			continue
 		}
+		if dbHost.State == host.StateBorn && time.Since(*dbHost.CreatedAt) < danglingGracePeriod {
+			continue // allow some time for provider to build host
+		}
+
+		danglingHosts = append(danglingHosts, dbHost)
 	}
 
 	return index, danglingHosts
