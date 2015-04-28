@@ -7,29 +7,26 @@ import (
 	"io"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 var (
 	ErrInvalidArg = errors.New("collab: invalid argument given")
 
-	nextConnID     = int64(0)
-	nextConnIDLock sync.Mutex
+	nextConnID = int64(0)
 )
 
 type Connection struct {
 	ID         string
 	Username   string
 	Conn       io.Writer
-	Buffer     [][]byte
 	bufferLock sync.Mutex
+	Buffer     [][]byte
 }
 
 func NewConnection(conn io.Writer, username, id string) *Connection {
 	if id == "" {
-		nextConnIDLock.Lock()
-		id = strconv.FormatInt(nextConnID, 36)
-		nextConnID++
-		nextConnIDLock.Unlock()
+		id = strconv.FormatInt(atomic.AddInt64(&nextConnID, 1), 36)
 	}
 	c := &Connection{
 		ID:       id,

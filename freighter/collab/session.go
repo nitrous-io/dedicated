@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	Sessions     map[string]*Session
 	sessionsLock sync.Mutex
+	Sessions     map[string]*Session
 )
 
 func init() {

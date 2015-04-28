@@ -64,7 +64,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	if hostFilter == nil {
 		var err error
-		hosts, err = host.FindAllByUser(db, user)
+		hosts, err = host.FindAllByUser(db, user.ID)
 		if err != nil {
 			return err
 		}

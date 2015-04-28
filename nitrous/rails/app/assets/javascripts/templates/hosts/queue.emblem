@@ -27,16 +27,18 @@
       | You've been added to the waitlist!
 
     h3.waitlist
-      ' There are over
-      span 1000 
-      |  people ahead of you
+      | We're working hard to catch up with an overwhelming demand for free workspaces. We'll email you as soon as your workspace is ready.
 
     p.bigger
-      | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform. Tweet about Nitrous — good use cases are more likely to be prioritized!
+      | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform.
   
-    a.btn.tweet href="https://twitter.com/intent/tweet?text=I%E2%80%99m%20ditching%20localhost%20for%20the%20cloud%2C%20signup%20for%20%40nitrousio%20today!" target="_blank"
+    a.btn.tweet.outline.duo href="https://twitter.com/intent/tweet?text=I%E2%80%99m%20ditching%20localhost%20for%20the%20cloud%2C%20signup%20for%20%40nitrousio%20today!" target="_blank"
       i.fa.fa-twitter
-      span Tweet now
+      span Tweet
+
+    a.btn.survey.outline.duo href=view.wufooURL target="_blank"
+      i.fa.fa-check-square-o
+      span Take the survey
 
 
 

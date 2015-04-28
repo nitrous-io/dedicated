@@ -32,6 +32,8 @@ window.NitrousTerminal =
   binaryMode: false
   ide: false
 
+  shellId: null
+
   resizeTimeout: null
 
   dataBuffer: null
@@ -96,6 +98,8 @@ window.NitrousTerminal =
     @conn.binaryMode = @binaryMode
 
     @conn.url = @url
+    if @conn.url && @shellId
+      @conn.url += "&shell_id=#{@shellId}"
     @conn.open(nobeforeopen)
     @conn.url = null
 
@@ -107,9 +111,10 @@ window.NitrousTerminal =
     @term?.destroy()
 
   close: (retry=false) ->
-    @conn?.close(retry)
     if !retry
+      @conn?.send 'c|bye'
       @willOpen = null
+    @conn?.close(retry)
 
   focus: ->
     @term?.focus()
@@ -170,12 +175,18 @@ window.NitrousTerminal =
     if @firstConnect
       @firstConnect = false
       @clear()
-    else
-      @term.write '\r\n'
 
   didReceiveMessage: (ev) ->
     type = ev.data.slice(0, 2)
     switch type
+      when 'i|'
+        newShellId = if @binaryMode
+          utf8Decode(ev.binaryData.slice(2))
+        else
+          ev.data.slice(2)
+        if @shellId && @shellId != newShellId
+          @term.write "\r\n[Connection timed out]\r\n"
+        @shellId = newShellId
       when 'd|'
         if @binaryMode
           @handleData(ev.binaryData.slice(2))
@@ -190,7 +201,8 @@ window.NitrousTerminal =
 
   didClose: (ev) ->
     @closed = true
-    @term?.write("\r\n[Session closed]")
+    if @conn?.ws._noRetry
+      @term?.write("\r\n[Session closed]")
 
   handleSwitchConsoleEditorEvent: (ev) ->
     if parentWindow

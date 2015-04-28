@@ -17,13 +17,17 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
 
   didInsertElement: ->
     @_super()
-    $(window).bind "orientationchange.ideConsoleSessionView#{@get 'consoleSessionViewId'}", _.bind(@didChangeOrientation, this)
+    $(window).on "orientationchange.ideConsoleSessionView#{@get 'consoleSessionViewId'}", _.bind(@didChangeOrientation, this)
+    $(window).on "unload.#{@get('elementId')}", =>
+      @disconnect()
+      return # need to return void
     @injectIframe()
 
   willDestroyElement: ->
     @_super()
-    @$('iframe')[0]?.contentWindow?.NitrousTerminal?.destroy()
-    $(window).unbind "orientationchange.ideConsoleSessionView#{@get 'consoleSessionViewId'}"
+    @disconnect()
+    $(window).off "orientationchange.ideConsoleSessionView#{@get 'consoleSessionViewId'}"
+    $(window).off "unload.#{@get('elementId')}"
 
   focusDidChange: (->
     if focused = @get 'consoleSession.focused'
@@ -49,6 +53,9 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
           iframe.style.width = '100%'
         , 10)
     , 800)
+
+  disconnect: ->
+    @$('iframe')[0]?.contentWindow?.NitrousTerminal?.destroy()
 
   injectIframe: ->
     return if @get 'iframeInjected'
