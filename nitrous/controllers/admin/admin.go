@@ -151,7 +151,7 @@ func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	err = hosttransition.Record(tx, h, oldState, *h.UpdatedAt)
+	err = hosttransition.Record(tx, h, oldState, *h.UpdatedAt, env.User.ID)
 	if err != nil {
 		tx.Rollback()
 		return err
