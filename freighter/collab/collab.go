@@ -16,8 +16,8 @@ import (
 var (
 	ConnectionTimeout = 60 * time.Second
 
-	ActiveConnections     = map[string]int{}
 	activeConnectionsLock sync.Mutex
+	ActiveConnections     = map[string]int{}
 )
 
 func init() {
