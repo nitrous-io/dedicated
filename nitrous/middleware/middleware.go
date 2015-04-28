@@ -32,7 +32,6 @@ var (
 	ErrNotFound            = httperror.New(http.StatusNotFound, "not_found", "not found")
 
 	splitIPRe   = regexp.MustCompile(`[,\s]+`)
-	localIPRe   = regexp.MustCompile(`\A127\.0\.0\.1\z|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
 	trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
 
 	allowedUnpaidResources = map[string]int{
@@ -205,14 +204,14 @@ func Track(event string, mw Middleware) Middleware {
 func VerifyTrust(mw Middleware) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		remote := r.Header.Get("X-Forwarded-For")
-		env.Logger.Infof("Incoming trust request from %s", remote)
-
-		if !localIPRe.MatchString(remote) {
-			return ErrNotFound
+		if remote == "" {
+			remote = r.RemoteAddr
 		}
+		env.Logger.Infof("VerifyTrust: Incoming trust request from %s", remote)
 
 		trustKey := envvars.TrustKey
 		if trustKey == "" || trustKey != r.FormValue("trust_key") {
+			env.Logger.Warnf("VerifyTrust: %s provided an invalid trust_key", remote)
 			return ErrNotFound
 		}
 

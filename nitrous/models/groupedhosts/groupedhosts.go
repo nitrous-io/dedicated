@@ -3,10 +3,12 @@ package groupedhosts
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder"
-	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 )
 
@@ -63,7 +65,34 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	return index, danglingHosts
 }
 
-func mapHost(list *HostList, entry *HostEntry) {
+func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
+	// if live and db state is the same, we're consistent
+	liveState := strings.ToLower(liveHost.State)
+	if liveState == strings.ToLower(dbHost.State) {
+		return true
+	}
+	// Note: if doing lookup for each host turns out to be too slow,
+	// we'll have to rework it to grab more transitions in one go
+	transition, err := hosttransition.FindMostRecentForHost(db, dbHost.ID)
+	if err != nil {
+		return false
+	}
+
+	// we're consistent if live state is the same as the state we're
+	// transitionining from and the transition isn't taking more than 5 mins
+	if liveState != strings.ToLower(transition.PreviousState.String) {
+		return false
+	}
+	// paranoia - CreatedAt shouldn't be nil but be safe if it is
+	if transition.CreatedAt == nil {
+		return false
+	}
+	// db is correctly marked as transitioning to live state but transition
+	// is taking too long
+	return time.Since(*transition.CreatedAt) < time.Minute*5
+}
+
+func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 	liveHost := entry.LiveHost
 	dbHost := entry.DBHost
 
@@ -76,7 +105,7 @@ func mapHost(list *HostList, entry *HostEntry) {
 
 	switch {
 	case liveHost != nil && dbHost != nil:
-		if strings.ToLower(liveHost.State) == strings.ToLower(dbHost.State) {
+		if isDbAndLiveConsistent(db, liveHost, dbHost) {
 			list.HealthyHosts = append(list.HealthyHosts, entry)
 		} else {
 			list.InconsistentHosts = append(list.InconsistentHosts, entry)
@@ -92,7 +121,7 @@ func mapHost(list *HostList, entry *HostEntry) {
 	}
 }
 
-func mapHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) *HostList {
+func mapHosts(db *ndb.Database, liveHosts []*hostbuilder.Response, dbHosts []*host.Host) *HostList {
 	list := &HostList{}
 
 	index, danglingHosts := indexHosts(liveHosts, dbHosts)
@@ -105,13 +134,13 @@ func mapHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) *HostList
 	list.DanglingHosts = danglingHosts
 
 	for _, entry := range index {
-		mapHost(list, entry)
+		mapHost(db, list, entry)
 	}
 
 	return list
 }
 
-func ListHosts(db *dbLib.Database, client *hostbuilderclient.Hostbuilder, provider string) (*HostList, error) {
+func ListHosts(db *ndb.Database, client *hostbuilderclient.Hostbuilder, provider string) (*HostList, error) {
 	dbHosts, err := host.FindAllByProvider(db, provider)
 	if err != nil {
 		return nil, err
@@ -122,7 +151,7 @@ func ListHosts(db *dbLib.Database, client *hostbuilderclient.Hostbuilder, provid
 		return nil, err
 	}
 
-	res := mapHosts(liveHosts, dbHosts)
+	res := mapHosts(db, liveHosts, dbHosts)
 
 	return res, nil
 }

@@ -897,6 +897,37 @@ article
 
 
 // --------------------------------------
+// Centered list
+.centered-list
+  width: 80%
+  margin: 0 auto
+  padding-top: 20px
+  padding-bottom: 0
+
+  .item
+    width: 100%
+    overflow: hidden
+    margin-top: 30px
+    margin-bottom: 30px
+
+    span.date
+      display: inline-block
+      float: left
+
+    h3
+      font-size: 18px
+      line-height: 22px
+
+    a:hover h3
+      color: $blueLink
+
+    .item-content
+      width: 80%
+      float: left
+      margin-left: 20px
+
+
+// --------------------------------------
 // Grid
 .grid-wrapper
   display: flex
@@ -1661,7 +1692,10 @@ h4 + .box-wrapper
   margin: 40px auto 0 auto
 
   .item
+    -webkit-column-break-inside: avoid
+    page-break-inside: avoid
     column-break-inside: avoid
+    break-inside: avoid
     margin-bottom: 60px
     h4
       margin-bottom: 8px
@@ -1890,6 +1924,24 @@ h4 + .box-wrapper
   .item
     border-left: 2px solid rgba(255,255,255,.2)
     padding-left: 16px
+
+
+// --------------------------------------
+// Parallax
+.parallax
+  height: 480px
+  overflow: hidden
+  border: 0 !important
+  background: $blueLink image_url('home/chromeos-blue-bg.jpg') 0 0 no-repeat
+  background-size: cover
+
+  img
+    position: relative
+    margin: 0 auto
+    top: 0
+    display: block
+    box-shadow: 0 2px 20px rgba(0,0,0,.4)
+    +webkitFix
 
 
 // --------------------------------------
@@ -2638,9 +2690,10 @@ input[type="range"]
 // --------------------------------------
 // Zoom
 .zoom
+  transform: scale(.96)
   transition: .3s cubic-bezier(.3,.6,.2,1.4)
   &:hover
-    transform: scale(1.04)
+    transform: scale(1)
     box-shadow: 0 15px 30px rgba(0,0,0,.1)
 
 
@@ -2801,7 +2854,20 @@ input[type="range"]
 
   article .article.venturebeat a
     background-image: image_url('home/press-venturebeat.png')
+  
 
+  article .press-release 
+    h3 
+      font-family: $boldFont
+      font-weight: 400
+      padding-bottom: 4px
+
+    .date
+      padding-bottom: 10px
+
+    p
+      color: rgba(0,0,0,.6)
+      font-size: 14px
 
   .unread
     &:after
@@ -2829,6 +2895,17 @@ input[type="range"]
 
   .ripple:hover
     box-shadow: 0 0 0 transparent
+
+
+  .qa
+    h4 
+      color: rgba(0,0,0,.6)
+
+    p
+      color: rgba(0,0,0,.8)
+
+    .item
+      border-left: 2px solid rgba(0,0,0,.05)
 
 
 

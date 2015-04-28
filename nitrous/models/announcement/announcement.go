@@ -9,7 +9,7 @@ import (
 	templateLib "text/template"
 
 	"github.com/lib/pq"
-	dbLib "github.com/nitrous-io/dedicated/nitrous/db"
+	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -88,7 +88,7 @@ func (ann *HostAnnouncement) Message() (string, error) {
 	return ann.RenderMessage(ann.HostOwner)
 }
 
-func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
+func FindOwnerByHostID(db *ndb.Database, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
 	err := db.Get(owner, `SELECT
@@ -105,7 +105,7 @@ func FindOwnerByHostID(db *dbLib.Database, hostID int64) (*HostOwner, error) {
 	return owner, nil
 }
 
-func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, error) {
+func FindOwnersByHostSlugs(db *ndb.Database, slugs []string) ([]*HostOwner, error) {
 	slugsCount := len(slugs)
 	placeholders := make([]string, slugsCount)
 	values := make([]interface{}, slugsCount)
@@ -133,7 +133,7 @@ func FindOwnersByHostSlugs(db *dbLib.Database, slugs []string) ([]*HostOwner, er
 /*
  * Find all owners with active host, so that we can send global announcement to.
  */
-func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
+func FindAllOwners(db *ndb.Database) ([]*HostOwner, error) {
 	owners := []*HostOwner{}
 
 	err := db.Select(&owners, `SELECT
@@ -154,7 +154,7 @@ func FindAllOwners(db *dbLib.Database) ([]*HostOwner, error) {
  * The global announcements retrieved are assigned the same
  * host owner as the hosts.
  */
-func FindByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error) {
+func FindByHostID(db *ndb.Database, hostID int64) ([]*HostAnnouncement, error) {
 	// First find the owner, because it will be the same for all announcements
 	owner, err := FindOwnerByHostID(db, hostID)
 	if err != nil {
@@ -196,7 +196,7 @@ func FindByHostID(db *dbLib.Database, hostID int64) ([]*HostAnnouncement, error)
 /*
  * Find all host-specific announcements
  */
-func FindAllForHosts(db *dbLib.Database) ([]*HostAnnouncement, error) {
+func FindAllForHosts(db *ndb.Database) ([]*HostAnnouncement, error) {
 	announcements := []*HostAnnouncement{}
 
 	err := db.Select(&announcements, `SELECT
@@ -222,7 +222,7 @@ func FindAllForHosts(db *dbLib.Database) ([]*HostAnnouncement, error) {
 /*
  * Find all global announcements
  */
-func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
+func FindAllForGlobal(db *ndb.Database) ([]*Announcement, error) {
 	announcements := []*Announcement{}
 
 	err := db.Select(&announcements, `SELECT *
@@ -240,7 +240,7 @@ func FindAllForGlobal(db *dbLib.Database) ([]*Announcement, error) {
  * Find all global and host-specific announcements.
  * Global announcements would have HostOwner field as nil.
  */
-func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
+func FindAll(db *ndb.Database) ([]*HostAnnouncement, error) {
 	// perform two separate queries to find
 	// global and host announcements
 	globals, err := FindAllForGlobal(db)
@@ -267,7 +267,7 @@ func FindAll(db *dbLib.Database) ([]*HostAnnouncement, error) {
 /*
  * Insert an announcement without its associated host
  */
-func Insert(db dbLib.QueryReceiver, announcement *Announcement) error {
+func Insert(db ndb.QueryReceiver, announcement *Announcement) error {
 	query := `INSERT INTO announcements
 		(subject_template, message_template, show_to_all, expires_at, created_at, updated_at)
 		VALUES
@@ -285,7 +285,7 @@ func Insert(db dbLib.QueryReceiver, announcement *Announcement) error {
 /*
  * Add an host to an existing announcement
  */
-func AddHosts(db dbLib.QueryReceiver, announcementID int64, hostIDs []int64) error {
+func AddHosts(db ndb.QueryReceiver, announcementID int64, hostIDs []int64) error {
 	hostCount := len(hostIDs)
 
 	placeholders := make([]string, hostCount)
@@ -312,7 +312,7 @@ func AddHosts(db dbLib.QueryReceiver, announcementID int64, hostIDs []int64) err
 /*
  * Insert announcement associated with given hosts.
  */
-func InsertForHosts(db *dbLib.Database, ann *Announcement, hostIDs []int64) error {
+func InsertForHosts(db *ndb.Database, ann *Announcement, hostIDs []int64) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
@@ -396,7 +396,7 @@ func SendToOwners(ann *Announcement, owners []*HostOwner, errorHandler func(erro
 	}()
 }
 
-func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement, errHandler func(error)) error {
+func SendAndSaveGlobalAnnouncement(db *ndb.Database, ann *Announcement, errHandler func(error)) error {
 	owners, err := FindAllOwners(db)
 	if err != nil {
 		return err
@@ -411,7 +411,7 @@ func SendAndSaveGlobalAnnouncement(db *dbLib.Database, ann *Announcement, errHan
 	return nil
 }
 
-func SendAndSaveForHostSlugs(db *dbLib.Database, ann *Announcement, slugs []string, errHandler func(error)) ([]*HostAnnouncement, error) {
+func SendAndSaveForHostSlugs(db *ndb.Database, ann *Announcement, slugs []string, errHandler func(error)) ([]*HostAnnouncement, error) {
 	slugsCount := len(slugs)
 
 	owners, err := FindOwnersByHostSlugs(db, slugs)
