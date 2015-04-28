@@ -66,6 +66,7 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 }
 
 func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
+	// if live and db state is the same, we're consistent
 	liveState := strings.ToLower(liveHost.State)
 	if liveState == strings.ToLower(dbHost.State) {
 		return true
@@ -76,19 +77,19 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 	if err != nil {
 		return false
 	}
-	// in db we're transitioning to a new state but it's different than live state
-	if liveState != strings.ToLower(transition.State) {
+
+	// we're consistent if live state is the same as the state we're
+	// transitionining from and the transition isn't taking more than 5 mins
+	if liveState != strings.ToLower(transition.PreviousState.String) {
 		return false
 	}
+	// paranoia - CreatedAt shouldn't be nil but be safe if it is
 	if transition.CreatedAt == nil {
 		return false
 	}
-	if time.Now().Sub(*transition.CreatedAt) > time.Minute*5 {
-		// db is correctly marked as transitioning to live state but transition
-		// is taking too long
-		return false
-	}
-	return true
+	// db is correctly marked as transitioning to live state but transition
+	// is taking too long
+	return time.Since(*transition.CreatedAt) < time.Minute*5
 }
 
 func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
