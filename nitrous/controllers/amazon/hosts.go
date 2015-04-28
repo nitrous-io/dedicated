@@ -13,7 +13,7 @@ import (
 // routes
 var (
 	Hosts       = admin.VerifyAdmin(hosts)
-	Healthcheck = admin.VerifyAdmin(healthcheck)
+	Healthcheck = admin.VerifyAdminOrService(healthcheck)
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient

@@ -194,3 +194,13 @@ func VerifyAdmin(fn middleware.Middleware) middleware.Middleware {
 		return fn(env, w, r)
 	}
 }
+
+func VerifyAdminOrService(fn middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if !env.User.Admin && !env.User.ServiceAccount {
+			return httperror.New(http.StatusNotFound, "not_found", "not found")
+		}
+
+		return fn(env, w, r)
+	}
+}
