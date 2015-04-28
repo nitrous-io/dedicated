@@ -110,6 +110,6 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 	c := httpclient.New("")
 	resp, _ := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
 	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
-		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.ID, err)
+		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.UserID, err)
 	}
 }
