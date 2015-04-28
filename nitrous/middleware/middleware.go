@@ -205,14 +205,16 @@ func Track(event string, mw Middleware) Middleware {
 func VerifyTrust(mw Middleware) Middleware {
 	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
 		remote := r.Header.Get("X-Forwarded-For")
-		env.Logger.Infof("Incoming trust request from %s", remote)
+		env.Logger.Infof("VerifyTrust: Incoming trust request from %s", remote)
 
 		if !localIPRe.MatchString(remote) {
+			env.Logger.Warnf("VerifyTrust: %s is not a trusted address", remote)
 			return ErrNotFound
 		}
 
 		trustKey := envvars.TrustKey
 		if trustKey == "" || trustKey != r.FormValue("trust_key") {
+			env.Logger.Warnf("VerifyTrust: %s provided an invalid trust_key", remote)
 			return ErrNotFound
 		}
 
