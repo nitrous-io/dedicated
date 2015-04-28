@@ -67,15 +67,6 @@ var _ = Describe("controllers/maintenance", func() {
 	})
 
 	Describe("GET /api/v0/admin/amazon/hosts", func() {
-		It("responds with 404 Not Found when the requester is not local", func() {
-			req, err := test.NewRequest("POST", "/api/v0/maintenance/user_refresh/902", nil)
-			req.Header.Set("X-Forwarded-For", "10.12.3.5")
-			Expect(err).To(BeNil())
-			res := httptest.NewRecorder()
-			handler.ServeHTTP(res, req)
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-		})
-
 		It("responds with 404 Not Found when the application lacks a TRUST_KEY", func() {
 			prevKey := envvars.TrustKey
 			envvars.TrustKey = ""
@@ -84,7 +75,6 @@ var _ = Describe("controllers/maintenance", func() {
 			}()
 
 			req, err := test.NewRequest("POST", "/api/v0/maintenance/user_refresh/902", nil)
-			req.Header.Set("X-Forwarded-For", "127.0.0.1")
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -99,7 +89,6 @@ var _ = Describe("controllers/maintenance", func() {
 			}()
 
 			req, err := test.NewRequest("POST", "/api/v0/maintenance/user_refresh/902", &url.Values{"trust_key": []string{"I_AM_AES"}})
-			req.Header.Set("X-Forwarded-For", "127.0.0.1")
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -114,7 +103,6 @@ var _ = Describe("controllers/maintenance", func() {
 			doRequest := func(id int64) *httptest.ResponseRecorder {
 				path := fmt.Sprintf("/api/v0/maintenance/user_refresh/%d", id)
 				req, err := test.NewRequest("POST", path, &url.Values{"trust_key": []string{"I_AM_YOUR_KEY"}})
-				req.Header.Set("X-Forwarded-For", "127.0.0.1")
 				Expect(err).To(BeNil())
 				res := httptest.NewRecorder()
 				handler.ServeHTTP(res, req)
