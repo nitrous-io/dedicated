@@ -496,6 +496,22 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	return
 }
 
+func getOptionDisableEIP(opts ProvisionOptions) bool {
+	for k, v := range opts.Template.Config.Map {
+		if k == "disable_eip" {
+			if !v.Valid {
+				return false
+			}
+			disableEIP, err := strconv.ParseBool(v.String)
+			if err != nil {
+				return false
+			}
+			return disableEIP
+		}
+	}
+	return false
+}
+
 // prepare creates a new Host and its associated certificates and keys in
 // preparation for actual provisioning.
 func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
@@ -512,7 +528,11 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Preprovisioned:     opts.Preprovision,
 		FreighterdVersion:  fv,
 		DockerVersion:      dv,
+		// If the host's provider_template.config has disable_eip => true, static_ip
+		// column should be false
+		StaticIP: !getOptionDisableEIP(opts),
 	}
+
 	if err := h.Validate(); err != nil {
 		return nil, &InvalidHostError{Err: err}
 	}
