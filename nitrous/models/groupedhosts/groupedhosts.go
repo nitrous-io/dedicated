@@ -2,6 +2,7 @@ package groupedhosts
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,14 +25,79 @@ type HostEntry struct {
 	DBHost   *host.Host
 }
 
+type hostEntrySlice []*HostEntry
+type dbHostSlice []*host.Host
+type liveHostSlice []*hostbuilder.Response
+
 type HostIndex map[string](*HostEntry)
 
 type HostList struct {
-	AllHosts          []*HostEntry
-	HealthyHosts      []*HostEntry
-	DanglingHosts     []*host.Host
-	UnaccountedHosts  []*hostbuilder.Response
-	InconsistentHosts []*HostEntry
+	AllHosts          hostEntrySlice
+	HealthyHosts      hostEntrySlice
+	DanglingHosts     dbHostSlice
+	UnaccountedHosts  liveHostSlice
+	InconsistentHosts hostEntrySlice
+}
+
+func (entries hostEntrySlice) Len() int {
+	return len(entries)
+}
+
+func (entries hostEntrySlice) Less(i, j int) bool {
+	entry1, entry2 := entries[i], entries[j]
+	if entry1.DBHost != nil && entry2.DBHost != nil {
+		// sort db host id in reverse order
+		return entry1.DBHost.ID > entry2.DBHost.ID
+	} else if entry1.DBHost != nil && entry2.DBHost == nil {
+		// prioritize host with db entry
+		return true
+	} else if entry1.DBHost == nil && entry2.DBHost != nil {
+		return false
+	} else if entry1.LiveHost != nil && entry2.LiveHost != nil {
+		// if both entry.db_host are nil, their live_host
+		// should not be nil
+		return entry1.LiveHost.ID < entry2.LiveHost.ID
+	} else {
+		// this should never reach. return dummy value
+		return false
+	}
+}
+
+func (entries hostEntrySlice) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (entries dbHostSlice) Len() int {
+	return len(entries)
+}
+
+func (entries dbHostSlice) Less(i, j int) bool {
+	// sort db host id in reverse order
+	return entries[i].ID > entries[j].ID
+}
+
+func (entries dbHostSlice) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (entries liveHostSlice) Len() int {
+	return len(entries)
+}
+
+func (entries liveHostSlice) Less(i, j int) bool {
+	return entries[i].ID < entries[j].ID
+}
+
+func (entries liveHostSlice) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (list *HostList) sort() {
+	sort.Sort(list.AllHosts)
+	sort.Sort(list.HealthyHosts)
+	sort.Sort(list.DanglingHosts)
+	sort.Sort(list.UnaccountedHosts)
+	sort.Sort(list.InconsistentHosts)
 }
 
 func (index HostIndex) getEntry(id string) *HostEntry {
@@ -143,6 +209,7 @@ func mapHosts(db *ndb.Database, liveHosts []*hostbuilder.Response, dbHosts []*ho
 		mapHost(db, list, entry)
 	}
 
+	list.sort()
 	return list
 }
 
