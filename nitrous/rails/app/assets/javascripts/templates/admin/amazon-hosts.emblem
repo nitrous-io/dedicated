@@ -8,15 +8,17 @@
     else
       button.ui.btn.raised disabled=true Refreshing..
 
-    if showHealthyHosts
-      button.ui.btn.raised click='hideHealthyHosts' Hide Healthy Hosts
-    else
-      button.ui.btn.raised click='unhideHealthyHosts' Show Healthy Hosts
+    button.ui.btn.raised click='toggleHealthyHosts' 
+      if showHealthyHosts
+        | Hide Healthy Hosts
+      else
+        | Show Healthy Hosts
 
-    if showProblemHosts
-      button.ui.btn.raised click='hideProblemHosts' Hide Problem Hosts
-    else
-      button.ui.btn.raised click='unhideProblemHosts' Show Problem Hosts
+    button.ui.btn.raised click='toggleProblemHosts' 
+      if showProblemHosts
+        | Hide Problem Hosts
+      else
+        | Show Problem Hosts
 
     if showHealthyHosts
       h3
