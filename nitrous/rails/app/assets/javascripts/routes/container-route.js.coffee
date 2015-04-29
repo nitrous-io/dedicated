@@ -5,13 +5,19 @@ App.ContainerRoute = App.AuthedRoute.extend
     # we wait for sharedContainers to be ready in case a user is requesting
     # a route for a shared container (which we will have internally)
     # which would return a different class
-    if App.get('sharedContainers.loaded')
+    if App.get('sharedContainers.loaded') && App.get('containers.loaded')
       return @_getModel(params)
     else
+      waiting = ['sharedContainers', 'containers'].map (s) =>
+        return if App.get(s).get("loaded")
+        new Ember.RSVP.Promise (resolve) =>
+          App.get(s).one 'loaded', =>
+            resolve()
+          App.get(s).one 'failed', =>
+            resolve()
+
       new Ember.RSVP.Promise (resolve) =>
-        App.get('sharedContainers').one 'loaded', =>
-          resolve(@_getModel(params))
-        App.get('sharedContainers').one 'failed', =>
+        Ember.RSVP.all(waiting).then =>
           resolve(@_getModel(params))
 
   renderTemplate: ->

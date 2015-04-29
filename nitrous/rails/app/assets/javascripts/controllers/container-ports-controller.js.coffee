@@ -14,8 +14,10 @@ App.ContainerPortsController = Em.ObjectController.extend
   newPreviewPort: null
   setPreviewPort: false
   removePreviewPort: false
+  publicPorts: null
 
-  publicPorts: (->
+  setPublicPorts: (->
+    return if @get 'saving'
     publicPorts = Em.A()
     return publicPorts unless ports = @get 'model.config.port'
 
@@ -33,8 +35,8 @@ App.ContainerPortsController = Em.ObjectController.extend
         hostPort = m[1] || 'To be assigned'
         containerPort = parseInt(m[2])
         publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: m[1] == previewPort }
-    publicPorts.sortBy "containerPort"
-  ).property 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
+    @set 'publicPorts', publicPorts.sortBy "containerPort"
+  ).observes 'saving', 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
 
   clear: ->
     @_super.apply this, arguments
@@ -73,7 +75,6 @@ App.ContainerPortsController = Em.ObjectController.extend
       events = App.get 'eventsSocket'
 
       reconfigureComplete = =>
-        @set 'saving', false
         @set 'state', prevState
         @set 'removePreviewPort', false
         @set 'newPreviewPort', null

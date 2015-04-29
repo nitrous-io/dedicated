@@ -33,7 +33,7 @@ wordpress:
   about: "WordPress is web software you can use to create a beautiful website or blog. We like to say that WordPress is both free and priceless at the same time."
 iojs:
   name: 'io.js'
-  about: "io.js is a JavaScript platform built on Chrome's V8 runtime. This project began as a fork of Joyent's Node.js&trade; and is compatible with the npm ecosystem."
+  about: "io.js is a JavaScript platform built on Chrome's V8 runtime. This project began as a fork of Joyent's Node.js and is compatible with the npm ecosystem."
 laravel:
   name: 'Laravel'
   about: "Laravel is a free, open source PHP web application framework, designed for the development of model–view–controller (MVC) web applications."
