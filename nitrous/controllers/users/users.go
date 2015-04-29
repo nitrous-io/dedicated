@@ -371,9 +371,11 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}
 		return err
 	}
-	env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
-		"confirmed_email_date": u.ConfirmedAt,
-	}, env.Logger)
+	if u.ConfirmedAt.Valid {
+		env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
+			"confirmed_email_date": u.ConfirmedAt.Time,
+		}, env.Logger)
+	}
 
 	return env.Login(u, w)
 }
