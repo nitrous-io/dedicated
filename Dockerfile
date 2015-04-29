@@ -53,6 +53,7 @@ ENV GOPATH /opt
 # install requires go binaries
 RUN go get github.com/tools/godep
 RUN go get github.com/ddollar/forego
+RUN go get github.com/onsi/ginkgo/ginkgo
 
 # load bundle to speed up Gem installs
 ADD script/bundle_config /root/.bundle/config

@@ -2,6 +2,8 @@
 # we get primary version from `VERSION` file
 set -e
 export APP=${1:?"app name is required"}
+export ASSETS=${ASSETS:="true"}
+export INSTALL=${INSTALL:="false"}
 # by default, we allow build to build without docker
 export IN_DOCKER=${2}
 
@@ -37,11 +39,14 @@ get_version() {
 build() {
   app=$1
   binary="$(basename "$app")"
+  cmd="build -o $BUILD_DIR/$binary"
+  if [[ "$INSTALL" == "true" ]]; then
+    cmd="install"
+  fi
   rm -f "$BUILD_DIR/$app"
   # install only the binary
   # this prevents go from looking at test-only directory
-  godep go build \
-    -o "$BUILD_DIR/$binary" \
+  godep go $cmd \
     -ldflags "$LDFLAGS" \
     github.com/nitrous-io/dedicated/$app
 
@@ -49,6 +54,7 @@ build() {
   echo $VERSION > $BUILD_DIR/${binary}-VERSION
   # this file is useful for chef version attribute overrides
   echo "{ \"$binary\": { \"version\": \"$VERSION\" } }" > $BUILD_DIR/${binary}-VERSION.json
+  echo "built $app"
 }
 
 build_assets() {
@@ -178,7 +184,9 @@ build_nitrous() {
   (build "nitrous/cmd/hostshutdown")
   (build "nitrous/cmd/populatemxprofiles")
   (build "nitrous/cmd/healthcheck")
-  (build_assets)
+  if [[ "$ASSETS" == "true" ]]; then
+    (build_assets)
+  fi
 }
 
 if [ "$IN_DOCKER" == "true" ]; then
@@ -192,6 +200,8 @@ if [ "$IN_DOCKER" == "true" ]; then
     --rm \
     -e BUILD_IN_DOCKER=true \
     -e BUILD_NUMBER=$BUILD_NUMBER \
+    -e ASSETS=$ASSETS \
+    -e INSTALL=$INSTALL \
     -i \
     nitrousio/dedicated-dev \
     /bin/bash -c "./script/build $APP false"

@@ -1,5 +1,6 @@
 .vagrant
 .git
+.test
 nitrous/rails/.bundle
 nitrous/rails/tmp
 build

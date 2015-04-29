@@ -5,3 +5,4 @@ custom_config.rb
 .vagrant
 *.coverprofile
 .env
+*.test

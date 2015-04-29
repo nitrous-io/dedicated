@@ -6,12 +6,23 @@ VERSION=$(shell git rev-parse --short HEAD)
 
 APP=all
 SUITE=
+ASSETS=true
+INSTALL=false
 
 all: binary
 
 binary:
 	@./script/build all
 .PHONY: binary
+
+# check runs the compile/check inside docker. This is abit faster than the full build
+check: image
+	@ASSETS=false INSTALL=true ./script/build all true
+.PHONY: check
+
+check-test: check
+	@./script/test-in-container check $(VERSION) $(SUITE)
+.PHONY: check-test
 
 nitro:
 	@./script/build nitro
