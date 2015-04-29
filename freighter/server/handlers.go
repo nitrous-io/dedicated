@@ -533,19 +533,13 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	attached := make(chan struct{}, 1)
 	go func() { ch <- sh.Attach(stdin, stdout, attached) }()
 
-	end := func() {
-		stdout.Close()
-		stdin.Close()
-		sh.Destroy()
-	}
-
 	for {
 		select {
 		case err := <-sh.Exited:
 			if err != nil {
 				log.Printf("exited with err %v", err)
 			}
-			end()
+			sh.Destroy()
 			return err
 		case err := <-ch:
 			if err != nil {
@@ -561,7 +555,7 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			case *shell.CloseMsg:
-				end()
+				sh.Destroy()
 				return nil
 			default:
 				log.Println("shell: got unknown msg ", msg)

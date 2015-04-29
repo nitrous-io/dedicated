@@ -59,11 +59,9 @@ type Shell struct {
 	attachOnce sync.Once
 	execChan   chan error
 
-	stdin  io.ReadCloser
 	stdinR *io.PipeReader
 	stdinW *io.PipeWriter
 
-	stdout        io.WriteCloser
 	stdoutR       *io.PipeReader
 	stdoutW       *io.PipeWriter
 	stdoutCopyBuf *copybuffer.CopyBuffer
@@ -175,7 +173,7 @@ func (s *Shell) Open() error {
 // The duration of the goroutine can be different from the duration of the
 // Attach. The client should listen to .Exited channel to cleanup properly when
 // the shell exits
-func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, success chan struct{}) error {
+func (s *Shell) Attach(stdin io.Reader, stdout io.Writer, success chan struct{}) error {
 	errs := make(chan error, 2)
 	// connect to the stdin
 	go func() {
