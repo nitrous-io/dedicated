@@ -25,25 +25,25 @@ type HostEntry struct {
 	DBHost   *host.Host
 }
 
-type hostEntrySlice []*HostEntry
-type dbHostSlice []*host.Host
-type liveHostSlice []*hostbuilder.Response
+type hostEntriesByID []*HostEntry
+type dbHostsByID []*host.Host
+type liveHostsByID []*hostbuilder.Response
 
 type HostIndex map[string](*HostEntry)
 
 type HostList struct {
-	AllHosts          hostEntrySlice
-	HealthyHosts      hostEntrySlice
-	DanglingHosts     dbHostSlice
-	UnaccountedHosts  liveHostSlice
-	InconsistentHosts hostEntrySlice
+	AllHosts          []*HostEntry
+	HealthyHosts      []*HostEntry
+	DanglingHosts     []*host.Host
+	UnaccountedHosts  []*hostbuilder.Response
+	InconsistentHosts []*HostEntry
 }
 
-func (entries hostEntrySlice) Len() int {
+func (entries hostEntriesByID) Len() int {
 	return len(entries)
 }
 
-func (entries hostEntrySlice) Less(i, j int) bool {
+func (entries hostEntriesByID) Less(i, j int) bool {
 	entry1, entry2 := entries[i], entries[j]
 	if entry1.DBHost != nil && entry2.DBHost != nil {
 		// sort db host id in reverse order
@@ -63,41 +63,41 @@ func (entries hostEntrySlice) Less(i, j int) bool {
 	}
 }
 
-func (entries hostEntrySlice) Swap(i, j int) {
+func (entries hostEntriesByID) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
 }
 
-func (entries dbHostSlice) Len() int {
+func (entries dbHostsByID) Len() int {
 	return len(entries)
 }
 
-func (entries dbHostSlice) Less(i, j int) bool {
+func (entries dbHostsByID) Less(i, j int) bool {
 	// sort db host id in reverse order
 	return entries[i].ID > entries[j].ID
 }
 
-func (entries dbHostSlice) Swap(i, j int) {
+func (entries dbHostsByID) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
 }
 
-func (entries liveHostSlice) Len() int {
+func (entries liveHostsByID) Len() int {
 	return len(entries)
 }
 
-func (entries liveHostSlice) Less(i, j int) bool {
+func (entries liveHostsByID) Less(i, j int) bool {
 	return entries[i].ID < entries[j].ID
 }
 
-func (entries liveHostSlice) Swap(i, j int) {
+func (entries liveHostsByID) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
 }
 
 func (list *HostList) sort() {
-	sort.Sort(list.AllHosts)
-	sort.Sort(list.HealthyHosts)
-	sort.Sort(list.DanglingHosts)
-	sort.Sort(list.UnaccountedHosts)
-	sort.Sort(list.InconsistentHosts)
+	sort.Sort(hostEntriesByID(list.AllHosts))
+	sort.Sort(hostEntriesByID(list.HealthyHosts))
+	sort.Sort(dbHostsByID(list.DanglingHosts))
+	sort.Sort(liveHostsByID(list.UnaccountedHosts))
+	sort.Sort(hostEntriesByID(list.InconsistentHosts))
 }
 
 func (index HostIndex) getEntry(id string) *HostEntry {
