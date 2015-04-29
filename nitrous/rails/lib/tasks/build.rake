@@ -21,11 +21,13 @@ namespace :build do
     build_dir = ENV['BUILD_DIR']
     raise 'Missing BUILD_DIR' if !build_dir
 
+    puts "Using asset host: #{Rails.application.config.action_controller.asset_host.presence || '<NONE>'}"
+
     locations.each do |path, opts|
       print "Rendering #{path}..."
       full_path = File.join(build_dir, path)
       FileUtils.mkdir_p(File.dirname(full_path))
-      avb = ActionView::Base.new(Rails::Application::Configuration.new(Rails.root).paths['app/views'])
+      avb = ActionView::Base.new(Rails.application.config.paths['app/views'], {}, ActionController::Base.new)
       File.write(full_path, avb.render(opts))
       puts "done"
     end
