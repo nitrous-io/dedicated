@@ -537,13 +537,12 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 		select {
 		case err := <-sh.Exited:
 			if err != nil {
-				log.Printf("exited with err %v", err)
+				log.Printf("wsNewShell: exited with err %v", err)
 			}
-			sh.Destroy()
 			return err
 		case err := <-ch:
 			if err != nil {
-				log.Printf("detached with err %v", err)
+				log.Printf("wsNewShell: detached with err %v", err)
 			}
 			return nil
 		case <-attached:
@@ -555,7 +554,7 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			case *shell.CloseMsg:
-				sh.Destroy()
+				sh.Close()
 				return nil
 			default:
 				log.Println("shell: got unknown msg ", msg)

@@ -68,6 +68,7 @@ type Shell struct {
 
 	killTimer *time.Timer
 
+	mu        sync.Mutex
 	destroyed bool
 }
 
@@ -120,7 +121,6 @@ func OpenShell(containerId, shellID, command string, noTTY bool) (*Shell, error)
 			return nil, err
 		}
 		if err := s.Open(); err != nil {
-			s.Close()
 			return nil, err
 		}
 		s.ID = strconv.FormatInt(atomic.AddInt64(&nextShellID, 1), 36)
@@ -129,19 +129,15 @@ func OpenShell(containerId, shellID, command string, noTTY bool) (*Shell, error)
 	return s, nil
 }
 
-func (s *Shell) Destroy() {
-	shellsLock.Lock()
-	defer shellsLock.Unlock()
+// Close will stop the exec instance of the current shell. If the shell has
+// been closed, it will not attempt to close it again
+func (s *Shell) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.destroyed {
-		return
+		return nil
 	}
 	s.destroyed = true
-	s.Close()
-	delete(Shells, s.ID)
-}
-
-// Close will stop the exec instance of the current shell
-func (s *Shell) Close() error {
 	s.stdinW.Close()
 	s.stdinR.Close()
 	s.stdoutW.Close()
@@ -199,13 +195,7 @@ func (s *Shell) Attach(stdin io.Reader, stdout io.Writer, success chan struct{})
 
 	for err := range errs {
 		// stdout/stderr exits at this point. Schedule closing after timeout
-		if !s.destroyed {
-			if s.killTimer == nil {
-				s.killTimer = time.AfterFunc(ConnectionTimeout, s.Destroy)
-			} else {
-				s.killTimer.Reset(ConnectionTimeout)
-			}
-		}
+		s.kill(ConnectionTimeout)
 		if err != nil {
 			return err
 		}
@@ -226,7 +216,25 @@ func (s *Shell) attach(success chan struct{}) {
 		RawTerminal:  s.tty,
 		Success:      success,
 	})
+	// removes the shell-id association when exits
+	shellsLock.Lock()
+	delete(Shells, s.ID)
+	shellsLock.Unlock()
 	close(s.Exited)
+}
+
+// kill stops the shell after some timeout. Calling it again will reset the
+// timeout
+func (s *Shell) kill(timeout time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.destroyed {
+		if s.killTimer == nil {
+			s.killTimer = time.AfterFunc(timeout, func() { s.Close() })
+		} else {
+			s.killTimer.Reset(timeout)
+		}
+	}
 }
 
 func (s *Shell) Resize(w, h int) error {
