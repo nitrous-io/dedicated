@@ -3,6 +3,7 @@ package hosts
 import (
 	"database/sql"
 	"encoding/base64"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -117,6 +118,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 				h.UpgradeAvailable = host.UpgradeAvailableHard
 			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
 				h.UpgradeAvailable = host.UpgradeAvailableSoft
+				h.FreighterUpgradeAvailable = true
 			}
 			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
@@ -471,6 +473,73 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	PublishContainersStopped(env, h)
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
+	return nil
+}
+
+// blocking call that initiates freighter upgrade and waits until it's upgraded
+func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+	if err != nil {
+		return err
+	}
+
+	if err := cl.UpgradeFreighter(&freighterclient.HostVersions{
+		FreighterdVersion: h.FreighterdVersion,
+	}); err != nil {
+		if err == freighterclient.ErrAlreadyUpgraded {
+			PublishHostEvent(env, controllers.EventHostUpgraded, h)
+			serializeHost(env, h)
+			return nil
+		}
+		env.Logger.Errorf("failed to initiate freighter upgrade, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+	}
+
+	h.State = host.StateUpgrading
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	PublishHostEvent(env, controllers.EventHostUpgrading, h)
+
+	// wait for the server to restart at which point it should have a new version
+	wantedVersion := h.FreighterdVersion
+	didUpgrade := false
+	timeStart := time.Now()
+	for {
+		time.Sleep(time.Second * 10)
+
+		ver, err := cl.HostVersions()
+		// error is ok - freighter might be unavailable because it's
+		// upgrading/restarting itself
+		if err == nil {
+			if ver.FreighterdVersion == wantedVersion {
+				didUpgrade = true
+			} else {
+				log.Printf("didFreighterUpgrade to %s? not yet (is %s)", wantedVersion, ver.FreighterdVersion)
+			}
+		}
+
+		if didUpgrade {
+			break
+		}
+
+		// wait up to 2 minutes for upgrade to finish
+		if time.Since(timeStart) > time.Minute*2 {
+			env.Logger.Errorf("freighter took too long (%s) to upgrade", time.Since(timeStart))
+			return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		}
+	}
+
+	h.State = host.StateRunning
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"status": "accepted",
+	}
 	return nil
 }
 

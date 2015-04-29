@@ -1,0 +1,8 @@
+.ide-window
+
+  .ide-body
+    .ide-upgrade
+      | Upgrading your workspace
+      if upgrading
+        p
+          | It's Upgrading!!!!
