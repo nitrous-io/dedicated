@@ -72,7 +72,7 @@ run-hostbuilder: hostbuilder
 .PHONY: run-hostbuilder
 
 image:
-	@./script/image $(VERSION)
+	@./script/image
 .PHONY: image
 
 createdb:

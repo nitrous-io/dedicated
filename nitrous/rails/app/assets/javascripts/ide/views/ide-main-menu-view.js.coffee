@@ -314,7 +314,7 @@ App.IdeMainMenuView = Em.View.extend
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')
     ]
-  ).property()
+  ).property('previewItems', 'helpMenuItems')
 
   currentYear: (->
     new Date().getFullYear()

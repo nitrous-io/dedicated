@@ -2,7 +2,7 @@
   h2 Free Cloud Machine
 
 .card-body.centered
-  
+
   .visual
     .sparks-combo
       .spark
@@ -31,8 +31,8 @@
 
     p.bigger
       | We'd love to hear more about how you intend to use Nitrous Pro and leverage our cloud platform.
-  
-    a.btn.tweet.outline.duo href="https://twitter.com/intent/tweet?text=I%E2%80%99m%20ditching%20localhost%20for%20the%20cloud%2C%20signup%20for%20%40nitrousio%20today!" target="_blank"
+
+    a.btn.tweet.outline.duo href="https://twitter.com/intent/tweet?text=I%27m%20ditching%20localhost%20for%20the%20cloud%2C%20sign%20up%20for%20%40nitrousio%20today!%20https%3A%2F%2Fpro.nitrous.io" target="_blank"
       i.fa.fa-twitter
       span Tweet
 

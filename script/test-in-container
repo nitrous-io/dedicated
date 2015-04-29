@@ -12,7 +12,7 @@ if [[ "$APP" = "shell" ]]; then
 			--rm \
 			--volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
 			-it \
-			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP"
 	else
 		exec docker run \
 			--privileged=true \
@@ -20,22 +20,21 @@ if [[ "$APP" = "shell" ]]; then
 			--volume $(pwd):/opt/src/github.com/nitrous-io/dedicated \
 			--volume "$DOCKER_BIN":/usr/bin/docker \
 			-it \
-			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP"
 	fi
 else
-  VERSION=${2="latest"}
   SUITE=${3}
 
 	if [[ -z $DOCKER_BIN ]]; then
 		docker run \
 			--privileged=true \
 			--rm \
-			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
 	else
 		docker run \
 			--privileged=true \
 			--rm \
 			--volume "$DOCKER_BIN":/usr/bin/docker \
-			nitrousio/dedicated-dev:$VERSION /bin/bash -c "./script/test $APP $SUITE"
+			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
 	fi
 fi
