@@ -45,6 +45,12 @@ test_db() {
   test_app $@
 }
 
+test_redis() {
+  echo "===> Starting redis dependencies"
+  sudo service redis_6379 start
+  test_app $@
+}
+
 test_with_docker() {
   echo "===> Starting Docker daemon"
   sudo service docker start
@@ -53,13 +59,13 @@ test_with_docker() {
 
 if [ "$APP" == "all" ]; then
   run test_app pkg
-  run test_app hostbuilder
+  run test_redis hostbuilder
   run test_db nitrous
   run test_with_docker freighter
   run test_db tender
   run test_db compass
 elif [ "$APP" == "hostbuilder" ]; then
-  run test_app hostbuilder $SUITE
+  run test_redis hostbuilder $SUITE
 elif [ "$APP" == "freighter" ]; then
   run test_with_docker freighter $SUITE
 elif [ "$APP" == "tender" ]; then
@@ -76,6 +82,8 @@ elif [ "$APP" == "shell" ]; then
   sudo service docker start
   echo "===> Starting database dependencies"
   sudo service postgresql restart
+  echo "===> Starting redis dependencies"
+  sudo service redis_6379 start
   exec /bin/bash
 else
   run test_app $APP $SUITE
@@ -84,3 +92,4 @@ fi
 if [[ "$RESULT" == "failed" ]]; then
   die "one or more test suites failed"
 fi
+
