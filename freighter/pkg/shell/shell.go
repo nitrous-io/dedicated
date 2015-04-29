@@ -26,8 +26,6 @@ var (
 	shellsLock  sync.Mutex
 	Shells      = map[string]*Shell{}
 	nextShellID = int64(0)
-
-	ErrDetached = errors.New("shell: shell session detached.")
 )
 
 var (
@@ -48,6 +46,9 @@ func init() {
 }
 
 type Shell struct {
+	// Exited receives the error from docker-exec when it finishes
+	Exited chan error
+
 	containerID string
 	ID          string
 	execID      string
@@ -84,6 +85,8 @@ func NewShell(containerID, command string, noTTY bool) (*Shell, error) {
 	stdoutR, stdoutW := io.Pipe()
 
 	s := &Shell{
+		Exited: make(chan error, 1),
+
 		containerID: containerID,
 		command:     command,
 		client:      client,
@@ -164,24 +167,40 @@ func (s *Shell) Open() error {
 	return nil
 }
 
-// Attach blocks until the exec session terminates either by user or when
-// timeout happens and it terminates itself.
-func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, successChan chan struct{}) error {
-	if s.stdin != nil {
-		s.stdin.Close()
-	}
-	if s.stdout != nil {
-		s.stdout.Close()
-	}
-
-	s.stdin = stdin
-	s.stdout = stdout
-
+// Attach connects stdin/stdout of the consumer to the docker-exec session. It
+// returns whenever the client detaches from the session (i.e., the duration of
+// Attach is the duration of stdin/stdout)
+// The first time user calls Attach, it will create a long running goroutine
+// that connects to docker-exec session and is valid throughout the shell's lifetime.
+// The duration of the goroutine can be different from the duration of the
+// Attach. The client should listen to .Exited channel to cleanup properly when
+// the shell exits
+func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, success chan struct{}) error {
+	errs := make(chan error, 2)
+	// connect to the stdin
 	go func() {
-		io.Copy(s.stdinW, stdin)
+		_, err := io.Copy(s.stdinW, stdin)
+		errs <- err
+	}()
 
-		// at this point, connection is disrupted
-		// kill exec after 60 seconds
+	// connect to stdout
+	go func() {
+		_, err := s.stdoutCopyBuf.WriteTo(stdout)
+		errs <- err
+	}()
+
+	// create exec session
+	var firstAttach bool
+	s.attachOnce.Do(func() {
+		firstAttach = true
+		go s.attach(success)
+	})
+	if !firstAttach {
+		success <- struct{}{}
+	}
+
+	for err := range errs {
+		// stdout/stderr exits at this point. Schedule closing after timeout
 		if !s.destroyed {
 			if s.killTimer == nil {
 				s.killTimer = time.AfterFunc(ConnectionTimeout, s.Destroy)
@@ -189,40 +208,27 @@ func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, successChan c
 				s.killTimer.Reset(ConnectionTimeout)
 			}
 		}
-	}()
-
-	go func() {
-		s.stdoutCopyBuf.WriteTo(stdout)
-	}()
-
-	prevExecChan := s.execChan
-	s.execChan = make(chan error, 1)
-	if prevExecChan != nil {
-		prevExecChan <- ErrDetached // detach previous listeners
+		if err != nil {
+			return err
+		}
 	}
+	return nil
+}
 
-	firstAttach := false
-
-	s.attachOnce.Do(func() {
-		firstAttach = true
-		go func() {
-			s.execChan <- s.client.StartExec(s.execID, dockerclient.StartExecOptions{
-				Detach:       false,
-				Tty:          s.tty,
-				InputStream:  s.stdinR,
-				OutputStream: s.stdoutW,
-				ErrorStream:  s.stdoutW,
-				RawTerminal:  s.tty,
-				Success:      successChan,
-			})
-		}()
+// attach connects the stdin/stdout pipe of the shell to the remote docker-exec
+// session. This runs for the lifetime of the shell and will return whenever
+// docker-exec exits
+func (s *Shell) attach(success chan struct{}) {
+	s.Exited <- s.client.StartExec(s.execID, dockerclient.StartExecOptions{
+		Detach:       false,
+		Tty:          s.tty,
+		InputStream:  s.stdinR,
+		OutputStream: s.stdoutW,
+		ErrorStream:  s.stdoutW,
+		RawTerminal:  s.tty,
+		Success:      success,
 	})
-
-	if !firstAttach {
-		successChan <- struct{}{}
-	}
-
-	return <-s.execChan
+	close(s.Exited)
 }
 
 func (s *Shell) Resize(w, h int) error {

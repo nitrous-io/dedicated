@@ -209,6 +209,7 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
 		s.logger.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
 		handlerFunc(w, r)
+		s.logger.Infof("uuid=%s Request: done\n", uuidStr)
 	}
 }
 

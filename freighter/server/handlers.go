@@ -529,11 +529,9 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
 	stdout := shell.NewShellWriter(stream)
 
-	attached := make(chan struct{}, 1)
 	ch := make(chan error, 1)
-	go func() {
-		ch <- sh.Attach(stdin, stdout, attached)
-	}()
+	attached := make(chan struct{}, 1)
+	go func() { ch <- sh.Attach(stdin, stdout, attached) }()
 
 	end := func() {
 		stdout.Close()
@@ -543,15 +541,16 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 
 	for {
 		select {
-		case err := <-ch:
+		case err := <-sh.Exited:
 			if err != nil {
 				log.Printf("exited with err %v", err)
 			}
-			if err == shell.ErrDetached {
-				// detaching stale connection, don't end
-				return nil
-			}
 			end()
+			return err
+		case err := <-ch:
+			if err != nil {
+				log.Printf("detached with err %v", err)
+			}
 			return nil
 		case <-attached:
 			// when the client first attached, resize immediately with the
