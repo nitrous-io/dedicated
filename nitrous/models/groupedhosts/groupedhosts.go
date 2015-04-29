@@ -2,6 +2,7 @@ package groupedhosts
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,6 +25,10 @@ type HostEntry struct {
 	DBHost   *host.Host
 }
 
+type hostEntriesByID []*HostEntry
+type dbHostsByID []*host.Host
+type liveHostsByID []*hostbuilder.Response
+
 type HostIndex map[string](*HostEntry)
 
 type HostList struct {
@@ -32,6 +37,67 @@ type HostList struct {
 	DanglingHosts     []*host.Host
 	UnaccountedHosts  []*hostbuilder.Response
 	InconsistentHosts []*HostEntry
+}
+
+func (entries hostEntriesByID) Len() int {
+	return len(entries)
+}
+
+func (entries hostEntriesByID) Less(i, j int) bool {
+	entry1, entry2 := entries[i], entries[j]
+	if entry1.DBHost != nil && entry2.DBHost != nil {
+		// sort db host id in reverse order
+		return entry1.DBHost.ID > entry2.DBHost.ID
+	} else if entry1.DBHost != nil && entry2.DBHost == nil {
+		// prioritize host with db entry
+		return true
+	} else if entry1.DBHost == nil && entry2.DBHost != nil {
+		return false
+	} else if entry1.LiveHost != nil && entry2.LiveHost != nil {
+		// if both entry.db_host are nil, their live_host
+		// should not be nil
+		return entry1.LiveHost.ID < entry2.LiveHost.ID
+	} else {
+		// this should never reach. return dummy value
+		return false
+	}
+}
+
+func (entries hostEntriesByID) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (entries dbHostsByID) Len() int {
+	return len(entries)
+}
+
+func (entries dbHostsByID) Less(i, j int) bool {
+	// sort db host id in reverse order
+	return entries[i].ID > entries[j].ID
+}
+
+func (entries dbHostsByID) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (entries liveHostsByID) Len() int {
+	return len(entries)
+}
+
+func (entries liveHostsByID) Less(i, j int) bool {
+	return entries[i].ID < entries[j].ID
+}
+
+func (entries liveHostsByID) Swap(i, j int) {
+	entries[i], entries[j] = entries[j], entries[i]
+}
+
+func (list *HostList) sort() {
+	sort.Sort(hostEntriesByID(list.AllHosts))
+	sort.Sort(hostEntriesByID(list.HealthyHosts))
+	sort.Sort(dbHostsByID(list.DanglingHosts))
+	sort.Sort(liveHostsByID(list.UnaccountedHosts))
+	sort.Sort(hostEntriesByID(list.InconsistentHosts))
 }
 
 func (index HostIndex) getEntry(id string) *HostEntry {
@@ -143,6 +209,7 @@ func mapHosts(db *ndb.Database, liveHosts []*hostbuilder.Response, dbHosts []*ho
 		mapHost(db, list, entry)
 	}
 
+	list.sort()
 	return list
 }
 
