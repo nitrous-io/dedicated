@@ -32,12 +32,6 @@ RUN \
 
 USER root
 
-# doing this sucks - will make it not possible to go get to system gopath
-#RUN \
-#  echo 'export DEDIREPO=$GOPATH/src/github.com/nitrous-io/dedicated' >> /etc/profile && \
-#  echo 'export GOPATH=$DEDIREPO/Godeps/_workspace:$GOPATH' >> /etc/profile && \
-#  echo 'export PATH=$DEDIREPO/Godeps/_workspace/bin:$PATH' >> /etc/profile
-
 # install ruby
 RUN \
   mkdir -p /usr/local/opt/rbenv && \
@@ -81,7 +75,7 @@ RUN \
   apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C300EE8C && \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get -y install \
-    nginx=1.6.2-5+trusty0 && \
+    nginx=1.8.0-1+trusty1 && \
   apt-get clean
 
 COPY support/nginx.conf /etc/nginx/nginx.conf
@@ -94,6 +88,15 @@ RUN \
   apt-get update && \
   apt-get install -y dnsmasq && \
   apt-get clean
+
+# install required docker version
+RUN \
+  apt-get update && \
+  apt-get install -y lxc-docker-1.6.0 && \
+  apt-get clean
+
+# copy nitrous enhanced docker
+COPY support/docker-1.6.0-nitrous1 /usr/bin/docker
 
 # copy setup.sh
 
