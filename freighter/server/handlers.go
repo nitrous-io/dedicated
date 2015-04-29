@@ -530,7 +530,10 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	stdout := shell.NewShellWriter(stream)
 
 	attached := make(chan struct{}, 1)
-	ch := sh.Attach(stdin, stdout, attached)
+	ch := make(chan error, 1)
+	go func() {
+		ch <- sh.Attach(stdin, stdout, attached)
+	}()
 
 	end := func() {
 		stdout.Close()

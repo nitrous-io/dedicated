@@ -164,65 +164,65 @@ func (s *Shell) Open() error {
 	return nil
 }
 
-func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, successChan chan struct{}) chan error {
-	return promise(func() error {
-		if s.stdin != nil {
-			s.stdin.Close()
-		}
-		if s.stdout != nil {
-			s.stdout.Close()
-		}
+// Attach blocks until the exec session terminates either by user or when
+// timeout happens and it terminates itself.
+func (s *Shell) Attach(stdin io.ReadCloser, stdout io.WriteCloser, successChan chan struct{}) error {
+	if s.stdin != nil {
+		s.stdin.Close()
+	}
+	if s.stdout != nil {
+		s.stdout.Close()
+	}
 
-		s.stdin = stdin
-		s.stdout = stdout
+	s.stdin = stdin
+	s.stdout = stdout
 
-		go func() {
-			io.Copy(s.stdinW, stdin)
+	go func() {
+		io.Copy(s.stdinW, stdin)
 
-			// at this point, connection is disrupted
-			// kill exec after 60 seconds
-			if !s.destroyed {
-				if s.killTimer == nil {
-					s.killTimer = time.AfterFunc(ConnectionTimeout, s.Destroy)
-				} else {
-					s.killTimer.Reset(ConnectionTimeout)
-				}
+		// at this point, connection is disrupted
+		// kill exec after 60 seconds
+		if !s.destroyed {
+			if s.killTimer == nil {
+				s.killTimer = time.AfterFunc(ConnectionTimeout, s.Destroy)
+			} else {
+				s.killTimer.Reset(ConnectionTimeout)
 			}
-		}()
+		}
+	}()
 
+	go func() {
+		s.stdoutCopyBuf.WriteTo(stdout)
+	}()
+
+	prevExecChan := s.execChan
+	s.execChan = make(chan error, 1)
+	if prevExecChan != nil {
+		prevExecChan <- ErrDetached // detach previous listeners
+	}
+
+	firstAttach := false
+
+	s.attachOnce.Do(func() {
+		firstAttach = true
 		go func() {
-			s.stdoutCopyBuf.WriteTo(stdout)
+			s.execChan <- s.client.StartExec(s.execID, dockerclient.StartExecOptions{
+				Detach:       false,
+				Tty:          s.tty,
+				InputStream:  s.stdinR,
+				OutputStream: s.stdoutW,
+				ErrorStream:  s.stdoutW,
+				RawTerminal:  s.tty,
+				Success:      successChan,
+			})
 		}()
-
-		prevExecChan := s.execChan
-		s.execChan = make(chan error, 1)
-		if prevExecChan != nil {
-			prevExecChan <- ErrDetached // detach previous listeners
-		}
-
-		firstAttach := false
-
-		s.attachOnce.Do(func() {
-			firstAttach = true
-			go func() {
-				s.execChan <- s.client.StartExec(s.execID, dockerclient.StartExecOptions{
-					Detach:       false,
-					Tty:          s.tty,
-					InputStream:  s.stdinR,
-					OutputStream: s.stdoutW,
-					ErrorStream:  s.stdoutW,
-					RawTerminal:  s.tty,
-					Success:      successChan,
-				})
-			}()
-		})
-
-		if !firstAttach {
-			successChan <- struct{}{}
-		}
-
-		return <-s.execChan
 	})
+
+	if !firstAttach {
+		successChan <- struct{}{}
+	}
+
+	return <-s.execChan
 }
 
 func (s *Shell) Resize(w, h int) error {
@@ -237,14 +237,4 @@ func (s *Shell) Resize(w, h int) error {
 		h = defaultHeight
 	}
 	return s.client.ResizeExecTTY(s.execID, h, w)
-}
-
-// basic promise implementation: it wraps calls a function in a goroutine,
-// and returns a channel which will later return the function's return value.
-func promise(f func() error) chan error {
-	ch := make(chan error, 1)
-	go func() {
-		ch <- f()
-	}()
-	return ch
 }
