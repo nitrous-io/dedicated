@@ -264,7 +264,12 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(j.Success).To(BeTrue())
 
 			Eventually(func() interface{} {
-				return fakeMailer.SendMailCalled
+				collab := &containercollab.ContainerCollab{}
+				err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(collab).ToNot(BeNil())
+
+				return collab.EmailSentAt.Valid
 			}).Should(BeTrue())
 
 			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
@@ -275,13 +280,6 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/containers/java-test-container"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello steve!</h3>"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/containers/java-test-container" target="_blank">`))
-
-			collab := &containercollab.ContainerCollab{}
-			err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
-			Expect(err).To(BeNil())
-			Expect(collab).ToNot(BeNil())
-
-			Expect(collab.EmailSentAt.Valid).To(BeTrue())
 		})
 
 		It("should add the user as a collaborator even if the mailer fails", func() {
