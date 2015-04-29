@@ -71,7 +71,16 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
-        App.set('sharedContainers', App.SharedContainer.fetch().value)
+        containerData = data.container
+        if container = findContainer(containerData)
+          container.get("collaborators").reload()
+          return if container.get("userId") == App.get('user.id')
+
+        if App.get('sharedContainers')
+          App.get('sharedContainers').reload()
+        else
+          App.set('sharedContainers', App.SharedContainer.fetch().value)
+
         if evt == "collaborator.added" && data.container.user_id != App.get('user.id')
             App.snackbar.post("#{data.initiated_by.username} has added to you to #{data.container.slug}")
 

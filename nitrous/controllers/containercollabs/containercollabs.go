@@ -98,7 +98,7 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		}
 	}()
 
-	publishEvent(env, controllers.EventCollaboratorAdded, cn, usr.ID)
+	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -124,30 +124,24 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	publishEvent(env, controllers.EventCollaboratorRemoved, cn, affectedUserID)
+	ev := controllers.EventCollaboratorRemoved
+	containers.PublishContainerEvent(env, ev, cn, nil)
+	// fire to removed user
+	topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID))
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+		"initiated_by": map[string]interface{}{
+			"username": env.User.Username,
+			"id":       env.User.ID,
+		},
+	}
+	env.Events.Publish(controllers.NewEvent(ev, data), topic)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,
 	}
 	return nil
-}
-
-func publishEvent(env *middleware.Env, name controllers.EventName, c *container.Container, trgtID int64) {
-	userIDs := []int64{c.UserID, trgtID}
-
-	data := map[string]interface{}{
-		"container": serializers.SerializeContainer(c),
-		"initiated_by": map[string]interface{}{
-			"username": env.User.Username,
-			"id":       env.User.ID,
-		},
-	}
-
-	for _, userID := range userIDs {
-		topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
-		env.Events.Publish(controllers.NewEvent(name, data), topic)
-	}
 }
 
 func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {
