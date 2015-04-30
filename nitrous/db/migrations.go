@@ -1130,5 +1130,11 @@ func init() {
 				CREATE SEQUENCE containers_slug_seq START WITH 100000 CACHE 1;
 			`,
 		},
+		{
+			Version: "970",
+			Up: `
+				ALTER TABLE host_transitions ADD COLUMN initiator_id bigint REFERENCES users(id);
+			`,
+		},
 	}
 }
