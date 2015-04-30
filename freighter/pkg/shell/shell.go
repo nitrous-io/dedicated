@@ -14,7 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/copybuffer"
 )
 
-var ConnectionTimeout = 60 * time.Second
+var ConnectionTimeout = 300 * time.Second
 
 const (
 	defaultTerm   = "xterm-256color"
