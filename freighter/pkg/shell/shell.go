@@ -142,7 +142,10 @@ func (s *Shell) Close() error {
 	s.stdinR.Close()
 	s.stdoutW.Close()
 	s.stdoutR.Close()
-	return s.client.StopExec(s.execID)
+	if s.execID != "" {
+		return s.client.StopExec(s.execID)
+	}
+	return nil
 }
 
 func (s *Shell) Open() error {
@@ -220,6 +223,8 @@ func (s *Shell) attach(success chan struct{}) {
 	})
 	// removes the shell-id association when exits
 	shellsLock.Lock()
+	s.execID = "" // once StartExec returns, we dont have to stop it anymore
+	s.Close()
 	delete(Shells, s.ID)
 	shellsLock.Unlock()
 	close(s.Exited)
