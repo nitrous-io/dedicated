@@ -14,6 +14,7 @@ type Host struct {
 	Slug               string  `json:"slug"`
 	Name               string  `json:"name"`
 	IPAddress          string  `json:"ip_address"`
+	StaticIP           bool    `json:"static_ip"`
 	FreighterdPort     int64   `json:"freighterd_port"`
 	FreighterdVersion  string  `json:"freighterd_version"`
 	DockerVersion      string  `json:"docker_version"`
@@ -46,6 +47,7 @@ func SerializeHost(h *host.Host) *Host {
 		Slug:                  h.Slug,
 		Name:                  h.Name.String,
 		IPAddress:             h.IPAddress.String,
+		StaticIP:              h.StaticIP,
 		FreighterdPort:        h.FreighterdPort.Int64,
 		FreighterdVersion:     h.FreighterdVersion,
 		DockerVersion:         h.DockerVersion,

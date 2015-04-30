@@ -1136,5 +1136,17 @@ func init() {
 				ALTER TABLE host_transitions ADD COLUMN initiator_id bigint REFERENCES users(id);
 			`,
 		},
+		{
+			Version: "980",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN static_ip boolean DEFAULT true NOT NULL;
+				UPDATE hosts SET static_ip=false WHERE hosts.provider_template_id IN (
+					SELECT id FROM provider_templates WHERE config @> '"disable_eip"=>"true"'::hstore
+				);
+				UPDATE hosts SET static_ip=true WHERE hosts.provider_template_id NOT IN (
+					SELECT id FROM provider_templates WHERE config @> '"disable_eip"=>"true"'::hstore
+				);
+			`,
+		},
 	}
 }

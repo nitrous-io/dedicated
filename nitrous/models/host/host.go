@@ -68,6 +68,7 @@ type Host struct {
 	// hostbuilder's creation pipeline and should be considered immutable for a
 	// single host
 	IPAddress        sql.NullString `db:"ip_address"`
+	StaticIP         bool           `db:"static_ip"`
 	FreighterdPort   sql.NullInt64  `db:"freighterd_port"`
 	RegionIdentifier sql.NullString `db:"region_identifier"`
 	// ProviderIdentifier is the identifier used by the host's provider to
@@ -296,13 +297,13 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
-			state, ip_address, provider_identifier, max_containers, size, freighterd_port,
+			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, preprovisioned, freighterd_version, docker_version,
 			region_identifier
 		)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
-		:state, :ip_address, :provider_identifier, :max_containers, :size, :freighterd_port,
+		:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 		:hourly_price, :preprovisioned, :freighterd_version, :docker_version,
 		:region_identifier)
 		RETURNING *;`)
