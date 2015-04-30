@@ -1148,5 +1148,20 @@ func init() {
 				);
 			`,
 		},
+		{
+			Version: "990",
+			Up: `
+				ALTER TABLE users ADD COLUMN deleted_at timestamp without time zone DEFAULT NULL;
+
+				DROP INDEX index_users_on_username;
+				CREATE UNIQUE INDEX index_users_on_username ON users USING btree (username) WHERE deleted_at IS NULL;
+
+				DROP INDEX index_users_on_email;
+				CREATE UNIQUE INDEX index_users_on_email ON users USING btree (email) WHERE deleted_at IS NULL;
+
+				DROP INDEX index_users_on_phone_and_phone_country_code;
+				CREATE UNIQUE INDEX index_users_on_phone_and_phone_country_code ON users USING btree (phone, phone_country_code) WHERE deleted_at IS NULL;
+			`,
+		},
 	}
 }

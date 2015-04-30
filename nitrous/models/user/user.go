@@ -89,6 +89,8 @@ type User struct {
 	PhoneCountryCode sql.NullString `db:"phone_country_code"`
 	PhoneAuthed      bool           `db:"phone_authed"`
 
+	DeletedAt pq.NullTime `db:"deleted_at"`
+
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
 }
