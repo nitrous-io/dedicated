@@ -34,6 +34,7 @@ var (
 	errFreighterdVersionRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "freighterd version required")
 	errOldStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "old-state required")
 	errNewStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "new-state required")
+	errNewStateInvalid            = httperror.New(http.StatusBadRequest, "invalid_request", "new-state invalid")
 )
 
 var (
@@ -127,6 +128,10 @@ func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request
 	newState := r.FormValue("new_state")
 	if newState == "" {
 		return errNewStateRequired
+	}
+
+	if newState != host.StateStopped && newState != host.StateRunning {
+		return errNewStateInvalid
 	}
 
 	tx, err := db.Beginx()

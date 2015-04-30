@@ -410,6 +410,15 @@ var _ = Describe("controllers/admin", func() {
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
+			It("should not update host to new state if new state is unknown", func() {
+				res := doRequest(hostSlug, "born", "exploding")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				h, err := host.Find(db, u, "my-awesome-host")
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateBorn))
+			})
+
 			It("should not update host to new state if old state not matched", func() {
 				res := doRequest(hostSlug, "stopped", "running")
 				Expect(res.Code).To(Equal(http.StatusNotFound))
