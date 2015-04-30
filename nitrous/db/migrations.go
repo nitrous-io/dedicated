@@ -1163,5 +1163,21 @@ func init() {
 				CREATE UNIQUE INDEX index_users_on_phone_and_phone_country_code ON users USING btree (phone, phone_country_code) WHERE deleted_at IS NULL;
 			`,
 		},
+		{
+			Version: "1000",
+			Up: `
+				CREATE TABLE host_scans (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					state character varying(255),
+					announcement_id bigint REFERENCES announcements(id) NULL,
+					period_start timestamp without time zone NOT NULL,
+					period_end timestamp without time zone NOT NULL,
+					recorded_at timestamp without time zone NOT NULL,
+					next_scan timestamp without time zone NULL,
+					scan_completed boolean DEFAULT false NOT NULL
+				);
+			`,
+		},
 	}
 }
