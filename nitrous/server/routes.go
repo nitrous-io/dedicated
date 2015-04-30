@@ -215,6 +215,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
 				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
 				"/logout":                                 r("tokens.Logout", tokens.Logout),
+				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
 			},
 		}
 

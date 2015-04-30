@@ -46,8 +46,14 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 	}
 
 	if len(s.Responses) > s.ResponseIndex && s.Responses[s.ResponseIndex] != "" {
-		res := json.Unmarshal([]byte(s.Responses[s.ResponseIndex]), v)
+		indx := s.ResponseIndex
 		s.ResponseIndex += 1
+
+		// stripe may pass in a nil interface
+		if v == nil {
+			return nil
+		}
+		res := json.Unmarshal([]byte(s.Responses[indx]), v)
 		return res
 	}
 
