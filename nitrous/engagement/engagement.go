@@ -62,6 +62,7 @@ func ActivationEmailCandidates(d *db.Database) ([]user.User, error) {
 						WHERE users.confirmation_token IS NULL
 						AND	users.service_account IS FALSE
 						AND users.created_at <= now() - interval '%d milliseconds'
+						AND users.deleted_at IS NULL
 						AND user_profiles.activation_email_sent_at IS NULL
 						AND billing_profiles.state = $1;`
 	parsedQuery := fmt.Sprintf(query, ActivationEmailInterval/time.Millisecond)
@@ -108,7 +109,14 @@ func SendActivationEmail(d *db.Database, u user.User) (err error) {
 	var ret struct {
 		UserID sql.NullInt64 `db:"user_id"`
 	}
-	err = tx.QueryRowx(`UPDATE user_profiles SET activation_email_sent_at = now() WHERE user_id = $1 AND activation_email_sent_at IS NULL RETURNING user_id;`, u.ID).StructScan(&ret)
+	err = tx.QueryRowx(`UPDATE user_profiles
+		SET activation_email_sent_at = now()
+		FROM users
+		WHERE users.id = user_profiles.user_id
+		AND users.id = $1
+		AND users.deleted_at IS NULL
+		AND activation_email_sent_at IS NULL
+		RETURNING user_id;`, u.ID).StructScan(&ret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return ErrActivationEmailAlreadySent
@@ -154,6 +162,7 @@ func GetStartedEmailCandidates(d *db.Database) ([]user.User, error) {
 						INNER JOIN billing_profiles ON billing_profiles.user_id = users.id
 						WHERE billing_profiles.state = $1
 						AND	users.service_account IS FALSE
+						AND users.deleted_at IS NULL
 						AND (user_profiles.activation_email_sent_at IS NULL OR user_profiles.activation_email_sent_at <= now() - interval '%d milliseconds')
 						AND (
 							(users.created_at <= now() - interval '%d milliseconds' AND user_profiles.starter_credit_email_send_count = 0)
@@ -188,10 +197,13 @@ func SendGetStartedEmail(d *db.Database, u user.User) (err error) {
 	query := `UPDATE user_profiles
 						SET starter_credit_email_send_count = starter_credit_email_send_count + 1,
 						starter_credit_email_last_sent_at = now()
-						WHERE user_id = $1
+						FROM users
+						WHERE users.id = user_profiles.user_id
+						AND users.id = $1
+						AND users.deleted_at IS NULL
 						AND (activation_email_sent_at IS NULL OR activation_email_sent_at <= now() - interval '%d milliseconds')
 						AND (
-							(created_at <= now() - interval '%d milliseconds' AND starter_credit_email_send_count = 0)
+							(users.created_at <= now() - interval '%d milliseconds' AND starter_credit_email_send_count = 0)
 							OR (starter_credit_email_last_sent_at <= now() - interval '%d milliseconds' AND starter_credit_email_send_count = 1)
 							OR (starter_credit_email_last_sent_at <= now() - interval '%d milliseconds' AND starter_credit_email_send_count = 2)
 						) RETURNING user_id`

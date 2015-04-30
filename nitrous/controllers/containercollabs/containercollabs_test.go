@@ -118,43 +118,68 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(j.ContainerCollabs).To(BeEmpty())
 		})
 
-		It("should return all container collaborators for a container", func() {
-			u1 := &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-			}
-			err := test.WrapInTransaction(db, u1.Insert)
-			Expect(err).To(BeNil())
+		Context("with collaborators", func() {
+			var all []*containercollab.ContainerCollabUser
+			var u1, u2 *user.User
 
-			u2 := &user.User{
-				Username: "bar",
-				Email:    "bar@example.com",
-				Password: "123456",
-			}
-			err = test.WrapInTransaction(db, u2.Insert)
-			Expect(err).To(BeNil())
+			BeforeEach(func() {
+				u1 = &user.User{
+					Username: "foo",
+					Email:    "foo@example.com",
+					Password: "123456",
+				}
+				err := test.WrapInTransaction(db, u1.Insert)
+				Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
-			Expect(err).To(BeNil())
+				u2 = &user.User{
+					Username: "bar",
+					Email:    "bar@example.com",
+					Password: "123456",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
 
-			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
-			Expect(err).To(BeNil())
+				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+				Expect(err).To(BeNil())
 
-			all, err := containercollab.FindAll(db, cnr.ID)
-			Expect(err).To(BeNil())
+				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+				Expect(err).To(BeNil())
 
-			doRequest()
+				all, err = containercollab.FindAll(db, cnr.ID)
+				Expect(err).To(BeNil())
+			})
 
-			Expect(res.Code).To(Equal(http.StatusOK))
+			It("should return all container collaborators for a container", func() {
+				doRequest()
 
-			var j struct {
-				ContainerCollabs []*serializers.ContainerCollabUser `json:"collaborators"`
-			}
-			err = json.Unmarshal(res.Body.Bytes(), &j)
-			Expect(err).To(BeNil())
-			Expect(j.ContainerCollabs).To(HaveLen(2))
-			Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					ContainerCollabs []*serializers.ContainerCollabUser `json:"collaborators"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.ContainerCollabs).To(HaveLen(2))
+				Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
+			})
+
+			It("should not include deleted users", func() {
+				_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1`, u2.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					ContainerCollabs []*serializers.ContainerCollabUser `json:"collaborators"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.ContainerCollabs).To(HaveLen(1))
+				Expect(j.ContainerCollabs[0].ContainerID).To(Equal(all[0].ContainerID))
+			})
+
 		})
 	})
 
@@ -217,6 +242,29 @@ var _ = Describe("controllers/containercollabs", func() {
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("same_user"))
 			Expect(errDesc).To(Equal("you cannot add yourself as a collaborator"))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
+		It("should return an error if the user has been deleted", func() {
+			otherUser := &user.User{
+				Username: "serviceaccount",
+				Email:    "service@nitrous.io",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("serviceaccount")
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("user_not_found"))
+			Expect(errDesc).To(Equal("the specified user could not be found"))
 
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})

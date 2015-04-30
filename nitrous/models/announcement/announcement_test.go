@@ -210,6 +210,7 @@ var _ = Describe("models/announcement", func() {
 			Expect(err).To(BeNil())
 			Expect(len(anns)).To(Equal(0))
 		})
+
 	})
 
 	Describe("Insert host announcement", func() {
@@ -388,6 +389,23 @@ var _ = Describe("models/announcement", func() {
 
 			It("Global announcement should not sent to preprovisioned host", func() {
 				_, err := db.Exec(`UPDATE hosts SET preprovisioned=true WHERE id=$1;`, h3.ID)
+				Expect(err).To(BeNil())
+
+				errHandler, errorCaught := createErrorSpy()
+
+				err = announcement.SendAndSaveGlobalAnnouncement(db, ann, errHandler)
+				Expect(err).To(BeNil())
+
+				newExpectedMails := []*sentMailStruct{
+					expectedSentMails[0],
+					expectedSentMails[1],
+				}
+
+				assertSentMails(mailSpy, newExpectedMails, errorCaught)
+			})
+
+			It("should not sent to deleted users host", func() {
+				_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u2.ID)
 				Expect(err).To(BeNil())
 
 				errHandler, errorCaught := createErrorSpy()

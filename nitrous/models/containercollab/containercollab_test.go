@@ -112,10 +112,24 @@ var _ = Describe("models/containercollab", func() {
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
+			u3 := &user.User{
+				Username: "dell",
+				Email:    "dell@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u3.Insert)
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u3.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u3.ID)
 			Expect(err).To(BeNil())
 
 			items, err := containercollab.FindAll(db, cnr.ID)

@@ -982,6 +982,20 @@ var _ = Describe("controllers/users", func() {
 				Expect(j["error_description"]).To(Equal("specified user does not exist"))
 			})
 
+			It("should error out if the user has been deleted", func() {
+				_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				Expect(u.ConfirmationSentAt.Valid).To(BeFalse(), "expect confirmation to not be sent")
+				doRequest("sdas", "")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
 			It("should send the confirmation token if the token matches", func() {
 				Expect(u.ConfirmationSentAt.Valid).To(BeFalse(), "expect confirmation to not be sent")
 				doRequest("ABCD", "")
@@ -1036,6 +1050,19 @@ var _ = Describe("controllers/users", func() {
 
 			It("should error out if the token is invalid", func() {
 				_, err := db.Exec(`UPDATE tokens SET last_seen_at = now() - interval '14 days' WHERE token = 'toke';`)
+				Expect(err).To(BeNil())
+
+				doRequest("", "toke")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("validation_failed"))
+				Expect(j["error_description"]).To(Equal("specified user does not exist"))
+			})
+
+			It("should error out if the user has been deleted", func() {
+				_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 
 				doRequest("", "toke")

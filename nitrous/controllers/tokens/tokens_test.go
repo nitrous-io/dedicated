@@ -230,6 +230,23 @@ var _ = Describe("controllers/tokens", func() {
 			})
 		})
 
+		Context("user is deleted", func() {
+			BeforeEach(func() {
+				_, err := db.Exec("UPDATE users SET deleted_at = now() WHERE id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+			})
+
+			It("responds with 400 bad request", func() {
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_grant"))
+			})
+		})
+
 		Context("when grant type is not password", func() {
 			BeforeEach(func() {
 				params.Set("grant_type", "authorization_code")

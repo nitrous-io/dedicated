@@ -110,7 +110,7 @@ func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfil
 
 func FindByID(d db.QueryReceiver, id int64) (*User, error) {
 	user := &User{}
-	err := d.Get(user, "SELECT * FROM users WHERE id = $1", id)
+	err := d.Get(user, "SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL", id)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func FindByID(d db.QueryReceiver, id int64) (*User, error) {
 
 func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 	user := &User{}
-	err := d.Get(user, "SELECT * FROM users WHERE username = $1", username)
+	err := d.Get(user, "SELECT * FROM users WHERE username = $1 AND deleted_at IS NULL", username)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 
 func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	user := &User{}
-	err := d.Get(user, "SELECT * FROM users WHERE username = $1 OR email = $1", login)
+	err := d.Get(user, "SELECT * FROM users WHERE (username = $1 OR email = $1) AND deleted_at IS NULL", login)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 	user := &User{}
 	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
-	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2", token, lastValidSentAt)
+	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2 AND deleted_at IS NULL", token, lastValidSentAt)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
 
 func FindByConfirmationToken(d db.QueryReceiver, token string) (*User, error) {
 	user := &User{}
-	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1", token)
+	err := d.Get(user, "SELECT * FROM users WHERE confirmation_token = $1 AND deleted_at IS NULL", token)
 	if err != nil {
 		return nil, err
 	}

@@ -106,6 +106,18 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(fakeMailer.SendMailCalled).To(BeFalse())
 			})
 		})
+
+		Describe("when the user has been deleted", func() {
+			It("responds with 200 OK, but dont send an email", func() {
+				_, err := db.Exec("UPDATE users SET deleted_at = now() WHERE id = $1;", u.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(u.Email)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("POST /api/v0/reset_password", func() {
@@ -122,6 +134,17 @@ var _ = Describe("controllers/passwords", func() {
 		}
 
 		Describe("when given token is valid and password is not empty", func() {
+			It("should error out if the user is disabled", func() {
+				err := u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE users SET deleted_at = now() WHERE id = $1;", u.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(u.ResetPasswordToken.String, "newpass")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
 			It("changes user's password'", func() {
 				oldPassword := u.EncryptedPassword
 				err := u.SetResetPasswordToken(db)

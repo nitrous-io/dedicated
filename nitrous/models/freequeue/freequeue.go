@@ -141,7 +141,8 @@ func findWithState(db *db.Database, state string) ([]*FreeQueueWithUser, error) 
 		FROM free_queue
 		INNER JOIN users ON free_queue.user_id = users.id
 		WHERE state = $1
-		AND deleted_at IS NULL
+		AND free_queue.deleted_at IS NULL
+		AND users.deleted_at IS NULL
 		ORDER BY free_queue.created_at ASC;`, state)
 	if err != nil {
 		return nil, err

@@ -178,6 +178,25 @@ var _ = Describe("middleware", func() {
 				})
 			})
 
+			Context("when the user has been deleted", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("responds with 401 Unauthorized", func() {
+					doRequest("foobar")
+
+					Expect(res.Code).To(Equal(http.StatusUnauthorized))
+					Expect(res.Header().Get("WWW-Authenticate")).To(Equal(`Bearer realm="nitrous", error="invalid_token"`))
+					j := map[string]interface{}{}
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					Expect(j["error"]).To(Equal("invalid_token"))
+					Expect(j["error_description"]).To(Equal("auth token is invalid"))
+				})
+			})
+
 			Context("when the user is a service account", func() {
 				BeforeEach(func() {
 					u := &user.User{

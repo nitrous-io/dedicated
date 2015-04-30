@@ -50,7 +50,7 @@ func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollabUser, error) {
 		users.name
 		FROM container_collabs
 		INNER JOIN users ON users.id = container_collabs.user_id
-		WHERE container_id = $1;`,
+		WHERE container_id = $1 AND users.deleted_at IS NULL;`,
 		cID)
 	if err != nil {
 		return nil, err
