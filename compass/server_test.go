@@ -20,6 +20,10 @@ func testServer() (*Server, string, error) {
 	addr := fmt.Sprintf("localhost:%d", testPort)
 	config := &Config{
 		Addr: fmt.Sprintf("localhost:%d", testPort),
+		Nameservers: []string{
+			"ns1.example.com.",
+			"ns2.example.com.",
+		},
 		NavigatorConfigs: []NavigatorConfig{
 			{
 				Name:   "dummy",
@@ -57,12 +61,41 @@ func newA(rr string) *dns.A {
 	return r.(*dns.A)
 }
 
+func newSOA(rr string) *dns.SOA {
+	r, _ := dns.NewRR(rr)
+	return r.(*dns.SOA)
+}
+
+func newNS(rr string) *dns.NS {
+	r, _ := dns.NewRR(rr)
+	return r.(*dns.NS)
+}
+
 func assertA(t *testing.T, got dns.RR, expected dns.RR) {
 	a := got.(*dns.A)
 	b := expected.(*dns.A)
 	if a.A.String() != b.A.String() ||
 		a.Header().String() != b.Header().String() {
-		t.Fatalf("Mismatched record. Got %v, expected %v", got, expected)
+		t.Fatalf("Mismatched A record. Got %v, expected %v", got, expected)
+	}
+}
+
+func assertSOA(t *testing.T, got dns.RR, expected dns.RR) {
+	a := got.(*dns.SOA)
+	b := expected.(*dns.SOA)
+	if a.Ns != b.Ns ||
+		a.Mbox != b.Mbox ||
+		a.Header().String() != b.Header().String() {
+		t.Fatalf("Mismatched SOA record. Got %v, expected %v", got, expected)
+	}
+}
+
+func assertNS(t *testing.T, got dns.RR, expected dns.RR) {
+	a := got.(*dns.NS)
+	b := expected.(*dns.NS)
+	if a.String() != b.String() ||
+		a.Header().String() != b.Header().String() {
+		t.Fatalf("Mismatched NS record. Got %v, expected %v", got, expected)
 	}
 }
 
@@ -74,6 +107,10 @@ func assertAnswers(t *testing.T, got []dns.RR, expected []dns.RR) {
 		switch g.(type) {
 		case *dns.A:
 			assertA(t, g, expected[i])
+		case *dns.SOA:
+			assertSOA(t, g, expected[i])
+		case *dns.NS:
+			assertNS(t, g, expected[i])
 		default:
 			t.Fatal("Unexpected answer type.")
 		}
@@ -98,6 +135,32 @@ func TestServeQuestions(t *testing.T) {
 			qname:  "does-not-exist.example.com.",
 			qtype:  dns.TypeA,
 			answer: []dns.RR{},
+		},
+		{
+			qname:  "example.com.",
+			qtype:  dns.TypeSOA,
+			answer: []dns.RR{newSOA("example.com. 300 IN SOA ns1.example.com. admin.example.com. 1430388000 28800 7200 604800 300")},
+		},
+		{
+			qname:  "exampleproxy.com.",
+			qtype:  dns.TypeSOA,
+			answer: []dns.RR{newSOA("exampleproxy.com. 300 IN SOA ns1.example.com. admin.exampleproxy.com. 1430388000 28800 7200 604800 300")},
+		},
+		{
+			qname: "example.com.",
+			qtype: dns.TypeNS,
+			answer: []dns.RR{
+				newNS("example.com. 300 IN NS ns1.example.com."),
+				newNS("example.com. 300 IN NS ns2.example.com."),
+			},
+		},
+		{
+			qname: "exampleproxy.com.",
+			qtype: dns.TypeNS,
+			answer: []dns.RR{
+				newNS("exampleproxy.com. 300 IN NS ns1.example.com."),
+				newNS("exampleproxy.com. 300 IN NS ns2.example.com."),
+			},
 		},
 	}
 

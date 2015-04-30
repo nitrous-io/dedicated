@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/miekg/dns"
@@ -73,21 +72,6 @@ func (n *Navigator) find(slug string) (*Host, error) {
 		return nil, err
 	}
 	return h, nil
-}
-
-func (n *Navigator) NewSOA() []dns.RR {
-	return []dns.RR{
-		&dns.SOA{
-			Hdr:     dns.RR_Header{Name: n.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
-			Ns:      "ns1." + n.domain,
-			Mbox:    "admin." + n.domain,
-			Serial:  uint32(time.Now().Truncate(time.Hour).Unix()),
-			Refresh: 28800,
-			Retry:   7200,
-			Expire:  604800,
-			Minttl:  defaultTTL,
-		},
-	}
 }
 
 func New(domain string, config map[string]string) (nav.Navigator, error) {

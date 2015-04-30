@@ -13,8 +13,6 @@ type Navigator interface {
 	// that any Unicode characters outside of the ASCII set are converted to
 	// Punycode.
 	Lookup(name string) ([]dns.RR, error)
-
-	NewSOA() []dns.RR
 }
 
 type NewNavigator func(domain string, config map[string]string) (Navigator, error)

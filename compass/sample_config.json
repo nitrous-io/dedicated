@@ -1,5 +1,9 @@
 {
   "address": "",
+  "nameservers": [
+    "ns1.n2ostaging.com.",
+    "ns2.n2ostaging.com."
+  ],
   "librato_user": "",
   "librato_token": "",
   "navigators": [
