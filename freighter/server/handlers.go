@@ -530,8 +530,17 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	stdout := shell.NewShellWriter(stream)
 
 	ch := make(chan error, 1)
-	attached := make(chan struct{}, 1)
+	attached := make(chan struct{})
 	go func() { ch <- sh.Attach(stdin, stdout, attached) }()
+
+	select {
+	case attached <- <-attached:
+		// when the client first attached, resize immediately with the
+		// current width and height
+		sh.Resize(width, height)
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timeout: failed to attached to new shell")
+	}
 
 	for {
 		select {
@@ -545,10 +554,6 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 				log.Printf("wsNewShell: detached with err %v", err)
 			}
 			return nil
-		case <-attached:
-			// when the client first attached, resize immediately with the
-			// current width and height
-			sh.Resize(width, height)
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:

@@ -190,7 +190,9 @@ func (s *Shell) Attach(stdin io.Reader, stdout io.Writer, success chan struct{})
 		go s.attach(success)
 	})
 	if !firstAttach {
+		// mirror the code in dockerclient.hijack which waits for success channel
 		success <- struct{}{}
+		<-success
 	}
 
 	for err := range errs {
