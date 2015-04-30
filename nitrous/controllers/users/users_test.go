@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -911,9 +910,9 @@ var _ = Describe("controllers/users", func() {
 				Expect(pc.Mode).To(Equal("setnx"))
 				ctime, ok := pc.PropsSet["confirmed_email_date"]
 				Expect(ok).To(BeTrue())
-				pqt, ok := ctime.(pq.NullTime)
+				pqt, ok := ctime.(time.Time)
 				Expect(ok).To(BeTrue())
-				Expect(pqt.Time).To(BeTemporally("~", time.Now(), time.Minute))
+				Expect(pqt).To(BeTemporally("~", time.Now(), time.Minute))
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {
