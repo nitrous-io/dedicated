@@ -548,6 +548,7 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 			if err != nil {
 				log.Printf("wsNewShell: exited with err %v", err)
 			}
+			stdout.Close() // sending c| message to client so it will not reconnect
 			return err
 		case err := <-ch:
 			if err != nil {
@@ -559,6 +560,7 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			case *shell.CloseMsg:
+				stdout.Close() // sending c| message to client so it will not reconnect
 				sh.Close()
 				return nil
 			default:
