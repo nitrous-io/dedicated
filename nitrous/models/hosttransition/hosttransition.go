@@ -15,8 +15,9 @@ import (
 )
 
 type HostTransition struct {
-	ID     int64 `db:"id"`
-	HostID int64 `db:"host_id"`
+	ID          int64         `db:"id"`
+	HostID      int64         `db:"host_id"`
+	InitiatorID sql.NullInt64 `db:"initiator_id"`
 
 	PreviousState sql.NullString `db:"previous_state"`
 	State         string         `db:"state"`
@@ -149,11 +150,19 @@ func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int6
 	return usage, hosts, nil
 }
 
-func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time) error {
+// Optional single initiatorID argument to record if the
+// user initiating the host transition is an admin user
+// instead of the host owner.
+func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time, initiatorID ...int64) error {
 	hT := &HostTransition{
-		HostID:    h.ID,
-		State:     h.State,
-		CreatedAt: &enactedAt,
+		HostID:      h.ID,
+		State:       h.State,
+		CreatedAt:   &enactedAt,
+		InitiatorID: sql.NullInt64{h.UserID, true},
+	}
+
+	if len(initiatorID) > 0 {
+		hT.InitiatorID = sql.NullInt64{initiatorID[0], true}
 	}
 
 	if previousState != "" {
@@ -165,10 +174,11 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		`SELECT id FROM host_transitions WHERE host_transitions.host_id = $1 ORDER BY created_at DESC LIMIT 1`,
 		h.ID).Scan(&prevId)
 
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if err != sql.ErrNoRows {
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	} else {
 		// set previous
 		_, err := tx.Exec(`UPDATE host_transitions SET ended_at = $1 WHERE id = $2;`, hT.CreatedAt, prevId)
 		if err != nil {
@@ -177,8 +187,8 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 	}
 
 	_, err = tx.NamedExec(
-		`INSERT INTO host_transitions (host_id, previous_state, state, created_at)
-      VALUES (:host_id, :previous_state, :state, :created_at)`,
+		`INSERT INTO host_transitions (host_id, initiator_id, previous_state, state, created_at)
+      VALUES (:host_id, :initiator_id, :previous_state, :state, :created_at)`,
 		hT)
 
 	if err != nil {

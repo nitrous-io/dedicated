@@ -8,15 +8,17 @@
     else
       button.ui.btn.raised disabled=true Refreshing..
 
-    if showHealthyHosts
-      button.ui.btn.raised click='hideHealthyHosts' Hide Healthy Hosts
-    else
-      button.ui.btn.raised click='unhideHealthyHosts' Show Healthy Hosts
+    button.ui.btn.raised click='toggleHealthyHosts' 
+      if showHealthyHosts
+        | Hide Healthy Hosts
+      else
+        | Show Healthy Hosts
 
-    if showProblemHosts
-      button.ui.btn.raised click='hideProblemHosts' Hide Problem Hosts
-    else
-      button.ui.btn.raised click='unhideProblemHosts' Show Problem Hosts
+    button.ui.btn.raised click='toggleProblemHosts' 
+      if showProblemHosts
+        | Hide Problem Hosts
+      else
+        | Show Problem Hosts
 
     if showHealthyHosts
       h3
@@ -177,7 +179,7 @@
                   = input type='checkbox' checked=entry.uiState.selected
                   label
                 td.actions
-                  button.ui.btn.raised click='showProblemHostDialog entry.db_host' Actions
+                  button.ui.btn.raised click='showInconsistentDialog entry.db_host' Actions
                 td.id = entry.db_host.id
                 td.id = entry.live_host.id
                 td.slug = entry.db_host.slug
@@ -254,4 +256,5 @@
           button.ui.btn click='cancelAction' Cancel
           button.ui.btn.danger.terminate-btn click='confirmAction'
             | Confirm
+            ' 
             = selectedAction.name

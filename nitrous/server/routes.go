@@ -190,6 +190,7 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 				"/admin/terminate_unaccounted_host":        r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
+				"/admin/change_host_state":                 r("admin.ChangeHostState", admin.ChangeHostState),
 				"/admin/free_queue/{id}/action":            r("freequeue.Action", freequeue.Action),
 				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
 			},

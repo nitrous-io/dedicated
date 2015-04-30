@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -23,16 +24,23 @@ var (
 )
 
 var (
-	errUserNotFound               = httperror.New(http.StatusBadRequest, "user_not_found", "cannot find a user for the given email or username")
+	errHostNotFound = httperror.New(http.StatusNotFound, "host_not_found", "cannot find host with given slug and state")
+	errUserNotFound = httperror.New(http.StatusNotFound, "user_not_found", "cannot find a user for the given email or username")
+
+	errHostSlugRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "host slug required")
 	errProviderRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "provider is required")
 	errProviderIdentifierRequired = httperror.New(http.StatusBadRequest, "invalid_request", "provider_identifier is required")
 	errHostIsNotUnaccounted       = httperror.New(http.StatusBadRequest, "invalid_request", "host is known in DB, cannot terminate directly")
 	errFreighterdVersionRequired  = httperror.New(http.StatusBadRequest, "invalid_request", "freighterd version required")
+	errOldStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "old-state required")
+	errNewStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "new-state required")
+	errNewStateInvalid            = httperror.New(http.StatusBadRequest, "invalid_request", "new-state invalid")
 )
 
 var (
 	SwitchUser               = VerifyAdmin(switchUser)
 	Hosts                    = VerifyAdmin(hosts)
+	ChangeHostState          = VerifyAdmin(changeHostState)
 	TerminateUnaccountedHost = VerifyAdmin(terminateUnaccountedHost)
 	UpdateHost               = VerifyAdmin(updateHost)
 )
@@ -101,6 +109,67 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"live_hosts": liveHosts,
 	}
 
+	return nil
+}
+
+func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	slug := r.FormValue("slug")
+	if slug == "" {
+		return errHostSlugRequired
+	}
+
+	oldState := r.FormValue("old_state")
+	if oldState == "" {
+		return errOldStateRequired
+	}
+
+	newState := r.FormValue("new_state")
+	if newState == "" {
+		return errNewStateRequired
+	}
+
+	if newState != host.StateStopped && newState != host.StateRunning {
+		return errNewStateInvalid
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	h := &host.Host{}
+
+	err = tx.QueryRowx(`UPDATE hosts 
+		SET state=$1 WHERE slug=$2 AND state=$3
+		RETURNING *;`,
+		newState, slug, oldState,
+	).StructScan(h)
+
+	if err != nil {
+		tx.Rollback()
+		if err == sql.ErrNoRows {
+			return errHostNotFound
+		} else {
+			return err
+		}
+	}
+
+	err = hosttransition.Record(tx, h, oldState, *h.UpdatedAt, env.User.ID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
 	return nil
 }
 

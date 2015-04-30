@@ -101,12 +101,12 @@ var _ = Describe("controllers/admin", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("responds with a 400 Bad Request, if there's no matching user for the given login'", func() {
+			It("responds with a 404 Not Found, if there's no matching user for the given login'", func() {
 				params := &url.Values{}
 				params.Set("login", "bar")
 
 				res := doRequest(t, params)
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
 			Context("when there's a matching user for the given login", func() {
@@ -354,6 +354,84 @@ var _ = Describe("controllers/admin", func() {
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("POST /api/v0/admin/change_host_state", func() {
+		hostSlug := "my-awesome-host"
+
+		doRequest := func(slug, oldState, newState string) *httptest.ResponseRecorder {
+			params := &url.Values{}
+			params.Set("slug", slug)
+			params.Set("old_state", oldState)
+			params.Set("new_state", newState)
+
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/admin/change_host_state", params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:  hostSlug,
+					State: "born",
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			h, err := host.Find(db, u, hostSlug)
+			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal(host.StateBorn))
+		})
+
+		Describe("when the requester is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				res := doRequest(hostSlug, "born", "running")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Describe("when the requester is an admin", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should update host to new state if old state matched", func() {
+				res := doRequest(hostSlug, "born", "running")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				h, err := host.Find(db, u, "my-awesome-host")
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("should not update host to new state if new state is unknown", func() {
+				res := doRequest(hostSlug, "born", "exploding")
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				h, err := host.Find(db, u, "my-awesome-host")
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateBorn))
+			})
+
+			It("should not update host to new state if old state not matched", func() {
+				res := doRequest(hostSlug, "stopped", "running")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				h, err := host.Find(db, u, hostSlug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateBorn))
+			})
+
+			It("should return 404 for invalid host", func() {
+				res := doRequest("non-existence-host", "stopped", "running")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
 		})
 	})
 

@@ -24,6 +24,7 @@ type NavigatorConfig struct {
 
 type Config struct {
 	Addr             string            `json:"address"` // host:port
+	Nameservers      []string          `json:"nameservers"`
 	LibratoUser      string            `json:"librato_user"`
 	LibratoToken     string            `json:"librato_token"`
 	NavigatorConfigs []NavigatorConfig `json:"navigators"`
@@ -69,6 +70,12 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	// always write dns message back
 	defer func() {
+		// If we can't handle the request, just return all our SOA as NS.
+		if len(m.Answer) == 0 {
+			log.Printf("No answer for question %s", q.String())
+			m.Ns = s.allSOA()
+			m.Rcode = dns.RcodeNameError // NXDOMAIN
+		}
 		if len(m.Answer) > 1 {
 			for _, r := range m.Answer {
 				r.Header().Ttl = uint32(defaultTTL)
@@ -79,11 +86,13 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	switch q.Qtype {
 	case dns.TypeSOA:
-		navigator, ok := s.navigators[strings.ToLower(q.Name)]
-		if ok {
-			m.Answer = navigator.NewSOA()
-			return
-		}
+		m.Answer = s.soa(q.Name)
+		log.Printf("Answering SOA query with %+v", m)
+		return
+	case dns.TypeNS:
+		m.Answer = s.ns(q.Name)
+		log.Printf("Answering NS query with %+v", m)
+		return
 	case dns.TypeA:
 		start := time.Now()
 		navigator, ok := s.navigatorForA(q)
@@ -100,14 +109,6 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
 			}
 		}
-	}
-
-	// if we cant handle the request, just return all our SOA as NS
-	if len(m.Answer) == 0 {
-		log.Printf("No answer for question %s", q.String())
-		m.Ns = s.allSOA()
-		m.Ns[0].Header().Ttl = defaultTTL
-		m.Rcode = dns.RcodeNameError // NXDOMAIN
 	}
 }
 
@@ -131,12 +132,43 @@ func (s *Server) navigatorForA(qn dns.Question) (n.Navigator, bool) {
 	return n, ok
 }
 
-func (s *Server) allSOA() []dns.RR {
-	records := []dns.RR{}
-	for _, n := range s.navigators {
-		records = append(records, n.NewSOA()...)
+func (s *Server) soa(name string) []dns.RR {
+	if len(s.config.Nameservers) < 1 {
+		return nil
 	}
-	return records
+
+	primaryNS := s.config.Nameservers[0]
+	return []dns.RR{
+		&dns.SOA{
+			Hdr:     dns.RR_Header{Name: name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
+			Ns:      primaryNS,
+			Mbox:    "admin." + strings.ToLower(name),
+			Serial:  uint32(time.Now().Truncate(time.Hour).Unix()),
+			Refresh: 28800,
+			Retry:   7200,
+			Expire:  604800,
+			Minttl:  defaultTTL,
+		},
+	}
+}
+
+func (s *Server) ns(name string) []dns.RR {
+	rr := []dns.RR{}
+	for _, ns := range s.config.Nameservers {
+		rr = append(rr, &dns.NS{
+			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: defaultTTL},
+			Ns:  ns,
+		})
+	}
+	return rr
+}
+
+func (s *Server) allSOA() []dns.RR {
+	rr := []dns.RR{}
+	for _, c := range s.config.NavigatorConfigs {
+		rr = append(rr, s.soa(c.Domain)...)
+	}
+	return rr
 }
 
 func NewServer(config *Config) (*Server, error) {

@@ -32,9 +32,17 @@ App.AddPhoneController = Em.ObjectController.extend
   actions:
     savePhone: ->
       @set 'saving', true
+      phone = @get('phone')
+      phoneCountryCode = @get('phoneCountryCode')
 
-      user = App.get('user')
-      user.updatePhone(@get('phone'), @get('phoneCountryCode')).then (resp) =>
+      # Strip country code from phone number if present.
+      if phone.indexOf("+#{phoneCountryCode}") == 0
+        phone = phone.replace("+#{phoneCountryCode}", '')
+      # Preserve only numbers in phone number.
+      phone = phone.replace(/[^0-9]/g, '')
+      @set('phone', phone)
+
+      App.get('user').updatePhone(phone, phoneCountryCode).then (resp) =>
         Mp.timestamp Mp.PropertyPhoneNumberSaved
         @set 'otpSent', true
         @set 'saving', false
@@ -55,7 +63,7 @@ App.AddPhoneController = Em.ObjectController.extend
           return
         user.set('phoneAuthed', true)
         App.refreshBillingProfile()
-        
+
         @transitionToRoute 'home'
       , (jqxhr) =>
         @set 'verifying', false
