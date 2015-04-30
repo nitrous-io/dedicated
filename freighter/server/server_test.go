@@ -15,6 +15,8 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -1775,12 +1777,32 @@ var _ = Describe("server", func() {
 	})
 
 	Describe("GET /containers/:id/shell", func() {
-		doRequest := func(containerID, command, token string) (*websocket.Conn, error) {
-			ts := httptest.NewServer(handler)
-			defer ts.Close()
+		var (
+			baseOnce sync.Once
+			baseErr  error
+			ts       *httptest.Server
+		)
+
+		BeforeEach(func() {
+			baseOnce.Do(func() {
+				// build base, which is busybox with /sh as CMD
+				cmd := exec.Command("docker", "build", "-t", "base:latest", ".")
+				cmd.Dir = "/docker-busybox"
+				_, baseErr = cmd.CombinedOutput()
+			})
+			Expect(baseErr).To(BeNil(), "failed to build base image")
+			ts = httptest.NewServer(handler)
+		})
+
+		AfterEach(func() {
+			ts.Close()
+		})
+
+		doRequest := func(containerID, command, shellID, token string) (*websocket.Conn, error) {
 			params := url.Values{}
 			params.Set("command", command)
 			params.Set("token", token)
+			params.Set("shell_id", shellID)
 			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/containers/%s/shell", ts.Listener.Addr().String(), containerID))
 			if err != nil {
 				return nil, err
@@ -1791,15 +1813,121 @@ var _ = Describe("server", func() {
 		}
 
 		It("requires a valid container token", func() {
-			_, err := doRequest("test-container", "whoami", "")
+			_, err := doRequest("test-container", "whoami", "", "")
 			Expect(err).To(Equal(websocket.ErrBadHandshake))
 
 			prov.VerifyTokenError = errors.New("invalid token")
 			token := "some token"
-			_, err = doRequest("test-container", "whoami", token)
+			_, err = doRequest("test-container", "whoami", "", token)
 			Expect(err).To(Equal(websocket.ErrBadHandshake))
 			Expect(prov.ReceivedToken).To(Equal(token))
 			Expect(prov.ReceivedPermissions).To(Equal([]string{"shell"}))
+		})
+
+		It("closes the shell when client sends the close msg", func() {
+			out, err := exec.Command("docker", "run", "-d", "--name", "testing", "base:latest", "top").CombinedOutput()
+			Expect(err).To(BeNil(), "unexpected error %v with output %s", err, string(out))
+			defer exec.Command("docker", "rm", "-f", "testing").Run()
+
+			prov.Containers = []*provider.ContainerInfo{{ID: "testing", State: provider.ContainerStateRunning}}
+			conn, err := doRequest("testing", "sh", "", "token")
+			Expect(err).To(BeNil(), "failed to connect to shell websocket %v %v", conn, err)
+
+			errCh := make(chan error, 1)
+			go func() {
+				for {
+					_, _, err = conn.ReadMessage()
+					if err != nil {
+						errCh <- err
+						return
+					}
+				}
+			}()
+
+			conn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
+			select {
+			case err := <-errCh:
+				Expect(err).To(Equal(io.EOF))
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for shell to exit")
+			}
+		})
+
+		It("closes the shell when client sends exit", func() {
+			out, err := exec.Command("docker", "run", "-d", "--name", "testing", "base:latest", "top").CombinedOutput()
+			Expect(err).To(BeNil(), "unexpected error %v with output %s", err, string(out))
+			defer exec.Command("docker", "rm", "-f", "testing").Run()
+
+			prov.Containers = []*provider.ContainerInfo{{ID: "testing", State: provider.ContainerStateRunning}}
+			conn, err := doRequest("testing", "sh", "", "token")
+			Expect(err).To(BeNil(), "failed to connect to shell websocket %v %v", conn, err)
+
+			errCh := make(chan error, 1)
+			go func() {
+				for {
+					_, _, err = conn.ReadMessage()
+					if err != nil {
+						errCh <- err
+						return
+					}
+				}
+			}()
+
+			conn.WriteMessage(websocket.TextMessage, []byte("d|exit\n"))
+			select {
+			case err := <-errCh:
+				Expect(err).To(Equal(io.EOF))
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for shell to exit")
+			}
+		})
+
+		It("keeps the shell when the connection is disrupted", func() {
+			out, err := exec.Command("docker", "run", "-d", "--name", "testing", "base:latest", "top").CombinedOutput()
+			Expect(err).To(BeNil(), "unexpected error %v with output %s", err, string(out))
+			defer exec.Command("docker", "rm", "-f", "testing").Run()
+
+			prov.Containers = []*provider.ContainerInfo{{ID: "testing", State: provider.ContainerStateRunning}}
+			conn, err := doRequest("testing", "sh", "", "token")
+			Expect(err).To(BeNil(), "failed to connect to shell websocket %v %v", conn, err)
+
+			_, out, _ = conn.ReadMessage()
+			shellID := string(out[2:])
+
+			conn.WriteMessage(websocket.TextMessage, []byte("d|export foo=test\n"))
+			conn.Close()
+
+			newConn, err := doRequest("testing", "sh", shellID, "token")
+			Expect(err).To(BeNil(), "failed to connect to shell websocket %v %v", conn, err)
+			_, out, _ = newConn.ReadMessage()
+			Expect(string(out)).To(Equal("i|" + shellID))
+
+			gotOutput := make(chan struct{})
+			errCh := make(chan error, 1)
+			go func() {
+				for {
+					_, out, err = newConn.ReadMessage()
+					if err != nil {
+						errCh <- err
+						return
+					}
+					if strings.Contains(string(out), "foo is test") {
+						close(gotOutput)
+					}
+				}
+			}()
+
+			newConn.WriteMessage(websocket.TextMessage, []byte("d|echo -n foo is $foo\n"))
+			time.Sleep(100 * time.Millisecond)
+			newConn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
+
+			select {
+			case <-gotOutput:
+				err := <-errCh
+				Expect(err).To(Equal(io.EOF))
+			case <-time.After(1 * time.Second):
+				Fail("timed out waiting for shell to exit")
+			}
 		})
 	})
 
