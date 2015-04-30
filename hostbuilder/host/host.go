@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
@@ -77,7 +78,7 @@ type Info struct {
 }
 
 type Host interface {
-	Create(io.Writer) (*Info, error) // create a new host
+	Create(io.Writer, *queue.HostQueuePublisher) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)
 	Destroy() error        // destroy the current host
 	Stop() (*Info, error)  // stop the current host

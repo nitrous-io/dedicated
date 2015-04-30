@@ -56,6 +56,10 @@ var (
 	TwilioAccountSID string
 	TwilioAuthToken  string
 
+	RedisHost string
+	RedisPort string
+	RedisDB   string
+
 	// Controls whether 'update now' option is available to users.  Defaults to
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
 	// false
@@ -115,6 +119,10 @@ func init() {
 	TwilioNumber = os.Getenv("TWILIO_NUMBER")
 	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
 	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
+
+	RedisHost = os.Getenv("REDIS_HOST")
+	RedisPort = os.Getenv("REDIS_PORT")
+	RedisDB = os.Getenv("REDIS_DB")
 
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {

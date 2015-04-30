@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
@@ -28,7 +29,7 @@ type Host struct {
 
 var ReceivedNewHostDefaultConfig map[string]string
 
-func (h *Host) Create(w io.Writer) (*host.Info, error) {
+func (h *Host) Create(w io.Writer, qp *queue.HostQueuePublisher) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
 	}

@@ -6,11 +6,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kardianos/osext"
 
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -132,6 +134,19 @@ func main() {
 	}
 	svr.KillTimeout = kt
 
+	// Setup queue consumer
+	queue.AddHandler("v1.host", svr.HostQueueHandler())
+	redisHost := envvars.RedisHost
+	redisPort := envvars.RedisPort
+	if redisHost == "" || redisPort == "" {
+		logr.FatalExit("nitrousd: REDIS_PORT or REDIS_PORT are not defined")
+	}
+	redisDB, err := strconv.Atoi(envvars.RedisDB)
+	if err != nil {
+		logr.FatalExit("nitrousd: REDIS_DB is not valid: %v", err)
+	}
+	go queue.StartConsumer(redisHost, redisPort, int64(redisDB), "v1.host")
+
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
@@ -141,4 +156,7 @@ func main() {
 	if err != nil {
 		logr.Errorf("Error starting nitrousd: %s", err)
 	}
+}
+
+func init() {
 }

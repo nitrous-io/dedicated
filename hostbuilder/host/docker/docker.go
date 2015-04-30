@@ -14,11 +14,14 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 const DefaultPort uint16 = 65333
+const EventResourceName string = "Docker"
 
 var (
 	// Paths to files within each Docker host.
@@ -50,25 +53,31 @@ type Host struct {
 
 // Create creates the docker container which acts as a container host, and write the
 // progress into w
-func (h *Host) Create(w io.Writer) (*host.Info, error) {
+func (h *Host) Create(w io.Writer, qp *queue.HostQueuePublisher) (*host.Info, error) {
 	w = io.MultiWriter(os.Stdout, w)
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
 	fmt.Fprintf(w, "Creating host image")
+	sendCreatingImageMessage(qp)
 	imageName, err := h.createImage()
 	if err != nil {
 		fmt.Fprintln(w, "Failed to create host image")
+		sendFailedToCreateImageMessage(qp)
 		return nil, err
 	}
 	fmt.Fprintf(w, "Created host image")
 	fmt.Fprintf(w, "Creating host with image “%s”", imageName)
+	sendCreatedImageMessage(qp, imageName)
+
 	c, err := h.createContainer(imageName)
 	if err != nil {
 		fmt.Fprintf(w, "Failed to create host")
+		sendFailedToCreateHostMessage(qp)
 		return nil, err
 	}
 	fmt.Fprintf(w, "Host created")
+	sendCreatedHostMessage(qp, c)
 	return c, nil
 }
 
@@ -438,6 +447,51 @@ func getState(container *dockerclient.Container) state.State {
 		return state.Running
 	}
 	return state.Stopped
+}
+
+func sendCreatingImageMessage(qp *queue.HostQueuePublisher) {
+	if qp != nil {
+		err := qp.Publish(queue.Create.String(), event.CreatingImage.String(), EventResourceName, "")
+		if err != nil {
+			log.Printf("Failed to send a message: %v\n", err)
+		}
+	}
+}
+
+func sendCreatedImageMessage(qp *queue.HostQueuePublisher, imageName string) {
+	if qp != nil {
+		err := qp.Publish(queue.Create.String(), event.CreatedImage.String(), EventResourceName, "")
+		if err != nil {
+			log.Printf("Failed to send a message: %v\n", err)
+		}
+	}
+}
+
+func sendFailedToCreateImageMessage(qp *queue.HostQueuePublisher) {
+	if qp != nil {
+		err := qp.Publish(queue.Create.String(), event.FailedToCreateImage.String(), EventResourceName, "")
+		if err != nil {
+			log.Printf("Failed to send a message: %v\n", err)
+		}
+	}
+}
+
+func sendCreatedHostMessage(qp *queue.HostQueuePublisher, host *host.Info) {
+	if qp != nil {
+		err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), EventResourceName, host.ID)
+		if err != nil {
+			log.Printf("Failed to send a message: %v\n", err)
+		}
+	}
+}
+
+func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
+	if qp != nil {
+		err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), EventResourceName, "")
+		if err != nil {
+			log.Printf("Failed to send a message: %v\n", err)
+		}
+	}
 }
 
 func init() {

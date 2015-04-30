@@ -86,7 +86,7 @@ var _ = Describe("host/digitalocean", func() {
 				doHost := h.(*digitalocean.Host)
 				doHost.Client = c
 
-				_, err = h.Create(&newlineWriter{os.Stdout})
+				_, err = h.Create(&newlineWriter{os.Stdout}, nil)
 				Expect(err).To(Equal(digitalocean.ErrCreateTimeout))
 			})
 		})
@@ -109,7 +109,7 @@ var _ = Describe("host/digitalocean", func() {
 				doHost := h.(*digitalocean.Host)
 				doHost.Client = c
 
-				_, err = h.Create(&newlineWriter{os.Stdout})
+				_, err = h.Create(&newlineWriter{os.Stdout}, nil)
 				Expect(err).NotTo(BeNil(), "expect create to fail")
 			})
 		})

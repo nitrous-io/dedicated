@@ -88,6 +88,9 @@ var _ = Describe("hostbuilder", func() {
 
 			config, _ := json.Marshal(h)
 			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)

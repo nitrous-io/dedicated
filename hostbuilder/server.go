@@ -12,6 +12,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
+	"github.com/nitrous-io/dedicated/hostbuilder/redis"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/flusher"
@@ -121,11 +123,14 @@ type config struct {
 
 	// start the server in debug mode
 	Debug bool `json:"debug"`
-}
 
+	// redis setting
+	RedisConfig redis.Config `json:"redis"`
+}
 type Server struct {
 	Config *config
 	Router *mux.Router
+	Queue  *queue.QueuePublisher
 }
 
 // Return a copy of the original provider config
@@ -176,8 +181,15 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
+	hostID := r.Form.Get("id")
+	hostSlug := r.Form.Get("slug")
+	userID, err := strconv.ParseInt(r.Form.Get("uid"), 10, 64)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("create.%s", provider))
+	}
 
-	info, err := h.Create(pw)
+	hqp := s.Queue.NewHostQueuePublisher(hostID, hostSlug, userID)
+	info, err := h.Create(pw, hqp)
 
 	// include any information about the host
 	// even if an error occurs
@@ -490,7 +502,10 @@ func New(configData []byte) (*Server, error) {
 		log.Printf("hostbuilder: invalid config data %v", string(configData))
 		return nil, err
 	}
-	server := &Server{Config: config}
+
+	redisConfig := config.RedisConfig
+	qp := queue.NewQueue(redisConfig.Host, redisConfig.Port, redisConfig.DB, "v1.host")
+	server := &Server{Config: config, Queue: qp}
 	server.CreateRouter()
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {

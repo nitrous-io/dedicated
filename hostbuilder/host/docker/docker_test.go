@@ -6,10 +6,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/docker"
+	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
+	"github.com/nitrous-io/dedicated/hostbuilder/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/redis.v2"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	dockertest "github.com/fsouza/go-dockerclient/testing"
@@ -38,10 +42,29 @@ var _ = Describe("host/docker", func() {
 	})
 
 	Describe("Create", func() {
+		var qp *queue.QueuePublisher
+		var qc *queue.QueueConsumer
+
+		var redisClient *redis.Client
+		BeforeEach(func() {
+			var err error
+			redisClient, err = test.ConnectToRedisClient()
+			Expect(err).To(BeNil())
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
+			Expect(err).To(BeNil())
+			qc, err = qp.CreateConsumer()
+			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			qp.Close()
+		})
+
 		Context("Successful Creation", func() {
 			var h host.Host
 			var err error
 			var info *host.Info
+			var hqp *queue.HostQueuePublisher
 
 			BeforeEach(func() {
 				h, err = docker.NewHost(
@@ -52,7 +75,8 @@ var _ = Describe("host/docker", func() {
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
-				info, err = h.Create(ioutil.Discard)
+				hqp = qp.NewHostQueuePublisher("123", "go-124", 125)
+				info, err = h.Create(ioutil.Discard, hqp)
 			})
 
 			It("should successfully create the host", func() {
@@ -84,6 +108,25 @@ var _ = Describe("host/docker", func() {
 				Expect(len(info.ID)).To(BeNumerically(">", 0))
 				Expect(info.IPAddress).To(Equal("127.0.0.1"))
 			})
+
+			It("sends messages to the host queue", func() {
+				Expect(qp.Length()).To(Equal(int64(3)))
+				events := [3]string{
+					event.CreatingImage.String(),
+					event.CreatedImage.String(),
+					event.CreatedHost.String(),
+				}
+				payload, err := json.Marshal(hqp)
+				Expect(err).To(BeNil())
+				for _, event := range events {
+					m, err := qc.ConsumeAndAck()
+					Expect(err).To(BeNil())
+					Expect(m.Event).To(Equal(event))
+					Expect(m.Action).To(Equal("create"))
+					Expect(m.ResourceName).To(Equal("Docker"))
+					Expect(m.Payload).To(Equal(string(payload)))
+				}
+			})
 		})
 
 		Describe("Start", func() {
@@ -102,7 +145,7 @@ var _ = Describe("host/docker", func() {
 						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 					)
 					Expect(err).To(BeNil())
-					info, err = h.Create(ioutil.Discard)
+					info, err = h.Create(ioutil.Discard, nil)
 					Expect(err).To(BeNil())
 				})
 
@@ -131,7 +174,7 @@ var _ = Describe("host/docker", func() {
 						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 					)
 					Expect(err).To(BeNil())
-					info, err = h.Create(ioutil.Discard)
+					info, err = h.Create(ioutil.Discard, nil)
 					Expect(err).To(BeNil())
 				})
 
