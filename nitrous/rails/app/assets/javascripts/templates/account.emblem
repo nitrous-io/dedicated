@@ -81,3 +81,56 @@ unless App.billingProfile.isFreeOrNoCardState
             | Applying...
         else
           input.ui.btn.primary type='submit' disabled={updatingSettings} value='Apply'
+
+.card-header.bordered
+  h2 Delete My Account
+
+.card-body
+  if canDelete
+    p
+      | Deleting your account is irreversible and will remove your credit card from file.
+  else
+    .notice-text
+      i.fa.fa-warning
+      '
+      if canDeleteMessage
+        = canDeleteMessage
+        | .
+      else
+        | You cannot delete your account at this time.
+
+.card-footer.bordered
+  .right
+      if canDelete
+        if deleting
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Deleting...
+        else
+          input.ui.btn.danger type='submit' click='showDeleteAccount target="view"' disabled={deleting} value='Delete My Account'
+      else
+        button.ui.btn disabled='disabled'
+          i
+          | Delete My Account
+
+#deleteaccount-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        ' This will permanently delete your account!
+      p
+        ' Please type in your username
+        strong
+          | (
+          span.click-highlight
+            = App.user.username
+          ' )
+        | to confirm:
+      .ui.input-group
+        Em.TextField class='focus' placeholder=App.user.username value=view.deleteAccountConfirmation
+    .card-footer
+      .right
+        button.ui.btn click='cancelDeleteAccount target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmDeleteAccount target="view"' disabled=view.deleteAccountConfirmationInvalid Delete My Account
