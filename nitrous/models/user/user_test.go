@@ -42,6 +42,8 @@ var _ = Describe("models/user", func() {
 		// setting admin flag to true on last user
 		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, admin, max_containers) values ($1, $2, $3, $4, $5, $6);", "baz", "baz@example.com", "baz qux", "bazbaz", true, 30)
 		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, deleted_at) values ($1, $2, $3, $4, now());", "dell", "dell@example.com", "baz qux", "bazbaz")
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -51,7 +53,7 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("FindByID()", func() {
-		var fooID, barID, bazID int64
+		var fooID, barID, bazID, dellID int64
 
 		BeforeEach(func() {
 			err := db.QueryRow("SELECT id FROM users WHERE username = $1", "foo").Scan(&fooID)
@@ -59,6 +61,8 @@ var _ = Describe("models/user", func() {
 			err = db.QueryRow("SELECT id FROM users WHERE username = $1", "bar").Scan(&barID)
 			Expect(err).To(BeNil())
 			err = db.QueryRow("SELECT id FROM users WHERE username = $1", "baz").Scan(&bazID)
+			Expect(err).To(BeNil())
+			err = db.QueryRow("SELECT id FROM users WHERE username = $1", "dell").Scan(&dellID)
 			Expect(err).To(BeNil())
 		})
 
@@ -102,6 +106,14 @@ var _ = Describe("models/user", func() {
 		Context("when a user record with a given id does not exist", func() {
 			It("returns error", func() {
 				u, err := user.FindByID(db, 9001)
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a user record has been deleted", func() {
+			It("returns error", func() {
+				u, err := user.FindByID(db, dellID)
 				Expect(u).To(BeNil())
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
@@ -160,6 +172,14 @@ var _ = Describe("models/user", func() {
 			})
 		})
 
+		Context("when a user record has been deleted", func() {
+			It("returns error", func() {
+				u, err := user.FindByUsername(db, "dell")
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
 		Context("when some error happens", func() {
 			It("returns error", func() {
 				db.Close()
@@ -202,6 +222,18 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(MatchError(sql.ErrNoRows))
 
 				u, err = user.FindByUsernameOrEmail(db, "bat@example.com")
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a user record has been deleted", func() {
+			It("returns error", func() {
+				u, err := user.FindByUsernameOrEmail(db, "dell")
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+
+				u, err = user.FindByUsernameOrEmail(db, "dell@example.com")
 				Expect(u).To(BeNil())
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
@@ -1034,35 +1066,46 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		Context("when a reset password token exist and it is not expired", func() {
-			It("returns the matching user", func() {
-				err := u.SetResetPasswordToken(db)
-				Expect(err).To(BeNil())
+		It("should find the user", func() {
+			err := u.SetResetPasswordToken(db)
+			Expect(err).To(BeNil())
 
-				Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
-				Expect(u.ResetPasswordSentAt).NotTo(BeNil())
+			Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+			Expect(u.ResetPasswordSentAt).NotTo(BeNil())
 
-				u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
-				Expect(err).To(BeNil())
-				Expect(u1.ID).To(Equal(u.ID))
-			})
+			u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
+			Expect(err).To(BeNil())
+			Expect(u1.ID).To(Equal(u.ID))
 		})
 
-		Context("when a reset password token is expired", func() {
-			It("returns error", func() {
-				err := u.SetResetPasswordToken(db)
-				Expect(err).To(BeNil())
+		It("should return an error when the token has expired", func() {
+			err := u.SetResetPasswordToken(db)
+			Expect(err).To(BeNil())
 
-				Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
-				Expect(u.ResetPasswordSentAt).NotTo(BeNil())
+			Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+			Expect(u.ResetPasswordSentAt).NotTo(BeNil())
 
-				_, err = db.Exec("UPDATE users SET reset_password_sent_at = now() - interval '23 hours' WHERE id = $1", u.ID)
-				Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE users SET reset_password_sent_at = now() - interval '23 hours' WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
 
-				u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
-				Expect(err).To(MatchError(sql.ErrNoRows))
-				Expect(u1).To(BeNil())
-			})
+			u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(u1).To(BeNil())
+		})
+
+		It("should return an error when the user has been deleted", func() {
+			err := u.SetResetPasswordToken(db)
+			Expect(err).To(BeNil())
+
+			Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+			Expect(u.ResetPasswordSentAt).NotTo(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			u1, err := user.FindByResetPasswordToken(db, u.ResetPasswordToken.String)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(u1).To(BeNil())
 		})
 	})
 
@@ -1089,11 +1132,20 @@ var _ = Describe("models/user", func() {
 			Expect(fU.ID).To(Equal(u.ID))
 		})
 
-		It("returns the no user if the token is invalid", func() {
+		It("returns no user if the token is invalid", func() {
 			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = now(), confirmation_token = 'ABCD' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			fU, err := user.FindByConfirmationToken(db, "ABCDE")
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(fU).To(BeNil())
+		})
+
+		It("returns no user if the user has been deleted", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now(), confirmation_sent_at = now(), confirmation_token = 'ABCD' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			fU, err := user.FindByConfirmationToken(db, "ABCD")
 			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(fU).To(BeNil())
 		})

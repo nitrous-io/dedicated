@@ -110,6 +110,7 @@ func fetchContainersWithHosts(db *db.Database, userID int64) (*HostUserContainer
     AND terminated_at IS NULL
     AND preprovisioned = FALSE
     AND state NOT IN ($1, $2)
+    AND users.deleted_at IS NULL
     ORDER BY id;`,
 		strings.Join(hostIDs, ", "))
 	err = db.Select(&hosts, baseQuery, host.StateOrphan, host.StateMigrating)

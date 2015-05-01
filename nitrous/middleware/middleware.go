@@ -120,14 +120,17 @@ func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) 
 	}
 
 	u, err := user.FindByID(db, t.UserID)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return mh.Error(err, label)
+	}
+	if err == sql.ErrNoRows {
+		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
+		return mh.Error(errInvalidToken, label)
 	}
 	if u == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="invalid_token"`)
 		return mh.Error(err, label)
 	}
-
 	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
 		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
