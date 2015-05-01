@@ -1,5 +1,9 @@
 package main
 
+import (
+	"fmt"
+)
+
 func GenConfirmedJobs(jobs chan job, u *User) error {
 	if u.ConfirmedAt.Valid {
 		jobs <- NewJob("setnx", u.ID, map[string]interface{}{
@@ -50,6 +54,26 @@ func GenGithubAuthorizedJobs(jobs chan job, u *User) error {
 	jobs <- NewJob("setnx", u.ID, map[string]interface{}{
 		"github_username":        u.GithubUsername.String,
 		"github_authorized_date": u.CreatedAt.Time, // no date stored, use created_at as proxy
+	})
+	return nil
+}
+
+func GenPhoneJobs(jobs chan job, u *User) error {
+	if !u.PhoneAuthed {
+		// fix wrongly set verified date
+		logr.Debugf("No phone auth for user %s", u.Email)
+		jobs <- NewJob("unset", u.ID, map[string]interface{}{
+			"phone_number_verified_date": 0,
+		})
+		return nil
+	}
+	if u.Phone.String == "" || u.PhoneCountryCode.String == "" {
+		logr.Debugf("No phone number for user %s", u.Email)
+		return nil
+	}
+	phone := fmt.Sprintf("+%s-%s", u.PhoneCountryCode.String, u.Phone.String)
+	jobs <- NewJob("set", u.ID, map[string]interface{}{
+		"phone_number": phone,
 	})
 	return nil
 }

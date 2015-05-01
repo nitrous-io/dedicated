@@ -33,6 +33,10 @@ type User struct {
 	CreatedAt      pq.NullTime    `db:"created_at"`
 	ConfirmedAt    pq.NullTime    `db:"confirmed_at"`
 	GithubUsername sql.NullString `db:"github_username"`
+
+	PhoneAuthed      bool           `db:"phone_authed"`
+	Phone            sql.NullString `db:"phone"`
+	PhoneCountryCode sql.NullString `db:"phone_country_code"`
 }
 
 var (
@@ -69,7 +73,8 @@ func makeJobs() <-chan job {
 	err := dbConn.Select(&users, `
 	SELECT users.id AS user_id, users.name, users.username, users.email,
 		users.created_at, users.confirmed_at,
-		user_profiles.github_user_name AS github_username
+		user_profiles.github_user_name AS github_username,
+		users.phone_authed, users.phone_country_code, users.phone
 	FROM users
 	JOIN user_profiles ON user_profiles.user_id = users.id
 	WHERE service_account IS false ORDER BY users.id
@@ -81,9 +86,10 @@ func makeJobs() <-chan job {
 	type stepFn func(chan job, *User) error
 
 	steps := map[string]stepFn{
-		"gen confirmed":         GenConfirmedJobs,
-		"gen templates":         GenTemplatesJobs,
-		"gen github authorized": GenGithubAuthorizedJobs,
+		//"gen confirmed":         GenConfirmedJobs,
+		//"gen templates":         GenTemplatesJobs,
+		//"gen github authorized": GenGithubAuthorizedJobs,
+		"gen phone": GenPhoneJobs,
 	}
 
 	go func() {

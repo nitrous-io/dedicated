@@ -98,6 +98,8 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 		propFn = op.Append
 	case "inc":
 		propFn = op.Increment
+	case "unset":
+		propFn = op.Unset
 	default:
 		logger.Errorf("analytics: unsupported mode given: %s", mode)
 		return nil
