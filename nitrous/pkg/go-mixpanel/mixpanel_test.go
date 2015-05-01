@@ -337,7 +337,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the user profile along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.NewProfileOp("1", nil).Unset([]string{"Days Purchased"})
+				err := m.NewProfileOp("1", map[string]interface{}{"Days Purchased": "stub"}).Unset()
 				Expect(err).To(BeNil())
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
@@ -355,7 +355,7 @@ var _ = Describe("mixpanel", func() {
 
 			It("should send an base64 encoded version of the event along with the corresponding properties", func() {
 				m := mixpanel.NewMixpanelClient("token", baseURL)
-				err := m.NewProfileOp("1", nil).Unset([]string{"Days Purchased"})
+				err := m.NewProfileOp("1", map[string]interface{}{"Days Purchased": "stub"}).Unset()
 				Expect(err).To(Equal(mixpanel.ErrUnexpectedEngageResponse))
 				Expect(server.ReceivedRequests()).Should(HaveLen(1))
 			})
