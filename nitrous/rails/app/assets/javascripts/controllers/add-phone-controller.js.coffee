@@ -55,13 +55,16 @@ App.AddPhoneController = Em.ObjectController.extend
 
       user = App.get('user')
       user.verifyPhone(@get('otp')).then (resp) =>
-        Mp.timestamp Mp.PropertyPhoneNumberVerified
         @set 'verifying', false
         if !resp.verified
           App.postError 'That code is incorrect.'
           @set 'invalidOTP', true
           return
         user.set('phoneAuthed', true)
+        Mp.timestamp Mp.PropertyPhoneNumberVerified
+        p = {}
+        p[Mp.PropertyPhoneNumber] = "+#{@get('phoneCountryCode')}-#{@get('phone')}"
+        Mp.updateUser p
         App.refreshBillingProfile()
 
         @transitionToRoute 'home'
