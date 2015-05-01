@@ -54,6 +54,17 @@ nitrous_production7=# SELECT COUNT(*) FROM users;
 (1 row)
 ```
 
+### Verifying the integrity of the pricing on hosts
+
+Because there isn't a strict constraint on `hourly_price` on the hosts and its plan (to ensure we respect sunsetting or price rises) you should check that there aren't any obvious large mistakes between host pricing and the plan pricing. To spot this run the following query
+
+```
+SELECT hourly_price, plans.id, plans.name, plans.base_price, plans.price, count(*) FROM hosts JOIN plans ON hosts.plan_id = plans.id WHERE (hosts.terminated_at IS NULL OR hosts.terminated_at >= (now() - interval '1 month')) GROUP BY hourly_price, plans.id, plans.base_price, plans.price ORDER BY hourly_price DESC;
+```
+
+You should look at for cases where the plan ID repeats and the hourly_price differs between the repeated plans.
+
+
 ### Running the biller
 
 You will now need to run the biller to simulate a biller run
