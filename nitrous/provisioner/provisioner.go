@@ -15,7 +15,6 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -90,12 +89,13 @@ var (
 )
 
 type Provisioner struct {
-	db        *db.Database
-	logger    *logger.Logger
-	events    *pubsub.Pubsub
-	stop      chan struct{}
-	stopped   chan struct{}
-	isRunning uint32 // atomic bool, non zero if true
+	db      *db.Database
+	logger  *logger.Logger
+	events  *pubsub.Pubsub
+	didStop chan struct{}
+
+	muIsRunning sync.Mutex
+	isRunning   bool
 
 	config           *Config
 	preprovisionUser *user.User
@@ -205,18 +205,39 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 		db:      d,
 		logger:  l,
 		events:  e,
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		didStop: make(chan struct{}),
 		config:  conf,
 	}
 }
 
+func (p *Provisioner) IsRunning() bool {
+		p.muIsRunning.Lock()
+		p.muIsRunning.Unlock()
+		return p.isRunning
+}
+
 // Start kicks off a goroutine that pre-provisions hosts.
 func (p *Provisioner) Start() error {
-	if p.IsRunning() {
+
+	if p.config == nil {
+		return ErrPreprovisionerNotConfigured
+	}
+
+	p.muIsRunning.Lock()
+	if p.isRunning {
 		p.logger.Info("provisioner: Start() called but already started")
+		p.muIsRunning.Unlock()
 		return nil
 	}
+
+	if err := p.configureUser(); err != nil {
+		p.muIsRunning.Unlock()
+		return err
+	}
+
+	p.didStop = make(chan struct{})
+	p.isRunning = true
+	p.muIsRunning.Unlock()
 
 	// Allow provisioner to be restarted with SIGUSR2.
 	go func() {
@@ -235,21 +256,9 @@ func (p *Provisioner) Start() error {
 		p.Start()
 	}()
 
-	if p.config == nil {
-		return ErrPreprovisionerNotConfigured
-	}
-
-	if err := p.configureUser(); err != nil {
-		return err
-	}
-
-	p.stop = make(chan struct{})
-	p.setRunning(true)
-
 	p.logger.Debugf("provisioner: starting with config %+v", p.config)
 
 	// Periodically determine if we need to pre-provision any hosts.
-	errCh := make(chan error)
 	go func() {
 		db := p.db
 		ticker := time.NewTicker(p.config.Interval)
@@ -259,7 +268,7 @@ func (p *Provisioner) Start() error {
 				ticker.Stop()
 				pts, err := providertemplate.Preprovisioned(db)
 				if err != nil {
-					errCh <- err
+					p.StopWithError(err)
 					return
 				}
 
@@ -268,7 +277,7 @@ func (p *Provisioner) Start() error {
 					// Skip if there are pre-provisioned orphan hosts in this region.
 					numOrphans, err := host.CountPreprovisionedOrphans(db, r)
 					if err != nil {
-						errCh <- err
+						p.StopWithError(err)
 						return
 					}
 					if numOrphans > 0 {
@@ -279,7 +288,7 @@ func (p *Provisioner) Start() error {
 
 					numHosts, err := host.CountPreprovisioned(db, r, &plan.Plan{ID: pt.PlanID})
 					if err != nil {
-						errCh <- err
+						p.StopWithError(err)
 						return
 					}
 					logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d:",
@@ -304,9 +313,8 @@ func (p *Provisioner) Start() error {
 						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
 				}
 
-				// Reset ticker.
 				ticker = time.NewTicker(p.config.Interval)
-			case <-p.stop:
+			case <-p.didStop:
 				p.logger.Debug("provisioner: job creator quitting")
 				ticker.Stop()
 				return
@@ -314,43 +322,25 @@ func (p *Provisioner) Start() error {
 		}
 	}()
 
-	// Stop pre-provisioner goroutine on any errors.
-	go func() {
-		err := <-errCh
-		p.logger.Errorf("provisioner: job creator encountered error: %s", err)
-		p.Stop()
-	}()
-
-	// Process stop signal.
-	go func() {
-		<-p.stop
-		p.setRunning(false)
-		p.logger.Info("provisioner: stopped")
-		p.stopped <- struct{}{}
-	}()
-
 	p.logger.Debug("provisioner: started")
 
 	return nil
 }
 
+func (p *Provisioner) StopWithError(err error) {
+	p.logger.Errorf("provisioner: job creator encountered error: %s", err)
+	p.Stop()
+}
+
 func (p *Provisioner) Stop() {
-	if p.IsRunning() {
-		close(p.stop)
-		<-p.stopped
+	p.muIsRunning.Lock()
+	defer p.muIsRunning.Unlock()
+	if !p.isRunning {
+		return
 	}
-}
-
-func (p *Provisioner) IsRunning() bool {
-	return atomic.LoadUint32(&p.isRunning) > 0
-}
-
-func (p *Provisioner) setRunning(r bool) bool {
-	if r {
-		return atomic.CompareAndSwapUint32(&p.isRunning, 0, 1)
-	} else {
-		return atomic.CompareAndSwapUint32(&p.isRunning, 1, 0)
-	}
+	p.isRunning = false
+	p.logger.Info("provisioner: stopped")
+	close(p.didStop)
 }
 
 // ProvisionHost creates a new Host record (and its associated records),
