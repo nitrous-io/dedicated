@@ -1925,7 +1925,7 @@ var _ = Describe("server", func() {
 			case <-gotOutput:
 				err := <-errCh
 				Expect(err).To(Equal(io.EOF))
-			case <-time.After(1 * time.Second):
+			case <-time.After(5 * time.Second):
 				Fail("timed out waiting for shell to exit")
 			}
 		})
