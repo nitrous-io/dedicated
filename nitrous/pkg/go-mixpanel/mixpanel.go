@@ -121,8 +121,8 @@ func (p *ProfileOp) Union() error {
 }
 
 // Unset removes properties from a profile
-func (p *ProfileOp) Unset(keys []string) error {
-	return p.engage(p.DistinctID, "$unset", keys)
+func (p *ProfileOp) Unset() error {
+	return p.engage(p.DistinctID, "$unset", p.Properties)
 }
 
 // Delete deletes a profile
@@ -158,7 +158,19 @@ func (m *Mixpanel) engage(distinctID string, op string, properties interface{}) 
 		}
 	}
 
-	data[op] = properties
+	if op == "$unset" { // convert map[string]interface{} to slice of keys
+		keys := []string{}
+		props, ok := properties.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Expected properties to be map[string]interface{}, got %+v", properties)
+		}
+		for k, _ := range props {
+			keys = append(keys, k)
+		}
+		data[op] = keys
+	} else {
+		data[op] = properties
+	}
 
 	response, err := m.get(fmt.Sprintf("%s/engage/", m.BaseURL), data)
 	if err != nil {
