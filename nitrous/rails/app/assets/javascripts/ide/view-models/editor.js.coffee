@@ -33,6 +33,7 @@ App.Editor = klass = Em.Object.extend
     'Shift-Ctrl-K': 'deleteLine'
     'Cmd-Ctrl-Up': 'swapLineUp'
     'Cmd-Ctrl-Down': 'swapLineDown'
+    'Cmd-Left': 'goLineLeftSmart'
 
   pcExtraKeys:
     'Tab': 'smartTab'
@@ -46,6 +47,7 @@ App.Editor = klass = Em.Object.extend
     'Shift-Ctrl-K': 'deleteLine'
     'Shift-Ctrl-Up': 'swapLineUp'
     'Shift-Ctrl-Down': 'swapLineDown'
+    'Alt-Left': 'goLineLeftSmart'
 
   # keybindings in codemirror default keymap that we use in menu
   macOverrideKeys: ['Cmd-D']
