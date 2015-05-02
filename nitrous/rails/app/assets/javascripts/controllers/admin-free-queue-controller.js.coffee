@@ -34,7 +34,6 @@ App.AdminFreeQueueController = Em.Controller.extend
     approve: (record)->
       record.approve().then =>
         @refreshQueue()
-        Mp.timestamp Mp.PropertyFreeQueueApproved
       , (err)=>
         App.postError(err, "Failed to approve #{record.get('id')}")
         @refreshQueue()
@@ -42,7 +41,6 @@ App.AdminFreeQueueController = Em.Controller.extend
     reject: (record)->
       record.reject().then =>
         @refreshQueue()
-        Mp.timestamp Mp.PropertyFreeQueueRejected
       , (err)=>
         App.postError(err, "Failed to reject #{record.get('id')}")
         @refreshQueue()
