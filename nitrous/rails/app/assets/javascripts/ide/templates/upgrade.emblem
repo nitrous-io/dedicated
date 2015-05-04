@@ -1,8 +1,12 @@
 .ide-window
-
   .ide-body
-    .ide-upgrade
-      | Upgrading your workspace
-      if upgrading
-        p
-          | It's Upgrading!!!!
+    .card-header.bordered
+      h2
+        | Upgrading your workspace
+
+    .card-body
+      .ide-upgrade
+        | Upgrading your workspace
+        if upgrading
+          p
+            | It's Upgrading!!!!
