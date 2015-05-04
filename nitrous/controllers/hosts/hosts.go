@@ -109,15 +109,19 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// TODO: temporary, remove before merging
 // this is for one-time forcing of freighter updates
-var fakeFreighterUpdate = true
+// 0 - don't fake
+// 1 - fake 1
+// 2 - fake with ignoring ErrAlreadyUpgraded
+var fakeFreighterUpdate = 0
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var ver *freighterclient.HostVersions
 
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
-			if fakeFreighterUpdate {
+			if fakeFreighterUpdate != 0 {
 				log.Printf("faking freighter update by setting fake freighter version")
 				ver.FreighterdVersion = "1.6.0.1+fake-0-108e40e"
 			}
@@ -493,15 +497,18 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 	if err := cl.UpgradeFreighter(&freighterclient.HostVersions{
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
-		if err == freighterclient.ErrAlreadyUpgraded {
+		if err != freighterclient.ErrAlreadyUpgraded {
+			// TODO: should leave the host in StateUpgrading?
+			env.Logger.Errorf("failed to initiate freighter upgrade, err: %v", err)
+			return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		}
+		if fakeFreighterUpdate != 2 {
 			log.Printf("freighter already upgraded to %s\n", h.FreighterdVersion)
 			PublishHostEvent(env, controllers.EventHostUpgraded, h)
 			serializeHost(env, h)
-			fakeFreighterUpdate = false // so that it doesn't loop
+			fakeFreighterUpdate = 0 // so that it doesn't loop
 			return nil
 		}
-		env.Logger.Errorf("failed to initiate freighter upgrade, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
 	}
 
 	h.State = host.StateUpgrading
@@ -524,6 +531,7 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 		if err == nil {
 			if ver.FreighterdVersion == wantedVersion {
 				didUpgrade = true
+				log.Printf("freighter had upgraded to %s", wantedVersion)
 			} else {
 				log.Printf("didFreighterUpgrade to %s? not yet (is %s)", wantedVersion, ver.FreighterdVersion)
 			}
@@ -535,6 +543,7 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 
 		// wait up to 2 minutes for upgrade to finish
 		if time.Since(timeStart) > time.Minute*2 {
+			// TODO: should leave the host in StateUpgrading?
 			env.Logger.Errorf("freighter took too long (%s) to upgrade", time.Since(timeStart))
 			return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
 		}
@@ -545,7 +554,7 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 		return err
 	}
 
-	fakeFreighterUpdate = false // so that it doesn't loop
+	fakeFreighterUpdate = 0 // so that it doesn't loop
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
