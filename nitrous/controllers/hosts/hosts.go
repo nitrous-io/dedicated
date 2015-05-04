@@ -246,6 +246,8 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	trackWorkspaces(env, h.UserID)
+
 	PublishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)
 	return nil
@@ -622,4 +624,22 @@ func CanCreateContainers(h *host.Host, env *middleware.Env, w http.ResponseWrite
 	}
 
 	return nil
+}
+
+func trackWorkspaces(env *middleware.Env, userID int64) {
+	plans := []string{}
+	err := env.DB.Select(&plans, `
+		SELECT plans.name FROM hosts
+		JOIN plans on hosts.plan_id = plans.id
+		WHERE terminated_at IS NULL
+		AND user_id = $1
+		ORDER BY hosts.created_at;
+	`, userID)
+	if err != nil {
+		env.Logger.Errorf("hosts: Could not track user %d workspaces", userID)
+		return
+	}
+	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
+		"workspaces_plans": plans,
+	}, env.Logger)
 }
