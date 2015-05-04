@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 
 	// load required init for reexec commands
@@ -30,18 +31,8 @@ func init() {
 }
 
 func main() {
-	// return if running in reexec mode, and the reexec func has already finished
-	if reexec.Init() {
-		return
-	}
-
-	// re-export the version so that it can be read elsewhere
-	freighter.Version = version
-
-	var (
-		flVersion    = flag.Bool("v", false, "Display the version and exit")
-		flConfigPath = flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
-	)
+	flVersion := flag.Bool("v", false, "Display the version and exit")
+	flConfigPath := flag.String("c", defaultConf, "Path to the configuration file. Default to "+defaultConf)
 	flag.Parse()
 
 	if *flVersion {
@@ -50,12 +41,6 @@ func main() {
 	}
 
 	logger := &util.Logger{Level: util.LogLevelDebug}
-
-	defer func() {
-		if r := recover(); r != nil {
-			logger.FatalExit(r)
-		}
-	}()
 
 	conf := &freighter.Config{}
 	// parse config file
@@ -68,6 +53,22 @@ func main() {
 			logger.FatalExit(err)
 		}
 	}
+
+	airbrake.Init(109646, conf.AirbrakeKey, "production")
+
+	// return if running in reexec mode, and the reexec func has already finished
+	if reexec.Init() {
+		return
+	}
+
+	// re-export the version so that it can be read elsewhere
+	freighter.Version = version
+
+	defer func() {
+		if r := recover(); r != nil {
+			logger.FatalExit(r)
+		}
+	}()
 
 	// setup data path
 	if _, err := os.Stat(conf.DataPath); err != nil {

@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"syscall"
 
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -28,18 +28,18 @@ func copyInit() {
 	localPath := flag.Arg(1)
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("copyInit failed to change dir to / : %v", err)
+		airbrake.Fatalf("failed to change dir to / : %v", err)
 	}
 
 	// create the file if not exists and truncate it if exists
 	f, err := os.Create(localPath)
 	if err != nil {
-		log.Fatal(err)
+		airbrake.Fatal(err)
 	}
 	defer f.Close()
 
 	if _, err := io.Copy(f, os.Stdin); err != nil {
-		log.Fatal(err)
+		airbrake.Fatal(err)
 	}
 	os.Exit(0)
 }

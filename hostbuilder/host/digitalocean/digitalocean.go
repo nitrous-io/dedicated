@@ -52,6 +52,7 @@ type HostConfig struct {
 	AptDist     string `json:"apt_dist"`     // distribution of the repo
 
 	FreighterdVersion string `json:"freighterd_version"`
+	AirbrakeKey       string `json:"airbrake_key"`
 }
 
 type Host struct {
@@ -368,6 +369,7 @@ func (h *Host) Settings() *host.Settings {
 		h.generateNotifyURL(),
 		h.Config.Secret,
 		h.Config.FreighterdVersion,
+		h.Config.AirbrakeKey,
 		h.Config.PublicKeys,
 	)
 }

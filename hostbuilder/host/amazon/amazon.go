@@ -83,6 +83,7 @@ type HostConfig struct {
 	AptLocation       string          `json:"apt_location"` // URI of the repository
 	AptDist           string          `json:"apt_dist"`     // distribution of the repo
 	FreighterdVersion string          `json:"freighterd_version"`
+	AirbrakeKey       string          `json:"airbrake_key"`
 }
 
 func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
@@ -470,6 +471,7 @@ func (h *Host) Settings() *host.Settings {
 		h.generateNotifyURL(),
 		h.Config.Secret,
 		h.Config.FreighterdVersion,
+		h.Config.AirbrakeKey,
 		h.Config.PublicKeys,
 	)
 }

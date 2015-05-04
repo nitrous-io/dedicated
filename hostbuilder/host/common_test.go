@@ -63,6 +63,7 @@ var _ = Describe("NewSettings", func() {
 			"http://google.com",
 			"secret",
 			"0.0.1",
+			"airbrake_secret",
 			[]string{"pubkey1", "pubkey2"},
 		)
 
@@ -73,6 +74,7 @@ var _ = Describe("NewSettings", func() {
 		Expect(settings.Home).To(Equal("/home/action"))
 		Expect(settings.Secret).To(Equal("secret"))
 		Expect(settings.Version).To(Equal("0.0.1"))
+		Expect(settings.AirbrakeKey).To(Equal("airbrake_secret"))
 		Expect(settings.PublicKeys).To(ConsistOf("pubkey1", "pubkey2"))
 	})
 })

@@ -10,13 +10,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 )
 
 const (
@@ -267,7 +268,7 @@ func owner(stat os.FileInfo) (int, int, error) {
 func readDir(name string) (fi []os.FileInfo, err error) {
 	f, err := os.Open(name)
 	if err != nil {
-		log.Printf("readDir: os.Open('%s') failed with '%s'\n", name, err)
+		airbrake.Printf("os.Open('%s') failed with '%s'\n", name, err)
 		return nil, err
 	}
 	defer f.Close()

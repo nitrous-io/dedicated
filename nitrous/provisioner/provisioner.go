@@ -724,6 +724,7 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 		"apt_location":       opts.AptLocation,
 		"apt_dist":           opts.AptDist,
 		"freighterd_version": phost.host.FreighterdVersion,
+		"airbrake_key":       envvars.AirbrakeKey,
 	}
 	for k, v := range opts.Template.Config.Map {
 		if v.Valid {

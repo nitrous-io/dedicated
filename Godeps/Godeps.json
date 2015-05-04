@@ -310,6 +310,11 @@
 		{
 			"ImportPath": "golang.org/x/text/transform",
 			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
+		},
+		{
+			"ImportPath": "gopkg.in/airbrake/gobrake.v1",
+			"Comment": "v1.1",
+			"Rev": "f12667a6c3bda272083682a04a05ee7a14e55378"
 		}
 	]
 }

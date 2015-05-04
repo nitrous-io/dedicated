@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/go-fsnotify/fsnotify"
+	"github.com/nitrous-io/dedicated/pkg/airbrake"
 )
 
 var (
@@ -65,7 +66,7 @@ func (oh *OpsHandler) sendReply(msg *Message) error {
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
 	if err != nil {
-		log.Printf("sendReply: oh.encoder.Encode() failed with '%s'", err)
+		airbrake.Printf("sendReply: oh.encoder.Encode() failed with '%s'", err)
 		oh.stopWithError(fmt.Errorf("failed to encode %v, %s", msg, err))
 	}
 	return err
@@ -136,7 +137,7 @@ func (oh *OpsHandler) fileWatcherLoop() {
 				oh.notifyDirChanged(filepath.Dir(path))
 			}
 		case err := <-oh.fileWatcher.Errors:
-			log.Printf("fileWatcherLoop: got fsnotify error '%s'\n", err)
+			airbrake.Printf("fileWatcherLoop: got fsnotify error '%s'\n", err)
 			return
 		case <-oh.fileWatcherQuit:
 			log.Printf("quitting file watcher\n")
@@ -193,7 +194,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 			case "get":
 				oh.sendFeatures(msg)
 			default:
-				log.Printf("copsMessageLoop() unknown event '%s' in namespace 'features'", msg.Event)
+				airbrake.Printf("copsMessageLoop() unknown event '%s' in namespace 'features'", msg.Event)
 				oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 			}
 		case "finder":
@@ -204,7 +205,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 			// on unknown messages we send an error back. this allows IDE to work
 			// with older versions of freighter (as long as it sensibly handles this
 			// message)
-			log.Printf("copsMessageLoop() invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
+			airbrake.Printf("copsMessageLoop() invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
 			oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 		}
 	}
