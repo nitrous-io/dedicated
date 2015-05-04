@@ -5,6 +5,10 @@ App.AccountController = Em.ObjectController.extend
   updatingSettings: false
   updatingDetails: false
 
+  canDelete: false
+  canDeleteMessage: null
+  deleting: false
+
   advanced: false
 
   name: null
@@ -29,6 +33,9 @@ App.AccountController = Em.ObjectController.extend
       unconfirmedEmail: App.get('user.unconfirmedEmail')
       password: null
       confirmPassword: null
+      canDelete: false
+      canDeleteMessage: null
+      deleting: false
     msg = @get('errmsg')
     if msg
       Em.run.later(=>
@@ -36,6 +43,13 @@ App.AccountController = Em.ObjectController.extend
           App.postError "#{msg}"
           @set 'errmsg', null
       , 100)
+
+    App.get('user').canDelete().then =>
+      @set 'canDelete', true
+      @set 'canDeleteMessage', null
+    , (jqxhr) =>
+      @set 'canDelete', false
+      @set 'canDeleteMessage', jqxhr.responseJSON?.error_description?.capitalize()
 
   noclick: ->
     false
@@ -94,3 +108,14 @@ App.AccountController = Em.ObjectController.extend
           @set 'detailsInvalidField', errMsg.match(/^\w+/)[0]
         App.postError(jqxhr.responseJSON, 'Failed to update details')
         @set 'updatingDetails', false
+
+    deleteAccount: ->
+      @set 'deleting', true
+      App.get("user").delete().then =>
+        @set('deleting', false)
+        App.set('token', null)
+        Em.run.next ->
+          location.href = "/"
+      , (jqxhr) =>
+        @set('deleting', false)
+        App.postError(jqxhr.responseJSON, "Unable to delete account!")

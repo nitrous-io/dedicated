@@ -44,4 +44,6 @@ const (
 	EventBillingProfileActivated = "Billing Profile Activated"
 
 	EventInvoiceManuallyPaid = "Invoice Manually Paid"
+
+	EventUserDeleted = "User Deleted"
 )

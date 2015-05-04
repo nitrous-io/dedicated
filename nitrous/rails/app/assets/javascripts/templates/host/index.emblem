@@ -135,6 +135,7 @@
 
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start
+              button.ui.btn click='showTerminateDialog target="view"' Terminate...
           else
             .left
               button.ui.btn click='showTerminateDialog target="view"' Terminate...
@@ -164,6 +165,9 @@
           = displayName
           ' &rdquo;
         | and all containers, images, volumes, and archives within the workspace.
+      if App.billingProfile.free
+        p
+          | You will not be able to create another free workspace.
       p
         ' Please type in the slug of the workspace
         strong

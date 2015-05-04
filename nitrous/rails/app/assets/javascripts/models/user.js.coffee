@@ -46,6 +46,12 @@ App.User = klass = App.Model.extend
     @ajax 'POST', 'verify_phone',
       code: code
 
+  delete: ->
+    @ajax 'DELETE'
+
+  canDelete: ->
+    @ajax 'GET', 'can_delete'
+
 klass.reopenClass
   url: '/user'
   createURL: '/users'

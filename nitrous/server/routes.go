@@ -120,6 +120,7 @@ func (s *Server) drawRoutes() {
 				"/user/profile":                       r("userprofiles.Show", userprofiles.Show),
 				"/user/settings":                      r("usersettings.Show", usersettings.Show),
 				"/user/billing_profile":               r("billingprofiles.Show", billingprofiles.Show),
+				"/user/can_delete":                    r("users.CheckCanDelete", users.CheckCanDelete),
 				"/hosts":                              r("hosts.Index", hosts.Index),
 				"/images":                             r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":                r("images.Index", images.Index),
@@ -215,6 +216,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
 				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
 				"/logout":                                 r("tokens.Logout", tokens.Logout),
+				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
 			},
 		}
 
