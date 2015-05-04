@@ -1,5 +1,3 @@
-message = 'You will lose unsaved work if you close the IDE.'
-
 App.IdeUpgradeRoute = Em.Route.extend
   beforeModel: ->
     console.log "ideupgrade beforeModel"
@@ -35,15 +33,12 @@ App.IdeUpgradeRoute = Em.Route.extend
       transition.abort()
     hostPromise.then (resp) =>
       host = resp.host
-      # TODO: when upgrade available, do the upgrade
-      # console.log host
-      needsUpgrade = host.freighter_upgrade_available
-      needsUpgrade = true
-      console.log "freighterUpgradeAvailable: ", needsUpgrade
-      if !needsUpgrade
+      mustUpgrade = host.freighter_upgrade_available
+      console.log "freighterUpgradeAvailable: ", mustUpgrade
+      if !mustUpgrade
         transition.abort()
         @transitionTo "ide", container.slug
-        console.log "needs upgrade!"
+        console.log "must upgrade!"
     , =>
       console.log "failed to fetch"
 
@@ -53,22 +48,3 @@ App.IdeUpgradeRoute = Em.Route.extend
 
   renderTemplate: ->
     @_super()
-
-  activate: ->
-    # warn the user before actually unload the window. This is helpful to
-    # prevent mis-click close tab / cmd + w
-    return if App.get 'redirecting'
-    $(window).bind 'beforeunload.ide', (ev)->
-      message
-
-  deactivate: ->
-    $(window).unbind 'beforeunload.ide'
-
-  actions:
-    willTransition: (transition) ->
-      return true if App.get 'isChromeWebView'
-      return true if App.get 'redirecting'
-      return true if window.confirm(message + '\n\nAre you sure you want to leave this page?')
-      url = transition.router.recognizer.generate 'box.ide', box_id: this.get('controller.content.id')
-      transition.router.updateURL(url)
-      transition.abort()
