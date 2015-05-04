@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -492,6 +493,13 @@ var _ = Describe("biller", func() {
 				Invoice: inv,
 				Items:   []invoiceitem.InvoiceItem{item1, item2},
 			}
+		})
+
+		It("should return an error if the user has been deleted profile does not exist", func() {
+			u.DeletedAt = pq.NullTime{time.Now(), true}
+			err := b.ProcessStripe(i)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("biller: skipping stripe, user %d has been DELETED", u.ID)))
 		})
 
 		It("should return an error if the billing profile does not exist", func() {

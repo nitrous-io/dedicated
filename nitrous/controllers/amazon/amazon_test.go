@@ -371,7 +371,7 @@ var _ = Describe("controllers/amazon", func() {
 				Expect(h.IPAddress).To(Equal(sql.NullString{"54.149.78.56", true}))
 				Expect(h.FreighterdPort).To(Equal(sql.NullInt64{65333, true}))
 				Expect(h.State).To(Equal("running"))
-				Expect(h.HourlyPrice).To(Equal(int64(2016)))
+				Expect(h.HourlyPrice).To(Equal(hs1.P.HourlyPrice()))
 				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
 				Expect(h.Size).To(Equal(sql.NullString{"hs1Plan", true}))
 			})

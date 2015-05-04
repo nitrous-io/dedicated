@@ -194,6 +194,17 @@ var _ = Describe("models/freequeue", func() {
 				Expect([]freequeue.FreeQueue{res[0].FreeQueue, res[1].FreeQueue}).To(ConsistOf([]freequeue.FreeQueue{*fq1, *fq2}))
 				Expect([]string{res[0].Username, res[1].Username}).To(ConsistOf([]string{"bar", "baz"}))
 			})
+
+			It("should not include deleted users", func() {
+				_, err := db.Exec("UPDATE users SET deleted_at = now() WHERE id = $1", u2.ID)
+				Expect(err).To(BeNil())
+
+				res, err := freequeue.FindAllPending(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].FreeQueue).To(Equal(*fq1))
+				Expect(res[0].Username).To(Equal("bar"))
+			})
 		})
 
 		Describe("FindAllApproved()", func() {
@@ -203,6 +214,15 @@ var _ = Describe("models/freequeue", func() {
 				Expect(res).To(HaveLen(1))
 				Expect([]freequeue.FreeQueue{res[0].FreeQueue}).To(Equal([]freequeue.FreeQueue{*fq3}))
 				Expect([]string{res[0].Username}).To(Equal([]string{"bob"}))
+			})
+
+			It("should not include deleted users", func() {
+				_, err := db.Exec("UPDATE users SET deleted_at = now() WHERE id = $1", u3.ID)
+				Expect(err).To(BeNil())
+
+				res, err := freequeue.FindAllApproved(db)
+				Expect(err).To(BeNil())
+				Expect(res).To(HaveLen(0))
 			})
 		})
 	})

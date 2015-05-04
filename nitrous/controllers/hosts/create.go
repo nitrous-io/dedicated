@@ -249,6 +249,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		PublishHostEvent(env, controllers.EventHostCreated, h)
 		env.Status = http.StatusCreated
 	}
+
+	trackWorkspaces(env, h.UserID)
+
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
 	}

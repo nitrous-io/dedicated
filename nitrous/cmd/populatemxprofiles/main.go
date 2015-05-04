@@ -33,6 +33,22 @@ type User struct {
 	CreatedAt      pq.NullTime    `db:"created_at"`
 	ConfirmedAt    pq.NullTime    `db:"confirmed_at"`
 	GithubUsername sql.NullString `db:"github_username"`
+
+	PhoneAuthed      bool           `db:"phone_authed"`
+	Phone            sql.NullString `db:"phone"`
+	PhoneCountryCode sql.NullString `db:"phone_country_code"`
+}
+
+type FreeQueue struct {
+	ID     int64 `db:"id"`
+	UserID int64 `db:"user_id"`
+
+	State string `db:"state"`
+
+	ActionedAt pq.NullTime `db:"actioned_at"`
+
+	CreatedAt pq.NullTime `db:"created_at"`
+	DeletedAt pq.NullTime `db:"deleted_at"`
 }
 
 var (
@@ -69,7 +85,8 @@ func makeJobs() <-chan job {
 	err := dbConn.Select(&users, `
 	SELECT users.id AS user_id, users.name, users.username, users.email,
 		users.created_at, users.confirmed_at,
-		user_profiles.github_user_name AS github_username
+		user_profiles.github_user_name AS github_username,
+		users.phone_authed, users.phone_country_code, users.phone
 	FROM users
 	JOIN user_profiles ON user_profiles.user_id = users.id
 	WHERE service_account IS false ORDER BY users.id
@@ -78,22 +95,34 @@ func makeJobs() <-chan job {
 		logr.FatalExit(err)
 	}
 
-	type stepFn func(chan job, *User) error
+	type userStepFn func(chan job, *User) error
+	type stepFn func(chan job) error
 
-	steps := map[string]stepFn{
-		"gen confirmed":         GenConfirmedJobs,
-		"gen templates":         GenTemplatesJobs,
-		"gen github authorized": GenGithubAuthorizedJobs,
+	userSteps := map[string]userStepFn{
+		//"gen confirmed":         GenConfirmedJobs,
+		//"gen templates":         GenTemplatesJobs,
+		//"gen github authorized": GenGithubAuthorizedJobs,
+		//"gen phone": GenPhoneJobs,
+		"gen hosts created": GenHostCreatedJobs,
+	}
+	otherSteps := map[string]stepFn{
+		"gen waitlist": GenWaitlistJobs,
 	}
 
 	go func() {
 		defer close(jobs)
 		for _, u := range users {
-			for name, fn := range steps {
+			for name, fn := range userSteps {
 				if err := fn(jobs, u); err != nil {
 					logr.Fatalf("User %s, step %s: %v", u.Email, name, err)
 					os.Exit(1)
 				}
+			}
+		}
+		for name, fn := range otherSteps {
+			if err := fn(jobs); err != nil {
+				logr.Fatalf("Step %s: %v", name, err)
+				os.Exit(1)
 			}
 		}
 	}()

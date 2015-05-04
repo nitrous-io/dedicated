@@ -529,37 +529,39 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 	stdin := shell.NewShellReader(conn, msgCh, stream.MessageType)
 	stdout := shell.NewShellWriter(stream)
 
-	attached := make(chan struct{}, 1)
-	ch := sh.Attach(stdin, stdout, attached)
+	ch := make(chan error, 1)
+	attached := make(chan struct{})
+	go func() { ch <- sh.Attach(stdin, stdout, attached) }()
 
-	end := func() {
-		stdout.Close()
-		stdin.Close()
-		sh.Destroy()
+	select {
+	case attached <- <-attached:
+		// when the client first attached, resize immediately with the
+		// current width and height
+		sh.Resize(width, height)
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timeout: failed to attached to new shell")
 	}
 
 	for {
 		select {
+		case err := <-sh.Exited:
+			if err != nil {
+				log.Printf("wsNewShell: exited with err %v", err)
+			}
+			stdout.Close() // sending c| message to client so it will not reconnect
+			return err
 		case err := <-ch:
 			if err != nil {
-				log.Printf("exited with err %v", err)
+				log.Printf("wsNewShell: detached with err %v", err)
 			}
-			if err == shell.ErrDetached {
-				// detaching stale connection, don't end
-				return nil
-			}
-			end()
 			return nil
-		case <-attached:
-			// when the client first attached, resize immediately with the
-			// current width and height
-			sh.Resize(width, height)
 		case msg := <-msgCh:
 			switch msg := msg.(type) {
 			case *shell.ResizeMsg:
 				sh.Resize(msg.Width, msg.Height)
 			case *shell.CloseMsg:
-				end()
+				stdout.Close() // sending c| message to client so it will not reconnect
+				sh.Close()
 				return nil
 			default:
 				log.Println("shell: got unknown msg ", msg)

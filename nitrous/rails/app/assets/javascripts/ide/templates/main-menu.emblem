@@ -26,13 +26,20 @@
             li
               span.usage
                 if App.usage.expired
-                  | Daily usage exceeded
+                  span
+                    i.fa.fa-exclamation-circle
+                    | Daily usage exceeded
+                  if App.usage.refreshIn
+                    span
+                      = durationInWords App.usage.refreshIn
+                      |  until reset
                 else
-                  = durationInWords App.usage.remaining
-                  |  of usage available
-                if App.usage.refreshIn
-                  ' , resets in
-                  = durationInWords App.usage.refreshIn
+                  span.left Usage left:
+                  span.right
+                    = durationInWords App.usage.remaining
+                  .progress-bar
+                    .progress-bar-inner style=App.usage.progressBarStyle
+
             li.separator
           li
             a href='/app/#/logout'

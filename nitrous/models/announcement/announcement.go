@@ -95,7 +95,7 @@ func FindOwnerByHostID(db *ndb.Database, hostID int64) (*HostOwner, error) {
 		hosts.id AS host_id, hosts.created_at AS host_created_at,
 		users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-		WHERE hosts.id=$1;
+		WHERE hosts.id=$1 AND users.deleted_at IS NULL;
 	`, hostID)
 
 	if err != nil {
@@ -120,7 +120,7 @@ func FindOwnersByHostSlugs(db *ndb.Database, slugs []string) ([]*HostOwner, erro
 		hosts.id AS host_id, hosts.created_at AS host_created_at,
 		users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-		WHERE hosts.slug IN (%s);`, strings.Join(placeholders, ", "))
+		WHERE users.deleted_at IS NULL AND hosts.slug IN (%s);`, strings.Join(placeholders, ", "))
 
 	owners := []*HostOwner{}
 	if err := db.Select(&owners, query, values...); err != nil {
@@ -139,7 +139,7 @@ func FindAllOwners(db *ndb.Database) ([]*HostOwner, error) {
 	err := db.Select(&owners, `SELECT
 		hosts.id AS host_id, users.id AS user_id, hosts.slug, username, users.name as fullname, email
 		FROM hosts INNER JOIN users ON (hosts.user_id = users.id)
-		WHERE hosts.terminated_at IS NULL AND preprovisioned=false;
+		WHERE hosts.terminated_at IS NULL AND preprovisioned=false AND users.deleted_at IS NULL;
 	`)
 
 	if err != nil {
@@ -210,6 +210,7 @@ func FindAllForHosts(db *ndb.Database) ([]*HostAnnouncement, error) {
 			AND expires_at > now()
 			AND hosts.terminated_at IS NULL
 			AND preprovisioned=false
+			AND users.deleted_at IS NULL
 		ORDER BY announcements.created_at DESC;`)
 
 	if err != nil {

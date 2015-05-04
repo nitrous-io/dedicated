@@ -1136,5 +1136,32 @@ func init() {
 				ALTER TABLE host_transitions ADD COLUMN initiator_id bigint REFERENCES users(id);
 			`,
 		},
+		{
+			Version: "980",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN static_ip boolean DEFAULT true NOT NULL;
+				UPDATE hosts SET static_ip=false WHERE hosts.provider_template_id IN (
+					SELECT id FROM provider_templates WHERE config @> '"disable_eip"=>"true"'::hstore
+				);
+				UPDATE hosts SET static_ip=true WHERE hosts.provider_template_id NOT IN (
+					SELECT id FROM provider_templates WHERE config @> '"disable_eip"=>"true"'::hstore
+				);
+			`,
+		},
+		{
+			Version: "990",
+			Up: `
+				ALTER TABLE users ADD COLUMN deleted_at timestamp without time zone DEFAULT NULL;
+
+				DROP INDEX index_users_on_username;
+				CREATE UNIQUE INDEX index_users_on_username ON users USING btree (username) WHERE deleted_at IS NULL;
+
+				DROP INDEX index_users_on_email;
+				CREATE UNIQUE INDEX index_users_on_email ON users USING btree (email) WHERE deleted_at IS NULL;
+
+				DROP INDEX index_users_on_phone_and_phone_country_code;
+				CREATE UNIQUE INDEX index_users_on_phone_and_phone_country_code ON users USING btree (phone, phone_country_code) WHERE deleted_at IS NULL;
+			`,
+		},
 	}
 }

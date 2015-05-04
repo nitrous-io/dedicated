@@ -1038,6 +1038,22 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers).To(HaveLen(0))
 		})
 
+		It("should not return containers from deleted users", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, c.UserID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Containers []*serializers.SharedContainer `json:"containers"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Containers).To(HaveLen(0))
+		})
+
 		It("should only return the shared containers with host info", func() {
 			doRequest()
 

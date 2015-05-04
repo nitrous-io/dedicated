@@ -70,9 +70,11 @@ var _ = Describe("engagement", func() {
 	})
 
 	Describe("ActivationEmailCandidates", func() {
-		It("should include only 12hr+ old confirmed users with a no card billing profile", func() {
+		var u3 *user.User
+
+		BeforeEach(func() {
 			u2 := createUser("foo2")
-			u3 := createUser("foo3")
+			u3 = createUser("foo3")
 			u4 := createUser("foo4")
 			u5 := createUser("foo5")
 
@@ -90,11 +92,22 @@ var _ = Describe("engagement", func() {
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`UPDATE user_profiles SET activation_email_sent_at = now() WHERE user_id = $1`, u.ID)
 			Expect(err).To(BeNil())
+		})
 
+		It("should include only 12hr+ old confirmed users with a no card billing profile", func() {
 			users, err := engagement.ActivationEmailCandidates(db)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(1))
 			Expect(users[0].ID).To(Equal(u3.ID))
+		})
+
+		It("should not include deleted users", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1`, u3.ID)
+			Expect(err).To(BeNil())
+
+			users, err := engagement.ActivationEmailCandidates(db)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(0))
 		})
 	})
 
@@ -139,6 +152,17 @@ var _ = Describe("engagement", func() {
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})
 
+		It("should fail if the user has been deleted", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			envvars.WebHostname = "nitrous.example"
+			err = engagement.SendActivationEmail(db, *u)
+			Expect(err).ToNot(BeNil())
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
 		It("should rollback the changes if the mailer fails", func() {
 			mErr := errors.New("Internet unavailable")
 			fakeMailer.Error = mErr
@@ -155,12 +179,14 @@ var _ = Describe("engagement", func() {
 	})
 
 	Describe("GetStartedEmailCandidates", func() {
-		It("it should only include users without billing profiles and users who haven't received email in the 3 thresholds", func() {
-			u2 := createUser("foo2")
+		var u2, u6 *user.User
+
+		BeforeEach(func() {
+			u2 = createUser("foo2")
 			u3 := createUser("foo3")
 			u4 := createUser("foo4")
 			u5 := createUser("foo5")
-			u6 := createUser("foo6")
+			u6 = createUser("foo6")
 			u7 := createUser("foo7")
 
 			// u5 is not a candidate
@@ -184,11 +210,23 @@ var _ = Describe("engagement", func() {
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`UPDATE user_profiles SET activation_email_sent_at = now() - interval '20 minutes' WHERE user_id = $1`, u7.ID)
 			Expect(err).To(BeNil())
+		})
 
+		It("should only include users without billing profiles and users who haven't received email in the 3 thresholds", func() {
 			users, err := engagement.GetStartedEmailCandidates(db)
 			Expect(err).To(BeNil())
 			Expect(users).To(HaveLen(2))
 			Expect([]string{users[0].Username, users[1].Username}).To(ConsistOf(u2.Username, u6.Username))
+		})
+
+		It("should not include deleted users", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1`, u2.ID)
+			Expect(err).To(BeNil())
+
+			users, err := engagement.GetStartedEmailCandidates(db)
+			Expect(err).To(BeNil())
+			Expect(users).To(HaveLen(1))
+			Expect(users[0].Username).To(Equal(u6.Username))
 		})
 	})
 
@@ -216,7 +254,10 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should return an error if the account is less than 4 hrs old but not at a send_count of 1", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour', starter_credit_email_send_count = 1, starter_credit_email_last_sent_at = now() - interval '3 hours' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET starter_credit_email_send_count = 1, starter_credit_email_last_sent_at = now() - interval '3 hours' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			err = engagement.SendGetStartedEmail(db, *u)
@@ -226,7 +267,20 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should return an error if the account is less than 6 hrs old but not at a send_count of 2", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour', starter_credit_email_send_count = 2, starter_credit_email_last_sent_at = now() - interval '5 hours' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET starter_credit_email_send_count = 2, starter_credit_email_last_sent_at = now() - interval '5 hours' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			err = engagement.SendGetStartedEmail(db, *u)
+			Expect(err).To(Equal(engagement.ErrGetStartedEmailNotApplicable))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
+		It("should not send an email if the user has been deleted", func() {
+			_, err := db.Exec(`UPDATE users SET deleted_at = now(), created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			err = engagement.SendGetStartedEmail(db, *u)
@@ -236,7 +290,7 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should send an email including a confirmation token link if needed", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			envvars.WebHostname = "nitrous.example"
@@ -262,7 +316,7 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should regenerate the confirmation token if it has expired", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			envvars.WebHostname = "nitrous.example"
@@ -291,7 +345,7 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should send an email without a confirmation token if already confirmed", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			envvars.WebHostname = "nitrous.example"
@@ -314,7 +368,10 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should send its next email 2 days after", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour', starter_credit_email_send_count = 1, starter_credit_email_last_sent_at = now() - interval '4 hours' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET starter_credit_email_send_count = 1, starter_credit_email_last_sent_at = now() - interval '4 hours' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			err = engagement.SendGetStartedEmail(db, *u)
@@ -325,7 +382,10 @@ var _ = Describe("engagement", func() {
 		})
 
 		It("should send the following email 5 days after", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour', starter_credit_email_send_count = 2, starter_credit_email_last_sent_at = now() - interval '6 hours' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE user_profiles SET starter_credit_email_send_count = 2, starter_credit_email_last_sent_at = now() - interval '6 hours' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			err = engagement.SendGetStartedEmail(db, *u)
@@ -340,7 +400,7 @@ var _ = Describe("engagement", func() {
 			fakeMailer.Error = mErr
 			defer func() { fakeMailer.Error = nil }()
 
-			_, err := db.Exec(`UPDATE user_profiles SET created_at = now() - interval '1 hour' WHERE user_id = $1;`, u.ID)
+			_, err := db.Exec(`UPDATE users SET created_at = now() - interval '1 hour' WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
 			err = engagement.SendGetStartedEmail(db, *u)

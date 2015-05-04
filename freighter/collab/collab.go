@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ConnectionTimeout = 60 * time.Second
+	ConnectionTimeout = 300 * time.Second
 
 	activeConnectionsLock sync.Mutex
 	ActiveConnections     = map[string]int{}

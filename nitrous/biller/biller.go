@@ -217,6 +217,10 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
 
+	if b.user.DeletedAt.Valid {
+		return fmt.Errorf("biller: skipping stripe, user %d has been DELETED", b.user.ID)
+	}
+
 	bp, err := billingprofile.Find(b.db, b.user.ID)
 	if err != nil {
 		return fmt.Errorf("biller: skipping stripe, failure obtaining billing profile for user %d, err: %v", b.user.ID, err)

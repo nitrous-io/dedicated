@@ -158,6 +158,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         if jqxhr.responseJSON?.error == 'free_queue_required'
           App.set('pendingHost', null)
           App.set('pendingContainerData', null)
+          Mp.timestamp Mp.PropertyFreeQueueEntered
           @transitionToRoute 'hosts.queue'
 
         if errMsg = jqxhr.responseJSON?.error_description
