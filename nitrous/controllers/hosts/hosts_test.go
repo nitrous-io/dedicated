@@ -71,8 +71,9 @@ var _ = Describe("controllers/hosts", func() {
 		res             *httptest.ResponseRecorder
 		authTokenInputs test.AuthTokenInputs
 
-		u *user.User
-		t *token.Token
+		u  *user.User
+		t  *token.Token
+		ft *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -80,7 +81,9 @@ var _ = Describe("controllers/hosts", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		ft = test.NewFakeTracker()
 		svr = server.NewServer("", db, logger, nil)
+		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
@@ -933,6 +936,13 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, t.Token)
 				_, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(MatchError(sql.ErrNoRows))
+
+				// and tracks on mixpanel
+				Expect(ft.PropsCalled).To(HaveLen(1))
+				pc := ft.PropsCalled[0]
+				Expect(pc.UserID).To(Equal(hs.H.UserID))
+				Expect(pc.Mode).To(Equal("set"))
+				Expect(pc.PropsSet["workspaces_plans"]).To(HaveLen(0))
 			})
 
 			It("deletes all container records belonging to the host", func() {

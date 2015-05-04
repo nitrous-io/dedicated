@@ -55,6 +55,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		u  *user.User
 		t  *token.Token
+		ft *test.FakeTracker
 		hs *test.HostStack
 	)
 
@@ -67,7 +68,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		ft = test.NewFakeTracker()
 		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
+		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
@@ -103,7 +106,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		var err error
 		hs, err = test.CreateHostStack(db, &test.HostStack{
 			R: &region.Region{Slug: "use"},
-			P: &plan.Plan{Slug: "large", Price: 500},
+			P: &plan.Plan{Name: "Large", Slug: "large", Price: 500},
 		})
 		Expect(err).To(BeNil())
 
@@ -348,6 +351,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 			Expect(h.HourlyPrice).To(Equal(int64(745))) // monthly price of the plan = $5.00
+
+			// and tracks on mixpanel
+			Expect(ft.PropsCalled).To(HaveLen(1))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(h.UserID))
+			Expect(pc.Mode).To(Equal("set"))
+			Expect(pc.PropsSet["workspaces_plans"]).To(Equal([]string{"Large"}))
 		})
 
 		It("creates a host record for the user when JSON is sent by the client", func() {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
@@ -76,6 +77,25 @@ func GenPhoneJobs(jobs chan job, u *User) error {
 	phone := fmt.Sprintf("+%s-%s", u.PhoneCountryCode.String, u.Phone.String)
 	jobs <- NewJob("set", u.ID, map[string]interface{}{
 		"phone_number": phone,
+	})
+	return nil
+}
+
+func GenHostCreatedJobs(jobs chan job, u *User) error {
+	plans := []string{}
+	// we assume that orphan/born etc state hosts will be subtracted from the count upon termination
+	err := dbConn.Select(&plans, `
+		SELECT plans.name FROM hosts
+		JOIN plans on hosts.plan_id = plans.id
+		WHERE terminated_at IS NULL
+		AND user_id = $1
+		ORDER BY hosts.created_at;
+	`, u.ID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	jobs <- NewJob("set", u.ID, map[string]interface{}{
+		"workspaces_plans": plans,
 	})
 	return nil
 }
