@@ -23,8 +23,16 @@ import (
 
 var _ = Describe("controllers/users", func() {
 	var (
-		db *ndb.Database
-		u  *user.User
+		u   *user.User
+		hs1 *test.HostStack
+		t   *token.Token
+
+		db      *ndb.Database
+		handler *mux.Router
+		res     *httptest.ResponseRecorder
+		req     *http.Request
+		svr     *server.Server
+		ft      *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -39,6 +47,28 @@ var _ = Describe("controllers/users", func() {
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
+
+		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		ft = test.NewFakeTracker()
+		svr = test.NewTestServer("", db, logger, ft)
+		handler = svr.Router()
+		res = httptest.NewRecorder()
+
+		t = &token.Token{
+			UserID: u.ID,
+			Token:  "valid-token",
+		}
+		err = t.Insert(db)
+		Expect(err).To(BeNil())
+
+		hs1, err = test.CreateHostStack(db, &test.HostStack{
+			H: &host.Host{
+				Slug:        "my-host-1",
+				HourlyPrice: 2000,
+			},
+			U: u,
+		})
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -47,58 +77,7 @@ var _ = Describe("controllers/users", func() {
 		}
 	})
 
-	Describe("DELETE /api/v0/user/delete", func() {
-		var (
-			fakeStripe *test.FakeStripe
-			hs1        *test.HostStack
-			t          *token.Token
-
-			handler *mux.Router
-			res     *httptest.ResponseRecorder
-			req     *http.Request
-			svr     *server.Server
-			ft      *test.FakeTracker
-		)
-
-		BeforeEach(func() {
-			logger := &logger.Logger{Level: logger.LogLevelQuiet}
-			ft = test.NewFakeTracker()
-			svr = test.NewTestServer("", db, logger, ft)
-			handler = svr.Router()
-			res = httptest.NewRecorder()
-
-			t = &token.Token{
-				UserID: u.ID,
-				Token:  "valid-token",
-			}
-			err := t.Insert(db)
-			Expect(err).To(BeNil())
-
-			hs1, err = test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{
-					Slug:        "my-host-1",
-					HourlyPrice: 2000,
-				},
-				U: u,
-			})
-			Expect(err).To(BeNil())
-
-			fakeStripe = &test.FakeStripe{}
-			stripe.SetBackend(fakeStripe)
-
-			fakeStripe.Responses = []string{
-				listCardResp,
-				delCardResp,
-			}
-		})
-
-		doRequest := func() {
-			var err error
-			req, err = test.NewAuthedFormRequest(t, "DELETE", "/api/v0/user", nil)
-			Expect(err).To(BeNil())
-			handler.ServeHTTP(res, req)
-		}
-
+	sharedCanCreateExamples := func(doRequest func()) {
 		It("should return an error if running hosts are present", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
@@ -199,6 +178,62 @@ var _ = Describe("controllers/users", func() {
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
+	}
+
+	Describe("GET /api/v0/user/can_delete", func() {
+		doRequest := func() {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "GET", "/api/v0/user/can_delete", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		sharedCanCreateExamples(doRequest)
+
+		It("should be OK if the account can be deleted", func() {
+			_, err := db.Exec("UPDATE hosts SET terminated_at = now() WHERE id = $1", hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET state = 'orphan' WHERE id = $1", hs2.H.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Describe("DELETE /api/v0/user/delete", func() {
+		var (
+			fakeStripe *test.FakeStripe
+		)
+
+		BeforeEach(func() {
+			fakeStripe = &test.FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+
+			fakeStripe.Responses = []string{
+				listCardResp,
+				delCardResp,
+			}
+		})
+
+		doRequest := func() {
+			var err error
+			req, err = test.NewAuthedFormRequest(t, "DELETE", "/api/v0/user", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		sharedCanCreateExamples(doRequest)
 
 		Context("with terminated hosts", func() {
 			BeforeEach(func() {

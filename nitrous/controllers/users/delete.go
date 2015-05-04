@@ -111,6 +111,19 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 	return nil
 }
 
+func CheckCanDelete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	err := canDeleteUser(env.DB, env.User)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+	return nil
+}
+
 func canDeleteUser(d db.QueryReceiver, u *user.User) error {
 	var hExists bool
 	err := d.Get(&hExists, `SELECT
