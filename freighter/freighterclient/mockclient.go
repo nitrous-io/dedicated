@@ -88,6 +88,9 @@ type MockClient struct {
 	UpgradeServerCalled int
 	UpgradeServerError  error
 
+	UpgradeFreighterCalled int
+	UpgradeFreighterError  error
+
 	HostUtilizationCalled int
 	HostUtilizationError  error
 	HostUtilizationReturn []HostUtilization
@@ -315,6 +318,11 @@ func (c *MockClient) HostVersions() (*HostVersions, error) {
 func (c *MockClient) UpgradeServer(versions *HostVersions) error {
 	c.UpgradeServerCalled++
 	return c.UpgradeServerError
+}
+
+func (c *MockClient) UpgradeFreighter(versions *HostVersions) error {
+	c.UpgradeFreighterCalled++
+	return c.UpgradeFreighterError
 }
 
 func (c *MockClient) HostUtilization() ([]HostUtilization, error) {

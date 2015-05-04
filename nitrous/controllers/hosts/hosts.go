@@ -114,7 +114,7 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 // 0 - don't fake
 // 1 - fake 1
 // 2 - fake with ignoring ErrAlreadyUpgraded
-var fakeFreighterUpdate = 0
+var fakeFreighterUpdate = 2
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var ver *freighterclient.HostVersions
