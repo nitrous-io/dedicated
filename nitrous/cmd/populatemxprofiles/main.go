@@ -99,10 +99,11 @@ func makeJobs() <-chan job {
 	type stepFn func(chan job) error
 
 	userSteps := map[string]userStepFn{
-	//"gen confirmed":         GenConfirmedJobs,
-	//"gen templates":         GenTemplatesJobs,
-	//"gen github authorized": GenGithubAuthorizedJobs,
-	//"gen phone": GenPhoneJobs,
+		//"gen confirmed":         GenConfirmedJobs,
+		//"gen templates":         GenTemplatesJobs,
+		//"gen github authorized": GenGithubAuthorizedJobs,
+		//"gen phone": GenPhoneJobs,
+		"gen hosts created": GenHostCreatedJobs,
 	}
 	otherSteps := map[string]stepFn{
 		"gen waitlist": GenWaitlistJobs,
