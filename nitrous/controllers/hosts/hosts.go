@@ -109,11 +109,18 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// this is for one-time forcing of freighter updates
+var fakeFreighterUpdate = true
+
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var ver *freighterclient.HostVersions
 
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
+			if fakeFreighterUpdate {
+				log.Printf("faking freighter update by setting fake freighter version")
+				ver.FreighterdVersion = "1.6.0.1+fake-0-108e40e"
+			}
 			if h.DockerVersion != "" && ver.DockerVersion != h.DockerVersion {
 				h.UpgradeAvailable = host.UpgradeAvailableHard
 			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
@@ -487,8 +494,10 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
+			log.Printf("freighter already upgraded to %s\n", h.FreighterdVersion)
 			PublishHostEvent(env, controllers.EventHostUpgraded, h)
 			serializeHost(env, h)
+			fakeFreighterUpdate = false // so that it doesn't loop
 			return nil
 		}
 		env.Logger.Errorf("failed to initiate freighter upgrade, err: %v", err)
@@ -536,9 +545,11 @@ func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, 
 		return err
 	}
 
-	env.Status = http.StatusAccepted
+	fakeFreighterUpdate = false // so that it doesn't loop
+
+	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"status": "accepted",
+		"status": "ok",
 	}
 	return nil
 }
