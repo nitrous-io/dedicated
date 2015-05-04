@@ -68,6 +68,10 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 }
 
 func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {
+	if m.client == nil {
+		return
+	}
+
 	var propFn func() error
 	uid := strconv.Itoa(int(userID))
 
