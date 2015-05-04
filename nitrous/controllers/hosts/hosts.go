@@ -635,8 +635,8 @@ func trackWorkspaces(env *middleware.Env, userID int64) {
 		AND user_id = $1
 		ORDER BY hosts.created_at;
 	`, userID)
-	if err != nil {
-		env.Logger.Errorf("hosts: Could not track user %d workspaces", userID)
+	if err != nil && err != sql.ErrNoRows {
+		env.Logger.Errorf("hosts: Could not track user %d workspaces: %s", userID, err)
 		return
 	}
 	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
