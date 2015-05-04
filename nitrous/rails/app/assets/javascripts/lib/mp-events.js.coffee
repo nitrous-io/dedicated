@@ -42,3 +42,7 @@ Object.assign window.Mp,
   PropertyPhoneNumberVerified: "phone_number_verified_date"
   PropertyPhoneNumberSMSCount: "phone_number_sms_count"
   PropertyPhoneNumber: "phone_number"
+  PropertyFreeQueueEntered: "waitlist_entered_date"
+  PropertyFreeQueueCanceled: "waitlist_canceled_date" # backend
+  PropertyFreeQueueApproved: "waitlist_approved_date" # backend
+  PropertyFreeQueueRejected: "waitlist_rejected_date" # backend

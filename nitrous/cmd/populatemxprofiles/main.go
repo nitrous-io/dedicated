@@ -39,6 +39,18 @@ type User struct {
 	PhoneCountryCode sql.NullString `db:"phone_country_code"`
 }
 
+type FreeQueue struct {
+	ID     int64 `db:"id"`
+	UserID int64 `db:"user_id"`
+
+	State string `db:"state"`
+
+	ActionedAt pq.NullTime `db:"actioned_at"`
+
+	CreatedAt pq.NullTime `db:"created_at"`
+	DeletedAt pq.NullTime `db:"deleted_at"`
+}
+
 var (
 	logr    *logger.Logger
 	tracker analytics.Tracker
@@ -83,23 +95,33 @@ func makeJobs() <-chan job {
 		logr.FatalExit(err)
 	}
 
-	type stepFn func(chan job, *User) error
+	type userStepFn func(chan job, *User) error
+	type stepFn func(chan job) error
 
-	steps := map[string]stepFn{
-		//"gen confirmed":         GenConfirmedJobs,
-		//"gen templates":         GenTemplatesJobs,
-		//"gen github authorized": GenGithubAuthorizedJobs,
-		"gen phone": GenPhoneJobs,
+	userSteps := map[string]userStepFn{
+	//"gen confirmed":         GenConfirmedJobs,
+	//"gen templates":         GenTemplatesJobs,
+	//"gen github authorized": GenGithubAuthorizedJobs,
+	//"gen phone": GenPhoneJobs,
+	}
+	otherSteps := map[string]stepFn{
+		"gen waitlist": GenWaitlistJobs,
 	}
 
 	go func() {
 		defer close(jobs)
 		for _, u := range users {
-			for name, fn := range steps {
+			for name, fn := range userSteps {
 				if err := fn(jobs, u); err != nil {
 					logr.Fatalf("User %s, step %s: %v", u.Email, name, err)
 					os.Exit(1)
 				}
+			}
+		}
+		for name, fn := range otherSteps {
+			if err := fn(jobs); err != nil {
+				logr.Fatalf("Step %s: %v", name, err)
+				os.Exit(1)
 			}
 		}
 	}()

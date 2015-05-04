@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
@@ -78,6 +79,9 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
+		"waitlist_canceled_date": time.Now(),
+	}, env.Logger)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
@@ -142,6 +146,13 @@ func action(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 		if err = sendMail(tx, fq); err != nil {
 			return err
 		}
+		env.Tracker.SetProfileProps("set", fq.UserID, map[string]interface{}{
+			"waitlist_approved_date": time.Now(),
+		}, env.Logger)
+	} else if fq.State == freequeue.StateRejected {
+		env.Tracker.SetProfileProps("set", fq.UserID, map[string]interface{}{
+			"waitlist_rejected_date": time.Now(),
+		}, env.Logger)
 	}
 
 	env.Status = http.StatusOK

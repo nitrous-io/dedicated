@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	cfq "github.com/nitrous-io/dedicated/nitrous/controllers/freequeue"
@@ -37,8 +38,9 @@ var _ = Describe("controllers/freequeue", func() {
 		db      *db.Database
 		handler *mux.Router
 
-		u *user.User
-		t *token.Token
+		u  *user.User
+		t  *token.Token
+		ft *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -47,7 +49,9 @@ var _ = Describe("controllers/freequeue", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
+		ft = test.NewFakeTracker()
 		svr := server.NewServer("", db, logger, nil)
+		svr.Tracker = ft
 
 		handler = svr.Router()
 
@@ -218,6 +222,13 @@ var _ = Describe("controllers/freequeue", func() {
 
 			_, err := freequeue.Find(db, u.ID)
 			Expect(err).To(Equal(sql.ErrNoRows))
+
+			// and track on mixpanel
+			Expect(ft.PropsCalled).To(HaveLen(1))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.Mode).To(Equal("set"))
+			Expect(pc.PropsSet["waitlist_canceled_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 		})
 	})
 
@@ -436,6 +447,13 @@ var _ = Describe("controllers/freequeue", func() {
 				Expect(fq.ActionedAt.Valid).To(BeTrue())
 
 				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+
+				// and track on mixpanel
+				Expect(ft.PropsCalled).To(HaveLen(1))
+				pc := ft.PropsCalled[0]
+				Expect(pc.UserID).To(Equal(fq.UserID))
+				Expect(pc.Mode).To(Equal("set"))
+				Expect(pc.PropsSet["waitlist_rejected_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 			})
 
 			It("should send off the email if approved", func() {
@@ -458,6 +476,13 @@ var _ = Describe("controllers/freequeue", func() {
 				Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/free-tier"))
 				Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Great news bar!</h3>"))
 				Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/free-tier" target="_blank`))
+
+				// and track on mixpanel
+				Expect(ft.PropsCalled).To(HaveLen(1))
+				pc := ft.PropsCalled[0]
+				Expect(pc.UserID).To(Equal(fq.UserID))
+				Expect(pc.Mode).To(Equal("set"))
+				Expect(pc.PropsSet["waitlist_approved_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 			})
 		})
 	})
