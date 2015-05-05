@@ -1,6 +1,8 @@
 package serializers
 
 import (
+	"fmt"
+
 	"github.com/nitrous-io/dedicated/hostbuilder"
 	"github.com/nitrous-io/dedicated/nitrous/models/groupedhosts"
 )
@@ -97,7 +99,8 @@ func SerializeHealthcheck(list *groupedhosts.HostList) *Healthcheck {
 
 	inconsistent := []string{}
 	for _, h := range list.InconsistentHosts {
-		inconsistent = append(inconsistent, h.DBHost.Slug)
+		info := fmt.Sprintf("%s (db:%s,live:%s)", h.DBHost.Slug, h.DBHost.State, h.LiveHost.State)
+		inconsistent = append(inconsistent, info)
 	}
 	dangling := []string{}
 	for _, h := range list.DanglingHosts {

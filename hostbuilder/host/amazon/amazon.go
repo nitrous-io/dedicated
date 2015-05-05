@@ -408,6 +408,7 @@ func (h *Host) List() ([]*host.Info, error) {
 						FreighterdPort: host.DefaultPort,
 						State:          getState(&instance),
 						Region:         region.Name,
+						LaunchTime:     &instance.LaunchTime,
 					}
 
 					// Get EC2 instance name

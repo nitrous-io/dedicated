@@ -112,6 +112,7 @@
     .left
       if App.billingProfile.free
         button.ui.btn click='upgradePaid' Upgrade
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
 
       else
         button.ui.btn click='restart' Restart
@@ -135,6 +136,7 @@
 
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start
+              button.ui.btn click='showTerminateDialog target="view"' Terminate...
           else
             .left
               button.ui.btn click='showTerminateDialog target="view"' Terminate...
@@ -152,6 +154,10 @@
     h2.card-header
       | Are you ABSOLUTELY sure?
     .card-body
+      if App.billingProfile.free
+        p
+          strong
+            | You will not be able to create another free workspace.
       p
         ' This action
         strong

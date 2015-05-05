@@ -68,17 +68,18 @@ func (w *ProgressWriter) WriteResponse(r *Response) error {
 
 // API response of the server
 type Response struct {
-	StatusCode     int    `json:"-"`
-	Status         string `json:"status,omitempty"`
-	Provider       string `json:"provider,omitempty"`
-	ID             string `json:"id,omitempty"`
-	Name           string `json:"name,omitempty"`
-	IPAddress      string `json:"ip_address,omitempty"`
-	FreighterdPort uint16 `json:"freighterd_port,omitempty"`
-	Region         string `json:"region_id,omitempty"`
-	State          string `json:"state,omitempty"`
-	Stream         string `json:"stream,omitempty"`
-	Error          string `json:"error,omitempty"`
+	StatusCode     int        `json:"-"`
+	Status         string     `json:"status,omitempty"`
+	Provider       string     `json:"provider,omitempty"`
+	ID             string     `json:"id,omitempty"`
+	Name           string     `json:"name,omitempty"`
+	IPAddress      string     `json:"ip_address,omitempty"`
+	FreighterdPort uint16     `json:"freighterd_port,omitempty"`
+	Region         string     `json:"region_id,omitempty"`
+	State          string     `json:"state,omitempty"`
+	Stream         string     `json:"stream,omitempty"`
+	Error          string     `json:"error,omitempty"`
+	LaunchTime     *time.Time `json:"launch_time,omitempty"`
 }
 
 type HttpHandler func(w http.ResponseWriter, r *http.Request) error
@@ -418,6 +419,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 			FreighterdPort: hst.FreighterdPort,
 			Region:         hst.Region,
 			State:          hst.State.String(),
+			LaunchTime:     hst.LaunchTime,
 		})
 	}
 

@@ -13,7 +13,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 )
 
-const danglingGracePeriod = 10 * time.Minute
+const (
+	defaultGracePeriod      = 10 * time.Minute
+	inconsistentGracePeriod = 5 * time.Minute
+)
 
 var (
 	// matches the agreed format for testing images `create-test-#{region}-#{image_id}-#{unix_epoch}`
@@ -127,7 +130,7 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 			entry.DBHost = dbHost
 			continue
 		}
-		if dbHost.State == host.StateBorn && time.Since(*dbHost.CreatedAt) < danglingGracePeriod {
+		if dbHost.State == host.StateBorn && time.Since(*dbHost.CreatedAt) < defaultGracePeriod {
 			continue // allow some time for provider to build host
 		}
 
@@ -161,7 +164,7 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 	}
 	// db is correctly marked as transitioning to live state but transition
 	// is taking too long
-	return time.Since(*transition.CreatedAt) < time.Minute*5
+	return time.Since(*transition.CreatedAt) < inconsistentGracePeriod
 }
 
 func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
@@ -185,7 +188,9 @@ func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 
 	case liveHost != nil && dbHost == nil:
 		if liveHost.State != "Terminated" {
-			list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
+			if liveHost.LaunchTime == nil || time.Since(*liveHost.LaunchTime) > defaultGracePeriod {
+				list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
+			}
 		}
 
 	case liveHost == nil && dbHost != nil:
