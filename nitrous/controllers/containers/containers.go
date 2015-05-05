@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -203,7 +204,6 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"container": res.Container,
@@ -450,6 +450,10 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			liveContainer, err := cl.Terminate(cn.CID)
 			if err != nil {
+				return err
+			}
+
+			if err := dns.OnContainerDestroy(env.Logger, cn); err != nil {
 				return err
 			}
 

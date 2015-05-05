@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -219,6 +220,10 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
+	if err := dns.OnHostDestroy(env.Logger, h); err != nil {
+		return err
+	}
+
 	trackWorkspaces(env, h.UserID)
 	PublishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)
@@ -312,6 +317,9 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
+	if err = dns.OnHostStart(env.Logger, h); err != nil {
+		return err
+	}
 	PublishHostEvent(env, controllers.EventHostStarted, h)
 	serializeHost(env, h)
 	return nil

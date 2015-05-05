@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
@@ -244,6 +245,10 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	}
 
 	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	if err = dns.OnContainerCreate(env.Logger, cn, h); err != nil {
 		return nil, err
 	}
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -664,6 +665,11 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
+	if err = dns.OnHostCreation(p.logger, h); err != nil {
+		p.logger.Debugf("provisionTracer: dns.OnHostCreation() failed with %+v", err)
+		return nil, err
+	}
+
 	p.logger.Debugf("provisionTracer: updated h: %+v", h)
 
 	// refresh the host for live DB data
