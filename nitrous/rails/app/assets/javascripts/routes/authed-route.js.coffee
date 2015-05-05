@@ -7,7 +7,7 @@ App.AuthedRoute = Em.Route.extend
       return
 
     user = App.get('user')
-    if user && !user.get('phoneAuthed')
+    if user && !user.get('phoneAuthed') && @phoneAuthRequired(transition.targetName)
       @transitionTo 'add-phone'
 
     if !user
@@ -29,3 +29,5 @@ App.AuthedRoute = Em.Route.extend
     if App.get('user._billingProfile.has_billing_issues')
       @transitionTo 'billing'
 
+  phoneAuthRequired: (routeName) ->
+    routeName != 'account'

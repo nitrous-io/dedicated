@@ -39,20 +39,21 @@ form submit='updateDetails'
       else
         input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
 
-.card-header.bordered
-  h2 Integrations
+if App.user.phoneAuthed
+  .card-header.bordered
+    h2 Integrations
 
-.card-body
-  .integration
-    .icon.fa.fa-github-square
-    .actions
-      if App.userProfile.authorizedGitHubUserName
-        p
-          | GitHub connected as '
-          = App.userProfile.authorizedGitHubUserName
-          | '
-      else
-        button.ui.btn.raised click='githubAuthorize' Connect with GitHub
+  .card-body
+    .integration
+      .icon.fa.fa-github-square
+      .actions
+        if App.userProfile.authorizedGitHubUserName
+          p
+            | GitHub connected as '
+            = App.userProfile.authorizedGitHubUserName
+            | '
+        else
+          button.ui.btn.raised click='githubAuthorize' Connect with GitHub
 
 unless App.billingProfile.isFreeOrNoCardState
   .card-header.bordered
@@ -88,7 +89,10 @@ unless App.billingProfile.isFreeOrNoCardState
 .card-body
   if canDelete
     p
-      | Deleting your account is irreversible and will remove your credit card from file.
+      | Deleting your account is irreversible.
+      if !App.billingProfile.free
+        '
+        | Your credit card will be removed from file.
   else
     .notice-text
       i.fa.fa-warning
