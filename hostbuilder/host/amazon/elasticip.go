@@ -12,7 +12,7 @@ var (
 	AssociateBackoff = 3000
 
 	// max attempts to associate if allocation not found
-	AssociateMaxAttempts = 10
+	AssociateMaxAttempts = 15
 )
 
 // interface of elastic IP provider
@@ -140,6 +140,7 @@ func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.
 		resp, err = provider.AssociateAddress(opts)
 		switch assocErr := err.(type) {
 		case nil:
+			fmt.Printf("tryAssociateAddress attempts before success: %d\n", i+1)
 			return resp, nil
 		case *ec2.Error:
 			if assocErr.Code == "InvalidAllocationID.NotFound" {
