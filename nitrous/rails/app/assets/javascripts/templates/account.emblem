@@ -88,7 +88,10 @@ unless App.billingProfile.isFreeOrNoCardState
 .card-body
   if canDelete
     p
-      | Deleting your account is irreversible and will remove your credit card from file.
+      | Deleting your account is irreversible.
+      if !App.billingProfile.free
+        '
+        | Your credit card will be removed from file.
   else
     .notice-text
       i.fa.fa-warning
