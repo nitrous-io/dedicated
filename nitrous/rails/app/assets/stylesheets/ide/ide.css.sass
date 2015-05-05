@@ -85,17 +85,18 @@ html.ide
         padding: 0 16px
 
       .close
-        width: 20px
-        height: 20px
+        width: 19px
+        height: 19px
         border-radius: 10px
         margin: 0
         padding: 0
-        line-height: 20px
-        margin-left: -8px
-        margin-right: 4px
+        line-height: 19px
+        margin-left: 8px
+        margin-right: -8px
         background: none
         border: none
         transition: background-color .2s
+        font-size: 12px
 
         &:hover
           background: rgba($n2oGray400, .2)
@@ -105,6 +106,11 @@ html.ide
 
         &:active
           background: rgba($n2oGray400, .4)
+
+        i.fa.fa-circle
+          position: relative
+          top: -1px
+          font-size: 9px
 
       &.selected
         .ui.btn.close

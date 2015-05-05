@@ -5,9 +5,9 @@ App.IdeConsoleBorderView
     each content
       li class={active:selected}
         a href='#' click='didClickTab this target="view"'
+          span Console
           button.close title='Close Tab' click='didClickClose this target="view"'
             i.fa.fa-times
-          span Console
   .ide-toolbar-btns.ide-new-tab
     button.ui.btn.icon title='New Tab' click='didClickNew target="view"'
       i.fa.fa-plus
