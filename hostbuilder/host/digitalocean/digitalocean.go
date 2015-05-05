@@ -17,9 +17,9 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"golang.org/x/net/context"
 )
@@ -67,7 +67,7 @@ type Host struct {
 	createTimeout time.Duration
 }
 
-func (h *Host) Create(w io.Writer, qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	// ctx is the Context for this method. Calling cancel closes the ctx.Done
 	// channel, which will in turn signal for child requests started by this
 	// method to be cancelled.
@@ -135,6 +135,10 @@ func (h *Host) Create(w io.Writer, qp *queue.HostQueuePublisher) (*host.Info, er
 	info := h.dropletToInfo()
 	h.progressLog(w, "Provisioning host...Done!")
 	return info, nil
+}
+
+func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+	return nil, nil
 }
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {

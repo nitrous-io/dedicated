@@ -9,8 +9,8 @@ import (
 	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/docker"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
-	"github.com/nitrous-io/dedicated/hostbuilder/test"
+	"github.com/nitrous-io/dedicated/pkg/queue"
+	"github.com/nitrous-io/dedicated/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/redis.v2"
@@ -42,29 +42,10 @@ var _ = Describe("host/docker", func() {
 	})
 
 	Describe("Create", func() {
-		var qp *queue.QueuePublisher
-		var qc *queue.QueueConsumer
-
-		var redisClient *redis.Client
-		BeforeEach(func() {
-			var err error
-			redisClient, err = test.ConnectToRedisClient()
-			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
-			Expect(err).To(BeNil())
-			qc, err = qp.CreateConsumer()
-			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			qp.Close()
-		})
-
 		Context("Successful Creation", func() {
 			var h host.Host
 			var err error
 			var info *host.Info
-			var hqp *queue.HostQueuePublisher
 
 			BeforeEach(func() {
 				h, err = docker.NewHost(
@@ -75,8 +56,7 @@ var _ = Describe("host/docker", func() {
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
-				hqp = qp.NewHostQueuePublisher("123", "go-124", 125)
-				info, err = h.Create(ioutil.Discard, hqp)
+				info, err = h.Create(ioutil.Discard)
 			})
 
 			It("should successfully create the host", func() {
@@ -108,88 +88,123 @@ var _ = Describe("host/docker", func() {
 				Expect(len(info.ID)).To(BeNumerically(">", 0))
 				Expect(info.IPAddress).To(Equal("127.0.0.1"))
 			})
+		})
+	})
 
-			It("sends messages to the host queue", func() {
-				Expect(qp.Length()).To(Equal(int64(3)))
-				events := [3]string{
-					event.CreatingImage.String(),
-					event.CreatedImage.String(),
-					event.CreatedHost.String(),
-				}
-				payload, err := json.Marshal(hqp)
+	Describe("CreateWithQueue", func() {
+		var h host.Host
+		var info *host.Info
+		var hqp *queue.HostQueuePublisher
+		var qp *queue.QueuePublisher
+		var qc *queue.QueueConsumer
+
+		var redisClient *redis.Client
+		BeforeEach(func() {
+			var err error
+			redisClient, err = test.ConnectToRedisClient()
+			Expect(err).To(BeNil())
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
+			Expect(err).To(BeNil())
+			qc, err = qp.CreateConsumer()
+			Expect(err).To(BeNil())
+
+			h, err = docker.NewHost(
+				map[string]string{
+					"endpoint":            server.URL(),
+					"freighterd_location": "/bin/true",
+				},
+				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+			)
+			Expect(err).To(BeNil())
+			hqp = qp.NewHostQueuePublisher(123, "go-124", 125)
+			info, err = h.CreateWithQueue(hqp)
+		})
+
+		AfterEach(func() {
+			qp.Close()
+		})
+
+		It("sends messages to the host queue", func() {
+			Expect(qp.GetInputLength()).To(Equal(int64(3)))
+			events := [3]string{
+				event.CreatingImage.String(),
+				event.CreatedImage.String(),
+				event.CreatedHost.String(),
+			}
+			payload, err := json.Marshal(hqp)
+			Expect(err).To(BeNil())
+			for _, event := range events {
+				m, err := qc.Consume()
+				m.Ack()
 				Expect(err).To(BeNil())
-				for _, event := range events {
-					m, err := qc.ConsumeAndAck()
+				Expect(m.Event).To(Equal(event))
+				Expect(m.Action).To(Equal("create"))
+				Expect(m.ResourceName).To(Equal("Docker"))
+				Expect(m.Payload).To(Equal(string(payload)))
+			}
+		})
+	})
+
+	Describe("Start", func() {
+		var h host.Host
+		var err error
+		var info *host.Info
+
+		Context("With docker location", func() {
+			BeforeEach(func() {
+				h, err = docker.NewHost(
+					map[string]string{
+						"endpoint":            server.URL(),
+						"freighterd_location": "/bin/true",
+						"docker_location":     "/bin/true",
+					},
+					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+				)
+				Expect(err).To(BeNil())
+				info, err = h.Create(ioutil.Discard)
+				Expect(err).To(BeNil())
+			})
+
+			It("should start the container", func() {
+				server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var body dockerclient.HostConfig
+					defer r.Body.Close()
+					err := json.NewDecoder(r.Body).Decode(&body)
 					Expect(err).To(BeNil())
-					Expect(m.Event).To(Equal(event))
-					Expect(m.Action).To(Equal("create"))
-					Expect(m.ResourceName).To(Equal("Docker"))
-					Expect(m.Payload).To(Equal(string(payload)))
-				}
+					Expect(body.Binds).To(HaveLen(2))
+					Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
+					Expect(body.Binds[1]).To(Equal("/bin/true:/usr/bin/docker"))
+				}))
+				info, err = h.Start()
+				Expect(err).To(BeNil())
 			})
 		})
 
-		Describe("Start", func() {
-			var h host.Host
-			var err error
-			var info *host.Info
-
-			Context("With docker location", func() {
-				BeforeEach(func() {
-					h, err = docker.NewHost(
-						map[string]string{
-							"endpoint":            server.URL(),
-							"freighterd_location": "/bin/true",
-							"docker_location":     "/bin/true",
-						},
-						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
-					)
-					Expect(err).To(BeNil())
-					info, err = h.Create(ioutil.Discard, nil)
-					Expect(err).To(BeNil())
-				})
-
-				It("should start the container", func() {
-					server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						var body dockerclient.HostConfig
-						defer r.Body.Close()
-						err := json.NewDecoder(r.Body).Decode(&body)
-						Expect(err).To(BeNil())
-						Expect(body.Binds).To(HaveLen(2))
-						Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
-						Expect(body.Binds[1]).To(Equal("/bin/true:/usr/bin/docker"))
-					}))
-					info, err = h.Start()
-					Expect(err).To(BeNil())
-				})
+		Context("Without docker location", func() {
+			BeforeEach(func() {
+				h, err = docker.NewHost(
+					map[string]string{
+						"endpoint":            server.URL(),
+						"freighterd_location": "/bin/true",
+					},
+					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+				)
+				Expect(err).To(BeNil())
+				info, err = h.Create(ioutil.Discard)
+				Expect(err).To(BeNil())
 			})
 
-			Context("Without docker location", func() {
-				BeforeEach(func() {
-					h, err = docker.NewHost(
-						map[string]string{
-							"endpoint":            server.URL(),
-							"freighterd_location": "/bin/true",
-						},
-						`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
-					)
+			It("should start the container", func() {
+				server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var body dockerclient.HostConfig
+					defer r.Body.Close()
+					err := json.NewDecoder(r.Body).Decode(&body)
 					Expect(err).To(BeNil())
-					info, err = h.Create(ioutil.Discard, nil)
-					Expect(err).To(BeNil())
-				})
-
-				It("should start the container", func() {
-					server.CustomHandler("/containers/"+info.ID+"/start", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						var body dockerclient.HostConfig
-						defer r.Body.Close()
-						err := json.NewDecoder(r.Body).Decode(&body)
-						Expect(err).To(BeNil())
-						Expect(body.Binds).To(HaveLen(1))
-						Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
-					}))
-					info, err = h.Start()
-					Expect(err).To(BeNil())
-				})
+					Expect(body.Binds).To(HaveLen(1))
+					Expect(body.Binds[0]).To(Equal("/bin/true:/freighterd"))
+				}))
+				info, err = h.Start()
+				Expect(err).To(BeNil())
 			})
 		})
 	})

@@ -15,6 +15,8 @@ import (
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/queue"
+	"github.com/nitrous-io/dedicated/test"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +46,8 @@ var _ = Describe("hostbuilder", func() {
 	var err error
 
 	BeforeEach(func() {
-		s, err = New([]byte(`{"dummy":{}}`))
+		config := fmt.Sprintf("{\"dummy\":{},\"redis\":{\"host\":\"%s\",\"port\":\"%s\",\"database\":%d}}", test.RedisHost, test.RedisPort, test.RedisTestDb)
+		s, err = New([]byte(config))
 		Expect(err).To(BeNil())
 		ts = httptest.NewServer(s.Router)
 
@@ -112,6 +115,51 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.State).To(Equal(state.Running.String()))
 
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+		})
+
+		It("should send messages to queue when queue is true", func() {
+			h := &dummy.Host{
+				ID:            "123",
+				Name:          "Created",
+				CreateSuccess: true,
+			}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
+			form.Set("queue", "true")
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			decoder := json.NewDecoder(resp.Body)
+			var info Response
+			for {
+				err := decoder.Decode(&info)
+				if err != nil {
+					break
+				}
+			}
+
+			// get the final result
+			Expect(info.ID).To(Equal("123"))
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+
+			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			Expect(err).To(BeNil())
+			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
+			qp.Close()
 		})
 	})
 

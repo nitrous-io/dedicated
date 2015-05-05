@@ -1,11 +1,11 @@
 package event
 
 var events = []string{
-	"CreatingImage",
-	"CreatedImage",
-	"FailedToCreateImage",
-	"CreatedHost",
-	"FailedToCreateHost",
+	"host.creating",
+	"image.created",
+	"image.build_failed",
+	"host.created",
+	"host.create_failed",
 }
 
 type Event int

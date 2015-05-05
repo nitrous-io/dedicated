@@ -135,7 +135,8 @@ func main() {
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
-	queue.AddHandler("v1.host", svr.HostQueueHandler())
+	hostQueueName := "v1.host"
+	queue.AddHandler(hostQueueName, svr.HostQueueHandler())
 	redisHost := envvars.RedisHost
 	redisPort := envvars.RedisPort
 	if redisHost == "" || redisPort == "" {
@@ -145,7 +146,7 @@ func main() {
 	if err != nil {
 		logr.FatalExit("nitrousd: REDIS_DB is not valid: %v", err)
 	}
-	go queue.StartConsumer(redisHost, redisPort, int64(redisDB), "v1.host")
+	go queue.StartConsumer(redisHost, redisPort, int64(redisDB), hostQueueName)
 
 	pid := os.Getpid()
 	host := "0.0.0.0"

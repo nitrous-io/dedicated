@@ -3,11 +3,13 @@ package dummy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
+	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
@@ -29,7 +31,7 @@ type Host struct {
 
 var ReceivedNewHostDefaultConfig map[string]string
 
-func (h *Host) Create(w io.Writer, qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
 	}
@@ -40,6 +42,19 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if !h.UpdateSuccess {
 		return nil, errors.New("failed to update host")
 	}
+	return h.Info()
+}
+
+func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+	if !h.CreateSuccess {
+		return nil, errors.New("failed to create host")
+	}
+
+	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), "dummy", h.ID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
+	}
+
 	return h.Info()
 }
 

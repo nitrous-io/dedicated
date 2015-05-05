@@ -12,9 +12,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
 	"github.com/nitrous-io/dedicated/hostbuilder/redis"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	metrics "github.com/rcrowley/go-metrics"
@@ -160,7 +160,8 @@ func (s *Server) providerConfig(provider string) map[string]string {
 // { "stream": "Creating host...Failed!" }
 // { "error": "failed to create the host" }
 func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
+	var err error
+	if err = r.ParseForm(); err != nil {
 		return err
 	}
 
@@ -179,17 +180,27 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	// record total time taken for this function
 	label := fmt.Sprintf("create.%s", provider)
 	defer mh.UpdateSince(label, time.Now())
-
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
-	hostID := r.Form.Get("id")
-	hostSlug := r.Form.Get("slug")
-	userID, err := strconv.ParseInt(r.Form.Get("uid"), 10, 64)
-	if err != nil {
-		return mh.Error(err, fmt.Sprintf("create.%s", provider))
-	}
 
-	hqp := s.Queue.NewHostQueuePublisher(hostID, hostSlug, userID)
-	info, err := h.Create(pw, hqp)
+	var info *host.Info
+	if r.Form.Get("queue") == "true" {
+		var userID, hostID int64
+		hostSlug := r.Form.Get("slug")
+		hostID, err = strconv.ParseInt(r.Form.Get("id"), 10, 64)
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+
+		userID, err = strconv.ParseInt(r.Form.Get("uid"), 10, 64)
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+
+		hqp := s.Queue.NewHostQueuePublisher(hostID, hostSlug, userID)
+		info, err = h.CreateWithQueue(hqp)
+	} else {
+		info, err = h.Create(pw)
+	}
 
 	// include any information about the host
 	// even if an error occurs
