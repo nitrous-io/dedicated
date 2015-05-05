@@ -3,8 +3,6 @@
     h2
       = App.router.ideController.content.name
     .ide-toolbar-btns
-      button.ui.btn click='didClickUpload target="view"' title='Upload Files' disabled=opsSocketNotReady
-        i.fa.fa-upload
       .ui.dropdown.btn.icon title='Settings' disabled=opsSocketNotReady
         i.fa.fa-cog
         ul.dropdown-menu.right
@@ -21,6 +19,10 @@
                 | Hide Hidden Files
               else
                 | Show Hidden Files
+          li.separator
+          li
+            a href='#' click='didClickUpload target="view"'
+              | Upload Files
 
   .tree contextMenu='didRightClickBackground target="view"'
     ul.root
