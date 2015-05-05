@@ -61,12 +61,6 @@
 #= require ./vendor/codemirror/addon/fold/indent-fold
 #= require ./vendor/codemirror/addon/fold/xml-fold
 
-#= require ./vendor/codemirror/addon/lint/lint
-#= require ./vendor/jshint
-#= require ./vendor/codemirror/addon/lint/javascript-lint
-#= require ./vendor/jsonlint
-#= require ./vendor/codemirror/addon/lint/json-lint
-
 CodeMirror.defineMIME 'text/x-jinja2', name: 'jinja2'
 
 CodeMirror.MODES =

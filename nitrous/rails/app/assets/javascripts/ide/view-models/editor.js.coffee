@@ -271,6 +271,9 @@ App.Editor = klass = Em.Object.extend
       styleSelectedText : true # Selected text gets '.CodeMirror-selectedtext' class.
       showCursorWhenSelecting: true
       highlightSelectionMatches: true
+      viewportMargin: 2
+      workTime: 200
+      workDelay: 300
 
     if rulerColumn = @get 'rulerColumn'
       cm.setOption 'rulers', [{ column: rulerColumn }]
