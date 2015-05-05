@@ -1,7 +1,8 @@
 App.FileTypeDetect =
   detect: (fileName) ->
     return 'text/plain' unless fileName
-    extension = fileName.match(/.+\.([^\.]+)$/)?[1]
+    fileName = fileName.match(/\/([^\/]+)$/)?[1] ? ''
+    extension = fileName.match(/\.([^\.]+)$/)?[1]
     fileType = switch fileName.toLowerCase()
       when 'rakefile', 'rantfile', '.irbrc', 'irbrc', '.pryrc', 'pryrc', 'capfile', 'gemfile', 'guardfile', '.guardfile', 'vagrantfile', '.autotest', 'thorfile', 'podfile'
         'text/x-ruby'
