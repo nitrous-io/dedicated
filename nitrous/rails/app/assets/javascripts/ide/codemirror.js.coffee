@@ -42,10 +42,8 @@
 #= require ./vendor/codemirror/addon/edit/trailingspace
 #= require ./vendor/codemirror/addon/selection/active-line
 #= require ./vendor/codemirror/addon/selection/mark-selection
-#= require ./vendor/codemirror/addon/search/search
 #= require ./vendor/codemirror/addon/search/searchcursor
 #= require ./vendor/codemirror/addon/search/match-highlighter
-#= require ./vendor/codemirror/addon/dialog/dialog.js
 
 #= require ./vendor/codemirror/addon/hint/show-hint
 #= require ./vendor/codemirror/addon/hint/anyword-hint

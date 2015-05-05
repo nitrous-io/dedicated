@@ -47,9 +47,6 @@ App.IdeMainMenuController = Em.Controller.extend
   findReplace: ->
     activeDocumentSet 'replaceTrigger', true
 
-  findReplaceAll: ->
-    activeDocumentSet 'replaceAllTrigger', true
-
   editGoToLine: ->
     if controller = @get 'controllers.ideEditor'
       controller.showGoToLineDialog()

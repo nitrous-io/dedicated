@@ -7,11 +7,13 @@
 #= require_tree ./controllers
 #= require_tree ./views
 #= require ../components/ui-connectivity-indicator-component
+#= require ../components/ui-toggle-button-component
 #= require ../views/snackbar-view
 #= require_tree ./helpers
 #= require_tree ../helpers
 #= require_tree ./templates
 #= require ../templates/components/ui-connectivity-indicator
+#= require ../templates/components/ui-toggle-button
 #= require ../templates/snackbar
 #= require ../lib/event-message-handler
 #= require_tree ../shared

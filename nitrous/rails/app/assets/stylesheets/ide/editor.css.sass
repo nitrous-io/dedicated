@@ -59,15 +59,13 @@
       height: 27px
       line-height: 27px
       font-size: 13px
+      cursor: pointer
 
     .ide-toolbar-btns:first-of-type
       flex-grow: 1
 
     ul.dropdown-menu
       bottom: 27px
-
-    .ui.btn.dropdown
-      cursor: pointer
 
   .split-panes
     display: flex
@@ -177,59 +175,58 @@
     flex-grow: 1
 
   .CodeMirror-dialog
-    display: flex
     flex-shrink: 0
     z-index: 4
     border-top: 1px solid $n2oGray1000
     background: $n2oGray700
-    color: $n2oGray200
-    line-height: 32px
     font-family: $mainFont
-    padding: 0 16px
-    text-shadow: none
     font-size: 14px
 
-    input[type=text]
-      flex-grow: 1
-      margin: 2px 8px 0 8px
-      +appearance(none)
-      border: 1px solid transparent
-      background: $n2oGray850
-      border-radius: 2px
-      outline: none
-      line-height: 28px
-      height: 28px
-      transition: color .2s, border-color .2s, background-color .2s
-      padding: 0 8px
+  .ide-editor-find-replace-view
+    display: flex
+    flex-direction: row
+    flex-wrap: wrap
+    background: $n2oGray800
+    border-top: 1px solid $n2oGray1000
 
-      &:focus
-        outline: none
-        border: 1px solid $lightBlue800
+    &.hidden
+      display: none
 
     button
-      padding: 0 10px
-      text-transform: uppercase
-      font-weight: 500
-      background: transparent
-      border: 0
-      border-radius: 0
-      transition: background-color .2s, color .3s, opacity .3s
-      color: $n2oGray200
-      line-height: 1
-      margin-left: 1px
+      text-transform: none
 
-      &:first-of-type
-        margin-left: 16px
+    .ide-toolbar-btns
+      flex-shrink: 0
 
-      &:focus
-        background: rgba($n2oGray400, .2)
-        outline: none
+    .find-options
+      .ui.btn
+        width: 32px
+        padding: 0
 
-      &:hover
-        background: rgba($n2oGray400, .2)
+    .search-term
+      display: flex
+      flex-direction: row
+      flex-grow: 1
+      min-width: 150px
 
-      &:active
-        background: rgba($n2oGray400, .4)
+      .ui.input-group
+        flex-grow: 1
+
+      label, input.ember-text-field
+        font-size: 14px
+        margin: 2px 0
+        line-height: 28px
+        height: 28px
+
+      label
+        display: block
+        flex-shrink: 0
+        text-align: right
+        padding-right: 8px
+        color: $n2oGray400
+
+    .replace-btns
+      margin-top: -2px
 
   .ide-image-view
     flex-grow: 1

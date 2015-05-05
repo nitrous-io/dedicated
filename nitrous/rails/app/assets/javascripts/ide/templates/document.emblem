@@ -1,5 +1,7 @@
 .code-editor
 
+App.IdeEditorFindReplaceView document=view.document
+
 .ide-toolbar.bottom.status-bar
   .ide-toolbar-btns
     button.ui.btn click='didClickLineCol target="view"'
