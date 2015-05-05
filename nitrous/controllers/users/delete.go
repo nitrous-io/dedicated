@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	hostCreateInProgressErr = httperror.New(http.StatusConflict, "host_creation_in_progress", "you cannot delete your account while a host is being created")
-	hostsNotTerminatedErr   = httperror.New(http.StatusBadRequest, "hosts_not_terminated", "you must terminate your hosts before deleting your account")
+	hostCreateInProgressErr = httperror.New(http.StatusConflict, "host_creation_in_progress", "you cannot delete your account while a workspace is being created")
+	hostsNotTerminatedErr   = httperror.New(http.StatusBadRequest, "hosts_not_terminated", "you must terminate your workspaces before deleting your account")
 	outstandingInvoicesErr  = httperror.New(http.StatusBadRequest, "outstanding_invoices", "your invoices must be paid before deleting your account")
 	outstandingUsageErr     = httperror.New(http.StatusBadRequest, "outstanding_usage", "you have outstanding usage for the month, please delete your account after your invoice has been issued")
 )
