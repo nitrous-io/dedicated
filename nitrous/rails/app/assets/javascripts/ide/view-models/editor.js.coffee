@@ -132,7 +132,7 @@ App.Editor = klass = Em.Object.extend
     if cm = @get 'codeMirror'
       cm.execCommand('unfold')
 
-  gotoLine: (line, cursor = 0) ->
+  goToLine: (line, cursor = 0) ->
     if cm = @get 'codeMirror'
       cm.setCursor(parseInt(line) - 1, cursor, scroll: true)
       cm.scrollIntoView() # above {scroll: true} option does not work as advertised

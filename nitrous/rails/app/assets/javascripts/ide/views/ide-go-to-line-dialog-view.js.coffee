@@ -1,4 +1,4 @@
-App.IdeGotoLineDialogView = App.IdeModalDialogView.extend
+App.IdeGoToLineDialogView = App.IdeModalDialogView.extend
   templateName: 'ide/go-to-line-dialog'
   elementId: 'ide-go-to-line-dialog-view'
   contentBinding: 'controller.goToLineDialog'
@@ -22,9 +22,9 @@ App.IdeGotoLineDialogView = App.IdeModalDialogView.extend
         @hide()
 
   goToLine: ->
-    @get('controller').send 'goToLine'
+    @get('controller').goToLine()
     @hide()
 
   viewDidDisappear: ->
     @_super()
-    @get('controller.controllers.ideEditor.activeTab')?.set 'focused', true
+    @get('controller.activeTab')?.set 'focused', true

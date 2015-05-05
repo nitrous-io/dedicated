@@ -133,10 +133,10 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.path.deleted'
 
   jumpToLine: (->
-    if line = @get 'document.gotoLine'
-      @set 'document.gotoLine', null
-      @get('editor')?.gotoLine(line)
-  ).observes 'document.gotoLine'
+    if line = @get 'document.goToLine'
+      @set 'document.goToLine', null
+      @get('editor')?.goToLine(line)
+  ).observes 'document.goToLine'
 
   splitSelectionIntoLines: (->
     if editor = @get('editor')
@@ -452,16 +452,8 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.path.absolutePath'
 
   actions:
-    didClickSave: ->
-      @get('controller').saveDocument @get('document')
-
-    didClickFind: ->
-      if doc = @get('document')
-        doc.set 'findTrigger', true
-
-    didClickReplace: ->
-      if doc = @get('document')
-        doc.set 'replaceTrigger', true
+    didClickLineCol: ->
+      @get('controller')?.showGoToLineDialog()
 
     didSelectMode: (selectedMode) ->
       @set 'mode', selectedMode

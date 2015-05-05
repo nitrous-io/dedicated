@@ -13,5 +13,5 @@ App.IdeSearchView = Em.View.extend
         sidebar.openPath path,
           done: (doc) ->
             Em.run.next ->
-              doc.set('gotoLine', line.lineNumber)
+              doc.set('goToLine', line.lineNumber)
           source: 'search'
