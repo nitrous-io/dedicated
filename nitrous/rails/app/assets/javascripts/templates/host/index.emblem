@@ -112,6 +112,7 @@
     .left
       if App.billingProfile.free
         button.ui.btn click='upgradePaid' Upgrade
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
 
       else
         button.ui.btn click='restart' Restart
