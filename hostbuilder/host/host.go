@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
@@ -72,6 +73,7 @@ type Info struct {
 	IPAddress      string      `json:"ip_address"`
 	FreighterdPort uint16      `json:"freighterd_port"`
 	State          state.State `json:"state"`
+	LaunchTime     *time.Time  `json:"launch_time,omitempty"`
 }
 
 type Host interface {
