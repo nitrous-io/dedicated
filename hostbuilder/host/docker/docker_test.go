@@ -160,7 +160,7 @@ var _ = Describe("host/docker", func() {
 				Expect(err).To(BeNil())
 				Expect(m.Event).To(Equal(event))
 				Expect(m.Action).To(Equal("create"))
-				Expect(m.ResourceName).To(Equal("Docker"))
+				Expect(m.ResourceName).To(Equal("host"))
 			}
 
 			Expect(messages[0].Payload).To(Equal(string(payloadWithoutHostInfo)))

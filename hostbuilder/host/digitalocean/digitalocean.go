@@ -16,6 +16,7 @@ import (
 	"code.google.com/p/goauth2/oauth"
 
 	"github.com/digitalocean/godo"
+	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -138,7 +139,67 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
-	return nil, nil
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+
+	steps := []host.Step{
+		{
+			Description: "Creating key",
+			Func:        createSSHKey,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createDroplet,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        host.WaitForSSH,
+			Timeout:     1 * time.Minute,
+		},
+		{
+			Description: "Populating settings",
+			Func:        host.WriteSettings,
+		},
+		{
+			Description: "Fetching updates",
+			Func:        host.UpdateSoftware,
+		},
+		{
+			Description: "Applying settings",
+			Func:        host.RestartServices,
+		},
+	}
+
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: Failed in create host step: %v", err)
+			h.logFailedDroplet()
+			if err == context.DeadlineExceeded {
+				return nil, ErrCreateTimeout
+			}
+			sendFailedToCreateHostMessage(qp)
+			return nil, err
+		}
+	}
+
+	if h.sshKey != nil {
+		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
+		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
+		if err != nil {
+			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
+		}
+	}
+
+	info := h.dropletToInfo()
+	sendCreatedHostMessage(qp, info)
+	return info, nil
 }
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
@@ -562,4 +623,26 @@ func createDroplet(ctx *host.HostContext) error {
 
 	h.droplet = dropletRoot.Droplet
 	return nil
+}
+
+func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
+	qp.Provider = hostInfo.Provider
+	qp.ID = hostInfo.ID
+	qp.Region = hostInfo.Region
+	qp.Name = hostInfo.Name
+	qp.IPAddress = hostInfo.IPAddress
+	qp.FreighterdPort = hostInfo.FreighterdPort
+	qp.State = hostInfo.State
+
+	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
+	if err != nil {
+		log.Printf("Failed to send a message: %v\n", err)
+	}
+}
+
+func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
+	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
+	if err != nil {
+		log.Printf("Failed to send a message: %v\n", err)
+	}
 }

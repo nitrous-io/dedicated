@@ -21,7 +21,6 @@ import (
 )
 
 const DefaultPort uint16 = 65333
-const EventResourceName string = "Docker"
 
 var (
 	// Paths to files within each Docker host.
@@ -468,43 +467,43 @@ func getState(container *dockerclient.Container) state.State {
 }
 
 func sendCreatingImageMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.CreatingImage.String(), EventResourceName, "")
+	err := qp.Publish(queue.Create.String(), event.CreatingImage.String(), host.EventResourceName, "")
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
 }
 
 func sendCreatedImageMessage(qp *queue.HostQueuePublisher, imageName string) {
-	err := qp.Publish(queue.Create.String(), event.CreatedImage.String(), EventResourceName, "")
+	err := qp.Publish(queue.Create.String(), event.CreatedImage.String(), host.EventResourceName, "")
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
 }
 
 func sendFailedToCreateImageMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateImage.String(), EventResourceName, "")
+	err := qp.Publish(queue.Create.String(), event.FailedToCreateImage.String(), host.EventResourceName, "")
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
 }
 
-func sendCreatedHostMessage(qp *queue.HostQueuePublisher, host *host.Info) {
-	qp.Provider = host.Provider
-	qp.ID = host.ID
-	qp.Region = host.Region
-	qp.Name = host.Name
-	qp.IPAddress = host.IPAddress
-	qp.FreighterdPort = host.FreighterdPort
-	qp.State = host.State
+func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
+	qp.Provider = hostInfo.Provider
+	qp.ID = hostInfo.ID
+	qp.Region = hostInfo.Region
+	qp.Name = hostInfo.Name
+	qp.IPAddress = hostInfo.IPAddress
+	qp.FreighterdPort = hostInfo.FreighterdPort
+	qp.State = hostInfo.State
 
-	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), EventResourceName, host.ID)
+	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
 }
 
 func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), EventResourceName, "")
+	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}

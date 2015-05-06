@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	DefaultPort uint16 = 65333
-	SSHPort     uint16 = 65100
+	DefaultPort       uint16 = 65333
+	SSHPort           uint16 = 65100
+	EventResourceName        = "host"
 )
 
 var (

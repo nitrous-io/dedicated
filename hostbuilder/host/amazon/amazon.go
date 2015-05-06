@@ -13,6 +13,7 @@ import (
 
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
+	"github.com/nitrous-io/dedicated/hostbuilder/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -197,7 +198,83 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
-	return nil, nil
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	defer cancel()
+
+	defer func() {
+		if h.keypair != nil {
+			if err := h.keypair.Delete(); err != nil {
+				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
+			}
+		}
+	}()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	steps := []host.Step{
+		{
+			Description: "Creating key",
+			Func:        createKeypair,
+		},
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Func:    host.WaitForSSH,
+			Timeout: 5 * time.Minute,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        host.WaitForSSH,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Populating settings",
+			Func:        host.WriteSettings,
+		},
+		{
+			Description: "Fetching updates",
+			Func:        host.UpdateSoftware,
+		},
+		{
+			Description: "Applying settings",
+			Func:        host.RestartServices,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: Failed in create host step %q: %v", step.Description, err)
+			h.logFailed()
+			inf, _ := h.Info()
+			if err == context.DeadlineExceeded {
+				return inf, ErrCreateTimeout
+			}
+			sendFailedToCreateHostMessage(qp)
+
+			return inf, err
+		}
+	}
+	info, err := h.Info()
+	sendCreatedHostMessage(qp, info)
+
+	return info, err
 }
 
 // Update sets properties of an existing host
@@ -735,4 +812,26 @@ func getState(instance *ec2.Instance) state.State {
 // isVPC checks if an instance is a EC2-VPC instance
 func isVPC(i *ec2.Instance) bool {
 	return i != nil && i.SubnetId != ""
+}
+
+func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
+	qp.Provider = hostInfo.Provider
+	qp.ID = hostInfo.ID
+	qp.Region = hostInfo.Region
+	qp.Name = hostInfo.Name
+	qp.IPAddress = hostInfo.IPAddress
+	qp.FreighterdPort = hostInfo.FreighterdPort
+	qp.State = hostInfo.State
+
+	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
+	if err != nil {
+		log.Printf("Failed to send a message: %v\n", err)
+	}
+}
+
+func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
+	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
+	if err != nil {
+		log.Printf("Failed to send a message: %v\n", err)
+	}
 }
