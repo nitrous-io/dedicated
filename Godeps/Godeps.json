@@ -284,6 +284,10 @@
 			"Rev": "ac974c61c2f990f4115b119354b5e0b47550e888"
 		},
 		{
+			"ImportPath": "github.com/vaughan0/go-ini",
+			"Rev": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1"
+		},
+		{
 			"ImportPath": "golang.org/x/crypto/bcrypt",
 			"Rev": "1fbbd62cfec66bd39d91e97749579579d4d3037e"
 		},
