@@ -42,10 +42,8 @@
 #= require ./vendor/codemirror/addon/edit/trailingspace
 #= require ./vendor/codemirror/addon/selection/active-line
 #= require ./vendor/codemirror/addon/selection/mark-selection
-#= require ./vendor/codemirror/addon/search/search
 #= require ./vendor/codemirror/addon/search/searchcursor
 #= require ./vendor/codemirror/addon/search/match-highlighter
-#= require ./vendor/codemirror/addon/dialog/dialog.js
 
 #= require ./vendor/codemirror/addon/hint/show-hint
 #= require ./vendor/codemirror/addon/hint/anyword-hint
@@ -60,12 +58,6 @@
 #= require ./vendor/codemirror/addon/fold/comment-fold
 #= require ./vendor/codemirror/addon/fold/indent-fold
 #= require ./vendor/codemirror/addon/fold/xml-fold
-
-#= require ./vendor/codemirror/addon/lint/lint
-#= require ./vendor/jshint
-#= require ./vendor/codemirror/addon/lint/javascript-lint
-#= require ./vendor/jsonlint
-#= require ./vendor/codemirror/addon/lint/json-lint
 
 CodeMirror.defineMIME 'text/x-jinja2', name: 'jinja2'
 

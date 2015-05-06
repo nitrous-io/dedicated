@@ -21,11 +21,19 @@ App.Document = App.TabContent.extend
   toggleCommentTrigger: null
   splitSelectionIntoLinesTrigger: null
 
-  gotoLine: null
+  goToLine: null
   selections: null
   scrollPosition: null
 
   readOnly: false
+
+  line: (->
+    (@get('selections.0.head.line') || 0) + 1
+  ).property 'selections'
+
+  column: (->
+    (@get('selections.0.head.ch') || 0) + 1
+  ).property 'selections'
 
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"

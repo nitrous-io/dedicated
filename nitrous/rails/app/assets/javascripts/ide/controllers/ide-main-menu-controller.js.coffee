@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideGotoLine', 'ideSidebar']
+  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar']
   initialize: ->
   reset: ->
 
@@ -47,11 +47,8 @@ App.IdeMainMenuController = Em.Controller.extend
   findReplace: ->
     activeDocumentSet 'replaceTrigger', true
 
-  findReplaceAll: ->
-    activeDocumentSet 'replaceAllTrigger', true
-
   editGoToLine: ->
-    if controller = @get 'controllers.ideGotoLine'
+    if controller = @get 'controllers.ideEditor'
       controller.showGoToLineDialog()
 
   editFoldCode: ->

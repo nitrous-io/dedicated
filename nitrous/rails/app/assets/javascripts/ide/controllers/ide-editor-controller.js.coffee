@@ -5,6 +5,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   activePane: Em.computed.alias 'content'
   saveDialog: null
   confirmCloseDialog: null
+  goToLineDialog: null
   chatNotification: null
 
   opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
@@ -42,6 +43,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @set 'content', null
     @set 'saveDialog', null
     @set 'confirmCloseDialog', null
+    if @get 'goToLineDialog'
+      @set 'goToLineDialog.hide', true
+      @set 'goToLineDialog', null
 
   useUserSettings: ->
     userSettings = App.get('userSettings') || {}
@@ -176,3 +180,11 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   closeActivePane: ->
     pane = @get 'activePane'
     pane.close()
+
+  showGoToLineDialog: ->
+    @set 'goToLineDialog', App.GoToLineDialog.create
+
+  goToLine: ->
+    lineStr = @get('goToLineDialog.line')
+    if line = parseInt(lineStr)
+      @get('activeTab')?.set('goToLine', line)

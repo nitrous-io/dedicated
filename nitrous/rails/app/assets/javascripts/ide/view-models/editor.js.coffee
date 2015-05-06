@@ -33,6 +33,7 @@ App.Editor = klass = Em.Object.extend
     'Shift-Ctrl-K': 'deleteLine'
     'Cmd-Ctrl-Up': 'swapLineUp'
     'Cmd-Ctrl-Down': 'swapLineDown'
+    'Cmd-Left': 'goLineLeftSmart'
 
   pcExtraKeys:
     'Tab': 'smartTab'
@@ -46,10 +47,11 @@ App.Editor = klass = Em.Object.extend
     'Shift-Ctrl-K': 'deleteLine'
     'Shift-Ctrl-Up': 'swapLineUp'
     'Shift-Ctrl-Down': 'swapLineDown'
+    'Alt-Left': 'goLineLeftSmart'
 
   # keybindings in codemirror default keymap that we use in menu
-  macOverrideKeys: ['Cmd-D']
-  pcOverrideKeys: ['Shift-Ctrl-F', 'Ctrl-D']
+  macOverrideKeys: ['Cmd-D', 'Cmd-F', 'Cmd-Alt-F', 'Shift-Cmd-Alt-F']
+  pcOverrideKeys: ['Shift-Ctrl-F', 'Ctrl-D', 'Ctrl-F', 'Shift-Ctrl-F', 'Shift-Ctrl-R']
 
   lintableMode: (->
     _.any CodeMirror.MODES_WITH_LINTING, (m) =>
@@ -97,30 +99,30 @@ App.Editor = klass = Em.Object.extend
     if cm = @get('codeMirror')
       cm.focus()
 
-  find: ->
-    if cm = @get 'codeMirror'
-      cm.execCommand('find')
-
-  findNext: ->
-    if cm = @get 'codeMirror'
-      cm.execCommand('findNext')
-
   selectNext: ->
     if cm = @get 'codeMirror'
       cm.execCommand('selectNextOccurrence')
       cm.focus()
 
+  find: (query, reverse, matchCase, useRegex) ->
+    if cm = @get 'codeMirror'
+      cm.find(query, reverse, matchCase, useRegex)
+
+  replace: (query, text, all, matchCase, useRegex) ->
+    if cm = @get 'codeMirror'
+      cm.replace(query, text, all, matchCase, useRegex)
+
+  clearSearch: ->
+    if cm = @get 'codeMirror'
+      cm.clearSearch()
+
+  findNext: ->
+    if cm = @get 'codeMirror'
+      cm.findNext()
+
   findPrev: ->
     if cm = @get 'codeMirror'
-      cm.execCommand('findPrev')
-
-  replace: ->
-    if cm = @get 'codeMirror'
-      cm.execCommand('replace')
-
-  replaceAll: ->
-    if cm = @get 'codeMirror'
-      cm.execCommand('replaceAll')
+      cm.findPrevious()
 
   fold: ->
     if cm = @get 'codeMirror'
@@ -130,7 +132,7 @@ App.Editor = klass = Em.Object.extend
     if cm = @get 'codeMirror'
       cm.execCommand('unfold')
 
-  gotoLine: (line, cursor = 0) ->
+  goToLine: (line, cursor = 0) ->
     if cm = @get 'codeMirror'
       cm.setCursor(parseInt(line) - 1, cursor, scroll: true)
       cm.scrollIntoView() # above {scroll: true} option does not work as advertised
@@ -269,6 +271,9 @@ App.Editor = klass = Em.Object.extend
       styleSelectedText : true # Selected text gets '.CodeMirror-selectedtext' class.
       showCursorWhenSelecting: true
       highlightSelectionMatches: true
+      viewportMargin: 2
+      workTime: 200
+      workDelay: 300
 
     if rulerColumn = @get 'rulerColumn'
       cm.setOption 'rulers', [{ column: rulerColumn }]

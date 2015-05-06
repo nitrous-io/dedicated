@@ -73,41 +73,11 @@ App.IdeDocumentView = Em.View.extend
     @get('saving') || App.get('offline') || App.get('router.ideController.opsSocketNotReady')
   ).property 'saving', 'App.offline', 'App.router.ideController.opsSocketNotReady'
 
-  triggerFind: (->
-    if @get('document.findTrigger') && (editor = @get 'editor')
-      editor.find()
-      @set 'document.findTrigger', false
-  ).observes 'document.findTrigger'
-
-  triggerFindNext: (->
-    if @get('document.findNextTrigger') && (editor = @get 'editor')
-      editor.findNext()
-      @set 'document.findNextTrigger', false
-  ).observes 'document.findNextTrigger'
-
   triggerSelectNext: (->
     if @get('document.selectNextTrigger') && (editor = @get 'editor')
       editor.selectNext()
       @set 'document.selectNextTrigger', false
   ).observes 'document.selectNextTrigger'
-
-  triggerFindPrev: (->
-    if @get('document.findPrevTrigger') && (editor = @get 'editor')
-      editor.findPrev()
-      @set 'document.findPrevTrigger', false
-  ).observes 'document.findPrevTrigger'
-
-  triggerReplace: (->
-    if @get('document.replaceTrigger') && (editor = @get 'editor')
-      editor.replace()
-      @set 'document.replaceTrigger', false
-  ).observes 'document.replaceTrigger'
-
-  triggerReplaceAll: (->
-    if @get('document.replaceAllTrigger') && (editor = @get 'editor')
-      editor.replaceAll()
-      @set 'document.replaceAllTrigger', false
-  ).observes 'document.replaceAllTrigger'
 
   triggerFoldCode: (->
     if @get('document.foldCodeTrigger') && (editor = @get 'editor')
@@ -133,10 +103,10 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.path.deleted'
 
   jumpToLine: (->
-    if line = @get 'document.gotoLine'
-      @set 'document.gotoLine', null
-      @get('editor')?.gotoLine(line)
-  ).observes 'document.gotoLine'
+    if line = @get 'document.goToLine'
+      @set 'document.goToLine', null
+      @get('editor')?.goToLine(line)
+  ).observes 'document.goToLine'
 
   splitSelectionIntoLines: (->
     if editor = @get('editor')
@@ -452,16 +422,8 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.path.absolutePath'
 
   actions:
-    didClickSave: ->
-      @get('controller').saveDocument @get('document')
-
-    didClickFind: ->
-      if doc = @get('document')
-        doc.set 'findTrigger', true
-
-    didClickReplace: ->
-      if doc = @get('document')
-        doc.set 'replaceTrigger', true
+    didClickLineCol: ->
+      @get('controller')?.showGoToLineDialog()
 
     didSelectMode: (selectedMode) ->
       @set 'mode', selectedMode

@@ -1,15 +1,11 @@
 .code-editor
 
+App.IdeEditorFindReplaceView document=view.document
+
 .ide-toolbar.bottom.status-bar
   .ide-toolbar-btns
-    button.ui.btn click='didClickSave target="view"' disabled=view.savingDisabled
-      | Save
-
-    button.ui.btn click='didClickFind target="view"'
-      | Find
-
-    button.ui.btn click='didClickReplace target="view"'
-      | Replace
+    button.ui.btn click='didClickLineCol target="view"'
+      | Line {{view.document.line}}, Column {{view.document.column}}
 
   .ide-toolbar-btns
     unless collabEnabled
