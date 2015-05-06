@@ -51,6 +51,15 @@ test_redis() {
   test_app $@
 }
 
+test_db_and_redis() {
+  echo "===> Starting database dependencies"
+  sudo service postgresql restart
+
+  echo "===> Starting redis dependencies"
+  sudo service redis_6379 start
+  test_app $@
+}
+
 test_with_docker() {
   echo "===> Starting Docker daemon"
   sudo service docker start
@@ -60,7 +69,7 @@ test_with_docker() {
 if [ "$APP" == "all" ]; then
   run test_app pkg
   run test_redis hostbuilder
-  run test_db nitrous
+  run test_db_and_redis nitrous
   run test_with_docker freighter
   run test_db tender
   run test_db compass
@@ -73,7 +82,7 @@ elif [ "$APP" == "tender" ]; then
 elif [ "$APP" == "compass" ]; then
   run test_db compass $SUITE
 elif [ "$APP" == "nitrous" ]; then
-  run test_db nitrous $SUITE
+  run test_db_and_redis nitrous $SUITE
 elif [ "$APP" == "pkg" ]; then
   run test_app pkg $SUITE
 elif [ "$APP" == "shell" ]; then

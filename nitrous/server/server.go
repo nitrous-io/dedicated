@@ -16,19 +16,14 @@ import (
 
 	"github.com/facebookgo/httpdown"
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/hostbuilder/pkg/queue"
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
-	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -87,39 +82,6 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 
 func (s *Server) Router() *mux.Router {
 	return s.router
-}
-
-func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Message) error {
-	return func(qc *queue.QueueConsumer, m *queue.Message) error {
-		db := s.db
-		if queue.Create.IsA(m.Action) {
-			var hostInfo queue.HostQueuePublisher
-			err := json.Unmarshal([]byte(m.Payload), &hostInfo)
-			if err != nil {
-				return err
-			}
-			uid := hostInfo.UserID
-			slug := hostInfo.Slug
-
-			u, err := user.FindByID(db, uid)
-			if err != nil {
-				return err
-			}
-
-			h, err := host.Find(db, u, slug)
-			if err != nil {
-				return err
-			}
-
-			s.Events.Publish(
-				controllers.NewEvent("host.creating", map[string]*serializers.Host{
-					"host": serializers.SerializeHost(h),
-				}),
-				u.Topic(),
-			)
-		}
-		return nil
-	}
 }
 
 func (s *Server) Start(host string, port uint16) error {
