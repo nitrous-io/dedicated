@@ -117,31 +117,55 @@ var _ = Describe("host/docker", func() {
 			)
 			Expect(err).To(BeNil())
 			hqp = qp.NewHostQueuePublisher(123, "go-124", 125)
-			info, err = h.CreateWithQueue(hqp)
 		})
 
 		AfterEach(func() {
 			qp.Close()
 		})
 
+		It("returns host info", func() {
+			info, err = h.CreateWithQueue(hqp)
+			Expect(err).To(BeNil())
+
+			Expect(info.Provider).To(Equal("docker"))
+			Expect(info.Name).To(Equal("test-123"))
+			Expect(len(info.ID)).To(BeNumerically(">", 0))
+			Expect(info.IPAddress).To(Equal("127.0.0.1"))
+		})
+
 		It("sends messages to the host queue", func() {
+			payloadWithoutHostInfo, err := json.Marshal(hqp)
+			Expect(err).To(BeNil())
+
+			info, err = h.CreateWithQueue(hqp)
+			Expect(err).To(BeNil())
+
 			Expect(qp.GetInputLength()).To(Equal(int64(3)))
 			events := [3]string{
 				event.CreatingImage.String(),
 				event.CreatedImage.String(),
 				event.CreatedHost.String(),
 			}
+
 			payload, err := json.Marshal(hqp)
 			Expect(err).To(BeNil())
-			for _, event := range events {
+
+			Expect(payload).ToNot(Equal(payloadWithoutHostInfo))
+
+			var messages [3]*queue.Message
+			for index, event := range events {
 				m, err := qc.Consume()
 				m.Ack()
+				messages[index] = m
 				Expect(err).To(BeNil())
 				Expect(m.Event).To(Equal(event))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.ResourceName).To(Equal("Docker"))
-				Expect(m.Payload).To(Equal(string(payload)))
 			}
+
+			Expect(messages[0].Payload).To(Equal(string(payloadWithoutHostInfo)))
+			Expect(messages[1].Payload).To(Equal(string(payloadWithoutHostInfo)))
+			Expect(messages[2].Payload).To(Equal(string(payload)))
 		})
 	})
 
