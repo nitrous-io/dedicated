@@ -233,11 +233,6 @@ App.IdeMainMenuView = Em.View.extend
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.findReplace()
-        menuItem 'Replace All',
-          macKey: ['shift+command+option+f'], pcKey: ['shift+ctrl+r']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.findReplaceAll()
         separator
         menuItem 'Find in Files...',
           macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']

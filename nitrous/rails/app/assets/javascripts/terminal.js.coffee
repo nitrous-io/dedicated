@@ -65,6 +65,9 @@ window.NitrousTerminal =
       return if @conn.readyState != 1
       @conn.send "r|#{cols} #{rows}"
 
+    term.on 'title', (title) =>
+      @didChangeTitle(title)
+
     term.handler = (data) =>
       return if @readonly || @closed || @conn.readyState != 1
       @conn.send "d|#{data}"
@@ -123,6 +126,9 @@ window.NitrousTerminal =
     # override me
 
   didBlur: ->
+    # override me
+
+  didChangeTitle: (title) ->
     # override me
 
   clear: ->
