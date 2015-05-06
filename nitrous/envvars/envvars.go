@@ -64,6 +64,9 @@ var (
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
 	// false
 	EnableSelfUpgrade = true
+
+	// Feature flag for queue
+	EnableQueue bool
 )
 
 const (
@@ -124,6 +127,8 @@ func init() {
 	RedisPort = os.Getenv("REDIS_PORT")
 	RedisDB = os.Getenv("REDIS_DB")
 
+	EnableQueue = os.Getenv("ENABLE_QUEUE") == "true"
+
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {
 		EnableSelfUpgrade = true
@@ -173,6 +178,7 @@ func CheckGitHubOAuth() {
 	if GitHubOAuthClientID == "" {
 		log.Println("Warning: GITHUB_CLIENT_ID not set")
 	}
+
 	if GitHubOAuthClientSecret == "" {
 		log.Println("Warning: GITHUB_CLIENT_SECRET not set")
 	}
