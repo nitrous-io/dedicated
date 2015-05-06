@@ -17,7 +17,3 @@ const (
 	CreatedHost
 	FailedToCreateHost
 )
-
-func (e Event) String() string {
-	return events[e]
-}
