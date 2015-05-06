@@ -589,6 +589,27 @@ var _ = Describe("controllers/users", func() {
 			Expect(errType).To(Equal("validation_failed"))
 			Expect(errDesc).To(Equal("phone number already exists"))
 		})
+
+		It("responds with HTTP 400 Bad Request when phone is already authed", func() {
+			_, err := db.Exec(`
+				UPDATE users SET phone = '5551231234', phone_country_code = '1', phone_authed = true WHERE id = $1
+			`, u.ID)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+			params.Set("phone_country_code", "65")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, _ := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("phone_authed"))
+
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u2.PhoneAuthed).To(BeTrue())
+			Expect(u2.Phone.String).To(Equal("5551231234"))
+		})
 	})
 
 	Describe("POST /api/v0/user/resend_phone_code", func() {

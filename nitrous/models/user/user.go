@@ -35,15 +35,16 @@ var (
 )
 
 var (
-	ErrEmailBlank       = errors.New("email can't be blank")
-	ErrEmailInvalid     = errors.New("email is not valid")
-	ErrUsernameBlank    = errors.New("username can't be blank")
-	ErrUsernameTooLong  = errors.New("username is too long (maximum is 30 characters)")
-	ErrUsernameInvalid  = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
-	ErrPasswordBlank    = errors.New("password can't be blank")
-	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
-	ErrPasswordTooLong  = errors.New("password is too long (maximum is 100 characters)")
-	ErrPhoneInvalid     = errors.New("phone number is not valid")
+	ErrEmailBlank         = errors.New("email can't be blank")
+	ErrEmailInvalid       = errors.New("email is not valid")
+	ErrUsernameBlank      = errors.New("username can't be blank")
+	ErrUsernameTooLong    = errors.New("username is too long (maximum is 30 characters)")
+	ErrUsernameInvalid    = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
+	ErrPasswordBlank      = errors.New("password can't be blank")
+	ErrPasswordTooShort   = errors.New("password is too short (minimum is 6 characters)")
+	ErrPasswordTooLong    = errors.New("password is too long (maximum is 100 characters)")
+	ErrPhoneInvalid       = errors.New("phone number is not valid")
+	ErrPhoneAlreadyAuthed = errors.New("phone number has already been verified")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
@@ -254,10 +255,14 @@ func (u *User) UpdatePhone(d db.QueryReceiver, phone, country_code string) error
 	// if already been authed. This is because we use phone numbers to uniquely
 	// identify users, so we just prevent it from being changed once it's been
 	// authenticated. We might want to allow this to be changed in future.
-	return d.QueryRowx(`UPDATE users
+	err := d.QueryRowx(`UPDATE users
 		SET phone = $1, phone_country_code = $2, updated_at = now()
 		WHERE id = $3 AND phone_authed = $4
 		RETURNING *`, phone, country_code, u.ID, false).StructScan(u)
+	if err == sql.ErrNoRows {
+		return ErrPhoneAlreadyAuthed
+	}
+	return err
 }
 
 func (u *User) UpdatePhoneAuthed(d db.QueryReceiver, b bool) error {

@@ -33,6 +33,8 @@ var (
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
+
+	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -218,6 +220,9 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 			if validationErr, ok := validations[e.Constraint]; ok {
 				return validationErr
 			}
+		}
+		if err == user.ErrPhoneAlreadyAuthed {
+			return phoneAlreadyAuthed
 		}
 		return err
 	}
