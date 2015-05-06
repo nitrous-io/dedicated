@@ -12,6 +12,124 @@
   .notice-text:last-child
     margin: 0
 
+  section.regions
+    width: 100%
+    height: 260px
+    background: #2F373D
+    position: relative
+
+    .regions-hover-1,
+    .regions-hover-2,
+    .regions-hover-3
+      position: absolute
+      top: 0
+      bottom: 0
+      width: 33.33%
+      pointer-events: none
+      z-index: 10
+      display: none
+
+    .regions-hover-1
+      left: 0
+      background-color: rgba(red,.3)
+
+      &:hover 
+        background: yellow 
+
+
+    .regions-hover-2
+      left: 33.33%
+      background-color: rgba(blue,.3)
+
+    .regions-hover-3
+      right: 0
+      background-color: rgba(green,.3)
+
+
+    ul.regions-list
+      width: 588px
+      height: 100%
+      margin: 0 auto
+      position: relative
+      list-style: none
+      background: image_url('home/region-maps.png') 0 0 no-repeat
+      background-size: 588px 1040px
+
+      &.region-1
+        background-position: -260px 0
+      &.region-2
+        background-position: (-260px*2) 0
+      &.region-3
+        background-position: (-260px*3) 0
+
+      li
+        position: absolute
+        height: 34px
+        color: rgba(255,255,255,.7)
+        line-height: 34px
+        font-size: 13px
+        font-weight: medium
+        padding-left: 32px
+        padding-right: 16px
+        border-radius: 34px
+        border: 1px solid #2F373E
+        cursor: pointer
+        box-shadow: 0 1px 0 rgba(0,0,0,.1)
+        background: #475159
+        transition: all .15s ease-in
+        z-index: 3
+
+        &:after
+          content: ""
+          width: 16px
+          height: 16px
+          position: absolute
+          top: 8px
+          left: 8px
+          background: #475159 image_url('home/region-flags.png') 0 0 no-repeat
+          background-size: 16px 64px
+
+        &.active
+          background: #0099ED
+          border-color: #0099ED
+          color: #FFF
+          z-index: 10
+
+          &:after
+            background-color: #0099ED
+
+
+        &:first-child
+          left: 0px
+          top: 67px
+          &:after
+            background-position: 0 0
+
+        &:nth-child(2)
+          left: 115px
+          top: 72px
+          &:after
+            background-position: 0 0
+
+        &:nth-child(3)
+          left: 245px
+          top: 44px
+          &:after
+            background-position: 0 -16px
+
+        &:nth-child(4)
+          left: 433px
+          top: 123px
+          &:after
+            background-position: 0 (-32px)
+
+        &:nth-child(5)
+          left: 475px
+          top: 72px
+          &:after
+            background-position: 0 (-48px)
+
+
   ul.regions
     > li
       .content

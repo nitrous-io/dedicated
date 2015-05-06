@@ -21,18 +21,43 @@
         .ui.input-group
           label.field-label for='hosts-new-name'
             | Workspace Name
-          App.HostNameTextField id='hosts-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
+          App.HostNameTextField id='hosts-new-name' name='name' placeholder='Enter a name for your Workspace' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name autofocus=true
 
         .ui.input-group
           label#select-region.field-label for='hosts-new-region'
-            | Region
-          ul.ui.selectable-list.regions
-            each region in App.regions
-              App.RegionListItemView content=region selected=selectedRegion
+            | Select a Region
+
+          section.regions
+            .regions-hover-1
+            .regions-hover-2
+            .regions-hover-3
+            ul.regions-list
+              li.us-west.active
+                span US West
+              li.us-east
+                span US East
+              li.europe
+                span Europe
+              li.se-asia
+                span SE Asia
+              li.e-asia
+                span East Asia
+
+              / each region in App.regions
+              /   App.RegionListItemView content=region selected=selectedRegion
+
+
+        / .ui.input-group
+        /   label#select-region.field-label for='hosts-new-region'
+        /     | Region
+        /   ul.ui.selectable-list.regions
+        /     each region in App.regions
+        /       App.RegionListItemView content=region selected=selectedRegion
+
 
         .ui.input-group
           label#select-plan.field-label
-            | Workspace Size
+            | Select a Plan
 
           ul.ui.selectable-list.plans
             each plan in sortedPlans
