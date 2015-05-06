@@ -89,7 +89,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Event:        "image.created",
 				ResourceName: "host",
 				ResourceID:   "host-1234",
-				Payload:      string(hostinfo),
+				Payload:      hostinfo,
 			}
 		})
 
@@ -144,7 +144,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Event:        "host.created",
 				ResourceName: "host",
 				ResourceID:   "host-1234",
-				Payload:      string(hostinfo),
+				Payload:      hostinfo,
 			}
 		})
 

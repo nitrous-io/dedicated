@@ -24,7 +24,7 @@ type Message struct {
 	Event        string `json: "event"`
 	ResourceName string `json: "resource_name"`
 	ResourceID   string `json: "resource_id"`
-	Payload      string `json: "payload"`
+	Payload      []byte `json: "payload"`
 	p            *redismq.Package
 }
 
@@ -106,7 +106,7 @@ func (qp *QueuePublisher) NewHostQueuePublisher(hid int64, slug string, userID i
 	return hqp
 }
 
-func (qp *QueuePublisher) Publish(action string, event string, resourceName string, resourceID string, payload string) error {
+func (qp *QueuePublisher) Publish(action string, event string, resourceName string, resourceID string, payload []byte) error {
 	message := &Message{
 		Action:       action,
 		Event:        event,
@@ -137,7 +137,7 @@ func (hqp *HostQueuePublisher) Publish(action string, event string, resourceName
 		Event:        event,
 		ResourceName: resourceName,
 		ResourceID:   resourceID,
-		Payload:      string(hostinfo),
+		Payload:      hostinfo,
 	}
 
 	b, err := json.Marshal(message)
