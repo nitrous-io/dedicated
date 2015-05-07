@@ -182,7 +182,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			sendFailedToCreateHostMessage(qp, queueInfo, errorMsg)
+			sendFailedToCreateHostMessage(qp, h.uuid, queueInfo, errorMsg)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
@@ -199,7 +199,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 	}
 
 	info := h.dropletToInfo()
-	sendCreatedHostMessage(qp, queueInfo, info)
+	sendCreatedHostMessage(qp, h.uuid, queueInfo, info)
 	return info, nil
 }
 
@@ -626,7 +626,7 @@ func createDroplet(ctx *host.HostContext) error {
 	return nil
 }
 
-func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, hostInfo *host.Info) {
+func sendCreatedHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, hostInfo *host.Info) {
 	queueInfo.Message = ""
 	queueInfo.Host = hostInfo
 
@@ -636,6 +636,7 @@ func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo,
 	}
 
 	msg := &queue.Message{
+		UUID:         uuid,
 		Action:       queue.Create.String(),
 		Event:        string(event.HostCreated),
 		ResourceName: host.EventResourceName,
@@ -647,7 +648,7 @@ func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo,
 	}
 }
 
-func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, message string) {
+func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, message string) {
 	queueInfo.Message = message
 	queueInfo.Host = nil
 
@@ -657,6 +658,7 @@ func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, queueInfo *host.Que
 	}
 
 	msg := &queue.Message{
+		UUID:         uuid,
 		Action:       queue.Create.String(),
 		Event:        string(event.HostCreateFailed),
 		ResourceName: host.EventResourceName,

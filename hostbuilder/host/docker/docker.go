@@ -47,6 +47,7 @@ type Host struct {
 	TLS                *tlsConfig `json:"tls"`
 	Secret             string     `json:"secret"`
 
+	uuid   string // request UUID set by user
 	client *dockerclient.Client
 }
 
@@ -81,20 +82,20 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	publishMessage(qp, event.HostCreating, queueInfo, "Creating host")
+	publishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
 	imageName, err := h.createImage()
 	if err != nil {
-		publishMessage(qp, event.HostCreateFailed, queueInfo, "Failed to create host's image")
+		publishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
 		return nil, err
 	}
-	publishMessage(qp, event.HostCreating, queueInfo, "Created host image")
+	publishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		publishMessage(qp, event.HostCreateFailed, queueInfo, "Failed to create host's container")
+		publishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
 		return nil, err
 	}
-	publishHost(qp, event.HostCreated, queueInfo, c)
+	publishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
 	return c, nil
 }
 
@@ -334,7 +335,9 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	host := &Host{}
+	host := &Host{
+		uuid: defaultConfig["uuid"], // this is injected by the server per request
+	}
 	if err := json.Unmarshal([]byte(config), host); err != nil {
 		return nil, err
 	}
@@ -466,7 +469,7 @@ func getState(container *dockerclient.Container) state.State {
 	return state.Stopped
 }
 
-func publishMessage(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.QueueInfo, message string) {
+func publishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *host.QueueInfo, message string) {
 	queueInfo.Message = message
 	queueInfo.Host = nil
 
@@ -476,6 +479,7 @@ func publishMessage(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.Qu
 	}
 
 	msg := &queue.Message{
+		UUID:         uuid,
 		Action:       queue.Create.String(),
 		Event:        string(ev),
 		ResourceName: host.EventResourceName,
@@ -487,7 +491,7 @@ func publishMessage(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.Qu
 	}
 }
 
-func publishHost(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.QueueInfo, info *host.Info) {
+func publishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *host.QueueInfo, info *host.Info) {
 	queueInfo.Message = ""
 	queueInfo.Host = info
 
@@ -497,6 +501,7 @@ func publishHost(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.Queue
 	}
 
 	msg := &queue.Message{
+		UUID:         uuid,
 		Action:       queue.Create.String(),
 		Event:        string(ev),
 		ResourceName: host.EventResourceName,

@@ -44,6 +44,7 @@ var _ = Describe("pkg/queue", func() {
 			It("publishes a message to queue", func() {
 				Expect(qp.GetInputLength()).To(Equal(int64(0)))
 				msg := &queue.Message{
+					UUID:         "1234",
 					Action:       "create",
 					Event:        "image.created",
 					ResourceName: "host",
@@ -67,6 +68,7 @@ var _ = Describe("pkg/queue", func() {
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 			msg := &queue.Message{
+				UUID:         "1234",
 				Action:       "create",
 				Event:        "image.created",
 				ResourceName: "host",
@@ -86,6 +88,7 @@ var _ = Describe("pkg/queue", func() {
 			It("consumes a message from queue", func() {
 				m, err := qc.Consume()
 				Expect(err).To(BeNil())
+				Expect(m.UUID).To(Equal("1234"))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.Event).To(Equal("image.created"))
 				Expect(m.ResourceName).To(Equal("host"))

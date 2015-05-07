@@ -17,6 +17,7 @@ type QueueConsumer struct {
 }
 
 type Message struct {
+	UUID         string `json: "uuid"`
 	Action       string `json: "action"`
 	Event        string `json: "event"`
 	ResourceName string `json: "resource_name"`
