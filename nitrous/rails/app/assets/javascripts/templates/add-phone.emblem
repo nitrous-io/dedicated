@@ -1,13 +1,12 @@
 .card-header.bordered
   h2
-    | Add a Phone Number
+    | Verify your Phone Number
 
 .card-body
 
   .notice-text
-    p We require your phone number to verify that you're a real person.
-    p We will only use this number to send a verification code to your phone via
-      SMS.
+    p We will send you an SMS to verify your phone number
+    p Please select your country code and enter your mobile number below
 
   form submit="savePhone" autocomplete="on"
     .ui.input-group
@@ -18,7 +17,7 @@
 
     .ui.input-group
       label.field-label for='phone'
-        | Phone Number
+        | Mobile Number
       = input type='text' id='phone' name='phone' disabled=view.phoneFormDisabled value=phone required=true autofocus=true
 
       input.ui.btn.primary type='submit' disabled=view.phoneFormDisabled value='Save'
