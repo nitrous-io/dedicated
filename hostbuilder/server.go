@@ -196,8 +196,11 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
 
-		hqp := s.Queue.NewHostQueuePublisher(hostID, hostSlug, userID)
-		info, err = h.CreateWithQueue(hqp)
+		info, err = h.CreateWithQueue(s.Queue, &host.QueueInfo{
+			ID:     hostID,
+			UserID: userID,
+			Slug:   hostSlug,
+		})
 	} else {
 		info, err = h.Create(pw)
 	}

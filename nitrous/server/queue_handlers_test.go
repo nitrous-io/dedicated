@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -28,14 +29,14 @@ func Test(t *testing.T) {
 
 var _ = Describe("HostQueueHandler", func() {
 	var (
-		hqp     *queue.HostQueuePublisher
-		qp      *queue.QueuePublisher
-		qc      *queue.QueueConsumer
-		db      *db.Database
-		handler func(qc *queue.QueueConsumer, m *queue.Message) error
-		h       *host.Host
-		u       *user.User
-		svr     *server.Server
+		qp        *queue.QueuePublisher
+		qc        *queue.QueueConsumer
+		db        *db.Database
+		handler   func(qc *queue.QueueConsumer, m *queue.Message) error
+		h         *host.Host
+		u         *user.User
+		svr       *server.Server
+		queueInfo *hh.QueueInfo
 	)
 
 	BeforeEach(func() {
@@ -68,7 +69,11 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		h = hs.H
 
-		hqp = qp.NewHostQueuePublisher(h.ID, h.Slug, u.ID)
+		queueInfo = &hh.QueueInfo{
+			ID:     h.ID,
+			Slug:   h.Slug,
+			UserID: u.ID,
+		}
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
 		handler = svr.HostQueueHandler()
@@ -82,14 +87,14 @@ var _ = Describe("HostQueueHandler", func() {
 		var message *queue.Message
 
 		BeforeEach(func() {
-			hostinfo, err := json.Marshal(&hqp)
+			queueInfo, err := json.Marshal(&queueInfo)
 			Expect(err).To(BeNil())
 			message = &queue.Message{
 				Action:       "create",
 				Event:        "image.created",
 				ResourceName: "host",
 				ResourceID:   "host-1234",
-				Payload:      hostinfo,
+				Payload:      queueInfo,
 			}
 		})
 
@@ -128,15 +133,16 @@ var _ = Describe("HostQueueHandler", func() {
 		var message *queue.Message
 
 		BeforeEach(func() {
-			hqp.Provider = "docker"
-			hqp.ID = "host-1234"
-			hqp.Region = "somewhere"
-			hqp.Name = "hostname-1234"
-			hqp.IPAddress = "1.2.3.4"
-			hqp.FreighterdPort = 62345
-			hqp.State = state.Running
+			queueInfo.Host = &hh.Info{}
+			queueInfo.Host.Provider = "docker"
+			queueInfo.Host.ID = "host-1234"
+			queueInfo.Host.Region = "somewhere"
+			queueInfo.Host.Name = "hostname-1234"
+			queueInfo.Host.IPAddress = "1.2.3.4"
+			queueInfo.Host.FreighterdPort = 62345
+			queueInfo.Host.State = state.Running
 
-			hostinfo, err := json.Marshal(&hqp)
+			payload, err := json.Marshal(&queueInfo)
 			Expect(err).To(BeNil())
 
 			message = &queue.Message{
@@ -144,7 +150,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Event:        "host.created",
 				ResourceName: "host",
 				ResourceID:   "host-1234",
-				Payload:      hostinfo,
+				Payload:      payload,
 			}
 		})
 

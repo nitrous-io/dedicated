@@ -16,7 +16,7 @@ import (
 	"code.google.com/p/goauth2/oauth"
 
 	"github.com/digitalocean/godo"
-	"github.com/nitrous-io/dedicated/hostbuilder/event"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -138,7 +138,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return info, nil
 }
 
-func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -179,12 +179,13 @@ func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error)
 
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			h.Printf("ERROR: Failed in create host step: %v", err)
+			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
+			h.Printf(errorMsg)
 			h.logFailedDroplet()
+			sendFailedToCreateHostMessage(qp, queueInfo, errorMsg)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
-			sendFailedToCreateHostMessage(qp)
 			return nil, err
 		}
 	}
@@ -198,7 +199,7 @@ func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error)
 	}
 
 	info := h.dropletToInfo()
-	sendCreatedHostMessage(qp, info)
+	sendCreatedHostMessage(qp, queueInfo, info)
 	return info, nil
 }
 
@@ -625,24 +626,32 @@ func createDroplet(ctx *host.HostContext) error {
 	return nil
 }
 
-func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
-	qp.Provider = hostInfo.Provider
-	qp.ID = hostInfo.ID
-	qp.Region = hostInfo.Region
-	qp.Name = hostInfo.Name
-	qp.IPAddress = hostInfo.IPAddress
-	qp.FreighterdPort = hostInfo.FreighterdPort
-	qp.State = hostInfo.State
+func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, hostInfo *host.Info) {
+	queueInfo.Message = ""
+	queueInfo.Host = hostInfo
 
-	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
+	payload, err := json.Marshal(queueInfo)
+	if err != nil {
+		log.Printf("Failed to marshal queueInfo: %v", err)
+	}
+
+	err = qp.Publish(queue.Create.String(), string(event.HostCreated), host.EventResourceName, "", payload)
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
 }
 
-func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
+func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, message string) {
+	queueInfo.Message = message
+	queueInfo.Host = nil
+
+	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to marshal queueInfo: %v", err)
+	}
+
+	err = qp.Publish(queue.Create.String(), string(event.HostCreateFailed), host.EventResourceName, "", payload)
+	if err != nil {
+		log.Printf("Failed to send a message: %v", err)
 	}
 }

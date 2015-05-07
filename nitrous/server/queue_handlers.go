@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -16,13 +17,13 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 	return func(qc *queue.QueueConsumer, m *queue.Message) error {
 		db := s.db
 		if queue.Create.IsA(m.Action) {
-			var hostInfo queue.HostQueuePublisher
-			err := json.Unmarshal([]byte(m.Payload), &hostInfo)
+			var queueInfo hh.QueueInfo
+			err := json.Unmarshal([]byte(m.Payload), &queueInfo)
 			if err != nil {
 				return err
 			}
-			uid := hostInfo.UserID
-			slug := hostInfo.Slug
+			uid := queueInfo.UserID
+			slug := queueInfo.Slug
 
 			u, err := user.FindByID(db, uid)
 			if err != nil {
@@ -36,7 +37,7 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 
 			eventName := controllers.EventName(m.Event)
 			if eventName == controllers.EventHostCreated && h.State != host.StateRunning {
-				err = s.activateHost(h, &hostInfo)
+				err = s.activateHost(h, queueInfo.Host)
 				if err != nil {
 					return err
 				}
@@ -53,7 +54,7 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 	}
 }
 
-func (s *Server) activateHost(h *host.Host, hostinfo *queue.HostQueuePublisher) error {
+func (s *Server) activateHost(h *host.Host, hostinfo *hh.Info) error {
 	s.logger.Debugf("queueProvisionTracer: hostinfo: %+v", hostinfo)
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}

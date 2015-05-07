@@ -78,9 +78,20 @@ type Info struct {
 	LaunchTime     *time.Time  `json:"launch_time,omitempty"`
 }
 
+// QueueInfo will be written to the queue to be consumed later
+type QueueInfo struct {
+	ID      int64  `json:"id"`
+	UserID  int64  `json:"user_id"`
+	Slug    string `json:"slug"`
+	Message string `json:"message,omitempty"`
+	Host    *Info  `json:"host,omitempty"`
+}
+
 type Host interface {
-	Create(io.Writer) (*Info, error)                              // create a new host
-	CreateWithQueue(hqp *queue.HostQueuePublisher) (*Info, error) // create a new host
+	// create a new host, publish events into the queue
+	CreateWithQueue(qp *queue.QueuePublisher, info *QueueInfo) (*Info, error)
+
+	Create(io.Writer) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)
 	Destroy() error        // destroy the current host
 	Stop() (*Info, error)  // stop the current host

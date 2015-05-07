@@ -13,7 +13,7 @@ import (
 
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
-	"github.com/nitrous-io/dedicated/hostbuilder/event"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -125,13 +125,9 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	defer func() {
 		if h.keypair != nil {
-			fmt.Fprintf(w, "Removing key...")
 			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
-				h.progressLog(w, "Removing key...Failed!")
 				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
-			} else {
-				h.progressLog(w, "Removing key...Done!")
 			}
 		}
 	}()
@@ -197,7 +193,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -260,19 +256,20 @@ func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error)
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
-			h.Printf("ERROR: Failed in create host step %q: %v", step.Description, err)
+			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
+			h.Printf(errorMsg)
 			h.logFailed()
+			sendFailedToCreateHostMessage(qp, queueInfo, errorMsg)
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
 				return inf, ErrCreateTimeout
 			}
-			sendFailedToCreateHostMessage(qp)
 
 			return inf, err
 		}
 	}
 	info, err := h.Info()
-	sendCreatedHostMessage(qp, info)
+	sendCreatedHostMessage(qp, queueInfo, info)
 
 	return info, err
 }
@@ -814,24 +811,32 @@ func isVPC(i *ec2.Instance) bool {
 	return i != nil && i.SubnetId != ""
 }
 
-func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
-	qp.Provider = hostInfo.Provider
-	qp.ID = hostInfo.ID
-	qp.Region = hostInfo.Region
-	qp.Name = hostInfo.Name
-	qp.IPAddress = hostInfo.IPAddress
-	qp.FreighterdPort = hostInfo.FreighterdPort
-	qp.State = hostInfo.State
+func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, hostInfo *host.Info) {
+	queueInfo.Message = ""
+	queueInfo.Host = hostInfo
 
-	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
+	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to marshal queueInfo: %v", err)
+	}
+
+	err = qp.Publish(queue.Create.String(), string(event.HostCreated), host.EventResourceName, "", payload)
+	if err != nil {
+		log.Printf("Failed to send a message: %v", err)
 	}
 }
 
-func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
+func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo, message string) {
+	queueInfo.Message = message
+	queueInfo.Host = nil
+
+	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to marshal queueInfo: %v", err)
+	}
+
+	err = qp.Publish(queue.Create.String(), string(event.HostCreateFailed), host.EventResourceName, "", payload)
+	if err != nil {
+		log.Printf("Failed to send a message: %v", err)
 	}
 }

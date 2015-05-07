@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/adjust/redismq"
-	"github.com/nitrous-io/dedicated/hostbuilder/state"
 )
 
 type QueuePublisher struct {
@@ -59,22 +58,6 @@ func AddHandler(name string, h queueHandler) {
 	queueRoutes[name] = h
 }
 
-type HostQueuePublisher struct {
-	HostID int64  `json: "id"`
-	Slug   string `json: "slug"`
-	UserID int64  `json: "user_id"`
-
-	Provider       string      `json:"provider"`
-	ID             string      `json:"id"`
-	Region         string      `json:"region_id"`
-	Name           string      `json:"name"`
-	IPAddress      string      `json:"ip_address"`
-	FreighterdPort uint16      `json:"freighterd_port"`
-	State          state.State `json:"state"`
-
-	queue *QueuePublisher
-}
-
 func init() {
 	queueRoutes = map[string]queueHandler{}
 }
@@ -96,17 +79,7 @@ func (qp *QueuePublisher) Close() {
 	delete(queuePublishersByName, name)
 }
 
-func (qp *QueuePublisher) NewHostQueuePublisher(hid int64, slug string, userID int64) *HostQueuePublisher {
-	hqp := &HostQueuePublisher{
-		HostID: hid,
-		Slug:   slug,
-		UserID: userID,
-		queue:  qp,
-	}
-	return hqp
-}
-
-func (qp *QueuePublisher) Publish(action string, event string, resourceName string, resourceID string, payload []byte) error {
+func (qp *QueuePublisher) Publish(action, event, resourceName, resourceID string, payload []byte) error {
 	message := &Message{
 		Action:       action,
 		Event:        event,
@@ -120,32 +93,6 @@ func (qp *QueuePublisher) Publish(action string, event string, resourceName stri
 	}
 	str := string(b)
 	err = qp.Put(str)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (hqp *HostQueuePublisher) Publish(action string, event string, resourceName string, resourceID string) error {
-	hostinfo, err := json.Marshal(hqp)
-	if err != nil {
-		return fmt.Errorf("Failed to marshal host queue information: %v", err)
-	}
-
-	message := &Message{
-		Action:       action,
-		Event:        event,
-		ResourceName: resourceName,
-		ResourceID:   resourceID,
-		Payload:      hostinfo,
-	}
-
-	b, err := json.Marshal(message)
-	if err != nil {
-		return err
-	}
-	str := string(b)
-	err = hqp.queue.Put(str)
 	if err != nil {
 		return err
 	}

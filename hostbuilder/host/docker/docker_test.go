@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/nitrous-io/dedicated/hostbuilder/event"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/docker"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -94,9 +94,9 @@ var _ = Describe("host/docker", func() {
 	Describe("CreateWithQueue", func() {
 		var h host.Host
 		var info *host.Info
-		var hqp *queue.HostQueuePublisher
 		var qp *queue.QueuePublisher
 		var qc *queue.QueueConsumer
+		var queueInfo *host.QueueInfo
 
 		var redisClient *redis.Client
 		BeforeEach(func() {
@@ -116,7 +116,11 @@ var _ = Describe("host/docker", func() {
 				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
 			Expect(err).To(BeNil())
-			hqp = qp.NewHostQueuePublisher(123, "go-124", 125)
+			queueInfo = &host.QueueInfo{
+				ID:     123,
+				Slug:   "go-124",
+				UserID: 125,
+			}
 		})
 
 		AfterEach(func() {
@@ -124,7 +128,7 @@ var _ = Describe("host/docker", func() {
 		})
 
 		It("returns host info", func() {
-			info, err = h.CreateWithQueue(hqp)
+			info, err = h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
 			Expect(info.Provider).To(Equal("docker"))
@@ -134,23 +138,15 @@ var _ = Describe("host/docker", func() {
 		})
 
 		It("sends messages to the host queue", func() {
-			payloadWithoutHostInfo, err := json.Marshal(hqp)
-			Expect(err).To(BeNil())
-
-			info, err = h.CreateWithQueue(hqp)
+			info, err = h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
 			Expect(qp.GetInputLength()).To(Equal(int64(3)))
-			events := [3]string{
-				event.CreatingImage.String(),
-				event.CreatedImage.String(),
-				event.CreatedHost.String(),
+			events := [3]event.Event{
+				event.HostCreating,
+				event.HostCreating,
+				event.HostCreated,
 			}
-
-			payload, err := json.Marshal(hqp)
-			Expect(err).To(BeNil())
-
-			Expect(payload).ToNot(Equal(payloadWithoutHostInfo))
 
 			var messages [3]*queue.Message
 			for index, event := range events {
@@ -158,14 +154,27 @@ var _ = Describe("host/docker", func() {
 				m.Ack()
 				messages[index] = m
 				Expect(err).To(BeNil())
-				Expect(m.Event).To(Equal(event))
+				Expect(m.Event).To(Equal(string(event)))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.ResourceName).To(Equal("host"))
 			}
+			var queueInfo host.QueueInfo
+			err = json.Unmarshal(messages[0].Payload, &queueInfo)
+			Expect(err).To(BeNil())
+			Expect(queueInfo.Message).ToNot(BeZero())
+			Expect(queueInfo.Host).To(BeZero())
 
-			Expect(messages[0].Payload).To(Equal(payloadWithoutHostInfo))
-			Expect(messages[1].Payload).To(Equal(payloadWithoutHostInfo))
-			Expect(messages[2].Payload).To(Equal(payload))
+			var queueInfo2 host.QueueInfo
+			err = json.Unmarshal(messages[1].Payload, &queueInfo2)
+			Expect(err).To(BeNil())
+			Expect(queueInfo2.Message).ToNot(BeZero())
+			Expect(queueInfo2.Host).To(BeZero())
+
+			var queueInfo3 host.QueueInfo
+			err = json.Unmarshal(messages[2].Payload, &queueInfo3)
+			Expect(err).To(BeNil())
+			Expect(queueInfo3.Message).To(BeZero())
+			Expect(queueInfo3.Host).ToNot(BeZero())
 		})
 	})
 

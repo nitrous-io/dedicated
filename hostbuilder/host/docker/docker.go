@@ -14,7 +14,7 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
-	"github.com/nitrous-io/dedicated/hostbuilder/event"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -77,24 +77,24 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 // Create creates the docker container which acts as a container host, and write the
 // progress into queue
-func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	sendCreatingImageMessage(qp)
+	publishMessage(qp, event.HostCreating, queueInfo, "Creating host")
 	imageName, err := h.createImage()
 	if err != nil {
-		sendFailedToCreateImageMessage(qp)
+		publishMessage(qp, event.HostCreateFailed, queueInfo, "Failed to create host's image")
 		return nil, err
 	}
-	sendCreatedImageMessage(qp, imageName)
+	publishMessage(qp, event.HostCreating, queueInfo, "Created host image")
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		sendFailedToCreateHostMessage(qp)
+		publishMessage(qp, event.HostCreateFailed, queueInfo, "Failed to create host's container")
 		return nil, err
 	}
-	sendCreatedHostMessage(qp, c)
+	publishHost(qp, event.HostCreated, queueInfo, c)
 	return c, nil
 }
 
@@ -466,46 +466,33 @@ func getState(container *dockerclient.Container) state.State {
 	return state.Stopped
 }
 
-func sendCreatingImageMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.CreatingImage.String(), host.EventResourceName, "")
+func publishMessage(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.QueueInfo, message string) {
+	queueInfo.Message = message
+	queueInfo.Host = nil
+
+	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to marshal queueInfo: %v", err)
+	}
+
+	err = qp.Publish(queue.Create.String(), string(ev), host.EventResourceName, "", payload)
+	if err != nil {
+		log.Printf("Failed to send a message: %v", err)
 	}
 }
 
-func sendCreatedImageMessage(qp *queue.HostQueuePublisher, imageName string) {
-	err := qp.Publish(queue.Create.String(), event.CreatedImage.String(), host.EventResourceName, "")
+func publishHost(qp *queue.QueuePublisher, ev event.Event, queueInfo *host.QueueInfo, info *host.Info) {
+	queueInfo.Message = ""
+	queueInfo.Host = info
+
+	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to marshal queueInfo: %v", err)
 	}
-}
 
-func sendFailedToCreateImageMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateImage.String(), host.EventResourceName, "")
+	err = qp.Publish(queue.Create.String(), string(ev), host.EventResourceName, "", payload)
 	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
-	}
-}
-
-func sendCreatedHostMessage(qp *queue.HostQueuePublisher, hostInfo *host.Info) {
-	qp.Provider = hostInfo.Provider
-	qp.ID = hostInfo.ID
-	qp.Region = hostInfo.Region
-	qp.Name = hostInfo.Name
-	qp.IPAddress = hostInfo.IPAddress
-	qp.FreighterdPort = hostInfo.FreighterdPort
-	qp.State = hostInfo.State
-
-	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), host.EventResourceName, hostInfo.ID)
-	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
-	}
-}
-
-func sendFailedToCreateHostMessage(qp *queue.HostQueuePublisher) {
-	err := qp.Publish(queue.Create.String(), event.FailedToCreateHost.String(), host.EventResourceName, "")
-	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
+		log.Printf("Failed to send a message: %v", err)
 	}
 }
 

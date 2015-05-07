@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nitrous-io/dedicated/hostbuilder/event"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -45,12 +45,12 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) CreateWithQueue(qp *queue.HostQueuePublisher) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")
 	}
 
-	err := qp.Publish(queue.Create.String(), event.CreatedHost.String(), "dummy", h.ID)
+	err := qp.Publish(queue.Create.String(), string(event.HostCreated), "host", h.ID, []byte{})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
 	}
