@@ -110,6 +110,7 @@ var _ = Describe("host/docker", func() {
 
 			h, err = docker.NewHost(
 				map[string]string{
+					"uuid":                "uuid-111",
 					"endpoint":            server.URL(),
 					"freighterd_location": "/bin/true",
 				},
@@ -126,6 +127,9 @@ var _ = Describe("host/docker", func() {
 		AfterEach(func() {
 			if qp != nil {
 				qp.Delete()
+			}
+			if redisClient != nil {
+				redisClient.Close()
 			}
 		})
 
@@ -150,33 +154,32 @@ var _ = Describe("host/docker", func() {
 				event.HostCreated,
 			}
 
-			var messages [3]*queue.Message
+			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
 				m, err := qc.Consume()
 				m.Ack()
-				messages[index] = m
 				Expect(err).To(BeNil())
+				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.ResourceName).To(Equal("host"))
+
+				var queueInfo host.QueueInfo
+				err = json.Unmarshal(m.Payload, &queueInfo)
+				Expect(err).To(BeNil())
+				Expect(queueInfo.ID).To(Equal(int64(123)))
+				Expect(queueInfo.Slug).To(Equal("go-124"))
+				Expect(queueInfo.UserID).To(Equal(int64(125)))
+				queueInfos[index] = &queueInfo
 			}
-			var queueInfo host.QueueInfo
-			err = json.Unmarshal(messages[0].Payload, &queueInfo)
-			Expect(err).To(BeNil())
-			Expect(queueInfo.Message).ToNot(BeZero())
-			Expect(queueInfo.Host).To(BeZero())
+			Expect(queueInfos[0].Message).ToNot(BeZero())
+			Expect(queueInfos[0].Host).To(BeZero())
 
-			var queueInfo2 host.QueueInfo
-			err = json.Unmarshal(messages[1].Payload, &queueInfo2)
-			Expect(err).To(BeNil())
-			Expect(queueInfo2.Message).ToNot(BeZero())
-			Expect(queueInfo2.Host).To(BeZero())
+			Expect(queueInfos[1].Message).ToNot(BeZero())
+			Expect(queueInfos[1].Host).To(BeZero())
 
-			var queueInfo3 host.QueueInfo
-			err = json.Unmarshal(messages[2].Payload, &queueInfo3)
-			Expect(err).To(BeNil())
-			Expect(queueInfo3.Message).To(BeZero())
-			Expect(queueInfo3.Host).ToNot(BeZero())
+			Expect(queueInfos[2].Message).To(BeZero())
+			Expect(queueInfos[2].Host).To(Equal(info))
 		})
 	})
 

@@ -22,25 +22,27 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/redis.v2"
 )
 
 var _ = Describe("HostQueueHandler", func() {
 	var (
-		qp        *queue.QueuePublisher
-		qc        *queue.QueueConsumer
-		db        *db.Database
-		handler   func(qc *queue.QueueConsumer, m *queue.Message) error
-		h         *host.Host
-		u         *user.User
-		svr       *server.Server
-		queueInfo *hh.QueueInfo
+		redisClient *redis.Client
+		qp          *queue.QueuePublisher
+		qc          *queue.QueueConsumer
+		db          *db.Database
+		handler     func(qc *queue.QueueConsumer, m *queue.Message) error
+		h           *host.Host
+		u           *user.User
+		svr         *server.Server
+		queueInfo   *hh.QueueInfo
 	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		_, err = redistest.ConnectToRedisClient()
+		redisClient, err = redistest.ConnectToRedisClient()
 		Expect(err).To(BeNil())
 
 		redisDB, _ := strconv.ParseInt(envvars.RedisDB, 10, 64)
@@ -75,6 +77,9 @@ var _ = Describe("HostQueueHandler", func() {
 	AfterEach(func() {
 		if qp != nil {
 			qp.Delete()
+		}
+		if redisClient != nil {
+			redisClient.Close()
 		}
 	})
 
