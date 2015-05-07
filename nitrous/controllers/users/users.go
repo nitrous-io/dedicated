@@ -33,6 +33,8 @@ var (
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
+
+	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -219,6 +221,9 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 				return validationErr
 			}
 		}
+		if err == sql.ErrNoRows {
+			return phoneAlreadyAuthed
+		}
 		return err
 	}
 
@@ -258,9 +263,14 @@ func sendVerificationCode(d *db.Database, l *logger.Logger, u *user.User) error 
 	msg := fmt.Sprintf("Your Nitrous verification code is: %s", v.Code)
 	m, _, err := client.Messages.SendSMS(envvars.TwilioNumber, u.PhoneNumber(), msg)
 	if err != nil {
-		l.Errorf("user.UpdatePhone: failed to send SMS, message: %+v, err: %v", m, err)
-		return httperror.New(http.StatusServiceUnavailable, "sms_failed",
-			"there was an error sending the verification code to your phone")
+		errlog := fmt.Sprintf("user.UpdatePhone: failed to send SMS, message: %+v, err: %+v", m, err)
+		logAsErr, msg := twilioError(err)
+		if logAsErr {
+			l.Errorf(errlog)
+		} else {
+			l.Debugf(errlog)
+		}
+		return httperror.New(http.StatusServiceUnavailable, "sms_failed", msg)
 	}
 
 	return nil
@@ -375,6 +385,9 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
 		}, env.Logger)
+		env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
+			"$email": u.Email,
+		}, env.Logger)
 	}
 
 	return env.Login(u, w)
@@ -468,4 +481,22 @@ func sanitizePhone(phoneNum string) string {
 		return -1
 	}
 	return strings.Map(onlyNumeric, phoneNum)
+}
+
+// twilioError parses an error and returns if it should be treated as error, and a user-facing message https://github.com/subosito/twilio/blob/ca29365f195cd8e9dfb805d4b8aca69ce8057564/exception.go
+func twilioError(e error) (bool, string) {
+	defaultMsg := "there was an error sending the verification code to your phone"
+	terr, ok := e.(*twilio.Exception)
+	if !ok {
+		return true, defaultMsg
+	}
+	switch terr.Code {
+	case 21211: // https://www.twilio.com/docs/errors/21211
+		return false, fmt.Sprintf("%s: number is invalid", defaultMsg)
+	case 21614: // https://www.twilio.com/docs/errors/21614
+		return false, fmt.Sprintf("%s: number cannot receive SMS", defaultMsg)
+	default:
+		return true, defaultMsg
+	}
+
 }

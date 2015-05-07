@@ -153,11 +153,6 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 		return false
 	}
 
-	// we're consistent if live state is the same as the state we're
-	// transitionining from and the transition isn't taking more than 5 mins
-	if liveState != strings.ToLower(transition.PreviousState.String) {
-		return false
-	}
 	// paranoia - CreatedAt shouldn't be nil but be safe if it is
 	if transition.CreatedAt == nil {
 		return false
