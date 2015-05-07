@@ -188,6 +188,8 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 			}
 			return nil, err
 		}
+
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
 	}
 
 	if h.sshKey != nil {

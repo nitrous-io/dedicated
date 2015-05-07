@@ -267,6 +267,8 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 
 			return inf, err
 		}
+
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
 	}
 	info, err := h.Info()
 	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
