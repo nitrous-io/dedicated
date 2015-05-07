@@ -925,7 +925,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(t.UserID).To(Equal(u.ID))
 
 				// and track the confirmation on mixpanel
-				Expect(ft.PropsCalled).To(HaveLen(1))
+				Expect(ft.PropsCalled).To(HaveLen(2))
 				pc := ft.PropsCalled[0]
 				Expect(pc.UserID).To(Equal(u.ID))
 				Expect(pc.Mode).To(Equal("setnx"))
@@ -934,6 +934,12 @@ var _ = Describe("controllers/users", func() {
 				pqt, ok := ctime.(time.Time)
 				Expect(ok).To(BeTrue())
 				Expect(pqt).To(BeTemporally("~", time.Now(), time.Minute))
+
+				// and update email
+				pc2 := ft.PropsCalled[1]
+				Expect(pc2.UserID).To(Equal(u.ID))
+				Expect(pc2.Mode).To(Equal("set"))
+				Expect(pc2.PropsSet["$email"]).To(Equal(u.Email))
 			})
 
 			It("should communicate if the confirmation has lapsed", func() {

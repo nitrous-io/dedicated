@@ -385,6 +385,9 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
 		}, env.Logger)
+		env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
+			"$email": u.Email,
+		}, env.Logger)
 	}
 
 	return env.Login(u, w)

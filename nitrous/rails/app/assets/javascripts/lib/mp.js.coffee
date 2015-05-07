@@ -20,6 +20,7 @@ window.Mp =
 
   identify: ->
     return false unless @initialized
+    return true if @identified
 
     user = App?.get('user')
 
@@ -42,8 +43,12 @@ window.Mp =
       $email: user.get('email')
       $username: user.get('username')
       $created: createdAt
-      $name: name
       user_id: user.get('id').toString()
+
+    mixpanel.people.set_once(personHash) # only $email may change, handled in backend
+
+    personHash =
+      $name: name
 
     if name?
       if splitName = name.match(/(.*)\s([^\s]+)?$/)
