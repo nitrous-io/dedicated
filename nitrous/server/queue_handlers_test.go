@@ -3,29 +3,26 @@ package server_test
 import (
 	"database/sql"
 	"encoding/json"
-	"testing"
+	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/nitrous-io/dedicated/event"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/queue"
-	redis_test "github.com/nitrous-io/dedicated/test"
+	redistest "github.com/nitrous-io/dedicated/test"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func Test(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "server")
-}
 
 var _ = Describe("HostQueueHandler", func() {
 	var (
@@ -43,10 +40,11 @@ var _ = Describe("HostQueueHandler", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		_, err = redis_test.ConnectToRedisClient()
+		_, err = redistest.ConnectToRedisClient()
 		Expect(err).To(BeNil())
 
-		qp = queue.NewQueue(redis_test.RedisHost, redis_test.RedisPort, redis_test.RedisTestDb, "host")
+		redisDB, _ := strconv.ParseInt(envvars.RedisDB, 10, 64)
+		qp = queue.NewQueue(envvars.RedisHost, envvars.RedisPort, redisDB, "host")
 		Expect(err).To(BeNil())
 		qc, err = qp.CreateConsumer()
 		Expect(err).To(BeNil())
@@ -69,11 +67,6 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		h = hs.H
 
-		queueInfo = &hh.QueueInfo{
-			ID:     h.ID,
-			Slug:   h.Slug,
-			UserID: u.ID,
-		}
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
 		handler = svr.HostQueueHandler()
@@ -85,18 +78,25 @@ var _ = Describe("HostQueueHandler", func() {
 		}
 	})
 
-	Context("an image is created on creating host", func() {
+	Context("host is being created", func() {
 		var message *queue.Message
 
 		BeforeEach(func() {
-			queueInfo, err := json.Marshal(&queueInfo)
+			queueInfo = &hh.QueueInfo{
+				ID:      h.ID,
+				Slug:    h.Slug,
+				UserID:  u.ID,
+				Message: "creating a host",
+			}
+			payload, err := json.Marshal(queueInfo)
 			Expect(err).To(BeNil())
 			message = &queue.Message{
+				UUID:         "uuid-1234",
 				Action:       "create",
-				Event:        "image.created",
+				Event:        string(event.HostCreating),
 				ResourceName: "host",
 				ResourceID:   "host-1234",
-				Payload:      queueInfo,
+				Payload:      payload,
 			}
 		})
 
@@ -112,7 +112,7 @@ var _ = Describe("HostQueueHandler", func() {
 				var evt *controllers.Event
 				for msg := range ch { // Ignore events we don't care about.
 					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventImageCreated {
+					if evt.Name == controllers.EventName(event.HostCreating) {
 						evtCh <- evt
 						break
 					}
@@ -123,10 +123,10 @@ var _ = Describe("HostQueueHandler", func() {
 			case <-time.After(50 * time.Millisecond):
 				Fail("Timeout while getting image created event")
 			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventImageCreated))
-				evtData, ok := evt.Data.(map[string]*serializers.Host)
+				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreating)))
+				evtData, ok := evt.Data.(*controllers.ProgressEvent)
 				Expect(ok).To(BeTrue())
-				Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
+				Expect(evtData.Progress).To(Equal(fmt.Sprintf(`{"stream":"%s"}`, queueInfo.Message)))
 			}
 		})
 	})
@@ -135,21 +135,26 @@ var _ = Describe("HostQueueHandler", func() {
 		var message *queue.Message
 
 		BeforeEach(func() {
-			queueInfo.Host = &hh.Info{}
-			queueInfo.Host.Provider = "docker"
-			queueInfo.Host.ID = "host-1234"
-			queueInfo.Host.Region = "somewhere"
-			queueInfo.Host.Name = "hostname-1234"
-			queueInfo.Host.IPAddress = "1.2.3.4"
-			queueInfo.Host.FreighterdPort = 62345
-			queueInfo.Host.State = state.Running
-
-			payload, err := json.Marshal(&queueInfo)
+			queueInfo = &hh.QueueInfo{
+				ID:     h.ID,
+				Slug:   h.Slug,
+				UserID: u.ID,
+				Host: &hh.Info{
+					Provider:       "docker",
+					ID:             "host-1234",
+					Region:         "somewhere",
+					Name:           "hostname-1234",
+					IPAddress:      "1.2.3.4",
+					FreighterdPort: 62345,
+					State:          state.Running,
+				},
+			}
+			payload, err := json.Marshal(queueInfo)
 			Expect(err).To(BeNil())
-
 			message = &queue.Message{
+				UUID:         "uuid-1234",
 				Action:       "create",
-				Event:        "host.created",
+				Event:        string(event.HostCreated),
 				ResourceName: "host",
 				ResourceID:   "host-1234",
 				Payload:      payload,
@@ -180,9 +185,6 @@ var _ = Describe("HostQueueHandler", func() {
 			h.HourlyPrice = 1000000
 
 			err := h.Update(db)
-			Expect(err).To(BeNil())
-
-			err = handler(qc, message)
 			Expect(err).To(BeNil())
 
 			err = handler(qc, message)
