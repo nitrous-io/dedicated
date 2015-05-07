@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -65,13 +66,18 @@ var _ = Describe("models/hostscan", func() {
 
 	Describe("with free host", func() {
 		BeforeEach(func() {
+			_, err := db.Exec(`UPDATE billing_profiles
+				SET state='free' WHERE user_id=$1;
+				`, u.ID)
+			Expect(err).To(BeNil())
+
 			h = &host.Host{
 				Slug:        "my-free-host",
 				HourlyPrice: 0,
 				State:       host.StateRunning,
 			}
 
-			_, err := test.CreateHostStack(db, &test.HostStack{
+			_, err = test.CreateHostStack(db, &test.HostStack{
 				H: h,
 				U: u,
 				P: freePlan,
@@ -80,8 +86,8 @@ var _ = Describe("models/hostscan", func() {
 		})
 
 		doScanHost := func(scanTime time.Time) *ScanResult {
-			hostScans, err := ScanHosts(db, scanTime)
-			Expect(err).To(BeNil())
+			hostScans, errs := ScanHosts(db, scanTime)
+			Expect(len(errs)).To(Equal(0))
 			Expect(len(hostScans)).To(Equal(1))
 
 			hostScan := hostScans[0]
@@ -114,34 +120,20 @@ var _ = Describe("models/hostscan", func() {
 				Expect(scannedHost.ID).To(Equal(h.ID))
 			})
 
-			It("should be in one week notice state after 3 weeks", func() {
-				hostScan := doScanHost(h.CreatedAt.Add(threeWeeks))
-				Expect(hostScan.State).To(Equal(StateOneWeekNotice))
-
-				// try some in-between time
-				hostScan = doScanHost(h.CreatedAt.Add(threeWeeks + 2*oneDay))
-				Expect(hostScan.State).To(Equal(StateOneWeekNotice))
-			})
-
-			It("should be in host terminating state last 3 days", func() {
-				hostScan := doScanHost(h.CreatedAt.Add(fourWeeks - 3*oneDay))
-				Expect(hostScan.State).To(Equal(StateTerminating))
-
-				hostScan = doScanHost(h.CreatedAt.Add(fourWeeks - 2*oneDay))
-				Expect(hostScan.State).To(Equal(StateTerminating))
-			})
-
 			It("should terminate after 4 weeks if previous db record is terminating", func() {
 				hostScan := doScanHost(h.CreatedAt.Add(fourWeeks - 3*oneDay))
 				Expect(hostScan.State).To(Equal(StateTerminating))
+				Expect(hostScan.NextScan).To(BeTemporally("==", h.CreatedAt.Add(fourWeeks), oneDay))
 
-				return
+				h.NextScan = pq.NullTime{}
+				h.TerminatingAt = pq.NullTime{hostScan.NextScan, true}
+				err := UpdateHostScanState(db, h)
+				Expect(err).To(BeNil())
 
-				hostScan = doScanHost(h.CreatedAt.Add(fourWeeks))
-				Expect(hostScan.State).To(Equal(StateTerminated))
-
-				hostScan = doScanHost(h.CreatedAt.Add(fourWeeks + oneDay))
-				Expect(hostScan.State).To(Equal(StateTerminated))
+				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(fourWeeks))
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
+				Expect(hosts[0].ID).To(Equal(h.ID))
 			})
 		})
 
@@ -179,16 +171,39 @@ var _ = Describe("models/hostscan", func() {
 
 		Describe("when free host is upgraded to paid plan", func() {
 			BeforeEach(func() {
-				err := freetier.UpgradeFreeUserHosts(db, u)
+				// host was about to be terminated
+				h.NextScan = pq.NullTime{}
+				h.TerminatingAt = pq.NullTime{h.CreatedAt.Add(fourWeeks), true}
+				err := UpdateHostScanState(db, h)
+				Expect(err).To(BeNil())
+
+				// originally can be terminated
+				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(fourWeeks))
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(1))
+			})
+
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles
+						SET state='paid' WHERE user_id=$1;
+						`, u.ID)
+				Expect(err).To(BeNil())
+
+				err = freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 			})
 
 			It("should not be listed in scannable hosts", func() {
-				scanTime := *h.CreatedAt
-				scannedHosts, err := FindScannableHosts(db, scanTime)
+				scannedHosts, err := FindScannableHosts(db, *h.CreatedAt)
 				Expect(err).To(BeNil())
 
 				Expect(len(scannedHosts)).To(Equal(0))
+			})
+
+			It("should not be listed in terminating hosts", func() {
+				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(fourWeeks))
+				Expect(err).To(BeNil())
+				Expect(len(hosts)).To(Equal(0))
 			})
 		})
 	})

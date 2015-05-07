@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 )
@@ -138,19 +139,70 @@ func FindScannableHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 	return hosts, nil
 }
 
-func ScanHosts(d *db.Database, now time.Time) ([]*ScanResult, error) {
-	scannedHosts, err := FindScannableHosts(d, now)
+func FindTerminatingHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
+	hosts := []*host.Host{}
+	err := d.Select(&hosts, `
+		SELECT hosts.* FROM hosts
+		INNER JOIN users ON (users.id = hosts.user_id)
+		INNER JOIN billing_profiles ON (billing_profiles.user_id = users.id)
+		WHERE
+		  hourly_price = 0
+			AND terminated_at IS NULL
+			AND preprovisioned = FALSE
+			AND hosts.state != 'orphan'
+			AND scan_exempted = FALSE
+			AND billing_profiles.state = $1
+			AND terminating_at <= $2;
+		`, billingprofile.StateFree, now)
+
 	if err != nil {
 		return nil, err
 	}
+	return hosts, nil
+}
 
-	hostScans := make([]*ScanResult, len(scannedHosts))
-	for i, scannedHost := range scannedHosts {
-		hostScans[i], err = ScanHost(d, scannedHost, now)
+func UpdateHostScanState(d *db.Database, h *host.Host) error {
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (next_scan, terminating_at, updated_at)
+		= (:next_scan, :terminating_at, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func UpdateHostScanExempt(d *db.Database, h *host.Host) error {
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (scan_exempted, updated_at)
+		= (:scan_exempted, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func ScanHosts(d *db.Database, now time.Time) ([]*ScanResult, []error) {
+	errors := []error{}
+	hostScans := []*ScanResult{}
+
+	scannedHosts, err := FindScannableHosts(d, now)
+	if err != nil {
+		errors = append(errors, err)
+		return hostScans, errors
+	}
+
+	for _, scannedHost := range scannedHosts {
+		result, err := ScanHost(d, scannedHost, now)
 		if err != nil {
-			return nil, err
+			errors = append(errors, err)
+		} else {
+			hostScans = append(hostScans, result)
 		}
 	}
 
-	return hostScans, nil
+	return hostScans, errors
 }
