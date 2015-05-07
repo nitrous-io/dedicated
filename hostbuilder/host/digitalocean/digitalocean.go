@@ -182,7 +182,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			sendFailedToCreateHostMessage(qp, h.uuid, queueInfo, errorMsg)
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
@@ -199,7 +199,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 	}
 
 	info := h.dropletToInfo()
-	sendCreatedHostMessage(qp, h.uuid, queueInfo, info)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
 	return info, nil
 }
 
@@ -624,48 +624,4 @@ func createDroplet(ctx *host.HostContext) error {
 
 	h.droplet = dropletRoot.Droplet
 	return nil
-}
-
-func sendCreatedHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, hostInfo *host.Info) {
-	queueInfo.Message = ""
-	queueInfo.Host = hostInfo
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(event.HostCreated),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v\n", err)
-	}
-}
-
-func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, message string) {
-	queueInfo.Message = message
-	queueInfo.Host = nil
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(event.HostCreateFailed),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
-	}
 }

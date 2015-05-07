@@ -259,7 +259,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.Printf(errorMsg)
 			h.logFailed()
-			sendFailedToCreateHostMessage(qp, h.uuid, queueInfo, errorMsg)
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
 				return inf, ErrCreateTimeout
@@ -269,8 +269,7 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 		}
 	}
 	info, err := h.Info()
-	sendCreatedHostMessage(qp, h.uuid, queueInfo, info)
-
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
 	return info, err
 }
 
@@ -809,48 +808,4 @@ func getState(instance *ec2.Instance) state.State {
 // isVPC checks if an instance is a EC2-VPC instance
 func isVPC(i *ec2.Instance) bool {
 	return i != nil && i.SubnetId != ""
-}
-
-func sendCreatedHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, hostInfo *host.Info) {
-	queueInfo.Message = ""
-	queueInfo.Host = hostInfo
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(event.HostCreated),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
-	}
-}
-
-func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, uuid string, queueInfo *host.QueueInfo, message string) {
-	queueInfo.Message = message
-	queueInfo.Host = nil
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(event.HostCreateFailed),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
-	}
 }

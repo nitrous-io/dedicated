@@ -82,20 +82,20 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	publishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
 	imageName, err := h.createImage()
 	if err != nil {
-		publishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
 		return nil, err
 	}
-	publishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		publishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
 		return nil, err
 	}
-	publishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
 	return c, nil
 }
 
@@ -467,50 +467,6 @@ func getState(container *dockerclient.Container) state.State {
 		return state.Running
 	}
 	return state.Stopped
-}
-
-func publishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *host.QueueInfo, message string) {
-	queueInfo.Message = message
-	queueInfo.Host = nil
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(ev),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
-	}
-}
-
-func publishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *host.QueueInfo, info *host.Info) {
-	queueInfo.Message = ""
-	queueInfo.Host = info
-
-	payload, err := json.Marshal(queueInfo)
-	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
-	}
-
-	msg := &queue.Message{
-		UUID:         uuid,
-		Action:       queue.Create.String(),
-		Event:        string(ev),
-		ResourceName: host.EventResourceName,
-		Payload:      payload,
-	}
-	err = qp.Publish(msg)
-	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
-	}
 }
 
 func init() {
