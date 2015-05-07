@@ -635,7 +635,13 @@ func sendCreatedHostMessage(qp *queue.QueuePublisher, queueInfo *host.QueueInfo,
 		log.Printf("Failed to marshal queueInfo: %v", err)
 	}
 
-	err = qp.Publish(queue.Create.String(), string(event.HostCreated), host.EventResourceName, "", payload)
+	msg := &queue.Message{
+		Action:       queue.Create.String(),
+		Event:        string(event.HostCreated),
+		ResourceName: host.EventResourceName,
+		Payload:      payload,
+	}
+	err = qp.Publish(msg)
 	if err != nil {
 		log.Printf("Failed to send a message: %v\n", err)
 	}
@@ -650,7 +656,13 @@ func sendFailedToCreateHostMessage(qp *queue.QueuePublisher, queueInfo *host.Que
 		log.Printf("Failed to marshal queueInfo: %v", err)
 	}
 
-	err = qp.Publish(queue.Create.String(), string(event.HostCreateFailed), host.EventResourceName, "", payload)
+	msg := &queue.Message{
+		Action:       queue.Create.String(),
+		Event:        string(event.HostCreateFailed),
+		ResourceName: host.EventResourceName,
+		Payload:      payload,
+	}
+	err = qp.Publish(msg)
 	if err != nil {
 		log.Printf("Failed to send a message: %v", err)
 	}

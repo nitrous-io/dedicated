@@ -64,24 +64,13 @@ func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name strin
 	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
 }
 
-func (qp *QueuePublisher) Publish(action, event, resourceName, resourceID string, payload []byte) error {
-	message := &Message{
-		Action:       action,
-		Event:        event,
-		ResourceName: resourceName,
-		ResourceID:   resourceID,
-		Payload:      payload,
-	}
-	b, err := json.Marshal(message)
+func (qp *QueuePublisher) Publish(msg *Message) error {
+	b, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
 	str := string(b)
-	err = qp.Put(str)
-	if err != nil {
-		return err
-	}
-	return nil
+	return qp.Put(str)
 }
 
 func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {

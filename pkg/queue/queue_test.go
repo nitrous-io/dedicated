@@ -43,7 +43,13 @@ var _ = Describe("pkg/queue", func() {
 
 			It("publishes a message to queue", func() {
 				Expect(qp.GetInputLength()).To(Equal(int64(0)))
-				err := qp.Publish("create", "image.created", "host", "1", []byte{})
+				msg := &queue.Message{
+					Action:       "create",
+					Event:        "image.created",
+					ResourceName: "host",
+					ResourceID:   "1",
+				}
+				err := qp.Publish(msg)
 				Expect(err).To(BeNil())
 				Expect(qp.GetInputLength()).To(Equal(int64(1)))
 			})
@@ -60,7 +66,14 @@ var _ = Describe("pkg/queue", func() {
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
-			qp.Publish("create", "image.created", "host", "1", []byte{})
+			msg := &queue.Message{
+				Action:       "create",
+				Event:        "image.created",
+				ResourceName: "host",
+				ResourceID:   "1",
+			}
+			err = qp.Publish(msg)
+			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
@@ -77,7 +90,7 @@ var _ = Describe("pkg/queue", func() {
 				Expect(m.Event).To(Equal("image.created"))
 				Expect(m.ResourceName).To(Equal("host"))
 				Expect(m.ResourceID).To(Equal("1"))
-				Expect(m.Payload).To(Equal([]byte{}))
+				Expect(m.Payload).To(BeEmpty())
 			})
 		})
 	})

@@ -50,7 +50,13 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 		return nil, errors.New("failed to create host")
 	}
 
-	err := qp.Publish(queue.Create.String(), string(event.HostCreated), "host", h.ID, []byte{})
+	msg := &queue.Message{
+		Action:       queue.Create.String(),
+		Event:        string(event.HostCreated),
+		ResourceName: host.EventResourceName,
+		ResourceID:   h.ID,
+	}
+	err := qp.Publish(msg)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
 	}
