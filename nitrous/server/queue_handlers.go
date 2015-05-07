@@ -22,22 +22,19 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 			if err != nil {
 				return err
 			}
-			uid := queueInfo.UserID
-			slug := queueInfo.Slug
 
-			u, err := user.FindByID(db, uid)
+			u, err := user.FindByID(db, queueInfo.UserID)
 			if err != nil {
 				return err
 			}
-
-			h, err := host.Find(db, u, slug)
+			h, err := host.Find(db, u, queueInfo.Slug)
 			if err != nil {
 				return err
 			}
 
 			eventName := controllers.EventName(m.Event)
 			if eventName == controllers.EventHostCreated && h.State != host.StateRunning {
-				err = s.activateHost(h, queueInfo.Host)
+				err = s.activateHost(m.UUID, h, queueInfo.Host)
 				if err != nil {
 					return err
 				}
@@ -54,28 +51,27 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 	}
 }
 
-func (s *Server) activateHost(h *host.Host, hostinfo *hh.Info) error {
-	s.logger.Debugf("queueProvisionTracer: hostinfo: %+v", hostinfo)
-	if hostinfo != nil {
-		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
-		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
-		h.RegionIdentifier = sql.NullString{hostinfo.Region, true}
+func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) error {
+	s.logger.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
+	if hostInfo != nil {
+		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
+		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
+		h.RegionIdentifier = sql.NullString{hostInfo.Region, true}
 	}
 
-	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
+	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
 	h.State = host.StateRunning
 	p, err := plan.FindByID(s.db, h.PlanID)
 	if err != nil {
-		s.logger.Debugf("queueProvisionTracer: failed to get the plan. err: %+v h: %+v ", err, h)
+		s.logger.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
 	h.HourlyPrice = p.HourlyPrice()
 
 	if err := h.Update(s.db); err != nil {
-		s.logger.Debugf("queueProvisionTracer: update err: %+v h: %+v ", err, h)
+		s.logger.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", uuid, err, h)
 		return err
 	}
-	s.logger.Debugf("qeueuProvisionTracer: updated h: %+v", h)
-
+	s.logger.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
 	return nil
 }
