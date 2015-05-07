@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/util"
+	"github.com/nitrous-io/dedicated/pkg/tcputils"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
@@ -141,6 +142,8 @@ func (s *Server) tcpListener(addr string) (net.Listener, error) {
 	if err != nil {
 		return nil, fmt.Errorf("server: cannot listen to tcp %v, %v", addr, err)
 	}
+	// set keepalive to the tcp listener
+	l = tcputils.TcpKeepAliveListener{l.(*net.TCPListener)}
 	if s.conf.TLSVerify {
 		tlsConfig, err := getTLSConfig(s.conf.CA, s.conf.Cert, s.conf.Key)
 		if err != nil {

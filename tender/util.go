@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
+	"github.com/nitrous-io/dedicated/pkg/tcputils"
 )
 
 const (
@@ -175,28 +175,8 @@ func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 		return fmt.Errorf("failed to listen to %q, error: %q", addr, err)
 	}
 
-	ln = tls.NewListener(TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
+	ln = tls.NewListener(tcputils.TcpKeepAliveListener{ln.(*net.TCPListener)}, tlsConfig)
 	return srv.Serve(ln)
-}
-
-// TcpKeepAliveListener sets TCP keep-alive timeouts on accepted
-// connections. It's used by ListenAndServe and ListenAndServeTLS so
-// dead TCP connections (e.g. closing laptop mid-download) eventually
-// go away.
-//
-// This is copied from net/http package
-type TcpKeepAliveListener struct {
-	*net.TCPListener
-}
-
-func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
-	tc, err := ln.AcceptTCP()
-	if err != nil {
-		return
-	}
-	tc.SetKeepAlive(true)
-	tc.SetKeepAlivePeriod(3 * time.Minute)
-	return tc, nil
 }
 
 func ToggleVerboseLog() {
