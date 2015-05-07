@@ -61,9 +61,22 @@
       overflow: hidden
       text-overflow: ellipsis
 
-  .card-body, .card-footer
+  .card-body, .card-footer, .footer-note
     &.bordered
       border-top: 1px solid $n2oGray900
+
+  .footer-note
+    padding: $containerPadding
+    padding-top: 0
+    display: flex
+    flex-direction: row
+    text-align: center
+
+    p
+      padding: 0 20px
+      font-size: 12px
+      color: #828e98
+      line-height: 18px
 
 
 .ui.dropdown-triangle

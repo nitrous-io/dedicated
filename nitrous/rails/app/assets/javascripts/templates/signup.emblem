@@ -44,6 +44,15 @@
     .card-footer
       .right
         input#signup-submit.ui.btn.primary.raised.full type='submit' disabled={view.disableSubmitButton} value='Create New Account'
+      
+    .footer-note
+      p
+        ' By clicking the Create New Account button, you agree to the Nitrous
+        a href="http://docs.nitrous.io/v1.0/docs/terms-of-use" target="_blank" Terms of Service
+        '  and
+        a href="http://docs.nitrous.io/v1.0/docs/privacy-policy" target="_blank" Privacy Policy
+        | .
+
 
 p.note
   | Already have an account?&nbsp;

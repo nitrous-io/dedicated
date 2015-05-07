@@ -1,0 +1,28 @@
+- @title = 'Education · Nitrous'
+- @html_class = 'light wufoo'
+- @body_id = 'education'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      .hero-copy
+        h2
+          | Nitrous and Education
+        h3
+          | Register your course
+
+
+  article.featurette.centered
+    .container
+      
+      .wufoo-container
+        #wufoo-me17cml03of2hp
+          javascript:
+            var me17cml03of2hp;(function(d, t) {var s = d.createElement(t), options = {'userName':'actionio','formHash':'me17cml03of2hp','autoResize':true,'height':'4056','async':true,'host':'wufoo.com','header':'show','ssl':true};s.src = ('https:' == d.location.protocol ? 'https://' : 'http://') + 'www.wufoo.com/scripts/embed/form.js';s.onload = s.onreadystatechange = function() {var rs = this.readyState; if (rs) if (rs != 'complete') if (rs != 'loaded') return;try { me17cml03of2hp = new WufooForm();me17cml03of2hp.initialize(options);me17cml03of2hp.display(); } catch (e) {}};var scr = d.getElementsByTagName(t)[0], par = scr.parentNode; par.insertBefore(s, scr);})(document, 'script');
+
+
+= render partial: 'layouts/footer', locals: { active: '' }
+
+

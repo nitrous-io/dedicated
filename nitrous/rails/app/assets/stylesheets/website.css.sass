@@ -194,7 +194,7 @@ a
   opacity: 0
   transform: translate3d(0, -100%, 0)
   transition: all .25s ease-in-out
-  
+
   .btn.blue-outline
     display: inline-block
     margin: 0
@@ -953,7 +953,7 @@ article
       color: $blueLink
 
 
-.stack-resources .grid-wrapper 
+.stack-resources .grid-wrapper
   .grid-item
     text-align: left
 
@@ -972,6 +972,10 @@ article
 
   &+.centered
     padding-top: 40px
+
+  &.left-aligned
+    h3, h4, p
+      text-align: left
 
 
 h4 + .box-wrapper
@@ -1128,6 +1132,7 @@ h4 + .box-wrapper
   padding: 0 60px
   .box
     width: 400px
+
 
   &.grid
     padding: 0 210px
@@ -1719,6 +1724,21 @@ h4 + .box-wrapper
     & + p
       padding-bottom: 40px
 
+    & + .box-wrapper
+      width: 800px
+      margin: 0 auto
+      padding-top: 0
+      padding-bottom: 60px
+
+      .box
+        width: 360px
+        text-align: center
+
+        h3
+          font-family: $boldFont
+          padding-bottom: 10px
+
+
   .pricing-block
     ul
       width: 82%
@@ -1765,7 +1785,7 @@ h4 + .box-wrapper
 
       &.dollar
         top: -3px
-      
+
       &.duration
         top: -3px
 
@@ -1853,14 +1873,14 @@ h4 + .box-wrapper
         border-color: #0099ED
         *, strong
           color: #FFF
-    
+
 
     .horizontal
       width: 940px
       margin: 40px auto 0 auto
       padding: 16px 20px 16px 20px
       border-radius: 4px !important
-      
+
       .title, .details
         float: left
         line-height: 40px
@@ -1914,7 +1934,7 @@ h4 + .box-wrapper
 // --------------------------------------
 // Q&A
 .qa
-  h4 
+  h4
     font-family: $boldFont
     font-weight: 500
 
@@ -1970,7 +1990,7 @@ h4 + .box-wrapper
 
   h4, p
     color: #a5b3be
-  
+
   .pull-left, .pull-right
     position: relative
 
@@ -2021,7 +2041,7 @@ h4 + .box-wrapper
       h4
         font-family: $boldFont
         font-weight: 300
-  
+
   .download-btns
     padding: 24px 0 0 0
 
@@ -2135,7 +2155,7 @@ h4 + .box-wrapper
     .address-1
       font-size: 22px
       padding-bottom: 8px
-    
+
     .address-2
       font-size: 18px
       font-family: $boldFont
@@ -2697,9 +2717,18 @@ input[type="range"]
     box-shadow: 0 15px 30px rgba(0,0,0,.1)
 
 
+// Wufoo
+.wufoo .page
+  background: #F4F4F4
+ 
+.wufoo article .big
+  padding-top: 20px
+  padding-bottom: 60px
 
-// --------------------------------------
-// Themes
+.wufoo .wufoo-container
+  width: 90%
+  margin: 0 auto
+  
 
 // Dark theme
 .dark
@@ -2854,10 +2883,10 @@ input[type="range"]
 
   article .article.venturebeat a
     background-image: image_url('home/press-venturebeat.png')
-  
 
-  article .press-release 
-    h3 
+
+  article .press-release
+    h3
       font-family: $boldFont
       font-weight: 400
       padding-bottom: 4px
@@ -2898,7 +2927,7 @@ input[type="range"]
 
 
   .qa
-    h4 
+    h4
       color: rgba(0,0,0,.6)
 
     p

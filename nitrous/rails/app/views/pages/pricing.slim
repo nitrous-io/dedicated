@@ -96,7 +96,7 @@
                 i.fa.fa-check
                 | Dedicated Resources
               a.btn.blue.ripple href="/app/#/signup/" Sign up
-      
+
 
           ul
             li.selectable.ripple.horizontal data-slug='free' data-ripple-color='#0099ED'
@@ -117,11 +117,23 @@
 
 
 
-      p.centered.solo
-        | Educational pricing and promotions are available. Please 
-        a href="mailto:hello@nitrous.io" email us
-        |  with your details.
-        
+      .box-wrapper.two
+        .box
+          h3 Teams
+          p
+            a href="/teams-pricing" target="_blank" Register your interest
+            '  to obtain custom pricing plans for your team. Learn more about
+            a href="/teams" target="_blank" Nitrous for Teams
+            | .
+
+        .box
+          h3 Educators &amp; Students
+          p
+            a href="/education-pricing" target="_blank" Register your course
+            '  to obtain group pricing plans for your students. Learn more about
+            a href="/education" target="_blank" Nitrous for Education
+            | .
+
 
   - if false
     article.pricing.attached-bottom
@@ -306,4 +318,3 @@
   = render 'layouts/companies'
 
 = render partial: 'layouts/footer', locals: { active: 'pricing' }
-
