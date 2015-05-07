@@ -17,12 +17,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -203,51 +201,12 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
-	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
-	if h.ProviderIdentifier.String != "" {
-		urlArgs := host.URLArgsFromHost(h)
-		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
-		if err != nil {
-			if e, ok := err.(net.Error); ok && e.Timeout() {
-				env.Logger.Errorf("hostbuilder timeout deleting host: %v", e)
-			}
-			return err
-		}
-	}
-
-	origState := h.State
-	tx, err := env.DB.Beginx()
+	err := hostcontrol.Terminate(env.DB, env.Logger, h)
 	if err != nil {
-		return err
-	}
-	if err := h.Delete(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	err = hosttransition.Record(tx, h, origState, *h.TerminatedAt)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := container.DeleteAllByHostID(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err = keypairs.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := cert.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 
 	trackWorkspaces(env, h.UserID)
-
 	PublishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)
 	return nil

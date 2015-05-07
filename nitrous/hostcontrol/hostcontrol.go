@@ -5,8 +5,11 @@ import (
 	"net/http"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -101,5 +104,55 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	if ev != nil {
 		ev(EventHostStopped)
 	}
+	return nil
+}
+
+func Terminate(db *db.Database, l *logger.Logger, h *host.Host) error {
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
+
+	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
+	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
+	if h.ProviderIdentifier.String != "" {
+		urlArgs := host.URLArgsFromHost(h)
+		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), headers, urlArgs)
+		if err != nil {
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				l.Errorf("hostbuilder timeout deleting host: %v", e)
+			}
+			return err
+		}
+	}
+
+	origState := h.State
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Delete(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = hosttransition.Record(tx, h, origState, *h.TerminatedAt)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := container.DeleteAllByHostID(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err = keypairs.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := cert.Delete(tx, h.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
 	return nil
 }
