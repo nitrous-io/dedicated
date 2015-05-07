@@ -44,13 +44,12 @@
     .card-footer
       .right
         input#signup-submit.ui.btn.primary.raised.full type='submit' disabled={view.disableSubmitButton} value='Create New Account'
-
-      p.note
-        ' By clicking on the sign up button, you agree to the Nitrous
-        a href="http://docs.nitrous.io/v1.0/docs/terms-of-use" target="_blank"
-          ' Terms of Service
-        ' and
-        '
+      
+    .footer-note
+      p
+        ' By clicking the sign up button, you agree to the Nitrous
+        a href="http://docs.nitrous.io/v1.0/docs/terms-of-use" target="_blank" Terms of Service
+        '  and
         a href="http://docs.nitrous.io/v1.0/docs/privacy-policy" target="_blank" Privacy Policy
         | .
 
