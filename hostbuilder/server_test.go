@@ -159,7 +159,7 @@ var _ = Describe("hostbuilder", func() {
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
 			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
-			qp.Close()
+			qp.Delete()
 		})
 	})
 

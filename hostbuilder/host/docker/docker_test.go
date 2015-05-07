@@ -124,7 +124,9 @@ var _ = Describe("host/docker", func() {
 		})
 
 		AfterEach(func() {
-			qp.Close()
+			if qp != nil {
+				qp.Delete()
+			}
 		})
 
 		It("returns host info", func() {

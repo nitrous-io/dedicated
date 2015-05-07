@@ -27,7 +27,9 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	AfterEach(func() {
-		qp.Close()
+		if qp != nil {
+			qp.Delete()
+		}
 		redisClient.Close()
 	})
 
@@ -37,10 +39,6 @@ var _ = Describe("pkg/queue", func() {
 				qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 				err := qp.ResetInput()
 				Expect(err).To(BeNil())
-			})
-
-			AfterEach(func() {
-				qp.Close()
 			})
 
 			It("publishes a message to queue", func() {
@@ -66,7 +64,9 @@ var _ = Describe("pkg/queue", func() {
 		})
 
 		AfterEach(func() {
-			qp.Close()
+			if qp != nil {
+				qp.Delete()
+			}
 		})
 
 		Describe("Consume", func() {

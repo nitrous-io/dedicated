@@ -80,7 +80,9 @@ var _ = Describe("HostQueueHandler", func() {
 	})
 
 	AfterEach(func() {
-		qp.Close()
+		if qp != nil {
+			qp.Delete()
+		}
 	})
 
 	Context("an image is created on creating host", func() {

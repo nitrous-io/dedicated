@@ -12,8 +12,6 @@ type QueuePublisher struct {
 	*redismq.Queue
 }
 
-var queuePublishersByName = map[string]*QueuePublisher{}
-
 type QueueConsumer struct {
 	*redismq.Consumer
 }
@@ -63,20 +61,7 @@ func init() {
 }
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) *QueuePublisher {
-	qp, ok := queuePublishersByName[name]
-	if !ok {
-		qp = &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
-		queuePublishersByName[name] = qp
-	}
-	return qp
-}
-
-// This is only for testing to clean up all database from queue.
-// It should not be use in production
-func (qp *QueuePublisher) Close() {
-	name := qp.Name
-	qp.Delete()
-	delete(queuePublishersByName, name)
+	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
 }
 
 func (qp *QueuePublisher) Publish(action, event, resourceName, resourceID string, payload []byte) error {
