@@ -114,26 +114,6 @@ var _ = Describe("models/hostscan", func() {
 				Expect(scannedHost.ID).To(Equal(h.ID))
 			})
 
-			It("should have zero usage and grace period scan state", func() {
-				scanTime := *h.CreatedAt
-				scannedHosts, err := FindScannableHostsWithUsage(db, scanTime)
-				Expect(err).To(BeNil())
-
-				Expect(len(scannedHosts)).To(Equal(1))
-
-				scannedHost := scannedHosts[0]
-				Expect(scannedHost.ID).To(Equal(h.ID))
-				Expect(len(scannedHost.RecentUsage)).To(Equal(0))
-
-				hostScan, err := ScanHost(scannedHost, scanTime)
-				Expect(err).To(BeNil())
-
-				Expect(hostScan.State).To(Equal(StateGracePeriod))
-
-				// next scan should be 3 weeks after host created
-				Expect(hostScan.NextScan.Time).To(BeTemporally("==", scanTime.Add(threeWeeks), time.Hour))
-			})
-
 			It("should be in one week notice state after 3 weeks", func() {
 				hostScan := doScanHost(h.CreatedAt.Add(threeWeeks))
 				Expect(hostScan.State).To(Equal(StateOneWeekNotice))
@@ -178,23 +158,7 @@ var _ = Describe("models/hostscan", func() {
 				insertHostTransitions(runningTimes)
 			})
 
-			It("scanned host should include usage", func() {
-				scannedHosts, err := FindScannableHostsWithUsage(db, h.CreatedAt.Add(oneWeek))
-				Expect(err).To(BeNil())
-
-				Expect(len(scannedHosts)).To(Equal(1))
-
-				scannedHost := scannedHosts[0]
-				Expect(scannedHost.ID).To(Equal(h.ID))
-				Expect(len(scannedHost.RecentUsage)).To(Equal(4))
-			})
-
 			It("should pass with active state within 4 weeks period", func() {
-				// First four days not yet exceed minimum usage
-				expectScanStateAtTimeEquals(oneDay, StateGracePeriod)
-				expectScanStateAtTimeEquals(3*oneDay, StateGracePeriod)
-
-				// Scanning any time later should get active result
 				expectScanStateAtTimeEquals(5*oneDay, StateActive)
 				expectScanStateAtTimeEquals(oneWeek, StateActive)
 				expectScanStateAtTimeEquals(2*oneWeek, StateActive)

@@ -67,6 +67,28 @@ func joinInts(ids []int64) string {
 	return strings.Join(sids, ", ")
 }
 
+func FindHostUsageCount(d *db.Database, hostID int64, start, end time.Time) (int64, error) {
+	var usageCount int64
+
+	err := d.QueryRow(`SELECT COUNT(*)
+		FROM host_transitions
+		WHERE host_id=$1
+		AND state = 'running'
+		AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($2, $3)
+		GROUP BY host_id;
+	`, hostID, start, end).Scan(&usageCount)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		} else {
+			return 0, err
+		}
+	}
+
+	return usageCount, nil
+}
+
 func UsageListForHosts(d db.QueryReceiver, hostIDs []int64, start, end time.Time) ([]*HostUsage, error) {
 	// Skip query and return empty list if there is no host IDs provided
 	if len(hostIDs) == 0 {
