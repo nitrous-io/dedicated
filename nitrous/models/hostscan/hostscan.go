@@ -1,9 +1,7 @@
 package hostscan
 
 import (
-	"database/sql"
 	"errors"
-	"github.com/lib/pq"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -47,35 +45,12 @@ var (
 	ErrNotYetNextScan   = errors.New("Host is still not need to be scanned")
 )
 
-type HostScan struct {
-	ID             int64         `db:"id"`
-	HostID         int64         `db:"host_id"`
-	State          string        `db:"state"`
-	AnnouncementID sql.NullInt64 `db:"announcement_id"`
-	PeriodStart    time.Time     `db:"period_start"`
-	PeriodEnd      time.Time     `db:"period_end"`
-	RecordedAt     time.Time     `db:"recorded_at"`
-	NextScan       pq.NullTime   `db:"next_scan"`
-	ScanCompleted  bool          `db:"scan_completed"`
-}
-
-type ScannedHost struct {
-	*host.Host
-	LastScanState sql.NullString `db:"last_scan_state"`
-}
-
-func (host *HostScan) Insert(d *db.Database) error {
-	nstmt, err := d.PrepareNamed(`INSERT INTO host_scans
-		(host_id, state, announcement_id, period_start, period_end, recorded_at, next_scan, scan_completed)
-		VALUES
-		(:host_id, :state, :announcement_id, :period_start, :period_end, :recorded_at, :next_scan, :scan_completed)
-		RETURNING *;
-	`)
-	if err != nil {
-		return err
-	}
-
-	return nstmt.QueryRowx(host).StructScan(host)
+type ScanResult struct {
+	Host        *host.Host
+	State       string
+	PeriodStart time.Time
+	PeriodEnd   time.Time
+	NextScan    time.Time
 }
 
 func currentPeriod(begin, now time.Time, period time.Duration) (time.Time, time.Time, time.Duration) {
@@ -87,25 +62,12 @@ func currentPeriod(begin, now time.Time, period time.Duration) (time.Time, time.
 	return start, end, timeSincePeriod
 }
 
-func ScanHost(d *db.Database, host *ScannedHost, now time.Time) (*HostScan, error) {
-	hostID := host.ID
-	hostCreated := *host.CreatedAt
-
+func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, error) {
 	if host.HourlyPrice > 0 {
 		return nil, ErrHostIsNotFree
 	}
 
-	start, end, timePassed := currentPeriod(hostCreated, now, fourWeeks)
-
-	if host.LastScanState.Valid && host.LastScanState.String == StateTerminating {
-		return &HostScan{
-			HostID:        hostID,
-			State:         StateTerminated,
-			PeriodStart:   start,
-			PeriodEnd:     end,
-			ScanCompleted: true,
-		}, nil
-	}
+	start, end, timePassed := currentPeriod(*host.CreatedAt, now, fourWeeks)
 
 	usageCount, err := hosttransition.FindHostUsageCount(d, host.ID, start, end)
 	if err != nil {
@@ -113,43 +75,42 @@ func ScanHost(d *db.Database, host *ScannedHost, now time.Time) (*HostScan, erro
 	}
 
 	if usageCount >= MinUsage {
-		return &HostScan{
-			HostID:      hostID,
+		return &ScanResult{
+			Host:        host,
 			State:       StateActive,
 			PeriodStart: start,
 			PeriodEnd:   end,
-
-			NextScan: pq.NullTime{end.Add(threeWeeks), true},
+			NextScan:    end.Add(threeWeeks),
 		}, nil
 	}
 
 	if timePassed < WarningPeriod {
-		return &HostScan{
-			HostID:      hostID,
+		return &ScanResult{
+			Host:        host,
 			State:       StateGracePeriod,
 			PeriodStart: start,
 			PeriodEnd:   end,
-			NextScan:    pq.NullTime{start.Add(threeWeeks), true},
+			NextScan:    start.Add(threeWeeks),
 		}, nil
 	}
 
 	if timePassed >= WarningPeriod && timePassed < TerminateNoticePeriod {
-		return &HostScan{
-			HostID:      hostID,
+		return &ScanResult{
+			Host:        host,
 			State:       StateOneWeekNotice,
 			PeriodStart: start,
 			PeriodEnd:   end,
-			NextScan:    pq.NullTime{start.Add(TerminateNoticePeriod), true},
+			NextScan:    start.Add(TerminateNoticePeriod),
 		}, nil
 	}
 
 	if timePassed >= TerminateNoticePeriod {
-		return &HostScan{
-			HostID:      hostID,
+		return &ScanResult{
+			Host:        host,
 			State:       StateTerminating,
 			PeriodStart: start,
 			PeriodEnd:   end,
-			NextScan:    pq.NullTime{end, true},
+			NextScan:    end,
 		}, nil
 	}
 
@@ -157,25 +118,17 @@ func ScanHost(d *db.Database, host *ScannedHost, now time.Time) (*HostScan, erro
 	return nil, ErrUnknownScanState
 }
 
-func FindScannableHosts(d *db.Database, now time.Time) ([]*ScannedHost, error) {
-	hosts := []*ScannedHost{}
+func FindScannableHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
+	hosts := []*host.Host{}
 	err := d.Select(&hosts, `
-		SELECT
-			hosts.*, last_scan_state
-		FROM hosts
-		LEFT JOIN (
-		  SELECT DISTINCT ON(host_id)
-				host_id, next_scan, state AS last_scan_state, scan_completed
-		  FROM host_scans
-		  ORDER BY host_id, id DESC
-		) AS last_scan
-		  ON (last_scan.host_id = hosts.id)
+		SELECT * FROM hosts
 		WHERE
 		  hourly_price = 0
 			AND terminated_at IS NULL
 			AND preprovisioned = FALSE
 			AND state != 'orphan'
-			AND (scan_completed IS NULL OR scan_completed = FALSE)
+			AND scan_exempted = FALSE
+			AND terminating_at IS NULL
 			AND (next_scan IS NULL OR next_scan <= $1);
 		`, now)
 
@@ -185,13 +138,13 @@ func FindScannableHosts(d *db.Database, now time.Time) ([]*ScannedHost, error) {
 	return hosts, nil
 }
 
-func ScanHosts(d *db.Database, now time.Time) ([]*HostScan, error) {
+func ScanHosts(d *db.Database, now time.Time) ([]*ScanResult, error) {
 	scannedHosts, err := FindScannableHosts(d, now)
 	if err != nil {
 		return nil, err
 	}
 
-	hostScans := make([]*HostScan, len(scannedHosts))
+	hostScans := make([]*ScanResult, len(scannedHosts))
 	for i, scannedHost := range scannedHosts {
 		hostScans[i], err = ScanHost(d, scannedHost, now)
 		if err != nil {

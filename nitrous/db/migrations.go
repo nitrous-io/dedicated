@@ -1166,17 +1166,9 @@ func init() {
 		{
 			Version: "1000",
 			Up: `
-				CREATE TABLE host_scans (
-					id bigserial PRIMARY KEY NOT NULL,
-					host_id bigint REFERENCES hosts(id) NOT NULL,
-					state character varying(255),
-					announcement_id bigint REFERENCES announcements(id) NULL,
-					period_start timestamp without time zone NOT NULL,
-					period_end timestamp without time zone NOT NULL,
-					recorded_at timestamp without time zone NOT NULL,
-					next_scan timestamp without time zone NULL,
-					scan_completed boolean DEFAULT false NOT NULL
-				);
+				ALTER TABLE hosts ADD COLUMN next_scan timestamp without time zone DEFAULT NULL;
+				ALTER TABLE hosts ADD COLUMN terminating_at timestamp without time zone DEFAULT NULL;
+				ALTER TABLE hosts ADD COLUMN scan_exempted boolean DEFAULT false NOT NULL;
 			`,
 		},
 	}

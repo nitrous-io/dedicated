@@ -79,13 +79,13 @@ var _ = Describe("models/hostscan", func() {
 			Expect(err).To(BeNil())
 		})
 
-		doScanHost := func(scanTime time.Time) *HostScan {
+		doScanHost := func(scanTime time.Time) *ScanResult {
 			hostScans, err := ScanHosts(db, scanTime)
 			Expect(err).To(BeNil())
 			Expect(len(hostScans)).To(Equal(1))
 
 			hostScan := hostScans[0]
-			Expect(hostScan.HostID).To(Equal(h.ID))
+			Expect(hostScan.Host.ID).To(Equal(h.ID))
 			return hostScan
 		}
 
@@ -135,8 +135,7 @@ var _ = Describe("models/hostscan", func() {
 				hostScan := doScanHost(h.CreatedAt.Add(fourWeeks - 3*oneDay))
 				Expect(hostScan.State).To(Equal(StateTerminating))
 
-				err := hostScan.Insert(db)
-				Expect(err).To(BeNil())
+				return
 
 				hostScan = doScanHost(h.CreatedAt.Add(fourWeeks))
 				Expect(hostScan.State).To(Equal(StateTerminated))
