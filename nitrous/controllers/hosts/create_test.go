@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -53,6 +54,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		params          *url.Values
 
 		mockClient *freighterclient.MockClient
+		mockDNS    *dns.MockDNS
 
 		u  *user.User
 		t  *token.Token
@@ -68,6 +70,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		mockClient = &freighterclient.MockClient{}
 		test.StubDefaultFreighterFn(mockClient)
+
+		mockDNS = &dns.MockDNS{}
+		dns.SetActiveDNS(mockDNS)
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -289,6 +294,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		h := hosts[0]
 		Expect(config["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
 		Expect(config["apt_password"]).To(Equal(h.Secret))
+
+		Expect(mockDNS.OnHostCreateCalls).To(Equal(1))
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -678,6 +685,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			params.Set("template_name", "usw2-huge-disabled")
 			doRequest(params)
+
+			Expect(mockDNS.OnHostCreateCalls).To(Equal(1))
 
 			hosts, _ := host.FindAllByUser(db, u.ID)
 			Expect(hosts).To(HaveLen(1))

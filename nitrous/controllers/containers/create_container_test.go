@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -37,6 +38,7 @@ var _ = Describe("CreateContainer", func() {
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
+		mockDNS    *dns.MockDNS
 
 		u      *user.User
 		t      *token.Token
@@ -63,6 +65,9 @@ var _ = Describe("CreateContainer", func() {
 
 		mockClient = &freighterclient.MockClient{}
 		test.StubDefaultFreighterFn(mockClient)
+
+		mockDNS = &dns.MockDNS{}
+		dns.SetActiveDNS(mockDNS)
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -185,6 +190,7 @@ var _ = Describe("CreateContainer", func() {
 	It("creates a new container record", func() {
 		_, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
+		Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
@@ -200,6 +206,7 @@ var _ = Describe("CreateContainer", func() {
 	It("responds with the created container", func() {
 		res, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
+		Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 		cntrs, err := container.FindAllByHostID(db, h.ID)
 		Expect(err).To(BeNil())
@@ -215,6 +222,7 @@ var _ = Describe("CreateContainer", func() {
 
 		_, err = containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
+		Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 		u, err := user.FindByID(db, env.User.ID)
 		Expect(u.FirstTime).To(BeFalse())
@@ -226,6 +234,7 @@ var _ = Describe("CreateContainer", func() {
 
 		_, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
+		Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 		var evt *controllers.Event
 		for msg := range ch { // Ignore all events except container created.
@@ -271,6 +280,7 @@ var _ = Describe("CreateContainer", func() {
 		params.Set("template", "my-template")
 		res, err := containers.CreateContainer(h, params, env)
 		Expect(err).To(BeNil())
+		Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 		Expect(mockClient.CreateCalled).To(Equal(1))
 		Expect(mockClient.ReceivedImage).To(Equal("rails:4.2"))
@@ -296,6 +306,7 @@ var _ = Describe("CreateContainer", func() {
 		It("does not create a new container record", func() {
 			_, err := containers.CreateContainer(h, params, env)
 			Expect(err).ToNot(BeNil())
+			Expect(mockDNS.OnContainerCreateCalls).To(Equal(0))
 
 			cntrs, err := container.FindAllByHostID(db, h.ID)
 			Expect(err).To(BeNil())
@@ -306,6 +317,7 @@ var _ = Describe("CreateContainer", func() {
 			res, err := containers.CreateContainer(h, params, env)
 			Expect(res).To(BeNil())
 			Expect(err).To(MatchError(mockClient.CreateError))
+			Expect(mockDNS.OnContainerCreateCalls).To(Equal(0))
 		})
 
 		Context("when the error is a StartFailedError", func() {
@@ -316,6 +328,7 @@ var _ = Describe("CreateContainer", func() {
 			It("returns with the container and the error", func() {
 				res, err := containers.CreateContainer(h, params, env)
 				Expect(err).To(BeNil())
+				Expect(mockDNS.OnContainerCreateCalls).To(Equal(1))
 
 				Expect(res.ErrorMessage).To(Equal("start_failed"))
 				Expect(res.ErrorDescription).To(ContainSubstring("start failed: could not bind port 22"))

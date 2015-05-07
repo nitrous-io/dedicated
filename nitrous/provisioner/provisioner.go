@@ -665,7 +665,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
-	if err = dns.OnHostCreation(p.logger, h); err != nil {
+	if err = dns.OnHostCreate(p.logger, h); err != nil {
 		p.logger.Debugf("provisionTracer: dns.OnHostCreation() failed with %+v", err)
 		return nil, err
 	}

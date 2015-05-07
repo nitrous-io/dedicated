@@ -23,6 +23,7 @@ var (
 		"ap-southeast-1": "amazon.nitrousproxy-sgp.com",
 	}
 	errInvalidIPAddress = errors.New("invalid IPAddress")
+	activeDNS           DNS
 )
 
 func init() {
@@ -33,6 +34,42 @@ func init() {
 		log.Printf("AWS_SECRET env variable missing")
 	}
 	nroute53.SetSecrets(envvars.AwsAccess, envvars.AwsSecret)
+	SetActiveDNS(&RealDNS{})
+}
+
+type DNS interface {
+	OnHostCreate(logger *logger.Logger, h *host.Host) error
+	OnHostStart(logger *logger.Logger, h *host.Host) error
+	OnHostDestroy(logger *logger.Logger, h *host.Host) error
+	OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error
+	OnContainerDestroy(logger *logger.Logger, cn *container.Container) error
+}
+
+type RealDNS struct {
+}
+
+func (d *RealDNS) OnHostCreate(logger *logger.Logger, h *host.Host) error {
+	return onHostCreate(logger, h)
+}
+
+func (d *RealDNS) OnHostStart(logger *logger.Logger, h *host.Host) error {
+	return onHostStart(logger, h)
+}
+
+func (d *RealDNS) OnHostDestroy(logger *logger.Logger, h *host.Host) error {
+	return onHostDestroy(logger, h)
+}
+
+func (d *RealDNS) OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
+	return onContainerCreate(logger, cn, h)
+}
+
+func (d *RealDNS) OnContainerDestroy(logger *logger.Logger, cn *container.Container) error {
+	return onContainerDestroy(logger, cn)
+}
+
+func SetActiveDNS(active DNS) {
+	activeDNS = active
 }
 
 // SetHostProxyCNAME adds or updates CNAME record for the host's proxy.
@@ -116,10 +153,10 @@ func SetHostAIfNonStatic(logger *logger.Logger, h *host.Host) error {
 	return nil
 }
 
-// OnHostCreation performs dns updates needed after host has been created:
+// onHostCreate performs dns updates needed after host has been created:
 //  - set CNAME for proxy
 //  - for hosts with static ips, add CNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com
-func OnHostCreation(lg *logger.Logger, h *host.Host) error {
+func onHostCreate(lg *logger.Logger, h *host.Host) error {
 	err := SetHostProxyCNAME(lg, h)
 	if err != nil {
 		return err
@@ -127,15 +164,15 @@ func OnHostCreation(lg *logger.Logger, h *host.Host) error {
 	return SetHostCNAMEIfStatic(lg, h)
 }
 
-// OnHostStart performs dns updates needed when host is started:
+// onHostStart performs dns updates needed when host is started:
 // - for non-static-ip hosts, update the A record for <hostslug>.HOST_HOSTNAME
-func OnHostStart(logger *logger.Logger, h *host.Host) error {
+func onHostStart(logger *logger.Logger, h *host.Host) error {
 	return SetHostAIfNonStatic(logger, h)
 }
 
-// OnHostDestroy performs dns updates needed after host has been destroyed:
+// onHostDestroy performs dns updates needed after host has been destroyed:
 // - remove CNAME and A records
-func OnHostDestroy(logger *logger.Logger, h *host.Host) error {
+func onHostDestroy(logger *logger.Logger, h *host.Host) error {
 	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
 	name := h.Slug + "." + hostHostName
 	err := nroute53.DeleteExistingDNSRecords(name)
@@ -153,9 +190,9 @@ func OnHostDestroy(logger *logger.Logger, h *host.Host) error {
 	return nil
 }
 
-// OnContainerCreate performs dns updates needed when container is created
+// onContainerCreate performs dns updates needed when container is created
 // - add a CNAME record for <containerslug>.PREVIEW_HOSTNAME
-func OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
+func onContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
 	from := cn.PreviewHostname()
 	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
 	to := h.Slug + "." + hostHostName
@@ -168,8 +205,28 @@ func OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.H
 	return nroute53.SetCNAME(from, to)
 }
 
-// OnContainerDestroy performs dns updates needed when container is destroyed
+// onContainerDestroy performs dns updates needed when container is destroyed
 // - remove CNAME record
-func OnContainerDestroy(logger *logger.Logger, cn *container.Container) error {
+func onContainerDestroy(logger *logger.Logger, cn *container.Container) error {
 	return nroute53.DeleteExistingDNSRecords(cn.PreviewHostname())
+}
+
+func OnHostCreate(logger *logger.Logger, h *host.Host) error {
+	return activeDNS.OnHostCreate(logger, h)
+}
+
+func OnHostStart(logger *logger.Logger, h *host.Host) error {
+	return activeDNS.OnHostStart(logger, h)
+}
+
+func OnHostDestroy(logger *logger.Logger, h *host.Host) error {
+	return activeDNS.OnHostDestroy(logger, h)
+}
+
+func OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
+	return activeDNS.OnContainerCreate(logger, cn, h)
+}
+
+func OnContainerDestroy(logger *logger.Logger, cn *container.Container) error {
+	return activeDNS.OnContainerDestroy(logger, cn)
 }

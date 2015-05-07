@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
@@ -52,6 +53,7 @@ var _ = Describe("controllers/containers", func() {
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
+		mockDNS    *dns.MockDNS
 
 		u  *user.User
 		t  *token.Token
@@ -63,6 +65,8 @@ var _ = Describe("controllers/containers", func() {
 
 		mockClient = &freighterclient.MockClient{}
 		StubDefaultFreighterFn(mockClient)
+		mockDNS = &dns.MockDNS{}
+		dns.SetActiveDNS(mockDNS)
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -2712,6 +2716,7 @@ var _ = Describe("controllers/containers", func() {
 			doRequest()
 			Expect(mockClient.TerminateCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
+			Expect(mockDNS.OnContainerDestroyCalls).To(Equal(1))
 		})
 
 		It("should block if the user has billing issues", func() {
@@ -2724,6 +2729,7 @@ var _ = Describe("controllers/containers", func() {
 			doRequest()
 
 			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(mockDNS.OnContainerDestroyCalls).To(Equal(1))
 
 			var j struct {
 				Container *serializers.Container `json:"container"`
@@ -2735,6 +2741,7 @@ var _ = Describe("controllers/containers", func() {
 
 		It("deletes the container from the database", func() {
 			doRequest()
+			Expect(mockDNS.OnContainerDestroyCalls).To(Equal(1))
 
 			c, err := container.Find(db, hs.U, slug)
 			Expect(err).To(MatchError(sql.ErrNoRows))
@@ -2746,6 +2753,7 @@ var _ = Describe("controllers/containers", func() {
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
 			doRequest()
+			Expect(mockDNS.OnContainerDestroyCalls).To(Equal(1))
 
 			msgs := []pubsub.Message{}
 			finished := make(chan struct{})

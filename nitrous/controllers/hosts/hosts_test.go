@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -71,6 +72,8 @@ var _ = Describe("controllers/hosts", func() {
 		res             *httptest.ResponseRecorder
 		authTokenInputs test.AuthTokenInputs
 
+		mockDNS *dns.MockDNS
+
 		u  *user.User
 		t  *token.Token
 		ft *test.FakeTracker
@@ -87,6 +90,9 @@ var _ = Describe("controllers/hosts", func() {
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
+
+		mockDNS = &dns.MockDNS{}
+		dns.SetActiveDNS(mockDNS)
 
 		u = &user.User{
 			Username: "foo",
@@ -942,6 +948,8 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, t.Token)
 
+			Expect(mockDNS.OnHostDestroyCalls).To(Equal(1))
+
 			payload := &struct {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
@@ -968,6 +976,8 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, t.Token)
 				_, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(MatchError(sql.ErrNoRows))
+
+				Expect(mockDNS.OnHostDestroyCalls).To(Equal(1))
 
 				// and tracks on mixpanel
 				Expect(ft.PropsCalled).To(HaveLen(1))
@@ -1238,6 +1248,8 @@ var _ = Describe("controllers/hosts", func() {
 			hosts.HostbuilderClient = hb
 
 			doRequest(hs.H.Slug)
+
+			Expect(mockDNS.OnHostStartCalls).To(Equal(1))
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
