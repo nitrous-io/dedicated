@@ -612,7 +612,7 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			err = u.UpdatePhone(db, "62353535", "65")
-			Expect(err).To(Equal(user.ErrPhoneAlreadyAuthed))
+			Expect(err).To(Equal(sql.ErrNoRows))
 
 			u2, err := user.FindByID(db, u.ID)
 			Expect(err).To(BeNil())

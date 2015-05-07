@@ -221,7 +221,7 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 				return validationErr
 			}
 		}
-		if err == user.ErrPhoneAlreadyAuthed {
+		if err == sql.ErrNoRows {
 			return phoneAlreadyAuthed
 		}
 		return err
