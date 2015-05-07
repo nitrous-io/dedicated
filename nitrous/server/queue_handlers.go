@@ -72,6 +72,23 @@ func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Messa
 					}),
 					u.Topic(),
 				)
+			} else if eventName == controllers.EventName(event.HostCreateFailed) {
+				h, err := host.Find(db, u, queueInfo.Slug)
+				if err != nil {
+					return err
+				}
+				h.State = host.StateOrphan
+				if err := h.Update(s.db); err != nil {
+					s.logger.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", m.UUID, err, h)
+					return err
+				}
+				s.Events.Publish(
+					controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+						"host":  serializers.SerializeHost(h),
+						"error": queueInfo.Message,
+					}),
+					u.Topic(),
+				)
 			}
 		}
 		return nil

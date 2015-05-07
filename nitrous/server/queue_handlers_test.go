@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -105,7 +106,7 @@ var _ = Describe("HostQueueHandler", func() {
 			}
 		})
 
-		It("publishes events", func() {
+		It("publishes the event", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -166,6 +167,39 @@ var _ = Describe("HostQueueHandler", func() {
 			}
 		})
 
+		It("publishes the event", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			err := handler(qc, message)
+			Expect(err).To(BeNil())
+
+			updatedHost, err := host.Find(db, u, h.Slug)
+			Expect(err).To(BeNil())
+
+			evtCh := make(chan *controllers.Event)
+			go func() {
+				var evt *controllers.Event
+				for msg := range ch { // Ignore events we don't care about.
+					evt = msg.(*controllers.Event)
+					if evt.Name == controllers.EventName(event.HostCreated) {
+						evtCh <- evt
+						break
+					}
+				}
+			}()
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timeout while getting image created event")
+			case evt := <-evtCh:
+				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreated)))
+				evtData, ok := evt.Data.(map[string]*serializers.Host)
+				Expect(ok).To(BeTrue())
+				Expect(evtData["host"]).To(Equal(serializers.SerializeHost(updatedHost)))
+			}
+		})
+
 		It("updates the host", func() {
 			err := handler(qc, message)
 			Expect(err).To(BeNil())
@@ -204,6 +238,75 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
 			Expect(updatedHost.State).To(Equal(host.StateRunning))
 			Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
+		})
+	})
+
+	Context("failed to create a host", func() {
+		var message *queue.Message
+
+		BeforeEach(func() {
+			queueInfo = &hh.QueueInfo{
+				ID:      h.ID,
+				Slug:    h.Slug,
+				UserID:  u.ID,
+				Message: "Failed to create a host",
+				Host: &hh.Info{
+					Provider:       "docker",
+					ID:             "host-1234",
+					Region:         "somewhere",
+					Name:           "hostname-1234",
+					IPAddress:      "1.2.3.4",
+					FreighterdPort: 62345,
+					State:          state.Running,
+				},
+			}
+			payload, err := json.Marshal(queueInfo)
+			Expect(err).To(BeNil())
+			message = &queue.Message{
+				UUID:         "uuid-1234",
+				Action:       "create",
+				Event:        string(event.HostCreateFailed),
+				ResourceName: "host",
+				ResourceID:   "host-1234",
+				Payload:      payload,
+			}
+		})
+
+		It("sets the host as an orphan", func() {
+			err := handler(qc, message)
+			Expect(err).To(BeNil())
+
+			updatedHost, err := host.Find(db, u, h.Slug)
+			Expect(err).To(BeNil())
+
+			Expect(updatedHost.State).To(Equal(host.StateOrphan))
+		})
+
+		It("publishes the event", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			err := handler(qc, message)
+			Expect(err).To(BeNil())
+
+			evtCh := make(chan *controllers.Event)
+			go func() {
+				var evt *controllers.Event
+				for msg := range ch { // Ignore events we don't care about.
+					evt = msg.(*controllers.Event)
+					if evt.Name == controllers.EventName(event.HostCreateFailed) {
+						evtCh <- evt
+						break
+					}
+				}
+			}()
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timeout while getting image created event")
+			case evt := <-evtCh:
+				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreateFailed)))
+			}
 		})
 	})
 })
