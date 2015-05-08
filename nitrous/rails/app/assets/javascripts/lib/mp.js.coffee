@@ -13,7 +13,7 @@ window.Mp =
     return false if !token || token == 'disable'
 
     # initialize mixpanel
-    mixpanel.init(token)
+    mixpanel.init?(token)
     @initialized = true
 
     @identify()
@@ -35,7 +35,7 @@ window.Mp =
 
     # alias should only be used when the user signed up
     # https://mixpanel.com/docs/integration-libraries/using-mixpanel-alias
-    mixpanel.identify user.get('id').toString()
+    mixpanel.identify?(user.get('id').toString())
 
     createdAt = JSON.parse(JSON.stringify(user.get('createdAt') || user.get('created_at')))
 
@@ -45,7 +45,7 @@ window.Mp =
       $created: createdAt
       user_id: user.get('id').toString()
 
-    mixpanel.people.set_once(personHash) # only $email may change, handled in backend
+    mixpanel.people?.set_once?(personHash) # only $email may change, handled in backend
 
     personHash =
       $name: name
@@ -57,7 +57,7 @@ window.Mp =
       else
         personHash.$first_name = name
 
-    mixpanel.people.set(personHash)
+    mixpanel.people?.set?(personHash)
     @identified = true
 
   track: (eventName, properties = {}) ->
@@ -76,25 +76,25 @@ window.Mp =
       p['distinct_id'] = user.get('id').toString()
 
     Object.assign(p, properties)
-    mixpanel.register_once('First Time': 'TRUE')
-    mixpanel.track(eventName, p)
-    mixpanel.register('First Time': 'FALSE')
+    mixpanel.register_once?('First Time': 'TRUE')
+    mixpanel.track?(eventName, p)
+    mixpanel.register?('First Time': 'FALSE')
 
   increment: (property, value=1) ->
     return false unless @initialized && @identified
-    mixpanel.people.increment(property, value)
+    mixpanel.people?.increment?(property, value)
 
   updateUser: (properties) ->
     return false unless @initialized && @identified
-    mixpanel.people.set(properties)
+    mixpanel.people?.set?(properties)
 
   appendUser: (properties) ->
     return false unless @initialized && @identified
-    mixpanel.people.append(properties)
+    mixpanel.people?.append?(properties)
 
   unionUser: (properties) ->
     return false unless @initialized && @identified
-    mixpanel.people.union(properties)
+    mixpanel.people?.union?(properties)
 
   timestamp: (property, value) ->
     return false unless @initialized && @identified
@@ -104,4 +104,4 @@ window.Mp =
       value = value.toISOString()
     p = {}
     p[property] = value
-    mixpanel.people.set(p)
+    mixpanel.people?.set?(p)
