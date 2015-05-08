@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -27,7 +26,7 @@ const (
 
 var HostbuilderClient = provisioner.HostbuilderClient
 
-func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
+func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc) error {
 	origState := h.State
 	h.State = host.StateStopping
 
@@ -51,8 +50,6 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 		ev(EventHostStopping)
 	}
 
-	headers := http.Header{}
-	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 	urlArgs := host.URLArgsFromHost(h)
 	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
@@ -108,10 +105,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	return nil
 }
 
-func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host) error {
-	headers := http.Header{}
-	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
-
+func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header) error {
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
