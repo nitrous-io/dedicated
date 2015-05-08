@@ -125,9 +125,13 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	defer func() {
 		if h.keypair != nil {
+			fmt.Fprintf(w, "Removing key...")
 			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
+				h.progressLog(w, "Removing key...Failed!")
 				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
+			} else {
+				h.progressLog(w, "Removing key...Done!")
 			}
 		}
 	}()
@@ -203,8 +207,13 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 
 	defer func() {
 		if h.keypair != nil {
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
+			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
 				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
+			} else {
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
 			}
 		}
 	}()

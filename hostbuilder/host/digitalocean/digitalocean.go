@@ -193,11 +193,14 @@ func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueIn
 	}
 
 	if h.sshKey != nil {
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
 		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
 			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
 	}
 
 	info := h.dropletToInfo()
