@@ -58,7 +58,7 @@ var (
 
 	RedisHost string
 	RedisPort string
-	RedisDB   string
+	RedisDB   int64
 
 	// Controls whether 'update now' option is available to users.  Defaults to
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
@@ -125,7 +125,11 @@ func init() {
 
 	RedisHost = os.Getenv("REDIS_HOST")
 	RedisPort = os.Getenv("REDIS_PORT")
-	RedisDB = os.Getenv("REDIS_DB")
+	var err error
+	RedisDB, err = strconv.ParseInt(os.Getenv("REDIS_DB"), 10, 64)
+	if err != nil {
+		log.Fatalf("REDIS_DB is not acceptable int64: %v", err)
+	}
 
 	EnableQueue = os.Getenv("ENABLE_QUEUE") == "true"
 
