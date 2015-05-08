@@ -58,19 +58,7 @@ func main() {
 	os.Exit(exitCode)
 }
 
-func newConn(slug string) (*sshutil.Conn, error) {
-	// get db conection
-	dbconn, err := db.NewDatabase(dbURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open db connection %q", err)
-	}
-
-	// get host
-	h, err := host.FindByIdentifier(dbconn, slug)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
-	}
-
+func privateKey(dbconn *db.Database, h *host.Host, slug string) (*rsa.PrivateKey, error) {
 	// get keypair
 	kp, err := keypairs.Get(dbconn, h.ID)
 	if err != nil {
@@ -93,6 +81,27 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	privKey, ok := pk.(*rsa.PrivateKey)
 	if !ok {
 		return nil, fmt.Errorf("invalid RSA key for host %v", h)
+	}
+
+	return privKey, nil
+}
+
+func newConn(slug string) (*sshutil.Conn, error) {
+	// get db conection
+	dbconn, err := db.NewDatabase(dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db connection %q", err)
+	}
+
+	// get host
+	h, err := host.FindByIdentifier(dbconn, slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
+	}
+
+	privKey, err := privateKey(dbconn, h, slug)
+	if err != nil {
+		return nil, err
 	}
 
 	// create the ssh client
