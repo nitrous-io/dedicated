@@ -24,6 +24,8 @@ import (
 	"github.com/stripe/stripe-go"
 )
 
+const HostQueueName = "v1.host"
+
 var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
@@ -134,9 +136,7 @@ func main() {
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
-	hostQueueName := "v1.host"
-	queue.AddHandler(hostQueueName, svr.HostQueueHandler())
-	go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, hostQueueName)
+	go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, HostQueueName, svr.HostQueueHandler())
 
 	pid := os.Getpid()
 	host := "0.0.0.0"

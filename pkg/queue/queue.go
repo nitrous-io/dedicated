@@ -52,11 +52,6 @@ type queueHandler func(*QueueConsumer, *Message) error
 
 var queueRoutes map[string]queueHandler
 
-// AddHandler adds the handler to queue's name
-func AddHandler(name string, h queueHandler) {
-	queueRoutes[name] = h
-}
-
 func init() {
 	queueRoutes = map[string]queueHandler{}
 }
@@ -127,11 +122,12 @@ func (qc *QueueConsumer) Start() error {
 	return nil
 }
 
-func StartConsumer(redisHost string, redisPort string, redisDB int64, queueName string) error {
+func StartConsumer(redisHost string, redisPort string, redisDB int64, queueName string, handler queueHandler) error {
 	qc, err := CreateConsumer(redisHost, redisPort, redisDB, queueName)
 	if err != nil {
 		log.Fatalf("Failed to start queue consumer: %v\n", err)
 	}
+	queueRoutes[queueName] = handler
 	return qc.Start()
 }
 
