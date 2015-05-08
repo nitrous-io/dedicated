@@ -62,10 +62,7 @@ ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrou
 RUN cd ./nitrous/rails && bundle install
 
 # install redis
-RUN apt-get update \
-  && apt-get install -y tcl8.5 \
-  && rm -rf /var/cache/apt/* && rm -rf /var/lib/apt/lists/*_* \
-  && wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
+RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
   && tar xzf /tmp/redis-3.0.0.tar.gz -C /tmp/ \
   && cd /tmp/redis-3.0.0 \
   && make \
