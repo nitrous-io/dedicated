@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
@@ -57,6 +58,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		t  *token.Token
 		ft *test.FakeTracker
 		hs *test.HostStack
+
+		// save the original hostbuilderclient value to be restored later
+		origHostbuilderClient = *hosts.HostbuilderClient
 	)
 
 	BeforeEach(func() {
@@ -93,6 +97,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		// Replace global hostbuilderclient to make tests consistent
+		// this client is shared between hosts and provisioner
+		// FIXME: find a way to not depend on global variable too much
+		hb := hostbuilderclient.NewHostbuilder(envvars.HostBuilderURL)
+		replaceTransport(hb, &test.FakeRoundTripper{Wait: 1 * time.Second})
+		hosts.HostbuilderClient = hb
 	})
 
 	AfterEach(func() {
@@ -100,6 +111,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			db.Close()
 		}
 		test.UnstubFreighterFn()
+		// restore the original hostbuilder client
+		hosts.HostbuilderClient = &origHostbuilderClient
 	})
 
 	BeforeEach(func() {

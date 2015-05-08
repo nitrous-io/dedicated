@@ -242,11 +242,15 @@ func VerifyDelinquentUserResponse(res *httptest.ResponseRecorder) {
 type FakeRoundTripper struct {
 	Message  string
 	Status   int
+	Wait     time.Duration
 	Header   map[string]string
 	Requests []*http.Request
 }
 
 func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	if rt.Wait > 0 {
+		time.Sleep(rt.Wait)
+	}
 	body := strings.NewReader(rt.Message)
 	rt.Requests = append(rt.Requests, r)
 	res := &http.Response{
