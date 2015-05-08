@@ -114,7 +114,7 @@ func (qc *QueueConsumer) Start() error {
 
 		err = queueRoutes[queueName](qc, m)
 		if err != nil {
-			log.Printf("Failed to process (%m) message in (%s) queue: %v\n", m, queueName, err)
+			log.Printf("Failed to process (%+v) message in (%s) queue: %v\n", m, queueName, err)
 			// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
 			// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
 			// If it fails to consume first message, second message will also fail since item is not created yet.
