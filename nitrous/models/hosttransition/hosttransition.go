@@ -74,8 +74,7 @@ func FindHostUsageCount(d *db.Database, hostID int64, start, end time.Time) (int
 		FROM host_transitions
 		WHERE host_id=$1
 		AND state = 'running'
-		AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($2, $3)
-		GROUP BY host_id;
+		AND (created_at, COALESCE(ended_at, $2)) OVERLAPS ($2, $3);
 	`, hostID, start, end).Scan(&usageCount)
 
 	if err != nil {
