@@ -227,7 +227,7 @@ func PublishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queue
 		ResourceName: EventResourceName,
 		Payload:      payload,
 	}
-	err = qp.Publish(msg)
+	err = qp.PublishRetry(msg, 10, 100*time.Millisecond)
 	if err != nil {
 		log.Printf("Failed to send a message(%+v): %v", msg, err)
 	}
@@ -250,7 +250,7 @@ func PublishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInf
 		ResourceName: EventResourceName,
 		Payload:      payload,
 	}
-	err = qp.Publish(msg)
+	err = qp.PublishRetry(msg, -1, 100*time.Millisecond)
 	if err != nil {
 		log.Printf("Failed to send a message(%+v): %v", msg, err)
 	}

@@ -3,7 +3,11 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net"
+	"strings"
+	"time"
 
 	"github.com/adjust/redismq"
 )
@@ -60,13 +64,41 @@ func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name strin
 	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
 }
 
+// Publish pushes the message into the queue without retrying if that fails
 func (qp *QueuePublisher) Publish(msg *Message) error {
+	return qp.PublishRetry(msg, 1, 0)
+}
+
+// PublishRetry publishes the message at most `tries` times. When it fails to publish because
+// redis is not available, it sleeps for `retryInterval` duration.
+// When tries is -1, it keeps trying until it successes to publish to redis
+func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval time.Duration) error {
 	b, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
 	str := string(b)
-	return qp.Put(str)
+	forever := tries == -1
+	for forever || tries >= 0 {
+		err := qp.Put(str)
+		if err != nil {
+			// if we failed to connect to redis or received EOF error then retry
+			if _, ok := err.(*net.OpError); ok || err == io.EOF {
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
+				tries--
+				time.Sleep(retryInterval)
+				continue
+			}
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if strings.Contains(err.Error(), "open connections too fast") {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("timed out sending message %+v", msg)
 }
 
 func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
@@ -94,8 +126,30 @@ func (qc *QueueConsumer) Consume() (*Message, error) {
 	return &m, nil
 }
 
-func (m *Message) Ack() {
-	m.p.Ack()
+// Ack send ack packet to consume next message
+// it sleeps for `retryInterval` duration when it fails to send it
+// it will not stop retrying because it could occur data inconsistency problem
+func (m *Message) Ack(retryInterval time.Duration) error {
+	for {
+		err := m.p.Ack()
+		if err != nil {
+			// if we failed to connect to redis or received EOF error then retry
+			if _, ok := err.(*net.OpError); ok || err == io.EOF {
+				log.Printf("uuid=%s Retrying ack for message(%s) : %v\n", m.UUID, m.Event, err)
+				time.Sleep(retryInterval)
+				continue
+			}
+
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if strings.Contains(err.Error(), "open connections too fast") {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("timed out sending message %+v", m)
 }
 
 func (qc *QueueConsumer) Start() error {
@@ -103,9 +157,15 @@ func (qc *QueueConsumer) Start() error {
 	for {
 		m, err := qc.Consume()
 		if err != nil {
-			log.Printf("uuid=%s Failed to consume a message from (%s) queue: %v\n", m.UUID, queueName, err)
+			log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if strings.Contains(err.Error(), "open connections too fast") {
+				time.Sleep(1 * time.Second)
+			}
 			continue
 		}
+
+		log.Printf("we got this message %+v", m)
 
 		err = queueRoutes[queueName](qc, m)
 		if err != nil {
@@ -113,11 +173,10 @@ func (qc *QueueConsumer) Start() error {
 			// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
 			// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
 			// If it fails to consume first message, second message will also fail since item is not created yet.
-			m.Ack()
+			m.Ack(1 * time.Second)
 			continue
 		}
-
-		m.Ack()
+		m.Ack(1 * time.Second)
 	}
 	return nil
 }

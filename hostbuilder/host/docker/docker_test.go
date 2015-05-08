@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -157,7 +158,7 @@ var _ = Describe("host/docker", func() {
 			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
 				m, err := qc.Consume()
-				m.Ack()
+				m.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))
