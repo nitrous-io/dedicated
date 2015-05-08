@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/event"
@@ -43,11 +42,9 @@ var _ = Describe("HostQueueHandler", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		redisClient, err = redistest.ConnectToRedisClient()
+		redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB)
 		Expect(err).To(BeNil())
-
-		redisDB, _ := strconv.ParseInt(envvars.RedisDB, 10, 64)
-		qp = queue.NewQueue(envvars.RedisHost, envvars.RedisPort, redisDB, "host")
+		qp = queue.NewQueue(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
 		Expect(err).To(BeNil())
 		qc, err = qp.CreateConsumer()
 		Expect(err).To(BeNil())

@@ -101,7 +101,7 @@ var _ = Describe("host/docker", func() {
 		var redisClient *redis.Client
 		BeforeEach(func() {
 			var err error
-			redisClient, err = test.ConnectToRedisClient()
+			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())

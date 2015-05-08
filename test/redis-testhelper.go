@@ -10,11 +10,11 @@ var RedisTestDb int64 = 12
 var RedisHost string = "localhost"
 var RedisPort string = "6379"
 
-func ConnectToRedisClient() (*redis.Client, error) {
+func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Client, error) {
 	redisClient := redis.NewTCPClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", RedisHost, RedisPort),
+		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
 		Password: "",
-		DB:       RedisTestDb,
+		DB:       redisDB,
 	})
 	err := redisClient.Ping().Err()
 	if err != nil {
