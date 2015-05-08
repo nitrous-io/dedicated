@@ -244,19 +244,18 @@ a
 // --------------------------------------
 // Navigation
 nav
+  position: relative
+  display: flex
   width: $innerWidth
-  position: absolute
-  top: 0
-  left: 50%
-  margin-left: -($innerWidth/2)
   padding-top: 4px
   z-index: 2
-  +webkitFix
+  //+webkitFix
 
   .left
-    float: left
+    flex-grow: 1
+
   .right
-    float: right
+    flex-shrink: 0
 
   li
     float: left
@@ -334,28 +333,29 @@ nav
   // ------------------------------------
   // Hero
   .hero, .page-hero
+    position: relative
     display: flex
-    align-items: center
-    justify-content: center
+
+    > .container
+      display: flex
+      flex-direction: column
+      flex-grow: 1
+      align-items: center
 
   .hero
     height: 460px
-    position: relative
 
   .hero-copy
     position: relative
-    padding-top: 64px
     text-align: center
-    -webkit-transform: translate3d(0,0,0)
-    -webkit-perspective: 1000
-    backface-visibility: hidden
     z-index: 2
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+    justify-content: center
+    margin-top: -26px
 
     h2, h3
-      -webkit-font-smoothing: antialiased
-      -webkit-transform: translate3d(0,0,0)
-      -webkit-perspective: 1000
-      backface-visibility: hidden
       visibility: hidden
 
     h2
@@ -662,7 +662,7 @@ nav
     height: 460px
 
     .hero-copy
-      padding-top: 32px
+      padding-bottom: 36px
 
     .hero-copy h2
       font-size: 42px
@@ -684,7 +684,6 @@ nav
         top: -84px
         left: 50%
         margin-left: -485px
-
 
   .full-visual, .full-visual img
     background: transparent
@@ -1201,7 +1200,9 @@ h4 + .box-wrapper
   margin: 0 auto 30px
   padding: 0
   text-align: center
-  border-radius: 2px 2px 0 0
+  box-shadow: 0 2px 20px rgba(0,0,0,.2)
+  border-radius: 3px
+  overflow: hidden
 
   &, img
     background: #1C2227
@@ -1248,15 +1249,12 @@ h4 + .box-wrapper
       top: 250px
       left: 567px
 
-
 .ide .full-visual
   width: 970px
-  height: 567px
 
 .ide .window-controls
   width: 970px
   height: 20px
-  border-radius: 3px 3px 0 0
   background: #1C2227
   text-align: left
 
@@ -1274,9 +1272,9 @@ h4 + .box-wrapper
       margin-left: 8px
 
 .ide video
+  display: block
   width: 970px
-  height: auto
-  box-shadow: 0 2px 20px rgba(0,0,0,.2)
+  height: 545px
 
 .dashboard .full-visual
   width: 860px
@@ -1995,11 +1993,9 @@ h4 + .box-wrapper
     position: relative
 
   .pull-left
-    width: 35%
     float: left
 
   .pull-right
-    width: 65%
     float: right
 
     img
@@ -2012,13 +2008,16 @@ h4 + .box-wrapper
     padding-bottom: 0
 
   .pull-left
+    border-radius: 3px
+    background: #1C2227
+
     a
       border: 0
 
-    &, img
+    img
       width: 398px
       height: 304px
-      background: #1C2227
+      display: block
 
     img
       box-shadow: 0 2px 20px rgba(0,0,0,.2)
@@ -2475,6 +2474,7 @@ footer
     padding-top: 40px
 
 .carousel-control
+  user-select: none
   width: 80px
   height: 100%
   position: absolute
