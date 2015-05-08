@@ -105,6 +105,10 @@ type Host struct {
 	// Optional username field
 	Username sql.NullString `db:"username"`
 
+	ScanExempted  bool        `db:"scan_exempted"`
+	NextScan      pq.NullTime `db:"next_scan"`
+	TerminatingAt pq.NullTime `db:"terminating_at"`
+
 	// not the ideal but convenient place so that it's easy to construct
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
