@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
-	"github.com/nitrous-io/dedicated/hostbuilder/redis"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -110,6 +109,12 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 
 type providerConfig map[string]string
 
+type RedisConfig struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
+	DB   int64  `json:"database"`
+}
+
 type config struct {
 	Address   string                    `json:"address"`
 	Providers map[string]providerConfig `json:"providers"`
@@ -125,8 +130,9 @@ type config struct {
 	Debug bool `json:"debug"`
 
 	// redis setting
-	RedisConfig redis.Config `json:"redis"`
+	RedisConfig RedisConfig `json:"redis"`
 }
+
 type Server struct {
 	Config *config
 	Router *mux.Router
