@@ -216,7 +216,8 @@ func PublishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queue
 
 	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
+		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		return
 	}
 
 	msg := &queue.Message{
@@ -228,7 +229,7 @@ func PublishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queue
 	}
 	err = qp.Publish(msg)
 	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
+		log.Printf("Failed to send a message(%+v): %v", msg, err)
 	}
 }
 
@@ -238,7 +239,8 @@ func PublishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInf
 
 	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("Failed to marshal queueInfo: %v", err)
+		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		return
 	}
 
 	msg := &queue.Message{
@@ -250,6 +252,6 @@ func PublishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInf
 	}
 	err = qp.Publish(msg)
 	if err != nil {
-		log.Printf("Failed to send a message: %v", err)
+		log.Printf("Failed to send a message(%+v): %v", msg, err)
 	}
 }
