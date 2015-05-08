@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -107,7 +108,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, ev eventFunc) error {
 	return nil
 }
 
-func Terminate(db *db.Database, l *logger.Logger, h *host.Host) error {
+func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host) error {
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 
@@ -125,32 +126,20 @@ func Terminate(db *db.Database, l *logger.Logger, h *host.Host) error {
 	}
 
 	origState := h.State
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
+
 	if err := h.Delete(tx); err != nil {
-		tx.Rollback()
 		return err
 	}
-	err = hosttransition.Record(tx, h, origState, *h.TerminatedAt)
-	if err != nil {
-		tx.Rollback()
+	if err := hosttransition.Record(tx, h, origState, *h.TerminatedAt); err != nil {
 		return err
 	}
 	if err := container.DeleteAllByHostID(tx, h.ID); err != nil {
-		tx.Rollback()
 		return err
 	}
-	if err = keypairs.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
+	if err := keypairs.Delete(tx, h.ID); err != nil {
 		return err
 	}
 	if err := cert.Delete(tx, h.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 

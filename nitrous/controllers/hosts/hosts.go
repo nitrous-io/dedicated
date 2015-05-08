@@ -201,8 +201,17 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := hostcontrol.Terminate(env.DB, env.Logger, h)
+	tx, err := env.DB.Beginx()
 	if err != nil {
+		return err
+	}
+
+	if err := hostcontrol.Terminate(tx, env.Logger, h); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
