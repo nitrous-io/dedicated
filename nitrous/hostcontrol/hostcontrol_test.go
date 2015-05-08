@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -252,17 +253,9 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		terminateHost := func() error {
-			tx, err := db.Beginx()
-			if err != nil {
-				return err
-			}
-
-			if err := hostcontrol.Terminate(tx, l, h, hbHeaders()); err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			return tx.Commit()
+			return db.WithTransaction(func(tx *sqlx.Tx) error {
+				return hostcontrol.Terminate(tx, l, h, hbHeaders())
+			})
 		}
 
 		Describe("when hostbuilder successfully deletes the host", func() {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -201,17 +202,10 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	tx, err := env.DB.Beginx()
+	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env))
+	})
 	if err != nil {
-		return err
-	}
-
-	if err := hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env)); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 
