@@ -1,12 +1,15 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/miekg/dns"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
 	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
@@ -23,6 +26,9 @@ Lists all DNS records for a given domain.
 
 Flag -test-create is for testing cname/a record creation/deletion.
 
+Flag -measure-propagation is for measuring how long does it take to propagate
+dns information to our host after creating it in Route53.
+
 Can als be used for easier testing of changes to nitrous/pkg/route53
 */
 
@@ -30,6 +36,11 @@ const (
 	hostDomain    = "n2ostagingbox.com"
 	proxyDomain   = "nitros.io"
 	previewDomain = "n2odev.com"
+
+	// those name will never conflict with real names thanks to unique domain prefix
+	uniqueHostNameForCNAMETest       = "test-for-cname-89345687.lola."
+	uniqueHostNameForATest           = "test-for-a-1742986.lola."
+	uniqueHostNameForPropagationTest = "test-for-propagation-834762109.lola."
 )
 
 var (
@@ -185,9 +196,9 @@ func testCreate() {
 	//testDeleteNonExistent()
 	//fmt.Printf("\nBefore adding www.example.com:\n")
 	//testListRecourceRecordSets(client, hostZone.ID, nil)
-	from := "test-for-cname-89345687.usw2." + hostDomain
+	from := uniqueHostNameForCNAMETest + hostDomain
 	to := "sub.www.example.com"
-	from2 := "test-for-a-1742986.usw2.n2ostagingbox.com"
+	from2 := uniqueHostNameForATest + hostDomain
 	to2 := "127.0.0.1"
 	nroute53.SetCNAME(from, to)
 	nroute53.SetA(from2, to2)
@@ -199,15 +210,88 @@ func testCreate() {
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }
 
+func dnsQuery(conf *dns.ClientConfig, c *dns.Client, m *dns.Msg, qname string, qtype uint16) (*dns.Msg, error) {
+	m.SetQuestion(qname, qtype)
+	for i := range conf.Servers {
+		server := conf.Servers[i]
+		r, _, err := c.Exchange(m, server+":"+conf.Port)
+		if r == nil || r.Rcode == dns.RcodeNameError || r.Rcode == dns.RcodeSuccess {
+			return r, err
+		}
+	}
+
+	return nil, errors.New("No name server to answer the question")
+}
+
+func isMsgFound(r *dns.Msg) bool {
+	return r.Rcode == dns.RcodeSuccess
+}
+
+func isMsgNotFound(r *dns.Msg) bool {
+	return r.Rcode == dns.RcodeNameError
+}
+
+func dnsCNAMELookup(name string) *dns.Msg {
+	conf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if conf == nil {
+		fmt.Printf("Cannot initialize the local resolver: %s\n", err)
+		os.Exit(1)
+	}
+	m := &dns.Msg{}
+	m.RecursionDesired = true
+	m.Question = make([]dns.Question, 1)
+	c := &dns.Client{}
+	c.ReadTimeout = 5 * 1e9 // 5 secs
+	r, err := dnsQuery(conf, c, m, name, dns.TypeCNAME)
+	if r == nil || err != nil {
+		log.Fatalf("dnsLookup() failed with %s\n", err)
+	}
+	if r.Rcode == dns.RcodeNameError || r.Rcode == dns.RcodeSuccess {
+		return r
+	}
+	log.Fatalf("unexpected r.Rcode (%d)\n", r.Rcode)
+	return r
+}
+
+func testPropagate() {
+	// make sure the DNS record doesn't exist
+	hostName := uniqueHostNameForPropagationTest
+	r := dnsCNAMELookup(hostName)
+	//fmt.Printf("dnsLookup() returned %#v\n", r)
+	if !isMsgNotFound(r) {
+		nroute53.DeleteExistingDNSRecords(hostName)
+		log.Fatalf("record for %s already exists. Deleted the record, try again.\n", hostName)
+	}
+	timeStart := time.Now()
+	nroute53.SetCNAME(hostName, "www.example.com")
+	fmt.Printf("waiting for dns propagataion")
+	for {
+		r = dnsCNAMELookup(hostName)
+		if isMsgFound(r) {
+			break
+		}
+		time.Sleep(time.Millisecond * 100)
+		fmt.Print(".")
+		if time.Since(timeStart) > time.Minute*5 {
+			nroute53.DeleteExistingDNSRecords(hostName)
+			fmt.Printf("\npropagation took more than 5 minutes, stopping the test.\n")
+		}
+	}
+	fmt.Printf("\nit took %s to propagate dns\n", time.Since(timeStart))
+	nroute53.DeleteExistingDNSRecords(hostName)
+}
+
 func usage() {
-	fmt.Printf("Usage: dnsquery [-test-create] domain\n")
+	fmt.Printf("Usage: dnsquery [-test-create] [-test-propagate] domain\n")
 	fmt.Printf("  use -test-query to test create/delete cycle of test records.\n")
+	fmt.Printf("  use -test-propagate to test how long does it take to propagate DNS info.\n")
 	fmt.Printf("  provide domain to see all records for that domain.\n")
 }
 
 func main() {
-	var flgTestCreate bool
-	flag.BoolVar(&flgTestCreate, "test-create", false, "test cretion/deletion of dummy ")
+	var flgTestCreate, flgTestPropagate bool
+	flag.BoolVar(&flgTestCreate, "test-create", false, "test cretion/deletion of A and CNAME records")
+	flag.BoolVar(&flgTestPropagate, "test-propagate", false, "test DNS propagation time")
 	flag.Parse()
 
 	awsAccessKey := strings.TrimSpace(os.Getenv("AWS_ACCESS"))
@@ -224,6 +308,10 @@ func main() {
 	client = route53.New(auth, aws.USWest)
 	if flgTestCreate {
 		testCreate()
+		return
+	}
+	if flgTestPropagate {
+		testPropagate()
 		return
 	}
 	if len(flag.Args()) != 1 {
