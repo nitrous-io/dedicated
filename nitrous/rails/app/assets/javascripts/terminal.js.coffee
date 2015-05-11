@@ -138,6 +138,7 @@ window.NitrousTerminal =
     @conn?.close(retry)
 
   focus: ->
+    window.focus()
     @term?.focus()
 
   willOpen: ->
