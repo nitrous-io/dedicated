@@ -125,6 +125,12 @@ App.Host = klass = App.Model.extend
       con.get('isStopped') || con.get('isTerminated')
   ).property 'upgradeAvailable', 'containers.@each.state'
 
+  canSafeStop: (->
+    return false if @get('isUpgrading')
+    return @get('containers').every (con)->
+      con.get('isStopped') || con.get('isTerminated')
+  ).property 'containers.@each.state'
+
   prefetchResources: ->
     @get 'images'
     @get 'registries'

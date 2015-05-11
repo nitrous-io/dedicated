@@ -119,10 +119,12 @@
       if App.billingProfile.free
         button.ui.btn click='upgradePaid' Upgrade
         button.ui.btn click='showTerminateDialog target="view"' Terminate...
-
       else
         button.ui.btn click='restart' Restart
-        button.ui.btn click='stop' Stop
+        if canSafeStop
+          button.ui.btn click='stop' Stop
+        else
+          button.ui.btn click='showStopDialog target="view"' Stop
     .right
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
 
@@ -153,7 +155,6 @@
             button.ui.btn disabled='disabled'
               i.spinner
               | Please Wait...
-
 
 #terminate-modal-dialog.ui.modal
   .ui.card
@@ -190,3 +191,15 @@
       .right
         button.ui.btn click='cancelTerminate target="view"' Cancel
         button.ui.btn.danger.terminate-btn click='confirmTerminate target="view"' disabled=view.terminateSlugConfirmationInvalid Terminate
+
+#stop-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you ABSOLUTELY sure?
+    .card-body
+      p
+        ' Containers are starting/being stopped. It could lead to unclean shutdown
+    .card-footer
+      .right
+        button.ui.btn click='cancelStop target="view"' Cancel
+        button.ui.btn.danger.stop-btn click='confirmStop target="view"' Stop
