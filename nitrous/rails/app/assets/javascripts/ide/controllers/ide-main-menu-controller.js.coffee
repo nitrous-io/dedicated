@@ -8,7 +8,9 @@ App.IdeMainMenuController = Em.Controller.extend
   reset: ->
 
   fileNew: ->
-    if editorController = @get 'controllers.ideEditor'
+    if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
+      consoleController.createTab()
+    else if editorController = @get 'controllers.ideEditor'
       editorController.createTab()
 
   fileSave: ->
@@ -20,7 +22,9 @@ App.IdeMainMenuController = Em.Controller.extend
       controller.showFindDialog()
 
   fileClose: ->
-    if editorController = @get 'controllers.ideEditor'
+    if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
+      consoleController.removeTab()
+    else if editorController = @get 'controllers.ideEditor'
       editorController.removeTab()
 
   fileRefreshTree: ->
@@ -80,11 +84,15 @@ App.IdeMainMenuController = Em.Controller.extend
       consoleSession.set 'focused', false
 
   windowSelectNextTab: ->
-    if editorController = @get 'controllers.ideEditor'
+    if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
+      consoleController.makeNextTabActive()
+    else if editorController = @get 'controllers.ideEditor'
       editorController.makeNextTabActive()
 
   windowSelectPreviousTab: ->
-    if editorController = @get 'controllers.ideEditor'
+    if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
+      consoleController.makePreviousTabActive()
+    else if editorController = @get 'controllers.ideEditor'
       editorController.makePreviousTabActive()
 
   windowMinimizeConsole: ->

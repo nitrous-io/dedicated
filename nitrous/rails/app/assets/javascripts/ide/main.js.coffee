@@ -41,6 +41,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   terminalJsPath: null
   terminalCssPath: null
 
+  consoleFocused: false
   consoleFullscreen: false
   consoleMinimized: false
   fileTreeHidden: false

@@ -25,7 +25,6 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
       # continue to load the terminal
       terminal.url = url
       terminal.open(true)
-      terminal.focus()
     , (jqxhr) ->
       terminal.retry()
 

@@ -448,7 +448,7 @@ Terminal.prototype.focus = function() {
 Terminal.prototype.blur = function() {
   if (Terminal.focus !== this) return;
 
-  this.cursorState = 0;
+  //this.cursorState = 0;
   this.refresh(this.y, this.y);
   if (this.sendFocus) this.send('\x1b[O');
 
