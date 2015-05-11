@@ -1,14 +1,21 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -19,12 +26,78 @@ const (
 
 	terminatingSubject = `Workspace termination due to inactivity`
 	terminatingMessage = `Your host {{.Slug}} will be terminated in 3 days.`
+
+	terminatedSubject = `Workspace Termination Notice`
+	teminatedMessage  = `Your workspace {{.Slug}} has been terminated due to inactivity`
 )
 
 var (
 	d    *db.Database
 	logr *logger.Logger
 )
+
+func refreshHost(h *host.Host) error {
+	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, h.UserID)
+	c := httpclient.New("")
+	resp, _ := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	return httpclient.CheckResponse(resp, http.StatusOK)
+}
+
+func terminateHost(h *host.Host) error {
+	// Sanity checks. should never get this
+	// back from hostscan.FindTerminatingHosts
+	if h.HourlyPrice > 0 {
+		logr.Errorf("Sanity check failed: cannot terminate non-free host: %+v", h)
+		return fmt.Errorf("host is not free")
+	}
+
+	if !h.TerminatingAt.Valid || h.TerminatingAt.Time.Before(time.Now()) {
+		logr.Errorf("Sanity check failed: host.terminating_at is not valid - %+v: %+v", h.TerminatingAt, h)
+		return fmt.Errorf("host.terminating_at is not valid")
+	}
+
+	logr.Infof("Terminating host %d for user %d", h.ID, h.UserID)
+	timeStart := time.Now()
+
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
+
+	err := d.WithTransaction(func(tx *sqlx.Tx) error {
+		return hostcontrol.Terminate(tx, logr, h, headers)
+	})
+	if err != nil {
+		logr.Errorf("Error terminating host - %s: %+v", err, h)
+		return err
+	}
+
+	logr.Infof("Successfully terminated host %d for user %d in %s", h.ID, h.UserID, time.Since(timeStart))
+
+	err = refreshHost(h)
+	if err != nil {
+		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", h.UserID, err)
+		// continue
+	}
+
+	owner, err := announcement.FindOwnerByHostID(d, h.ID)
+	if err != nil {
+		logr.Errorf("Error finding host ownder detail - %s: %+v", err, h)
+		return err
+	}
+
+	ann := &announcement.Announcement{
+		SubjectTemplate: terminatedSubject,
+		MessageTemplate: teminatedMessage,
+	}
+
+	// Send without saving announcement
+	err = announcement.SendToOwner(ann, owner)
+	if err != nil {
+		logr.Errorf("Error sending termination notice to host owner - %s: %+v", err, owner)
+		return err
+	}
+
+	return nil
+}
 
 func sendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
@@ -100,6 +173,22 @@ func scanWarningHosts() {
 	}
 }
 
+func terminateInactiveFreeHosts() {
+	hosts, err := hostscan.FindTerminatingHosts(d, time.Now())
+	if err != nil {
+		logr.FatalfExit("Failed to query for teminating hosts")
+	}
+
+	logr.Infof("Found %d free hosts to terminate", len(hosts))
+
+	for _, h := range hosts {
+		err := terminateHost(h)
+		if err != nil {
+			logr.Errorf("Error terminating host: %s", err)
+		}
+	}
+}
+
 func main() {
 	var err error
 
@@ -115,5 +204,14 @@ func main() {
 		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
 	}
 
+	if envvars.WebHostname == "" {
+		logr.FatalfExit("WEB_HOSTNAME is not defined")
+	}
+
+	if envvars.TrustKey == "" {
+		logr.FatalfExit("TRUST_KEY is not defined")
+	}
+
 	scanWarningHosts()
+	terminateInactiveFreeHosts()
 }
