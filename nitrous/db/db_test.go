@@ -1,9 +1,11 @@
 package db_test
 
 import (
+	"errors"
 	"os/exec"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -19,11 +21,11 @@ var _ = Describe("Database", func() {
 	var d *db.Database
 
 	BeforeEach(func() {
-		err := exec.Command("dropdb", "--if-exists", "nitrous_migrations_test").Run()
+		err := exec.Command("dropdb", "--if-exists", "nitrous_database_test").Run()
 		Expect(err).To(BeNil())
-		err = exec.Command("createdb", "-E", "UTF8", "-T", "template0", "-l", "en_US.utf8", "nitrous_migrations_test").Run()
+		err = exec.Command("createdb", "-E", "UTF8", "-T", "template0", "-l", "en_US.utf8", "nitrous_database_test").Run()
 		Expect(err).To(BeNil())
-		d, err = ConnectToTestDatabase("nitrous_migrations_test")
+		d, err = ConnectToTestDatabase("nitrous_database_test")
 		Expect(err).To(BeNil())
 	})
 
@@ -31,6 +33,102 @@ var _ = Describe("Database", func() {
 		if d != nil {
 			d.Close()
 		}
+	})
+
+	Describe("db.WithTransaction()", func() {
+		expectValueEquals := func(id int64, expected string) {
+			var res string
+			err := d.QueryRow(`SELECT value FROM transaction_test WHERE id=$1;`, id).Scan(&res)
+			Expect(err).To(BeNil())
+			Expect(res).To(Equal(expected))
+		}
+
+		BeforeEach(func() {
+			_, err := d.Exec(`CREATE TABLE transaction_test (
+				id bigint,
+				value character varying(255)
+			);`)
+			Expect(err).To(BeNil())
+
+			_, err = d.Exec(`INSERT into transaction_test
+				(id, value) VALUES
+				(1, 'foo'),
+				(2, 'bar'),
+				(3, 'baz');
+			`)
+			Expect(err).To(BeNil())
+
+			expectValueEquals(1, "foo")
+			expectValueEquals(2, "bar")
+			expectValueEquals(3, "baz")
+		})
+
+		It("should update all if transaction success", func() {
+			err := d.WithTransaction(func(tx *sqlx.Tx) error {
+				_, err := tx.Exec(`UPDATE transaction_test SET value='food' WHERE id=1;`)
+				Expect(err).To(BeNil())
+
+				_, err = tx.Exec(`UPDATE transaction_test SET value='ball' WHERE id=2;`)
+				Expect(err).To(BeNil())
+
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			expectValueEquals(1, "food")
+			expectValueEquals(2, "ball")
+			expectValueEquals(3, "baz")
+		})
+
+		It("should rollback all if transaction failed", func() {
+			txErr := errors.New("unexpected error")
+
+			err := d.WithTransaction(func(tx *sqlx.Tx) error {
+				_, err := tx.Exec(`UPDATE transaction_test SET value='food' WHERE id=1;`)
+				Expect(err).To(BeNil())
+
+				_, err = tx.Exec(`UPDATE transaction_test SET value='ball' WHERE id=2;`)
+				Expect(err).To(BeNil())
+
+				return txErr
+			})
+			Expect(err).To(Equal(txErr))
+
+			expectValueEquals(1, "foo")
+			expectValueEquals(2, "bar")
+			expectValueEquals(3, "baz")
+		})
+
+		It("should rollback on panic", func() {
+			var (
+				panicErr              = errors.New("panic during transaction")
+				recovered interface{} = nil
+			)
+
+			func() {
+				defer func() {
+					recovered = recover()
+				}()
+
+				_ = d.WithTransaction(func(tx *sqlx.Tx) error {
+					_, err := tx.Exec(`UPDATE transaction_test SET value='food' WHERE id=1;`)
+					Expect(err).To(BeNil())
+
+					_, err = tx.Exec(`UPDATE transaction_test SET value='ball' WHERE id=2;`)
+					Expect(err).To(BeNil())
+
+					panic(panicErr)
+				})
+
+				Fail("should not reach")
+			}()
+
+			Expect(recovered).To(Equal(panicErr))
+
+			expectValueEquals(1, "foo")
+			expectValueEquals(2, "bar")
+			expectValueEquals(3, "baz")
+		})
 	})
 
 	Describe("NewSqliteDatabase()", func() {
