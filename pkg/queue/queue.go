@@ -91,6 +91,7 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 			}
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -142,6 +143,7 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
+				log.Printf("uuid=%s Retrying ack for message(%s) : %v\n", m.UUID, m.Event, err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -154,18 +156,17 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 
 func (qc *QueueConsumer) Start() error {
 	queueName := qc.Name
+	log.Printf("Queue consumer started: %s\n", queueName)
 	for {
 		m, err := qc.Consume()
 		if err != nil {
 			log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
 			// redis emits `open connections too fast` when we exceeds the error limit
-			if strings.Contains(err.Error(), "open connections too fast") {
+			if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 				time.Sleep(1 * time.Second)
 			}
 			continue
 		}
-
-		log.Printf("we got this message %+v", m)
 
 		err = queueRoutes[queueName](qc, m)
 		if err != nil {
@@ -178,6 +179,7 @@ func (qc *QueueConsumer) Start() error {
 		}
 		m.Ack(1 * time.Second)
 	}
+
 	return nil
 }
 

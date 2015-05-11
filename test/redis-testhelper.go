@@ -2,14 +2,13 @@ package test
 
 import (
 	"fmt"
+	"net"
 	"os/exec"
 	"sync"
 	"time"
 
 	"gopkg.in/redis.v2"
 )
-
-type subject func()
 
 var RedisTestDb int64 = 12
 var RedisHost string = "localhost"
@@ -36,7 +35,7 @@ func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Cli
 	return redisClient, nil
 }
 
-func RunWhileRestartingRedis(fn subject) error {
+func RunWhileRestartingRedis(fn func()) error {
 	// stop redis before publish and then restart when it's retrying
 	err := exec.Command("service", "redis_6379", "stop").Run()
 	if err != nil {
@@ -47,7 +46,16 @@ func RunWhileRestartingRedis(fn subject) error {
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		exec.Command("service", "redis_6379", "start").Run()
-		time.Sleep(10 * time.Millisecond) // wait until redis is up.
+		var err error
+		for i := 0; i < 5; i++ {
+			_, err = net.Dial("tcp", fmt.Sprintf("%s:%s", RedisHost, RedisPort))
+			if err != nil {
+				fmt.Printf("failed to connect to redis: %+v\n", err)
+				time.Sleep(10 * time.Millisecond)
+			} else {
+				break
+			}
+		}
 		wg.Done()
 	}()
 

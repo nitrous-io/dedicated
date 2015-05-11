@@ -123,15 +123,16 @@ func init() {
 	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
 	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
 
-	RedisHost = os.Getenv("REDIS_HOST")
-	RedisPort = os.Getenv("REDIS_PORT")
-	var err error
-	RedisDB, err = strconv.ParseInt(os.Getenv("REDIS_DB"), 10, 64)
-	if err != nil {
-		log.Fatalf("REDIS_DB is not acceptable int64: %v", err)
-	}
-
 	EnableQueue = os.Getenv("ENABLE_QUEUE") == "true"
+	if EnableQueue {
+		RedisHost = os.Getenv("REDIS_HOST")
+		RedisPort = os.Getenv("REDIS_PORT")
+		var err error
+		RedisDB, err = strconv.ParseInt(os.Getenv("REDIS_DB"), 10, 64)
+		if err != nil {
+			log.Fatalf("REDIS_DB is not acceptable int64: %v", err)
+		}
+	}
 
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {

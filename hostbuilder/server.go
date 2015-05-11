@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -136,7 +137,9 @@ type config struct {
 type Server struct {
 	Config *config
 	Router *mux.Router
-	Queue  *queue.QueuePublisher
+
+	initQueueOnce sync.Once
+	Queue         *queue.QueuePublisher
 }
 
 // Return a copy of the original provider config
@@ -190,6 +193,15 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 
 	var info *host.Info
 	if r.Form.Get("queue") == "true" {
+		var err error
+		s.initQueueOnce.Do(func() {
+			err = s.initQueue()
+		})
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+		log.Printf("uuid=%s Creating a host with queue %+v\n", providerConfig["uuid"], s.Queue)
+
 		var userID, hostID int64
 		hostSlug := r.Form.Get("slug")
 		hostID, err = strconv.ParseInt(r.Form.Get("id"), 10, 64)
@@ -523,9 +535,7 @@ func New(configData []byte) (*Server, error) {
 		return nil, err
 	}
 
-	redisConfig := config.RedisConfig
-	qp := queue.NewQueue(redisConfig.Host, redisConfig.Port, redisConfig.DB, "v1.host")
-	server := &Server{Config: config, Queue: qp}
+	server := &Server{Config: config}
 	server.CreateRouter()
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
@@ -568,5 +578,15 @@ func pingHost(info *host.Info, w io.Writer) error {
 		fmt.Fprintf(w, "Connecting to freighter server...Failed!")
 		return fmt.Errorf("Connecting to freighter server...Failed!")
 	}
+	return nil
+}
+
+func (s *Server) initQueue() error {
+	rc := s.Config.RedisConfig
+	if rc.Host == "" || rc.Port == "" {
+		return fmt.Errorf("Redis config is not valid: %+v", rc)
+	}
+	qp := queue.NewQueue(rc.Host, rc.Port, rc.DB, "v1.host")
+	s.Queue = qp
 	return nil
 }

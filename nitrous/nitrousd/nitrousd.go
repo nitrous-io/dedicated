@@ -136,7 +136,9 @@ func main() {
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
-	go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, HostQueueName, svr.HostQueueHandler())
+	if envvars.EnableQueue {
+		go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, HostQueueName, svr.HostQueueHandler())
+	}
 
 	pid := os.Getpid()
 	host := "0.0.0.0"
