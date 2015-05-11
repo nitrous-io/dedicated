@@ -410,6 +410,9 @@ var _ = Describe("controllers/containers", func() {
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 
+				// the frontend explicitly matches on this error; if
+				// expectation below is changed, fix the frontend matcher as
+				// well
 				Expect(j.Errors).To(ConsistOf("Unable to communicate with freighter for host foo"))
 			})
 		})
