@@ -1,9 +1,26 @@
 #upgrade-complete-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Thanks for upgrading!
+      | Your workspace has been upgraded
     .card-body
-      | Yay you did it!
+      | Here's what's new:
+
+      ul
+        li
+          i.fa.fa-check
+          | No hourly limits
+        li
+          i.fa.fa-check
+          | Additional computing resources
+        li
+          i.fa.fa-check
+          ' Advanced container management,
+          a href="http://docs.nitrous.io/v1.0/docs/advanced-container-management-options" target="_blank" learn more
+        li
+          i.fa.fa-check
+          ' Access to Nitrous Desktop app,
+          a href=App.desktopDownloadUrl target="_blank" download now
+
     .card-footer
       .right
         button.ui.btn click='closeUpgradeModal target="view"'
