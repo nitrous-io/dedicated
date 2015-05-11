@@ -20,6 +20,11 @@
           i.fa.fa-check
           ' Access to Nitrous Desktop app,
           a href=App.desktopDownloadUrl target="_blank" download now
+      
+      p.small
+        ' Your workspace will require some downtime in order to have its storage upgraded. Please contact
+        a href="mailto:support@nitrous.io" support@nitrous.io
+        |  to schedule the downtime.
 
     .card-footer
       .right
