@@ -14,10 +14,10 @@
           | There are updates available for this workspace. Please stop your containers before updating.
 
   if hasError
-      .notice-text
+      .notice-text.error
         i.fa.fa-warning
         '
-        | We are having issues communicating with your host. If the issues persist please contact support.
+        | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
 
   if topAnnouncement
     .notice-text.multi-line
