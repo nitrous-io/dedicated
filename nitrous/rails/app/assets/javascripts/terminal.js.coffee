@@ -68,6 +68,10 @@ window.NitrousTerminal =
             @newTab event
           when @matchesCloseConsoleScreenKeybinding event
             @closeTab event
+          when @matchesCtrlTabKeybinding event
+            false
+          when @matchesCtrlShiftTabKeybinding event
+            false
           else
             true
         return false if !r
@@ -289,9 +293,13 @@ window.NitrousTerminal =
     (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 87) ||
     (!isMac && event.ctrlKey && event.altKey && event.keyCode == 87)
 
-  # keybinding cmd+c
-  matchesMacCopyKeybinding: (event) ->
-    isMac && event.metaKey && event.keyCode == 67
+  # keybinding ctrl+tab
+  matchesCtrlTabKeybinding: (event) ->
+    event.ctrlKey && event.keyCode == 9
+
+  # keybinding ctrl+shift+tab
+  matchesCtrlShiftTabKeybinding: (event) ->
+    event.ctrlKey && event.shiftKey && event.keyCode == 9
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()
