@@ -1693,6 +1693,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(c2.State).To(Equal(container.StateRunning))
 
 				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				// Collect the 2 expected container stop events.
 				stopEvents := []*controllers.Event{}
@@ -1740,6 +1741,59 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, nil)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		Describe("when host has stopping containers", func() {
+			var c *container.Container
+			BeforeEach(func() {
+				c = &container.Container{
+					CID:    "beefface",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Slug:   "beef-jerky",
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+				c.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				c.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("container is not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopped))
+				})
+			})
 		})
 	})
 
@@ -2103,6 +2157,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(c2.State).To(Equal(container.StateRunning))
 
 				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				// Collect the 2 expected container stop events.
 				stopEvents := []*controllers.Event{}
@@ -2149,6 +2204,59 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, t.Token, nil)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		Describe("when host has stopping containers", func() {
+			var c *container.Container
+			BeforeEach(func() {
+				c = &container.Container{
+					CID:    "beefface",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Slug:   "beef-jerky",
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+				c.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				c.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("container is not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, t.Token, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateRunning))
+				})
+			})
 		})
 	})
 

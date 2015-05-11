@@ -29,24 +29,25 @@ import (
 )
 
 var (
-	errSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
-	errNameRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
-	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
-	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
-	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
-	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
-	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
-	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
-	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
-	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
-	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
-	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
-	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
-	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
+	errSizeRequired                  = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
+	errNameRequired                  = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errRegionRequired                = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
+	errPlanNotFound                  = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
+	errRegionNotFound                = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
+	errProvidertemplateNotFound      = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
+	errHostStartInvalidState         = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
+	errHostStopInvalidState          = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRestartInvalidState       = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostNotRunning                = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostCreationNotAllowed        = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
+	errMultipleRequests              = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
+	errHostSlugTaken                 = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errRegionDisabled                = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
+	errBasicAuthFailed               = httperror.New(http.StatusUnauthorized, "unauthorized", "")
+	errStoppingNotAllowed            = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
+	errRestartingNotAllowed          = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
+	errFreeTimeLimitExceeded         = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
+	errHostStopInvalidContainerState = httperror.New(http.StatusBadRequest, "invalid_container_state", "container is not stopped")
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient
@@ -323,6 +324,19 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	if !force {
+		for _, cn := range cns {
+			if cn.TempState.Valid {
+				return errHostStopInvalidContainerState
+			}
+		}
+	}
+
 	evHandler := func(ev hostcontrol.EventType) {
 		if ev == hostcontrol.EventHostStopping {
 			PublishHostEvent(env, controllers.EventHostStopping, h)
@@ -337,7 +351,9 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	PublishContainersStopped(env, h)
+	for _, cn := range cns {
+		PublishContainerStopped(env, cn)
+	}
 	PublishHostEvent(env, controllers.EventHostStopped, h)
 	serializeHost(env, h)
 	return nil
@@ -357,6 +373,19 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
+	}
+
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	if !force {
+		for _, cn := range cns {
+			if cn.TempState.Valid {
+				return errHostStopInvalidContainerState
+			}
+		}
 	}
 
 	origState := h.State
@@ -432,7 +461,9 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	PublishContainersStopped(env, h)
+	for _, cn := range cns {
+		PublishContainerStopped(env, cn)
+	}
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
@@ -553,9 +584,13 @@ func PublishContainersStopped(env *middleware.Env, h *host.Host) {
 		return
 	}
 	for _, cn := range cns {
-		cn.State = container.StateStopped
-		containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
+		PublishContainerStopped(env, cn)
 	}
+}
+
+func PublishContainerStopped(env *middleware.Env, cn *container.Container) {
+	cn.State = container.StateStopped
+	containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
 }
 
 func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
