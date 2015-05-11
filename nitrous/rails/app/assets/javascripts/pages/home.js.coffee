@@ -22,9 +22,8 @@ pages.Home =
       , 920
 
     # Webkit only
-    if (navigator.userAgent.indexOf('AppleWebKit') != -1)
-      $patternInner.addClass('heroMatrix')
-
+    #if (navigator.userAgent.indexOf('AppleWebKit') != -1)
+      #$patternInner.addClass('heroMatrix')
 
     $noticeBannerClose.click ->
       $noticeBanner.removeClass("visible")

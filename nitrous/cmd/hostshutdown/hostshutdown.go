@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -99,7 +100,10 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 
 	logr.Infof("Starting shut down on host %d for user %d", hst.ID, hst.UserID)
 	timeStart := time.Now()
-	err = hostcontrol.Stop(dbConn, logr, hst, nil)
+
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
+	err = hostcontrol.Stop(dbConn, logr, hst, headers, nil)
 	if err != nil {
 		logr.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 		return

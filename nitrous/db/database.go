@@ -26,6 +26,28 @@ const (
 	HOST_SHUTDOWN_LOCK
 )
 
+func (d *Database) WithTransaction(body func(*sqlx.Tx) error) (err error) {
+	var tx *sqlx.Tx
+
+	tx, err = d.Beginx()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else if e := recover(); e != nil {
+			tx.Rollback()
+			panic(e)
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	return body(tx)
+}
+
 func NewDatabase(conn string) (*Database, error) {
 	db, err := sqlx.Open("postgres", conn)
 	if err != nil {
