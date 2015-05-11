@@ -1,0 +1,13 @@
+#upgrade-complete-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Thanks for upgrading!
+    .card-body
+      | Yay you did it!
+    .card-footer
+      .right
+        button.ui.btn click='closeUpgradeModal target="view"'
+          if App.containers.length
+            | Go to my container
+          else
+            | Close

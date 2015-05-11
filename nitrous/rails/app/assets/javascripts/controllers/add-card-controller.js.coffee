@@ -78,14 +78,18 @@ App.AddCardController = Em.ObjectController.extend
 
         ).then =>
           @set 'saving', false
-          App.snackbar.post "Credit card added."
           App.refreshUsage()
           App.refreshBillingProfile()
 
+          if wasFreeTier
+            @transitionToRoute 'hosts.index'
+            App.set 'showUpgradeModal', true
+            return
+
+          App.snackbar.post "Credit card added."
+
           if App.get('pendingHost')
             @transitionToRoute 'hosts.new'
-          else if wasFreeTier
-            @transitionToRoute 'hosts.index'
           else
             @transitionToRoute 'billing'
 
