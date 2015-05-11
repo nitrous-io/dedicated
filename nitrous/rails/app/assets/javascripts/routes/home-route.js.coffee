@@ -5,7 +5,7 @@ App.HomeRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', null
     App.set 'hosts', App.Host.fetch().value
-    App.set 'containers', App.Container.fetch().value
+    App.fetchContainers()
     App.set 'sharedContainers', App.SharedContainer.fetch().value
 
   renderTemplate: ->

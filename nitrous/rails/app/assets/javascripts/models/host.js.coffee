@@ -29,6 +29,7 @@ App.Host = klass = App.Model.extend
 
   stats: null
   liveHost: null
+  freighterdError: null
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -109,6 +110,12 @@ App.Host = klass = App.Model.extend
   isHostUpgradeSoft: (->
     @get('upgradeAvailable') == "soft"
   ).property 'upgradeAvailable'
+
+  hasError: (->
+    return false if @get('isUpgrading')
+    return false unless errors = App.get 'hostErrors'
+    errors.contains @get('slug')
+  ).property 'App.hostErrors.@each'
 
   canUpgrade: (->
     return false if @get('isUpgrading')

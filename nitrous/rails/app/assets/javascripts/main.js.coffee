@@ -57,6 +57,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   oneMinWarned: false
   zeroWarned: false
 
+  hostErrors: null
+
   regionIndex: (->
     regions = @get('regions')
 
@@ -307,6 +309,21 @@ window.Nitrous = Em.Application.extend Em.Evented,
       @set('token', adminToken)
       Em.run.next ->
         location.href = "/"
+
+  fetchContainers: ->
+    fetchOp = null
+    if con = App.get('containers')
+      fetchOp = con.reload()
+    else
+      fetchOp = App.Container.fetch()
+      App.set 'containers', fetchOp.value
+    fetchOp.then (record)=>
+      a = Em.A()
+      if errors = record.get("errors")
+        errors.forEach (error)=>
+          if fErr = error.match(/communicate with freighter for host ([a-z0-9\-]+)/)
+            a.push fErr[1]
+      App.set 'hostErrors', a
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')

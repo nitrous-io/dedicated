@@ -13,6 +13,12 @@
         else
           | There are updates available for this workspace. Please stop your containers before updating.
 
+  if hasError
+      .notice-text
+        i.fa.fa-warning
+        '
+        | We are having issues communicating with your host. If the issues persist please contact support.
+
   if topAnnouncement
     .notice-text.multi-line
       i.fa.fa-warning

@@ -4,6 +4,8 @@ SM.RecordArray = Ember.ArrayProxy.extend Ember.Evented,
   model: null
   loaded: false
 
+  errors: []
+
   load: (data) ->
     model = @get 'model'
     unless existing = @get('content')
