@@ -398,6 +398,12 @@ App.IdeDocumentView = Em.View.extend
         editor.refresh()
   ).observes 'App.consoleFullscreen'
 
+  consoleMinimizedDidChange: (->
+    editor = @get 'editor'
+    Em.run.scheduleOnce 'afterRender', ->
+      editor.refresh()
+  ).observes 'App.consoleMinimized'
+
   activeDidChange: (->
     editor = @get 'editor'
     active = @get 'document.active'
