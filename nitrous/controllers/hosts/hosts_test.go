@@ -143,6 +143,15 @@ var _ = Describe("controllers/hosts", func() {
 		return recv, tok
 	}
 
+	var checkStoppedEvent = func(evt *controllers.Event) string {
+		Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+		evtData, ok := evt.Data.(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		cn, ok := evtData["container"].(*serializers.Container)
+		Expect(cn.State).To(Equal(container.StateStopped.String()))
+		return cn.Slug
+	}
+
 	Describe("GET /api/v0/hosts", func() {
 		doRequest := func() {
 			req, err := test.NewRequest("GET", "/api/v0/hosts", nil)
@@ -1675,16 +1684,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event) string {
-				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				cn, ok := evtData["container"].(*serializers.Container)
-				Expect(ok).To(BeTrue())
-				Expect(cn.State).To(Equal(container.StateStopped.String()))
-				return cn.Slug
-			}
-
 			It("publishes container stopped events", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -1744,18 +1743,29 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		Describe("when host has stopping containers", func() {
-			var c *container.Container
+			var c1, c2 *container.Container
 			BeforeEach(func() {
-				c = &container.Container{
+				c1 = &container.Container{
 					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
-					Slug:   "beef-jerky",
 				}
-				err := c.Insert(db)
+				err := c1.Insert(db)
 				Expect(err).To(BeNil())
-				c.TempState = sql.NullInt64{int64(container.StateStopping), true}
-				c.Update(db)
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 
@@ -1792,6 +1802,37 @@ var _ = Describe("controllers/hosts", func() {
 					h, err := host.Find(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateStopped))
+				})
+
+				It("does not publish container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					}
+					Expect(stopEvents).To(HaveLen(1))
+					Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
 				})
 			})
 		})
@@ -2140,15 +2181,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event) string {
-				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				cn, ok := evtData["container"].(*serializers.Container)
-				Expect(cn.State).To(Equal(container.StateStopped.String()))
-				return cn.Slug
-			}
-
 			It("publishes container stopped events", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -2207,18 +2239,29 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		Describe("when host has stopping containers", func() {
-			var c *container.Container
+			var c1, c2 *container.Container
 			BeforeEach(func() {
-				c = &container.Container{
+				c1 = &container.Container{
 					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
 					UserID: hs.U.ID,
 					HostID: hs.H.ID,
-					Slug:   "beef-jerky",
 				}
-				err := c.Insert(db)
+				err := c1.Insert(db)
 				Expect(err).To(BeNil())
-				c.TempState = sql.NullInt64{int64(container.StateStopping), true}
-				c.Update(db)
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				err = c1.Update(db)
 				Expect(err).To(BeNil())
 			})
 
@@ -2255,6 +2298,37 @@ var _ = Describe("controllers/hosts", func() {
 					h, err := host.Find(db, hs.U, hs.H.Slug)
 					Expect(err).To(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
+				})
+
+				It("does not publish container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, t.Token, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					}
+					Expect(stopEvents).To(HaveLen(1))
+					Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
 				})
 			})
 		})

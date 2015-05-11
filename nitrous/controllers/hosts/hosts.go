@@ -352,7 +352,9 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	for _, cn := range cns {
-		PublishContainerStopped(env, cn)
+		if !cn.TempState.Valid {
+			PublishContainerStopped(env, cn)
+		}
 	}
 	PublishHostEvent(env, controllers.EventHostStopped, h)
 	serializeHost(env, h)
@@ -462,7 +464,9 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	for _, cn := range cns {
-		PublishContainerStopped(env, cn)
+		if !cn.TempState.Valid {
+			PublishContainerStopped(env, cn)
+		}
 	}
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
@@ -577,7 +581,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 	)
 }
 
-func PublishContainersStopped(env *middleware.Env, h *host.Host) {
+func PublishContainerstopped(env *middleware.Env, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		env.Logger.Errorf("hosts.Stop: Unable to list host containers: %v", err)
