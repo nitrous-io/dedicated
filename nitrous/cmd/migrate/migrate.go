@@ -51,6 +51,8 @@ var (
 	logr *logger.Logger
 
 	dbConn *db.Database
+
+	webHostname string
 )
 
 var (
@@ -89,6 +91,11 @@ func init() {
 	dbURL = envvars.NitrousPgUrl
 	if dbURL == "" {
 		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+	}
+
+	webHostname = envvars.WebHostname
+	if webHostname == "" {
+		logr.FatalExit("WEB_HOSTNAME is not defined")
 	}
 }
 
@@ -316,7 +323,7 @@ func provisionDestHost() (string, func()) {
 	logr.Debugf("Creating your host %s", name)
 	bearer := fmt.Sprintf(`Authorization: Bearer %s`, uToken.Token)
 	params := fmt.Sprintf(`name=%s&region=%s&size=%s`, name, region, plan)
-	cmd := exec.Command("curl", "-H", bearer, "--data", params, "https://pro.nitrous.io/api/v0/hosts")
+	cmd := exec.Command("curl", "-H", bearer, "--data", params, fmt.Sprintf("https://%s/api/v0/hosts", webHostname))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Run()
@@ -332,7 +339,7 @@ func provisionDestHost() (string, func()) {
 
 	refreshFn := func() {
 		fmt.Println("Refreshing hosts")
-		cmd = exec.Command("curl", "-X", "POST", "-H", bearer, fmt.Sprintf("https://pro.nitrous.io/api/v0/hosts/refresh"))
+		cmd = exec.Command("curl", "-X", "POST", "-H", bearer, fmt.Sprintf("https://%s/api/v0/hosts/refresh", webHostname))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Run()
