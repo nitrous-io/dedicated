@@ -1171,5 +1171,15 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN scan_exempted boolean DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "1010",
+			Up: `
+				-- Requires the citext module. Enable with:
+				-- CREATE EXTENSION IF NOT EXISTS citext
+				ALTER TABLE users ALTER COLUMN username TYPE citext;
+				DROP INDEX index_users_on_username;
+				CREATE UNIQUE INDEX index_users_on_username ON users (username) WHERE deleted_at IS NULL;
+			`,
+		},
 	}
 }

@@ -77,9 +77,9 @@ image:
 
 createdb:
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_development || true
-	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+	sudo su postgres -c "psql -d nitrous_development -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS citext'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test || true
-	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
+	sudo su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS citext'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 tender_test || true
 	sudo su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" || true
 	createdb -E UTF8 -T template0 -l en_US.utf8 compass_test || true
