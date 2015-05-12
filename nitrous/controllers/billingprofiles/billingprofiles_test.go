@@ -316,8 +316,16 @@ var _ = Describe("controllers/billingprofiles", func() {
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
+				var j struct {
+					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(500)))
+
 				credit := &credit.Credit{}
-				err := db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
+				err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
 				Expect(err).To(BeNil())
 				Expect(credit).ToNot(BeNil())
 				Expect(credit.Amount).To(Equal(int64(500)))
@@ -345,6 +353,14 @@ var _ = Describe("controllers/billingprofiles", func() {
 				p.Set("card_token", "cc_token")
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				var j struct {
+					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+
+				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(1900)))
 
 				credit := &credit.Credit{}
 				err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
