@@ -11,5 +11,7 @@ Rails.application.config.assets.precompile += %w(
   pages.js
   ide.css
   ide/main.js
+  codemirror.js
+  codemirror.css
   website.css
 )

@@ -5,7 +5,6 @@
 #= require jquery.autosize
 #= require jquery.timeago-1.4.1
 #= require async-0.2.5
-#= require codemirror/codemirror
 #= require ui
 #= require_self
 
