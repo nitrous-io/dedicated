@@ -64,7 +64,7 @@ RUN cd ./nitrous/rails && bundle install
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\
-	su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" &&\
+	su postgres -c "psql -d nitrous_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS citext'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 tender_test &&\
 	su postgres -c "psql -d tender_test -c 'CREATE EXTENSION IF NOT EXISTS hstore; CREATE EXTENSION IF NOT EXISTS pgcrypto;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 compass_test &&\
