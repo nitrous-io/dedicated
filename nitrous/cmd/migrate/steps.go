@@ -455,7 +455,7 @@ func startServices() error {
 
 func stopDestination() error {
 	bearer := fmt.Sprintf("Authorization: Bearer %s", uToken.Token)
-	url := fmt.Sprintf("https://pro.nitrous.io/api/v0/hosts/%s/stop", destDBHost.Slug)
+	url := fmt.Sprintf("https://%s/api/v0/hosts/%s/stop", webHostname, destDBHost.Slug)
 	cmd := exec.Command("curl", "-X", "POST", "-H", bearer, url)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

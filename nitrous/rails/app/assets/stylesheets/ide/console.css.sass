@@ -33,7 +33,6 @@
         iframe
           flex-grow: 1
           border: none
-          height: 0
 
   &.hide
     display: none
@@ -57,3 +56,11 @@
 
     .console-sessions
       display: none
+
+html.msie
+  #ide-console-view
+    .console-sessions
+      .ide-console-session-view
+        .terminal-screen
+          iframe
+            height: 0
