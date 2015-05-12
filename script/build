@@ -178,7 +178,7 @@ build_nitrous() {
   (build "nitrous/cmd/engagement")
   (build "nitrous/cmd/migrate")
   (build "nitrous/cmd/hostshutdown")
-  (build "nitrous/cmd/hostwarning")
+  (build "nitrous/cmd/freehostusage")
   (build "nitrous/cmd/populatemxprofiles")
   (build "nitrous/cmd/healthcheck")
   (build_assets)
