@@ -35,7 +35,7 @@ App.IdeConsoleSessionView = Em.View.extend App.InjectTerminalIframeMixin,
         if activeDocument = App.get 'router.ideEditorController.activeTab'
           activeDocument.set 'focused', false
         iframeWindow.focus()
-        iframeWindow.App?.page?.focus()
+        iframeWindow.NitrousTerminal?.focus?()
   ).observes 'consoleSession.focused'
 
   opsSocketDidGetDisconneted: (->

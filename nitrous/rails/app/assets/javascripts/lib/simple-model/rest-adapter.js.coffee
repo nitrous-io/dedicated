@@ -85,6 +85,7 @@ SM.RESTAdapter = Ember.Object.extend
       @_fetchMultiple.apply(this, args)
     promise = new Ember.RSVP.Promise (resolve, reject) =>
       @ajax('GET', url).done((data, status, jqxhr) ->
+        recordArray.set 'errors', data.errors
         if collectionKey = Ember.get(model, 'collectionKey')
           data = data[collectionKey] || {}
         if Ember.isArray(data)

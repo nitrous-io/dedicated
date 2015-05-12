@@ -52,14 +52,14 @@ App.IdeTabControllerMixin = Em.Mixin.create
     tab
 
   makeTabActive: (tab) ->
-    unless tab.get 'active'
-      content = @get 'content'
-      content.forEach (t) ->
-        t.set 'active', t == tab
-        t.set 'focused', t == tab
+    @get('content').forEach (t) ->
+      t.setProperties
+        active: t == tab
+        focused: t == tab
 
   removeTab: (tab) ->
     tab = @get 'activeTab' unless tab
+    return unless tab
     content = @get 'content'
     if tab.get 'active'
       if content.get('lastObject') == tab
@@ -71,12 +71,12 @@ App.IdeTabControllerMixin = Em.Mixin.create
   makeNextTabActive: ->
     if @get('content.length') > 1
       nextTab = @get 'nextTab'
-      this.makeTabActive nextTab
+      @makeTabActive(nextTab)
 
   makePreviousTabActive: ->
     if @get('content.length') > 1
       previousTab = @get 'previousTab'
-      this.makeTabActive previousTab
+      @makeTabActive(previousTab)
 
   focusActiveTab: ->
     if activeTab = @get 'activeTab'

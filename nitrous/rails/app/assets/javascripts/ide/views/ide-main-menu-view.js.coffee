@@ -159,7 +159,6 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Close',
           macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
           callback: (controller) ->
             controller.fileClose()
       ]

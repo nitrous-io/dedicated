@@ -80,8 +80,8 @@ div.innerHTML = """
   <p>Nitrous uses the latest standard in HTML5 technologies and requires an up-to-date web browser.</p>
   <p>Please upgrade to one of the following supported web browsers and try again:</p>
   <ul>
+    <li><a class="chrome" href="https://www.google.com/chrome/browser/desktop/" target="_blank">Google Chrome (Recommended)</a></li>
     <li><a class="firefox" href="https://www.firefox.com/download" target="_blank">Firefox</a></li>
-    <li><a class="chrome" href="https://www.google.com/chrome/browser/desktop/" target="_blank">Google Chrome</a></li>
     <li><a class="opera" href="http://www.opera.com/download" target="_blank">Opera</a></li>
   </ul>
 """

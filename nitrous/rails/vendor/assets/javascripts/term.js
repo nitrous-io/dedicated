@@ -1,11 +1,11 @@
 /**
- * term.js - an xterm emulator
+ * Nitrous fork of term.js
  *
  * MIT License
  * Copyright (c) 2012-2013, Christopher Jeffrey
  * Portions Copyright (c) 2012-2015 Nitrous Inc. (https://www.nitrous.io/)
  *
- * https://github.com/chjj/term.js
+ * https://github.com/nitrous-io/term.js
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -1026,6 +1026,24 @@ Terminal.prototype.bindMouse = function() {
   }
 
   on(el, 'mousedown', function(ev) {
+    // if any text is selected on mouse up, enter selection mode
+    once(window, 'mouseup', function(ev) {
+      if(window.getSelection) {
+        var selectedText = window.getSelection().toString();
+        if (selectedText.length > 0) {
+          self.selectionMode = true;
+        }
+      }
+      // selection clearance only happens after mouseup event
+      window.setTimeout(function() {
+        var selectedText = window.getSelection().toString();
+        if (selectedText.length === 0) {
+          self.selectionMode = false;
+          self.focus();
+        }
+      }, 0);
+    });
+
     if (!self.mouseEvents) return;
 
     // send the button
@@ -1066,24 +1084,6 @@ Terminal.prototype.bindMouse = function() {
   //if (self.normalMouse) {
   //  on(self.document, 'mousemove', sendMove);
   //}
-
-  // if any text is selected on mouse up, enter selection mode
-  on(el, 'mouseup', function(ev) {
-    if(window.getSelection) {
-      var selectedText = window.getSelection().toString();
-      if (selectedText.length > 0) {
-        self.selectionMode = true;
-      }
-    }
-    // selection clearance only happens after mouseup event
-    window.setTimeout(function() {
-      var selectedText = window.getSelection().toString();
-      if (selectedText.length === 0) {
-        self.selectionMode = false;
-        self.focus();
-      }
-    }, 0);
-  });
 
   on(el, wheelEvent, function(ev) {
     if (!self.mouseEvents) return;
@@ -5637,8 +5637,8 @@ Terminal.prototype.sizeToFit = function() {
     }
   }
 
-  cols = Math.max(10, cols)
-  rows = Math.max(4, rows)
+  cols = Math.max(10, cols);
+  rows = Math.max(4, rows);
 
   rowDiv.parentNode.removeChild(rowDiv);
   tempDiv.parentNode.removeChild(tempDiv);
@@ -5713,6 +5713,15 @@ Terminal.charsets.ISOLatin = null; // /A
 
 function on(el, type, handler, capture) {
   el.addEventListener(type, handler, capture || false);
+}
+
+function once(el, type, handler, capture) {
+  var that = this;
+  var fn = function() {
+    el.removeEventListener(type, fn, capture || false);
+    return handler.apply(that, arguments);
+  };
+  el.addEventListener(type, fn, capture || false);
 }
 
 function off(el, type, handler, capture) {

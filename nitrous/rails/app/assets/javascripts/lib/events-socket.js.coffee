@@ -5,7 +5,7 @@ App.EventsSocket = Lib.Socket.extend
     @_super.apply this, arguments
 
   connect: ->
-    origin = location.origin.replace('http', 'ws')
+    origin = location.protocol.replace('http', 'ws') + "//" + location.host
     token = encodeURIComponent(App.get('token'))
     @set 'url', "#{origin}/api/v0/events?token=#{token}"
     @_super.apply this, arguments

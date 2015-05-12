@@ -6,6 +6,7 @@ html lang='en'
     link rel='shortcut icon' href='/favicon.ico'
     = yield :head_before
     = stylesheet_link_tag 'application', media: 'all'
+    = stylesheet_link_tag 'codemirror', media: 'all'
     = stylesheet_link_tag 'web_app', media: 'all'
     = yield :head_stylesheet
     = render 'layouts/google_analytics'
@@ -20,11 +21,14 @@ html lang='en'
     = javascript_include_tag 'compat'
     = javascript_include_tag 'loading'
     = javascript_include_tag 'jquery'
+    = javascript_include_tag 'codemirror'
     = javascript_include_tag 'application'
     = yield :body_script
     javascript:
       App.setProperties({
         terminalJsPath: '#{javascript_path "terminal"}',
         terminalCssPath: '#{stylesheet_path "terminal"}',
+        codemirrorJsPath: '#{javascript_path "codemirror"}',
+        codemirrorCssPath: '#{stylesheet_path "codemirror"}'
       });
     = yield :body_after

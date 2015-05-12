@@ -100,8 +100,8 @@ class window.SocketConnection
   send: (data) ->
     if @binaryMode && typeof(data) == 'string'
       data = utf8Encode(data)
-
-    @ws?.send(data)
+    try
+      @ws?.send(data)
 
   close: (retry=false) ->
     if ws = @ws

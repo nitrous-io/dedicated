@@ -64,6 +64,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   removeTab: (tab, forceRemove=false) ->
     tab = @get 'activeTab' unless tab
+    return unless tab
     if tab.get('clean') || forceRemove
       @_super(tab)
     else

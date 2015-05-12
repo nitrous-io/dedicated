@@ -8,7 +8,7 @@ App.EventMessageHandler = App.EventsSocket.extend
   _addEventHandlers: ->
     ['container.created', 'container.destroyed', 'host.restarted'].forEach (evt) =>
       @on evt, (data) ->
-        findAllContainers()?.reload()
+        App.fetchContainers()
 
     ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted',
      'container.updated', 'container.reconfiguring', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>

@@ -1,6 +1,5 @@
 #= require ./vendor/underscore
 #= require ./vendor/mousetrap
-#= require ./codemirror
 #= require ./lib/cm-find-replace
 #= require ./vendor/base64
 #= require ./vendor/strftime
@@ -41,6 +40,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   terminalJsPath: null
   terminalCssPath: null
 
+  consoleFocused: false
   consoleFullscreen: false
   consoleMinimized: false
   fileTreeHidden: false

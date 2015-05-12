@@ -50,15 +50,31 @@ window.NitrousTerminal =
     @term = term = new Terminal(80, 25)
     term.open(document.body)
     term.sizeToFit()
+    term.showCursor()
 
     term.originalKeyDown = @term.keyDown
     term.keyDown = (event) =>
       if @ide
-        switch
-          when @matchesSwitchConsoleEditorKeybinding(event)
-            return @handleSwitchConsoleEditorEvent(event)
-          when @matchesFullConsoleScreenKeybinding(event)
-            return @handleFullConsoleScreenEvent(event)
+        r = switch
+          when @matchesFocusEditorKeybinding event
+            @focusEditor event
+          when @matchesFullscreenConsoleKeybinding event
+            @toggleFullscreenConsole event
+          when @matchesNextTabKeybinding event
+            @makeNextTabActive event
+          when @matchesPreviousTabKeybinding event
+            @makePreviousTabActive event
+          when @matchesNewConsoleScreenKeybinding event
+            @newTab event
+          when @matchesCloseConsoleScreenKeybinding event
+            @closeTab event
+          when @matchesCtrlTabKeybinding event
+            false
+          when @matchesCtrlShiftTabKeybinding event
+            false
+          else
+            true
+        return false if !r
       term.originalKeyDown(event)
 
     term.on 'resize', (cols, rows) =>
@@ -88,14 +104,16 @@ window.NitrousTerminal =
       return unless @term
       Terminal.focus = @term
       @term.redrawCursor()
+      parentWindow?.App?.set?('consoleFocused', true)
 
     window.onblur = =>
       return unless @term
-      @didBlur()
       Terminal.focus = null
+      @didBlur()
       @term.redrawCursor()
+      parentWindow?.App?.set?('consoleFocused', false)
 
-    document.body.addEventListener('copy', @handleCopy, false)
+    document.addEventListener('copy', @handleCopy, false)
 
   open: (nobeforeopen) ->
     @conn.binaryMode = @binaryMode
@@ -120,6 +138,7 @@ window.NitrousTerminal =
     @conn?.close(retry)
 
   focus: ->
+    window.focus()
     @term?.focus()
 
   willOpen: ->
@@ -155,6 +174,7 @@ window.NitrousTerminal =
       sel.removeAllRanges()
       sel.addRange(range)
     , 10)
+    true
 
   handleData: (data) ->
     window.clearTimeout(@bufferTimeout)
@@ -210,29 +230,77 @@ window.NitrousTerminal =
     if @conn?.ws._noRetry
       @term?.write("\r\n[Session closed]")
 
-  handleSwitchConsoleEditorEvent: (ev) ->
-    if parentWindow
-      Terminal.cancel ev
-      parentWindow.App.get('router.ideMainMenuController').windowFocusEditor()
-      return false
-    true
+  focusEditor: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.windowFocusEditor()
+    false
 
-  handleFullConsoleScreenEvent: (ev) ->
-    if parentWindow
-      Terminal.cancel ev
-      parentWindow.App.get('router.ideMainMenuController').windowToggleFullScreenConsole()
-      return false
-    true
+  toggleFullscreenConsole: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.windowToggleFullScreenConsole()
+    false
+
+  makeNextTabActive: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.windowSelectNextTab()
+    false
+
+  makePreviousTabActive: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.windowSelectPreviousTab()
+    false
+
+  newTab: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.fileNew()
+    false
+
+  closeTab: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.fileClose()
+    false
 
   # keybinding is shift+ctrl+c / ctrl+alt+c
-  matchesSwitchConsoleEditorKeybinding: (event) ->
+  matchesFocusEditorKeybinding: (event) ->
     (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
     (!isMac && event.ctrlKey && event.altKey && event.keyCode == 67)
 
   # keybinding is shift+ctrl+f / ctrl+alt+f
-  matchesFullConsoleScreenKeybinding: (event) ->
+  matchesFullscreenConsoleKeybinding: (event) ->
     (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
     (!isMac && event.ctrlKey && event.altKey && event.keyCode == 70)
+
+  # keybinding is shift+ctrl+]
+  matchesNextTabKeybinding: (event) ->
+    event.shiftKey && event.ctrlKey && event.keyCode == 221
+
+  # keybinding is shift+ctrl+[
+  matchesPreviousTabKeybinding: (event) ->
+    event.shiftKey && event.ctrlKey && event.keyCode == 219
+
+  # keybinding is shift+ctrl+n / ctrl+alt+n
+  matchesNewConsoleScreenKeybinding: (event) ->
+    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 78) ||
+    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 78)
+
+  # keybinding is shift+ctrl+w / ctrl+alt+w
+  matchesCloseConsoleScreenKeybinding: (event) ->
+    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 87) ||
+    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 87)
+
+  # keybinding ctrl+tab
+  matchesCtrlTabKeybinding: (event) ->
+    event.ctrlKey && event.keyCode == 9
+
+  # keybinding ctrl+shift+tab
+  matchesCtrlShiftTabKeybinding: (event) ->
+    event.ctrlKey && event.shiftKey && event.keyCode == 9
 
 window.webFontLoaded = ->
   NitrousTerminal.term?.sizeToFit()

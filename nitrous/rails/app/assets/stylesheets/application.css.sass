@@ -2,7 +2,6 @@
 //= require normalize
 //= require eurostile-font
 //= require source-code-pro-font
-//= require codemirror
 //= require font-awesome
 //= require_self
 //= require ui
@@ -269,6 +268,13 @@ ul.space-separated
   a
     color: $n2oGray850
     text-decoration: underline
+
+  &.error
+    color: white
+    background-color: $red600
+
+    .fa
+      color: white
 
 .gravatar
   position: relative

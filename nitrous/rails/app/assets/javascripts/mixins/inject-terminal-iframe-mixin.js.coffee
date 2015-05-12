@@ -14,15 +14,17 @@ App.InjectTerminalIframeMixin = Em.Mixin.create
     # terminalCssPath and terminalJsPath are determined at build time
     # if CLOUDFRONT_ENDPOINT is set, the paths at build time will look like
     # '//asdf.cloudfront.net/assets/terminal-abcdef.js'
-    # Otherwise paths look like "/assets/terminal-abcdef.js" and we add
-    # location.origin
+    # Otherwise paths look like "/assets/terminal-abcdef.js" and we add origin
+
     cssPath = App.get('terminalCssPath')
     jsPath = App.get('terminalJsPath')
 
+    origin = location.protocol + "//" + location.host
+
     if !(cssPath.match("^//"))
-      cssPath = location.origin + cssPath
+      cssPath = origin + cssPath
     if !(jsPath.match("^//"))
-      jsPath = location.origin + jsPath
+      jsPath = origin + jsPath
 
     # use pure js dom api because jquery fails to use iframe's window/document obj
     linkEl = iframeDocument.createElement('link')
