@@ -12,7 +12,21 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-func sendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subject, message string) error {
+// FIXME: Stub messages
+const (
+	warningSubject = `Workspace Inactivity Notice`
+	warningMessage = `You host {{.Slug}} is inactive and will be terminated in a week if there is no usage`
+
+	terminatingSubject = `Workspace termination due to inactivity`
+	terminatingMessage = `Your host {{.Slug}} will be terminated in 3 days.`
+)
+
+var (
+	d    *db.Database
+	logr *logger.Logger
+)
+
+func sendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
 		hostID := scan.Host.ID
 		ann := &announcement.Announcement{
@@ -50,19 +64,7 @@ func sendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subj
 	})
 }
 
-func main() {
-	logr := &logger.Logger{Level: logger.LogLevelDebug}
-
-	dbURL := envvars.NitrousPgUrl
-	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
-	}
-
-	d, err := db.NewDatabase(dbURL)
-	if err != nil {
-		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
-	}
-
+func scanWarningHosts() {
 	scans, errs := hostscan.ScanHosts(d, time.Now())
 
 	logr.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
@@ -77,20 +79,41 @@ func main() {
 			err := scan.UpdateHost(d)
 			if err != nil {
 				// ignore
-				logr.Errorf("error updating scan result - %s: %+v.", err, scan)
+				logr.Errorf("Error updating scan result - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateOneWeekNotice:
-			err := sendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
+			err := sendAnnouncementForHostScan(scan, warningSubject, warningMessage)
 			if err != nil {
-				logr.Errorf("error sending warning announcement - %s: %+v.", err, scan)
+				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateTerminating:
-			err := sendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
+			err := sendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
 			if err != nil {
-				logr.Errorf("error sending terminating announcement - %s: %+v.", err, scan)
+				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}
+
+		default:
+			logr.Errorf("Unexpected host scan state %s: %+v.", scan.State, scan)
 		}
 	}
+}
+
+func main() {
+	var err error
+
+	logr = &logger.Logger{Level: logger.LogLevelDebug}
+
+	dbURL := envvars.NitrousPgUrl
+	if dbURL == "" {
+		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+	}
+
+	d, err = db.NewDatabase(dbURL)
+	if err != nil {
+		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
+	}
+
+	scanWarningHosts()
 }
