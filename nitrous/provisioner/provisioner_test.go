@@ -12,6 +12,7 @@ import (
 
 	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -44,12 +45,16 @@ var _ = Describe("provisioner", func() {
 		db              *ndb.Database
 		lgr             *logger.Logger
 		provisionerUser *user.User
+		mockDNS         *dns.MockDNS
 	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
+
+		mockDNS = &dns.MockDNS{}
+		dns.SetActiveDNS(mockDNS)
 
 		lgr = &logger.Logger{Level: logger.LogLevelQuiet}
 
