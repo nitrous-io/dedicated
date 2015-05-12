@@ -169,6 +169,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/stop":                       r("hosts.Stop", mw.HostViaPath("slug", hosts.Stop), EventHostStopped),
 				"/hosts/{slug}/restart":                    r("hosts.Restart", mw.HostViaPath("slug", hosts.Restart), EventHostRestarted),
 				"/hosts/{slug}/upgrade":                    r("hosts.Upgrade", mw.HostViaPath("slug", hosts.Upgrade), EventHostUpgraded),
+				"/hosts/{slug}/upgradefreighter":           r("hosts.UpgradeFreighter", mw.HostViaPath("slug", hosts.UpgradeFreighter), EventHostUpgraded),
 				"/hosts/{slug}/volumes":                    r("volumes.Create", mw.HostViaPath("slug", volumes.Create), EventVolumeCreated),
 				"/hosts/{slug}/images":                     r("images.Build", mw.HostViaPath("slug", images.Build), EventImageBuilt),
 				"/hosts/{slug}/images/pull":                r("images.Pull", mw.HostViaPath("slug", images.Pull), EventImagePulled),

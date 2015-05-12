@@ -28,8 +28,18 @@ App.IdeRoute = Em.Route.extend
         window.location.href = '/404.html'
 
   afterModel: (container, transition)->
-    container?.loadHost().catch ->
+    hostPromise = container?.loadHost().catch ->
       transition.abort()
+    hostPromise.then (resp) =>
+      host = resp.host
+      console.log host
+      mustUpgrade = host.freighter_upgrade_available
+      console.log "freighterUpgradeAvailable: ", mustUpgrade
+      if mustUpgrade
+        console.log "must upgrade!"
+        @transitionTo "ide-upgrade", container.slug
+    , =>
+      console.log "error fetching host info"
 
   renderTemplate: ->
     @_super()

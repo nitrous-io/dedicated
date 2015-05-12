@@ -20,27 +20,28 @@ var _ = Describe("host serializer", func() {
 		updatedAt    = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
 		model = &host.Host{
-			ID:                    10,
-			UserID:                11,
-			RegionID:              12,
-			PlanID:                13,
-			ProviderTemplateID:    14, // Not serialized.
-			Slug:                  "wild-rocket-23",
-			Name:                  sql.NullString{"wildrocket.xxx", true},
-			State:                 "running",
-			IPAddress:             sql.NullString{"1.2.3.4", true},
-			FreighterdPort:        sql.NullInt64{65000, true},
-			FreighterdVersion:     "1.0.69-bed0c-88",
-			DockerVersion:         "1.4.1-nitrous",
-			ProviderIdentifier:    sql.NullString{"digitalocean", true},
-			MaxContainers:         sql.NullInt64{3, true},
-			Size:                  sql.NullString{"micro", true},
-			TerminatedAt:          &terminatedAt,
-			CreatedAt:             &createdAt,
-			UpdatedAt:             &updatedAt,
-			LiveDockerVersion:     "1.2-docker",
-			LiveFreighterdVersion: "2.3-freighterd",
-			UpgradeAvailable:      host.UpgradeAvailableHard,
+			ID:                        10,
+			UserID:                    11,
+			RegionID:                  12,
+			PlanID:                    13,
+			ProviderTemplateID:        14, // Not serialized.
+			Slug:                      "wild-rocket-23",
+			Name:                      sql.NullString{"wildrocket.xxx", true},
+			State:                     "running",
+			IPAddress:                 sql.NullString{"1.2.3.4", true},
+			FreighterdPort:            sql.NullInt64{65000, true},
+			FreighterdVersion:         "1.0.69-bed0c-88",
+			DockerVersion:             "1.4.1-nitrous",
+			ProviderIdentifier:        sql.NullString{"digitalocean", true},
+			MaxContainers:             sql.NullInt64{3, true},
+			Size:                      sql.NullString{"micro", true},
+			TerminatedAt:              &terminatedAt,
+			CreatedAt:                 &createdAt,
+			UpdatedAt:                 &updatedAt,
+			LiveDockerVersion:         "1.2-docker",
+			LiveFreighterdVersion:     "2.3-freighterd",
+			UpgradeAvailable:          host.UpgradeAvailableHard,
+			FreighterUpgradeAvailable: false,
 		}
 	)
 
@@ -70,7 +71,8 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"freighter_upgrade_available": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -102,7 +104,8 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"freighter_upgrade_available": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -135,7 +138,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"freighter_upgrade_available": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -174,7 +178,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"freighter_upgrade_available": false
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})

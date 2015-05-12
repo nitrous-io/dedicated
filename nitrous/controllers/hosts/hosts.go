@@ -3,6 +3,7 @@ package hosts
 import (
 	"database/sql"
 	"encoding/base64"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -107,15 +108,27 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
+// TODO: temporary, remove before merging
+// this is for one-time forcing of freighter updates
+// 0 - don't fake
+// 1 - fake 1
+// 2 - fake with ignoring ErrAlreadyUpgraded
+var fakeFreighterUpdate = 0
+
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	var ver *freighterclient.HostVersions
 
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
+			if fakeFreighterUpdate != 0 {
+				log.Printf("faking freighter update by setting fake freighter version")
+				ver.FreighterdVersion = "1.6.0.1+fake-0-108e40e"
+			}
 			if h.DockerVersion != "" && ver.DockerVersion != h.DockerVersion {
 				h.UpgradeAvailable = host.UpgradeAvailableHard
 			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
 				h.UpgradeAvailable = host.UpgradeAvailableSoft
+				h.FreighterUpgradeAvailable = true
 			}
 			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
@@ -435,6 +448,82 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	PublishContainersStopped(env, h)
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
+	return nil
+}
+
+// blocking call that initiates freighter upgrade and waits until it's upgraded
+func UpgradeFreighter(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+	if err != nil {
+		return err
+	}
+
+	if err := cl.UpgradeFreighter(&freighterclient.HostVersions{
+		FreighterdVersion: h.FreighterdVersion,
+	}); err != nil {
+		if err != freighterclient.ErrAlreadyUpgraded {
+			// TODO: should leave the host in StateUpgrading?
+			env.Logger.Errorf("failed to initiate freighter upgrade, err: %v", err)
+			return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		}
+		if fakeFreighterUpdate != 2 {
+			log.Printf("freighter already upgraded to %s\n", h.FreighterdVersion)
+			PublishHostEvent(env, controllers.EventHostUpgraded, h)
+			serializeHost(env, h)
+			fakeFreighterUpdate = 0 // so that it doesn't loop
+			return nil
+		}
+	}
+
+	h.State = host.StateUpgrading
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	PublishHostEvent(env, controllers.EventHostUpgrading, h)
+
+	// wait for the server to restart at which point it should have a new version
+	wantedVersion := h.FreighterdVersion
+	didUpgrade := false
+	timeStart := time.Now()
+	for {
+		time.Sleep(time.Second * 10)
+
+		ver, err := cl.HostVersions()
+		// error is ok - freighter might be unavailable because it's
+		// upgrading/restarting itself
+		if err == nil {
+			if ver.FreighterdVersion == wantedVersion {
+				didUpgrade = true
+				log.Printf("freighter had upgraded to %s", wantedVersion)
+			} else {
+				log.Printf("didFreighterUpgrade to %s? not yet (is %s)", wantedVersion, ver.FreighterdVersion)
+			}
+		}
+
+		if didUpgrade {
+			break
+		}
+
+		// wait up to 2 minutes for upgrade to finish
+		if time.Since(timeStart) > time.Minute*2 {
+			// TODO: should leave the host in StateUpgrading?
+			env.Logger.Errorf("freighter took too long (%s) to upgrade", time.Since(timeStart))
+			return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		}
+	}
+
+	h.State = host.StateRunning
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	fakeFreighterUpdate = 0 // so that it doesn't loop
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
 	return nil
 }
 

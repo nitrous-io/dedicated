@@ -132,6 +132,7 @@ type Client interface {
 	HostVersions() (*HostVersions, error)
 
 	UpgradeServer(*HostVersions) error
+	UpgradeFreighter(*HostVersions) error
 }
 
 type HostVersions struct {
@@ -863,6 +864,33 @@ func (c *client) UpgradeServer(versions *HostVersions) error {
 	params.Set("freighterd_version", versions.FreighterdVersion)
 
 	u := fmt.Sprintf("%s/upgrade", c.host.BaseURL())
+	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := performRequest(c, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusAccepted:
+		return nil
+	case http.StatusNoContent:
+		return ErrAlreadyUpgraded
+	default:
+		return statusError(resp)
+	}
+}
+
+func (c *client) UpgradeFreighter(versions *HostVersions) error {
+	params := url.Values{}
+	params.Set("freighterd_version", versions.FreighterdVersion)
+
+	u := fmt.Sprintf("%s/upgradefreighter", c.host.BaseURL())
 	req, err := http.NewRequest("POST", u, strings.NewReader(params.Encode()))
 	if err != nil {
 		return err

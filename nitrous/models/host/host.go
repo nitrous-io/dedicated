@@ -114,6 +114,7 @@ type Host struct {
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
 	UpgradeAvailable      string
+	FreighterUpgradeAvailable bool
 }
 
 func (h *Host) IsFreeTier() bool {

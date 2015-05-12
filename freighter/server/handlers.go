@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1048,6 +1049,43 @@ func (s *Server) httpForward(w http.ResponseWriter, r *http.Request) error {
 	} else {
 		proxy.ProxyHTTP(addr, nil, proxyerror.ErrorHandler)(w, r)
 	}
+	return nil
+}
+
+var fakeUpdateSimulateError = false
+
+func (s *Server) fakeUupgradeFreighter(fv string) {
+	if fakeUpdateSimulateError {
+		s.logger.Infof("fake updated freighterd package from %q to %q", freighter.Version, fv)
+		s.notifyWebhookUpgradeFailed(errors.New("fake: failed to upgrade freighter"), "freighter")
+		return
+	}
+	s.logger.Infof("fake updated freighterd package from %q to %q", freighter.Version, fv)
+	freighter.Version = fv
+}
+
+var fakeUpgrade = true
+
+// upgradeFreighter upgrades the freighterd to the version specified in the request.
+// This assumes that we are using APT to manage  freighterd and will probably
+//  not work everywhere.
+// sample freighterd_version: "0.2.0+1424818140-0-0b52a6e"
+func (s *Server) upgradeFreighter(w http.ResponseWriter, r *http.Request) error {
+	fv := r.PostFormValue("freighterd_version")
+
+	upgradingFreighter := fv != "" && fv != freighter.Version
+	if !upgradingFreighter {
+		s.respondEncodeJSON(w, http.StatusNoContent, nil)
+		return nil
+	}
+
+	if fakeUpgrade {
+		go s.fakeUupgradeFreighter(fv)
+	} else {
+		go s.upgradeDockerAndFreighter("", fv)
+	}
+
+	s.respond(w, http.StatusAccepted, jsonStatusAccepted)
 	return nil
 }
 
