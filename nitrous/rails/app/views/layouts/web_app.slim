@@ -25,6 +25,9 @@ html lang='en'
     = javascript_include_tag 'application'
     = yield :body_script
     javascript:
+      if (navigator.userAgent.indexOf('Trident') != -1) {
+        $('html').addClass('msie');
+      }
       App.setProperties({
         terminalJsPath: '#{javascript_path "terminal"}',
         terminalCssPath: '#{stylesheet_path "terminal"}',

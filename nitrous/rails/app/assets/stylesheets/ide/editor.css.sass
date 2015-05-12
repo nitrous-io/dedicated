@@ -159,7 +159,6 @@
     display: flex
     flex-grow: 1
     flex-direction: column
-    height: 0
 
   .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler
     background-color: $n2oGray700
@@ -345,3 +344,8 @@
             border: 1px solid $n2oGray500
             border-radius: 2px
             color: $n2oGray50
+
+html.msie
+  #ide-editor-view
+    .CodeMirror
+      height: 0
