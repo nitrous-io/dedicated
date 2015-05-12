@@ -1181,5 +1181,17 @@ func init() {
 				CREATE UNIQUE INDEX index_users_on_username ON users (username) WHERE deleted_at IS NULL;
 			`,
 		},
+		{
+			Version: "1020",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN upgraded_at timestamp without time zone DEFAULT NULL;
+			`,
+		},
+		{
+			Version: "1030",
+			Up: `
+				ALTER TABLE plans ADD CONSTRAINT hosts_paid_plan_id_fkey FOREIGN KEY (paid_plan_id) REFERENCES plans(id);
+			`,
+		},
 	}
 }

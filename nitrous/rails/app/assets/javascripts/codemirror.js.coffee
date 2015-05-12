@@ -35,6 +35,7 @@
 #= require codemirror/keymap/vim
 #= require codemirror/keymap/sublime
 
+#= require codemirror/addon/mode/multiplex
 #= require codemirror/addon/comment/comment
 #= require codemirror/addon/display/rulers
 #= require codemirror/addon/edit/matchbrackets

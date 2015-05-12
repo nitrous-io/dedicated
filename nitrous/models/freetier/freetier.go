@@ -25,39 +25,6 @@ var (
 	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
 
-func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) error {
-	if !currentPlan.PaidPlanID.Valid {
-		return ErrUpgradeNotAvailable
-	}
-
-	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
-	if err != nil {
-		return err
-	}
-
-	h.PlanID = paidPlan.ID
-	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
-	h.HourlyPrice = paidPlan.HourlyPrice()
-	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
-	h.LastRunningAt = pq.NullTime{Valid: false}
-
-	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (plan_id, size, hourly_price, max_containers, last_running_at)
-		= (:plan_id, :size, :hourly_price, max_containers, :last_running_at)
-		WHERE id = :id
-		RETURNING *;`)
-	if err != nil {
-		return err
-	}
-
-	err = nstmt.QueryRowx(h).StructScan(h)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Upgrade all hosts to paid for free-tier user
 // just upgraded to paid tier
 func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
@@ -80,6 +47,39 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) error {
+	if !currentPlan.PaidPlanID.Valid {
+		return ErrUpgradeNotAvailable
+	}
+
+	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	if err != nil {
+		return err
+	}
+
+	h.PlanID = paidPlan.ID
+	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
+	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
+	h.LastRunningAt = pq.NullTime{Valid: false}
+
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (plan_id, size, hourly_price, max_containers, last_running_at, upgraded_at)
+		= (:plan_id, :size, :hourly_price, :max_containers, :last_running_at, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+
+	err = nstmt.QueryRowx(h).StructScan(h)
+	if err != nil {
+		return err
 	}
 
 	return nil
