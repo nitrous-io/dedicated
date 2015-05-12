@@ -4,8 +4,9 @@ App.IdeConfirmDeletePathDialogView = App.IdeModalDialogView.extend
 
   contentBinding: 'controller.confirmDeletePathDialog' # IdeSidebarController
 
-  didClickDelete: ->
-    if path = @get('content.path')
-      controller = @get('controller')
-      controller.delete path
-      @hide()
+  actions:
+    didClickDelete: ->
+      if path = @get('content.path')
+        controller = @get('controller')
+        controller.delete path
+        @hide()

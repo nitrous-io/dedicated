@@ -3,13 +3,14 @@ App.IdeConfirmCloseDialogView = App.IdeModalDialogView.extend
   elementId: 'ide-confirm-close-dialog-view'
   contentBinding: 'controller.confirmCloseDialog' # ideEditorController
 
-  didClickSave: ->
-    if tab = @get('content.document')
-      controller = @get('controller')
-      controller.saveDocument tab
-      @hide()
+  actions:
+    didClickSave: ->
+      if tab = @get('content.document')
+        controller = @get('controller')
+        controller.saveDocument tab
+        @hide()
 
-  didClickDontSave: ->
-    if tab = @get('content.document')
-      @get('controller').removeTab(tab, true)
-      @hide()
+    didClickDontSave: ->
+      if tab = @get('content.document')
+        @get('controller').removeTab(tab, true)
+        @hide()

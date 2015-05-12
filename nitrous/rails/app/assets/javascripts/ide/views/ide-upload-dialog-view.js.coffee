@@ -70,12 +70,13 @@ App.IdeUploadDialogView = App.IdeModalDialogView.extend
         upload.set 'tooLarge', true
       @get('controller').didFinishAnUpload()
 
-  didClickRemoveUpload: (upload) ->
-    if content = @get 'content'
-      content.removeObject upload
+  actions:
+    didClickRemoveUpload: (upload) ->
+      if content = @get 'content'
+        content.removeObject upload
 
-  didClickUpload: ->
-    @get('controller').beginUpload()
+    didClickUpload: ->
+      @get('controller').beginUpload()
 
 App.IdeUploadDialogDropZoneView = Em.View.extend
   classNames: ['drop-zone']
