@@ -298,6 +298,54 @@ var _ = Describe("biller/user", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("should not allow an hourly price of 0 if the billing profile is not in free and user is not an admin but the host is terminated & upgraded", func() {
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET terminated_at=now(), upgraded_at=now() WHERE id = $1;`, hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("has a 0 HourlyPrice but Billing profile state is incompatible"))
+		})
+
+		It("should allow an hourly price of 0 if the billing profile is not in free and user is not an admin but the host is terminated", func() {
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE hosts SET terminated_at=now() WHERE id = $1;`, hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			amnt, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+
+			Expect(amnt).To(Equal(int64(0)))
+			Expect(items).To(HaveLen(0))
+		})
+
 		It("should collate all running and stopped usage", func() {
 			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
