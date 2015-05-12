@@ -95,14 +95,18 @@ App.Editor = klass = Em.Object.extend
     if cm = @get('codeMirror')
       cm.refresh()
 
+  hasFocus: ->
+    if cm = @get('codeMirror')
+      cm.hasFocus()
+
   focus: ->
     if cm = @get('codeMirror')
-      cm.focus()
+      cm.focus() unless @hasFocus()
 
   selectNext: ->
     if cm = @get 'codeMirror'
       cm.execCommand('selectNextOccurrence')
-      cm.focus()
+      cm.focus() unless @hasFocus()
 
   find: (query, reverse, matchCase, useRegex) ->
     if cm = @get 'codeMirror'
@@ -274,6 +278,7 @@ App.Editor = klass = Em.Object.extend
       viewportMargin: 2
       workTime: 200
       workDelay: 300
+      dragDrop: false
 
     if rulerColumn = @get 'rulerColumn'
       cm.setOption 'rulers', [{ column: rulerColumn }]
