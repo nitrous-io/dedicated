@@ -8,6 +8,7 @@ import (
 	"strings"
 	templateLib "text/template"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -88,7 +89,7 @@ func (ann *HostAnnouncement) Message() (string, error) {
 	return ann.RenderMessage(ann.HostOwner)
 }
 
-func FindOwnerByHostID(db *ndb.Database, hostID int64) (*HostOwner, error) {
+func FindOwnerByHostID(db ndb.QueryReceiver, hostID int64) (*HostOwner, error) {
 	owner := &HostOwner{}
 
 	err := db.Get(owner, `SELECT
@@ -314,22 +315,13 @@ func AddHosts(db ndb.QueryReceiver, announcementID int64, hostIDs []int64) error
  * Insert announcement associated with given hosts.
  */
 func InsertForHosts(db *ndb.Database, ann *Announcement, hostIDs []int64) error {
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
+	return db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := Insert(tx, ann); err != nil {
+			return err
+		}
 
-	if err := Insert(tx, ann); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err := AddHosts(tx, ann.ID, hostIDs); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit()
+		return AddHosts(tx, ann.ID, hostIDs)
+	})
 }
 
 func renderTemplate(templateCache **templateLib.Template, templateName, templateText string, ctx interface{}) (string, error) {

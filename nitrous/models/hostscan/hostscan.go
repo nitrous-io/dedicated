@@ -23,9 +23,6 @@ const (
 
 	// Host is in terminating notice period
 	StateTerminating = "terminating"
-
-	// Host is terminated
-	StateTerminated = "terminated"
 )
 
 const (
@@ -102,7 +99,14 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 
 func (scan *ScanResult) UpdateHost(d db.QueryReceiver) error {
 	h := scan.Host
-	h.NextScan = pq.NullTime{scan.NextScan, true}
+
+	if scan.State == StateTerminating {
+		h.NextScan = pq.NullTime{}
+		h.TerminatingAt = pq.NullTime{scan.NextScan, true}
+	} else {
+		h.NextScan = pq.NullTime{scan.NextScan, true}
+	}
+
 	return UpdateHostScanState(d, h)
 }
 
