@@ -195,20 +195,15 @@ func testDeleteNonExistent() {
 
 func testCreate() {
 	testHostListedZones(client)
-	//testDeleteNonExistent()
-	//fmt.Printf("\nBefore adding www.example.com:\n")
-	//testListRecourceRecordSets(client, hostZone.ID, nil)
+	fmt.Printf("\nBefore adding:\n")
+	testListRecourceRecordSets(client, hostZone.ID, nil)
 	from := uniqueHostNameForCNAMETest + hostDomain
 	to := "sub.www.example.com"
-	from2 := uniqueHostNameForATest + hostDomain
-	to2 := "127.0.0.1"
 	nroute53.SetCNAME(from, to)
-	nroute53.SetA(from2, to2)
 	fmt.Printf("\nAfter adding %s:\n", from)
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 	nroute53.DeleteExistingDNSRecords(from)
-	nroute53.DeleteExistingDNSRecords(from2)
-	fmt.Printf("\nAfter deleting A and CNAME records:\n")
+	fmt.Printf("\nAfter deleting CNAME records:\n")
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }
 
