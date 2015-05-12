@@ -352,7 +352,8 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	for _, cn := range cns {
-		if !cn.TempState.Valid {
+		state := container.State(cn.TempState.Int64)
+		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
 			PublishContainerStopped(env, cn)
 		}
 	}
@@ -464,7 +465,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	for _, cn := range cns {
-		if !cn.TempState.Valid {
+		state := container.State(cn.TempState.Int64)
+		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
 			PublishContainerStopped(env, cn)
 		}
 	}
