@@ -76,12 +76,6 @@ func SetHostProxyCNAME(logger *logger.Logger, h *host.Host) error {
 	if tenderServer == "" {
 		return fmt.Errorf("no tender server for region '%s'", regionID.String)
 	}
-	// route53 will complain if we try to set CNAME record for a host that already
-	// has A record, so delete potential existing record
-	if err := nroute53.DeleteExistingDNSRecords(from); err != nil {
-		logger.Errorf("nroute53.DeleteExistingDNSRecords('%s') failed with '%s'", from, err)
-		return err
-	}
 	if err := nroute53.SetCNAME(from, tenderServer); err != nil {
 		logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, from, tenderServer)
 		return err
@@ -89,14 +83,10 @@ func SetHostProxyCNAME(logger *logger.Logger, h *host.Host) error {
 	return nil
 }
 
-// SetHostCNAMEIfStatic adds or updates CNAME record for the host if it uses
-// static ip
-func SetHostCNAMEIfStatic(logger *logger.Logger, h *host.Host) error {
-	if !h.StaticIP {
-		return nil
-	}
+// SetHostCNAME adds or updates CNAME record for the host
+func SetHostCNAME(logger *logger.Logger, h *host.Host) error {
 	if !h.IPAddress.Valid && h.IPAddress.String == "" {
-		logger.Errorf("SetHostCNAMEIfStatic(): StaticIP is true but ip address invalid for host %d (%s)", h.ID, h.Slug)
+		logger.Errorf("SetHostCNAME(): ip address invalid for host %d (%s)", h.ID, h.Slug)
 		return errInvalidIPAddress
 	}
 
@@ -105,42 +95,8 @@ func SetHostCNAMEIfStatic(logger *logger.Logger, h *host.Host) error {
 	// desired name is: ec2-xx-xx-xx-xx.compute-1.amazonaws.com
 	to := "ec2-" + h.IPAddress.String + ".compute-1.amazonaws.com"
 
-	// route53 will complain if we try to set CNAME record for a host that already
-	// has A record, so delete potential existing record
-	if err := nroute53.DeleteExistingDNSRecords(from); err != nil {
-		return err
-	}
-
 	if err := nroute53.SetCNAME(from, to); err != nil {
 		logger.Errorf("nroute53.SetCNAME() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
-		return err
-	}
-	return nil
-}
-
-// SetHostAIfNonStatic adds or updates A record for the host if it doesn't
-// use static ip
-func SetHostAIfNonStatic(logger *logger.Logger, h *host.Host) error {
-	if h.StaticIP {
-		return nil
-	}
-	if !h.IPAddress.Valid && h.IPAddress.String == "" {
-		logger.Errorf("SetHostAIfNonStatic(): ip address invalid for host %d (%s)", h.ID, h.Slug)
-		return errInvalidIPAddress
-	}
-
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	from := h.Slug + "." + hostHostName
-	to := h.IPAddress.String
-
-	// route53 will complain if we try to set A record for a host that already
-	// has CNAME record, so delete potential existing record
-	if err := nroute53.DeleteExistingDNSRecords(from); err != nil {
-		logger.Errorf("nroute53.DeleteExistingDNSRecords('%s') failed with '%s'", from, err)
-		return err
-	}
-	if err := nroute53.SetA(from, to); err != nil {
-		logger.Errorf("nroute53.SetA() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
 		return err
 	}
 	return nil
@@ -154,13 +110,16 @@ func onHostCreate(lg *logger.Logger, h *host.Host) error {
 	if err != nil {
 		return err
 	}
-	return SetHostCNAMEIfStatic(lg, h)
+	return SetHostCNAME(lg, h)
 }
 
 // onHostStart performs dns updates needed when host is started:
-// - for non-static-ip hosts, update the A record for <hostslug>.HOST_HOSTNAME
+// - for non-static-ip hosts, update the CNAME record for <hostslug>.HOST_HOSTNAME
 func onHostStart(logger *logger.Logger, h *host.Host) error {
-	return SetHostAIfNonStatic(logger, h)
+	if h.StaticIP {
+		return nil
+	}
+	return SetHostCNAME(logger, h)
 }
 
 // onHostDestroy performs dns updates needed after host has been destroyed:
@@ -189,12 +148,6 @@ func onContainerCreate(logger *logger.Logger, cn *container.Container, h *host.H
 	from := cn.PreviewHostname()
 	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
 	to := h.Slug + "." + hostHostName
-	// route53 will complain if we try to set CNAME record for a host that already
-	// has A record, so delete potential existing record
-	if err := nroute53.DeleteExistingDNSRecords(from); err != nil {
-		logger.Errorf("nroute53.DeleteExistingDNSRecords('%s') failed with '%s'", from, err)
-		return err
-	}
 	return nroute53.SetCNAME(from, to)
 }
 
