@@ -11,8 +11,10 @@ import (
 
 	"github.com/kardianos/osext"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
+	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -60,6 +62,14 @@ func main() {
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {
 		panic("STRIPE_SECRET_KEY environment variable not set")
+	}
+
+	if envvars.AwsAccessKey == "" || envvars.AwsAccessKey == "disabled" ||
+		envvars.AwsSecretKey == "" || envvars.AwsAccessKey == "disabled" {
+		logr.Warn("DNS updates disabled.  Set AWS_ACCESS_KEY and AWS_SECRET_KEY")
+	} else {
+		nroute53.SetSecrets(envvars.AwsAccessKey, envvars.AwsSecretKey)
+		dns.SetActiveDNS(&dns.RealDNS{})
 	}
 
 	// setup database

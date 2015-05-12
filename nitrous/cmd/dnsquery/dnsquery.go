@@ -12,6 +12,8 @@ import (
 	"github.com/miekg/dns"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/route53"
+
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
 )
 
@@ -294,8 +296,8 @@ func main() {
 	flag.BoolVar(&flgTestPropagate, "test-propagate", false, "test DNS propagation time")
 	flag.Parse()
 
-	awsAccessKey := strings.TrimSpace(os.Getenv("AWS_ACCESS"))
-	awsSecretKey := strings.TrimSpace(os.Getenv("AWS_SECRET"))
+	awsAccessKey := strings.TrimSpace(envvars.AwsAccessKey)
+	awsSecretKey := strings.TrimSpace(envvars.AwsSecretKey)
 	if awsAccessKey == "" || awsSecretKey == "" {
 		log.Fatalf("AWS_ACCESS or AWS_SECRET env variables not set")
 	}

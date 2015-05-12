@@ -3,7 +3,6 @@ package dns
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -27,14 +26,8 @@ var (
 )
 
 func init() {
-	if envvars.AwsAccess == "" {
-		log.Printf("AWS_ACCESS env variable missing")
-	}
-	if envvars.AwsSecret == "" {
-		log.Printf("AWS_SECRET env variable missing")
-	}
-	nroute53.SetSecrets(envvars.AwsAccess, envvars.AwsSecret)
-	SetActiveDNS(&RealDNS{})
+	// nitrousd.go will update this if envvars are set accordingly
+	SetActiveDNS(&MockDNS{})
 }
 
 type DNS interface {

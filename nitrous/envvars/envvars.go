@@ -62,8 +62,8 @@ var (
 	RedisPort string
 	RedisDB   int64
 
-	AwsAccess string
-	AwsSecret string
+	AwsAccessKey string
+	AwsSecretKey string
 
 	// Controls whether 'update now' option is available to users.  Defaults to
 	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
@@ -144,8 +144,8 @@ func init() {
 		}
 	}
 
-	AwsAccess = os.Getenv("AWS_ACCESS")
-	AwsSecret = os.Getenv("AWS_SECRET")
+	AwsAccessKey = os.Getenv("AWS_ACCESS_KEY")
+	AwsSecretKey = os.Getenv("AWS_SECRET_KEY")
 
 	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
 	if enableUpgradeEnv == "" {
