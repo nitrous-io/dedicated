@@ -57,7 +57,7 @@ if view.showFreeTierTip
       h2
         | Free workspace
       p
-        | Your request to create a free workspace will be added to a queue. To skip the queue and begin working immediately, please select a paid plan.
+        | Your request to create a free workspace will be added to a waitlist. To skip the waitlist and begin working immediately, please select a paid plan.
       .card-footer
         .left
           a.ui.text-btn href='#' click='dismissTemporary' Dismiss
