@@ -203,6 +203,8 @@ func testCreate() {
 	fmt.Printf("\nAfter adding %s:\n", from)
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 	nroute53.DeleteExistingDNSRecords(from)
+	// get warning
+	nroute53.DeleteExistingDNSRecords("nosuchrecord." + hostDomain)
 	fmt.Printf("\nAfter deleting CNAME records:\n")
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }

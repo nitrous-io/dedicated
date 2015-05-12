@@ -30,16 +30,21 @@ func isCNAMEOrA(tp string) bool {
 	return strings.EqualFold(tp, "cname") || strings.EqualFold(tp, "a")
 }
 
-// delete all CNAME and A records for a given hostName
+func isCNAME(tp string) bool {
+	return strings.EqualFold(tp, "cname")
+}
+
+// delete CNAME record for a given hostName
 // One would think that I could just sent DELETE request with hostName but
 // it seems that to delete a record DELETE has to send exactly the same
 // values that it currently has so the reliable way seems to be: get current
 // info and then delete them
 func deleteExistingDNSRecords(c *route53.Route53, zoneID, hostName string) error {
 	hostName = route53.FQDN(hostName)
+	// https://docs.aws.amazon.com/Route53/latest/APIReference/API_ListResourceRecordSets.html
 	opts := route53.ListOpts{
-		Name:     hostName,
-		MaxItems: 10000,
+		Name:     hostName, // first name in the lexicographic ordering of domain names to be retrieved
+		MaxItems: 1,        // only retrieve the name we want
 	}
 	resp, err := c.ListResourceRecordSets(zoneID, &opts)
 	if err != nil {
@@ -47,21 +52,28 @@ func deleteExistingDNSRecords(c *route53.Route53, zoneID, hostName string) error
 	}
 	var changes []route53.Change
 	for _, r := range resp.Records {
-		if isCNAMEOrA(r.Type) {
-			r.RecordsXML = "" // not
-			change := route53.Change{
-				Action: "DELETE",
-				Record: r,
-			}
-			changes = append(changes, change)
+		if !isCNAME(r.Type) {
+			continue
 		}
+		if r.Name != hostName {
+			continue
+		}
+		r.RecordsXML = "" // need to blank out in order to delete
+		changes = append(changes, route53.Change{
+			Action: "DELETE",
+			Record: r,
+		})
 	}
-	// nothing to delete
-	if len(changes) == 0 {
+	if len(changes) == 0 { // nothing to delete
+		fmt.Printf("[DEBUG] deleteExistingDNSRecords for hostName %s: no record found", hostName)
 		return nil
 	}
+	if len(changes) > 1 {
+		return fmt.Errorf("Expected one change for hostname %s, got %d: %+v", hostName, len(changes), changes)
+	}
+	fmt.Printf("[DEBUG] deleteExistingDNSRecords for hostName %s: changes are %+v\n", hostName, changes)
 	req := &route53.ChangeResourceRecordSetsRequest{
-		Comment: "deleting DNS record",
+		Comment: fmt.Sprintf("deleting DNS record for %s", hostName),
 		Changes: changes,
 	}
 	_, err = c.ChangeResourceRecordSets(zoneID, req)
