@@ -95,6 +95,9 @@ type Host struct {
 	// is no longer running but rather serves as a marker for systems such as freetier.
 	LastRunningAt pq.NullTime `db:"last_running_at"`
 
+	// Tracks when a host has been upgraded
+	UpgradedAt pq.NullTime `db:"upgraded_at"`
+
 	Secret string `db:"secret"`
 
 	// HourlyPrice unit is milli-cents (x1000)

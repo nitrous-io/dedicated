@@ -80,10 +80,13 @@ var _ = Describe("models/freetier", func() {
 		})
 
 		Describe("UpgradeFreeUserHosts()", func() {
+			var h *host.Host
+
 			BeforeEach(func() {
-				h := &host.Host{
-					Slug:        "my-free-host",
-					HourlyPrice: 0,
+				h = &host.Host{
+					Slug:          "my-free-host",
+					HourlyPrice:   0,
+					MaxContainers: sql.NullInt64{1, true},
 				}
 
 				_, err := test.CreateHostStack(db, &test.HostStack{
@@ -95,10 +98,29 @@ var _ = Describe("models/freetier", func() {
 
 				Expect(h.UserID).To(Equal(u.ID))
 				Expect(h.PlanID).To(Equal(freePlan.ID))
-				Expect(h.HourlyPrice).To(Equal(0))
-				Expect(h.MaxContainers).To(Equal(1))
+				Expect(h.HourlyPrice).To(Equal(int64(0)))
+				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
+				Expect(h.UpgradedAt.Valid).To(BeFalse())
+			})
+
+			It("should not allow for an upgrade if there is no equivalent paid plan", func() {
+				_, err := db.Exec(`UPDATE plans SET paid_plan_id = NULL WHERE id=$1;`, h.PlanID)
+				Expect(err).To(BeNil())
 
 				err = freetier.UpgradeFreeUserHosts(db, u)
+				Expect(err).To(Equal(freetier.ErrUpgradeNotAvailable))
+
+				h2, err := host.FindByIdentifier(db, h.Slug)
+				Expect(err).To(BeNil())
+				Expect(h2.UserID).To(Equal(u.ID))
+				Expect(h2.PlanID).To(Equal(freePlan.ID))
+				Expect(h2.HourlyPrice).To(Equal(int64(0)))
+				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{1, true}))
+				Expect(h2.UpgradedAt.Valid).To(BeFalse())
+			})
+
+			It("should upgrade the host properties", func() {
+				err := freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 
 				h2, err := host.FindByIdentifier(db, h.Slug)
@@ -106,8 +128,9 @@ var _ = Describe("models/freetier", func() {
 
 				Expect(h2.UserID).To(Equal(u.ID))
 				Expect(h2.PlanID).To(Equal(paidPlan.ID))
-				Expect(h2.HourlyPrice).To(Equal(100))
-				Expect(h2.MaxContainers).To(Equal(2))
+				Expect(h2.HourlyPrice).To(Equal(int64(paidPlan.HourlyPrice())))
+				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{2, true}))
+				Expect(h2.UpgradedAt.Valid).To(BeTrue())
 			})
 		})
 
