@@ -19,16 +19,26 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-// FIXME: Stub messages
 const (
-	warningSubject = `Workspace Inactivity Notice`
-	warningMessage = `You host {{.Slug}} is inactive and will be terminated in a week if there is no usage`
+	warningSubject = `Workspace termination warning - 7 day notice`
+	warningMessage = `It looks like you have not been using your Nitrous workspace during the past month.
 
-	terminatingSubject = `Workspace termination due to inactivity`
-	terminatingMessage = `Your host {{.Slug}} will be terminated in 3 days.`
+Your workspace {{ .Slug }} will be terminated after 7 days if the inactivity continues.
 
-	terminatedSubject = `Workspace Termination Notice`
-	teminatedMessage  = `Your workspace {{.Slug}} has been terminated due to inactivity`
+If you no longer need your workspace and its contents, no further action is required.
+
+Should you wish to keep your workspace, simply start using it regularly.
+
+Please contact us with any questions at support@nitrous.io .
+`
+
+	terminatingSubject = `Workspace termination warning - final notice`
+	terminatingMessage = `Your workspace {{.Slug}} will be terminated in 3 days.
+
+You can upgrade to a paid plan to keep it running.  If you do not wish to upgrade, please be sure to backup your files prior to termination.`
+
+	terminatedSubject = `Workspace termination notice`
+	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
 )
 
 var (
@@ -81,13 +91,13 @@ func terminateHost(h *host.Host) error {
 
 	owner, err := announcement.FindOwnerByHostID(d, h.ID)
 	if err != nil {
-		logr.Errorf("Error finding host ownder detail - %s: %+v", err, h)
+		logr.Errorf("Error finding host owner detail - %s: %+v", err, h)
 		return err
 	}
 
 	ann := &announcement.Announcement{
 		SubjectTemplate: terminatedSubject,
-		MessageTemplate: teminatedMessage,
+		MessageTemplate: terminatedMessage,
 	}
 
 	// Send without saving announcement
