@@ -13,7 +13,7 @@ Rails.application.routes.draw do
   get '/enterprises' => 'pages#enterprises'
   get '/teams' => 'pages#teams'
   get '/vpc' => 'pages#vpc'
-  
+
   get '/teams-pricing' => 'pages#teams_pricing'
   get '/education-pricing' => 'pages#education_pricing'
 
