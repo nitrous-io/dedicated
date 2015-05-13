@@ -26,6 +26,10 @@
 			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
 		},
 		{
+			"ImportPath": "github.com/adjust/redismq",
+			"Rev": "e7c2e6adff9265da4fbfa766e7b147b8a06b835e"
+		},
+		{
 			"ImportPath": "github.com/bgentry/speakeasy",
 			"Rev": "5dfe43257d1f86b96484e760f2f0c4e2559089c7"
 		},
@@ -302,6 +306,15 @@
 		{
 			"ImportPath": "golang.org/x/text/transform",
 			"Rev": "ef0bf1da95d2b971524f971801f2a4c2d0b4841f"
+		},
+		{
+			"ImportPath": "gopkg.in/bufio.v1",
+			"Comment": "v1",
+			"Rev": "567b2bfa514e796916c4747494d6ff5132a1dfce"
+		},
+		{
+			"ImportPath": "gopkg.in/redis.v2",
+			"Rev": "e6179049628164864e6e84e973cfb56335748dea"
 		}
 	]
 }

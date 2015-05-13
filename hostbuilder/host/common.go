@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/freighter"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
@@ -205,4 +208,50 @@ func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, 
 		flist = append(flist, dest)
 	}
 	return flist, nil
+}
+
+func PublishMessage(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *QueueInfo, message string) {
+	queueInfo.Message = message
+	queueInfo.Host = nil
+
+	payload, err := json.Marshal(queueInfo)
+	if err != nil {
+		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		return
+	}
+
+	msg := &queue.Message{
+		UUID:         uuid,
+		Action:       queue.Create.String(),
+		Event:        string(ev),
+		ResourceName: EventResourceName,
+		Payload:      payload,
+	}
+	err = qp.PublishRetry(msg, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Printf("Failed to send a message(%+v): %v", msg, err)
+	}
+}
+
+func PublishHost(qp *queue.QueuePublisher, ev event.Event, uuid string, queueInfo *QueueInfo, info *Info) {
+	queueInfo.Message = ""
+	queueInfo.Host = info
+
+	payload, err := json.Marshal(queueInfo)
+	if err != nil {
+		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		return
+	}
+
+	msg := &queue.Message{
+		UUID:         uuid,
+		Action:       queue.Create.String(),
+		Event:        string(ev),
+		ResourceName: EventResourceName,
+		Payload:      payload,
+	}
+	err = qp.PublishRetry(msg, -1, 100*time.Millisecond)
+	if err != nil {
+		log.Printf("Failed to send a message(%+v): %v", msg, err)
+	}
 }

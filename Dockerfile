@@ -61,6 +61,16 @@ ADD ./nitrous/rails/Gemfile /opt/src/github.com/nitrous-io/dedicated/nitrous/rai
 ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrous/rails/Gemfile.lock
 RUN cd ./nitrous/rails && bundle install
 
+# install redis
+RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
+  && tar xzf /tmp/redis-3.0.0.tar.gz -C /tmp/ \
+  && cd /tmp/redis-3.0.0 \
+  && make \
+  && make install \
+  && /tmp/redis-3.0.0/utils/install_server.sh \
+  && service redis_6379 stop \
+  && rm -rf /tmp/redis-3.0.0 /tmp/redis-3.0.0.tar.gz
+
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\

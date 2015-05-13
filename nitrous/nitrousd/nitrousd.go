@@ -16,12 +16,15 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/stripe/stripe-go"
 )
+
+const HostQueueName = "v1.host"
 
 var (
 	version           string // current version of nitrousd
@@ -131,6 +134,11 @@ func main() {
 		log.Fatalf("nitrousd: KILL_TIMEOUT is not a valid duration: %v", err)
 	}
 	svr.KillTimeout = kt
+
+	// Setup queue consumer
+	if envvars.EnableQueue {
+		go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, HostQueueName, svr.HostQueueHandler())
+	}
 
 	pid := os.Getpid()
 	host := "0.0.0.0"
