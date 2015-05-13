@@ -30,7 +30,11 @@ func (c *baseClient) conn() (*conn, error) {
 
 	if isNew {
 		if err := c.initConn(cn); err != nil {
-			c.removeConn(cn)
+			// If redis does not use DB 0 with go-redis/redis 2.3.2, it crash when redis server is restarted due to https://github.com/go-redis/redis/blob/v2.3.2/pool.go#L220
+			// This patch will be gone once gopkg.in/redis.v2 point to newer version.
+			if cn.elem != nil {
+				c.removeConn(cn)
+			}
 			return nil, err
 		}
 	}
