@@ -19,6 +19,14 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   nameFieldEdited: false
 
+  paidPlans: (->
+    @get('sortedPlans').filterBy('isPaidPlan')
+  ).property 'sortedPlans.@each'
+
+  freePlans: (->
+    @get('sortedPlans').filterBy('isFreePlan')
+  ).property 'sortedPlans.@each'
+
   clear: ->
     plans = @get 'plans'
 

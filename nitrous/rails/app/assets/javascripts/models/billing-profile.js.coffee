@@ -12,6 +12,7 @@ App.BillingProfile = klass = App.Model.extend
   createdAt: attr('date', as: 'created_at', serialize: false)
   updatedAt: attr('date', as: 'created_at', serialize: false)
   cardRequired: attr('boolean', as: 'card_required', serialize: false)
+  amountCredited: attr('number', as: 'amount_credited', serialize: false)
 
   cardToken: attr(as: 'card_token')
 
@@ -51,6 +52,16 @@ App.BillingProfile = klass = App.Model.extend
     @get('state') == 'no_card' || @get('state') == 'free'
   ).property('state')
 
+  amountCreditedDollars: (->
+    return unless (am = @get('amountCredited')) && am > 0
+    parseFloat(@get('amountCredited')) / 100.0
+  ).property 'amountCredited'
+
+  creditForPaidPlan: (->
+    return unless @get('free')
+    @get 'amountCreditedDollars'
+  ).property 'amountCreditedDollars', 'free'
+
   # override the default save method
   save: (params, options) ->
     adapter = Ember.get(@constructor, 'adapter')
@@ -72,9 +83,9 @@ App.BillingProfile = klass = App.Model.extend
         if response.error
           return reject(response.error.message)
         @set 'cardToken', response.id
-        @save().then  =>
+        @save().then  (d)=>
           @set 'cardToken', null
-          resolve()
+          resolve(d)
         , (jqxhr) =>
           reject(jqxhr.responseJSON)
 

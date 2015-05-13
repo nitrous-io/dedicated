@@ -31,9 +31,19 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	ser := serializers.SerializeBillingProfile(bp)
+	if bp.State == billingprofile.StateFree && env.User.PromoCode.Valid && env.User.PromoCode.String != "" {
+		var amount int64
+		err := env.DB.Get(&amount, "SELECT default_value FROM credit_types WHERE name = $1;", env.User.PromoCode.String)
+		if err != nil {
+			env.Logger.Errorf("Error finding promo code %s err: %+v", env.User.PromoCode.String, err)
+		}
+		ser.AmountCredited = amount
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"billing_profile": serializers.SerializeBillingProfile(bp),
+		"billing_profile": ser,
 	}
 	return nil
 }
@@ -58,13 +68,14 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	}
 
 	// determine if this user gets a credit
+	var credited int64
 	if existing.PendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
 			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
 		} else if count <= 1 {
-			awardCredits(db, env.Logger, u)
+			credited = awardCredits(db, env.Logger, u)
 		}
 	}
 
@@ -77,9 +88,12 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 
+	ser := serializers.SerializeBillingProfile(bp)
+	ser.AmountCredited = credited
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"billing_profile": serializers.SerializeBillingProfile(bp),
+		"billing_profile": ser,
 	}
 	return nil
 }
@@ -125,46 +139,49 @@ func handleBillingError(err error) error {
 	}
 }
 
-func awardCredits(d *db.Database, l *logger.Logger, user *user.User) {
+func awardCredits(d *db.Database, l *logger.Logger, user *user.User) int64 {
 	if user.PromoCode.String == "" || !user.PromoCode.Valid {
 		// promo_code is '' or NULL, return
-		return
+		return 0
 	}
 
 	ct, err := creditForUser(d, user)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			l.Errorf("Credit '%s' does not exist", user.PromoCode.String)
-			return
+			return 0
 		}
 		l.Errorf("Error locating credit for user, err: %+v", err)
-		return
+		return 0
 	}
 
 	tx, err := d.Beginx()
 	if err != nil {
 		l.Errorf("Error opening db transaction, err: %+v", err)
-		return
+		return 0
 	}
 
 	_, err = tx.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) VALUES ($1, $2, $3);`, user.ID, ct.ID, ct.DefaultValue)
 	if err != nil {
 		tx.Rollback()
 		l.Errorf("Error locating credit for user, err: %+v", err)
-		return
+		return 0
 	}
 
 	_, err = tx.Exec(`UPDATE credit_types SET used = coalesce(used, 0) + 1 WHERE id = $1`, ct.ID)
 	if err != nil {
 		tx.Rollback()
 		l.Errorf("Error incrementing used credit, err: %+v", err)
-		return
+		return 0
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		l.Errorf("Error committing credit for user, err: %+v", err)
+		return 0
 	}
+
+	return ct.DefaultValue
 }
 
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
