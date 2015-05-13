@@ -12,6 +12,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -651,5 +653,232 @@ var _ = Describe("controllers/admin", func() {
 
 			test.ItRequiresAuthToken(&authTokenInputs)
 		})
+	})
+
+	Describe("GET /api/v0/admin/credit_types", func() {
+		doRequest := func(t *token.Token) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/credit_types", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		Context("when the requester is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				res := doRequest(t)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when the requester is an admin", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should return credit types that haven't expired", func() {
+				c1 := &credittype.CreditType{
+					Name:         "abc1",
+					Active:       true,
+					DefaultValue: 500,
+				}
+				Expect(c1.Insert(db)).To(BeNil())
+
+				c2 := &credittype.CreditType{
+					Name:         "abc2",
+					Active:       false,
+					DefaultValue: 200,
+				}
+				Expect(c2.Insert(db)).To(BeNil())
+
+				c3 := &credittype.CreditType{
+					Name:         "abc3",
+					Active:       false,
+					DefaultValue: 500,
+				}
+				Expect(c3.Insert(db)).To(BeNil())
+
+				_, err := db.Exec(`UPDATE credit_types SET expires_at=now()-interval '1 hour' WHERE id = $1;`, c3.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(t)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					CreditTypes []*serializers.CreditType `json:"credit_types"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.CreditTypes).To(HaveLen(2))
+				Expect([]int64{j.CreditTypes[0].ID, j.CreditTypes[1].ID}).To(ConsistOf(c1.ID, c2.ID))
+			})
+		})
+	})
+
+	Describe("POST /api/v0/admin/credit", func() {
+		doRequest := func(t *token.Token, params *url.Values) *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/admin/credit", params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
+			return res
+		}
+
+		Context("when the requester is not an admin", func() {
+			It("responds with 404 Not Found", func() {
+				res := doRequest(t, nil)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+		})
+
+		Context("when the requester is an admin", func() {
+			var (
+				u2    *user.User
+				cType *credittype.CreditType
+			)
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				u2 = &user.User{
+					Username: "user1",
+					Email:    "user1@example.com",
+					Password: "pp1234",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				cType = &credittype.CreditType{
+					Name:         "abc1",
+					Active:       true,
+					DefaultValue: 500,
+				}
+				Expect(cType.Insert(db)).To(BeNil())
+			})
+
+			It("responds with a status 400 if no username is provided", func() {
+				res := doRequest(t, &url.Values{})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("username is required"))
+			})
+
+			It("responds with a status 400 if no credit_type is provided", func() {
+				res := doRequest(t, &url.Values{"username": []string{"callumj"}})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("credit_type is required"))
+			})
+
+			It("responds with a status 400 if no amount is provided", func() {
+				res := doRequest(t, &url.Values{
+					"username":    []string{"callumj"},
+					"credit_type": []string{"abc"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("amount is required"))
+			})
+
+			It("responds with a status 404 if no username can be found", func() {
+				res := doRequest(t, &url.Values{
+					"username":    []string{"unfindableuser"},
+					"credit_type": []string{"abc"},
+					"amount":      []string{"2000"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("user_not_found"))
+				Expect(errDesc).To(Equal("cannot find a user for the given email or username"))
+			})
+
+			It("responds with a status 404 if no credit type can be found", func() {
+				res := doRequest(t, &url.Values{
+					"username":    []string{"user1"},
+					"credit_type": []string{"thingy"},
+					"amount":      []string{"2000"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("credit_type_not_found"))
+				Expect(errDesc).To(Equal("cannot find specified credit type"))
+			})
+
+			It("responds with a status 404 if the credit type has expired", func() {
+				_, err := db.Exec(`UPDATE credit_types SET expires_at=now()-interval '1 hour' WHERE id = $1;`, cType.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(t, &url.Values{
+					"username":    []string{"user1"},
+					"credit_type": []string{"abc1"},
+					"amount":      []string{"2000"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("credit_type_not_found"))
+				Expect(errDesc).To(Equal("cannot find specified credit type"))
+			})
+
+			It("responds with a status 400 if the amount is 0", func() {
+				res := doRequest(t, &url.Values{
+					"username":    []string{"user1"},
+					"credit_type": []string{"abc1"},
+					"amount":      []string{"0"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("amount_zero"))
+				Expect(errDesc).To(Equal("amount must be greater than zero"))
+			})
+
+			It("responds with a status 400 if the credit type is less than the amount", func() {
+				res := doRequest(t, &url.Values{
+					"username":    []string{"user1"},
+					"credit_type": []string{"abc1"},
+					"amount":      []string{"2000"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("amount_too_large"))
+				Expect(errDesc).To(Equal("amount cannot be greater than credit type"))
+			})
+
+			It("should insert the credits and return the available amount", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 8);", u2.ID)
+				Expect(err).To(BeNil())
+
+				res := doRequest(t, &url.Values{
+					"username":    []string{"user1"},
+					"credit_type": []string{"abc1"},
+					"amount":      []string{"200"},
+				})
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j["available_credits"]).To(Equal(float64(208)))
+
+				c := &credit.Credit{}
+				err = db.Get(c, `SELECT * FROM credits WHERE amount = 200;`)
+				Expect(err).To(BeNil())
+
+				Expect(c.AddedByID).To(Equal(sql.NullInt64{u.ID, true}))
+			})
+		})
+
 	})
 })

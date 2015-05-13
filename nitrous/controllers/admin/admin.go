@@ -5,9 +5,12 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/credit"
+	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -35,6 +38,13 @@ var (
 	errOldStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "old-state required")
 	errNewStateRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "new-state required")
 	errNewStateInvalid            = httperror.New(http.StatusBadRequest, "invalid_request", "new-state invalid")
+
+	errUsernameRequired   = httperror.New(http.StatusBadRequest, "invalid_request", "username is required")
+	errCreditTypeRequired = httperror.New(http.StatusBadRequest, "invalid_request", "credit_type is required")
+	errAmountRequired     = httperror.New(http.StatusBadRequest, "invalid_request", "amount is required")
+	errCreditTypeNotFound = httperror.New(http.StatusNotFound, "credit_type_not_found", "cannot find specified credit type")
+	errAmountZero         = httperror.New(http.StatusBadRequest, "amount_zero", "amount must be greater than zero")
+	errAmountTooLarge     = httperror.New(http.StatusBadRequest, "amount_too_large", "amount cannot be greater than credit type")
 )
 
 var (
@@ -43,6 +53,8 @@ var (
 	ChangeHostState          = VerifyAdmin(changeHostState)
 	TerminateUnaccountedHost = VerifyAdmin(terminateUnaccountedHost)
 	UpdateHost               = VerifyAdmin(updateHost)
+	CreditUser               = VerifyAdmin(creditUser)
+	CreditTypes              = VerifyAdmin(creditTypes)
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient
@@ -141,7 +153,7 @@ func changeHostState(env *middleware.Env, w http.ResponseWriter, r *http.Request
 
 	h := &host.Host{}
 
-	err = tx.QueryRowx(`UPDATE hosts 
+	err = tx.QueryRowx(`UPDATE hosts
 		SET state=$1 WHERE slug=$2 AND state=$3
 		RETURNING *;`,
 		newState, slug, oldState,
@@ -250,6 +262,95 @@ func updateHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
+	}
+	return nil
+}
+
+func creditTypes(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	cts := []*credittype.CreditType{}
+	err := env.DB.Select(&cts, `
+		SELECT * FROM credit_types
+		WHERE (expires_at IS NULL OR expires_at >= now());
+	`)
+
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"credit_types": serializers.SerializeCreditTypes(cts),
+	}
+	return nil
+}
+
+func creditUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	username := r.FormValue("username")
+	if username == "" {
+		return errUsernameRequired
+	}
+	cType := r.FormValue("credit_type")
+	if cType == "" {
+		return errCreditTypeRequired
+	}
+	amountStr := r.FormValue("amount")
+	if amountStr == "" {
+		return errAmountRequired
+	}
+
+	u, err := user.FindByUsernameOrEmail(db, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errUserNotFound
+		}
+		return err
+	}
+
+	ct := &credittype.CreditType{}
+	err = db.Get(ct, `
+		SELECT * FROM credit_types
+		WHERE name = $1
+		AND (expires_at IS NULL OR expires_at >= now());
+	`, cType)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errCreditTypeNotFound
+		}
+		return err
+	}
+
+	amount, err := strconv.ParseInt(amountStr, 0, 64)
+	if err != nil {
+		return err
+	}
+	if amount == 0 {
+		return errAmountZero
+	}
+	if amount > ct.DefaultValue {
+		return errAmountTooLarge
+	}
+
+	c := &credit.Credit{
+		UserID:       u.ID,
+		CreditTypeID: sql.NullInt64{ct.ID, true},
+		Amount:       amount,
+		AddedByID:    sql.NullInt64{env.User.ID, true},
+	}
+	err = c.Insert(db)
+	if err != nil {
+		return err
+	}
+
+	available, err := credit.AvailableCredits(db, u.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"available_credits": available,
 	}
 	return nil
 }

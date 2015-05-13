@@ -19,6 +19,9 @@ App.TopnavView = Em.View.extend
     switchUser: ->
       App.trigger 'open-switch-user-dialog'
 
+    creditUser: ->
+      App.trigger 'open-credit-user-dialog'
+
     updateAdminHosts: ->
       App.trigger 'show-update-hosts', App.get('hosts')
 

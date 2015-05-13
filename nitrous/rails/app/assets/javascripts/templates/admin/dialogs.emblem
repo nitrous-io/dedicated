@@ -45,3 +45,35 @@ if App.user.admin
             else
               a.ui.btn href='#' click='cancelSwitchUser target="view"' Cancel
               input.ui.btn.primary type='submit' value='Switch'
+
+  #credit-user-dialog.ui.modal
+    .ui.card
+      h2.card-header
+        | Credit User
+      form submit='applyCredits'
+        .card-body
+          .ui.input-group
+            label.field-label for='credit-username'
+              | Email/Username
+            = input type='text' id='credit-username' value=creditUser required=true
+
+          .ui.input-group
+            label.field-label for='credit-type'
+              | Credit Type
+            .ui.select
+              Ember.Select name='credit-type' content=creditTypes optionValuePath='content.name' optionLabelPath='content.displayName' disabled=crediting value=controller.selectedCreditType
+
+          .ui.input-group
+            label.field-label for='credit-amount'
+              | Amount (cents)
+            = input type='text' id='credit-amount' value=creditAmount required=true
+
+        .card-footer
+          .right
+            if crediting
+              button.ui.btn disabled='disabled'
+                i.spinner
+                | Wait...
+            else
+              a.ui.btn href='#' click='cancelCreditUser target="view"' Cancel
+              input.ui.btn.primary type='submit' value='Apply Credits'
