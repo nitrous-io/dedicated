@@ -220,7 +220,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
-	if err := dns.OnHostDestroy(env.Logger, h); err != nil {
+	if err := dns.OnHostDestroy(h); err != nil {
 		return err
 	}
 
@@ -317,7 +317,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	if err = dns.OnHostStart(env.Logger, h); err != nil {
+	if err := dns.OnHostStart(h); err != nil {
 		return err
 	}
 	PublishHostEvent(env, controllers.EventHostStarted, h)

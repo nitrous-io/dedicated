@@ -248,7 +248,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, err
 	}
 
-	if err = dns.OnContainerCreate(env.Logger, cn, h); err != nil {
+	if err = dns.OnContainerCreate(cn, h); err != nil {
 		return nil, err
 	}
 

@@ -69,7 +69,9 @@ func main() {
 		logr.Warn("DNS updates disabled.  Set AWS_ACCESS_KEY and AWS_SECRET_KEY")
 	} else {
 		nroute53.SetSecrets(envvars.AwsAccessKey, envvars.AwsSecretKey)
-		dns.SetActiveDNS(&dns.RealDNS{})
+		rd := &dns.RealDNS{}
+		rd.SetLogger(logr)
+		dns.SetActiveDNS(rd)
 	}
 
 	// setup database

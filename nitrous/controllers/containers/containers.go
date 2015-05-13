@@ -453,7 +453,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 				return err
 			}
 
-			if err := dns.OnContainerDestroy(env.Logger, cn); err != nil {
+			if err := dns.OnContainerDestroy(cn); err != nil {
 				return err
 			}
 

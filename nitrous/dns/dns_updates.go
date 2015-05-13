@@ -31,34 +31,74 @@ func init() {
 }
 
 type DNS interface {
-	OnHostCreate(logger *logger.Logger, h *host.Host) error
-	OnHostStart(logger *logger.Logger, h *host.Host) error
-	OnHostDestroy(logger *logger.Logger, h *host.Host) error
-	OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error
-	OnContainerDestroy(logger *logger.Logger, cn *container.Container) error
+	OnHostCreate(h *host.Host) error
+	OnHostStart(h *host.Host) error
+	OnHostDestroy(h *host.Host) error
+	OnContainerCreate(cn *container.Container, h *host.Host) error
+	OnContainerDestroy(cn *container.Container) error
 }
 
 type RealDNS struct {
+	logger *logger.Logger
 }
 
-func (d *RealDNS) OnHostCreate(logger *logger.Logger, h *host.Host) error {
-	return onHostCreate(logger, h)
+func (d *RealDNS) SetLogger(lg *logger.Logger) {
+	d.logger = lg
 }
 
-func (d *RealDNS) OnHostStart(logger *logger.Logger, h *host.Host) error {
-	return onHostStart(logger, h)
+// OnHostCreate performs dns updates needed after host has been created:
+//  - set CNAME for proxy
+//  - for hosts with static ips, add CNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com
+func (d *RealDNS) OnHostCreate(h *host.Host) error {
+	err := d.setHostProxyCNAME(h)
+	if err != nil {
+		return err
+	}
+	return d.setHostCNAME(h)
 }
 
-func (d *RealDNS) OnHostDestroy(logger *logger.Logger, h *host.Host) error {
-	return onHostDestroy(logger, h)
+// OnHostStart performs dns updates needed when host is started:
+// - for non-static-ip hosts, update the CNAME record for <hostslug>.HOST_HOSTNAME
+func (d *RealDNS) OnHostStart(h *host.Host) error {
+	if h.StaticIP {
+		return nil
+	}
+	return d.setHostCNAME(h)
 }
 
-func (d *RealDNS) OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
-	return onContainerCreate(logger, cn, h)
+// OnHostDestroy performs dns updates needed after host has been destroyed:
+// - remove CNAME records
+func (d *RealDNS) OnHostDestroy(h *host.Host) error {
+	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
+	name := h.Slug + "." + hostHostName
+	err := nroute53.DeleteCNAMERecord(name)
+	if err != nil {
+		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
+		return err
+	}
+	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
+	name = h.Slug + "." + proxyHost
+	err = nroute53.DeleteCNAMERecord(name)
+	if err != nil {
+		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
+		return err
+	}
+	return nil
 }
 
-func (d *RealDNS) OnContainerDestroy(logger *logger.Logger, cn *container.Container) error {
-	return onContainerDestroy(logger, cn)
+// OnContainerCreate performs dns updates needed when container is created
+// - add a CNAME record for <containerslug>.PREVIEW_HOSTNAME
+func (d *RealDNS) OnContainerCreate(cn *container.Container, h *host.Host) error {
+	from := cn.PreviewHostname()
+	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
+	to := h.Slug + "." + hostHostName
+	return nroute53.SetCNAME(from, to)
+}
+
+// onContainerDestroy performs dns updates needed when container is destroyed
+// - remove CNAME record
+func (d *RealDNS) OnContainerDestroy(cn *container.Container) error {
+	return nroute53.DeleteCNAMERecord(cn.PreviewHostname())
 }
 
 func SetActiveDNS(active DNS) {
@@ -68,7 +108,7 @@ func SetActiveDNS(active DNS) {
 // SetHostProxyCNAME adds or updates CNAME record for the host's proxy.
 // Source CNAME is slug + global proxy host name, destination is name of
 // tender proxy chosen based on provider_templates.config:region_id
-func SetHostProxyCNAME(logger *logger.Logger, h *host.Host) error {
+func (d *RealDNS) setHostProxyCNAME(h *host.Host) error {
 	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
 	from := h.Slug + "." + proxyHost
 	regionID := h.ProviderTemplate.Config.Map["region_id"]
@@ -77,16 +117,16 @@ func SetHostProxyCNAME(logger *logger.Logger, h *host.Host) error {
 		return fmt.Errorf("no tender server for region '%s'", regionID.String)
 	}
 	if err := nroute53.SetCNAME(from, tenderServer); err != nil {
-		logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, from, tenderServer)
+		d.logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, from, tenderServer)
 		return err
 	}
 	return nil
 }
 
 // SetHostCNAME adds or updates CNAME record for the host
-func SetHostCNAME(logger *logger.Logger, h *host.Host) error {
+func (d *RealDNS) setHostCNAME(h *host.Host) error {
 	if !h.IPAddress.Valid && h.IPAddress.String == "" {
-		logger.Errorf("SetHostCNAME(): ip address invalid for host %d (%s)", h.ID, h.Slug)
+		d.logger.Errorf("SetHostCNAME(): ip address invalid for host %d (%s)", h.ID, h.Slug)
 		return errInvalidIPAddress
 	}
 
@@ -96,83 +136,28 @@ func SetHostCNAME(logger *logger.Logger, h *host.Host) error {
 	to := "ec2-" + h.IPAddress.String + ".compute-1.amazonaws.com"
 
 	if err := nroute53.SetCNAME(from, to); err != nil {
-		logger.Errorf("nroute53.SetCNAME() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
+		d.logger.Errorf("nroute53.SetCNAME() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
 		return err
 	}
 	return nil
 }
 
-// onHostCreate performs dns updates needed after host has been created:
-//  - set CNAME for proxy
-//  - for hosts with static ips, add CNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com
-func onHostCreate(lg *logger.Logger, h *host.Host) error {
-	err := SetHostProxyCNAME(lg, h)
-	if err != nil {
-		return err
-	}
-	return SetHostCNAME(lg, h)
+func OnHostCreate(h *host.Host) error {
+	return activeDNS.OnHostCreate(h)
 }
 
-// onHostStart performs dns updates needed when host is started:
-// - for non-static-ip hosts, update the CNAME record for <hostslug>.HOST_HOSTNAME
-func onHostStart(logger *logger.Logger, h *host.Host) error {
-	if h.StaticIP {
-		return nil
-	}
-	return SetHostCNAME(logger, h)
+func OnHostStart(h *host.Host) error {
+	return activeDNS.OnHostStart(h)
 }
 
-// onHostDestroy performs dns updates needed after host has been destroyed:
-// - remove CNAME and A records
-func onHostDestroy(logger *logger.Logger, h *host.Host) error {
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	name := h.Slug + "." + hostHostName
-	err := nroute53.DeleteCNAMERecord(name)
-	if err != nil {
-		logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
-		return err
-	}
-	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
-	name = h.Slug + "." + proxyHost
-	err = nroute53.DeleteCNAMERecord(name)
-	if err != nil {
-		logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
-		return err
-	}
-	return nil
+func OnHostDestroy(h *host.Host) error {
+	return activeDNS.OnHostDestroy(h)
 }
 
-// onContainerCreate performs dns updates needed when container is created
-// - add a CNAME record for <containerslug>.PREVIEW_HOSTNAME
-func onContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
-	from := cn.PreviewHostname()
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	to := h.Slug + "." + hostHostName
-	return nroute53.SetCNAME(from, to)
+func OnContainerCreate(cn *container.Container, h *host.Host) error {
+	return activeDNS.OnContainerCreate(cn, h)
 }
 
-// onContainerDestroy performs dns updates needed when container is destroyed
-// - remove CNAME record
-func onContainerDestroy(logger *logger.Logger, cn *container.Container) error {
-	return nroute53.DeleteCNAMERecord(cn.PreviewHostname())
-}
-
-func OnHostCreate(logger *logger.Logger, h *host.Host) error {
-	return activeDNS.OnHostCreate(logger, h)
-}
-
-func OnHostStart(logger *logger.Logger, h *host.Host) error {
-	return activeDNS.OnHostStart(logger, h)
-}
-
-func OnHostDestroy(logger *logger.Logger, h *host.Host) error {
-	return activeDNS.OnHostDestroy(logger, h)
-}
-
-func OnContainerCreate(logger *logger.Logger, cn *container.Container, h *host.Host) error {
-	return activeDNS.OnContainerCreate(logger, cn, h)
-}
-
-func OnContainerDestroy(logger *logger.Logger, cn *container.Container) error {
-	return activeDNS.OnContainerDestroy(logger, cn)
+func OnContainerDestroy(cn *container.Container) error {
+	return activeDNS.OnContainerDestroy(cn)
 }
