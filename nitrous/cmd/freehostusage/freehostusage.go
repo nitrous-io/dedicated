@@ -32,8 +32,9 @@ const (
 )
 
 var (
-	d    *db.Database
-	logr *logger.Logger
+	d           *db.Database
+	logr        *logger.Logger
+	initiatorID int64
 )
 
 func refreshHost(h *host.Host) error {
@@ -63,7 +64,7 @@ func terminateHost(h *host.Host) error {
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 
 	err := d.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, logr, h, headers)
+		return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
 	})
 	if err != nil {
 		logr.Errorf("Error terminating host - %s: %+v", err, h)
@@ -205,11 +206,20 @@ func main() {
 	}
 
 	if envvars.WebHostname == "" {
-		logr.FatalfExit("WEB_HOSTNAME is not defined")
+		logr.FatalExit("WEB_HOSTNAME is not defined")
 	}
 
 	if envvars.TrustKey == "" {
-		logr.FatalfExit("TRUST_KEY is not defined")
+		logr.FatalExit("TRUST_KEY is not defined")
+	}
+
+	if envvars.ProvisionerUser == "" {
+		logr.FatalExit("PROVISIONER_USER is not defined")
+	}
+
+	err = d.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
+	if err != nil {
+		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
 	scanWarningHosts()

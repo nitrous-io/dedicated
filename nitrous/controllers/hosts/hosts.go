@@ -203,7 +203,7 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env))
+		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})
 	if err != nil {
 		return err
@@ -243,7 +243,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		tx.Rollback()
 		return err
 	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -270,7 +270,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 			tx.Rollback()
 			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
-		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
 			tx.Rollback()
 			env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
 		}
@@ -294,7 +294,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		tx.Rollback()
 		return err
 	}
-	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -332,7 +332,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	err = hostcontrol.Stop(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler)
+	err = hostcontrol.Stop(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -397,7 +397,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 			tx.Rollback()
 			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 		}
-		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt); err != nil {
+		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
 			tx.Rollback()
 			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
 		}
@@ -422,7 +422,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt)
+	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
 	if err != nil {
 		tx.Rollback()
 		return err

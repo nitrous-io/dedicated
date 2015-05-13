@@ -1,6 +1,7 @@
 package hosttransition_test
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -92,7 +93,7 @@ var _ = Describe("models/hosttransition", func() {
 
 				t := time.Now()
 				h1.State = "terminated"
-				err = hosttransition.Record(tx, h1, "running", t)
+				err = hosttransition.Record(tx, h1, "running", t, u.ID)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -110,6 +111,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(created.State).To(Equal("terminated"))
 				Expect(created.PreviousState.String).To(Equal("running"))
 				Expect(created.CreatedAt.Unix()).To(Equal(t.Unix()))
+				Expect(created.InitiatorID).To(Equal(sql.NullInt64{u.ID, true}))
 			})
 
 			It("should update the host running if the state becomes running", func() {
@@ -119,7 +121,7 @@ var _ = Describe("models/hosttransition", func() {
 
 				t := time.Now()
 				h1.State = "running"
-				err = hosttransition.Record(tx, h1, "born", t)
+				err = hosttransition.Record(tx, h1, "born", t, u.ID)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -135,7 +137,7 @@ var _ = Describe("models/hosttransition", func() {
 
 				t := time.Now()
 				h1.State = "terminated"
-				err = hosttransition.Record(tx, h1, "running", t)
+				err = hosttransition.Record(tx, h1, "running", t, u.ID)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -163,7 +165,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(err).To(BeNil())
 
 				t := time.Now()
-				err = hosttransition.Record(tx, h1, "running", t)
+				err = hosttransition.Record(tx, h1, "running", t, u.ID)
 				Expect(err).To(BeNil())
 				Expect(tx.Commit()).To(BeNil())
 
@@ -179,6 +181,7 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(created).ToNot(BeNil())
 
 				Expect(created.CreatedAt).To(Equal(preEx.EndedAt))
+				Expect(created.InitiatorID).To(Equal(sql.NullInt64{u.ID, true}))
 			})
 		})
 

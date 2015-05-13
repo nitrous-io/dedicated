@@ -52,6 +52,8 @@ var (
 
 	dbConn *db.Database
 
+	initiatorID int64
+
 	webHostname string
 )
 
@@ -97,6 +99,10 @@ func init() {
 	if webHostname == "" {
 		logr.FatalExit("WEB_HOSTNAME is not defined")
 	}
+
+	if envvars.ProvisionerUser == "" {
+		logr.FatalExit("PROVISIONER_USER is not defined")
+	}
 }
 
 func main() {
@@ -123,6 +129,11 @@ func main() {
 		destHostSlug = os.Args[2]
 	} else {
 		destHostSlug, refreshFn = provisionDestHost()
+	}
+
+	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1;`, envvars.ProvisionerUser).Scan(&initiatorID)
+	if err != nil {
+		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
 	logr.Infof("Connecting to %s", destHostSlug)

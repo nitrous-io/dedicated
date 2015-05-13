@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -13,7 +14,8 @@ import (
 const DBEnvVar = "NITROUS_PG_URL"
 
 var (
-	logr *logger.Logger
+	logr        *logger.Logger
+	initiatorID int64
 )
 
 func init() {
@@ -28,6 +30,15 @@ func main() {
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
 		logr.FatalExit(err)
+	}
+
+	if envvars.ProvisionerUser == "" {
+		logr.FatalExit("PROVISIONER_USER is not defined")
+	}
+
+	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1;`, envvars.ProvisionerUser).Scan(&initiatorID)
+	if err != nil {
+		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
 	lastId := int64(-1)
@@ -67,7 +78,7 @@ func main() {
 				logr.Infof("Failed starting transaction for for %d '%s'", host.ID, host.Slug)
 				continue
 			}
-			if err := hosttransition.Record(tx, &host, "", *time); err != nil {
+			if err := hosttransition.Record(tx, &host, "", *time, initiatorID); err != nil {
 				tx.Rollback()
 				logr.Infof("Failed to populate host transition for %d '%s'", host.ID, host.Slug)
 				continue
