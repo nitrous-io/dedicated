@@ -1206,5 +1206,25 @@ func init() {
 				UPDATE hosts SET free = TRUE WHERE hourly_price = 0;
 			`,
 		},
+		{
+			Version: "1060",
+			Up: `
+				CREATE TABLE oauth_clients (
+					id bigserial PRIMARY KEY NOT NULL,
+					name varying(255) NOT NULL,
+					description text DEFAULT '',
+					client_id character varying(255) NOT NULL,
+					client_secret character varying(255) NOT NULL,
+					redirect_uri text NOT NULL
+				);
+
+				ALTER TABLE tokens ADD COLUMN nonce character varying(255) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN scopes text DEFAULT '';
+				ALTER TABLE tokens ADD COLUMN
+					oauth_client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
+
+				CREATE UNIQUE INDEX tokens_nonce ON tokens USING btree (nonce);
+			`,
+		},
 	}
 }
