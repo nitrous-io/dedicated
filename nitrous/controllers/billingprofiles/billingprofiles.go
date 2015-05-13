@@ -31,9 +31,19 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	ser := serializers.SerializeBillingProfile(bp)
+	if bp.State == billingprofile.StateFree && env.User.PromoCode.Valid && env.User.PromoCode.String != "" {
+		var amount int64
+		err := env.DB.Get(&amount, "SELECT default_value FROM credit_types WHERE name = $1;", env.User.PromoCode.String)
+		if err != nil {
+			env.Logger.Errorf("Error finding promo code %s err: %+v", env.User.PromoCode.String, err)
+		}
+		ser.AmountCredited = amount
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"billing_profile": serializers.SerializeBillingProfile(bp),
+		"billing_profile": ser,
 	}
 	return nil
 }

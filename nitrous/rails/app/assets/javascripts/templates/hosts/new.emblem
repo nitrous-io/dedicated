@@ -34,9 +34,21 @@
           label#select-plan.field-label
             | Workspace Size
 
-          ul.ui.selectable-list.plans
-            each plan in sortedPlans
-              App.PlanListItemView content=plan selected=selectedPlan
+          .plan-groups
+            .free
+              ul.ui.selectable-list.plans
+                each plan in freePlans
+                  App.PlanListItemView content=plan selected=selectedPlan
+
+            .paid
+              ul.ui.selectable-list.plans.paid
+                each plan in paidPlans
+                  App.PlanListItemView content=plan selected=selectedPlan
+              if App.billingProfile.creditForPaidPlan
+                .bucket-group class={selectedPlan.isFreePlan:free}
+                  .bucket
+                  p.bucket-text
+                    | $#{ App.billingProfile.creditForPaidPlan } credit will be applied
 
         if App.user.admin
           .notice-text The following settings are available for admin

@@ -10,4 +10,5 @@ App.HomeView = Em.View.extend
     closeUpgradeModal: ->
       @get('controller').send 'redirectToFirstContainer'
       App.set 'showUpgradeModal', false
+      App.set 'upgradeCredited', null
       ui.hideModal('#upgrade-complete-modal-dialog')
