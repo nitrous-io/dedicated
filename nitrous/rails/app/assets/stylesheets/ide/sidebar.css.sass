@@ -51,7 +51,6 @@
 
     .tree
       $itemHeight: 24px
-
       position: relative
       height: 0
       flex-grow: 1
@@ -63,6 +62,7 @@
       ul.root
         margin: 0
         padding: 8px 0 0 32px
+        display: inline-block
 
       ul
         list-style: none
@@ -79,38 +79,53 @@
         color: $n2oGray200
         transition: color .2s
         padding-right: 8px
-
-        &:before
+        z-index: 2
+        
+        &:before, &:after
           content: ''
-          position: absolute
-          display: inline-block
-          left: 0
           width: 100%
           height: $itemHeight
           transition: background-color .2s
-          background: transparent
+        
+        &:before
+          position: relative
+          margin-top: -$itemHeight
+          top: $itemHeight
+          display: block
+          z-index: 0
+          
+        &:after
+          position: absolute
+          left: 0
 
         &:hover
-          &:before
-            background: rgba($n2oGray400, .2)
+          &:before, &:after
+            //background: rgba($n2oGray400, .2)
+            background: #4A545B
 
         &.loading
           color: $n2oGray100
+          
+        i, span
+          z-index: 2
+          position: relative
 
       li
         white-space: nowrap
 
       li.selected
         a
-          &:before
-            background: rgba($n2oGray400, .4)
+          &:before, &:after
+            //background: rgba($n2oGray400, .4)
+            background: #58636B
 
           span
             position: relative
 
       li.droppable > a
-        &:before
-          background: rgba($n2oGray400, .4)
+        &:before, &:after
+          //background: rgba($n2oGray400, .4)
+          background: #58636B
 
       .ide-editable-path-name-view
         padding-right: 2px
