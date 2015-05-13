@@ -13,9 +13,11 @@ import (
 
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"golang.org/x/net/context"
 )
 
@@ -193,6 +195,93 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 	h.progressLog(w, "Provisioning host...Done!")
 	return h.Info()
+}
+
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	defer cancel()
+
+	defer func() {
+		if h.keypair != nil {
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
+			h.Printf("keyID=%s Removing key...", h.keypair.name)
+			if err := h.keypair.Delete(); err != nil {
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
+				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
+			} else {
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
+			}
+		}
+	}()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	steps := []host.Step{
+		{
+			Description: "Creating key",
+			Func:        createKeypair,
+		},
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Func:    host.WaitForSSH,
+			Timeout: 5 * time.Minute,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Waiting for the workspace to be ready",
+			Func:        host.WaitForSSH,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Populating settings",
+			Func:        host.WriteSettings,
+		},
+		{
+			Description: "Fetching updates",
+			Func:        host.UpdateSoftware,
+		},
+		{
+			Description: "Applying settings",
+			Func:        host.RestartServices,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
+			h.Printf(errorMsg)
+			h.logFailed()
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
+			inf, _ := h.Info()
+			if err == context.DeadlineExceeded {
+				return inf, ErrCreateTimeout
+			}
+
+			return inf, err
+		}
+
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
+	}
+	info, err := h.Info()
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
+	return info, err
 }
 
 // Update sets properties of an existing host

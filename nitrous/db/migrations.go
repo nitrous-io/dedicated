@@ -1193,5 +1193,11 @@ func init() {
 				ALTER TABLE plans ADD CONSTRAINT hosts_paid_plan_id_fkey FOREIGN KEY (paid_plan_id) REFERENCES plans(id);
 			`,
 		},
+		{
+			Version: "1040",
+			Up: `
+				ALTER TABLE credits ADD COLUMN added_by_id bigint REFERENCES users(id) DEFAULT NULL;
+			`,
+		},
 	}
 }

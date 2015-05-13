@@ -9,11 +9,13 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 )
 
 const (
-	DefaultPort uint16 = 65333
-	SSHPort     uint16 = 65100
+	DefaultPort       uint16 = 65333
+	SSHPort           uint16 = 65100
+	EventResourceName        = "host"
 )
 
 var (
@@ -76,7 +78,19 @@ type Info struct {
 	LaunchTime     *time.Time  `json:"launch_time,omitempty"`
 }
 
+// QueueInfo will be written to the queue to be consumed later
+type QueueInfo struct {
+	ID      int64  `json:"id"`
+	UserID  int64  `json:"user_id"`
+	Slug    string `json:"slug"`
+	Message string `json:"message,omitempty"`
+	Host    *Info  `json:"host,omitempty"`
+}
+
 type Host interface {
+	// create a new host, publish events into the queue
+	CreateWithQueue(qp *queue.QueuePublisher, info *QueueInfo) (*Info, error)
+
 	Create(io.Writer) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)
 	Destroy() error        // destroy the current host

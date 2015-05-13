@@ -14,6 +14,8 @@ type Credit struct {
 	CreditTypeID sql.NullInt64 `db:"credit_type_id"`
 	Amount       int64         `db:"amount"` // stored as cents
 
+	AddedByID sql.NullInt64 `db:"added_by_id"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }
@@ -31,8 +33,8 @@ func AvailableCredits(d db.QueryReceiver, u int64) (int64, error) {
 
 func (c *Credit) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO credits
-    (user_id, invoice_id, credit_type_id, amount)
-    VALUES (:user_id, :invoice_id, :credit_type_id, :amount)
+    (user_id, invoice_id, credit_type_id, amount, added_by_id)
+    VALUES (:user_id, :invoice_id, :credit_type_id, :amount, :added_by_id)
     RETURNING *;`)
 	if err != nil {
 		return err

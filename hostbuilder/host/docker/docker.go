@@ -14,8 +14,10 @@ import (
 	"time"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 )
 
 const DefaultPort uint16 = 65333
@@ -45,6 +47,7 @@ type Host struct {
 	TLS                *tlsConfig `json:"tls"`
 	Secret             string     `json:"secret"`
 
+	uuid   string // request UUID set by user
 	client *dockerclient.Client
 }
 
@@ -63,12 +66,36 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	}
 	fmt.Fprintf(w, "Created host image")
 	fmt.Fprintf(w, "Creating host with image “%s”", imageName)
+
 	c, err := h.createContainer(imageName)
 	if err != nil {
 		fmt.Fprintf(w, "Failed to create host")
 		return nil, err
 	}
 	fmt.Fprintf(w, "Host created")
+	return c, nil
+}
+
+// Create creates the docker container which acts as a container host, and write the
+// progress into queue
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	for i, k := range h.PublicKeys {
+		h.PublicKeys[i] = strings.TrimSpace(k)
+	}
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
+	imageName, err := h.createImage()
+	if err != nil {
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
+		return nil, err
+	}
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
+
+	c, err := h.createContainer(imageName)
+	if err != nil {
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
+		return nil, err
+	}
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
 	return c, nil
 }
 
@@ -308,7 +335,9 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 }
 
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	host := &Host{}
+	host := &Host{
+		uuid: defaultConfig["uuid"], // this is injected by the server per request
+	}
 	if err := json.Unmarshal([]byte(config), host); err != nil {
 		return nil, err
 	}

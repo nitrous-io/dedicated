@@ -1,0 +1,208 @@
+package queue
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"strings"
+	"time"
+
+	"github.com/adjust/redismq"
+)
+
+type QueuePublisher struct {
+	*redismq.Queue
+}
+
+type QueueConsumer struct {
+	*redismq.Consumer
+}
+
+type Message struct {
+	UUID         string `json: "uuid"`
+	Action       string `json: "action"`
+	Event        string `json: "event"`
+	ResourceName string `json: "resource_name"`
+	ResourceID   string `json: "resource_id"`
+	Payload      []byte `json: "payload"`
+	p            *redismq.Package
+}
+
+var actions = []string{
+	"create",
+	"update",
+	"delete",
+}
+
+type Action int
+
+const (
+	Create Action = iota
+	Update
+	Delete
+)
+
+func (a Action) String() string {
+	return actions[a]
+}
+
+func (a Action) IsA(actionName string) bool {
+	return a.String() == actionName
+}
+
+type queueHandler func(*QueueConsumer, *Message) error
+
+var queueRoutes map[string]queueHandler
+
+func init() {
+	queueRoutes = map[string]queueHandler{}
+}
+
+func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) *QueuePublisher {
+	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
+}
+
+// Publish pushes the message into the queue without retrying if that fails
+func (qp *QueuePublisher) Publish(msg *Message) error {
+	return qp.PublishRetry(msg, 1, 0)
+}
+
+// PublishRetry publishes the message at most `tries` times. When it fails to publish because
+// redis is not available, it sleeps for `retryInterval` duration.
+// When tries is -1, it keeps trying until it successes to publish to redis
+func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval time.Duration) error {
+	b, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	str := string(b)
+	forever := tries == -1
+	for forever || tries >= 0 {
+		err := qp.Put(str)
+		if err != nil {
+			// if we failed to connect to redis or received EOF error then retry
+			if _, ok := err.(*net.OpError); ok || err == io.EOF {
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
+				tries--
+				time.Sleep(retryInterval)
+				continue
+			}
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if strings.Contains(err.Error(), "open connections too fast") {
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("timed out sending message %+v", msg)
+}
+
+func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
+	c, err := qp.AddConsumer(qp.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &QueueConsumer{c}, nil
+}
+
+func (qc *QueueConsumer) Consume() (*Message, error) {
+	p, err := qc.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	var m Message
+	err = json.Unmarshal([]byte(p.Payload), &m)
+	if err != nil {
+		return nil, err
+	}
+	m.p = p
+
+	return &m, nil
+}
+
+// Ack send ack packet to consume next message
+// it sleeps for `retryInterval` duration when it fails to send it
+// it will not stop retrying because it could occur data inconsistency problem
+func (m *Message) Ack(retryInterval time.Duration) error {
+	for {
+		err := m.p.Ack()
+		if err != nil {
+			// if we failed to connect to redis or received EOF error then retry
+			if _, ok := err.(*net.OpError); ok || err == io.EOF {
+				log.Printf("uuid=%s Retrying ack for message(%s) : %v\n", m.UUID, m.Event, err)
+				time.Sleep(retryInterval)
+				continue
+			}
+
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if strings.Contains(err.Error(), "open connections too fast") {
+				log.Printf("uuid=%s Retrying ack for message(%s) : %v\n", m.UUID, m.Event, err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("timed out sending message %+v", m)
+}
+
+func (qc *QueueConsumer) Start() error {
+	queueName := qc.Name
+	log.Printf("Queue consumer started: %s\n", queueName)
+	for {
+		m, err := qc.Consume()
+		if err != nil {
+			log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
+			// redis emits `open connections too fast` when we exceeds the error limit
+			if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
+				time.Sleep(1 * time.Second)
+			}
+			continue
+		}
+
+		err = queueRoutes[queueName](qc, m)
+		if err != nil {
+			log.Printf("uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+			// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
+			// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
+			// If it fails to consume first message, second message will also fail since item is not created yet.
+			m.Ack(1 * time.Second)
+			continue
+		}
+		m.Ack(1 * time.Second)
+	}
+
+	return nil
+}
+
+func StartConsumer(redisHost string, redisPort string, redisDB int64, queueName string, handler queueHandler) error {
+	qc, err := CreateConsumer(redisHost, redisPort, redisDB, queueName)
+	if err != nil {
+		log.Fatalf("Failed to start queue consumer: %v\n", err)
+	}
+	queueRoutes[queueName] = handler
+	return qc.Start()
+}
+
+func CreateConsumer(redisHost string, redisPort string, redisDB int64, queueName string) (*QueueConsumer, error) {
+	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
+	c, err := queue.AddConsumer(queueName)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
+	}
+
+	err = c.RequeueWorking() // Requeue all messages that does not send ACK
+	if err != nil {
+		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
+	}
+
+	return &QueueConsumer{c}, nil
+}

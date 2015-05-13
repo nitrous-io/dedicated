@@ -8,11 +8,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	metrics "github.com/rcrowley/go-metrics"
@@ -108,6 +110,12 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 
 type providerConfig map[string]string
 
+type RedisConfig struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
+	DB   int64  `json:"database"`
+}
+
 type config struct {
 	Address   string                    `json:"address"`
 	Providers map[string]providerConfig `json:"providers"`
@@ -121,11 +129,17 @@ type config struct {
 
 	// start the server in debug mode
 	Debug bool `json:"debug"`
+
+	// redis setting
+	RedisConfig RedisConfig `json:"redis"`
 }
 
 type Server struct {
 	Config *config
 	Router *mux.Router
+
+	initQueueOnce sync.Once
+	Queue         *queue.QueuePublisher
 }
 
 // Return a copy of the original provider config
@@ -155,7 +169,8 @@ func (s *Server) providerConfig(provider string) map[string]string {
 // { "stream": "Creating host...Failed!" }
 // { "error": "failed to create the host" }
 func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
+	var err error
+	if err = r.ParseForm(); err != nil {
 		return err
 	}
 
@@ -174,10 +189,39 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	// record total time taken for this function
 	label := fmt.Sprintf("create.%s", provider)
 	defer mh.UpdateSince(label, time.Now())
-
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
-	info, err := h.Create(pw)
+	var info *host.Info
+	if r.Form.Get("queue") == "true" {
+		var err error
+		s.initQueueOnce.Do(func() {
+			err = s.initQueue()
+		})
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+		log.Printf("uuid=%s Creating a host with queue %+v\n", providerConfig["uuid"], s.Queue)
+
+		var userID, hostID int64
+		hostSlug := r.Form.Get("slug")
+		hostID, err = strconv.ParseInt(r.Form.Get("id"), 10, 64)
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+
+		userID, err = strconv.ParseInt(r.Form.Get("uid"), 10, 64)
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+
+		info, err = h.CreateWithQueue(s.Queue, &host.QueueInfo{
+			ID:     hostID,
+			UserID: userID,
+			Slug:   hostSlug,
+		})
+	} else {
+		info, err = h.Create(pw)
+	}
 
 	// include any information about the host
 	// even if an error occurs
@@ -490,6 +534,7 @@ func New(configData []byte) (*Server, error) {
 		log.Printf("hostbuilder: invalid config data %v", string(configData))
 		return nil, err
 	}
+
 	server := &Server{Config: config}
 	server.CreateRouter()
 
@@ -533,5 +578,15 @@ func pingHost(info *host.Info, w io.Writer) error {
 		fmt.Fprintf(w, "Connecting to freighter server...Failed!")
 		return fmt.Errorf("Connecting to freighter server...Failed!")
 	}
+	return nil
+}
+
+func (s *Server) initQueue() error {
+	rc := s.Config.RedisConfig
+	if rc.Host == "" || rc.Port == "" {
+		return fmt.Errorf("Redis config is not valid: %+v", rc)
+	}
+	qp := queue.NewQueue(rc.Host, rc.Port, rc.DB, "v1.host")
+	s.Queue = qp
 	return nil
 }

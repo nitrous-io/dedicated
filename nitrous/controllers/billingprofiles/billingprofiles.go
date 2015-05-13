@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -61,15 +62,19 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
-			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %+v", err)
+			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
 		} else if count <= 1 {
 			awardCredits(db, env.Logger, u)
 		}
 	}
 
-	err = freetier.UpgradeFreeUserHosts(db, u)
-	if err != nil {
-		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %s", err)
+	// Remove any freequeue entries (since user has already paid).
+	if err := freequeue.Cancel(db, u.ID); err != nil {
+		env.Logger.Errorf("Error canceling freequeue entries: %v", err)
+	}
+
+	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
+		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 
 	env.Status = http.StatusCreated

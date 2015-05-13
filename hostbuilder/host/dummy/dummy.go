@@ -3,10 +3,13 @@ package dummy
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
+	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
+	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 )
 
@@ -39,6 +42,25 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if !h.UpdateSuccess {
 		return nil, errors.New("failed to update host")
 	}
+	return h.Info()
+}
+
+func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	if !h.CreateSuccess {
+		return nil, errors.New("failed to create host")
+	}
+
+	msg := &queue.Message{
+		Action:       queue.Create.String(),
+		Event:        string(event.HostCreated),
+		ResourceName: host.EventResourceName,
+		ResourceID:   h.ID,
+	}
+	err := qp.Publish(msg)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
+	}
+
 	return h.Info()
 }
 

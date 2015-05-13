@@ -36,6 +36,9 @@
               a href='#' click='switchUser target="view"'
                 | Switch User
             li
+              a href='#' click='creditUser target="view"'
+                | Credit User
+            li
               = link-to 'admin.free-queue'
                 | Free Queue
             li

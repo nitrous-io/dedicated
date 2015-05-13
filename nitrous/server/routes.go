@@ -151,6 +151,7 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates/{ptid}":    r("providertemplates.Show", providertemplates.Show),
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/free_queue/pending":           r("freequeue.Pending", freequeue.Pending),
+				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
 			},
@@ -194,6 +195,7 @@ func (s *Server) drawRoutes() {
 				"/admin/change_host_state":                 r("admin.ChangeHostState", admin.ChangeHostState),
 				"/admin/free_queue/{id}/action":            r("freequeue.Action", freequeue.Action),
 				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
+				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
 			},
 			"PUT": {
 				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),

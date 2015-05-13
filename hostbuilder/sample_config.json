@@ -21,5 +21,10 @@
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
       "docker_location": "/usr/bin/docker"
     }
+  },
+  "redis": {
+    "host": "localhost",
+    "port": "6379",
+    "database": 0
   }
 }
