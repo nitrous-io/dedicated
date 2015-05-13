@@ -185,7 +185,7 @@ func testListRecourceRecordSets(c *route53.Route53, zoneID string, lopts *route5
 }
 
 func testDeleteNonExistent() {
-	err := nroute53.DeleteExistingDNSRecords("does.not.exist." + hostDomain)
+	err := nroute53.DeleteCNAMERecord("does.not.exist." + hostDomain)
 	if err != nil {
 		fmt.Printf("deleting non-existent dns record returns error '%s'\n", err)
 	} else {
@@ -202,9 +202,9 @@ func testCreate() {
 	nroute53.SetCNAME(from, to)
 	fmt.Printf("\nAfter adding %s:\n", from)
 	testListRecourceRecordSets(client, hostZone.ID, nil)
-	nroute53.DeleteExistingDNSRecords(from)
+	nroute53.DeleteCNAMERecord(from)
 	// get warning
-	nroute53.DeleteExistingDNSRecords("nosuchrecord." + hostDomain)
+	nroute53.DeleteCNAMERecord("nosuchrecord." + hostDomain)
 	fmt.Printf("\nAfter deleting CNAME records:\n")
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }
@@ -258,7 +258,7 @@ func testPropagate() {
 	r := dnsCNAMELookup(hostName)
 	//fmt.Printf("dnsLookup() returned %#v\n", r)
 	if !isMsgNotFound(r) {
-		nroute53.DeleteExistingDNSRecords(hostName)
+		nroute53.DeleteCNAMERecord(hostName)
 		log.Fatalf("record for %s already exists. Deleted the record, try again.\n", hostName)
 	}
 	timeStart := time.Now()
@@ -272,12 +272,12 @@ func testPropagate() {
 		time.Sleep(time.Millisecond * 100)
 		fmt.Print(".")
 		if time.Since(timeStart) > time.Minute*5 {
-			nroute53.DeleteExistingDNSRecords(hostName)
+			nroute53.DeleteCNAMERecord(hostName)
 			fmt.Printf("\npropagation took more than 5 minutes, stopping the test.\n")
 		}
 	}
 	fmt.Printf("\nit took %s to propagate dns\n", time.Since(timeStart))
-	nroute53.DeleteExistingDNSRecords(hostName)
+	nroute53.DeleteCNAMERecord(hostName)
 }
 
 func usage() {

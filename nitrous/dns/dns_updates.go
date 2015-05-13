@@ -127,16 +127,16 @@ func onHostStart(logger *logger.Logger, h *host.Host) error {
 func onHostDestroy(logger *logger.Logger, h *host.Host) error {
 	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
 	name := h.Slug + "." + hostHostName
-	err := nroute53.DeleteExistingDNSRecords(name)
+	err := nroute53.DeleteCNAMERecord(name)
 	if err != nil {
-		logger.Errorf("nroute53.DeleteExistingDNSRecords('%s') failed with '%s'", name, err)
+		logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
 		return err
 	}
 	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
 	name = h.Slug + "." + proxyHost
-	err = nroute53.DeleteExistingDNSRecords(name)
+	err = nroute53.DeleteCNAMERecord(name)
 	if err != nil {
-		logger.Errorf("nroute53.DeleteExistingDNSRecords('%s') failed with '%s'", name, err)
+		logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
 		return err
 	}
 	return nil
@@ -154,7 +154,7 @@ func onContainerCreate(logger *logger.Logger, cn *container.Container, h *host.H
 // onContainerDestroy performs dns updates needed when container is destroyed
 // - remove CNAME record
 func onContainerDestroy(logger *logger.Logger, cn *container.Container) error {
-	return nroute53.DeleteExistingDNSRecords(cn.PreviewHostname())
+	return nroute53.DeleteCNAMERecord(cn.PreviewHostname())
 }
 
 func OnHostCreate(logger *logger.Logger, h *host.Host) error {

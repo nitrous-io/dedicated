@@ -39,7 +39,7 @@ func isCNAME(tp string) bool {
 // it seems that to delete a record DELETE has to send exactly the same
 // values that it currently has so the reliable way seems to be: get current
 // info and then delete them
-func deleteExistingDNSRecords(c *route53.Route53, zoneID, hostName string) error {
+func deleteCNAMERecord(c *route53.Route53, zoneID, hostName string) error {
 	hostName = route53.FQDN(hostName)
 	// https://docs.aws.amazon.com/Route53/latest/APIReference/API_ListResourceRecordSets.html
 	opts := route53.ListOpts{
@@ -65,13 +65,13 @@ func deleteExistingDNSRecords(c *route53.Route53, zoneID, hostName string) error
 		})
 	}
 	if len(changes) == 0 { // nothing to delete
-		fmt.Printf("[DEBUG] deleteExistingDNSRecords for hostName %s: no record found", hostName)
+		fmt.Printf("[DEBUG] deleteCNAMERecord for hostName %s: no record found", hostName)
 		return nil
 	}
 	if len(changes) > 1 {
 		return fmt.Errorf("Expected one change for hostname %s, got %d: %+v", hostName, len(changes), changes)
 	}
-	fmt.Printf("[DEBUG] deleteExistingDNSRecords for hostName %s: changes are %+v\n", hostName, changes)
+	fmt.Printf("[DEBUG] deleteCNAMERecord for hostName %s: changes are %+v\n", hostName, changes)
 	req := &route53.ChangeResourceRecordSetsRequest{
 		Comment: fmt.Sprintf("deleting DNS record for %s", hostName),
 		Changes: changes,
@@ -206,12 +206,12 @@ func SetA(from, to string) error {
 	return setA(c, zoneID, from, to)
 }
 
-// DeleteExistingDNSRecords deletes CNAME or A record (only one of them can
+// DeleteCNAMERecord deletes CNAME or A record (only one of them can
 // exist at any given time for a given host name)
-func DeleteExistingDNSRecords(hostName string) error {
+func DeleteCNAMERecord(hostName string) error {
 	c, zoneID, err := getClientAndZoneIDFromHostName(hostName)
 	if err != nil {
 		return err
 	}
-	return deleteExistingDNSRecords(c, zoneID, hostName)
+	return deleteCNAMERecord(c, zoneID, hostName)
 }
