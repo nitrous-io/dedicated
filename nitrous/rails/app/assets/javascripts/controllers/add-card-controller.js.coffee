@@ -67,6 +67,7 @@ App.AddCardController = Em.ObjectController.extend
 
         billingProfile = App.get('billingProfile')
         wasFreeTier = billingProfile.get('free')
+        anyHosts = App.get('hosts.length') > 0
 
         billingProfile.addCard(
           name: @get('name'),
@@ -81,7 +82,7 @@ App.AddCardController = Em.ObjectController.extend
           App.refreshUsage()
           App.refreshBillingProfile()
 
-          if wasFreeTier
+          if wasFreeTier && anyHosts
             @transitionToRoute 'hosts.index'
             App.set 'showUpgradeModal', true
             return
