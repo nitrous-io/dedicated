@@ -1774,7 +1774,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_container_state"))
-				Expect(errDesc).To(Equal("container is not stopped"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
 			})
 
 			Context("force is true", func() {
@@ -1869,7 +1869,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_container_state"))
-				Expect(errDesc).To(Equal("container is not stopped"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
 			})
 
 			Context("force is true", func() {
@@ -2368,7 +2368,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_container_state"))
-				Expect(errDesc).To(Equal("container is not stopped"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
 			})
 
 			Context("force is true", func() {
@@ -2463,7 +2463,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("invalid_container_state"))
-				Expect(errDesc).To(Equal("container is not stopped"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
 			})
 
 			Context("force is true", func() {

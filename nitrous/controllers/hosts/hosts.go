@@ -1,8 +1,10 @@
 package hosts
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -29,25 +31,24 @@ import (
 )
 
 var (
-	errSizeRequired                  = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
-	errNameRequired                  = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
-	errRegionRequired                = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
-	errPlanNotFound                  = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
-	errRegionNotFound                = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
-	errProvidertemplateNotFound      = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
-	errHostStartInvalidState         = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
-	errHostStopInvalidState          = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRestartInvalidState       = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostNotRunning                = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostCreationNotAllowed        = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
-	errMultipleRequests              = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
-	errHostSlugTaken                 = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
-	errRegionDisabled                = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
-	errBasicAuthFailed               = httperror.New(http.StatusUnauthorized, "unauthorized", "")
-	errStoppingNotAllowed            = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
-	errRestartingNotAllowed          = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
-	errFreeTimeLimitExceeded         = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
-	errHostStopInvalidContainerState = httperror.New(http.StatusBadRequest, "invalid_container_state", "container is not stopped")
+	errSizeRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "size is required")
+	errNameRequired             = httperror.New(http.StatusBadRequest, "invalid_request", "name is required")
+	errRegionRequired           = httperror.New(http.StatusBadRequest, "invalid_request", "region is required")
+	errPlanNotFound             = httperror.New(http.StatusBadRequest, "invalid_request", "no matching plan found for the given size")
+	errRegionNotFound           = httperror.New(http.StatusBadRequest, "invalid_request", "no matching region found for the given name")
+	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
+	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
+	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
+	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
+	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
+	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
+	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
+	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
+	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient
@@ -330,10 +331,9 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	if !force {
-		for _, cn := range cns {
-			if cn.TempState.Valid {
-				return errHostStopInvalidContainerState
-			}
+		slugs := getTransientContainerSlugs(cns)
+		if slugs != "" {
+			return httperror.New(http.StatusBadRequest, "invalid_container_state", fmt.Sprintf("containers(%s) are not stopped", slugs))
 		}
 	}
 
@@ -384,10 +384,9 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	if !force {
-		for _, cn := range cns {
-			if cn.TempState.Valid {
-				return errHostStopInvalidContainerState
-			}
+		slugs := getTransientContainerSlugs(cns)
+		if slugs != "" {
+			return httperror.New(http.StatusBadRequest, "invalid_container_state", fmt.Sprintf("containers(%s) are not stopped", slugs))
 		}
 	}
 
@@ -645,4 +644,26 @@ func trackWorkspaces(env *middleware.Env, userID int64) {
 	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"workspaces_plans": plans,
 	}, env.Logger)
+}
+
+func getTransientContainerSlugs(cns []*container.Container) string {
+	transientContainers := make([]*container.Container, 0)
+	for _, cn := range cns {
+		if cn.TempState.Valid {
+			transientContainers = append(transientContainers, cn)
+		}
+	}
+
+	if len(transientContainers) > 0 {
+		var buffer bytes.Buffer
+		for index, cn := range transientContainers {
+			buffer.WriteString(cn.Slug)
+			if index < len(transientContainers)-1 {
+				buffer.WriteString(",")
+			}
+		}
+		return buffer.String()
+	}
+
+	return ""
 }
