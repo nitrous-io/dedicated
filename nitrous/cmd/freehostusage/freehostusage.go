@@ -74,7 +74,12 @@ func terminateHost(h *host.Host) error {
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 
 	err := d.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
+		// FIXME until this command has been verified on production, we only
+		// set host state to `orphan` for now so that it is hidden from the user
+		// and no data is removed
+		_, err := tx.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateOrphan, h.ID)
+		return err
+		// return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
 	})
 	if err != nil {
 		logr.Errorf("Error terminating host - %s: %+v", err, h)
