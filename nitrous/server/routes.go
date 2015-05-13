@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -156,8 +157,11 @@ func (s *Server) drawRoutes() {
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
+				"/oauth/third_party/client/{id}":      r("oauth.ShowClient", oauth.ShowClient),
+				"/oauth/clients/{clientid}":           r("oauth.ShowClient", oauth.ShowClient),
 			},
 			"POST": {
+				"/oauth/authorize":                         r("oauth.Authorize", oauth.Authorize),
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
 				"/user/resend_phone_code":                  r("users.ResendPhoneCode", users.ResendPhoneCode),
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),

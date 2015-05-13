@@ -12,6 +12,17 @@ import (
 
 const (
 	MaxLastUsedDuration = (24 * 7) * time.Hour
+	ExpiryInSeconds     = MaxLastUsedDuration / time.Second
+)
+
+const (
+	// Default password login can have full access to user's account
+	ScopeFull = "full"
+
+	// Third party client have limited access
+	// FIXME: Should check token scope when accessing
+	// user settings like change password.
+	ScopeThirdParty = "third_party"
 )
 
 var (
@@ -24,6 +35,9 @@ type Token struct {
 	UserID     int64          `db:"user_id"`
 	Token      string         `db:"token"`
 	Type       string         `db:"type"`
+	Scope      string         `db:"scope"`
+	Nonce      sql.NullString `db:"nonce"`
+	ClientID   sql.NullInt64  `db:"client_id"`
 	LastIP     sql.NullString `db:"last_ip"`
 	CreatedAt  *time.Time     `db:"created_at"`
 	LastSeenAt *time.Time     `db:"last_seen_at"`
@@ -77,7 +91,16 @@ func (t *Token) Insert(d db.QueryReceiver) error {
 		t.Token = tok[:255]
 	}
 
-	nstmt, err := d.PrepareNamed(`INSERT INTO tokens (user_id, token, type, last_ip) VALUES (:user_id, :token, :type, :last_ip) RETURNING *;`)
+	// FIXME: default to full scope until we force
+	// all tokens created must have scope specified
+	if t.Scope == "" {
+		t.Scope = ScopeFull
+	}
+
+	nstmt, err := d.PrepareNamed(`INSERT INTO tokens
+		(user_id, token, type, last_ip, scope, nonce, client_id) VALUES
+		(:user_id, :token, :type, :last_ip, :scope, :nonce, :client_id)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}

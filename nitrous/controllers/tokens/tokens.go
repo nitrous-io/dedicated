@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -98,6 +99,8 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
+	} else if grantType == "authorization_code" {
+		return oauth.TokenFromAuthorizationCode(env, w, r)
 	} else {
 		return errGrantType
 	}

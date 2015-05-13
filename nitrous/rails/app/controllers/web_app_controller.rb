@@ -8,4 +8,8 @@ class WebAppController < ApplicationController
   def token_login
     render layout: 'bare'
   end
+
+  def consent
+    render layout: 'bare'
+  end
 end
