@@ -77,12 +77,7 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 		return err
 	}
 
-	err = nstmt.QueryRowx(h).StructScan(h)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return nstmt.QueryRowx(h).StructScan(h)
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {

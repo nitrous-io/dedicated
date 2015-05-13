@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -224,6 +225,28 @@ var _ = Describe("controllers/billingprofiles", func() {
 			errType, errDesc := ErrorSlug(res.Body)
 			Expect(errType).To(Equal("incorrect_zip"))
 			Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
+		})
+
+		It("should cancel any freequeue entries the user might have", func() {
+			// Add freequeue entry for user.
+			fq := &freequeue.FreeQueue{
+				UserID:                u.ID,
+				ContainerTemplateSlug: "tmpl1",
+				ContainerName:         "nm",
+				RegionSlug:            "slug1",
+				HostName:              "name1",
+			}
+			Expect(fq.Insert(db)).To(BeNil())
+
+			fakeStripe.Responses = []string{StripeCustomerResponse}
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+
+			Expect(res.Code).To(Equal(http.StatusCreated))
+
+			_, err := freequeue.Find(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
 		Context("rewarding credits", func() {
