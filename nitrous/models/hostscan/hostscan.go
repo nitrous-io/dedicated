@@ -145,9 +145,10 @@ func FindScannableHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 func FindTerminatingHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 	hosts := []*host.Host{}
 	err := d.Select(&hosts, `
-		SELECT hosts.* FROM hosts
+		SELECT hosts.*, pt.provider, pt.config FROM hosts
 		INNER JOIN users ON (users.id = hosts.user_id)
 		INNER JOIN billing_profiles ON (billing_profiles.user_id = users.id)
+		INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 		WHERE
 			hourly_price = 0
 			AND terminated_at IS NULL
