@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -86,7 +87,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHost(h)
+		hostsResp[i] = serializers.SerializeHostWithUser(h, env.User)
 	}
 
 	env.Status = http.StatusOK
@@ -567,16 +568,32 @@ func hostbuilderHeaders(env *middleware.Env) http.Header {
 }
 
 func serializeHost(env *middleware.Env, h *host.Host) {
+	u := env.User
+	if u.ID != h.UserID {
+		var err error
+		u, err = user.FindByID(env.DB, h.UserID)
+		if err != nil {
+			env.Logger.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
+		}
+	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHost(h),
+		"host": serializers.SerializeHostWithUser(h, u),
 	}
 }
 
 func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.Host) {
+	u := env.User
+	if u.ID != h.UserID {
+		var err error
+		u, err = user.FindByID(env.DB, h.UserID)
+		if err != nil {
+			env.Logger.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
+		}
+	}
 	env.Events.Publish(
 		controllers.NewEvent(name, map[string]*serializers.Host{
-			"host": serializers.SerializeHost(h),
+			"host": serializers.SerializeHostWithUser(h, u),
 		}),
 		env.User.Topic(),
 	)
