@@ -44,7 +44,7 @@ func (d *MockDNS) OnHostDestroy(h *host.Host) error {
 	return d.OnHostDestroyError
 }
 
-func (d *MockDNS) OnContainerCreate(cn *container.Container, h *host.Host) error {
+func (d *MockDNS) OnContainerCreate(cn *container.Container) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.OnContainerCreateCalls++

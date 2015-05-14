@@ -3,7 +3,6 @@ package dns
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -34,7 +33,7 @@ type DNS interface {
 	OnHostCreate(h *host.Host) error
 	OnHostStart(h *host.Host) error
 	OnHostDestroy(h *host.Host) error
-	OnContainerCreate(cn *container.Container, h *host.Host) error
+	OnContainerCreate(cn *container.Container) error
 	OnContainerDestroy(cn *container.Container) error
 }
 
@@ -44,6 +43,39 @@ type RealDNS struct {
 
 func (d *RealDNS) SetLogger(lg *logger.Logger) {
 	d.logger = lg
+}
+
+type hostCNAMEs struct {
+	proxyFrom, proxyTo       string
+	hostnameFrom, hostnameTo string
+}
+
+func hostRecords(h *host.Host) (*hostCNAMEs, error) {
+	regionID := h.ProviderTemplate.Config.Map["region_id"]
+	proxyTo := regionToTender[regionID.String]
+	if proxyTo == "" {
+		return nil, fmt.Errorf("no tender server for region '%s'", regionID.String)
+	}
+	if !h.IPAddress.Valid || h.IPAddress.String == "" {
+		return nil, errInvalidIPAddress
+	}
+	return &hostCNAMEs{
+		proxyFrom:    fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname),
+		proxyTo:      proxyTo,
+		hostnameFrom: fmt.Sprintf("%s.%s", h.Slug, envvars.HostHostname),
+		hostnameTo:   fmt.Sprintf("ec2-%s.compute-1.amazonaws.com", h.IPAddress.String),
+	}, nil
+}
+
+type containerCNAMEs struct {
+	previewFrom, previewTo string
+}
+
+func containerRecords(cn *container.Container) (*containerCNAMEs, error) {
+	return &containerCNAMEs{
+		previewFrom: cn.PreviewHostname(),
+		previewTo:   fmt.Sprintf("%s.%s", cn.Slug, envvars.PreviewHostname),
+	}, nil
 }
 
 // OnHostCreate performs dns updates needed after host has been created:
@@ -69,18 +101,16 @@ func (d *RealDNS) OnHostStart(h *host.Host) error {
 // OnHostDestroy performs dns updates needed after host has been destroyed:
 // - remove CNAME records
 func (d *RealDNS) OnHostDestroy(h *host.Host) error {
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	name := h.Slug + "." + hostHostName
-	err := nroute53.DeleteCNAMERecord(name)
+	cnames, err := hostRecords(h)
 	if err != nil {
-		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
 		return err
 	}
-	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
-	name = h.Slug + "." + proxyHost
-	err = nroute53.DeleteCNAMERecord(name)
-	if err != nil {
-		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", name, err)
+	if err := nroute53.DeleteCNAMERecord(cnames.hostnameFrom); err != nil {
+		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", cnames.hostnameFrom, err)
+		return err
+	}
+	if err = nroute53.DeleteCNAMERecord(cnames.proxyFrom); err != nil {
+		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", cnames.proxyFrom, err)
 		return err
 	}
 	return nil
@@ -88,17 +118,22 @@ func (d *RealDNS) OnHostDestroy(h *host.Host) error {
 
 // OnContainerCreate performs dns updates needed when container is created
 // - add a CNAME record for <containerslug>.PREVIEW_HOSTNAME
-func (d *RealDNS) OnContainerCreate(cn *container.Container, h *host.Host) error {
-	from := cn.PreviewHostname()
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	to := h.Slug + "." + hostHostName
-	return nroute53.SetCNAME(from, to)
+func (d *RealDNS) OnContainerCreate(cn *container.Container) error {
+	cnames, err := containerRecords(cn)
+	if err != nil {
+		return err
+	}
+	return nroute53.SetCNAME(cnames.previewFrom, cnames.previewTo)
 }
 
 // onContainerDestroy performs dns updates needed when container is destroyed
 // - remove CNAME record
 func (d *RealDNS) OnContainerDestroy(cn *container.Container) error {
-	return nroute53.DeleteCNAMERecord(cn.PreviewHostname())
+	cnames, err := containerRecords(cn)
+	if err != nil {
+		return err
+	}
+	return nroute53.DeleteCNAMERecord(cnames.previewFrom)
 }
 
 func SetActiveDNS(active DNS) {
@@ -109,15 +144,12 @@ func SetActiveDNS(active DNS) {
 // Source CNAME is slug + global proxy host name, destination is name of
 // tender proxy chosen based on provider_templates.config:region_id
 func (d *RealDNS) setHostProxyCNAME(h *host.Host) error {
-	proxyHost := strings.TrimPrefix(envvars.ProxyHostname, ".")
-	from := h.Slug + "." + proxyHost
-	regionID := h.ProviderTemplate.Config.Map["region_id"]
-	tenderServer := regionToTender[regionID.String]
-	if tenderServer == "" {
-		return fmt.Errorf("no tender server for region '%s'", regionID.String)
+	cnames, err := hostRecords(h)
+	if err != nil {
+		return err
 	}
-	if err := nroute53.SetCNAME(from, tenderServer); err != nil {
-		d.logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, from, tenderServer)
+	if err := nroute53.SetCNAME(cnames.proxyFrom, cnames.proxyTo); err != nil {
+		d.logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, cnames.proxyFrom, cnames.proxyTo)
 		return err
 	}
 	return nil
@@ -125,17 +157,11 @@ func (d *RealDNS) setHostProxyCNAME(h *host.Host) error {
 
 // SetHostCNAME adds or updates CNAME record for the host
 func (d *RealDNS) setHostCNAME(h *host.Host) error {
-	if !h.IPAddress.Valid && h.IPAddress.String == "" {
-		d.logger.Errorf("SetHostCNAME(): ip address invalid for host %d (%s)", h.ID, h.Slug)
-		return errInvalidIPAddress
+	cnames, err := hostRecords(h)
+	if err != nil {
+		return err
 	}
-
-	hostHostName := strings.TrimPrefix(envvars.HostHostname, ".")
-	from := h.Slug + "." + hostHostName
-	// desired name is: ec2-xx-xx-xx-xx.compute-1.amazonaws.com
-	to := "ec2-" + h.IPAddress.String + ".compute-1.amazonaws.com"
-
-	if err := nroute53.SetCNAME(from, to); err != nil {
+	if err := nroute53.SetCNAME(cnames.hostnameFrom, cnames.hostnameTo); err != nil {
 		d.logger.Errorf("nroute53.SetCNAME() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
 		return err
 	}
@@ -155,7 +181,7 @@ func OnHostDestroy(h *host.Host) error {
 }
 
 func OnContainerCreate(cn *container.Container, h *host.Host) error {
-	return activeDNS.OnContainerCreate(cn, h)
+	return activeDNS.OnContainerCreate(cn)
 }
 
 func OnContainerDestroy(cn *container.Container) error {
