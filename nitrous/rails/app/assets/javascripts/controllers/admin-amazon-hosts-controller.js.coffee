@@ -103,7 +103,7 @@ App.AdminAmazonHostsController = Em.Controller.extend
         host.db_host.username.indexOf(usernameFilter) != -1
 
     return hosts
-    
+
   ).property 'hosts', 'regionFilter', 'slugFilter', 'usernameFilter', 'App.regionSlugIndex'
 
   # Use for displaying list of selected hosts
@@ -137,7 +137,10 @@ App.AdminAmazonHostsController = Em.Controller.extend
   performActionOnHost: (action, host) ->
     App.snackbar.post("#{action.progressName} #{getHostSlug(host)}...")
 
-    action.perform(host)
+    data = {}
+    data.force = true if action.name == "Restart" || action.name == "Stop"
+
+    action.perform(host, data)
     .then(=>
       action.successMessage
     , =>

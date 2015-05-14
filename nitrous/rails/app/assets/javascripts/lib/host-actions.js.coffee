@@ -35,10 +35,11 @@ hostActions =
     description: 'This will stop the host.'
     successMessage: 'Successfully stopped the host'
     failureMessage: 'Failed to stop host!'
-    perform: (host) ->
+    perform: (host, data) ->
       Em.$.ajax
         type: 'POST'
         url: "/api/v0/hosts/#{host.slug}/stop"
+        data: data
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   restart:
