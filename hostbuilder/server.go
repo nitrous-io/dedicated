@@ -354,15 +354,24 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 
 	h, err := host.InitHost(provider, providerConfig, configJson)
 	if err != nil {
-		return err
+		return mh.Error(err, fmt.Sprintf("start.%s", provider))
 	}
+
+	label := fmt.Sprintf("start.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
 	info, err := h.Start()
 	if err != nil {
-		return err
+		return mh.Error(err, label)
 	}
+
+	t := mh.Timer(fmt.Sprintf("ping.%s", label))
+	pingStart := time.Now()
 	if err := pingHost(info, ioutil.Discard); err != nil {
-		return err
+		return mh.Error(err, fmt.Sprintf("ping.%s", label))
 	}
+	t.UpdateSince(pingStart)
+
 	resp := &Response{
 		StatusCode:     http.StatusOK,
 		Status:         "started",
