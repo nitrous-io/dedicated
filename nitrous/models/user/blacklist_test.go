@@ -18,5 +18,9 @@ var _ = Describe("model/user email blacklist", func() {
 			Expect(user.IsBlacklisted("hello@gmail.com")).To(BeFalse())
 			Expect(user.IsBlacklisted("hello@action.io")).To(BeFalse())
 		})
+
+		It("returns true if email does not contain @", func() {
+			Expect(user.IsBlacklisted("gmail.com")).To(BeTrue())
+		})
 	})
 })
