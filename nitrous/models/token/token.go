@@ -24,6 +24,8 @@ type Token struct {
 	UserID     int64          `db:"user_id"`
 	Token      string         `db:"token"`
 	Type       string         `db:"type"`
+	Nonce      sql.NullString `db:"nonce"`
+	ClientID   sql.NullInt64  `db:"client_id"`
 	LastIP     sql.NullString `db:"last_ip"`
 	CreatedAt  *time.Time     `db:"created_at"`
 	LastSeenAt *time.Time     `db:"last_seen_at"`

@@ -156,7 +156,7 @@ func (s *Server) drawRoutes() {
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
-				"/oauth/third_party/client/{id}":      r("oauth.ShowClient", oauth.ShowClient),
+				"/oauth/clients/{clientid}":           r("oauth.ShowClient", oauth.ShowClient),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.Authorize", oauth.Authorize),
