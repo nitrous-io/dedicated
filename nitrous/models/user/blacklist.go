@@ -15,17 +15,18 @@ const delimiter = "@"
 
 var blacklist map[string]struct{}
 
-func IsBlacklisted(email string) (bool, error) {
+func IsBlacklisted(email string) bool {
 	index := strings.Index(email, delimiter)
 	if index < 0 {
-		return true, fmt.Errorf("Email address(%s) does not contain @", email)
+		log.Printf("Email address(%s) does not contain @", email)
+		return true
 	}
 
 	domain := string(email[index+1:])
 	if _, ok := blacklist[domain]; ok {
-		return true, nil
+		return true
 	}
-	return false, nil
+	return false
 }
 
 func fetchBlacklist() error {
