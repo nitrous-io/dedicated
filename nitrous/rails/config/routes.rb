@@ -1,6 +1,8 @@
 Rails.application.routes.draw do
   get '/app' => 'web_app#index'
   get '/ide' => 'web_app#ide'
+  get '/token_login' => 'web_app#token_login'
+
   get '/features' => 'pages#features'
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
@@ -13,7 +15,7 @@ Rails.application.routes.draw do
   get '/enterprises' => 'pages#enterprises'
   get '/teams' => 'pages#teams'
   get '/vpc' => 'pages#vpc'
-  
+
   get '/teams-pricing' => 'pages#teams_pricing'
   get '/education-pricing' => 'pages#education_pricing'
 

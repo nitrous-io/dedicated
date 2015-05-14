@@ -1,0 +1,9 @@
+- content_for :head_stylesheet
+  sass:
+    html
+      background: #2a3239
+
+- content_for :body_script
+  = javascript_include_tag 'compat'
+  = javascript_include_tag 'jquery'
+  = javascript_include_tag 'token_login'

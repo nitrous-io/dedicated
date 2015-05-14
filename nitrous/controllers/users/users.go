@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/subosito/twilio"
@@ -354,6 +355,25 @@ func GetAuthenticatedUser(env *middleware.Env, w http.ResponseWriter, r *http.Re
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUserWithProfiles(u, up, bp),
 	}
+	return nil
+}
+
+func GetLoginToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+	if u == nil {
+		return errors.New("user is nil")
+	}
+
+	token, err := logintoken.Generate(u.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"login_token": token,
+	}
+
 	return nil
 }
 

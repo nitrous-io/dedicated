@@ -4,4 +4,8 @@ class WebAppController < ApplicationController
 
   def ide
   end
+
+  def token_login
+    render layout: 'bare'
+  end
 end

@@ -25,11 +25,10 @@ class PagesController < ApplicationController
 
   def plan_changes
   end
-  
+
   def education_pricing
   end
-  
+
   def teams_pricing
   end
-  
 end

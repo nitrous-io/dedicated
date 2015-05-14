@@ -121,6 +121,7 @@ func (s *Server) drawRoutes() {
 				"/user/settings":                      r("usersettings.Show", usersettings.Show),
 				"/user/billing_profile":               r("billingprofiles.Show", billingprofiles.Show),
 				"/user/can_delete":                    r("users.CheckCanDelete", users.CheckCanDelete),
+				"/user/login_token":                   r("users.GetLoginToken", users.GetLoginToken),
 				"/hosts":                              r("hosts.Index", hosts.Index),
 				"/images":                             r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":                r("images.Index", images.Index),

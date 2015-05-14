@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kardianos/osext"
-
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -56,6 +55,7 @@ func main() {
 	envvars.CheckSendgridVariables()
 	envvars.CheckHostnames()
 	envvars.CheckGitHubOAuth()
+	envvars.CheckSecretToken()
 
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {
