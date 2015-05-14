@@ -73,6 +73,11 @@ App.Container = klass = Em.Object.extend
     publicPorts.sortBy('containerPort')
   ).property 'config', 'config.port.@each'
 
+  setExpiresAt: (->
+    return unless (tr = @get('host.time_remaining')) != null
+    @set 'expiresAt', (new Date((new Date).getTime() + (tr * 1000)))
+  ).observes 'host.time_remaining'
+
   validPreviewPort: (port) ->
     port == 80 || port >= 1024
 

@@ -184,22 +184,22 @@ window.Nitrous = Em.Application.extend Em.Evented,
       return
 
     primaryHost = @get('hosts.firstObject')
-    unless primaryHost && (date = primaryHost.get('lastRunningAt'))
+    unless primaryHost && (expiresAt = primaryHost.get('expiresAt'))
       return
 
     now = (new Date()).getTime()
     maxRun = @get('user.maxRunningTime')
     refreshPeriod = @get('user.refreshPeriod')
 
-    refreshAt = new Date(date.getTime() + (refreshPeriod*1000))
-    used = (now - primaryHost.get('lastRunningAt').getTime())/1000
+    timeElapsed = maxRun - primaryHost.get('timeRemaining')
+    lastRunningAt = new Date(expiresAt.getTime() - maxRun*1000)
+    refreshAt = new Date(lastRunningAt.getTime() + refreshPeriod*1000)
 
-    remaining = 0
+    remaining = (expiresAt - (new Date()))/1000
     refreshIn = null
     if (r = refreshAt.getTime()) < now
       remaining = maxRun
     else
-      remaining = maxRun - used
       refreshIn = (r - now)/1000
 
     # correct for overruns or underuns
@@ -221,7 +221,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
       expired: expired,
       progressBarStyle: "width: #{percent}%"
     }
-  ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.lastRunningAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
+  ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.expiresAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
 
   notifyUsageWarning: (->
     return unless @get('hosts.firstObject.state') == 'running'
