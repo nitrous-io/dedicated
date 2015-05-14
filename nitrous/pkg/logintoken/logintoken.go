@@ -9,6 +9,7 @@ import (
 )
 
 type LoginToken struct {
+	Type      string     `json:"type"`
 	UserID    int64      `json:"user_id"`
 	CreatedAt *time.Time `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at"`
@@ -26,6 +27,7 @@ func Generate(userID int64) (string, error) {
 	createdAt := time.Now().UTC()
 	expiresAt := createdAt.Add(DefaultValidityPeriod)
 	return msgverifier.New(Secret).Generate(&LoginToken{
+		Type:      "logintoken",
 		UserID:    userID,
 		CreatedAt: &createdAt,
 		ExpiresAt: &expiresAt,
@@ -37,6 +39,9 @@ func Read(token string) (int64, error) {
 	var t *LoginToken
 	err := msgverifier.New(Secret).Verify(token, &t)
 	if err != nil {
+		return 0, ErrInvalidToken
+	}
+	if t.Type != "logintoken" {
 		return 0, ErrInvalidToken
 	}
 	if t.ExpiresAt.Before(time.Now()) {
