@@ -37,6 +37,8 @@ var (
 		15 * time.Second,
 		20 * time.Second,
 		30 * time.Second,
+		30 * time.Second,
+		30 * time.Second,
 	}
 )
 
