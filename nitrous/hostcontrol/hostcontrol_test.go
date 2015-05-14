@@ -101,7 +101,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).To(BeNil())
+			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
@@ -117,7 +117,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).To(BeNil())
+			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -144,7 +144,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("updates the host state to stopped", func() {
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).To(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -156,7 +156,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).To(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -186,7 +186,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("resets the host to its original state", func() {
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -199,7 +199,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -254,7 +254,7 @@ var _ = Describe("hostcontrol", func() {
 
 		terminateHost := func() error {
 			return db.WithTransaction(func(tx *sqlx.Tx) error {
-				return hostcontrol.Terminate(tx, l, h, hbHeaders())
+				return hostcontrol.Terminate(tx, l, h, hbHeaders(), hs.H.UserID)
 			})
 		}
 

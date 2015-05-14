@@ -136,7 +136,7 @@ func markServers() error {
 			return fmt.Errorf("[%s] Unable to set migrating state. err: %v", nm.name, err)
 		}
 
-		err = hosttransition.Record(tx, nm.host, "running", time.Now())
+		err = hosttransition.Record(tx, nm.host, "running", time.Now(), initiatorID)
 		if err != nil {
 			tx.Rollback()
 			return fmt.Errorf("[%s] Unable to transition host. err: %v", nm.name, err)
@@ -167,7 +167,7 @@ func restoreServers() error {
 		return fmt.Errorf("[%s] Unable to update host state. err: %v", nm.name, err)
 	}
 
-	err = hosttransition.Record(tx, nm.host, "migrating", time.Now())
+	err = hosttransition.Record(tx, nm.host, "migrating", time.Now(), initiatorID)
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("[%s] Unable to transition host. err: %v", nm.name, err)
@@ -388,7 +388,7 @@ func updateRecords() error {
 		return fmt.Errorf("[DEST] Unable to set state. err: %v", err)
 	}
 
-	err = hosttransition.Record(tx, destDBHost, "migrating", time.Now())
+	err = hosttransition.Record(tx, destDBHost, "migrating", time.Now(), initiatorID)
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("[DEST] Unable to transition host. err: %v", err)
@@ -412,7 +412,7 @@ func updateRecords() error {
 	}
 
 	srcDBHost.State = "terminated"
-	err = hosttransition.Record(tx, srcDBHost, "migrating", time.Now())
+	err = hosttransition.Record(tx, srcDBHost, "migrating", time.Now(), initiatorID)
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("[SRC] Unable to transition host. err: %v", err)

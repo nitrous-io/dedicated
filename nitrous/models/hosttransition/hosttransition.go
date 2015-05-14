@@ -174,7 +174,7 @@ func CurrentMonthUsageForUser(d *db.Database, userID int64, now time.Time) (int6
 // Optional single initiatorID argument to record if the
 // user initiating the host transition is an admin user
 // instead of the host owner.
-func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time, initiatorID ...int64) error {
+func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time, initiatorID int64) error {
 	hT := &HostTransition{
 		HostID:      h.ID,
 		State:       h.State,
@@ -182,8 +182,8 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 		InitiatorID: sql.NullInt64{h.UserID, true},
 	}
 
-	if len(initiatorID) > 0 {
-		hT.InitiatorID = sql.NullInt64{initiatorID[0], true}
+	if initiatorID > 0 {
+		hT.InitiatorID = sql.NullInt64{initiatorID, true}
 	}
 
 	if previousState != "" {
