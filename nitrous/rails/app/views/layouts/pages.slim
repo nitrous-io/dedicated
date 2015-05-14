@@ -3,7 +3,7 @@ html lang='en' class=@html_class
   head
     meta charset='utf-8'
     title
-      = @title
+      = @title || "Nitrous"
     link rel='shortcut icon' href='/favicon.ico'
     = yield :head_before
     / = stylesheet_link_tag 'application', media: 'all'
