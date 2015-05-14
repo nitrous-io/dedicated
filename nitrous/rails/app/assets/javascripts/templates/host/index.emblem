@@ -199,7 +199,7 @@
       | Are you ABSOLUTELY sure?
     .card-body
       p
-        | Containers are starting/being stopped. It could lead to unclean shutdown
+        | Containers are starting/stopping. Stopping your workspace now may cause its containers to not be shutdown cleanly
     .card-footer
       .right
         button.ui.btn click='cancelStop target="view"' Cancel
@@ -211,7 +211,7 @@
       | Are you ABSOLUTELY sure?
     .card-body
       p
-       | Containers are starting/being stopped. It could lead to unclean shutdown
+       | Containers are starting/stopping. Restarting your workspace now may cause its containers to not be shutdown cleanly
     .card-footer
       .right
         button.ui.btn click='cancelRestart target="view"' Cancel
