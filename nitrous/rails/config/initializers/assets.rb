@@ -15,4 +15,5 @@ Rails.application.config.assets.precompile += %w(
   codemirror.css
   website.css
   token_login.js
+  consent.js
 )
