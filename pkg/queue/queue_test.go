@@ -1,6 +1,7 @@
 package queue_test
 
 import (
+	"log"
 	"os/exec"
 	"strings"
 	"testing"
@@ -9,10 +10,46 @@ import (
 	"gopkg.in/redis.v2"
 
 	"github.com/nitrous-io/dedicated/pkg/queue"
+	"github.com/nitrous-io/dedicated/pkg/reexec"
 	"github.com/nitrous-io/dedicated/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() {
+	reexec.Register("queue1", func() {
+		stop := make(chan struct{})
+		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			if err != nil {
+				return err
+			}
+			redisClient.Set("test", "handler1")
+			return nil
+		}
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		log.Fatalf("queue1 failed to start %v", err)
+	})
+
+	reexec.Register("queue2", func() {
+		stop := make(chan struct{})
+		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			if err != nil {
+				return err
+			}
+			redisClient.Set("test", "handler2")
+			return nil
+		}
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		log.Fatalf("queue2 failed to start %v", err)
+	})
+
+	// return if running in reexec mode, and the reexec func has already finished
+	if reexec.Init() {
+		return
+	}
+}
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -202,6 +239,111 @@ var _ = Describe("pkg/queue", func() {
 				Expect(err).To(BeNil())
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
+		})
+	})
+
+	Describe("StartConsumer", func() {
+		It("starts queue consumer", func() {
+			var stopCh chan struct{}
+			stopCh = make(chan struct{})
+
+			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+				redisClient.Set("test", m.UUID)
+				return nil
+			}
+
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			time.Sleep(50 * time.Millisecond)
+
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			err := qp.ResetInput()
+			Expect(err).To(BeNil())
+
+			err = qp.Publish(&queue.Message{
+				UUID: "1234",
+			})
+			Expect(err).To(BeNil())
+			time.Sleep(50 * time.Millisecond)
+			Expect(redisClient.Get("test").Val()).To(Equal("1234"))
+			stopCh <- struct{}{}
+			select {
+			case _ = <-stopCh:
+				err = qp.Publish(&queue.Message{
+					UUID: "4567",
+				})
+				time.Sleep(50 * time.Millisecond)
+				Expect(redisClient.Get("test").Val()).To(Equal("1234"))
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timeout waiting for queue consumer to be down")
+			}
+		})
+
+		It("finishes current job before stop", func() {
+			var stopCh chan struct{}
+			stopCh = make(chan struct{})
+
+			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+				time.Sleep(50 * time.Millisecond)
+				redisClient.Set("test", m.UUID)
+				return nil
+			}
+
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			time.Sleep(50 * time.Millisecond)
+
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			err := qp.ResetInput()
+			Expect(err).To(BeNil())
+
+			err = qp.Publish(&queue.Message{
+				UUID: "1234",
+			})
+			Expect(err).To(BeNil())
+			time.Sleep(50 * time.Millisecond)
+			stopCh <- struct{}{}
+			select {
+			case _ = <-stopCh:
+				Expect(redisClient.Get("test").Val()).To(Equal("1234"))
+			case <-time.After(200 * time.Millisecond):
+				Fail("Timeout waiting for queue consumer to be down")
+			}
+		})
+
+		It("tries when there is already queue consumer for same name", func() {
+			queue1 := reexec.Command("queue1")
+			queue2 := reexec.Command("queue2")
+			defer func() {
+				if queue1.Process != nil {
+					queue1.Process.Kill()
+				}
+				if queue2.Process != nil {
+					queue2.Process.Kill()
+				}
+			}()
+
+			// start queue1
+			Expect(queue1.Start()).To(BeNil(), "queue1 cannot start")
+
+			// make sure that queue1 is running and accepting messages
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			err := qp.Publish(&queue.Message{UUID: "1234"})
+			Expect(err).To(BeNil())
+			Eventually(func() string {
+				return redisClient.Get("test").Val()
+			}, 10*time.Second).Should(Equal("handler1"))
+
+			// start queue2. it should block waiting for the queue to finish
+			Expect(queue2.Start()).To(BeNil(), "queue2 cannot start")
+
+			// stop queue1
+			queue1.Process.Kill()
+			time.Sleep(500 * time.Millisecond)
+
+			err = qp.Publish(&queue.Message{UUID: "1234"})
+			Expect(err).To(BeNil())
+			Eventually(func() string {
+				return redisClient.Get("test").Val()
+			}, 10*time.Second).Should(Equal("handler2"))
 		})
 	})
 })

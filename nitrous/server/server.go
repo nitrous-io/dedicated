@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/facebookgo/httpdown"
@@ -46,6 +49,9 @@ type Server struct {
 	Provisioner *provisioner.Provisioner
 	Tracker     analytics.Tracker
 
+	// this channel will be notified when the server is shutting down
+	QueueCloseCh chan struct{}
+
 	// StopTimeout is the duration before we begin force closing connections.
 	StopTimeout time.Duration
 	// KillTimeout is the duration before which we completely give up and abort
@@ -66,15 +72,16 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 	}
 	events := pubsub.New(128)
 	svr := &Server{
-		Events:      events,
-		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
-		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
-		StopTimeout: defaultStopTimeout,
-		KillTimeout: defaultKillTimeout,
-		root:        root,
-		db:          db,
-		logger:      l,
-		router:      mux.NewRouter(),
+		Events:       events,
+		Provisioner:  provisioner.NewProvisioner(db, l, events, conf),
+		Tracker:      analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		QueueCloseCh: make(chan struct{}),
+		StopTimeout:  defaultStopTimeout,
+		KillTimeout:  defaultKillTimeout,
+		root:         root,
+		db:           db,
+		logger:       l,
+		router:       mux.NewRouter(),
 	}
 	svr.drawRoutes()
 	return svr
@@ -106,7 +113,14 @@ func (s *Server) Start(host string, port uint16) error {
 	}
 	s.logger.Debugf("nitrous/server: starting HTTP server with stop timeout: %v, kill timeout: %v",
 		s.StopTimeout, s.KillTimeout)
-	return httpdown.ListenAndServe(srv, hd)
+
+	return ListenAndServe(srv, hd, func() error {
+		// wait until the queue consumer finish processing its current message and is stopped
+		log.Printf("shutting down queue consumer")
+		s.QueueCloseCh <- struct{}{}
+		<-s.QueueCloseCh
+		return nil
+	})
 }
 
 func (s *Server) Stop() {
@@ -279,4 +293,47 @@ func (s *Server) getNumFds() int {
 		return -1
 	}
 	return len(fds)
+}
+
+// ListenAndServe is a convenience function to serve and wait for a SIGTERM
+// or SIGINT before shutting down.
+// It also accepts a callback hook to perform additional cleanup when the server is shutting down
+func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error) error {
+	if hd == nil {
+		hd = &httpdown.HTTP{}
+	}
+	hs, err := hd.ListenAndServe(s)
+	if err != nil {
+		return err
+	}
+	log.Printf("serving on http://%s/ with pid %d\n", s.Addr, os.Getpid())
+
+	waiterr := make(chan error, 1)
+	go func() {
+		defer close(waiterr)
+		waiterr <- hs.Wait()
+	}()
+
+	signals := make(chan os.Signal, 10)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
+
+	select {
+	case err := <-waiterr:
+		if err != nil {
+			return err
+		}
+	case s := <-signals:
+		signal.Stop(signals)
+		log.Printf("signal received: %s\n", s)
+		if err := hs.Stop(); err != nil {
+			return err
+		}
+		if err := stopCallback(); err != nil {
+			return err
+		}
+		if err := <-waiterr; err != nil {
+			return err
+		}
+	}
+	return nil
 }
