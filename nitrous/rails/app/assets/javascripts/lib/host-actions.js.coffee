@@ -47,10 +47,11 @@ hostActions =
     description: 'This will restart the host.'
     successMessage: 'Successfully restarted the host'
     failureMessage: 'Failed to restart host!'
-    perform: (host) ->
+    perform: (host, data) ->
       Em.$.ajax
         type: 'POST'
         url: "/api/v0/hosts/#{host.slug}/restart"
+        data: data
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   terminate:
