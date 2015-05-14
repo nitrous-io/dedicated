@@ -1218,6 +1218,7 @@ func init() {
 			Up: `
 				CREATE TABLE oauth_clients (
 					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
 					name varying(255) NOT NULL,
 					description text DEFAULT '',
 					client_id character varying(255) NOT NULL,
