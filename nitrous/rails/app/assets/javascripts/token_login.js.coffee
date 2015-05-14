@@ -55,7 +55,9 @@ main = ->
   else
     obtainAccessToken()
 
-redirect = (path) ->
-  location.replace(path)
+redirect = (path='') ->
+  if path[0] != '/'
+    path = '/' + path
+  location.replace(location.protocol + '//' + location.host + path)
 
 main()
