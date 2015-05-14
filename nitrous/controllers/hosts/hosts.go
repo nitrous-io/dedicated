@@ -1,8 +1,10 @@
 package hosts
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -323,6 +325,18 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	if !force {
+		slugs := getTransientContainerSlugs(cns)
+		if slugs != "" {
+			return httperror.New(http.StatusBadRequest, "invalid_container_state", fmt.Sprintf("containers(%s) are not stopped", slugs))
+		}
+	}
+
 	evHandler := func(ev hostcontrol.EventType) {
 		if ev == hostcontrol.EventHostStopping {
 			PublishHostEvent(env, controllers.EventHostStopping, h)
@@ -337,7 +351,12 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return err
 	}
 
-	PublishContainersStopped(env, h)
+	for _, cn := range cns {
+		state := container.State(cn.TempState.Int64)
+		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+			PublishContainerStopped(env, cn)
+		}
+	}
 	PublishHostEvent(env, controllers.EventHostStopped, h)
 	serializeHost(env, h)
 	return nil
@@ -357,6 +376,18 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
+	}
+
+	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	if !force {
+		slugs := getTransientContainerSlugs(cns)
+		if slugs != "" {
+			return httperror.New(http.StatusBadRequest, "invalid_container_state", fmt.Sprintf("containers(%s) are not stopped", slugs))
+		}
 	}
 
 	origState := h.State
@@ -432,7 +463,12 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	PublishContainersStopped(env, h)
+	for _, cn := range cns {
+		state := container.State(cn.TempState.Int64)
+		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+			PublishContainerStopped(env, cn)
+		}
+	}
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
@@ -546,16 +582,20 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 	)
 }
 
-func PublishContainersStopped(env *middleware.Env, h *host.Host) {
+func PublishContainerstopped(env *middleware.Env, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		env.Logger.Errorf("hosts.Stop: Unable to list host containers: %v", err)
 		return
 	}
 	for _, cn := range cns {
-		cn.State = container.StateStopped
-		containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
+		PublishContainerStopped(env, cn)
 	}
+}
+
+func PublishContainerStopped(env *middleware.Env, cn *container.Container) {
+	cn.State = container.StateStopped
+	containers.PublishContainerEvent(env, controllers.EventContainerStopped, cn, nil)
 }
 
 func Announcements(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -604,4 +644,26 @@ func trackWorkspaces(env *middleware.Env, userID int64) {
 	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"workspaces_plans": plans,
 	}, env.Logger)
+}
+
+func getTransientContainerSlugs(cns []*container.Container) string {
+	transientContainers := make([]*container.Container, 0)
+	for _, cn := range cns {
+		if cn.TempState.Valid {
+			transientContainers = append(transientContainers, cn)
+		}
+	}
+
+	if len(transientContainers) > 0 {
+		var buffer bytes.Buffer
+		for index, cn := range transientContainers {
+			buffer.WriteString(cn.Slug)
+			if index < len(transientContainers)-1 {
+				buffer.WriteString(",")
+			}
+		}
+		return buffer.String()
+	}
+
+	return ""
 }

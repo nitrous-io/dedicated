@@ -48,5 +48,5 @@ App.AdminHostsController = Em.Controller.extend
 
     confirmRestart: ->
       ui.hideModal('#restart-modal-dialog')
-      this.get('target').send('restart', @get('restartTargetHost'))
+      this.get('target').send('restart', @get('restartTargetHost'), force: true)
       @set 'restartTargetHost', null

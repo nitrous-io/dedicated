@@ -31,5 +31,25 @@ App.HostIndexView = Em.View.extend
       ui.hideModal('#terminate-modal-dialog')
       @get('controller').send 'terminate'
 
+    showStopDialog: ->
+      ui.showModal('#stop-modal-dialog')
+
+    cancelStop: ->
+      ui.hideModal('#stop-modal-dialog')
+
+    confirmStop: ->
+      ui.hideModal('#stop-modal-dialog')
+      @get('controller').send 'stop', force: true
+
+    showRestartDialog: ->
+      ui.showModal('#restart-modal-dialog')
+
+    cancelRestart: ->
+      ui.hideModal('#restart-modal-dialog')
+
+    confirmRestart: ->
+      ui.hideModal('#restart-modal-dialog')
+      @get('controller').send 'restart', force: true
+
   clickTerminate: =>
     @$('.terminate-btn').click()
