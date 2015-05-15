@@ -973,6 +973,45 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
+
+				It("continues creating if free queue has been approved and user has orphan hosts", func() {
+					fq := &freequeue.FreeQueue{
+						UserID:                u.ID,
+						ContainerTemplateSlug: "rails",
+						ContainerName:         "my ror",
+						HostName:              "my workspace",
+						RegionSlug:            "sgp[",
+					}
+					Expect(fq.Insert(db)).To(BeNil())
+
+					_, err := db.Exec(`UPDATE free_queue SET state = $1 WHERE user_id = $2;`, freequeue.StateApproved, u.ID)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE plans SET price=0;`)
+					Expect(err).To(BeNil())
+
+					h1 := &host.Host{
+						Slug:        "my-orphaned-host",
+						HourlyPrice: 0,
+						State:       host.StateOrphan,
+					}
+
+					freePlan, err := plan.FindByID(db, hs.P.ID)
+					Expect(err).To(BeNil())
+
+					_, err = test.CreateHostStack(db, &test.HostStack{
+						H: h1,
+						U: u,
+						P: freePlan,
+					})
+					Expect(err).To(BeNil())
+
+					params.Set("container_template_slug", "rails")
+					params.Set("container_name", "my container")
+
+					res := doRequest(params)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+				})
 			})
 		})
 
