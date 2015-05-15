@@ -123,6 +123,10 @@ func AuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		return err
 	}
 
+	// Ignore requested scope.
+	// FIXME: Allow third party to request for different scopes
+	scope := token.ScopeThirdParty
+
 	if client.ClientID != clientID {
 		return errClientIDMismatch
 	}
@@ -139,6 +143,7 @@ func AuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		Nonce:    sql.NullString{code.Nonce, true},
 		ClientID: sql.NullInt64{client.ID, true},
 		Type:     "authorization_code",
+		Scope:    scope,
 	}
 
 	err = t.Insert(db)
@@ -150,6 +155,7 @@ func AuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	env.Data = map[string]interface{}{
 		"access_token": t.Token,
 		"token_type":   "Bearer",
+		"scope":        scope,
 		"expires_in":   token.ExpiryInSeconds,
 	}
 
