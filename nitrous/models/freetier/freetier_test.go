@@ -202,6 +202,13 @@ var _ = Describe("models/freetier", func() {
 						err := freetier.CreateHostWithPlanAllowed(db, u, paidPlan)
 						Expect(err).To(Equal(freetier.ErrPaidPlanNotAllowed))
 					})
+
+					It("Should be allowed to create host in queue if terminated host is orphan", func() {
+						_, err := db.Exec(`UPDATE hosts SET state = $1 WHERE id = $2`, host.StateOrphan, h1.ID)
+						Expect(err).To(BeNil())
+						err = freetier.CreateHostWithPlanAllowed(db, u, freePlan)
+						Expect(err).To(Equal(freetier.ErrFreeQueueRequired))
+					})
 				})
 			})
 		})

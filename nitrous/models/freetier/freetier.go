@@ -87,7 +87,7 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 	}
 
 	if bp.IsFreeTier() {
-		err := CreateFreeTierHostAllowed(d, u)
+		err := createFreeTierHostAllowed(d, u)
 		switch err {
 		case nil, ErrPhoneAuthRequired:
 			return plan.AllPlansForProvider(d, provider)
@@ -104,7 +104,7 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
-func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
+func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -118,12 +118,22 @@ func CreateFreeTierHostAllowed(d *db.Database, u *user.User) error {
 		return ErrPhoneAuthRequired
 	}
 
-	hosts, err := host.FindAllWithTerminated(d, bp.UserID)
+	// Include terminated hosts so free users cannot terminate and recreate
+	// to get past limits.
+	// Exclude orphaned hosts so free users who have issues creating can create
+	// another.
+	var count int
+	err = d.QueryRow(`
+		SELECT count(*) FROM hosts
+		WHERE user_id = $1
+		AND state != $2
+		AND preprovisioned = false;
+	`, u.ID, host.StateOrphan).Scan(&count)
 	if err != nil {
 		return err
 	}
 
-	if len(hosts) > 0 {
+	if count > 0 {
 		return ErrMaxFreeHostReached
 	}
 
@@ -143,7 +153,7 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 			return ErrPaidPlanNotAllowed
 		}
 
-		if err := CreateFreeTierHostAllowed(d, u); err != nil {
+		if err := createFreeTierHostAllowed(d, u); err != nil {
 			return err
 		}
 
