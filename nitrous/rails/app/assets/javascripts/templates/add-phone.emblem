@@ -5,8 +5,7 @@
 .card-body
 
   .notice-text
-    p We will send you an SMS to verify your phone number
-    p Please select your country code and enter your mobile number below
+    p Free plans require we send you an SMS to verify your phone number
 
   form submit="savePhone" autocomplete="on"
     .ui.input-group
@@ -41,3 +40,12 @@
         input.ui.btn.primary type='submit' disabled=view.resendOTPDisabled value='Verify'
         a.ui.btn href='#' click='resendOTP' disabled=view.resendOTPDisabled Resend Code
         a.ui.btn href='#' click='editPhone' disabled=view.editPhoneDisabled Edit Number
+
+unless otpSent
+  .card-body.bordered
+    h4 Country not listed?
+    p.note-text Free accounts are currently only available in select countries. We are working on increasing support for additional countries.
+
+  .card-footer
+    .right
+      button.ui.btn.raised click='goBack' Back to plans

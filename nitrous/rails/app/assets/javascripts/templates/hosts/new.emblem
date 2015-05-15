@@ -11,12 +11,16 @@
   .screen class={view.hideProgress::hide}
     form submit='create target="view"'
       .card-body
-        if App.billingProfile.isNoCardState
-          .notice-text
-            i.fa.fa-info-circle
+        if view.freePlanUnavailable
+          .notice-text.error
+            i.fa.fa-warning
             '
-            | Free workspaces are currently unavailable for&nbsp;
-            = view.country
+            | Free workspaces are currently unavailable for
+            '
+            if view.country
+              = view.country
+            else
+              | your country
 
         .ui.input-group
           label.field-label for='hosts-new-name'
@@ -35,10 +39,11 @@
             | Workspace Size
 
           .plan-groups
-            .free
-              ul.ui.selectable-list.plans
-                each plan in freePlans
-                  App.PlanListItemView content=plan selected=selectedPlan
+            if freePlans.length
+              .free
+                ul.ui.selectable-list.plans
+                  each plan in freePlans
+                    App.PlanListItemView content=plan selected=selectedPlan
 
             .paid
               ul.ui.selectable-list.plans.paid
