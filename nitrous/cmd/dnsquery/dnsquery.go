@@ -238,8 +238,8 @@ func main() {
 	flag.BoolVar(&flgTestPropagate, "test-propagate", false, "test DNS propagation time")
 	flag.Parse()
 
-	awsAccessKey := strings.TrimSpace(envvars.AwsAccessKey)
-	awsSecretKey := strings.TrimSpace(envvars.AwsSecretKey)
+	awsAccessKey := strings.TrimSpace(envvars.AWSAccessKey)
+	awsSecretKey := strings.TrimSpace(envvars.AWSSecretKey)
 	if awsAccessKey == "" || awsSecretKey == "" {
 		log.Fatalf("AWS_ACCESS or AWS_SECRET env variables not set")
 	}

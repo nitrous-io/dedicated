@@ -64,11 +64,11 @@ func main() {
 		panic("STRIPE_SECRET_KEY environment variable not set")
 	}
 
-	if envvars.AwsAccessKey == "" || envvars.AwsAccessKey == "disabled" ||
-		envvars.AwsSecretKey == "" || envvars.AwsAccessKey == "disabled" {
+	if envvars.AWSAccessKey == "" || envvars.AWSAccessKey == "disabled" ||
+		envvars.AWSSecretKey == "" || envvars.AWSAccessKey == "disabled" {
 		logr.Warn("DNS updates disabled.  Set AWS_ACCESS_KEY and AWS_SECRET_KEY")
 	} else {
-		nroute53.SetSecrets(envvars.AwsAccessKey, envvars.AwsSecretKey)
+		nroute53.SetSecrets(envvars.AWSAccessKey, envvars.AWSSecretKey)
 		rd := &dns.RealDNS{}
 		rd.SetLogger(logr)
 		dns.SetActiveDNS(rd)
