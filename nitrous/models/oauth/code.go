@@ -9,13 +9,14 @@ import (
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
 
-const DefaultValidityPeriod = 1 * time.Minute
-
-var verifier *msgverifier.MsgVerifier
+var (
+	ValidityPeriod = 1 * time.Minute
+	verifier       *msgverifier.MsgVerifier
+)
 
 var (
 	ErrInvalidToken = errors.New("logintoken: invalid token")
-	ErrTokenExpired = errors.New("logintoken: token expired")
+	ErrCodeExpired  = errors.New("logintoken: authorization code expired")
 )
 
 func init() {
@@ -47,7 +48,7 @@ func GenerateAuthorizationCode(userID int64, clientID, redirectURI string) (stri
 		Nonce:       nonce,
 		RedirectURI: redirectURI,
 		CreatedAt:   createdAt,
-		ExpiresAt:   createdAt.Add(DefaultValidityPeriod),
+		ExpiresAt:   createdAt.Add(ValidityPeriod),
 	}
 
 	return verifier.Generate(code)
@@ -64,7 +65,7 @@ func ReadAuthorizationCode(signedCode string) (*AuthorizationCode, error) {
 		return nil, ErrInvalidToken
 	}
 	if code.ExpiresAt.Before(time.Now()) {
-		return nil, ErrTokenExpired
+		return nil, ErrCodeExpired
 	}
 
 	return code, nil
