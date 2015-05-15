@@ -1,0 +1,15 @@
+doctype 5
+html lang='en'
+  head
+    meta charset='utf-8'
+    title
+      = @title || "Nitrous"
+    link rel='shortcut icon' href='/favicon.ico'
+    = yield :head_before
+    = yield :head_stylesheet
+    = yield :head_after
+  body
+    = yield :body_before
+    = yield
+    = yield :body_script
+    = yield :body_after

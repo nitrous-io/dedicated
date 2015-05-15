@@ -283,7 +283,7 @@ func recordTransition(env *middleware.Env, h *host.Host) error {
 	if err != nil {
 		return err
 	}
-	if err := hosttransition.Record(tx, h, host.StateBorn, *timing); err != nil {
+	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, env.User.ID); err != nil {
 		tx.Rollback()
 		return err
 	}

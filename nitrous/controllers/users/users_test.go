@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -796,7 +797,6 @@ var _ = Describe("controllers/users", func() {
 		}
 
 		Context("when a valid oauth token is given", func() {
-
 			var (
 				userinfo map[string]interface{}
 			)
@@ -851,6 +851,49 @@ var _ = Describe("controllers/users", func() {
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/user"
+				authTokenInputs.Method = "GET"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/user/login_token", func() {
+		doRequest := func(token string) {
+			var err error
+			req, err = test.NewRequest("GET", "/api/v0/user/login_token", nil)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when a valid oauth token is given", func() {
+			BeforeEach(func() {
+				doRequest("foobarbazqux")
+			})
+
+			It("returns a valid login token", func() {
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := map[string]interface{}{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				var ok bool
+				var tok string
+				tok, ok = j["login_token"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(tok).NotTo(BeEmpty())
+
+				id, err := logintoken.Read(tok)
+				Expect(err).To(BeNil())
+				Expect(id).To(Equal(u.ID))
+			})
+		})
+
+		Context("when a non-valid oauth token is given", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/user/login_token"
 				authTokenInputs.Method = "GET"
 			})
 

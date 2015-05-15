@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,14 +11,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
 type HostWithUser struct {
 	host.Host
-	UserUsername string `db:"user_username"`
-	UserName     string `db:"user_name"`
-	GravatarHash string `db:"user_hash"`
+	UserUsername   string        `db:"user_username"`
+	UserName       string        `db:"user_name"`
+	GravatarHash   string        `db:"user_hash"`
+	MaxRunningTime sql.NullInt64 `db:"max_running_time"`
 }
 
 type HostUserContainerResult struct {
@@ -64,12 +67,15 @@ func Shared(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if !ok {
 			continue
 		}
+		mU := &user.User{
+			MaxRunningTime: hU.MaxRunningTime,
+		}
 		serContainerUsers[i] = &serializers.SharedContainer{
 			*c,
 			hU.UserUsername,
 			hU.UserName,
 			hU.GravatarHash,
-			serializers.SerializeHost(&hU.Host),
+			serializers.SerializeHostWithUser(&hU.Host, mU),
 		}
 	}
 	env.Data["containers"] = serContainerUsers

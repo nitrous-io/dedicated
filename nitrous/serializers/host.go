@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 type Host struct {
@@ -25,10 +26,12 @@ type Host struct {
 	State              string  `json:"state"`
 	Username           *string `json:"username,omitempty"`
 
-	CreatedAt     *time.Time `json:"created_at"`
-	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
-	TerminatedAt  *time.Time `json:"terminated_at,omitempty"`
+	CreatedAt    *time.Time `json:"created_at"`
+	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
+	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
+
 	LastRunningAt *time.Time `json:"last_running_at,omitempty"`
+	TimeRemaining *int64     `json:"time_remaining,omitempty"`
 
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
@@ -75,10 +78,38 @@ func SerializeHost(h *host.Host) *Host {
 	return serialized
 }
 
+func SerializeHostWithUser(h *host.Host, u *user.User) *Host {
+	if h == nil {
+		return nil
+	}
+
+	serialized := SerializeHost(h)
+	if u == nil || !u.MaxRunningTime.Valid || serialized.LastRunningAt == nil {
+		return serialized
+	}
+
+	stopsAt := serialized.LastRunningAt.Add(time.Duration(u.MaxRunningTime.Int64) * time.Second)
+	timeRemaining := (int64(stopsAt.Sub(time.Now())/time.Second) - 1) // adjust for latency
+	if timeRemaining < 0 {
+		timeRemaining = 0
+	}
+	serialized.TimeRemaining = &timeRemaining
+
+	return serialized
+}
+
 func SerializeHosts(hosts []host.Host) []*Host {
 	ret := make([]*Host, len(hosts))
 	for i, h := range hosts {
 		ret[i] = SerializeHost(&h)
+	}
+	return ret
+}
+
+func SerializeHostsWithUser(hosts []host.Host, u *user.User) []*Host {
+	ret := make([]*Host, len(hosts))
+	for i, h := range hosts {
+		ret[i] = SerializeHostWithUser(&h, u)
 	}
 	return ret
 }

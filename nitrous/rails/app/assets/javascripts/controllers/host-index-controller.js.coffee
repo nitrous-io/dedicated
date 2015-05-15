@@ -12,11 +12,11 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
     start: ->
       @performAction('POST', 'start', 'starting')
 
-    restart: ->
-      @performAction('POST', 'restart', 'restarting')
+    restart: (opt = {})->
+      @performAction('POST', 'restart', 'restarting', opt)
 
-    stop: ->
-      @performAction('POST', 'stop', 'stopping')
+    stop: (opt = {}) ->
+      @performAction('POST', 'stop', 'stopping', opt)
 
     terminate: ->
       name = @get('model.displayName')

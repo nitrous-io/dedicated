@@ -76,14 +76,15 @@ App.AddCardController = Em.ObjectController.extend
           exp_year: @get('expYear'),
           cvc: @get('cvc'),
           zipcode: @get('zipcode')
-
-        ).then =>
+        ).then (bp)=>
           @set 'saving', false
           App.refreshUsage()
           App.refreshBillingProfile()
 
           if wasFreeTier && anyHosts
             @transitionToRoute 'hosts.index'
+            if cr = bp.get 'amountCreditedDollars'
+              App.set 'upgradeCredited', cr
             App.set 'showUpgradeModal', true
             return
 

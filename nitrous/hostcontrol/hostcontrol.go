@@ -26,7 +26,7 @@ const (
 
 var HostbuilderClient = provisioner.HostbuilderClient
 
-func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc) error {
+func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
 	origState := h.State
 	h.State = host.StateStopping
 
@@ -38,7 +38,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		tx.Rollback()
 		return err
 	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -67,7 +67,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 			tx.Rollback()
 			l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
 		}
-		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
 			tx.Rollback()
 			l.Errorf("hosts.Stop: Unable to record transition: %v", err)
 		}
@@ -91,7 +91,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		tx.Rollback()
 		return err
 	}
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -105,7 +105,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 	return nil
 }
 
-func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header) error {
+func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header, initiatorID int64) error {
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
@@ -124,7 +124,7 @@ func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header)
 	if err := h.Delete(tx); err != nil {
 		return err
 	}
-	if err := hosttransition.Record(tx, h, origState, *h.TerminatedAt); err != nil {
+	if err := hosttransition.Record(tx, h, origState, *h.TerminatedAt, initiatorID); err != nil {
 		return err
 	}
 	if err := container.DeleteAllByHostID(tx, h.ID); err != nil {

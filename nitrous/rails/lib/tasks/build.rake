@@ -3,9 +3,10 @@ namespace :build do
   task generate_views: :environment do
     # map of desired html output path to render options
     locations = {
-      '/public/app/index.html'        => {layout: 'layouts/web_app', template: 'web_app/index'},
-      '/public/ide/index.html'        => {layout: 'layouts/web_app', template: 'web_app/ide'},
-      '/public/index.html'            => {layout: 'layouts/pages', template: 'pages/home'},
+      '/public/app/index.html'         => {layout: 'layouts/web_app', template: 'web_app/index'},
+      '/public/ide/index.html'         => {layout: 'layouts/web_app', template: 'web_app/ide'},
+      '/public/token_login/index.html' => {layout: 'layouts/bare',    template: 'web_app/token_login'},
+      '/public/index.html'             => {layout: 'layouts/pages',   template: 'pages/home'}
     }
 
     %w(pricing features company plan_changes stacks press education teams agencies enterprises vpc whatsnew teams-pricing education-pricing).each do |page|
@@ -36,6 +37,8 @@ namespace :build do
       path = File.join('public', "#{name}.html")
       print "Copying #{path}..."
       FileUtils.cp File.join(Rails.root, path), File.join(build_dir, path)
+      FileUtils.mkdir_p(File.join(build_dir, name))
+      FileUtils.cp File.join(Rails.root, path), File.join(build_dir, name, 'index.html')
       puts "done"
     end
   end

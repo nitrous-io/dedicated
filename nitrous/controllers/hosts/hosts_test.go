@@ -97,6 +97,9 @@ var _ = Describe("controllers/hosts", func() {
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
+		_, err = db.Exec(`UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;`, u.ID)
+		Expect(err).To(BeNil())
+
 		t = &token.Token{
 			UserID: u.ID,
 			Token:  "valid-token",
@@ -141,6 +144,15 @@ var _ = Describe("controllers/hosts", func() {
 		Expect(err).To(BeNil())
 
 		return recv, tok
+	}
+
+	var checkStoppedEvent = func(evt *controllers.Event) string {
+		Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+		evtData, ok := evt.Data.(map[string]interface{})
+		Expect(ok).To(BeTrue())
+		cn, ok := evtData["container"].(*serializers.Container)
+		Expect(cn.State).To(Equal(container.StateStopped.String()))
+		return cn.Slug
 	}
 
 	Describe("GET /api/v0/hosts", func() {
@@ -217,6 +229,26 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Hosts[1].State).To(Equal(host.StateRunning))
 				Expect(j.Hosts[1].Hostname).To(Equal(hostname("bar")))
 				Expect(j.Hosts[1].CreatedAt).NotTo(BeNil())
+			})
+
+			It("should include time remaining for the user", func() {
+				_, err := db.Exec(`UPDATE users SET max_running_time = 7200, refresh_period = 84600 WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE hosts SET last_running_at = now() WHERE id = $1;`, hs2.H.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				var j struct {
+					Hosts []*serializers.Host `json:"hosts"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Hosts[0].TimeRemaining).To(BeNil())
+				Expect(j.Hosts[1].TimeRemaining).NotTo(BeNil())
 			})
 		})
 
@@ -1675,16 +1707,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event) string {
-				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				cn, ok := evtData["container"].(*serializers.Container)
-				Expect(ok).To(BeTrue())
-				Expect(cn.State).To(Equal(container.StateStopped.String()))
-				return cn.Slug
-			}
-
 			It("publishes container stopped events", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -1693,6 +1715,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(c2.State).To(Equal(container.StateRunning))
 
 				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				// Collect the 2 expected container stop events.
 				stopEvents := []*controllers.Event{}
@@ -1740,6 +1763,199 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, nil)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		Describe("when host has stopping containers", func() {
+			var c1, c2 *container.Container
+			BeforeEach(func() {
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				err = c1.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopped))
+				})
+
+				It("does not publish container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					}
+					Expect(stopEvents).To(HaveLen(1))
+					Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
+				})
+			})
+		})
+
+		Describe("when host has starting containers", func() {
+			var c1, c2 *container.Container
+			BeforeEach(func() {
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStarting), true}
+				err = c1.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopped))
+				})
+
+				It("publishes container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+						slugs = append(slugs, checkStoppedEvent(stopEvents[1]))
+					}
+					Expect(stopEvents).To(HaveLen(2))
+					sort.Strings(slugs)
+					Expect(slugs[0]).To(Equal(c2.Slug))
+					Expect(slugs[1]).To(Equal(c1.Slug))
+				})
+			})
 		})
 	})
 
@@ -2086,15 +2302,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 			})
 
-			checkStoppedEvent := func(evt *controllers.Event) string {
-				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
-				evtData, ok := evt.Data.(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				cn, ok := evtData["container"].(*serializers.Container)
-				Expect(cn.State).To(Equal(container.StateStopped.String()))
-				return cn.Slug
-			}
-
 			It("publishes container stopped events", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -2103,6 +2310,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(c2.State).To(Equal(container.StateRunning))
 
 				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
 
 				// Collect the 2 expected container stop events.
 				stopEvents := []*controllers.Event{}
@@ -2149,6 +2357,199 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, t.Token, nil)
 			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		Describe("when host has stopping containers", func() {
+			var c1, c2 *container.Container
+			BeforeEach(func() {
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStopping), true}
+				err = c1.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, t.Token, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateRunning))
+				})
+
+				It("does not publish container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, t.Token, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+					}
+					Expect(stopEvents).To(HaveLen(1))
+					Expect(slugs[0]).To(Equal(c2.Slug)) // python-box
+				})
+			})
+		})
+
+		Describe("when host has starting containers", func() {
+			var c1, c2 *container.Container
+			BeforeEach(func() {
+				c1 = &container.Container{
+					CID:    "beefface",
+					Slug:   "rails-box",
+					Image:  "nitrous-base",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err := c1.Insert(db)
+				Expect(err).To(BeNil())
+				c2 = &container.Container{
+					CID:    "cafedead",
+					Slug:   "python-box",
+					Image:  "nitrous-base",
+					State:  container.StateRunning,
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+				}
+				err = c2.Insert(db)
+				Expect(err).To(BeNil())
+				c1.TempState = sql.NullInt64{int64(container.StateStarting), true}
+				err = c1.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 400 Bad Request", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_container_state"))
+				Expect(errDesc).To(Equal("containers(rails-box) are not stopped"))
+			})
+
+			Context("force is true", func() {
+				var params *url.Values
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					hs.H.State = host.StateStopping
+					err := hs.H.Update(db)
+					Expect(err).To(BeNil())
+
+					params = &url.Values{}
+					params.Set("force", "true")
+				})
+
+				It("stops host", func() {
+					doRequest(hs.H.Slug, t.Token, params)
+
+					Expect(res.Code).To(Equal(http.StatusOK))
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateRunning))
+				})
+
+				It("publishes container stopped events", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					doRequest(hs.H.Slug, t.Token, params)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					stopEvents := []*controllers.Event{}
+					finished := make(chan struct{})
+					go func() {
+						for msg := range ch {
+							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
+								stopEvents = append(stopEvents, e)
+							}
+						}
+					}()
+
+					go func() {
+						time.After(50 * time.Millisecond)
+						close(finished)
+					}()
+
+					var slugs []string
+					select {
+					case <-finished:
+						Expect(stopEvents).To(HaveLen(2))
+						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
+						slugs = append(slugs, checkStoppedEvent(stopEvents[1]))
+					}
+					sort.Strings(slugs)
+					Expect(slugs[0]).To(Equal(c2.Slug))
+					Expect(slugs[1]).To(Equal(c1.Slug))
+				})
+			})
 		})
 	})
 

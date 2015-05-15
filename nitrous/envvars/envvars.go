@@ -56,6 +56,8 @@ var (
 	TwilioAccountSID string
 	TwilioAuthToken  string
 
+	SecretToken string // for msgverifier/hmactokens
+
 	RedisHost string
 	RedisPort string
 	RedisDB   int64
@@ -123,6 +125,8 @@ func init() {
 	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
 	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
 
+	SecretToken = os.Getenv("SECRET_TOKEN")
+
 	EnableQueue = os.Getenv("ENABLE_QUEUE") == "true"
 	if EnableQueue {
 		RedisHost = os.Getenv("REDIS_HOST")
@@ -186,5 +190,11 @@ func CheckGitHubOAuth() {
 
 	if GitHubOAuthClientSecret == "" {
 		log.Println("Warning: GITHUB_CLIENT_SECRET not set")
+	}
+}
+
+func CheckSecretToken() {
+	if SecretToken == "" {
+		log.Fatal("SECRET_TOKEN not set")
 	}
 }

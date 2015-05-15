@@ -24,6 +24,7 @@ const (
 var (
 	logr          *logger.Logger
 	checkInterval time.Duration = 5 * time.Second
+	initiatorID   int64
 )
 
 func main() {
@@ -46,6 +47,15 @@ func main() {
 
 	if envvars.TrustKey == "" {
 		logr.FatalfExit("TRUST_KEY is not defined")
+	}
+
+	if envvars.ProvisionerUser == "" {
+		logr.FatalExit("PROVISIONER_USER is not defined")
+	}
+
+	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
+	if err != nil {
+		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
 	hostsCh := make(chan *host.Host)
@@ -103,7 +113,7 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
-	err = hostcontrol.Stop(dbConn, logr, hst, headers, nil)
+	err = hostcontrol.Stop(dbConn, logr, hst, headers, nil, initiatorID)
 	if err != nil {
 		logr.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 		return
@@ -112,7 +122,12 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 
 	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
 	c := httpclient.New("")
-	resp, _ := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	resp, err := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	if err != nil {
+		logr.Errorf("Unable to build PostForm for reqUrl %s for user %d, err: %+v", reqUrl, hst.UserID, err)
+		return
+	}
+
 	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
 		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.UserID, err)
 	}

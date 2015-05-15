@@ -111,7 +111,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       return
 
     primaryHost = @get('host')
-    unless primaryHost && (date = new Date(primaryHost.last_running_at))
+    unless primaryHost && (expiresAt = @get('container.expiresAt'))
       return
 
     # if this is container shared by another user, don't apply usage restrictions
@@ -124,15 +124,15 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     maxRun = @get('user.maxRunningTime')
     refreshPeriod = @get('user.refreshPeriod')
 
-    refreshAt = new Date(date.getTime() + (refreshPeriod*1000))
-    used = (now - date.getTime())/1000
+    timeElapsed = maxRun - primaryHost.time_remaining
+    lastRunningAt = new Date(expiresAt.getTime() - maxRun*1000)
+    refreshAt = new Date(lastRunningAt.getTime() + refreshPeriod*1000)
 
-    remaining = 0
+    remaining = (expiresAt - (new Date()))/1000
     refreshIn = null
     if (r = refreshAt.getTime()) < now
       remaining = maxRun
     else
-      remaining = maxRun - used
       refreshIn = (r - now)/1000
 
     # correct for overruns or underuns
@@ -154,7 +154,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
       expired: expired,
       progressBarStyle: "width: #{percent}%"
     }
-  ).property 'currentTimePulse', 'host.last_running_at', 'user.maxRunningTime', 'user.refreshPeriod', 'user.free'
+  ).property 'currentTimePulse', 'container.expiresAt', 'user.maxRunningTime', 'user.refreshPeriod', 'user.free'
 
   notifyUsageWarning: (->
     return unless @get('host.state') == 'running'

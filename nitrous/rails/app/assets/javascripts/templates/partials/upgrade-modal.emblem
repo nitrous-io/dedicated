@@ -17,6 +17,13 @@
           i.fa.fa-check
           ' Access to Nitrous Desktop app,
           a href=App.desktopDownloadUrl target="_blank" download now
+        if App.upgradeCredited
+          li
+            i.fa.fa-check
+            | Your $
+            = App.upgradeCredited
+            '
+            | credit has been applied!
 
       p.small
         ' Your workspace will require some downtime in order to have its storage upgraded. Please contact
