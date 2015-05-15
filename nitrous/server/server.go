@@ -50,7 +50,7 @@ type Server struct {
 	Tracker     analytics.Tracker
 
 	// this channel will be notified when the server is shutting down
-	QueueCloseCh chan struct{}
+	QueueStopCh chan struct{}
 
 	// StopTimeout is the duration before we begin force closing connections.
 	StopTimeout time.Duration
@@ -72,16 +72,16 @@ func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner
 	}
 	events := pubsub.New(128)
 	svr := &Server{
-		Events:       events,
-		Provisioner:  provisioner.NewProvisioner(db, l, events, conf),
-		Tracker:      analytics.NewMixpanelTracker(envvars.MixpanelToken),
-		QueueCloseCh: make(chan struct{}),
-		StopTimeout:  defaultStopTimeout,
-		KillTimeout:  defaultKillTimeout,
-		root:         root,
-		db:           db,
-		logger:       l,
-		router:       mux.NewRouter(),
+		Events:      events,
+		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
+		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		QueueStopCh: make(chan struct{}),
+		StopTimeout: defaultStopTimeout,
+		KillTimeout: defaultKillTimeout,
+		root:        root,
+		db:          db,
+		logger:      l,
+		router:      mux.NewRouter(),
 	}
 	svr.drawRoutes()
 	return svr
@@ -117,8 +117,8 @@ func (s *Server) Start(host string, port uint16) error {
 	return ListenAndServe(srv, hd, func() error {
 		// wait until the queue consumer finish processing its current message and is stopped
 		log.Printf("shutting down queue consumer")
-		s.QueueCloseCh <- struct{}{}
-		<-s.QueueCloseCh
+		s.QueueStopCh <- struct{}{}
+		<-s.QueueStopCh
 		return nil
 	})
 }

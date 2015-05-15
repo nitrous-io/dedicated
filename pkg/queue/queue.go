@@ -178,7 +178,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	for {
 		select {
 		case c := <-stop:
-			log.Printf("stopped queue consuemer %s", queueName)
+			log.Printf("stopped queue consumer %s", queueName)
 			stop <- c
 			return nil
 		case m := <-msg:
@@ -204,24 +204,24 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	for {
 		select {
 		case c := <-stop:
-			log.Printf("shutting down before initialize queue consuemer: %s", queueName)
+			log.Printf("shutting down before initialize queue consumer: %s", queueName)
 			stop <- c
 			return nil
 		default:
 			qc, err = CreateConsumer(redisHost, redisPort, redisDB, queueName)
-			if err != nil {
-				if strings.Contains(err.Error(), "consumer with this name is already active") {
-					log.Printf("Waiting for previous queue comsumer to be down")
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
+			if err == nil {
+				queueRoutes[queueName] = handler
+				return qc.Start(stop)
+			}
+
+			if !strings.Contains(err.Error(), "consumer with this name is already active") {
 				log.Fatalf("Failed to start queue consumer: %v\n", err)
 			}
+
+			log.Printf("Waiting for previous queue comsumer to be down")
+			time.Sleep(100 * time.Millisecond)
 		}
-		break
 	}
-	queueRoutes[queueName] = handler
-	return qc.Start(stop)
 }
 
 func CreateConsumer(redisHost, redisPort string, redisDB int64, queueName string) (*QueueConsumer, error) {

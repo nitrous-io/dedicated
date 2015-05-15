@@ -2,8 +2,11 @@ package queue_test
 
 import (
 	"log"
+	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -43,6 +46,45 @@ func init() {
 		}
 		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
 		log.Fatalf("queue2 failed to start %v", err)
+	})
+
+	reexec.Register("handle-stop", func() {
+		syncFd := os.NewFile(3, "syncfd")
+		defer syncFd.Close()
+
+		stop := make(chan struct{})
+		blocking := make(chan struct{})
+		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			<-blocking
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			if err != nil {
+				return err
+			}
+			redisClient.Set("test", m.UUID)
+			return nil
+		}
+
+		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+
+		// sending SIGHUP will make the consumer processing the message
+		// sending SIGTERM will try to stop the consumer
+		c := make(chan os.Signal, 2)
+		signal.Notify(c, syscall.SIGHUP, syscall.SIGTERM)
+
+		// sync with parent to let it know that signal can be sent
+		syncFd.Write([]byte("1"))
+
+		for {
+			s := <-c
+			switch s {
+			case syscall.SIGHUP:
+				blocking <- struct{}{}
+			case syscall.SIGTERM:
+				stop <- struct{}{}
+				<-stop
+				os.Exit(0)
+			}
+		}
 	})
 
 	// return if running in reexec mode, and the reexec func has already finished
@@ -244,8 +286,7 @@ var _ = Describe("pkg/queue", func() {
 
 	Describe("StartConsumer", func() {
 		It("starts queue consumer", func() {
-			var stopCh chan struct{}
-			stopCh = make(chan struct{})
+			stopCh := make(chan struct{})
 
 			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
 				redisClient.Set("test", m.UUID)
@@ -271,6 +312,7 @@ var _ = Describe("pkg/queue", func() {
 				err = qp.Publish(&queue.Message{
 					UUID: "4567",
 				})
+				Expect(err).To(BeNil())
 				time.Sleep(50 * time.Millisecond)
 				Expect(redisClient.Get("test").Val()).To(Equal("1234"))
 			case <-time.After(50 * time.Millisecond):
@@ -279,39 +321,46 @@ var _ = Describe("pkg/queue", func() {
 		})
 
 		It("finishes current job before stop", func() {
-			var stopCh chan struct{}
-			stopCh = make(chan struct{})
+			r, w, err := os.Pipe()
+			Expect(err).To(BeNil(), "failed to create pipe")
+			q := reexec.Command("handle-stop")
+			q.ExtraFiles = []*os.File{w} // send the pipe over as a sync pipe
+			defer func() {
+				r.Close()
+				if q.Process != nil {
+					q.Process.Kill()
+				}
+			}()
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
-				time.Sleep(50 * time.Millisecond)
-				redisClient.Set("test", m.UUID)
-				return nil
-			}
-
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
-			time.Sleep(50 * time.Millisecond)
+			Expect(q.Start()).To(BeNil(), "queue cannot start")
+			w.Close()
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-			err := qp.ResetInput()
+			err = qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 
-			err = qp.Publish(&queue.Message{
-				UUID: "1234",
-			})
+			b := make([]byte, 1)
+			n, err := r.Read(b)
 			Expect(err).To(BeNil())
-			time.Sleep(50 * time.Millisecond)
-			stopCh <- struct{}{}
-			select {
-			case _ = <-stopCh:
-				Expect(redisClient.Get("test").Val()).To(Equal("1234"))
-			case <-time.After(200 * time.Millisecond):
-				Fail("Timeout waiting for queue consumer to be down")
-			}
+			Expect(n).To(Equal(1), "failed to receive synchronization byte")
+
+			q.Process.Signal(syscall.SIGTERM)
+			q.Process.Signal(syscall.SIGHUP)
+
+			Eventually(func() error {
+				return q.Wait()
+			}, 1*time.Second).Should(BeNil())
+
+			Eventually(func() string {
+				return redisClient.Get("test").Val()
+			}, 1*time.Second).Should(Equal("1234"))
 		})
 
 		It("tries when there is already queue consumer for same name", func() {
 			queue1 := reexec.Command("queue1")
 			queue2 := reexec.Command("queue2")
+			queue2.Stdout = os.Stdout
+			queue2.Stderr = os.Stderr
 			defer func() {
 				if queue1.Process != nil {
 					queue1.Process.Kill()
