@@ -13,9 +13,10 @@ import (
 var (
 	awsAccess   string
 	awsSecret   string
-	awsRegion   aws.Region = aws.USWest
-	mu          sync.Mutex
 	zonesCached []route53.HostedZone
+	mu          sync.Mutex
+
+	awsRegion aws.Region = aws.USWest
 )
 
 // SetSecrets must be called before any other call
@@ -24,14 +25,6 @@ func SetSecrets(access, secret string) {
 	defer mu.Unlock()
 	awsAccess = access
 	awsSecret = secret
-}
-
-func isCNAMEOrA(tp string) bool {
-	return strings.EqualFold(tp, "cname") || strings.EqualFold(tp, "a")
-}
-
-func isCNAME(tp string) bool {
-	return strings.EqualFold(tp, "cname")
 }
 
 // delete CNAME record for a given hostName
@@ -52,7 +45,7 @@ func deleteCNAMERecord(c *route53.Route53, zoneID, hostName string) error {
 	}
 	var changes []route53.Change
 	for _, r := range resp.Records {
-		if !isCNAME(r.Type) {
+		if !strings.EqualFold(r.Type, "cname") {
 			continue
 		}
 		if r.Name != hostName {
@@ -71,42 +64,33 @@ func deleteCNAMERecord(c *route53.Route53, zoneID, hostName string) error {
 	if len(changes) > 1 {
 		return fmt.Errorf("Expected one change for hostname %s, got %d: %+v", hostName, len(changes), changes)
 	}
+
 	fmt.Printf("[DEBUG] deleteCNAMERecord for hostName %s: changes are %+v\n", hostName, changes)
 	req := &route53.ChangeResourceRecordSetsRequest{
 		Comment: fmt.Sprintf("deleting DNS record for %s", hostName),
 		Changes: changes,
 	}
-	_, err = c.ChangeResourceRecordSets(zoneID, req)
-	if err != nil {
+	if _, err := c.ChangeResourceRecordSets(zoneID, req); err != nil {
 		return err
 	}
 	return nil
 }
 
-func buildSetChange(typ, from, to string) route53.Change {
-	rr := route53.ResourceRecordSet{
-		Name:    from,
-		Type:    typ,
-		TTL:     60,
-		Records: []string{to},
-	}
-
+func setDNS(c *route53.Route53, zoneID, typ, from, to string) error {
 	change := route53.Change{
 		Action: "UPSERT", // create or update
-		Record: rr,
+		Record: route53.ResourceRecordSet{
+			Name:    route53.FQDN(from),
+			Type:    typ,
+			TTL:     60,
+			Records: []string{to},
+		},
 	}
-	return change
-}
 
-func setDNS(c *route53.Route53, zoneID, typ, from, to string) error {
-	from = route53.FQDN(from)
-	var changes = []route53.Change{
-		buildSetChange(typ, from, to),
-	}
 	req := &route53.ChangeResourceRecordSetsRequest{
-		Comment: "adding cname record",
-		Changes: changes,
+		Changes: []route53.Change{change},
 	}
+
 	_, err := c.ChangeResourceRecordSets(zoneID, req)
 	if err != nil {
 		fmt.Printf("c.ChangeResourceRecordSets() failed with %s\n", err)
@@ -136,7 +120,10 @@ func cacheZonesIfNecessary(c *route53.Route53) error {
 	if hasZones {
 		return nil
 	}
-	resp, err := c.ListHostedZones("", 10000)
+	// FIXME API only supports up to a maximum of 100 zones, so we should
+	// iterate.
+	// See https://docs.aws.amazon.com/Route53/latest/APIReference/API-list-hosted-zones-private.html.
+	resp, err := c.ListHostedZones("", 100)
 	if err != nil {
 		return err
 	}
@@ -168,18 +155,6 @@ func getClientAndZoneIDFromHostName(hostName string) (*route53.Route53, string, 
 	return client, zone.ID, nil
 }
 
-// CheckZonesExist returns an error if route53 doesn't have a zone for one of
-// the domains. Should be called at startup for sanity checking
-func CheckZonesExist(domains []string) error {
-	for _, domain := range domains {
-		_, _, err := getClientAndZoneIDFromHostName(domain)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // SetCNAME adds or updates CNAME record for a given zoneID that maps src into dst
 func SetCNAME(from, to string) error {
 	c, zoneID, err := getClientAndZoneIDFromHostName(from)
@@ -187,15 +162,6 @@ func SetCNAME(from, to string) error {
 		return err
 	}
 	return setDNS(c, zoneID, "CNAME", from, to)
-}
-
-// SetA adds or updates A record for a given zoneID that maps src into dst
-func SetA(from, to string) error {
-	c, zoneID, err := getClientAndZoneIDFromHostName(from)
-	if err != nil {
-		return err
-	}
-	return setDNS(c, zoneID, "A", from, to)
 }
 
 // DeleteCNAMERecord deletes CNAME or A record (only one of them can
