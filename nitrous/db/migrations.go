@@ -1219,7 +1219,7 @@ func init() {
 					redirect_uri text NOT NULL
 				);
 
-				ALTER TABLE tokens ADD COLUMN nonce character varying(255) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN nonce character varying(1024) DEFAULT NULL;
 				ALTER TABLE tokens ADD COLUMN
 					client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
 				ALTER TABLE tokens ADD COLUMN scope character varying(255) DEFAULT 'full';
