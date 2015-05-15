@@ -8,13 +8,13 @@
     else
       button.ui.btn.raised disabled=true Refreshing..
 
-    button.ui.btn.raised click='toggleHealthyHosts' 
+    button.ui.btn.raised click='toggleHealthyHosts'
       if showHealthyHosts
         | Hide Healthy Hosts
       else
         | Show Healthy Hosts
 
-    button.ui.btn.raised click='toggleProblemHosts' 
+    button.ui.btn.raised click='toggleProblemHosts'
       if showProblemHosts
         | Hide Problem Hosts
       else
@@ -24,7 +24,7 @@
       h3
         ' Healthy:
         = hosts.healthy_hosts.length
-        
+
       .ui.flex.horizontal
         .ui.input-group
           label.field-label for='region-filter'
@@ -139,7 +139,7 @@
                   = input type='checkbox' checked=host.uiState.selected
                   label
                 td.actions
-                  button.ui.btn.raised click='showProblemHostDialog host' Actions
+                  button.ui.btn.raised click='showDanglingHostDialog host' Actions
                 td.id = host.id
                 td.id = host.provider_identifier
                 td.slug = host.slug
@@ -256,5 +256,5 @@
           button.ui.btn click='cancelAction' Cancel
           button.ui.btn.danger.terminate-btn click='confirmAction'
             | Confirm
-            ' 
+            '
             = selectedAction.name
