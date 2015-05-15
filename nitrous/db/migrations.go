@@ -1222,6 +1222,7 @@ func init() {
 				ALTER TABLE tokens ADD COLUMN nonce character varying(255) DEFAULT NULL;
 				ALTER TABLE tokens ADD COLUMN
 					client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN scope character varying(255) DEFAULT 'full';
 
 				CREATE UNIQUE INDEX tokens_nonce ON tokens USING btree (nonce);
 			`,
