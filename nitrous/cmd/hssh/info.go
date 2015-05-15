@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
+	"time"
 
 	"github.com/mitchellh/cli"
 )
@@ -51,10 +53,27 @@ func (s *infoCmd) Run(args []string) int {
 		return failf("info: %q", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "REMOVE %s when done!\n", f.Name())
+	rmKey := func() {
+		if err := os.Remove(f.Name()); err != nil {
+			failf("info: %q", err)
+		}
+	}
 
+	defer rmKey()
+
+	fmt.Fprintf(os.Stderr, "Private key %s will be removed in 2 minutes!\n", f.Name())
 	fmt.Printf("ssh -p 65100 -i %s %s@%s\n", f.Name(),
 		sshUser, h.IPAddress.String)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, os.Kill)
+	go func() {
+		_ = <-c
+		rmKey()
+		os.Exit(130)
+	}()
+
+	time.Sleep(2 * time.Minute)
 
 	return 0
 }
