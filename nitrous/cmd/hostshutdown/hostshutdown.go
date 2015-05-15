@@ -122,7 +122,12 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 
 	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
 	c := httpclient.New("")
-	resp, _ := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	resp, err := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	if err != nil {
+		logr.Errorf("Unable to build PostForm for reqUrl %s for user %d, err: %+v", reqUrl, hst.UserID, err)
+		return
+	}
+
 	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
 		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.UserID, err)
 	}
