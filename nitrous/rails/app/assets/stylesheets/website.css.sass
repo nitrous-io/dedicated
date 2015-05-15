@@ -353,7 +353,8 @@ nav
     flex-grow: 1
     flex-direction: column
     justify-content: center
-    margin-top: -26px
+    margin-top: -19px
+    +webkitFix
 
     h2, h3
       visibility: hidden
@@ -1748,6 +1749,7 @@ h4 + .box-wrapper
       justify-content: center
       align-content: flex-start
       align-items: flex-start
+      user-select: none
       +clearFix
 
       li
@@ -1776,35 +1778,57 @@ h4 + .box-wrapper
           display: block
           color: #A5B3BE
 
-    span
-      display: block
+    .plan-price
       position: relative
-      z-index: 20
+      opacity: 0
+      transition: opacity .1s
+      height: 80px
 
-      &.dollar
-        top: -3px
+      > div
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        opacity: 0
+        transition: opacity .1s
 
-      &.duration
-        top: -3px
+      .hourly
+        top: 6px
 
+      .monthly
+        top: 20px
 
     .title
       color: #A5B3BE
       text-transform: uppercase
+      font-family: $boldFont
+
+    .desc
+      color: #6C767E
+      margin: 2px 0 4px 0
+
+    .spec
+      cursor: help
 
     .focus
-      padding: 6px 0 20px 0
-      span
-        font-size: 20px
-        display: inline-block
-        color: rgba(255,255,255,.5)
+      font-size: 20px
+      color: rgba(255,255,255,.5)
+      display: inline-block
 
-        &.price
-          font-family: $boldFont
-          font-size: 32px
-          font-weight: 500
-          padding: 0 4px
-          color: rgba(255,255,255,1)
+      span.price
+        font-family: $boldFont
+        font-size: 32px
+        font-weight: 500
+        padding: 0 4px
+        color: rgba(255,255,255,1)
+
+      small
+        display: block
+        font-size: 14px
+        color: #6C767E
+
+        strong
+          color: #A5B3BE
 
     .range
       height: 24px
@@ -1818,8 +1842,9 @@ h4 + .box-wrapper
         color: #A5B3BE
         padding-right: 6px
         font-size: 18px
+        font-weight: 300
 
-      &:nth-child(odd)
+      &:nth-of-type(even)
         background: rgba(0,0,0,.1)
 
     .ticked
@@ -1847,8 +1872,6 @@ h4 + .box-wrapper
 
       &.active
         z-index: 40
-        transform: scale(1.05)
-        border-radius: 4px
 
         .text
           border-color: rgba(255,255,255,.4)
@@ -1860,7 +1883,7 @@ h4 + .box-wrapper
           background: #FFF
           color: $blueLink
 
-        .details:nth-child(odd)
+        .details:nth-of-type(even)
           background: rgba(0,0,0,.05)
 
       &.active, &.active a
@@ -1885,7 +1908,7 @@ h4 + .box-wrapper
         font-size: 15px
 
       .title
-        margin-right: 20px
+        margin-right: 50px
         font-size: 16px
 
       .details
@@ -1898,9 +1921,8 @@ h4 + .box-wrapper
           color: #A5B3BE
           padding-right: 8px
 
-        &:nth-child(odd)
+        &:nth-of-type(even)
           background: transparent !important
-
 
       .btn.blue
         width: 90px
@@ -1924,43 +1946,6 @@ h4 + .box-wrapper
   .paid, .selectable
     +transition(.2s ease-out)
     +webkitFix
-
-
-
-
-
-// --------------------------------------
-// Q&A
-.qa
-  h4
-    font-family: $boldFont
-    font-weight: 500
-
-  p
-    color: #A5B3BE
-
-  .item
-    border-left: 2px solid rgba(255,255,255,.2)
-    padding-left: 16px
-
-
-// --------------------------------------
-// Parallax
-.parallax
-  height: 480px
-  overflow: hidden
-  border: 0 !important
-  background: $blueLink image_url('home/chromeos-blue-bg.jpg') 0 0 no-repeat
-  background-size: cover
-
-  img
-    position: relative
-    margin: 0 auto
-    top: 0
-    display: block
-    box-shadow: 0 2px 20px rgba(0,0,0,.4)
-    +webkitFix
-
 
 // --------------------------------------
 // Pulled out
@@ -2720,7 +2705,7 @@ input[type="range"]
 // Wufoo
 .wufoo .page
   background: #F4F4F4
- 
+
 .wufoo article .big
   padding-top: 20px
   padding-bottom: 60px
@@ -2728,7 +2713,7 @@ input[type="range"]
 .wufoo .wufoo-container
   width: 90%
   margin: 0 auto
-  
+
 
 // Dark theme
 .dark
@@ -2787,7 +2772,72 @@ input[type="range"]
   .patternshadows
     background-image: radial-gradient(ellipse at center, rgba(48,60,71,.70) 0%,rgba(48,60,71,1) 68%)
 
+// --------------------------------------
+// Pricing
+#pricing
+  .pricing-toggle
+    position: relative
+    top: -30px
+    z-index: 5
+    text-align: center
+    user-select: none
 
+    label
+      display: inline-block
+      line-height: 40px
+      font-size: 14px
+      margin: 0 10px
+      cursor: pointer
+      transition: .2s color
+      font-family: $boldFont
+      text-transform: uppercase
+
+      &.monthly
+        color: lighten(#a5b3be, 20%)
+
+      &.hourly
+        color: darken(#a5b3be, 10%)
+
+    .toggle-btn
+      position: relative
+      display: inline-block
+      width: 59px
+      height: 36px
+      border-radius: 21px
+      border: 2px solid $n2oGray700
+      transition: .2s border-color, .2s background-color
+      cursor: pointer
+      vertical-align: bottom
+
+      &:before
+        position: absolute
+        content: ''
+        top: 4px
+        left: 4px
+        width: 28px
+        height: 28px
+        border-radius: 14px
+        transition: .2s left, .2s background-color
+        background: $n2oGray300
+
+    &.hourly
+      .toggle-btn:before
+        left: 27px
+
+      label
+        &.monthly
+          color: darken(#a5b3be, 20%)
+
+        &.hourly
+          color: lighten(#a5b3be, 10%)
+
+    &:hover
+      .toggle-btn
+        background: $n2oGray850
+        border-color: $lightBlue800
+
+        &:before
+          background: #0095f2
 
 // --------------------------------------
 // Light

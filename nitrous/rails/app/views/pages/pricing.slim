@@ -17,104 +17,163 @@
         h3
           | Flexible pricing, based on the amount of resources you use
 
-
+  .pricing-toggle.container
+    label.monthly Monthly
+    .toggle-btn
+    label.hourly Hourly
 
   article.pricing.attached-bottom
     .container
       .pricing-container
-
         .pricing-block
           ul.trio
-            li.selectable.ripple data-slug='basic' data-ripple-color='#0099ED'
-              span.title Basic
-              span.focus
-                span.dollar $
-                span.price 14.99
-                span.duration
-                  | /mo.
-              span.details
+            li.selectable data-index='0' data-slug='basic'
+              .title Basic
+              .desc Small apps and starters
+              .plan-price
+                .monthly
+                  .focus
+                    | $
+                    span.price
+                    | /mo.
+                .hourly
+                  .focus
+                    span.price
+                    | ¢ /hr.
+                    small
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | storage price
+              .details.spec title="1GB RAM / 20GB SSD"
+                strong Standard
+                | Performance
+              .details
                 strong 2
                 | Containers
-              span.details
-                strong 1 GB
-                | Memory
-              span.details
-                strong 20 GB
-                | Storage
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Root Enabled
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Dedicated Resources
+              .details.ticked
+                i.fa.fa-check
+                | Real-time Collaboration
+              .details.ticked
+                i.fa.fa-check
+                | Desktop File Sync
+              .details.ticked
+                i.fa.fa-check
+                | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
-            li.selectable.ripple data-slug='standard' data-ripple-color='#0099ED'
-              span.title Standard
-              span.focus
-                span.dollar $
-                span.price 29.99
-                span.duration
-                  | /mo.
-              span.details
+            li.selectable data-index='1' data-slug='standard'
+              .title Standard
+              .desc Production-ready apps
+              .plan-price
+                .monthly
+                  .focus
+                    | $
+                    span.price
+                    | /mo.
+                .hourly
+                  .focus
+                    span.price
+                    | ¢ /hr.
+                    small
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | storage price
+              .details.spec title="2GB RAM / 50GB SSD"
+                strong 2x
+                | Performance
+              .details
                 strong 5
                 | Containers
-              span.details
-                strong 2 GB
-                | Memory
-              span.details
-                strong 50 GB
-                | Storage
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Root Enabled
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Dedicated Resources
+              .details.ticked
+                i.fa.fa-check
+                | Real-time Collaboration
+              .details.ticked
+                i.fa.fa-check
+                | Desktop File Sync
+              .details.ticked
+                i.fa.fa-check
+                | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
-            li.selectable.ripple data-slug='pro' data-ripple-color='#0099ED'
-              span.title Pro
-              span.focus
-                span.dollar $
-                span.price 64.99
-                span.duration
-                  | /mo.
-              span.details
+            li.selectable data-index='2' data-slug='pro'
+              .title Pro
+              .desc Heavy-duty apps
+              .plan-price
+                .monthly
+                  .focus
+                    | $
+                    span.price
+                    | /mo.
+                .hourly
+                  .focus
+                    span.price
+                    | ¢ /hr.
+                    small
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | storage price
+              .details.spec title="4GB RAM / 120GB SSD"
+                strong 4x
+                | Performance
+              .details
                 strong 12
                 | Containers
-              span.details
-                strong 4 GB
-                | Memory
-              span.details
-                strong 120 GB
-                | Storage
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Root Enabled
-              span.details.ticked
+              .details.ticked
                 i.fa.fa-check
                 | Dedicated Resources
+              .details.ticked
+                i.fa.fa-check
+                | Real-time Collaboration
+              .details.ticked
+                i.fa.fa-check
+                | Desktop File Sync
+              .details.ticked
+                i.fa.fa-check
+                | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
 
           ul
-            li.selectable.ripple.horizontal data-slug='free' data-ripple-color='#0099ED'
+            li.selectable.horizontal data-slug='free'
               span.title Free
               span.details
                 strong 2
                 | Containers
+              span.details.spec title="1GB RAM / 10GB SSD"
+                strong Standard
+                | Performance
               span.details
-                strong 1 GB
-                | Memory
-              span.details
-                strong 10 GB
-                | Storage
-              span.details
-                i.fa.fa-info
-                | 2h Automatic Shutdown
+                i.fa.fa-clock-o
+                strong 2-hour
+                | Daily Usage
               a.btn.blue.ripple href="/app/#/signup/" Get started
-
 
 
       .box-wrapper.two
@@ -314,7 +373,6 @@
         a class="btn white-outline" href="/features"
           | More features
 
-
-  = render 'layouts/companies'
+  = render partial: 'layouts/companies', locals: { theme: 'darker' }
 
 = render partial: 'layouts/footer', locals: { active: 'pricing' }

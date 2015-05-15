@@ -2,18 +2,6 @@ pages.Pricing =
   init: ->
     pages.activePageName = 'Pricing'
 
-    # # Update total price
-    # # --------------------------------
-    # totalPrice = $("#total-price")
-    # updatePrice = ->
-    #   p1 = parseFloat($("#p1").text().split("$")[1])
-    #   p2 = parseFloat($("#p2").text().split("$")[1])
-    #   total = parseFloat(p1 + p2).toFixed(2)
-    #   totalPrice.text("$ " + total)
-
-    # updatePrice()
-
-
     # Get page hash
     # --------------------------------
     hash = $(location).attr('hash')
@@ -47,71 +35,11 @@ pages.Pricing =
       return false
 
 
-    # Custom range inputs
-    # --------------------------------
-    s = document.createElement('style')
-    r = document.querySelectorAll('input[type=range]')
-    prefs = [
-      'webkit-slider-runnable'
-      'moz-range'
-    ]
-    styles = []
-    l = prefs.length
-    n = r.length
-    document.body.appendChild s
-
-    getTrackStyleStr = (el) ->
-      str = ''
-      j = el.dataset.idx
-      min = el.min or 0
-      perc = if el.max then ~ ~(100 * (el.value - min) / (el.max - min)) else el.value
-      val = perc + '% 100%'
-      i = 0
-      while i < l
-        str += 'input[type=range][data-idx="' + j + '"]::-' + prefs[i] + '-track{background-size:' + val + '}'
-        i++
-      str
-
-    i = 0
-    while i < n
-      styles.push ''
-      r[i].addEventListener 'input', (->
-        styles[@dataset.idx] = getTrackStyleStr(this)
-        s.textContent = styles.join('')
-        return
-      ), false
-      i++
-
-
-    # Sticky
-    # --------------------------------
-    # top = $('.sticky').offset().top
-    # height = $('.sticky').height()
-    # $(window).scroll (event) ->
-    #   y = $(this).scrollTop()
-    #   distance = (y - height) + 240
-    #   if (y < 520)
-    #     if (y >= (top))
-    #       $('.sticky').css(
-    #         '-webkit-transform': 'translate3d(0,' + distance + 'px,0)',
-    #         '-ms-transform': 'translate3d(0,' + distance + 'px,0)',
-    #         'transform': 'translate3d(0,' + distance + 'px,0)'
-    #       )
-    #     else
-    #       $('.sticky').css(
-    #         '-webkit-transform': 'translate3d(0,0,0)',
-    #         '-ms-transform': 'translate3d(0,0,0)',
-    #         'transform': 'translate3d(0,0,0)'
-    #       )
-
-
     # Check page hash and set default pricing
     # --------------------------------
     if !(hash == "")
       if (hash == "#free")
         setActivePricing(freePlan)
-        # $('html, body').scrollTop(0)
-        # $('html, body').animate scrollTop: '+=500px' , 800
       if (hash == "#basic")
         setActivePricing(basicPlan)
       if (hash == "#standard")
@@ -121,3 +49,61 @@ pages.Pricing =
     else
       # Set default plan
       setActivePricing(standardPlan)
+
+    # monthly/hourly toggler
+    pricingHourly = false
+
+    updatePricing = ->
+      $t = $('.pricing-toggle')
+      if pricingHourly
+        $t.addClass('hourly')
+        $('.plan-price .hourly').css(opacity: 1)
+        $('.plan-price .monthly').css(opacity: 0)
+      else
+        $t.removeClass('hourly')
+        $('.plan-price .hourly').css(opacity: 0)
+        $('.plan-price .monthly').css(opacity: 1)
+
+    $('.pricing-toggle .toggle-btn').click ->
+      pricingHourly = !pricingHourly
+      updatePricing()
+
+    $('.pricing-toggle label.monthly').click ->
+      pricingHourly = false
+      updatePricing()
+
+    $('.pricing-toggle label.hourly').click ->
+      pricingHourly = true
+      updatePricing()
+
+    updatePricing()
+
+    # fetch plans
+    plans = []
+
+    updateNumbers = ->
+      for plan, i in plans
+        basePrice = plan.base_price / 100
+        monthlyPrice = (plan.base_price + plan.price ) / 100
+        hourlyPrice = plan.hourly_price / 1000
+        $plan = $(".pricing-block li.selectable[data-index=#{i}]")
+        $plan.find('.plan-price .monthly .price').text(monthlyPrice.toFixed(2))
+        $plan.find('.plan-price .hourly .price').text(hourlyPrice.toFixed(3))
+        $plan.find('.plan-price .hourly .base-price').text(basePrice.toFixed(2))
+        $plan.find('.plan-price').css(opacity: 1)
+
+    $.getJSON('/api/v0/plans').then (data) ->
+      return unless data.plans
+      pl = data.plans.sort (a, b) ->
+        aPrice = a.price + a.base_price
+        bPrice = b.price + b.base_price
+        if aPrice > bPrice
+          1
+        else if aPrice < bPrice
+          -1
+        else
+          0
+      for p in pl
+        if (p.price + p.base_price) > 0
+          plans.push(p)
+      updateNumbers()
