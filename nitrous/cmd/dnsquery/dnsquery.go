@@ -40,7 +40,7 @@ const (
 	// those name will never conflict with real names thanks to unique domain prefix
 	uniqueHostNameForCNAMETest       = "test-for-cname-89345687.lola."
 	uniqueHostNameForATest           = "test-for-a-1742986.lola."
-	uniqueHostNameForPropagationTest = "test-for-propagation-834762109.n2ostagingbox.com."
+	uniqueHostNameForPropagationTest = "test-for-propagation-834762109.lola."
 )
 
 var (
@@ -101,42 +101,6 @@ func findZone(c *route53.Route53, domain string) (*route53.HostedZone, error) {
 	return nil, nil
 }
 
-func buildSetChange(typ, from, to string) route53.Change {
-	rr := route53.ResourceRecordSet{
-		Name:    from,
-		Type:    typ,
-		TTL:     60,
-		Records: []string{to},
-	}
-
-	change := route53.Change{
-		Action: "UPSERT", // create or update
-		Record: rr,
-	}
-	return change
-}
-
-func SetDNS(c *route53.Route53, zoneID, typ, from, to string) error {
-	from = route53.FQDN(from)
-	var changes = []route53.Change{
-		buildSetChange(typ, from, to),
-	}
-	req := &route53.ChangeResourceRecordSetsRequest{
-		Comment: "adding cname record",
-		Changes: changes,
-	}
-	_, err := c.ChangeResourceRecordSets(zoneID, req)
-	if err != nil {
-		fmt.Printf("c.ChangeResourceRecordSets() failed with %s\n", err)
-		return err
-	}
-	return nil
-}
-
-func isCNAMEOrA(tp string) bool {
-	return strings.EqualFold(tp, "cname") || strings.EqualFold(tp, "a")
-}
-
 func shouldShowRecordWithType(tp string, types []string) bool {
 	if len(types) == 0 {
 		return true
@@ -179,15 +143,6 @@ func testListRecourceRecordSets(c *route53.Route53, zoneID string, lopts *route5
 	fmt.Printf("c.ListResourceRecordSets() returned %d records\n", len(resp.Records))
 	for _, r := range resp.Records {
 		dumpResourceRecordSet(&r, []string{"cname", "a"})
-	}
-}
-
-func testDeleteNonExistent() {
-	err := nroute53.DeleteCNAMERecord("does.not.exist." + hostDomain)
-	if err != nil {
-		log.Printf("deleting non-existent dns record returns error '%s'", err)
-	} else {
-		log.Printf("deleting non-existent dns record doesn't return an error")
 	}
 }
 
@@ -244,7 +199,7 @@ func dnsCNAMELookup(name string) *dns.Msg {
 
 func testPropagate() {
 	// make sure the DNS record doesn't exist
-	hostName := uniqueHostNameForPropagationTest
+	hostName := uniqueHostNameForPropagationTest + hostDomain + "."
 	r := dnsCNAMELookup(hostName)
 	if r.Rcode == dns.RcodeSuccess {
 		nroute53.DeleteCNAMERecord(hostName)
@@ -271,10 +226,10 @@ func testPropagate() {
 }
 
 func usage() {
-	fmt.Printf("Usage: dnsquery [-test-create] [-test-propagate] domain\n")
-	fmt.Printf("  use -test-query to test create/delete cycle of test records.\n")
-	fmt.Printf("  use -test-propagate to test how long does it take to propagate DNS info.\n")
-	fmt.Printf("  provide domain to see all records for that domain.\n")
+	fmt.Println("Usage: dnsquery [-test-create] [-test-propagate] domain")
+	fmt.Println("  use -test-query to test create/delete cycle of test records.")
+	fmt.Println("  use -test-propagate to test how long does it take to propagate DNS info.")
+	fmt.Println("  provide domain to see all records for that domain.")
 }
 
 func main() {
