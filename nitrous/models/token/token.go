@@ -12,6 +12,7 @@ import (
 
 const (
 	MaxLastUsedDuration = (24 * 7) * time.Hour
+	ExpiryInSeconds     = MaxLastUsedDuration / time.Second
 )
 
 var (
@@ -79,7 +80,10 @@ func (t *Token) Insert(d db.QueryReceiver) error {
 		t.Token = tok[:255]
 	}
 
-	nstmt, err := d.PrepareNamed(`INSERT INTO tokens (user_id, token, type, last_ip) VALUES (:user_id, :token, :type, :last_ip) RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`INSERT INTO tokens
+		(user_id, token, type, last_ip, nonce, client_id)
+		VALUES (:user_id, :token, :type, :last_ip, :nonce, :client_id)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}

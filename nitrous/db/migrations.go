@@ -1219,7 +1219,7 @@ func init() {
 				CREATE TABLE oauth_clients (
 					id bigserial PRIMARY KEY NOT NULL,
 					user_id bigint REFERENCES users(id) NOT NULL,
-					name varying(255) NOT NULL,
+					name character varying(255) NOT NULL,
 					description text DEFAULT '',
 					client_id character varying(255) NOT NULL,
 					client_secret character varying(255) NOT NULL,
@@ -1227,9 +1227,8 @@ func init() {
 				);
 
 				ALTER TABLE tokens ADD COLUMN nonce character varying(255) DEFAULT NULL;
-				ALTER TABLE tokens ADD COLUMN scopes text DEFAULT '';
 				ALTER TABLE tokens ADD COLUMN
-					oauth_client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
+					client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
 
 				CREATE UNIQUE INDEX tokens_nonce ON tokens USING btree (nonce);
 			`,

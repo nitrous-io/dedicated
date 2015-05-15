@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
@@ -18,20 +19,20 @@ var (
 )
 
 func init() {
-	// TODO: get secret from envvars
-	verifier = msgverifier.New("secret")
+	verifier = msgverifier.New(envvars.SecretToken)
 }
 
 type AuthorizationCode struct {
-	Type      string    `json:"type"`
-	UserID    int64     `json:"user_id"`
-	Nonce     string    `json:"nonce"`
-	ClientID  string    `json:"client_id"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Type        string    `json:"type"`
+	UserID      int64     `json:"user_id"`
+	ClientID    string    `json:"client_id"`
+	Nonce       string    `json:"nonce"`
+	RedirectURI string    `json:"redirect_uri"`
+	CreatedAt   time.Time `json:"created_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-func GenerateAuthorizationCode(userID int64, clientID string) (string, error) {
+func GenerateAuthorizationCode(userID int64, clientID, redirectURI string) (string, error) {
 	nonce, err := securerandom.Base64(191)
 	if err != nil {
 		return "", err
@@ -40,12 +41,13 @@ func GenerateAuthorizationCode(userID int64, clientID string) (string, error) {
 	createdAt := time.Now().UTC()
 
 	code := AuthorizationCode{
-		Type:      "authorization_code",
-		UserID:    userID,
-		ClientID:  clientID,
-		Nonce:     nonce,
-		CreatedAt: createdAt,
-		ExpiresAt: createdAt.Add(DefaultValidityPeriod),
+		Type:        "authorization_code",
+		UserID:      userID,
+		ClientID:    clientID,
+		Nonce:       nonce,
+		RedirectURI: redirectURI,
+		CreatedAt:   createdAt,
+		ExpiresAt:   createdAt.Add(DefaultValidityPeriod),
 	}
 
 	return verifier.Generate(code)
