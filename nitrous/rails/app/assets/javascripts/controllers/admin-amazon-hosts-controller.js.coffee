@@ -182,10 +182,15 @@ App.AdminAmazonHostsController = Em.Controller.extend
       @showActionDialog([host], healthyHostActions(host))
 
     showInconsistentDialog: (host) ->
-      @set('showFixBorn', true)
+      if host.state == 'born'
+        @set('showFixBorn', true)
+
       @showActionDialog([host], inconsistentHostActions(host))
 
-    showProblemHostDialog: (host) ->
+    showDanglingHostDialog: (host) ->
+      if host.state == 'born'
+        @set('showFixBorn', true)
+
       @showActionDialog([host], problemHostActions)
 
     showUnaccountedHostDialog: (host) ->
