@@ -115,14 +115,6 @@ func setDNS(c *route53.Route53, zoneID, typ, from, to string) error {
 	return nil
 }
 
-func setCNAME(c *route53.Route53, zoneID, from, to string) error {
-	return setDNS(c, zoneID, "CNAME", from, to)
-}
-
-func setA(c *route53.Route53, zoneID, from, to string) error {
-	return setDNS(c, zoneID, "A", from, to)
-}
-
 func findZone(domain string) *route53.HostedZone {
 	domain = strings.TrimSuffix(domain, ".")
 	mu.Lock()
@@ -194,7 +186,7 @@ func SetCNAME(from, to string) error {
 	if err != nil {
 		return err
 	}
-	return setCNAME(c, zoneID, from, to)
+	return setDNS(c, zoneID, "CNAME", from, to)
 }
 
 // SetA adds or updates A record for a given zoneID that maps src into dst
@@ -203,7 +195,7 @@ func SetA(from, to string) error {
 	if err != nil {
 		return err
 	}
-	return setA(c, zoneID, from, to)
+	return setDNS(c, zoneID, "A", from, to)
 }
 
 // DeleteCNAMERecord deletes CNAME or A record (only one of them can

@@ -1055,6 +1055,63 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe(".HostTargetDomain", func() {
+		It("returns the host's EC2 public DNS domain based in its IP address", func() {
+			h := &host.Host{
+				Slug:      "hello",
+				IPAddress: sql.NullString{Valid: true, String: "10.2.3.4"},
+			}
+			d, err := h.HostTargetDomain()
+			Expect(err).To(BeNil())
+			Expect(d).To(Equal("ec2-10-2-3-4.compute-1.amazonaws.com"))
+		})
+
+		It("returns an error when the host has no IP address", func() {
+			h := &host.Host{Slug: "hello"}
+			_, err := h.HostTargetDomain()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe(".ProxyTargetDomain", func() {
+		It("returns the domain of the host's Tender proxy", func() {
+			h := &host.Host{
+				Slug: "hello",
+				ProviderTemplate: &host.ProviderTemplate{
+					Config: hstore.Hstore{
+						Map: map[string]sql.NullString{
+							"region_id": sql.NullString{"us-east-1", true},
+						},
+					},
+				},
+			}
+			d, err := h.ProxyTargetDomain()
+			Expect(err).To(BeNil())
+			Expect(d).To(Equal("amazon.nitrousproxy-sfo.com"))
+		})
+
+		It("returns an error when host does not have a provider template", func() {
+			h := &host.Host{Slug: "hello"}
+			_, err := h.ProxyTargetDomain()
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("returns an error when host does not belong in a known region", func() {
+			h := &host.Host{
+				Slug: "hello",
+				ProviderTemplate: &host.ProviderTemplate{
+					Config: hstore.Hstore{
+						Map: map[string]sql.NullString{
+							"region_id": sql.NullString{"unknown-region", true},
+						},
+					},
+				},
+			}
+			_, err := h.ProxyTargetDomain()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Describe(".MachineConfig", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{

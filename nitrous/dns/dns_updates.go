@@ -1,28 +1,13 @@
 package dns
 
 import (
-	"errors"
-	"fmt"
-
-	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-var (
-	// list from https://github.com/nitrous-io/nitrous_cookbooks/blob/master/docs/deploy-production.md
-	// maps provider_templates.config:region_id to the name of the server
-	regionToTender = map[string]string{
-		"us-east-1":      "amazon.nitrousproxy-sfo.com",
-		"us-west-2":      "amazon.nitrousproxy-nyc.com",
-		"eu-west-1":      "amazon.nitrousproxy-ams.com",
-		"ap-southeast-1": "amazon.nitrousproxy-sgp.com",
-	}
-	errInvalidIPAddress = errors.New("invalid IPAddress")
-	activeDNS           DNS
-)
+var activeDNS DNS
 
 func init() {
 	// nitrousd.go will update this if envvars are set accordingly
@@ -33,7 +18,7 @@ type DNS interface {
 	OnHostCreate(h *host.Host) error
 	OnHostStart(h *host.Host) error
 	OnHostDestroy(h *host.Host) error
-	OnContainerCreate(cn *container.Container) error
+	OnContainerCreate(cn *container.Container, h *host.Host) error
 	OnContainerDestroy(cn *container.Container) error
 }
 
@@ -45,52 +30,23 @@ func (d *RealDNS) SetLogger(lg *logger.Logger) {
 	d.logger = lg
 }
 
-type hostCNAMEs struct {
-	proxyFrom, proxyTo       string
-	hostnameFrom, hostnameTo string
-}
-
-func hostRecords(h *host.Host) (*hostCNAMEs, error) {
-	regionID := h.ProviderTemplate.Config.Map["region_id"]
-	proxyTo := regionToTender[regionID.String]
-	if proxyTo == "" {
-		return nil, fmt.Errorf("no tender server for region '%s'", regionID.String)
-	}
-	if !h.IPAddress.Valid || h.IPAddress.String == "" {
-		return nil, errInvalidIPAddress
-	}
-	return &hostCNAMEs{
-		proxyFrom:    fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname),
-		proxyTo:      proxyTo,
-		hostnameFrom: fmt.Sprintf("%s.%s", h.Slug, envvars.HostHostname),
-		hostnameTo:   fmt.Sprintf("ec2-%s.compute-1.amazonaws.com", h.IPAddress.String),
-	}, nil
-}
-
-type containerCNAMEs struct {
-	previewFrom, previewTo string
-}
-
-func containerRecords(cn *container.Container) (*containerCNAMEs, error) {
-	return &containerCNAMEs{
-		previewFrom: cn.PreviewHostname(),
-		previewTo:   fmt.Sprintf("%s.%s", cn.Slug, envvars.PreviewHostname),
-	}, nil
-}
-
-// OnHostCreate performs dns updates needed after host has been created:
-//  - set CNAME for proxy
-//  - for hosts with static ips, add CNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com
+// OnHostCreate creates DNS records needed after host has been created:
+// 1. CNAME <host-slug>.PROXY_HOSTNAME to Tender server for the host's region.
+//    e.g. CNAME my-workspace.nitrousproxy.com to amazon.nitrousproxy-sgp.com
+// 2. CNAME <host-slug>.HOST_HOSTNAME to EC2 instance public DNS.
+//    e.g. CNAME my-workspace.nitrouspro.com to ec2-11-22-33-44.compute-1.amazonaws.com
 func (d *RealDNS) OnHostCreate(h *host.Host) error {
-	err := d.setHostProxyCNAME(h)
-	if err != nil {
+	if err := d.setHostProxyCNAME(h); err != nil {
 		return err
 	}
 	return d.setHostCNAME(h)
 }
 
-// OnHostStart performs dns updates needed when host is started:
-// - for non-static-ip hosts, update the CNAME record for <hostslug>.HOST_HOSTNAME
+// OnHostStart updates DNS records needed when host is started:
+// 1. If host does not have a static IP, CNAME <host-slug>.HOST_HOSTNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com.
+//    e.g. CNAME my-workspace.nitrouspro.com to ec2-11-22-33-44.compute-1.amazonaws.com
+// 2. If host has a static IP, do nothing because we've already setup the CNAME
+//    on create and the host's public DNS will not change.
 func (d *RealDNS) OnHostStart(h *host.Host) error {
 	if h.StaticIP {
 		return nil
@@ -98,71 +54,88 @@ func (d *RealDNS) OnHostStart(h *host.Host) error {
 	return d.setHostCNAME(h)
 }
 
-// OnHostDestroy performs dns updates needed after host has been destroyed:
-// - remove CNAME records
+// OnHostDestroy deletes DNS records after host has been destroyed:
+// 1. Remove CNAME to Tender server.
+// 2. Remove CNAME to EC2 instance public DNS.
+// 3. Remove DNS records of its containers.
 func (d *RealDNS) OnHostDestroy(h *host.Host) error {
-	cnames, err := hostRecords(h)
+	records := []string{
+		h.Hostname(),
+		h.ProxyHostname(),
+	}
+
+	for _, r := range records {
+		if err := nroute53.DeleteCNAMERecord(r); err != nil {
+			d.logger.Errorf("failed to delete CNAME record for %s, err: %v", r, err)
+			return err
+		}
+	}
+
+	// FIXME Remove DNS records of host's containers, but don't fail if any record does not exist.
+
+	return nil
+}
+
+// OnContainerCreate creates DNS records needed when container is created:
+// 1. CNAME <container-slug>.PREVIEW_HOSTNAME to Tender server for the host's region.
+//    e.g. CNAME rails-1.nitrousapp.com to amazon.nitrousproxy-sgp.com
+func (d *RealDNS) OnContainerCreate(cn *container.Container, h *host.Host) error {
+	sourceDomain := cn.PreviewHostname()
+	targetDomain, err := h.ProxyTargetDomain()
 	if err != nil {
 		return err
 	}
-	if err := nroute53.DeleteCNAMERecord(cnames.hostnameFrom); err != nil {
-		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", cnames.hostnameFrom, err)
-		return err
-	}
-	if err = nroute53.DeleteCNAMERecord(cnames.proxyFrom); err != nil {
-		d.logger.Errorf("nroute53.DeleteCNAMERecord('%s') failed with '%s'", cnames.proxyFrom, err)
+
+	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
 	return nil
 }
 
-// OnContainerCreate performs dns updates needed when container is created
-// - add a CNAME record for <containerslug>.PREVIEW_HOSTNAME
-func (d *RealDNS) OnContainerCreate(cn *container.Container) error {
-	cnames, err := containerRecords(cn)
-	if err != nil {
-		return err
-	}
-	return nroute53.SetCNAME(cnames.previewFrom, cnames.previewTo)
-}
-
-// onContainerDestroy performs dns updates needed when container is destroyed
-// - remove CNAME record
+// onContainerDestroy deletes DNS records after container has been destroyed:
+// 1. Remove CNAME to Tender server.
 func (d *RealDNS) OnContainerDestroy(cn *container.Container) error {
-	cnames, err := containerRecords(cn)
-	if err != nil {
+	if err := nroute53.DeleteCNAMERecord(cn.PreviewHostname()); err != nil {
+		d.logger.Errorf("failed to delete CNAME record for %s, err: %v", cn.PreviewHostname(), err)
 		return err
 	}
-	return nroute53.DeleteCNAMERecord(cnames.previewFrom)
+	return nil
 }
 
 func SetActiveDNS(active DNS) {
 	activeDNS = active
 }
 
-// SetHostProxyCNAME adds or updates CNAME record for the host's proxy.
-// Source CNAME is slug + global proxy host name, destination is name of
-// tender proxy chosen based on provider_templates.config:region_id
+// setHostProxyCNAME adds or updates CNAME record for the host's proxy.
+// Source domain is <host-slug>.PROXY_HOSTNAME, target domain is the Tender
+// server for the host's region.
 func (d *RealDNS) setHostProxyCNAME(h *host.Host) error {
-	cnames, err := hostRecords(h)
+	sourceDomain := h.ProxyHostname()
+	targetDomain, err := h.ProxyTargetDomain()
 	if err != nil {
 		return err
 	}
-	if err := nroute53.SetCNAME(cnames.proxyFrom, cnames.proxyTo); err != nil {
-		d.logger.Errorf("nroute53.SetCNAME('%s', '%s') failed with '%s'\n", err, cnames.proxyFrom, cnames.proxyTo)
+
+	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
 	return nil
 }
 
-// SetHostCNAME adds or updates CNAME record for the host
+// setHostCNAME adds or updates CNAME record for the host.
+// Source domain is <host-slug>.HOST_HOSTNAME, target domain is the host's
+// public domain.
 func (d *RealDNS) setHostCNAME(h *host.Host) error {
-	cnames, err := hostRecords(h)
+	sourceDomain := h.Hostname()
+	targetDomain, err := h.HostTargetDomain()
 	if err != nil {
 		return err
 	}
-	if err := nroute53.SetCNAME(cnames.hostnameFrom, cnames.hostnameTo); err != nil {
-		d.logger.Errorf("nroute53.SetCNAME() for host %d (%s) failed with '%s'", h.ID, h.Slug, err)
+
+	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
 	return nil
@@ -181,7 +154,7 @@ func OnHostDestroy(h *host.Host) error {
 }
 
 func OnContainerCreate(cn *container.Container, h *host.Host) error {
-	return activeDNS.OnContainerCreate(cn)
+	return activeDNS.OnContainerCreate(cn, h)
 }
 
 func OnContainerDestroy(cn *container.Container) error {
