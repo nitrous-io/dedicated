@@ -3,7 +3,7 @@ package dns
 import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/route53"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -65,7 +65,7 @@ func (d *RealDNS) OnHostDestroy(h *host.Host) error {
 	}
 
 	for _, r := range records {
-		if err := nroute53.DeleteCNAMERecord(r); err != nil {
+		if err := route53.DeleteCNAMERecord(r); err != nil {
 			d.logger.Errorf("failed to delete CNAME record for %s, err: %v", r, err)
 			return err
 		}
@@ -86,7 +86,7 @@ func (d *RealDNS) OnContainerCreate(cn *container.Container, h *host.Host) error
 		return err
 	}
 
-	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+	if err := route53.SetCNAME(sourceDomain, targetDomain); err != nil {
 		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
@@ -96,7 +96,7 @@ func (d *RealDNS) OnContainerCreate(cn *container.Container, h *host.Host) error
 // onContainerDestroy deletes DNS records after container has been destroyed:
 // 1. Remove CNAME to Tender server.
 func (d *RealDNS) OnContainerDestroy(cn *container.Container) error {
-	if err := nroute53.DeleteCNAMERecord(cn.PreviewHostname()); err != nil {
+	if err := route53.DeleteCNAMERecord(cn.PreviewHostname()); err != nil {
 		d.logger.Errorf("failed to delete CNAME record for %s, err: %v", cn.PreviewHostname(), err)
 		return err
 	}
@@ -117,7 +117,7 @@ func (d *RealDNS) setHostProxyCNAME(h *host.Host) error {
 		return err
 	}
 
-	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+	if err := route53.SetCNAME(sourceDomain, targetDomain); err != nil {
 		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
@@ -134,7 +134,7 @@ func (d *RealDNS) setHostCNAME(h *host.Host) error {
 		return err
 	}
 
-	if err := nroute53.SetCNAME(sourceDomain, targetDomain); err != nil {
+	if err := route53.SetCNAME(sourceDomain, targetDomain); err != nil {
 		d.logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
 		return err
 	}
