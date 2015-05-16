@@ -143,7 +143,7 @@ func main() {
 			envvars.RedisDB,
 			HostQueueName,
 			svr.HostQueueHandler(),
-			svr.QueueCloseCh,
+			svr.QueueStopCh,
 		)
 	}
 
