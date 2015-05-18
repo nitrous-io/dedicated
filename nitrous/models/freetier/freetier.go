@@ -86,6 +86,10 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		return nil, err
 	}
 
+	if bp.IsCardRequired() && !u.PhoneAuthed {
+		return plan.AllPlansForProvider(d, provider)
+	}
+
 	if bp.IsFreeTier() {
 		err := createFreeTierHostAllowed(d, u)
 		switch err {
@@ -96,10 +100,9 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		default:
 			return nil, err
 		}
-
-	} else {
-		return plan.PaidPlansForProvider(d, provider)
 	}
+
+	return plan.PaidPlansForProvider(d, provider)
 }
 
 // Checks whether a user of given billing profile can create new free tier host.

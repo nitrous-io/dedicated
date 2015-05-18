@@ -67,7 +67,10 @@ App.AddPhoneController = Em.ObjectController.extend
         Mp.updateUser p
         App.refreshBillingProfile()
 
-        @transitionToRoute 'home'
+        if App.get('pendingHost')
+          @transitionToRoute 'hosts.new'
+        else
+          @transitionToRoute 'home'
       , (jqxhr) =>
         @set 'verifying', false
         App.postError(jqxhr.responseJSON, 'That code is incorrect.')
@@ -91,3 +94,7 @@ App.AddPhoneController = Em.ObjectController.extend
 
     editPhone: ->
       @set 'otpSent', false
+
+    goBack: ->
+      App.set 'pendingHost', null
+      @transitionToRoute 'hosts.new'
