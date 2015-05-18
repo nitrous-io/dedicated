@@ -69,6 +69,9 @@ var (
 
 	// Feature flag for queue
 	EnableQueue bool
+
+	// email blacklist
+	EmailBlacklistPath string
 )
 
 const (
@@ -148,6 +151,8 @@ func init() {
 			log.Fatalf("ENABLE_SELF_UPGRADE not acceptable boolean: %s", err)
 		}
 	}
+
+	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
 }
 
 func CheckCAVariables() {
