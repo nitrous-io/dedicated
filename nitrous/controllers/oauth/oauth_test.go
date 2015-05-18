@@ -42,7 +42,6 @@ var _ = Describe("controllers/oauth", func() {
 		svr = NewTestServer("", db, logger, NewFakeTracker())
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-
 	})
 
 	BeforeEach(func() {
