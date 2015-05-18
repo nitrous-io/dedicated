@@ -51,7 +51,9 @@ func fetchBlacklist() error {
 	blacklist = make(map[string]struct{})
 	for scanner.Scan() {
 		domain = scanner.Text()
-		blacklist[domain] = struct{}{}
+		if domain[0] != '#' {
+			blacklist[domain] = struct{}{}
+		}
 	}
 	if err == io.EOF && domain != "" {
 		blacklist[domain] = struct{}{}

@@ -681,7 +681,6 @@ var _ = Describe("models/user", func() {
 				{"foo@gmail.com", nil},
 				{"foo+bar@gmail.com", nil},
 				{"foo+bar@hello.com.sg", nil},
-				{"foo+bar@hello.com.sg", nil},
 			}
 
 			for _, t := range tests {
