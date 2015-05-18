@@ -20,6 +20,7 @@ App.Router.map ->
       @route 'config'
       @route 'ports'
       @route 'console'
+      @route 'custom-domain'
 
     @resource 'hosts', path: '/workspaces', ->
       @route 'new'
