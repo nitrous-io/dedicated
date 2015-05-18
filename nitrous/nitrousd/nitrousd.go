@@ -137,7 +137,14 @@ func main() {
 
 	// Setup queue consumer
 	if envvars.EnableQueue {
-		go queue.StartConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, HostQueueName, svr.HostQueueHandler())
+		go queue.StartConsumer(
+			envvars.RedisHost,
+			envvars.RedisPort,
+			envvars.RedisDB,
+			HostQueueName,
+			svr.HostQueueHandler(),
+			svr.QueueStopCh,
+		)
 	}
 
 	pid := os.Getpid()
