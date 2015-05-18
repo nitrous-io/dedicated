@@ -90,9 +90,6 @@ func SerializeHostWithUser(h *host.Host, u *user.User) *Host {
 
 	stopsAt := serialized.LastRunningAt.Add(time.Duration(u.MaxRunningTime.Int64) * time.Second)
 	timeRemaining := (int64(stopsAt.Sub(time.Now())/time.Second) - 1) // adjust for latency
-	if timeRemaining < 0 {
-		timeRemaining = 0
-	}
 	serialized.TimeRemaining = &timeRemaining
 
 	return serialized
