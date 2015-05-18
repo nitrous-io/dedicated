@@ -44,17 +44,20 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	availableCredits, err := credit.AvailableCredits(env.DB, env.User.ID)
 	if err != nil {
+		env.Logger.Errorf("CurrentUsage: error fetching credit.AvailableCredits. Err: %+v", err)
 		return err
 	}
 	availableCreditsDollars := float64(availableCredits) / 100.0
 
 	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
 	if err != nil {
+		env.Logger.Errorf("CurrentUsage: error fetching plan.PlanPricingHostMap. Err: %+v", err)
 		return err
 	}
 
 	res, err := biller.InvoiceItemsForUser(env.DB, nil, env.User.ID, start, end)
 	if err != nil {
+		env.Logger.Errorf("CurrentUsage: error fetching biller.InvoiceItemsForUser. Err: %+v", err)
 		return err
 	}
 
@@ -70,6 +73,7 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	hMap, err := fetchHosts(env.DB, env.User)
 	if err != nil {
+		env.Logger.Errorf("CurrentUsage: error fetching fetchHosts. Err: %+v", err)
 		return err
 	}
 
