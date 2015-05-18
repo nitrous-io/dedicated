@@ -35,7 +35,7 @@ themesMenu = menu 'Themes', _.map [
   { name: 'base16-ocean-dark', label: 'Base16 Ocean Dark' }
   { name: '---' }
   { name: 'solarized light', label: 'Solarized Light' }
-  { name: 'github', label: 'Github' }
+  { name: 'github', label: 'GitHub' }
   # { name: '3024-day', label: '3024 Day' }
   # { name: 'paraiso-light', label: 'Paraiso Light' }
   { name: 'visual-studio', label: 'Visual Studio'}
