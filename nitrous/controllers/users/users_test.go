@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -55,7 +56,7 @@ var _ = Describe("controllers/users", func() {
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = test.NewTestServer("", db, logger, ft)
+		svr = test.NewTestServer("", db, logger, ft, &dns.FakeProvider{})
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}

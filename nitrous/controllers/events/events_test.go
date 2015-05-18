@@ -12,6 +12,7 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -39,7 +40,7 @@ var _ = Describe("controllers/events", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil)
+		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil, &dns.FakeProvider{})
 
 		u = &user.User{Username: "foo", Password: "123456", Email: "foo@example.com"}
 		err = WrapInTransaction(db, u.Insert)

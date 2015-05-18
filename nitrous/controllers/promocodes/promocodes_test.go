@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
 
@@ -40,7 +41,7 @@ var _ = Describe("controllers/promocodes", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, logger, nil, &dns.FakeProvider{})
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})

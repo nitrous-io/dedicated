@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -47,6 +48,7 @@ var (
 type Server struct {
 	Events      *pubsub.Pubsub
 	Provisioner *provisioner.Provisioner
+	DNSProvider dns.Provider
 	Tracker     analytics.Tracker
 
 	// this channel will be notified when the server is shutting down
@@ -66,14 +68,15 @@ type Server struct {
 	db     *db.Database
 }
 
-func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config) *Server {
+func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config, dnsProvider dns.Provider) *Server {
 	if l == nil {
 		panic("server.NewServer: invalid argument")
 	}
 	events := pubsub.New(128)
 	svr := &Server{
 		Events:      events,
-		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
+		Provisioner: provisioner.NewProvisioner(db, l, events, conf, dnsProvider),
+		DNSProvider: dnsProvider,
 		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
 		QueueStopCh: make(chan struct{}),
 		StopTimeout: defaultStopTimeout,
@@ -168,6 +171,7 @@ func (s *Server) route(route string, mw middleware.Middleware, methods ...string
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
+			DNSProvider: s.DNSProvider,
 			RemoteAddr:  middleware.GetRemoteAddr(r),
 		}, w, r)
 		if err != nil {
@@ -193,6 +197,7 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
 			Tracker:     s.Tracker,
+			DNSProvider: s.DNSProvider,
 			RemoteAddr:  remoteAddr,
 			UUID:        uuidStr,
 		}

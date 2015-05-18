@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -33,6 +33,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -54,12 +55,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		params          *url.Values
 
 		mockClient *freighterclient.MockClient
-		mockDNS    *dns.MockDNS
 
 		u  *user.User
 		t  *token.Token
-		ft *test.FakeTracker
 		hs *test.HostStack
+
+		ft      *test.FakeTracker
+		fakeDNS *dns.FakeProvider
 
 		// save the original hostbuilderclient value to be restored later
 		origHostbuilderClient = *hosts.HostbuilderClient
@@ -71,14 +73,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		mockClient = &freighterclient.MockClient{}
 		test.StubDefaultFreighterFn(mockClient)
 
-		mockDNS = &dns.MockDNS{}
-		dns.SetActiveDNS(mockDNS)
-
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
+		fakeDNS = &dns.FakeProvider{}
+		svr = test.NewTestServer("", db, logger, test.NewFakeTracker(), fakeDNS)
 		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -279,6 +279,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		hosts.HostbuilderClient = hb
 		doRequest(params)
 
+		Expect(rt.Requests).To(HaveLen(1))
 		req := rt.Requests[0]
 		Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 
@@ -294,8 +295,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		h := hosts[0]
 		Expect(config["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
 		Expect(config["apt_password"]).To(Equal(h.Secret))
-
-		Expect(mockDNS.OnHostCreateCalls).To(Equal(1))
 	})
 
 	It("sends the host configs as json params when JSON is sent by the client", func() {
@@ -617,6 +616,35 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(count).To(Equal(1))
 		})
 
+		It("sets up CNAME records for the host and host proxy", func() {
+			hs.PT.Config = hstore.Hstore{
+				Map: map[string]sql.NullString{
+					"region_id": {"us-east-1", true}, // Use a region with a proxy.
+				},
+			}
+			err := hs.PT.Update(db)
+			Expect(err).To(BeNil())
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			h := hosts[0]
+
+			reqs := fakeDNS.ReceivedRequests()
+			Expect(reqs).To(HaveLen(2))
+
+			r1 := reqs[0]
+			Expect(r1.Name).To(Equal("SetCNAME"))
+			Expect(r1.Args).To(ConsistOf(h.ProxyHostname(), "amazon.nitrousproxy-sfo.com"))
+
+			r2 := reqs[1]
+			Expect(r2.Name).To(Equal("SetCNAME"))
+			Expect(r2.Args).To(ConsistOf(h.Hostname(), "ec2-0-0-0-0.compute-1.amazonaws.com"))
+		})
+
 		It("converts the 'name' form value to valid slug", func() {
 			params.Set("name", "Rails-Host")
 			doRequest(params)
@@ -685,8 +713,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			params.Set("template_name", "usw2-huge-disabled")
 			doRequest(params)
-
-			Expect(mockDNS.OnHostCreateCalls).To(Equal(1))
 
 			hosts, _ := host.FindAllByUser(db, u.ID)
 			Expect(hosts).To(HaveLen(1))

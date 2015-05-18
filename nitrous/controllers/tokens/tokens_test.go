@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -42,7 +43,7 @@ var _ = Describe("controllers/tokens", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = NewTestServer("", db, logger, NewFakeTracker())
+		svr = NewTestServer("", db, logger, NewFakeTracker(), &dns.FakeProvider{})
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})

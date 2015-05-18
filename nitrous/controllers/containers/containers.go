@@ -16,7 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/dns"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -453,15 +452,16 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 				return err
 			}
 
-			if err := dns.OnContainerDestroy(cn); err != nil {
-				return err
+			// Remove CNAME record for container preview
+			if err := env.DNSProvider.DeleteCNAME(cn.PreviewHostname()); err != nil {
+				// Log but don't fail.
+				env.Logger.Errorf("failed to delete CNAME record for %s, err: %v", r, err)
 			}
 
-			// reset the temp state, so freigther state will be exposed
+			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 
-			err = cn.Delete(db)
-			if err != nil {
+			if err := cn.Delete(db); err != nil {
 				return err
 			}
 

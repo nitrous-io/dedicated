@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -64,6 +65,7 @@ type Env struct {
 	DB             *db.Database
 	Events         *pubsub.Pubsub
 	Provisioner    *provisioner.Provisioner
+	DNSProvider    dns.Provider
 	Status         int
 	User           *user.User
 	Token          *token.Token

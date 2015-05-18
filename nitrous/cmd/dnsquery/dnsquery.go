@@ -14,7 +14,7 @@ import (
 	"github.com/mitchellh/goamz/route53"
 
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	nroute53 "github.com/nitrous-io/dedicated/nitrous/pkg/route53"
+	ndns "github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 )
 
 /*
@@ -48,6 +48,7 @@ var (
 	proxyZone   *route53.HostedZone
 	previewZone *route53.HostedZone
 	client      *route53.Route53
+	dnsProvider ndns.Provider
 )
 
 func dumpZone(hz *route53.HostedZone, name string) {
@@ -152,12 +153,12 @@ func testCreate() {
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 	from := uniqueHostNameForCNAMETest + hostDomain
 	to := "sub.www.example.com"
-	nroute53.SetCNAME(from, to)
+	dnsProvider.SetCNAME(from, to)
 	fmt.Printf("\nAfter adding %s:\n", from)
 	testListRecourceRecordSets(client, hostZone.ID, nil)
-	nroute53.DeleteCNAMERecord(from)
+	dnsProvider.DeleteCNAME(from)
 	// get warning
-	nroute53.DeleteCNAMERecord("nosuchrecord." + hostDomain)
+	dnsProvider.DeleteCNAME("nosuchrecord." + hostDomain)
 	fmt.Printf("\nAfter deleting CNAME records:\n")
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }
@@ -202,11 +203,11 @@ func testPropagate() {
 	hostName := uniqueHostNameForPropagationTest + hostDomain + "."
 	r := dnsCNAMELookup(hostName)
 	if r.Rcode == dns.RcodeSuccess {
-		nroute53.DeleteCNAMERecord(hostName)
+		dnsProvider.DeleteCNAME(hostName)
 		log.Fatalf("record for %s already exists. Deleted the record, try again.\n", hostName)
 	}
 	timeStart := time.Now()
-	nroute53.SetCNAME(hostName, "www.example.com")
+	dnsProvider.SetCNAME(hostName, "www.example.com")
 	log.Printf("waiting for DNS propagation")
 	for {
 		r = dnsCNAMELookup(hostName)
@@ -217,12 +218,12 @@ func testPropagate() {
 		time.Sleep(time.Millisecond * 100)
 		fmt.Print(".")
 		if time.Since(timeStart) > time.Minute*5 {
-			nroute53.DeleteCNAMERecord(hostName)
+			dnsProvider.DeleteCNAME(hostName)
 			log.Printf("propagation took more than 5 minutes, stopping the test.")
 			break
 		}
 	}
-	nroute53.DeleteCNAMERecord(hostName)
+	dnsProvider.DeleteCNAME(hostName)
 }
 
 func usage() {
@@ -243,7 +244,8 @@ func main() {
 	if awsAccessKey == "" || awsSecretKey == "" {
 		log.Fatalf("AWS_ACCESS or AWS_SECRET env variables not set")
 	}
-	nroute53.SetSecrets(awsAccessKey, awsSecretKey)
+
+	dnsProvider = &ndns.Route53{AWSAccessKey: awsAccessKey, AWSSecretKey: awsSecretKey}
 
 	auth, err := aws.GetAuth(awsAccessKey, awsSecretKey)
 	if err != nil {
