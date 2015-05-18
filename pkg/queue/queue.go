@@ -108,7 +108,7 @@ func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
 		return nil, err
 	}
 
-	return &QueueConsumer{c}, nil
+	return &QueueConsumer{Consumer: c}, nil
 }
 
 func (qc *QueueConsumer) Consume() (*Message, error) {
@@ -154,45 +154,77 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 	return fmt.Errorf("timed out sending message %+v", m)
 }
 
-func (qc *QueueConsumer) Start() error {
+func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	queueName := qc.Name
-	log.Printf("Queue consumer started: %s\n", queueName)
-	for {
-		m, err := qc.Consume()
-		if err != nil {
-			log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
-			// redis emits `open connections too fast` when we exceeds the error limit
-			if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
-				time.Sleep(1 * time.Second)
-			}
-			continue
-		}
+	log.Printf("started queue consumer %s", queueName)
 
-		err = queueRoutes[queueName](qc, m)
-		if err != nil {
-			log.Printf("uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
-			// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
-			// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
-			// If it fails to consume first message, second message will also fail since item is not created yet.
-			m.Ack(1 * time.Second)
-			continue
+	msg := make(chan *Message)
+	go func() {
+		for {
+			m, err := qc.Consume()
+			if err != nil {
+				log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
+				// redis emits `open connections too fast` when we exceeds the error limit
+				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
+					time.Sleep(1 * time.Second)
+				}
+				continue
+			}
+			msg <- m
+			<-msg
 		}
-		m.Ack(1 * time.Second)
+	}()
+
+	for {
+		select {
+		case c := <-stop:
+			log.Printf("stopped queue consumer %s", queueName)
+			stop <- c
+			return nil
+		case m := <-msg:
+			err := queueRoutes[queueName](qc, m)
+			if err != nil {
+				log.Printf("uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+				// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
+				// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
+				// If it fails to consume first message, second message will also fail since item is not created yet.
+			}
+			m.Ack(1 * time.Second)
+			msg <- m
+		}
 	}
 
 	return nil
 }
 
-func StartConsumer(redisHost string, redisPort string, redisDB int64, queueName string, handler queueHandler) error {
-	qc, err := CreateConsumer(redisHost, redisPort, redisDB, queueName)
-	if err != nil {
-		log.Fatalf("Failed to start queue consumer: %v\n", err)
+func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}) error {
+	var qc *QueueConsumer
+	var err error
+
+	for {
+		select {
+		case c := <-stop:
+			log.Printf("shutting down before initialize queue consumer: %s", queueName)
+			stop <- c
+			return nil
+		default:
+			qc, err = CreateConsumer(redisHost, redisPort, redisDB, queueName)
+			if err == nil {
+				queueRoutes[queueName] = handler
+				return qc.Start(stop)
+			}
+
+			if !strings.Contains(err.Error(), "consumer with this name is already active") {
+				log.Fatalf("Failed to start queue consumer: %v\n", err)
+			}
+
+			log.Printf("Waiting for previous queue comsumer to be down")
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
-	queueRoutes[queueName] = handler
-	return qc.Start()
 }
 
-func CreateConsumer(redisHost string, redisPort string, redisDB int64, queueName string) (*QueueConsumer, error) {
+func CreateConsumer(redisHost, redisPort string, redisDB int64, queueName string) (*QueueConsumer, error) {
 	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
 	c, err := queue.AddConsumer(queueName)
 	if err != nil {
@@ -204,5 +236,5 @@ func CreateConsumer(redisHost string, redisPort string, redisDB int64, queueName
 		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
 	}
 
-	return &QueueConsumer{c}, nil
+	return &QueueConsumer{Consumer: c}, nil
 }

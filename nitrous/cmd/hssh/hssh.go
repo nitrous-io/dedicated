@@ -22,6 +22,7 @@ import (
 var (
 	aesKey string
 	dbURL  string
+	dbconn *db.Database
 )
 
 type resizeRequest struct {
@@ -46,9 +47,17 @@ func init() {
 }
 
 func main() {
+	var err error
+	// get db connection
+	dbconn, err = db.NewDatabase(dbURL)
+	if err != nil {
+		log.Fatalf("failed to open db connection %q", err)
+	}
+
 	c := cli.NewCLI("hssh", "0.0.1-alpha")
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
+		"info":   newInfoCommand(),
 		"shell":  newShellCommand(),
 		"upload": newUploadCommand(),
 		"run":    newRunCommand(),
@@ -59,18 +68,31 @@ func main() {
 }
 
 func newConn(slug string) (*sshutil.Conn, error) {
-	// get db conection
-	dbconn, err := db.NewDatabase(dbURL)
+	h, err := hostFromSlug(slug)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open db connection %q", err)
+		return nil, err
 	}
 
-	// get host
-	h, err := host.FindByIdentifier(dbconn, slug)
+	privKey, err := privateKey(h)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find host %q, error %q", slug, err)
+		return nil, err
 	}
 
+	// create the ssh client
+	addr := address(h)
+	connInterval := 5 * time.Second
+
+	// set sshUser depends on the provider
+	sshUser := "root"
+	if h.Provider == "amazon" {
+		sshUser = "ubuntu"
+	}
+
+	return sshutil.WaitForSSH(addr, sshUser, privKey,
+		connInterval, make(chan struct{}), nil)
+}
+
+func privateKey(h *host.Host) (*rsa.PrivateKey, error) {
 	// get keypair
 	kp, err := keypairs.Get(dbconn, h.ID)
 	if err != nil {
@@ -95,18 +117,15 @@ func newConn(slug string) (*sshutil.Conn, error) {
 		return nil, fmt.Errorf("invalid RSA key for host %v", h)
 	}
 
-	// create the ssh client
-	address := fmt.Sprintf("%s:65100", h.IPAddress.String)
-	connInterval := 5 * time.Second
+	return privKey, nil
+}
 
-	// set sshUser depends on the provider
-	sshUser := "root"
-	if h.Provider == "amazon" {
-		sshUser = "ubuntu"
-	}
+func address(h *host.Host) string {
+	return fmt.Sprintf("%s:65100", h.IPAddress.String)
+}
 
-	return sshutil.WaitForSSH(address, sshUser, privKey,
-		connInterval, make(chan struct{}), nil)
+func hostFromSlug(slug string) (*host.Host, error) {
+	return host.FindByIdentifier(dbconn, slug)
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session

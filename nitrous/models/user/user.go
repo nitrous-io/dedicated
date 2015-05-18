@@ -37,6 +37,7 @@ var (
 var (
 	ErrEmailBlank       = errors.New("email can't be blank")
 	ErrEmailInvalid     = errors.New("email is not valid")
+	ErrEmailBlacklisted = errors.New("email is blacklisted")
 	ErrUsernameBlank    = errors.New("username can't be blank")
 	ErrUsernameTooLong  = errors.New("username is too long (maximum is 30 characters)")
 	ErrUsernameInvalid  = errors.New("username may only contain alphanumeric characters or dashes and cannot begin with a dash")
@@ -278,6 +279,9 @@ func (u *User) Validate() error {
 	}
 	if !emailRe.MatchString(u.Email) {
 		return ErrEmailInvalid
+	}
+	if IsBlacklisted(u.Email) {
+		return ErrEmailBlacklisted
 	}
 
 	if u.Username == "" {

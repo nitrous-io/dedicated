@@ -732,6 +732,22 @@ var _ = Describe("models/user", func() {
 			u.EncryptedPassword = "something"
 			Expect(u.Validate()).To(BeNil())
 		})
+
+		It("validates email with email blacklist", func() {
+			tests := []struct {
+				input string
+				err   error
+			}{
+				{"foo@yopmail.com", user.ErrEmailBlacklisted},
+				{"foo@yopmail.fr", user.ErrEmailBlacklisted},
+				{"foo@gmail.com", nil},
+			}
+
+			for _, t := range tests {
+				u.Email = t.input
+				Expect(u.Validate() == t.err).To(BeTrue())
+			}
+		})
 	})
 
 	Describe("PhoneNumber()", func() {
