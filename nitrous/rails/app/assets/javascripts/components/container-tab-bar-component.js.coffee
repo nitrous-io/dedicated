@@ -10,6 +10,7 @@ App.ContainerTabBarComponent = Em.Component.extend
   portsSelected:         Em.computed.equal 'selected', 'ports'
   configSelected:        Em.computed.equal 'selected', 'config'
   collaboratorsSelected: Em.computed.equal 'selected', 'collaborators'
+  customDomainSelected:  Em.computed.equal 'selected', 'custom-domain'
 
   didInsertElement: ->
     @_super()
