@@ -246,7 +246,7 @@ func openFile(p string, flag int) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(p, flag, 0755)
+	f, err := os.OpenFile(p, flag, 0644)
 	if err != nil {
 		return nil, err
 	}
