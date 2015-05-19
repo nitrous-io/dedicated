@@ -13,13 +13,13 @@ type Client struct {
 	RedirectURI string `db:"redirect_uri" json:"redirect_uri"`
 }
 
-type clientWithSecret struct {
+type ClientWithSecret struct {
 	*Client
 	ClientSecret string `db:"client_secret"`
 }
 
 func (client *Client) InsertWithSecret(d *db.Database, secret string) error {
-	c := &clientWithSecret{client, secret}
+	c := &ClientWithSecret{client, secret}
 
 	nstmt, err := d.PrepareNamed(`INSERT INTO oauth_clients
 		(user_id, name, description, client_id, client_secret, redirect_uri) VALUES

@@ -18,6 +18,7 @@ var (
 	errClientNotFound           = httperror.New(http.StatusNotFound, "invalid_request", "client ID not found")
 	errInvalidClientID          = httperror.New(http.StatusForbidden, "access_denied", "client ID does not match authorization code")
 	errUnauthorizedTokenScope   = httperror.New(http.StatusForbidden, "access_denied", "token scope not allowed to request new authorization code")
+	errInvalidClientSecret      = httperror.New(http.StatusBadRequest, "access_denied", "client secret must not be empty")
 	errInvalidGrantType         = httperror.New(http.StatusBadRequest, "invalid_request", "grant_type must be 'authorization_code'")
 	errInvalidAuthorizationCode = httperror.New(http.StatusBadRequest, "invalid_request", "invalid authoriazation code")
 	errInvalidRedirectURI       = httperror.New(http.StatusBadRequest, "invalid_request", "invalid redirect_uri")
@@ -160,6 +161,9 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 	}
 
 	clientSecret := r.FormValue("client_secret")
+	if clientSecret == "" {
+		return errInvalidClientSecret
+	}
 
 	client, err := oauth.FindClientWithSecret(db, clientID, clientSecret)
 	if err != nil {

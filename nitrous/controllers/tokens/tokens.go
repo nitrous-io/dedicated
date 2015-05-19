@@ -101,7 +101,6 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	} else if grantType == "authorization_code" {
 		return oauth.TokenFromAuthorizationCode(env, w, r)
-
 	} else {
 		return errGrantType
 	}

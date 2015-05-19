@@ -42,58 +42,52 @@ var _ = Describe("controllers/oauth", func() {
 		svr = NewTestServer("", db, logger, NewFakeTracker())
 		handler = svr.Router()
 		res = httptest.NewRecorder()
-	})
 
-	BeforeEach(func() {
 		u = &user.User{
 			Username: "demoman",
-			Password: "123456",
+			Password: "scottishhandshake",
 			Email:    "demoman@mann.co",
 		}
-		err := WrapInTransaction(db, u.Insert)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
-	})
 
-	BeforeEach(func() {
-		clientUser := &user.User{
+		clientUser1 := &user.User{
 			Username: "blutarch",
 			Password: "mannup",
 			Email:    "info@blutarch.com",
 		}
-		err := WrapInTransaction(db, clientUser.Insert)
+		err = WrapInTransaction(db, clientUser1.Insert)
 		Expect(err).To(BeNil())
-		Expect(clientUser.ID).NotTo(BeZero())
+		Expect(clientUser1.ID).NotTo(BeZero())
 
-		client := &oauth.Client{
-			UserID:      clientUser.ID,
+		client1 := &oauth.Client{
+			UserID:      clientUser1.ID,
 			Name:        "Builders League United",
 			Description: "A fictional company",
 			ClientID:    "blu_team",
 			RedirectURI: "https://blu.co/oauth/callback",
 		}
-		err = client.InsertWithSecret(db, "secret_sauce")
+		err = client1.InsertWithSecret(db, "secret_sauce")
 		Expect(err).To(BeNil())
-	})
 
-	BeforeEach(func() {
-		clientUser := &user.User{
+		clientUser2 := &user.User{
 			Username: "redmond",
 			Password: "123456",
 			Email:    "info@redmond.com",
 		}
-		err := WrapInTransaction(db, clientUser.Insert)
+		err = WrapInTransaction(db, clientUser2.Insert)
 		Expect(err).To(BeNil())
-		Expect(clientUser.ID).NotTo(BeZero())
+		Expect(clientUser2.ID).NotTo(BeZero())
 
-		client := &oauth.Client{
-			UserID:      clientUser.ID,
+		client2 := &oauth.Client{
+			UserID:      clientUser2.ID,
 			Name:        "Reliable Excavation Demolition",
 			Description: "A fictional company",
 			ClientID:    "red_team",
 			RedirectURI: "https://red.co/oauth/callback",
 		}
-		err = client.InsertWithSecret(db, "top_secret")
+		err = client2.InsertWithSecret(db, "top_secret")
 		Expect(err).To(BeNil())
 	})
 
@@ -144,6 +138,9 @@ var _ = Describe("controllers/oauth", func() {
 				handler.ServeHTTP(res, req)
 
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_request"))
+				Expect(errDesc).To(Equal("auth token is required"))
 			})
 		})
 
@@ -162,6 +159,9 @@ var _ = Describe("controllers/oauth", func() {
 			It("should not be able to authorize other third party", func() {
 				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusForbidden))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal("access_denied"))
+				Expect(errDesc).To(Equal("token scope not allowed to request new authorization code"))
 			})
 		})
 
@@ -181,6 +181,9 @@ var _ = Describe("controllers/oauth", func() {
 					params.Set("response_type", "klingon")
 					res := doRequest()
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := ErrorSlug(res.Body)
+					Expect(errType).To(Equal("unsupported_response_type"))
+					Expect(errDesc).To(Equal("response type must be 'code'"))
 				})
 
 				It("should fail if invalid client id is provided", func() {
@@ -188,6 +191,9 @@ var _ = Describe("controllers/oauth", func() {
 
 					res := doRequest()
 					Expect(res.Code).To(Equal(http.StatusNotFound))
+					errType, errDesc := ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_request"))
+					Expect(errDesc).To(Equal("client ID not found"))
 				})
 
 				It("should fail if redirect URI is not subpath of original", func() {
@@ -195,6 +201,9 @@ var _ = Describe("controllers/oauth", func() {
 
 					res := doRequest()
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_request"))
+					Expect(errDesc).To(Equal("invalid redirect_uri"))
 				})
 
 				It("should fail if redirect URI different scheme", func() {
@@ -202,6 +211,9 @@ var _ = Describe("controllers/oauth", func() {
 
 					res := doRequest()
 					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_request"))
+					Expect(errDesc).To(Equal("invalid redirect_uri"))
 				})
 			})
 
@@ -269,12 +281,18 @@ var _ = Describe("controllers/oauth", func() {
 
 							res := doRequest()
 							Expect(res.Code).To(Equal(http.StatusForbidden))
+							errType, errDesc := ErrorSlug(res.Body)
+							Expect(errType).To(Equal("access_denied"))
+							Expect(errDesc).To(Equal("client ID does not match authorization code"))
 						})
 
 						It("should fail if client secret not match", func() {
 							params.Set("client_secret", "fake_secret")
 							res := doRequest()
 							Expect(res.Code).To(Equal(http.StatusUnauthorized))
+							errType, errDesc := ErrorSlug(res.Body)
+							Expect(errType).To(Equal("access_denied"))
+							Expect(errDesc).To(Equal("invalid client secret"))
 						})
 
 						It("should fail if authorization code is tempered", func() {
@@ -284,18 +302,23 @@ var _ = Describe("controllers/oauth", func() {
 
 							res := doRequest()
 							Expect(res.Code).To(Equal(http.StatusBadRequest))
+							errType, errDesc := ErrorSlug(res.Body)
+							Expect(errType).To(Equal("invalid_request"))
+							Expect(errDesc).To(Equal("invalid authoriazation code"))
 						})
 
 						It("should fail if authorization code is expired", func() {
-							// modify global to get a short-lived code
+							// modify global to get a negative-lived code
 							originalValidity := oauth.ValidityPeriod
-							oauth.ValidityPeriod = 500 * time.Millisecond
+							oauth.ValidityPeriod = -5 * time.Second
 							params.Set("code", getCode())
 							oauth.ValidityPeriod = originalValidity
 
-							time.Sleep(1 * time.Second)
 							res := doRequest()
 							Expect(res.Code).To(Equal(http.StatusUnauthorized))
+							errType, errDesc := ErrorSlug(res.Body)
+							Expect(errType).To(Equal("access_denied"))
+							Expect(errDesc).To(Equal("authorization code has expired"))
 						})
 
 						It("should fail if requested twice with same nonce", func() {
@@ -304,6 +327,9 @@ var _ = Describe("controllers/oauth", func() {
 
 							res = doRequest()
 							Expect(res.Code).To(Equal(http.StatusUnauthorized))
+							errType, errDesc := ErrorSlug(res.Body)
+							Expect(errType).To(Equal("access_denied"))
+							Expect(errDesc).To(Equal("authorization code cannot be reused"))
 						})
 					})
 
