@@ -46,7 +46,7 @@ type ScanResult struct {
 }
 
 func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, error) {
-	if host.HourlyPrice > 0 {
+	if !host.Free {
 		return nil, ErrHostIsNotFree
 	}
 
@@ -127,7 +127,7 @@ func FindScannableHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 	err := d.Select(&hosts, `
 		SELECT * FROM hosts
 		WHERE
-			hourly_price = 0
+			free IS TRUE
 			AND terminated_at IS NULL
 			AND preprovisioned = FALSE
 			AND state != 'orphan'
@@ -150,7 +150,7 @@ func FindTerminatingHosts(d *db.Database, now time.Time) ([]*host.Host, error) {
 		INNER JOIN billing_profiles ON (billing_profiles.user_id = users.id)
 		INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 		WHERE
-			hourly_price = 0
+			free IS TRUE
 			AND terminated_at IS NULL
 			AND preprovisioned = FALSE
 			AND hosts.state != 'orphan'

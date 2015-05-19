@@ -111,6 +111,7 @@ func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) erro
 	}
 
 	h.HourlyPrice = p.HourlyPrice()
+	h.Free = p.IsFree()
 
 	if err := h.Update(s.db); err != nil {
 		s.logger.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", uuid, err, h)

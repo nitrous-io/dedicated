@@ -273,11 +273,12 @@ var _ = Describe("biller/user", func() {
 			Expect(items).To(HaveLen(0))
 		})
 
-		It("should not allow an hourly price of 0 if the billing profile is not in free and user is not an admin", func() {
+		It("should not allow a free host if the billing profile is not in free and user is not an admin", func() {
 			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 0,
+					Free:        true,
 				},
 				U: u,
 			})
@@ -290,7 +291,7 @@ var _ = Describe("biller/user", func() {
 
 			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("has a 0 HourlyPrice but Billing profile state is incompatible"))
+			Expect(err.Error()).To(ContainSubstring("is a Free host but Billing profile state is incompatible"))
 
 			_, err = db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
@@ -298,11 +299,12 @@ var _ = Describe("biller/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should not allow an hourly price of 0 if the billing profile is not in free and user is not an admin but the host is terminated & upgraded", func() {
+		It("should not allow a free host if the billing profile is not in free and user is not an admin but the host is terminated & upgraded", func() {
 			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 0,
+					Free:        true,
 				},
 				U: u,
 			})
@@ -318,14 +320,15 @@ var _ = Describe("biller/user", func() {
 
 			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
-			Expect(err.Error()).To(ContainSubstring("has a 0 HourlyPrice but Billing profile state is incompatible"))
+			Expect(err.Error()).To(ContainSubstring("is a Free host but Billing profile state is incompatible"))
 		})
 
-		It("should allow an hourly price of 0 if the billing profile is not in free and user is not an admin but the host is terminated", func() {
+		It("should allow an free host if the billing profile is not in free and user is not an admin but the host is terminated", func() {
 			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 0,
+					Free:        true,
 				},
 				U: u,
 			})
@@ -378,6 +381,7 @@ var _ = Describe("biller/user", func() {
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 0,
+					Free:        true,
 				},
 				U: u,
 			})
@@ -393,7 +397,7 @@ var _ = Describe("biller/user", func() {
 			Expect(err.Error()).To(ContainSubstring("exceeds the maximum hours of the billing profile (13 vs 1)"))
 		})
 
-		It("should set the item type to be of FreeCompute if HourlyPrice is 0", func() {
+		It("should set the item type to be of FreeCompute if host is Free", func() {
 			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
 			Expect(err).To(BeNil())
 
@@ -401,6 +405,7 @@ var _ = Describe("biller/user", func() {
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 0,
+					Free:        true,
 				},
 				U: u,
 			})
@@ -504,6 +509,43 @@ var _ = Describe("biller/user", func() {
 			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
 			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
 			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{3700, true}))
+
+			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
+			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[1].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[1].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
+		})
+
+		It("should allow for hosts with just a base price", func() {
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+				},
+				P: &plan.Plan{
+					Price:     2200,
+					BasePrice: 500, // plan base price should be .745c/hr (745 millicents)
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET created_at = $1, terminated_at = $2, updated_at = now() WHERE id = $3;", startTime.Add(-72*time.Hour), endTime, hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
+			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(items).To(HaveLen(2))
+			Expect(ch).To(Equal(int64(500)))
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{0, true}))
 
 			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
 			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))

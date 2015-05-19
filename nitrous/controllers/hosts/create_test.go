@@ -367,6 +367,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
 			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 			Expect(h.HourlyPrice).To(Equal(int64(745))) // monthly price of the plan = $5.00
+			Expect(h.Free).To(BeFalse())
 
 			// and tracks on mixpanel
 			Expect(ft.PropsCalled).To(HaveLen(1))
@@ -993,6 +994,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					h1 := &host.Host{
 						Slug:        "my-orphaned-host",
 						HourlyPrice: 0,
+						Free:        true,
 						State:       host.StateOrphan,
 					}
 

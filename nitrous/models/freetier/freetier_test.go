@@ -89,6 +89,7 @@ var _ = Describe("models/freetier", func() {
 				h = &host.Host{
 					Slug:          "my-free-host",
 					HourlyPrice:   0,
+					Free:          true,
 					MaxContainers: sql.NullInt64{1, true},
 				}
 
@@ -102,6 +103,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h.UserID).To(Equal(u.ID))
 				Expect(h.PlanID).To(Equal(freePlan.ID))
 				Expect(h.HourlyPrice).To(Equal(int64(0)))
+				Expect(h.Free).To(BeTrue())
 				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
 				Expect(h.UpgradedAt.Valid).To(BeFalse())
 			})
@@ -118,6 +120,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.UserID).To(Equal(u.ID))
 				Expect(h2.PlanID).To(Equal(freePlan.ID))
 				Expect(h2.HourlyPrice).To(Equal(int64(0)))
+				Expect(h.Free).To(BeTrue())
 				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{1, true}))
 				Expect(h2.UpgradedAt.Valid).To(BeFalse())
 			})
@@ -132,6 +135,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.UserID).To(Equal(u.ID))
 				Expect(h2.PlanID).To(Equal(paidPlan.ID))
 				Expect(h2.HourlyPrice).To(Equal(int64(paidPlan.HourlyPrice())))
+				Expect(h.Free).To(BeTrue())
 				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{2, true}))
 				Expect(h2.UpgradedAt.Valid).To(BeTrue())
 			})
@@ -168,6 +172,7 @@ var _ = Describe("models/freetier", func() {
 					h1 = &host.Host{
 						Slug:        "my-free-host",
 						HourlyPrice: 0,
+						Free:        true,
 					}
 
 					_, err := test.CreateHostStack(db, &test.HostStack{
