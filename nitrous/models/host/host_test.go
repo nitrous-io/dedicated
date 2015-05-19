@@ -681,6 +681,7 @@ var _ = Describe("models/host", func() {
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
 				HourlyPrice:        int64(634),
+				Free:               true,
 				FreighterdVersion:  fv,
 				DockerVersion:      dv,
 			}
@@ -696,6 +697,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].UserID).To(Equal(u.ID))
 			Expect(hosts[0].Slug).To(Equal("my-host-1"))
 			Expect(hosts[0].HourlyPrice).To(Equal(int64(634)))
+			Expect(hosts[0].Free).To(BeTrue())
 			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
 			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())

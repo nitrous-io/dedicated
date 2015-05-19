@@ -350,7 +350,7 @@ var _ = Describe("controllers/amazon", func() {
 			})
 
 			It("should update the host with HB details", func() {
-				_, err := db.Exec("UPDATE hosts SET hourly_price = 0, max_containers = 90, size = NULL WHERE id = $1;", hs1.H.ID)
+				_, err := db.Exec("UPDATE hosts SET hourly_price = 0, free = true, max_containers = 90, size = NULL WHERE id = $1;", hs1.H.ID)
 				Expect(err).To(BeNil())
 
 				res := doRequest(hs1.H.ID, &url.Values{"host_builder": []string{hbLog}})
@@ -372,6 +372,7 @@ var _ = Describe("controllers/amazon", func() {
 				Expect(h.FreighterdPort).To(Equal(sql.NullInt64{65333, true}))
 				Expect(h.State).To(Equal("running"))
 				Expect(h.HourlyPrice).To(Equal(hs1.P.HourlyPrice()))
+				Expect(h.Free).To(Equal(hs1.P.IsFree()))
 				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
 				Expect(h.Size).To(Equal(sql.NullString{"hs1Plan", true}))
 			})

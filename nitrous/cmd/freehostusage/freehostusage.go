@@ -47,7 +47,7 @@ func refreshHost(h *host.Host) error {
 func terminateHost(h *host.Host) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
-	if h.HourlyPrice > 0 {
+	if !h.Free {
 		logr.Errorf("Sanity check failed: cannot terminate non-free host: %+v", h)
 		return fmt.Errorf("host is not free")
 	}

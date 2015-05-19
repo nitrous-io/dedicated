@@ -114,7 +114,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		return 0, []invoiceitem.InvoiceItem{}, nil
 	}
 
-	if h.HourlyPrice == 0 {
+	if h.Free {
 		bp, err := billingprofile.Find(d, h.Host.UserID)
 		if err != nil {
 			return 0, []invoiceitem.InvoiceItem{}, err
@@ -123,7 +123,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 			if h.Host.TerminatedAt != nil && !h.Host.UpgradedAt.Valid {
 				return 0, []invoiceitem.InvoiceItem{}, nil
 			} else {
-				return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d has a 0 HourlyPrice but Billing profile state is incompatible", h.Host.ID)
+				return 0, []invoiceitem.InvoiceItem{}, fmt.Errorf("Host %d is a Free host but Billing profile state is incompatible", h.Host.ID)
 			}
 		}
 		if bp.MaxHours.Valid && i.Hours.Int64 > bp.MaxHours.Int64 {

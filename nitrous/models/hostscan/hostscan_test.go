@@ -74,6 +74,7 @@ var _ = Describe("models/hostscan", func() {
 			h = &host.Host{
 				Slug:        "my-free-host",
 				HourlyPrice: 0,
+				Free:        true,
 				State:       host.StateRunning,
 			}
 

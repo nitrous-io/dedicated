@@ -211,9 +211,9 @@ func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Co
 }
 
 func (p *Provisioner) IsRunning() bool {
-		p.muIsRunning.Lock()
-		p.muIsRunning.Unlock()
-		return p.isRunning
+	p.muIsRunning.Lock()
+	p.muIsRunning.Unlock()
+	return p.isRunning
 }
 
 // Start kicks off a goroutine that pre-provisions hosts.
@@ -472,6 +472,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.HourlyPrice = opts.Plan.HourlyPrice()
+	h.Free = opts.Plan.IsFree()
 	h.Preprovisioned = false
 	if err = h.Update(p.db); err != nil {
 		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
@@ -647,6 +648,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.State = host.StateRunning
 	h.HourlyPrice = opts.Plan.HourlyPrice()
+	h.Free = opts.Plan.IsFree()
 
 	if err = h.Update(p.db); err != nil {
 		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)

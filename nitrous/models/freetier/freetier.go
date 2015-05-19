@@ -36,7 +36,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	// Free tier user should only have one host
 	// after upgrading, but putting this in a loop anyway
 	for _, h := range hosts {
-		if h.HourlyPrice == 0 {
+		if h.Free {
 			p, err := plan.FindByID(d, h.PlanID)
 			if err != nil {
 				return err
@@ -65,6 +65,7 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 	h.PlanID = paidPlan.ID
 	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
 	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.Free = paidPlan.IsFree()
 	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
 	h.LastRunningAt = pq.NullTime{Valid: false}
 

@@ -210,6 +210,7 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
 			Expect(updatedHost.State).To(Equal(host.StateRunning))
 			Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
+			Expect(updatedHost.Free).To(BeFalse())
 		})
 
 		It("does not update when the host is running", func() {
@@ -235,6 +236,7 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
 			Expect(updatedHost.State).To(Equal(host.StateRunning))
 			Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
+			Expect(updatedHost.Free).To(BeFalse())
 		})
 	})
 

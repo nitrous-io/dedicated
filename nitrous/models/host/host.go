@@ -102,6 +102,7 @@ type Host struct {
 
 	// HourlyPrice unit is milli-cents (x1000)
 	HourlyPrice int64 `db:"hourly_price"`
+	Free        bool  `db:"free"`
 
 	*ProviderTemplate
 
@@ -117,10 +118,6 @@ type Host struct {
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
 	UpgradeAvailable      string
-}
-
-func (h *Host) IsFreeTier() bool {
-	return h.HourlyPrice == 0
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
@@ -305,13 +302,13 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
 		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
-			hourly_price, preprovisioned, freighterd_version, docker_version,
+			hourly_price, free, preprovisioned, freighterd_version, docker_version,
 			region_identifier
 		)
 		VALUES
 		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 		:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
-		:hourly_price, :preprovisioned, :freighterd_version, :docker_version,
+		:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
 		:region_identifier)
 		RETURNING *;`)
 	if err != nil {
@@ -323,10 +320,10 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
-			preprovisioned, hourly_price, freighterd_version, docker_version, updated_at,
+			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
 			region_identifier)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
-			:preprovisioned, :hourly_price, :freighterd_version, :docker_version, now(),
+			:preprovisioned, :hourly_price, :free, :freighterd_version, :docker_version, now(),
 			:region_identifier)
 		WHERE id = :id
 		RETURNING *;`)
