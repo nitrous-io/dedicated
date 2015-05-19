@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
@@ -23,7 +23,7 @@ const (
 	warningSubject = `Workspace termination warning - 7 day notice`
 	warningMessage = `It looks like you have not been using your Nitrous workspace during the past month.
 
-Your workspace {{ .Slug }} will be terminated after 7 days if the inactivity continues.
+Your workspace {{ .Slug }} will be terminated in 7 days if you are not actively developing an application.
 
 If you no longer need your workspace and its contents, no further action is required.
 
@@ -45,6 +45,8 @@ var (
 	d           *db.Database
 	logr        *logger.Logger
 	initiatorID int64
+
+	dryrun = true
 )
 
 func refreshHost(h *host.Host) error {
@@ -68,6 +70,11 @@ func terminateHost(h *host.Host) error {
 	}
 
 	logr.Infof("Terminating host %d for user %d", h.ID, h.UserID)
+
+	if dryrun {
+		return nil
+	}
+
 	timeStart := time.Now()
 
 	headers := http.Header{}
@@ -165,6 +172,10 @@ func scanWarningHosts() {
 	for _, scan := range scans {
 		switch scan.State {
 		case hostscan.StateActive, hostscan.StateGracePeriod:
+			if dryrun {
+				logr.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := scan.UpdateHost(d)
 			if err != nil {
 				// ignore
@@ -172,12 +183,20 @@ func scanWarningHosts() {
 			}
 
 		case hostscan.StateOneWeekNotice:
+			if dryrun {
+				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := sendAnnouncementForHostScan(scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateTerminating:
+			if dryrun {
+				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := sendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
@@ -209,6 +228,11 @@ func main() {
 	var err error
 
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
+
+	if os.Args[len(os.Args)-1] == "--live-run" {
+		dryrun = false
+		logr.Warnf("Live Run!")
+	}
 
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
