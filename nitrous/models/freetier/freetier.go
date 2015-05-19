@@ -70,8 +70,8 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (plan_id, size, hourly_price, max_containers, last_running_at, upgraded_at)
-		= (:plan_id, :size, :hourly_price, :max_containers, :last_running_at, now())
+		SET (plan_id, size, hourly_price, free, max_containers, last_running_at, upgraded_at)
+		= (:plan_id, :size, :hourly_price, :free, :max_containers, :last_running_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
