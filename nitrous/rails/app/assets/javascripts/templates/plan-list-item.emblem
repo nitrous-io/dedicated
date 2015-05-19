@@ -30,15 +30,21 @@
         td
           span Processor
       tr
-        td
-          = memory
-        td
-          span Memory
+        if memory.length
+          td
+            = memory
+          td
+            span Memory
+        else
+          td colspan=2
       tr
-        td
-          = storage
-        td
-          span Storage
+        if storage.length
+          td
+            = storage
+          td
+            span Storage
+        else
+          td colspan=2
 
   if plan.mostPopular
     .ribbon
