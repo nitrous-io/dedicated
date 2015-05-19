@@ -18,18 +18,19 @@
         table.ui.table
           tbody
             each key in containerKeys
-              tr
-                td
-                  h4
-                    = key.name
-                td.right
-                  if App.userProfile.authorizedGitHubUserName
-                    if saving
-                      button.ui.btn disabled='disabled'
-                        i.spinner
-                        | Adding to GitHub...
-                    else
-                      button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+              .left
+                h4
+                  = key.name
+                .ui.input-group
+                  = textarea type='text' class='text-highlight key-field' id='public-key' name='public-key' rows='6' value=key.key readonly=true
+              .right
+                if App.userProfile.authorizedGitHubUserName
+                  if saving
+                    button.ui.btn disabled='disabled'
+                      i.spinner
+                      | Adding to GitHub...
+                  else
+                    button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
 
       else
         p.hint-text

@@ -425,6 +425,9 @@ $(document).on 'click', '.click-highlight', (e) ->
   sel.removeAllRanges()
   sel.addRange(range)
 
+$(document).on 'click', '.text-highlight', (e) ->
+  e.target.select()
+
 Em.Route.reopen
   activate: ->
     App.set 'title', null
