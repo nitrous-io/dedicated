@@ -24,9 +24,6 @@
                 .ui.input-group
                   = textarea type='text' class='text-highlight key-field' id='public-key' name='public-key' rows='6' value=key.key readonly=true
               .right
-                if copySupported
-                  button.ui.btn click='copyToClipboard' Copy to clipboard
-
                 if App.userProfile.authorizedGitHubUserName
                   if saving
                     button.ui.btn disabled='disabled'

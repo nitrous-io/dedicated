@@ -14,9 +14,6 @@ App.ContainerKeysController = Lib.RecordListController.extend
       notRunningError: false
       saving: false
 
-  copySupported: ->
-    document.execCommand?
-
   actions:
     add: ->
       @transitionToRoute 'container.keys-new'
@@ -29,13 +26,3 @@ App.ContainerKeysController = Lib.RecordListController.extend
         App.postError(jqxhr.responseJSON, "Failed to add container public key to GitHub!")
       ).finally =>
         @set 'saving', false
-
-    copyToClipboard: ->
-      element = document.querySelector('.key-field');
-      element.select()
-
-      success = document.execCommand('copy')
-      if success
-        App.snackbar.post('SSH key copied to clipboard.')
-      else
-        App.snackbar.post('Failed to copy to clipboard')
