@@ -541,16 +541,12 @@ var _ = Describe("biller/user", func() {
 
 			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
-			Expect(items).To(HaveLen(2))
+			Expect(items).To(HaveLen(1))
 			Expect(ch).To(Equal(int64(500)))
+			Expect(items[0].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
 			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
 			Expect(items[0].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
-			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{0, true}))
-
-			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeBaseEBS))
-			Expect(items[1].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
-			Expect(items[1].Hours).To(Equal(sql.NullInt64{invoiceitem.MaxHours, true}))
-			Expect(items[1].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{745, true}))
 		})
 
 		It("should cap the max base price to the terminated_at time", func() {

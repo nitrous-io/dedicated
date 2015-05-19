@@ -133,8 +133,13 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 	}
 
 	applyRulesToInvoiceItem(&i, l)
-	items := []invoiceitem.InvoiceItem{i}
-	totalCharge := i.TotalCharge(&plan.Plan{Price: h.PlanPrice})
+	items := []invoiceitem.InvoiceItem{}
+	var totalCharge int64
+
+	if h.Free || h.HourlyPrice > 0 {
+		items = append(items, i)
+		totalCharge = i.TotalCharge(&plan.Plan{Price: h.PlanPrice})
+	}
 
 	// apply base workspace price
 	if h.PlanBasePrice > 0 && (h.TerminatedAt == nil || h.TerminatedAt.After(start)) {
