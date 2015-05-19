@@ -40,7 +40,6 @@ func GenerateAuthorizationCode(userID int64, clientID, redirectURI string) (stri
 	}
 
 	createdAt := time.Now().UTC()
-
 	code := AuthorizationCode{
 		Type:        "authorization_code",
 		UserID:      userID,

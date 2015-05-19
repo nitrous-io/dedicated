@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -15,10 +16,10 @@ import (
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "controllers/oauth")
+	RunSpecs(t, "models/oauth")
 }
 
-var _ = Describe("controllers/oauth", func() {
+var _ = Describe("models/oauth", func() {
 	var (
 		db            *db.Database
 		u, clientUser *user.User
@@ -29,26 +30,22 @@ var _ = Describe("controllers/oauth", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-	})
 
-	BeforeEach(func() {
 		u = &user.User{
 			Username: "demoman",
 			Password: "123456",
 			Email:    "demoman@mann.co",
 		}
-		err := WrapInTransaction(db, u.Insert)
+		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
-	})
 
-	BeforeEach(func() {
 		clientUser = &user.User{
 			Username: "blutarch",
 			Password: "mannup",
 			Email:    "info@blutarch.com",
 		}
-		err := WrapInTransaction(db, clientUser.Insert)
+		err = WrapInTransaction(db, clientUser.Insert)
 		Expect(err).To(BeNil())
 		Expect(clientUser.ID).NotTo(BeZero())
 
@@ -59,8 +56,6 @@ var _ = Describe("controllers/oauth", func() {
 			ClientID:    "blu_team",
 			RedirectURI: "https://blu.co/oauth/callback",
 		}
-		err = client.InsertWithSecret(db, "secret_sauce")
-		Expect(err).To(BeNil())
 	})
 
 	generateCode := func() string {
@@ -70,7 +65,32 @@ var _ = Describe("controllers/oauth", func() {
 		return signedCode
 	}
 
-	Describe("client model", func() {
+	Describe("InsertWithSecret()", func() {
+		It("should insert to db correctly with secret", func() {
+			err := client.InsertWithSecret(db, "secret_sauce")
+			Expect(err).To(BeNil())
+
+			client2 := &oauth.ClientWithSecret{}
+
+			err = db.Get(client2, `SELECT *
+				FROM oauth_clients WHERE user_id=$1;
+			`, clientUser.ID)
+			Expect(err).To(BeNil())
+
+			Expect(client2.Name).To(Equal("Builders League United"))
+			Expect(client2.Description).To(Equal("A fictional company"))
+			Expect(client2.ClientID).To(Equal("blu_team"))
+			Expect(client2.RedirectURI).To(Equal("https://blu.co/oauth/callback"))
+			Expect(client2.ClientSecret).To(Equal("secret_sauce"))
+		})
+	})
+
+	Describe("FindClientByID()", func() {
+		BeforeEach(func() {
+			err := client.InsertWithSecret(db, "secret_sauce")
+			Expect(err).To(BeNil())
+		})
+
 		It("should find client result by client id", func() {
 			c, err := oauth.FindClientByID(db, "blu_team")
 			Expect(err).To(BeNil())
@@ -95,7 +115,30 @@ var _ = Describe("controllers/oauth", func() {
 		})
 	})
 
-	Describe("authorization code", func() {
+	Describe("GenerateAuthorizationCode()", func() {
+		It("should generate token with correct fields", func() {
+			signedCode, err := oauth.GenerateAuthorizationCode(u.ID, "blu_team", "https://blu.co/oauth/callback")
+			Expect(err).To(BeNil())
+
+			parsedCode := &oauth.AuthorizationCode{}
+			verifier := msgverifier.New(envvars.SecretToken)
+			err = verifier.Verify(signedCode, parsedCode)
+
+			Expect(parsedCode.Type).To(Equal("authorization_code"))
+			Expect(parsedCode.UserID).To(Equal(u.ID))
+			Expect(parsedCode.ClientID).To(Equal("blu_team"))
+			Expect(parsedCode.Nonce).ToNot(Equal(""))
+			Expect(parsedCode.RedirectURI).To(Equal("https://blu.co/oauth/callback"))
+			Expect(parsedCode.CreatedAt).To(BeTemporally("~", time.Now(), 1*time.Second))
+		})
+	})
+
+	Describe("ReadAuthorizationCode()", func() {
+		BeforeEach(func() {
+			err := client.InsertWithSecret(db, "secret_sauce")
+			Expect(err).To(BeNil())
+		})
+
 		It("should be able to read generated code", func() {
 			signedCode := generateCode()
 			Expect(signedCode).ToNot(Equal(""))
@@ -130,13 +173,11 @@ var _ = Describe("controllers/oauth", func() {
 		})
 
 		It("should not able to read code after expired", func() {
-			// modify global to get a short-lived code
+			// modify global to get a negative-lived code
 			originalValidity := oauth.ValidityPeriod
-			oauth.ValidityPeriod = 500 * time.Millisecond
+			oauth.ValidityPeriod = -5 * time.Second
 			signedCode := generateCode()
 			oauth.ValidityPeriod = originalValidity
-
-			time.Sleep(1 * time.Second)
 
 			_, err := oauth.ReadAuthorizationCode(signedCode)
 			Expect(err).To(Equal(oauth.ErrCodeExpired))
