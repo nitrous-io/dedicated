@@ -1,8 +1,22 @@
 - content_for :head_stylesheet
+  = stylesheet_link_tag 'application', media: 'all'
   sass:
     html
       background: #2a3239
 
+.container
+  .ui.card
+    .card-header.bordered
+      h2 Authorize Application
+    .card-body.bordered
+      | Authorize application to access your container?
+      .ui.input-group
+        button.ui.btn.yes-button
+          | Yes
+        button.ui.btn.no-button
+          | No
+
 - content_for :body_script
   = javascript_include_tag 'compat'
+  = javascript_include_tag 'jquery'
   = javascript_include_tag 'consent'
