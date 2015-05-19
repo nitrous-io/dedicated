@@ -1,15 +1,4 @@
-readQueryString = (rawString) ->
-  query = {}
-  if rawString.length == 0 || rawString[0] != '?'
-    return query
-
-  for q in rawString.slice(1).split('&')
-    m = q.match(/^([^=]+)=(.*)*$/)
-    k = m[1]
-    v = m[2]
-    if k && v
-      query[k] = window.decodeURIComponent(v)
-  query
+#= require querystring
 
 fetchClient = (clientId, token) ->
   $.ajax 
@@ -49,7 +38,7 @@ fetchAuthorizationCode = (token, clientId, state, redirectUri) ->
   )
 
 main = ->
-  query = readQueryString(location.search)
+  query = querystring.parse(location.search)
   clientId = query.client_id
   state = query.state
   redirectUri = query.redirect_uri
