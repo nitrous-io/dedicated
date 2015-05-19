@@ -67,6 +67,18 @@ hostActions =
         url: "/api/v0/hosts/#{host.slug}"
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
+  terminateReassign:
+    name: 'Terminate & Reassign'
+    progressName: 'Terminating'
+    description: 'This will permanently delete the host and all services, images, volumes, and archives within the host.'
+    successMessage: 'Successfully terminated host'
+    failureMessage: 'Failed to terminate host!'
+    perform: (host) ->
+      Em.$.ajax
+        type: 'DELETE'
+        url: "/api/v0/hosts/#{host.slug}?reassign=true"
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+
   terminateUnaccounted:
     name: 'Terminate'
     progressName: 'Terminating'
@@ -128,5 +140,5 @@ Lib.HostActions =
   # Put other types of common collection of host actions into array
   healthyHostBulkActions: [hostActions.update, hostActions.terminate]
   inconsistentHostBulkActions: [hostActions.stateChanger('running'), hostActions.stateChanger('stopped'), hostActions.terminate]
-  problemHostActions: [hostActions.terminate]
+  problemHostActions: [hostActions.terminate, hostActions.terminateReassign]
   unaccountedHostActions: [hostActions.terminateUnaccounted]

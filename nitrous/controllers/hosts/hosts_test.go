@@ -1142,6 +1142,37 @@ var _ = Describe("controllers/hosts", func() {
 				_, err = host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(MatchError(sql.ErrNoRows))
 			})
+
+			It("reassigns the host when `reassign` is sent", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+				Expect(err).To(BeNil())
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				replaceTransport(hb, &test.FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+				})
+				hosts.HostbuilderClient = hb
+
+				params := &url.Values{}
+				params.Set("reassign", "true")
+
+				req, err := test.NewRequest("DELETE", "/api/v0/hosts/"+hs.H.Slug, params)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", anotherToken.Token))
+				handler.ServeHTTP(res, req)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err = host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM hosts WHERE user_id = $1 AND id = $2 AND state = $3",
+					anotherUser.ID, hs.H.ID, host.StateTerminated).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
 		})
 
 		Context("when host is provider identifier is nil", func() {
