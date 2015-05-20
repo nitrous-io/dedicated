@@ -617,7 +617,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 			}
 		} else {
 			h.State = host.StateOrphan
-			_ = h.Update(p.db) // Ignore error here.
+			// ignore, but log
+			if err := p.updateProviderDetails(h); err != nil {
+				p.logger.Debugf("provisionTracer: defer-updateProviderDetails err: %+v h: %+v ", err, h)
+			}
 			if opts.ProvisionFailedFn != nil {
 				opts.ProvisionFailedFn(h, err)
 			}
@@ -647,15 +650,26 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 
 	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
 	h.State = host.StateRunning
-	h.HourlyPrice = opts.Plan.HourlyPrice()
-	h.Free = opts.Plan.IsFree()
 
-	if err = h.Update(p.db); err != nil {
+	// only update attributes related to provisioning
+	// we don't want to replace all attributes with any outdated data
+	if err := p.updateProviderDetails(h); err != nil {
+		p.logger.Debugf("provisionTracer: updateProviderDetails err: %+v h: %+v ", err, h)
+		return nil, err
+	}
+
+	_, err = p.db.Exec(`UPDATE hosts SET hourly_price=$1, free = $2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
+		opts.Plan.HourlyPrice(), opts.Plan.IsFree(), h.ID, opts.Plan.ID)
+	if err != nil {
 		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
 	p.logger.Debugf("provisionTracer: updated h: %+v", h)
-	return h, nil
+
+	// refresh the host for live DB data
+	// (assign, not return so the value is passed into defer)
+	h, err = host.FindByIdentifier(p.db, h.Slug)
+	return h, err
 }
 
 func (p *Provisioner) configureUser() error {
@@ -780,6 +794,18 @@ func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) http.Header {
 	h := http.Header{}
 	h.Set(constants.NitrousUUIDHeader, opts.UUID)
 	return h
+}
+
+func (p *Provisioner) updateProviderDetails(h *host.Host) error {
+	nstmt, err := p.db.PrepareNamed(`UPDATE hosts
+		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
+		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
 }
 
 // generateKey generates and returns a private key together with its public key.
