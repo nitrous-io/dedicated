@@ -61,8 +61,6 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 			return sendErr(resp, msg, err)
 		}
 		return sendFinalReply(resp, msg, info)
-	case "download":
-		// FIXME
 	case "write":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
@@ -102,10 +100,6 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 			return sendErr(resp, msg, err)
 		}
 		return sendFinalReply(resp, msg, []interface{}{oldPath})
-	case "upload":
-		// FIXME
-	case "unzip":
-		// FIXME
 	}
 	close(resp)
 	return resp
