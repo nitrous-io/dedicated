@@ -127,18 +127,6 @@ func runCmd(cmd *exec.Cmd) (string, string, error) {
 	return stdoutStr, stderrStr, err
 }
 
-func runWithSuUserShell(cmdStr string) (string, string, error) {
-	cmd := buildWithSuUserShell(cmdStr)
-	stdout, stderr, err := runCmd(cmd)
-	shell := getShellForUserCached(getNitrousUser())
-	if err != nil {
-		log.Printf("su shell '%s' cmd: '%s' failed with %s, stdout: '%s', stderr: '%s'\n", shell, cmdStr, err, stdout, stderr)
-	} else {
-		log.Printf("su shell '%s' cmd: '%s' returned stdout: '%s' stderr: '%s'\n", shell, cmdStr, stdout, stderr)
-	}
-	return stdout, stderr, err
-}
-
 // arguments in msg.Args:
 // - 1st is a list of strings that is a command to execute with arguments e.g. ["ls", "-lah"]
 // - 2nd is current workding directory or empty string to use what we have
