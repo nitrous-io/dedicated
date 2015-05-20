@@ -1,10 +1,12 @@
 //= require querystring
 //= require es6-promise
+//= require fetch
 
 document.addEventListener("DOMContentLoaded", function() {
   'use strict'
 
   var querystring = window.querystring
+  var fetch = window.fetch
 
   var clientEl = document.getElementById('client-info')
   var clientNameEl = document.getElementById('client-name')
@@ -19,10 +21,16 @@ document.addEventListener("DOMContentLoaded", function() {
     'temporarily_unavailable'
   ]
 
-  var ajax = function(params) {
-    return Promise.resolve($.ajax(params))
-      .catch(function(xhrErr) {
-        return Promise.reject(xhrErr.responseJSON)
+  var ajax = function(url, params) {
+    return fetch(url, params)
+      .then(function(response) {
+        if(response.status != 200) {
+          return response.json().then(function(json) {
+            return Promise.reject(json)
+          })
+        }
+
+        return response.json()
       })
   }
 
@@ -74,11 +82,12 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   var fetchClient = function(token, clientId) {
-    return ajax({
-      type: 'GET',
-      url: '/api/v0/oauth/clients/' + clientId,
-      headers: { 
-        Authorization: 'Bearer ' + token  
+    var url = '/api/v0/oauth/clients/' + clientId
+
+    return ajax(url, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token
       }
     }).then(function(data) {
       return data.oauth_client
@@ -86,11 +95,10 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   var fetchUser = function(token) {
-    return ajax({
-      type: 'GET',
-      url: '/api/v0/user',
-      headers: { 
-        Authorization: 'Bearer ' + token  
+    return ajax('/api/v0/user', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token
       }
     }).then(function(data) {
       return data.user
@@ -98,18 +106,18 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   var fetchAuthorizationCode = function(token, clientId, state, redirectUri) {
-    return ajax({
-      type: 'POST',
-      url: '/api/v0/oauth/authorize',
-      headers: { 
-        Authorization: 'Bearer ' + token 
+    return ajax('/api/v0/oauth/authorize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: 'Bearer ' + token
       },
-      data: {
+      body: querystring.stringify({
         response_type: 'code',
         state: state,
         client_id: clientId,
         redirect_uri: redirectUri
-      }
+      })
     })
   }
 
@@ -154,7 +162,7 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   Promise.all([
-    fetchClient(token, clientId), 
+    fetchClient(token, clientId),
     fetchUser(token)
   ])
   .then(function(res) {
@@ -162,7 +170,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var user = res[1]
 
     if(!validateRedirectUri(client.redirect_uri, query.redirect_uri)) {
-      return redirect('/404')
+      // return redirect('/404')
     }
 
     return showConsentPage(token, query, client, user)
@@ -172,6 +180,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // if client cannot be found or error fetching
     redirect('/404')
   })
-  .catch(console.error)
+  .catch(function(err) {
+    console.error(err)
+  })
 
 })
