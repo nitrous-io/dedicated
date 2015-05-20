@@ -1,5 +1,5 @@
 - content_for :head_stylesheet
-  = stylesheet_link_tag 'application', media: 'all'
+  = stylesheet_link_tag 'consent', media: 'all'
   sass:
     html
       background: #2a3239
@@ -8,15 +8,20 @@
   .ui.card
     .card-header.bordered
       h2 Authorize Application
-    .card-body.bordered
-      | Authorize application to access your container?
+    .card-body.bordered.hide#client-info
+      p
+        | Hello, 
+        span#username
+      p
+        span#client-name
+        |  would like permission to access your container
+
       .ui.input-group
-        button.ui.btn.yes-button
-          | Yes
-        button.ui.btn.no-button
-          | No
+        button.ui.btn#yes-button
+          | Authorize
+        button.ui.btn#no-button
+          | Decline
 
 - content_for :body_script
-  = javascript_include_tag 'compat'
   = javascript_include_tag 'jquery'
   = javascript_include_tag 'consent'
