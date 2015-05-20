@@ -84,7 +84,11 @@ func (env *Env) AddEventData(data map[string]interface{}) {
 }
 
 func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
-	t := &token.Token{UserID: u.ID}
+	t := &token.Token{
+		UserID: u.ID,
+		Type:   "login",
+		Scope:  token.ScopeFull,
+	}
 
 	err := t.Insert(env.DB)
 	if err != nil {
