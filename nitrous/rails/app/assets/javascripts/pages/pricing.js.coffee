@@ -57,12 +57,12 @@ pages.Pricing =
       $t = $('.pricing-toggle')
       if pricingHourly
         $t.addClass('hourly')
-        $('.plan-price .hourly').css(opacity: 1)
-        $('.plan-price .monthly').css(opacity: 0)
+        $('.plan-price .hourly').addClass('show')
+        $('.plan-price .monthly').removeClass('show')
       else
         $t.removeClass('hourly')
-        $('.plan-price .hourly').css(opacity: 0)
-        $('.plan-price .monthly').css(opacity: 1)
+        $('.plan-price .hourly').removeClass('show')
+        $('.plan-price .monthly').addClass('show')
 
     $('.pricing-toggle .toggle-btn').click ->
       pricingHourly = !pricingHourly
@@ -77,6 +77,13 @@ pages.Pricing =
       updatePricing()
 
     updatePricing()
+
+    $('.plan-price').hover ->
+      $(this).find('.hourly').addClass('show')
+      $(this).find('.monthly').removeClass('show')
+    , ->
+      $(this).find('.monthly').addClass('show')
+      $(this).find('.hourly').removeClass('show')
 
     # fetch plans
     plans = []
