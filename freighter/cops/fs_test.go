@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -29,34 +30,39 @@ var _ = Describe("mkdir", func() {
 		Expect(stat.Mode().String()).To(Equal("drwxr-xr-x"), "unexpected permission")
 	})
 
-	It("sets the owner to the parent directory's owner", func() {
+	It("sets the owner to the fs uid/gid", func() {
 		root, _ := ioutil.TempDir("/tmp", "cfs-mkdir")
 		defer os.RemoveAll(root)
 		os.Chown(root, 1234, 123)
 
 		p := filepath.Join(root, "testdir")
-		fs := &FS{}
+		fs := &FS{uid: 1000, gid: 1000}
 		err := fs.mkdir(p)
 		Expect(err).To(BeNil(), "unexpected error")
 
 		stat, _ := os.Stat(p)
-		uid, gid, _ := owner(stat)
-		Expect(uid).To(Equal(1234), "unexpected uid")
-		Expect(gid).To(Equal(123), "unexpected gid")
+		s, _ := stat.Sys().(*syscall.Stat_t)
+		Expect(int(s.Uid)).To(Equal(1000), "unexpected uid")
+		Expect(int(s.Gid)).To(Equal(1000), "unexpected gid")
 	})
 })
 
 var _ = Describe("openFile", func() {
-	It("opens a file with 644 attribute", func() {
+	It("opens a file with 644 attribute and correct uid/gid", func() {
 		root, _ := ioutil.TempDir("/tmp", "cfs-mkdir")
 		defer os.RemoveAll(root)
 		os.Chown(root, 1234, 123)
 
+		fs := &FS{uid: 1000, gid: 1000}
 		p := filepath.Join(root, "testfile")
-		f, err := openFile(p, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		f, err := fs.openFile(p, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 		Expect(err).To(BeNil(), "unexpected error")
 
 		stat, _ := f.Stat()
 		Expect(stat.Mode()).To(Equal(os.FileMode(0644)))
+
+		s, _ := stat.Sys().(*syscall.Stat_t)
+		Expect(int(s.Uid)).To(Equal(1000), "unexpected uid")
+		Expect(int(s.Gid)).To(Equal(1000), "unexpected gid")
 	})
 })

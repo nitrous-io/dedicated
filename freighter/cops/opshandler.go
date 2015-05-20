@@ -29,18 +29,23 @@ type OpsHandler struct {
 	fileWatcher     *fsnotify.Watcher
 	fileWatcherQuit chan bool
 	watchedDirs     map[string]bool
+
+	uid, gid int
 }
 
-func handleOps(containerId string, r io.Reader, w io.Writer) error {
-	var err error
+func handleOps(info *CopsInfo, r io.Reader, w io.Writer) (err error) {
+	uid, gid := info.owner()
 	oh := &OpsHandler{
-		containerId:     containerId,
+		containerId:     info.CID,
 		decoder:         json.NewDecoder(r),
 		encoder:         json.NewEncoder(w),
 		errCh:           make(chan error, 1),
 		fileWatcherQuit: make(chan bool),
 		watchedDirs:     make(map[string]bool),
+		uid:             uid,
+		gid:             gid,
 	}
+
 	oh.fileWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -157,7 +162,7 @@ func (oh *OpsHandler) runHandler(h AsyncHandler, msg *Message) {
 // messageLoop runs inside a chroot environment and processes container requests
 func (oh *OpsHandler) copsMessageLoop() {
 	// cache handlers
-	fsHandler := NewFsHandler()
+	fsHandler := NewFsHandler(oh.uid, oh.gid)
 	finderHandler := NewFinderHandler()
 	cmdHandler := &CmdHandler{}
 
