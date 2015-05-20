@@ -4,16 +4,28 @@
       = name
     .price
       if totalPriceInDollars
-        span
-          ' $
-        strong
-          = totalPriceInDollars
-        em
+        .monthly
+          ' Up to $
+          strong
+            = totalPriceInDollars
           '
-          | / mo.
+          ' /mo.
+          sup ?
+        .hourly
+          strong
+            = hourlyPriceInCents
+          ' ¢ /hr.
+          br
+          small
+            ' + $
+            strong
+              = basePriceInDollars
+            '
+            ' /mo. for storage
       else
-        strong
-          | FREE
+        .free
+          strong
+            | FREE
     table.specs
       tr
         td
@@ -22,29 +34,60 @@
           = maxContainers
         td
           span Containers
+      /tr
+        /td
+          /= cpu
+          /'
+          /| Core
+        /td
+          /span Processor
       tr
         td
-          = cpu
-          '
-          | Core
+          = memory
         td
-          span Processor
+          span Memory
       tr
-        if memory.length
-          td
-            = memory
-          td
-            span Memory
-        else
-          td colspan=2
+        td
+          = storage
+        td
+          span Storage
       tr
-        if storage.length
-          td
-            = storage
-          td
-            span Storage
-        else
-          td colspan=2
+        td colspan='2'
+          i.fa.fa-check
+          span Root Access
+      tr
+        td colspan='2'
+          i.fa.fa-check
+          span Live Collaboration
+      tr
+        td colspan='2'
+          if totalPriceInDollars
+            i.fa.fa-check
+          else
+            i.fa.fa-times
+          span Dedicated Resources
+      tr
+        td colspan='2'
+          if totalPriceInDollars
+            i.fa.fa-check
+          else
+            i.fa.fa-times
+          span SSH Access
+      tr
+        td colspan='2'
+          if totalPriceInDollars
+            i.fa.fa-check
+          else
+            i.fa.fa-times
+          span Desktop File Sync
+      tr
+        td colspan='2'
+          if totalPriceInDollars
+            i.fa.fa-check
+          else
+            i.fa.fa-times
+          span Docker Support
+
 
   if plan.mostPopular
     .ribbon

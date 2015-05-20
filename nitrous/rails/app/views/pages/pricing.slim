@@ -38,7 +38,8 @@
                     | $
                     span.price
                     small
-                      | /mo.
+                      ' /mo.
+                      sup ?
                 .hourly
                   .focus
                     span.price
@@ -51,32 +52,39 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage cost
+                      | for storage
               ul.details
                 /li.spec title="1GB RAM / 20GB SSD"
                   /strong Standard
                   /| Performance
                 li
-                  strong 2
+                  ' Up to
+                  strong
+                    ' 2
                   | Containers
                 li
-                  strong 1 GB
+                  strong
+                    ' 1 GB
                   | Memory
                 li
-                  strong 20 GB
+                  strong
+                    ' 20 GB
                   | Storage
                 li.ticked
                   i.fa.fa-check
-                  | Root Enabled
+                  | Root Access
                 li.ticked
                   i.fa.fa-check
                   | Dedicated Resources
                 li.ticked
                   i.fa.fa-check
-                  | Real-time Collaboration
+                  | Live Collaboration
                 li.ticked
                   i.fa.fa-check
                   | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
                 li.ticked
                   i.fa.fa-check
                   | Docker Support
@@ -95,7 +103,8 @@
                     | $
                     span.price
                     small
-                      | /mo.
+                      ' /mo.
+                      sup ?
                 .hourly
                   .focus
                     span.price
@@ -108,32 +117,39 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage cost
+                      | for storage
               ul.details
                 /li.spec title="2GB RAM / 50GB SSD"
                   /strong 2x
                   /| Performance
                 li
-                  strong 5
+                  ' Up to
+                  strong
+                    ' 5
                   | Containers
                 li
-                  strong 2 GB
+                  strong
+                    ' 2 GB
                   | Memory
                 li
-                  strong 50 GB
+                  strong
+                    ' 50 GB
                   | Storage
                 li.ticked
                   i.fa.fa-check
-                  | Root Enabled
+                  | Root Access
                 li.ticked
                   i.fa.fa-check
                   | Dedicated Resources
                 li.ticked
                   i.fa.fa-check
-                  | Real-time Collaboration
+                  | Live Collaboration
                 li.ticked
                   i.fa.fa-check
                   | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
                 li.ticked
                   i.fa.fa-check
                   | Docker Support
@@ -150,7 +166,8 @@
                     | $
                     span.price
                     small
-                      | /mo.
+                      ' /mo.
+                      sup ?
                 .hourly
                   .focus
                     span.price
@@ -163,32 +180,39 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage cost
+                      | for storage
               ul.details
                 /li.spec title="4GB RAM / 120GB SSD"
                   /strong 4x
                   /| Performance
                 li
-                  strong 12
+                  ' Up to
+                  strong
+                    ' 12
                   | Containers
                 li
-                  strong 4 GB
+                  strong
+                    ' 4 GB
                   | Memory
                 li
-                  strong 120 GB
+                  strong
+                    ' 120 GB
                   | Storage
                 li.ticked
                   i.fa.fa-check
-                  | Root Enabled
+                  | Root Access
                 li.ticked
                   i.fa.fa-check
                   | Dedicated Resources
                 li.ticked
                   i.fa.fa-check
-                  | Real-time Collaboration
+                  | Live Collaboration
                 li.ticked
                   i.fa.fa-check
                   | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
                 li.ticked
                   i.fa.fa-check
                   | Docker Support
@@ -200,14 +224,17 @@
               span.title Free
               ul.details
                 li
-                  strong 2
+                  strong
+                    ' 2
                   | Containers
                 li.spec title="1GB RAM / 10GB SSD"
-                  strong Standard
+                  strong
+                    ' Standard
                   | Performance
                 li
                   i.fa.fa-clock-o
-                  strong 2-hour
+                  strong
+                    ' 2-hour
                   | Daily Usage
               a.btn.blue.ripple href="/app/#/signup/" Get started
 
@@ -229,135 +256,10 @@
             a href="/education" target="_blank" Nitrous for Education
             | .
 
-
-  - if false
-    article.pricing.attached-bottom
-      .container
-        .pricing-container
-          .left
-
-            .pricing-block.paid.workspaces
-              h3 Workspaces
-              ul.trio
-                li.selectable.ripple data-slug='basic' data-ripple-color='#0099ED'
-                  span.title Basic
-                  span.focus
-                    strong 25
-                    | GB
-                  span.details
-                    strong $5.00
-                    | /mo.
-                li.selectable.ripple data-slug='standard' data-ripple-color='#0099ED'
-                  span.title Standard
-                  span.focus
-                    strong 50
-                    | GB
-                  span.details
-                    strong $10.00
-                    | /mo.
-                li.selectable.ripple data-slug='pro' data-ripple-color='#0099ED'
-                  span.title Pro
-                  span.focus
-                    strong 250
-                    | GB
-                  span.details
-                    strong $50.00
-                    | /mo.
-
-              p Nitrous Workspaces are FIXME Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
-
-
-            .pricing-block.paid.compute
-              h3 Compute Resources
-              ul.duo
-                li
-                  span.title Memory
-                  .range
-                    input type="range" data-idx="1" max="4" min="0" step="1" value="0"
-
-                  span.details
-                    strong 1 GB - $0.03
-                    | /hour
-                li
-                  span.title Average Weekly Usage
-                  .range
-                    input type="range" data-idx="2" max="168" min="0" step="8" value="0"
-
-                  span.details
-                    strong 24 hours
-                    | /w.
-
-              p Compute Resources are Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
-
-
-            .or
-              span or
-
-
-            .pricing-block
-              ul.single
-                li.selectable.ripple data-slug='free' data-ripple-color='#0099ED'
-                  .col
-                    span.title Free plan
-                  .col.workspaces
-                    span.focus title="5 GB of storage"
-                      strong 5
-                      | GB
-                  .col.compute
-                    span.focus title="1 GB of RAM"
-                      strong 1
-                      | GB
-                  .col
-                    span.focus title="Shutsdown after 30min of inactivity"
-                      strong 30
-                      | min
-                  .col.text
-                    span.focus
-                      strong No
-                      | SSH access
-                  .col.text
-                    span.focus
-                      strong No
-                      | Desktop sync
-
-              p The free plan FIXME Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Expires after 7 days of inactivity.
-
-
-
-          .right.sticky
-            .pricing-sheet
-              .inner
-                .nitrous-badge
-
-                .details
-                  .item
-                    span.title Workspaces
-                    ul
-                      li 50GB
-                    span#p1.price $0
-                  .item
-                    span.title Compute Resources
-                    ul
-                      li 1GB
-                      li 24 h/w.
-                    span#p2.price $0
-
-                .total
-                  span Total
-                  .item
-                    strong#total-price $
-                    small Estimated monthly cost
-
-                a.btn.blue.ripple data-ripple-color='rgba(0,0,0,.2)' href="#" Sign up
-
-            .for-teams
-              p Looking for a higher level of control over applications and teams?
-              a.btn.grey.ripple data-ripple-color='rgba(255,255,255,.2)' href="#" Nitrous for teams
-
-
   article.qa.darker
+    a name='faq'
     .container
-      h3.big-title Questions and Answers
+      h3.big-title Frequently Asked Questions
       .columns
         .item
           h4 How am I billed?
