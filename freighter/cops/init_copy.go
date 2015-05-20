@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -70,7 +69,7 @@ func CopyToContainer(id string, env []string, localPath string, r io.Reader) err
 	defer infoW.Close()
 
 	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(copyCommandName, strconv.Itoa(info.PID), localPath)
+	cmd := newCommand(copyCommandName, info.PID, localPath)
 	cmd.Stdin = r
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

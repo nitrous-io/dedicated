@@ -11,8 +11,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
 type (
@@ -46,6 +49,14 @@ type (
 		HandleAsync(msg *Message) chan *Message
 	}
 )
+
+// newCommand returns an exec.Cmd in a form of reexec
+// initPID is required so we can enter the init process's mount namespace
+func newCommand(cmd string, initPID int, args ...string) *exec.Cmd {
+	argv := []string{cmd, strconv.Itoa(initPID)}
+	argv = append(argv, args...)
+	return reexec.Command(argv...)
+}
 
 // getCopsInfo return data about the containerized environment that is sent over
 // to cops process so it can setup properly

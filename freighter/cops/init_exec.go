@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -40,6 +39,7 @@ func init() {
 func execInit() {
 	runtime.LockOSThread()
 	flag.Parse()
+	// required init pid to be argv 0th
 
 	if err := syscall.Chdir("/"); err != nil {
 		log.Fatalf("execInit failed to change dir to / : %v", err)
@@ -239,7 +239,7 @@ func Start(id string, env []string) (*exec.Cmd, io.Writer, io.Reader, error) {
 	defer child.Close()
 
 	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(execCommandName, strconv.Itoa(info.PID))
+	cmd := newCommand(execCommandName, info.PID)
 	if len(env) != 0 {
 		for _, e := range os.Environ() {
 			env = append(env, e)

@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -53,7 +52,7 @@ func GetFileInfo(id string, localPath string) (*FileInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
-	cmd := reexec.Command(infoCommandName, strconv.Itoa(initPID), localPath)
+	cmd := newCommand(infoCommandName, initPID, localPath)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
