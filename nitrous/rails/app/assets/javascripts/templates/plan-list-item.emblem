@@ -51,43 +51,6 @@
           = storage
         td
           span Storage
-      tr
-        td colspan='2'
-          i.fa.fa-check
-          span Root Access
-      tr
-        td colspan='2'
-          i.fa.fa-check
-          span Live Collaboration
-      tr
-        td colspan='2'
-          if totalPriceInDollars
-            i.fa.fa-check
-          else
-            i.fa.fa-times
-          span Dedicated Resources
-      tr
-        td colspan='2'
-          if totalPriceInDollars
-            i.fa.fa-check
-          else
-            i.fa.fa-times
-          span SSH Access
-      tr
-        td colspan='2'
-          if totalPriceInDollars
-            i.fa.fa-check
-          else
-            i.fa.fa-times
-          span Desktop File Sync
-      tr
-        td colspan='2'
-          if totalPriceInDollars
-            i.fa.fa-check
-          else
-            i.fa.fa-times
-          span Docker Support
-
 
   if plan.mostPopular
     .ribbon

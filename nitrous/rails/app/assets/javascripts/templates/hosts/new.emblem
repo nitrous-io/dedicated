@@ -56,8 +56,10 @@
                     | $#{ App.billingProfile.creditForPaidPlan } credit will be applied
 
         p.note-text.see-faq
-          ' See
-          a.see-faq href='/pricing#faq' target='_blank' frequently asked questions
+          ' Compare
+          a href='/pricing' target='_blank' plans
+          ' . View
+          a href='/pricing#faq' target='_blank' frequently asked questions
           '
           | about billing and payment.
 
