@@ -1739,7 +1739,7 @@ h4 + .box-wrapper
 
 
   .pricing-block
-    ul
+    > ul
       width: 82%
       padding: 0
       margin: 0 auto
@@ -1752,7 +1752,7 @@ h4 + .box-wrapper
       user-select: none
       +clearFix
 
-      li
+      > li
         padding: 20px 0
         display: block
         float: left
@@ -1798,6 +1798,23 @@ h4 + .box-wrapper
       .monthly
         top: 20px
 
+    .most-popular
+      overflow: hidden
+      position: absolute
+      top: -1px
+      right: -1px
+      height: 110px
+
+      .ribbon
+        transform: rotateZ(45deg) translateX(42px) translateY(-10px)
+        background: $n2oGray200
+        text-transform: uppercase
+        white-space: nowrap
+        padding: 2px 30px
+        color: black !important
+        font-size: 10px
+        font-weight: 400
+
     .title
       color: #A5B3BE
       text-transform: uppercase
@@ -1834,18 +1851,22 @@ h4 + .box-wrapper
       height: 24px
       margin: 6px 0 16px 0
 
-    .details
-      color: #6C767E
-      line-height: 44px
+    ul.details
+      margin: 0
+      padding: 0
 
-      strong
-        color: #A5B3BE
-        padding-right: 6px
-        font-size: 18px
-        font-weight: 300
+      li
+        color: #6C767E
+        line-height: 44px
 
-      &:nth-of-type(even)
-        background: rgba(0,0,0,.1)
+        strong
+          color: #A5B3BE
+          padding-right: 6px
+          font-size: 18px
+          font-weight: 300
+
+        &:nth-of-type(odd)
+          background: rgba(0,0,0,.1)
 
     .ticked
       i
@@ -1870,11 +1891,16 @@ h4 + .box-wrapper
         a
           color: #FFF
 
-      &.active
-        z-index: 40
+      &.popular
+        z-index: 1
 
+      &.active
+        z-index: 2
         .text
           border-color: rgba(255,255,255,.4)
+
+        .ribbon
+          background: white
 
         .workspaces, .compute
           background-position: bottom left
@@ -1883,7 +1909,7 @@ h4 + .box-wrapper
           background: #FFF
           color: $blueLink
 
-        .details:nth-of-type(even)
+        ul.details li:nth-of-type(odd)
           background: rgba(0,0,0,.05)
 
       &.active, &.active a
@@ -1903,26 +1929,28 @@ h4 + .box-wrapper
       border-radius: 4px !important
 
       .title, .details
-        float: left
+        display: inline-block
         line-height: 40px
         font-size: 15px
 
       .title
-        margin-right: 50px
+        margin-right: 45px
         font-size: 16px
 
-      .details
-        margin: 0 8px 0 6px
+      ul.details
+        li
+          display: inline-block
+          margin: 0 8px 0 6px
 
-        strong
-          font-size: inherit
+          strong
+            font-size: inherit
 
-        .fa
-          color: #A5B3BE
-          padding-right: 8px
+          .fa
+            color: #A5B3BE
+            padding-right: 8px
 
-        &:nth-of-type(even)
-          background: transparent !important
+          &:nth-of-type(odd)
+            background: transparent !important
 
       .btn.blue
         width: 90px
@@ -1940,7 +1968,7 @@ h4 + .box-wrapper
           border: 1px solid transparent
 
         .fa
-          color: #FFF
+          color: #FFF !important
 
 
   .paid, .selectable
