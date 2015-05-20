@@ -62,6 +62,19 @@ func TestGetContainerPID(t *testing.T) {
 	}
 }
 
+func TestGetProcessOwner(t *testing.T) {
+	uid, gid, err := getProcessOwner(os.Getpid())
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	if euid := os.Getuid(); uid != euid {
+		t.Errorf("uid(%d), expect %d", uid, euid)
+	}
+	if egid := os.Getgid(); gid != egid {
+		t.Errorf("gid(%d), expect %d", gid, egid)
+	}
+}
+
 func TestRemoveBogusFromStderr(t *testing.T) {
 	tests := []string{
 		"nvm_supports_source_options:.:1: no such file or directory: /dev/stdin\n",
