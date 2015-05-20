@@ -51,7 +51,7 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage price
+                      | storage cost
               ul.details
                 /li.spec title="1GB RAM / 20GB SSD"
                   /strong Standard
@@ -108,7 +108,7 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage price
+                      | storage cost
               ul.details
                 /li.spec title="2GB RAM / 50GB SSD"
                   /strong 2x
@@ -163,7 +163,7 @@
                         span.base-price
                         '
                         ' /mo.
-                      | storage price
+                      | storage cost
               ul.details
                 /li.spec title="4GB RAM / 120GB SSD"
                   /strong 4x
@@ -360,17 +360,29 @@
       h3.big-title Questions and Answers
       .columns
         .item
+          h4 How am I billed?
+          p Each workspace is billed per hour up to its monthly cap. Place the mouse cursor over the monthly price to see the hourly cost.
+        .item
+          h4 Do I have to pay the full cost of the workspace every time I create a new one?
+          p No &mdash; you only need to pay for the hours used. Creating a basic workspace just to test something out for a couple of hours should only cost you a few cents.
+        .item
+          h4 Am I charged when I enter a credit card?
+          p No &mdash; when you enter a card, we only run an authorization charge ($0 or $1 depending on the bank). This authorization is refunded back to your card by your bank in no more than 30 days. Your card will only be charged for any usage on the first of each month.
+        .item
           h4 When is my credit card billed?
           p We will charge your credit card on the first day of the month at midnight UTC for the prior month's usage. We will email you with an invoice and a detailed summary of your usage and charges.
         .item
           h4 Why was my first bill cheaper than the other ones?
           p We perform pro-rata hourly calculations at the end of the month. This means if you create a new workspace during the middle of the month, you will be invoiced for ~50% of the monthly price at the start of the next month.
         .item
+          h4 Am I charged while my workspace is in a stopped state?
+          p Yes &mdash; but only for storage. Place the mouse cursor over the monthly price to see the storage cost.
+        .item
+          h4 How do I choose between monthly and hourly billing?
+          p There is no difference between monthly and hourly billing. All workspaces are billed hourly, up until a monthly cap. We have estimated that each month has about 672 hours (28 days). If you use your workspace for less than 672 hours during the month, you will be billed for each hour that you used it. If you use your workspace for more than 672 hours that month, you will be billed at the monthly cost, which is no greater than 672 hours.
+        .item
           h4 Is there a threshold billing amount?
           p We will only bill your card once your account balance hits or exceeds $1.00.
-        .item
-          h4 Am I charged when I enter a credit card?
-          p No — when you enter a card, we only run an authorization charge ($0 or $1 depending on the bank). This authorization is refunded back to your card by your bank in no more than 30 days. Your card will only be charged for any usage on the first of each month.
         .item
           h4 What forms of payment do you accept?
           p We accept Visa, MasterCard, American Express, and Discover cards.
@@ -380,7 +392,9 @@
             | We do not offer refunds. If you have had a problem with the service, please&nbsp;
             a href="mailto:support@nitrous.io" contact our support team
             | .
-
+        .item
+          h4 How do I cancel my account?
+          p You can cancel your account anytime through the account settings page after you have terminated all workspaces you own.
 
       p.centered.solo
         | Have more questions? Please feel free to&nbsp;
