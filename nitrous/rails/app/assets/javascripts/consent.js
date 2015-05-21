@@ -11,8 +11,12 @@ document.addEventListener("DOMContentLoaded", function() {
   var clientEl = document.getElementById('client-info')
   var clientNameEl = document.getElementById('client-name')
   var usernameEl = document.getElementById('username')
-  var yesButton = document.getElementById('yes-button')
   var noButton = document.getElementById('no-button')
+
+  var tokenField = document.getElementById('access-token')
+  var stateField = document.getElementById('state')
+  var clientIdField = document.getElementById('client-id')
+  var redirectUriField = document.getElementById('redirect-uri')
 
   // Valid error codes accepted by OAuth2 specs
   var validErrors = [
@@ -105,41 +109,16 @@ document.addEventListener("DOMContentLoaded", function() {
     })
   }
 
-  var fetchAuthorizationCode = function(token, clientId, state, redirectUri) {
-    return ajax('/api/v0/oauth/authorize', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: 'Bearer ' + token
-      },
-      body: querystring.stringify({
-        response_type: 'code',
-        state: state,
-        client_id: clientId,
-        redirect_uri: redirectUri
-      })
-    })
-  }
-
   var showConsentPage = function(token, query, client, user) {
-    var state = query.state
-    var clientId = query.client_id
-    var clientName = client.name
     var redirectUri = query.redirect_uri
-    var username = user.username
 
-    clientNameEl.textContent = clientName
-    usernameEl.textContent = username
+    stateField.value = query.state
+    clientIdField.value = client.client_id
+    redirectUriField.value = query.redirect_uri
+
+    clientNameEl.textContent = client.name
+    usernameEl.textContent = user.username
     clientEl.classList.remove('hide')
-
-    yesButton.addEventListener('click', function() {
-      fetchAuthorizationCode(token, clientId, state, redirectUri)
-      .then(function(result) {
-        redirect(result.redirect_uri, result)
-      }, function(err) {
-        redirectError(redirectUri, err)
-      })
-    })
 
     noButton.addEventListener('click', function() {
       redirectError(redirectUri, {
@@ -160,6 +139,8 @@ document.addEventListener("DOMContentLoaded", function() {
     // or make app#/login redirect back to this page
     return redirect('/app#/login')
   }
+
+  tokenField.value = token
 
   Promise.all([
     fetchClient(token, clientId),

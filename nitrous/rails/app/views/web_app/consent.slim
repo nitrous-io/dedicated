@@ -10,17 +10,23 @@
       h2 Authorize Application
     .card-body.bordered.hide#client-info
       p
-        | Hello, 
+        | Hello,
         span#username
       p
         span#client-name
         |  would like permission to access your container
 
-      .ui.input-group
-        button.ui.btn#yes-button
-          | Authorize
-        button.ui.btn#no-button
-          | Decline
+      form method='POST' action='/api/v0/oauth/authorize' enctype='application/x-www-form-urlencoded'
+        .ui.input-group
+          input#access-token type='hidden' name='access_token'
+          input#state type='hidden' name='state'
+          input#client-id type='hidden' name='client_id'
+          input#redirect-uri type='hidden' name='redirect_uri'
+          input type='hidden' name='response_type' value='code'
+
+          input.ui.btn type='submit' value='Authorize'
+          button.ui.btn#no-button
+            | Decline
 
 - content_for :body_script
   = javascript_include_tag 'consent'
