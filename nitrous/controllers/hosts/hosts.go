@@ -205,7 +205,13 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+	// Get containers before terminating host.
+	containers, err := container.FindAllByHostID(env.DB, h.ID)
+	if err != nil {
+		return err
+	}
+
+	err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})
 	if err != nil {
@@ -217,6 +223,10 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		if err != nil {
 			env.Logger.Errorf("Error reassigning host, err: %+v", err)
 		}
+	}
+
+	if err := removeHostDNS(env, h, containers); err != nil {
+		return err
 	}
 
 	trackWorkspaces(env, h.UserID)
@@ -309,6 +319,10 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if err := updateHostDNS(env, h); err != nil {
 		return err
 	}
 
@@ -460,14 +474,15 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		tx.Rollback()
 		return err
 	}
-
-	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
-	if err != nil {
+	if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
-
 	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	if err := updateHostDNS(env, h); err != nil {
 		return err
 	}
 
@@ -690,4 +705,47 @@ func getTransientContainerSlugs(cns []*container.Container) string {
 	}
 
 	return ""
+}
+
+// updateHostDNS creates/updates a host's DNS record, if necessary:
+// 1. If host does not have a static IP, CNAME <host-slug>.HOST_HOSTNAME to ec2-xx-xx-xx-xx.compute-1.amazonaws.com.
+//    e.g. CNAME my-workspace.nitrouspro.com to ec2-11-22-33-44.compute-1.amazonaws.com
+// 2. If host has a static IP, do nothing because we've already setup the CNAME
+//    on create and the host's public DNS will not change.
+func updateHostDNS(env *middleware.Env, h *host.Host) error {
+	if h.StaticIP {
+		return nil
+	}
+
+	sourceDomain := h.Hostname()
+	targetDomain, err := h.HostTargetDomain()
+	if err != nil {
+		env.Logger.Warnf("failed to get host target domain for host %d, err: %v", h.ID, err)
+		return nil
+	}
+
+	return env.DNSProvider.SetCNAME(sourceDomain, targetDomain)
+}
+
+// removeHostDNS removes a host's and its containers DNS records:
+// 1. Remove CNAME record for its proxy hostname.
+// 2. Remove CNAME record for its host hostname.
+// 3. Remove DNS records of its containers.
+func removeHostDNS(env *middleware.Env, h *host.Host, containers []*container.Container) error {
+	records := []string{
+		h.ProxyHostname(),
+		h.Hostname(),
+	}
+	for _, cn := range containers {
+		records = append(records, cn.PreviewHostname())
+	}
+
+	for _, r := range records {
+		if err := env.DNSProvider.DeleteCNAME(r); err != nil {
+			// Log but don't fail.
+			env.Logger.Errorf("failed to delete CNAME record for %s, err: %v", r, err)
+		}
+	}
+
+	return nil
 }

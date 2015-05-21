@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -21,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -37,6 +39,7 @@ var _ = Describe("CreateContainer", func() {
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
+		fakeDNS    *dns.FakeProvider
 
 		u      *user.User
 		t      *token.Token
@@ -63,6 +66,8 @@ var _ = Describe("CreateContainer", func() {
 
 		mockClient = &freighterclient.MockClient{}
 		test.StubDefaultFreighterFn(mockClient)
+
+		fakeDNS = &dns.FakeProvider{}
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -96,11 +101,12 @@ var _ = Describe("CreateContainer", func() {
 		params = mkParams()
 
 		env = &middleware.Env{
-			DB:      db,
-			Events:  pubsub.New(128),
-			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
-			Logger:  logger,
-			User:    u,
+			DB:          db,
+			Events:      pubsub.New(128),
+			Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
+			Logger:      logger,
+			DNSProvider: fakeDNS,
+			User:        u,
 		}
 
 		mockClient.CreatedContainer = &freighterclient.Container{
@@ -248,6 +254,33 @@ var _ = Describe("CreateContainer", func() {
 		expectSerializedContainer(cn, c)
 
 		close(done)
+	})
+
+	It("sets up a CNAME record for container preview", func() {
+		hs.PT.Config = hstore.Hstore{
+			Map: map[string]sql.NullString{
+				"region_id": {"us-east-1", true}, // Use a region with a proxy.
+			},
+		}
+		err := hs.PT.Update(db)
+		Expect(err).To(BeNil())
+
+		Expect(hs.PT.ID).To(Equal(h.ProviderTemplateID))
+
+		_, err = containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		cntrs, err := container.FindAllByHostID(db, h.ID)
+		Expect(err).To(BeNil())
+		Expect(cntrs).To(HaveLen(1))
+		c := cntrs[0]
+
+		reqs := fakeDNS.ReceivedRequests()
+		Expect(reqs).To(HaveLen(1))
+
+		req := reqs[0]
+		Expect(req.Name).To(Equal("SetCNAME"))
+		Expect(req.Args).To(ConsistOf(c.PreviewHostname(), "amazon.nitrousproxy-sfo.com"))
 	})
 
 	It("should allow for creating a container from a template", func() {

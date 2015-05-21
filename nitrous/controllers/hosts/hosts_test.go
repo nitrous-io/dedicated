@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -71,9 +72,11 @@ var _ = Describe("controllers/hosts", func() {
 		res             *httptest.ResponseRecorder
 		authTokenInputs test.AuthTokenInputs
 
-		u  *user.User
-		t  *token.Token
-		ft *test.FakeTracker
+		u *user.User
+		t *token.Token
+
+		ft      *test.FakeTracker
+		fakeDNS *dns.FakeProvider
 	)
 
 	BeforeEach(func() {
@@ -82,7 +85,8 @@ var _ = Describe("controllers/hosts", func() {
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, logger, nil)
+		fakeDNS = &dns.FakeProvider{}
+		svr = server.NewServer("", db, logger, nil, fakeDNS)
 		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -1069,6 +1073,29 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 			})
+
+			It("removes CNAME records for the host and its containers", func() {
+				doRequest(hs.H.Slug, t.Token)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				reqs := fakeDNS.ReceivedRequests()
+				Expect(reqs).To(HaveLen(3))
+
+				// Test removal of CNAME to Tender proxy.
+				r1 := reqs[0]
+				Expect(r1.Name).To(Equal("DeleteCNAME"))
+				Expect(r1.Args).To(ConsistOf(hs.H.ProxyHostname()))
+
+				// Test removal of CNAME for <host-slug>.HOST_HOSTNAME.
+				r2 := reqs[1]
+				Expect(r2.Name).To(Equal("DeleteCNAME"))
+				Expect(r2.Args).To(ConsistOf(hs.H.Hostname()))
+
+				// Test removal of CNAME for container preview.
+				r3 := reqs[2]
+				Expect(r3.Name).To(Equal("DeleteCNAME"))
+				Expect(r3.Args).To(ConsistOf(c.PreviewHostname()))
+			})
 		})
 
 		Context("when hostbuilder fails to delete the host", func() {
@@ -1383,6 +1410,18 @@ var _ = Describe("controllers/hosts", func() {
 					hs.H.ID, host.StateRunning, host.StateStarting).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+			})
+
+			It("sets up a CNAME record for the host", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				reqs := fakeDNS.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+
+				req := reqs[0]
+				Expect(req.Name).To(Equal("SetCNAME"))
+				Expect(req.Args).To(ConsistOf(hs.H.Hostname(), "ec2-127-0-0-1.compute-1.amazonaws.com"))
 			})
 		})
 
@@ -2203,6 +2242,21 @@ var _ = Describe("controllers/hosts", func() {
 					hs.H.ID, host.StateRunning, host.StateRestarting).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+			})
+
+			It("sets up a CNAME record for the host", func() {
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				reqs := fakeDNS.ReceivedRequests()
+				Expect(reqs).To(HaveLen(1))
+
+				req := reqs[0]
+				Expect(req.Name).To(Equal("SetCNAME"))
+				Expect(req.Args).To(ConsistOf([]string{
+					hs.H.Hostname(),
+					"ec2-127-0-0-1.compute-1.amazonaws.com",
+				}))
 			})
 		})
 

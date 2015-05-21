@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -22,7 +23,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"gopkg.in/redis.v2"
+	redis "gopkg.in/redis.v2"
 )
 
 var _ = Describe("HostQueueHandler", func() {
@@ -68,7 +69,7 @@ var _ = Describe("HostQueueHandler", func() {
 		h = hs.H
 
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, logger, nil, &dns.FakeProvider{})
 		handler = svr.HostQueueHandler()
 	})
 

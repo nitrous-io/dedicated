@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -245,6 +246,28 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
+	}
+
+	// Re-SELECT to get host's ProviderTemplate.
+	if h.ProviderTemplate == nil {
+		h, err = host.FindByIdentifier(env.DB, strconv.FormatInt(h.ID, 10))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Create container DNS record:
+	// CNAME <container-slug>.PREVIEW_HOSTNAME to Tender server for the host's region.
+	// e.g. CNAME rails-1.nitrousapp.com to amazon.nitrousproxy-sgp.com
+	sourceDomain := cn.PreviewHostname()
+	targetDomain, err := h.ProxyTargetDomain()
+	if err != nil {
+		env.Logger.Warnf("failed to get proxy target domain for host %d, err: %v", h.ID, err)
+	} else {
+		if err := env.DNSProvider.SetCNAME(sourceDomain, targetDomain); err != nil {
+			env.Logger.Errorf("failed to set CNAME from %s to %s, err: %v", sourceDomain, targetDomain, err)
+			return nil, err
+		}
 	}
 
 	PublishContainerEvent(env, controllers.EventContainerCreated, cn, nil)

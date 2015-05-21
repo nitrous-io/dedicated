@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -417,6 +418,39 @@ func (h *Host) CertHostname() string {
 
 func (h *Host) ProxyHostname() string {
 	return fmt.Sprintf("%s.%s", h.Slug, envvars.ProxyHostname)
+}
+
+// HostTargetDomain returns the host's public domain that has been setup by
+// the host's underlying provider.
+// This only works for EC2 hosts where the
+// ec2-xx-xx-xx-xx.compute-1.amazonaws.com is returned.
+func (h *Host) HostTargetDomain() (string, error) {
+	if !h.IPAddress.Valid || h.IPAddress.String == "" {
+		return "", errors.New("invalid IPAddress")
+	}
+	ipWithDashes := strings.Replace(h.IPAddress.String, ".", "-", -1)
+	return fmt.Sprintf("ec2-%s.compute-1.amazonaws.com", ipWithDashes), nil
+}
+
+// FIXME This mapping should be read from database or config file.
+var regionToProxy = map[string]string{
+	"us-east-1":      "amazon.nitrousproxy-sfo.com",
+	"us-west-2":      "amazon.nitrousproxy-nyc.com",
+	"eu-west-1":      "amazon.nitrousproxy-ams.com",
+	"ap-southeast-1": "amazon.nitrousproxy-sgp.com",
+}
+
+// ProxyTargetDomain returns the domain of the host's Tender proxy.
+func (h *Host) ProxyTargetDomain() (string, error) {
+	if h.ProviderTemplate == nil {
+		return "", errors.New("cannot determine proxy target domain without a ProviderTemplate")
+	}
+	regionID := h.ProviderTemplate.Config.Map["region_id"]
+	t := regionToProxy[regionID.String]
+	if t == "" {
+		return "", fmt.Errorf("no proxy server for region '%s'", regionID.String)
+	}
+	return t, nil
 }
 
 func URLArgsFromHost(h *Host) url.Values {

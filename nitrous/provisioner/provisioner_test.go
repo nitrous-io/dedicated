@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/nitrous-common/logger"
@@ -106,7 +107,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 
 			err = prov.Start()
 			Expect(err).To(BeNil())
@@ -136,7 +137,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
@@ -193,7 +194,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
@@ -242,7 +243,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 
 			_, err = db.Exec("UPDATE regions SET disabled_at = now() WHERE id = $1", hs.R.ID)
 			Expect(err).To(BeNil())
@@ -270,7 +271,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 
 			err = prov.Start()
 			Expect(err).To(BeNil())
@@ -287,7 +288,7 @@ var _ = Describe("provisioner", func() {
 				Username: "no such user",
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 
 			err := prov.Start()
 			Expect(err).To(MatchError("User 'no such user' could not be found"))
@@ -300,7 +301,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 			err := prov.Start()
 			Expect(err).To(BeNil())
 
@@ -315,7 +316,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 			err := prov.Start()
 			Expect(err).To(BeNil())
 
@@ -353,7 +354,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 10 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, lgr, nil, cfg, &dns.FakeProvider{})
 			err = prov.Start()
 			Expect(err).To(BeNil())
 
@@ -464,7 +465,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov = provisioner.NewProvisioner(db, lgr, nil, pcfg)
+			prov = provisioner.NewProvisioner(db, lgr, nil, pcfg, &dns.FakeProvider{})
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{},

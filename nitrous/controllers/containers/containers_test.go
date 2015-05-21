@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -52,6 +53,7 @@ var _ = Describe("controllers/containers", func() {
 
 		// Mock client that satisfies the freighterclient.Client interface.
 		mockClient *freighterclient.MockClient
+		fakeDNS    *dns.FakeProvider
 
 		u  *user.User
 		t  *token.Token
@@ -67,7 +69,8 @@ var _ = Describe("controllers/containers", func() {
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger = &loggerLib.Logger{Level: loggerLib.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		fakeDNS = &dns.FakeProvider{}
+		svr = server.NewServer("", db, logger, nil, fakeDNS)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}
@@ -2781,6 +2784,17 @@ var _ = Describe("controllers/containers", func() {
 				Expect(ok).To(BeTrue())
 				expectSerializedContainer(cn)
 			}
+		})
+
+		It("removes CNAME record for container preview", func() {
+			doRequest()
+
+			reqs := fakeDNS.ReceivedRequests()
+			Expect(reqs).To(HaveLen(1))
+
+			req := reqs[0]
+			Expect(req.Name).To(Equal("DeleteCNAME"))
+			Expect(req.Args).To(ConsistOf(c.PreviewHostname()))
 		})
 
 		Context("when container is locked", func() {

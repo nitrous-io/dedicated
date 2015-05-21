@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -121,7 +122,18 @@ func main() {
 
 	conf := &provisioner.Config{Username: pu, Interval: pi}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
+	var dnsProvider dns.Provider
+	if envvars.AWSAccessKey == "" || envvars.AWSAccessKey == "disabled" ||
+		envvars.AWSSecretKey == "" || envvars.AWSAccessKey == "disabled" {
+		logr.Warn("DNS updates disabled.  Set AWS_ACCESS_KEY and AWS_SECRET_KEY")
+	} else {
+		dnsProvider = &dns.Route53{
+			AWSAccessKey: envvars.AWSAccessKey,
+			AWSSecretKey: envvars.AWSSecretKey,
+		}
+	}
+
+	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf, dnsProvider)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)
 	if err != nil {

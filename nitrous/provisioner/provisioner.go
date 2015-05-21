@@ -30,6 +30,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/cipher"
@@ -89,10 +90,11 @@ var (
 )
 
 type Provisioner struct {
-	db      *db.Database
-	logger  *logger.Logger
-	events  *pubsub.Pubsub
-	didStop chan struct{}
+	db          *db.Database
+	logger      *logger.Logger
+	events      *pubsub.Pubsub
+	dnsProvider dns.Provider
+	didStop     chan struct{}
 
 	muIsRunning sync.Mutex
 	isRunning   bool
@@ -200,13 +202,14 @@ func init() {
 	}
 }
 
-func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Config) *Provisioner {
+func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Config, dnsProvider dns.Provider) *Provisioner {
 	return &Provisioner{
-		db:      d,
-		logger:  l,
-		events:  e,
-		didStop: make(chan struct{}),
-		config:  conf,
+		db:          d,
+		logger:      l,
+		events:      e,
+		didStop:     make(chan struct{}),
+		config:      conf,
+		dnsProvider: dnsProvider,
 	}
 }
 
@@ -664,6 +667,39 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
+
+	// Re-SELECT to get host's ProviderTemplate.
+	h, err = host.FindByIdentifier(p.db, strconv.FormatInt(h.ID, 10))
+	if err != nil {
+		return nil, err
+	}
+
+	// Create DNS records:
+	// 1. CNAME <host-slug>.PROXY_HOSTNAME to Tender server for the host's region.
+	//    e.g. CNAME my-workspace.nitrousproxy.com to amazon.nitrousproxy-sgp.com
+	// 2. CNAME <host-slug>.HOST_HOSTNAME to EC2 instance public DNS.
+	//    e.g. CNAME my-workspace.nitrouspro.com to ec2-11-22-33-44.compute-1.amazonaws.com
+	sourceDomain := h.ProxyHostname()
+	targetDomain, err := h.ProxyTargetDomain()
+	if err != nil {
+		p.logger.Warnf("failed to get proxy target domain for host %d, err: %v", h.ID, err)
+	} else {
+		if err = p.dnsProvider.SetCNAME(sourceDomain, targetDomain); err != nil {
+			return nil, err
+		}
+	}
+
+	// TODO Batch this with previous change - requires dns.Provider to be changed.
+	sourceDomain = h.Hostname()
+	targetDomain, err = h.HostTargetDomain()
+	if err != nil {
+		p.logger.Warnf("failed to get host target domain for host %d, err: %v", h.ID, err)
+	} else {
+		if err = p.dnsProvider.SetCNAME(sourceDomain, targetDomain); err != nil {
+			return nil, err
+		}
+	}
+
 	p.logger.Debugf("provisionTracer: updated h: %+v", h)
 
 	// refresh the host for live DB data

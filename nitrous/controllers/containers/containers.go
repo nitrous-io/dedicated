@@ -203,7 +203,6 @@ func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"container": res.Container,
@@ -453,11 +452,16 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 				return err
 			}
 
-			// reset the temp state, so freigther state will be exposed
+			// Remove CNAME record for container preview
+			if err := env.DNSProvider.DeleteCNAME(cn.PreviewHostname()); err != nil {
+				// Log but don't fail.
+				env.Logger.Errorf("failed to delete CNAME record for %s, err: %v", r, err)
+			}
+
+			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 
-			err = cn.Delete(db)
-			if err != nil {
+			if err := cn.Delete(db); err != nil {
 				return err
 			}
 

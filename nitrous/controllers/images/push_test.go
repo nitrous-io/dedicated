@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/dns"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -32,7 +33,7 @@ var _ = Describe("controllers/images", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil)
+		svr = server.NewServer("", db, &logger.Logger{Level: logger.LogLevelQuiet}, nil, &dns.FakeProvider{})
 	})
 
 	AfterEach(func() {
