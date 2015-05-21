@@ -4,12 +4,9 @@ supported = false
 localStorageSupported = false
 
 `with(Modernizr) {
-  supported = applicationcache && backgroundsize && borderradius && boxshadow &&
-    cssanimations && cssgradients && csstransforms && csstransforms3d && csstransitions &&
-    draganddrop && flexbox && fontface && generatedcontent && hashchange && history &&
-    input.autocomplete && input.autofocus && input.min && input.max && input.multiple && input.pattern &&
-    inputtypes.email && inputtypes.number &&
-    opacity && postmessage && rgba && svg && textshadow && websockets;
+  supported = applicationcache && draganddrop && flexbox && fontface &&
+    generatedcontent && hashchange && history && opacity && rgba && svg &&
+    websockets;
   localStorageSupported = Modernizr.localstorage
 }`
 
