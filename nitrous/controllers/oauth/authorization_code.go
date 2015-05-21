@@ -33,6 +33,10 @@ func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	clientID := mux.Vars(r)["clientid"]
 	client, err := oauthclient.FindByID(env.DB, clientID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errClientNotFound
+		}
+
 		return err
 	}
 
