@@ -22,6 +22,10 @@ css = """
   background: #e6f2fb;
   padding: 20px;
   font-family: Helvetica, Arial, "DejaVu Sans", sans-serif;
+  box-sizing: content-box;
+}
+#browser-warning * {
+  box-sizing: content-box;
 }
 #browser-warning h3 {
   margin: 0 0 20px 0;

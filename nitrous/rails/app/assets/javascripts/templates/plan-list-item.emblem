@@ -4,16 +4,28 @@
       = name
     .price
       if totalPriceInDollars
-        span
-          ' $
-        strong
-          = totalPriceInDollars
-        em
+        .monthly
+          ' Up to $
+          strong
+            = totalPriceInDollars
           '
-          | / mo.
+          ' /mo.
+          sup ?
+        .hourly
+          strong
+            = hourlyPriceInCents
+          ' ¢ /hr.
+          br
+          small
+            ' + $
+            strong
+              = basePriceInDollars
+            '
+            ' /mo. for storage
       else
-        strong
-          | FREE
+        .free
+          strong
+            | FREE
     table.specs
       tr
         td
@@ -22,29 +34,23 @@
           = maxContainers
         td
           span Containers
+      /tr
+        /td
+          /= cpu
+          /'
+          /| Core
+        /td
+          /span Processor
       tr
         td
-          = cpu
-          '
-          | Core
+          = memory
         td
-          span Processor
+          span Memory
       tr
-        if memory.length
-          td
-            = memory
-          td
-            span Memory
-        else
-          td colspan=2
-      tr
-        if storage.length
-          td
-            = storage
-          td
-            span Storage
-        else
-          td colspan=2
+        td
+          = storage
+        td
+          span Storage
 
   if plan.mostPopular
     .ribbon

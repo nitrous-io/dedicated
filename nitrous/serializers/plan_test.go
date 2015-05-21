@@ -35,6 +35,7 @@ var _ = Describe("plan serializer", func() {
 				"max_containers": 3,
 				"price": 1000,
 				"base_price": 2000,
+				"hourly_price": 1489,
 				"cpu": "2",
 				"memory": "1 GB",
 				"storage": "20 GB",

@@ -59,5 +59,5 @@ if view.showFreeTierTip
       p
         | Your request to create a free workspace will be added to a waitlist. To skip the waitlist and begin working immediately, please select a paid plan.
       .card-footer
-        .left
-          a.ui.text-btn href='#' click='dismissTemporary' Dismiss
+        .right
+          a.ui.btn href='#' click='dismissTemporary' Dismiss
