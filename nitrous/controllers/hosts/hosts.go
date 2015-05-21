@@ -728,8 +728,8 @@ func updateHostDNS(env *middleware.Env, h *host.Host) error {
 }
 
 // removeHostDNS removes a host's and its containers DNS records:
-// 1. Remove CNAME to Tender server.
-// 2. Remove CNAME to EC2 instance public DNS.
+// 1. Remove CNAME record for its proxy hostname.
+// 2. Remove CNAME record for its host hostname.
 // 3. Remove DNS records of its containers.
 func removeHostDNS(env *middleware.Env, h *host.Host, containers []*container.Container) error {
 	records := []string{

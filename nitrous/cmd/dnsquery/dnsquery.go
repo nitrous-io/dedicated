@@ -156,9 +156,14 @@ func testCreate() {
 	dnsProvider.SetCNAME(from, to)
 	fmt.Printf("\nAfter adding %s:\n", from)
 	testListRecourceRecordSets(client, hostZone.ID, nil)
-	dnsProvider.DeleteCNAME(from)
-	// get warning
-	dnsProvider.DeleteCNAME("nosuchrecord." + hostDomain)
+	if err := dnsProvider.DeleteCNAME(from); err != nil {
+		log.Fatalf("Failed to delete CNAME %s, err: %v", from, err)
+	}
+	// Expect warning when trying to delete a non-existent record.
+	nonExistent := "nosuchrecord." + hostDomain
+	if err := dnsProvider.DeleteCNAME(nonExistent); err == nil {
+		log.Fatalf("Expected to fail when deleting %s but did not", nonExistent)
+	}
 	fmt.Printf("\nAfter deleting CNAME records:\n")
 	testListRecourceRecordSets(client, hostZone.ID, nil)
 }

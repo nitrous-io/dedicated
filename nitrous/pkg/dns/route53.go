@@ -74,8 +74,7 @@ func (r *Route53) DeleteCNAME(domain string) error {
 		})
 	}
 	if len(changes) == 0 { // nothing to delete
-		fmt.Printf("[DEBUG] deleteCNAMERecord for domain %s: no record found", domain)
-		return nil
+		return ErrDomainDoesNotExist
 	}
 	if len(changes) > 1 {
 		return fmt.Errorf("Expected one change for domain %s, got %d: %+v", domain, len(changes), changes)
