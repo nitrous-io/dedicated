@@ -52,7 +52,7 @@ var (
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
 		"billingprofiles.Show":       1,
-		"tokens.Logout":              1,
+		"oauth.Logout":               1,
 		"feedback.Send":              1,
 	}
 )

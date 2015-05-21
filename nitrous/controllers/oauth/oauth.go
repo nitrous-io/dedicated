@@ -1,11 +1,10 @@
-package tokens
+package oauth
 
 import (
 	"database/sql"
 	"net/http"
 	"time"
 
-	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -35,7 +34,7 @@ func init() {
 	TimerFunc = time.NewTimer
 }
 
-func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
 	grantType := r.FormValue("grant_type")
@@ -100,7 +99,7 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	} else if grantType == "authorization_code" {
-		return oauth.TokenFromAuthorizationCode(env, w, r)
+		return TokenFromAuthorizationCode(env, w, r)
 	} else {
 		return errGrantType
 	}
