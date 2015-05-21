@@ -102,8 +102,8 @@
           a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
           |. All sales are final.
 
-      .card-body.bordered
-        if App.user.admin
+      if App.user.admin
+        .card-body.bordered
           .notice-text The following settings are available for admin
           .ui.input-group
             .ui.checkbox
