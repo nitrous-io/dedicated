@@ -268,14 +268,27 @@ func SharedHostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 
 func GetBearerToken(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
-	prefix := "Bearer "
-	if len(authHeader) <= len(prefix) ||
-		(!strings.HasPrefix(authHeader, prefix) &&
-			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-		return "", errInvalidRequest
+	if authHeader != "" {
+		prefix := "Bearer "
+		if len(authHeader) <= len(prefix) ||
+			(!strings.HasPrefix(authHeader, prefix) &&
+				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+			return "", errInvalidRequest
+		}
+
+		return authHeader[len(prefix):], nil
 	}
 
-	return authHeader[len(prefix):], nil
+	if r.Method == "POST" && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+		token := r.PostFormValue("access_token")
+		if token == "" {
+			return "", errInvalidRequest
+		}
+
+		return token, nil
+	}
+
+	return "", errInvalidRequest
 }
 
 // Stolen from Rack:

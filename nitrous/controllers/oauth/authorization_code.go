@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	errAccessDenied             = httperror.New(http.StatusNotFound, "access_denied", "the resource owner has denied the request")
 	errClientNotFound           = httperror.New(http.StatusNotFound, "invalid_request", "client ID not found")
 	errInvalidClientID          = httperror.New(http.StatusForbidden, "access_denied", "client ID does not match authorization code")
 	errUnauthorizedTokenScope   = httperror.New(http.StatusForbidden, "access_denied", "token scope not allowed to request new authorization code")
@@ -29,17 +30,55 @@ var (
 	errCodeReused               = httperror.New(http.StatusUnauthorized, "access_denied", "authorization code cannot be reused")
 )
 
-func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	clientID := mux.Vars(r)["clientid"]
-	client, err := oauthclient.FindByID(env.DB, clientID)
-	if err != nil {
-		return err
+type redirector struct {
+	Env         *middleware.Env
+	Response    http.ResponseWriter
+	RedirectURI *url.URL
+	Values      map[string]string
+}
+
+func appendQueryString(u *url.URL, queries map[string]string) {
+	values := u.Query()
+	for k, v := range queries {
+		values.Add(k, v)
+	}
+	u.RawQuery = values.Encode()
+}
+
+func (r *redirector) Redirect() {
+	// copy struct to avoid side effects
+	redirectURI := *r.RedirectURI
+
+	appendQueryString(&redirectURI, r.Values)
+	r.Response.Header().Set("Location", redirectURI.String())
+
+	r.Env.Status = http.StatusFound
+
+	resultJson := map[string]interface{}{}
+	for k, v := range r.Values {
+		resultJson[k] = v
 	}
 
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"oauth_client": client,
+	r.Env.Data = resultJson
+}
+
+func (r *redirector) RedirectError(err error) error {
+	slug := "server_error"
+	desc := "unexpected server error"
+
+	if httpErr, ok := err.(*httperror.Error); ok {
+		if httpErr.Type != "" {
+			slug = httpErr.Type
+		}
+
+		if httpErr.Description != "" {
+			desc = httpErr.Description
+		}
 	}
+
+	r.Values["error"] = slug
+	r.Values["error_description"] = desc
+	r.Redirect()
 
 	return nil
 }
@@ -50,7 +89,24 @@ func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 // POST /api/v0/oauth/authorize
 // Submitted from web app, user is authenticated as usual
 // from Authorization header. User must be logged in.
-func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {
+	rd := &redirector{
+		Env:      env,
+		Response: w,
+		Values:   map[string]string{},
+
+		// default redirect to our own domain
+		// TODO: make an error page to show
+		// authorize code errors
+		RedirectURI: &url.URL{Path: "/app"},
+	}
+
+	defer func() {
+		if err != nil {
+			err = rd.RedirectError(err)
+		}
+	}()
+
 	u := env.User
 	t := env.Token
 
@@ -60,13 +116,15 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errUnauthorizedTokenScope
 	}
 
+	state := r.FormValue("state")
+	action := r.FormValue("action")
+	clientID := r.FormValue("client_id")
 	responseType := r.FormValue("response_type")
+	inputRedirectURI := r.FormValue("redirect_uri")
+
 	if responseType != "code" {
 		return errInvalidResponseType
 	}
-
-	state := r.FormValue("state")
-	clientID := r.FormValue("client_id")
 
 	client, err := oauthclient.FindByID(env.DB, clientID)
 	if err != nil {
@@ -76,12 +134,17 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	redirectURI := r.FormValue("redirect_uri")
-	if redirectURI == "" {
-		redirectURI = client.RedirectURI
+	baseRedirectURI, err := url.ParseRequestURI(client.RedirectURI)
+	if err != nil {
+		// should not happen. DB should contain valid redirect URI
+		return err
+	}
 
-	} else if redirectURI != client.RedirectURI {
-		inputURI, err := url.ParseRequestURI(redirectURI)
+	if inputRedirectURI == "" || inputRedirectURI == client.RedirectURI {
+		rd.RedirectURI = baseRedirectURI
+
+	} else {
+		inputURI, err := url.ParseRequestURI(inputRedirectURI)
 		if err != nil {
 			return errInvalidRedirectURI
 		}
@@ -90,37 +153,40 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 			return errInvalidRedirectURI
 		}
 
-		originalURI, err := url.ParseRequestURI(client.RedirectURI)
-		if err != nil {
-			return err
-		}
-
-		if inputURI.Scheme != originalURI.Scheme {
+		if inputURI.Scheme != baseRedirectURI.Scheme {
 			return errInvalidRedirectURI
 		}
 
-		if inputURI.Host != originalURI.Host {
+		if inputURI.Host != baseRedirectURI.Host {
 			return errInvalidRedirectURI
 		}
 
-		if inputURI.Path != originalURI.Path {
+		if inputURI.Path != baseRedirectURI.Path {
 			return errInvalidRedirectURI
 		}
+
+		// any of the errors above are redirected back to
+		// our own domain instead of client's redirect URI
+
+		rd.RedirectURI = inputURI
 	}
 
-	code, err := authorizationcode.Generate(u.ID, clientID, redirectURI)
+	if action != "approve" {
+		return errAccessDenied
+	}
+
+	// redirect value is what client expects
+	redirectValue := rd.RedirectURI.String()
+	code, err := authorizationcode.Generate(u.ID, clientID, redirectValue)
 	if err != nil {
 		return err
 	}
 
-	// Web app user agent will do the redirection
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"code":         code,
-		"redirect_uri": redirectURI,
-		"state":        state,
-	}
+	rd.Values["code"] = code
+	rd.Values["state"] = state
+	rd.Values["redirect_uri"] = redirectValue
 
+	rd.Redirect()
 	return nil
 }
 
@@ -207,6 +273,25 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		"token_type":   "Bearer",
 		"scope":        scope,
 		"expires_in":   token.ExpiryInSeconds,
+	}
+
+	return nil
+}
+
+func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	clientID := mux.Vars(r)["clientid"]
+	client, err := oauthclient.FindByID(env.DB, clientID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errClientNotFound
+		}
+
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"oauth_client": client,
 	}
 
 	return nil

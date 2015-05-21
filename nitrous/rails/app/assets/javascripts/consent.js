@@ -1,16 +1,21 @@
 //= require querystring
 //= require es6-promise
+//= require fetch
 
 document.addEventListener("DOMContentLoaded", function() {
   'use strict'
 
   var querystring = window.querystring
+  var fetch = window.fetch
 
   var clientEl = document.getElementById('client-info')
   var clientNameEl = document.getElementById('client-name')
   var usernameEl = document.getElementById('username')
-  var yesButton = document.getElementById('yes-button')
-  var noButton = document.getElementById('no-button')
+
+  var tokenField = document.getElementById('access-token')
+  var stateField = document.getElementById('state')
+  var clientIdField = document.getElementById('client-id')
+  var redirectUriField = document.getElementById('redirect-uri')
 
   // Valid error codes accepted by OAuth2 specs
   var validErrors = [
@@ -19,10 +24,16 @@ document.addEventListener("DOMContentLoaded", function() {
     'temporarily_unavailable'
   ]
 
-  var ajax = function(params) {
-    return Promise.resolve($.ajax(params))
-      .catch(function(xhrErr) {
-        return Promise.reject(xhrErr.responseJSON)
+  var ajax = function(url, params) {
+    return fetch(url, params)
+      .then(function(response) {
+        if(response.status != 200) {
+          return response.json().then(function(json) {
+            return Promise.reject(json)
+          })
+        }
+
+        return response.json()
       })
   }
 
@@ -54,8 +65,7 @@ document.addEventListener("DOMContentLoaded", function() {
       url = appendQueryString(url, params)
     }
 
-    console.log('redirecting to', url)
-    // window.location = url
+    window.location = url
   }
 
   var redirectError = function(uri, err) {
@@ -74,11 +84,12 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   var fetchClient = function(token, clientId) {
-    return ajax({
-      type: 'GET',
-      url: '/api/v0/oauth/clients/' + clientId,
-      headers: { 
-        Authorization: 'Bearer ' + token  
+    var url = '/api/v0/oauth/clients/' + clientId
+
+    return ajax(url, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token
       }
     }).then(function(data) {
       return data.oauth_client
@@ -86,59 +97,26 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   var fetchUser = function(token) {
-    return ajax({
-      type: 'GET',
-      url: '/api/v0/user',
-      headers: { 
-        Authorization: 'Bearer ' + token  
+    return ajax('/api/v0/user', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token
       }
     }).then(function(data) {
       return data.user
     })
   }
 
-  var fetchAuthorizationCode = function(token, clientId, state, redirectUri) {
-    return ajax({
-      type: 'POST',
-      url: '/api/v0/oauth/authorize',
-      headers: { 
-        Authorization: 'Bearer ' + token 
-      },
-      data: {
-        response_type: 'code',
-        state: state,
-        client_id: clientId,
-        redirect_uri: redirectUri
-      }
-    })
-  }
-
   var showConsentPage = function(token, query, client, user) {
-    var state = query.state
-    var clientId = query.client_id
-    var clientName = client.name
     var redirectUri = query.redirect_uri
-    var username = user.username
 
-    clientNameEl.textContent = clientName
-    usernameEl.textContent = username
+    stateField.value = query.state
+    clientIdField.value = client.client_id
+    redirectUriField.value = query.redirect_uri
+
+    clientNameEl.textContent = client.name
+    usernameEl.textContent = user.username
     clientEl.classList.remove('hide')
-
-    yesButton.addEventListener('click', function() {
-      fetchAuthorizationCode(token, clientId, state, redirectUri)
-      .then(function(result) {
-        redirect(result.redirect_uri, result)
-      }, function(err) {
-        redirectError(redirectUri, err)
-      })
-    })
-
-    noButton.addEventListener('click', function() {
-      redirectError(redirectUri, {
-        error: 'access_denied',
-        error_description: 'the resource owner has denied the request'
-      })
-    })
   }
 
   var query = querystring.parse(location.search)
@@ -153,8 +131,10 @@ document.addEventListener("DOMContentLoaded", function() {
     return redirect('/app#/login')
   }
 
+  tokenField.value = token
+
   Promise.all([
-    fetchClient(token, clientId), 
+    fetchClient(token, clientId),
     fetchUser(token)
   ])
   .then(function(res) {
@@ -162,16 +142,17 @@ document.addEventListener("DOMContentLoaded", function() {
     var user = res[1]
 
     if(!validateRedirectUri(client.redirect_uri, query.redirect_uri)) {
-      return redirect('/404')
+      // return redirect('/404')
     }
 
     return showConsentPage(token, query, client, user)
   }, function(err) {
-    console.log('failed to load client or user:', err)
     // TODO: display more informative page
     // if client cannot be found or error fetching
     redirect('/404')
   })
-  .catch(console.error)
+  .catch(function(err) {
+    console.error(err)
+  })
 
 })
