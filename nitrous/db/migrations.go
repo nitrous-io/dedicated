@@ -1206,5 +1206,12 @@ func init() {
 				UPDATE hosts SET free = TRUE WHERE hourly_price = 0;
 			`,
 		},
+		{
+			Version: "1060",
+			Up: `
+				ALTER TABLE user_profiles ALTER COLUMN max_hosts SET DEFAULT 10;
+				UPDATE user_profiles SET max_hosts = 10 WHERE max_hosts = 3;
+			`,
+		},
 	}
 }

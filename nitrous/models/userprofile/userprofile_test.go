@@ -52,7 +52,7 @@ var _ = Describe("models/userprofile", func() {
 			Expect(err).To(BeNil())
 			Expect(p.ID).NotTo(BeNil())
 			Expect(p.UserID).To(Equal(u.ID))
-			Expect(p.MaxHosts).To(Equal(int64(3)))
+			Expect(p.MaxHosts).To(Equal(int64(10)))
 			Expect(p.Advanced).To(Equal(false))
 			Expect(p.CreatedAt).NotTo(BeNil())
 			Expect(p.UpdatedAt).NotTo(BeNil())
