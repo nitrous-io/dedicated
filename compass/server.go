@@ -16,6 +16,12 @@ import (
 	"github.com/rcrowley/go-metrics/librato"
 )
 
+const (
+	defaultDomainTTL = uint32(300)
+	defaultSOATTL    = uint32(21600)
+	defaultNSTTL     = uint32(21600)
+)
+
 type NavigatorConfig struct {
 	Name   string            `json:"name"`
 	Domain string            `json:"domain"` // which domain this navigator will handle
@@ -37,10 +43,6 @@ type Server struct {
 	wg         *sync.WaitGroup
 	navigators map[string]n.Navigator
 }
-
-const (
-	defaultTTL = uint32(300)
-)
 
 func (s *Server) ListenAndServe() error {
 	s.mux = dns.NewServeMux()
@@ -70,45 +72,50 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	// always write dns message back
 	defer func() {
-		// If we can't handle the request, just return all our SOA as NS.
-		if len(m.Answer) == 0 {
-			log.Printf("No answer for question %s", q.String())
-			m.Ns = s.allSOA()
-			m.Rcode = dns.RcodeNameError // NXDOMAIN
-		}
-		if len(m.Answer) > 1 {
-			for _, r := range m.Answer {
-				r.Header().Ttl = uint32(defaultTTL)
-			}
-		}
 		w.WriteMsg(m)
 	}()
 
 	switch q.Qtype {
 	case dns.TypeSOA:
 		m.Answer = s.soa(q.Name)
-		log.Printf("Answering SOA query with %+v", m)
+		log.Printf("Answering SOA query with %#v", m)
 		return
 	case dns.TypeNS:
 		m.Answer = s.ns(q.Name)
-		log.Printf("Answering NS query with %+v", m)
+		log.Printf("Answering NS query with %#v", m)
 		return
-	case dns.TypeA:
+	case dns.TypeA, dns.TypeAAAA:
 		start := time.Now()
 		navigator, ok := s.navigatorForA(q)
-		if ok {
-			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
-			r, err := navigator.Lookup(q.Name)
-			if err == nil {
-				m.Answer = r
-				mh.UpdateSince(label, start)
-				log.Printf("Navigator %s: resolved %s to %+v", navigator.Name(), q.String(), r)
-				return
-			} else {
-				mh.Error(err, label)
-				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
+		if !ok {
+			s.setNxdomain(q, m)
+			return
+		}
+		label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
+		res, err := navigator.Lookup(q.Name)
+		if err != nil {
+			mh.Error(err, label)
+			log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
+			s.setNxdomain(q, m)
+			return
+		}
+		mh.UpdateSince(label, start)
+
+		// if it's TypeAAAA, returns NODATA
+		if q.Qtype == dns.TypeAAAA {
+			m.Rcode = dns.RcodeSuccess
+			m.Ns = s.soa(q.Name)
+			log.Printf("Navigator %s: resolved %s to NODATA", navigator.Name(), q.String())
+		} else {
+			m.Answer = res
+			log.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
+		}
+		if len(m.Answer) > 1 {
+			for _, r := range m.Answer {
+				r.Header().Ttl = uint32(defaultDomainTTL)
 			}
 		}
+		return
 	}
 }
 
@@ -116,10 +123,9 @@ func (s *Server) createServer(net, addr string) {
 	defer s.wg.Done()
 
 	server := &dns.Server{
-		Net:         net,
-		Addr:        addr,
-		Handler:     s.mux,
-		ReadTimeout: 1 * time.Second,
+		Net:     net,
+		Addr:    addr,
+		Handler: s.mux,
 	}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
@@ -132,22 +138,27 @@ func (s *Server) navigatorForA(qn dns.Question) (n.Navigator, bool) {
 	return n, ok
 }
 
+func (s *Server) setNxdomain(q dns.Question, m *dns.Msg) {
+	log.Printf("No answer for question %s", q.String())
+	m.Rcode = dns.RcodeNameError // NXDOMAIN
+	m.Ns = s.allSOA()
+}
+
 func (s *Server) soa(name string) []dns.RR {
 	if len(s.config.Nameservers) < 1 {
 		return nil
 	}
-
 	primaryNS := s.config.Nameservers[0]
 	return []dns.RR{
 		&dns.SOA{
-			Hdr:     dns.RR_Header{Name: name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
+			Hdr:     dns.RR_Header{Name: name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultSOATTL},
 			Ns:      primaryNS,
 			Mbox:    "admin." + strings.ToLower(name),
 			Serial:  uint32(time.Now().Truncate(time.Hour).Unix()),
 			Refresh: 28800,
 			Retry:   7200,
 			Expire:  604800,
-			Minttl:  defaultTTL,
+			Minttl:  defaultSOATTL,
 		},
 	}
 }
@@ -156,7 +167,7 @@ func (s *Server) ns(name string) []dns.RR {
 	rr := []dns.RR{}
 	for _, ns := range s.config.Nameservers {
 		rr = append(rr, &dns.NS{
-			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: defaultTTL},
+			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: defaultNSTTL},
 			Ns:  ns,
 		})
 	}
