@@ -19,7 +19,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
-	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -46,8 +45,6 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
-	errFreeQueueRequired = httperror.New(http.StatusForbidden, "free_queue_required",
-		"Your workspace has been added to the queue")
 	errFreeQueueExists = httperror.New(http.StatusBadRequest, "free_queue_exists",
 		"You already have a workspace in queue. We will email you when it's ready.")
 )
@@ -124,32 +121,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
 	if err != nil {
 		switch err {
-		case freetier.ErrFreeQueueRequired:
-			// Check whether user has already queued.
-			if fq, err := freequeue.Find(db, u.ID); err != nil {
-				if err != sql.ErrNoRows {
-					return err
-				}
-			} else {
-				if fq.State == freequeue.StateApproved {
-					break
-				}
-				return errFreeQueueExists
-			}
-
-			// Add host and container to free queue.
-			fq := &freequeue.FreeQueue{
-				UserID:                u.ID,
-				ContainerTemplateSlug: options.ContainerTemplateSlug,
-				ContainerName:         options.ContainerName,
-				HostName:              options.Name,
-				RegionSlug:            reg.Slug,
-			}
-			if err := fq.Insert(db); err != nil {
-				return err
-			}
-
-			return errFreeQueueRequired
 		case freetier.ErrFreePlanNotAllowed:
 			return errFreePlanNotAllowed
 		case freetier.ErrPaidPlanNotAllowed:

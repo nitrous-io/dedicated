@@ -63,32 +63,16 @@ var _ = Describe("models/freequeue", func() {
 		Expect(err).To(BeNil())
 	})
 
-	Describe("Insert()", func() {
-		It("should insert", func() {
-			f := &freequeue.FreeQueue{
-				UserID:                u1.ID,
-				ContainerTemplateSlug: "tmpl1",
-				ContainerName:         "nm",
-				HostName:              "my workspace",
-				RegionSlug:            "slug1",
-			}
-			Expect(f.Insert(db)).To(BeNil())
-
-			f2 := &freequeue.FreeQueue{}
-			err := db.Get(f2, "SELECT * FROM free_queue WHERE id = $1", f.ID)
-			Expect(err).To(BeNil())
-			Expect(f.UserID).To(Equal(u1.ID))
-			Expect(f.ContainerTemplateSlug).To(Equal("tmpl1"))
-			Expect(f.ContainerName).To(Equal("nm"))
-			Expect(f.HostName).To(Equal("my workspace"))
-			Expect(f.RegionSlug).To(Equal("slug1"))
-			Expect(f.State).To(Equal(freequeue.StatePending))
-			Expect(f.ActionedBy.Valid).To(BeFalse())
-			Expect(f.ActionedAt.Valid).To(BeFalse())
-			Expect(f.CreatedAt).ToNot(BeNil())
-			Expect(f.UpdatedAt).ToNot(BeNil())
-		})
-	})
+	var insert = func(f *freequeue.FreeQueue) error {
+		nstmt, err := db.PrepareNamed(`INSERT INTO free_queue
+    (user_id, container_template_slug, container_name, host_name, region_slug)
+    VALUES (:user_id, :container_template_slug, :container_name, :host_name, :region_slug)
+    RETURNING *;`)
+		if err != nil {
+			return err
+		}
+		return nstmt.QueryRow(f).StructScan(f)
+	}
 
 	Describe("Cancel()", func() {
 		It("returns should soft delete the free_queue assigned to the user", func() {
@@ -99,7 +83,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(f1.Insert(db)).To(BeNil())
+			Expect(insert(f1)).To(BeNil())
 
 			f2 := &freequeue.FreeQueue{
 				UserID:                u2.ID,
@@ -108,7 +92,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(f2.Insert(db)).To(BeNil())
+			Expect(insert(f2)).To(BeNil())
 
 			Expect(freequeue.Cancel(db, u1.ID)).To(BeNil())
 			_, err := freequeue.Find(db, u1.ID)
@@ -132,7 +116,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(f.Insert(db)).To(BeNil())
+			Expect(insert(f)).To(BeNil())
 
 			fq, err := freequeue.Find(db, u1.ID)
 			Expect(err).To(BeNil())
@@ -160,7 +144,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq1.Insert(db)).To(BeNil())
+			Expect(insert(fq1)).To(BeNil())
 
 			fq2 = &freequeue.FreeQueue{
 				UserID:                u2.ID,
@@ -169,7 +153,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq2.Insert(db)).To(BeNil())
+			Expect(insert(fq2)).To(BeNil())
 
 			fq3 = &freequeue.FreeQueue{
 				UserID:                u3.ID,
@@ -178,7 +162,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq3.Insert(db)).To(BeNil())
+			Expect(insert(fq3)).To(BeNil())
 
 			_, err := db.Exec("UPDATE free_queue SET state = 'approved' WHERE id = $1", fq3.ID)
 			Expect(err).To(BeNil())
@@ -241,7 +225,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq1.Insert(db)).To(BeNil())
+			Expect(insert(fq1)).To(BeNil())
 
 			fq2 = &freequeue.FreeQueue{
 				UserID:                u2.ID,
@@ -250,7 +234,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq2.Insert(db)).To(BeNil())
+			Expect(insert(fq2)).To(BeNil())
 
 			fq3 = &freequeue.FreeQueue{
 				UserID:                u3.ID,
@@ -259,7 +243,7 @@ var _ = Describe("models/freequeue", func() {
 				HostName:              "my workspace",
 				RegionSlug:            "slug1",
 			}
-			Expect(fq3.Insert(db)).To(BeNil())
+			Expect(insert(fq3)).To(BeNil())
 
 			_, err := db.Exec("UPDATE free_queue SET state = 'approved' WHERE id = $1", fq3.ID)
 			Expect(err).To(BeNil())

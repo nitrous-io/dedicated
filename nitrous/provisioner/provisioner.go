@@ -616,6 +616,9 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 				opts.ProvisionSucceededFn(h)
 			}
 		} else {
+			if h == nil {
+				fmt.Printf("Err: %+v\n", err)
+			}
 			h.State = host.StateOrphan
 			// ignore, but log
 			if err := p.updateProviderDetails(h); err != nil {
