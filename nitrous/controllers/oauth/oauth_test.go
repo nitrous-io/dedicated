@@ -613,7 +613,7 @@ var _ = Describe("controllers/oauth", func() {
 				Context("when valid parameters requested", func() {
 					It("should get authorization code", func() {
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusOK))
+						Expect(res.Code).To(Equal(http.StatusFound))
 						j := parseJSONResponse()
 						Expect(j["state"]).To(Equal("anti_csrf"))
 						Expect(j["code"]).ToNot(Equal(""))
@@ -623,7 +623,7 @@ var _ = Describe("controllers/oauth", func() {
 					It("should success if redirect URI is subpath of original", func() {
 						params.Set("redirect_uri", "https://blu.co/oauth/callback?special=true")
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusOK))
+						Expect(res.Code).To(Equal(http.StatusFound))
 						j := parseJSONResponse()
 						Expect(j["redirect_uri"]).To(Equal("https://blu.co/oauth/callback?special=true"))
 					})
@@ -631,7 +631,7 @@ var _ = Describe("controllers/oauth", func() {
 					Describe("POST /api/v0/oauth/token, grant_type=authorization_code by client", func() {
 						getCode := func() string {
 							doRequest()
-							Expect(res.Code).To(Equal(http.StatusOK))
+							Expect(res.Code).To(Equal(http.StatusFound))
 							j := parseJSONResponse()
 							code := j["code"].(string)
 							Expect(code).ToNot(Equal(""))

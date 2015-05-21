@@ -117,8 +117,9 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	// Web app user agent will do the redirection
-	env.Status = http.StatusOK
+	w.Header().Set("Location", redirectURI)
+
+	env.Status = http.StatusFound
 	env.Data = map[string]interface{}{
 		"code":         code,
 		"redirect_uri": redirectURI,
