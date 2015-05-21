@@ -82,12 +82,15 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	redirectURI := r.FormValue("redirect_uri")
-	if redirectURI == "" {
-		redirectURI = client.RedirectURI
+	baseRedirectURI, err := url.ParseRequestURI(client.RedirectURI)
+	if err != nil {
+		return err
+	}
 
-	} else if redirectURI != client.RedirectURI {
-		inputURI, err := url.ParseRequestURI(redirectURI)
+	inputRedirectURI := r.FormValue("redirect_uri")
+
+	if inputRedirectURI != "" && inputRedirectURI != client.RedirectURI {
+		inputURI, err := url.ParseRequestURI(inputRedirectURI)
 		if err != nil {
 			return errInvalidRedirectURI
 		}
@@ -96,22 +99,19 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 			return errInvalidRedirectURI
 		}
 
-		originalURI, err := url.ParseRequestURI(client.RedirectURI)
-		if err != nil {
-			return err
-		}
-
-		if inputURI.Scheme != originalURI.Scheme {
+		if inputURI.Scheme != baseRedirectURI.Scheme {
 			return errInvalidRedirectURI
 		}
 
-		if inputURI.Host != originalURI.Host {
+		if inputURI.Host != baseRedirectURI.Host {
 			return errInvalidRedirectURI
 		}
 
-		if inputURI.Path != originalURI.Path {
+		if inputURI.Path != baseRedirectURI.Path {
 			return errInvalidRedirectURI
 		}
+
+		baseRedirectURI = inputURI
 	}
 
 	action := r.FormValue("action")
@@ -119,17 +119,26 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errAccessDenied
 	}
 
-	code, err := authorizationcode.Generate(u.ID, clientID, redirectURI)
+	// redirect value is what client expects
+	redirectValue := baseRedirectURI.String()
+
+	code, err := authorizationcode.Generate(u.ID, clientID, redirectValue)
 	if err != nil {
 		return err
 	}
 
-	w.Header().Set("Location", redirectURI)
+	// calculate actual HTTP redirection URL that include
+	// the authorization code result
+	baseRedirectURI.RawQuery += "&code=" + url.QueryEscape(code) +
+		"&state=" + url.QueryEscape(state) +
+		"&redirect_uri=" + url.QueryEscape(redirectValue)
+
+	w.Header().Set("Location", baseRedirectURI.String())
 
 	env.Status = http.StatusFound
 	env.Data = map[string]interface{}{
 		"code":         code,
-		"redirect_uri": redirectURI,
+		"redirect_uri": redirectValue,
 		"state":        state,
 	}
 
