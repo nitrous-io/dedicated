@@ -59,7 +59,7 @@ formatPrice = (price, digits, ignoreZero=true) ->
   return if price == 0 && ignoreZero
   pd = price / Math.pow(10, digits)
   if pd != Math.floor(pd)
-    pd = pd.toFixed(3)
+    pd = pd.toFixed(digits)
   pd.toString()
 
 klass.reopenClass

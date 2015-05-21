@@ -3,6 +3,7 @@ package billingprofiles
 import (
 	"database/sql"
 	"net/http"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -86,6 +87,16 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
 		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
+	}
+
+	if (existing.State == billingprofile.StateFree || existing.State == billingprofile.StateNoCard) &&
+		bp.State == billingprofile.StatePaid {
+		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
+			"upgraded_to_paid_from": existing.State,
+		}, env.Logger)
+		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
+			"upgraded_to_paid_at": time.Now(),
+		}, env.Logger)
 	}
 
 	ser := serializers.SerializeBillingProfile(bp)

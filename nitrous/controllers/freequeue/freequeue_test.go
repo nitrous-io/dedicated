@@ -78,6 +78,17 @@ var _ = Describe("controllers/freequeue", func() {
 		}
 	})
 
+	var insert = func(f *freequeue.FreeQueue) error {
+		nstmt, err := db.PrepareNamed(`INSERT INTO free_queue
+    (user_id, container_template_slug, container_name, host_name, region_slug)
+    VALUES (:user_id, :container_template_slug, :container_name, :host_name, :region_slug)
+    RETURNING *;`)
+		if err != nil {
+			return err
+		}
+		return nstmt.QueryRow(f).StructScan(f)
+	}
+
 	Describe("GET /api/v0/free_queue", func() {
 		doRequest := func() *httptest.ResponseRecorder {
 			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/free_queue", nil)
@@ -104,7 +115,7 @@ var _ = Describe("controllers/freequeue", func() {
 				RegionSlug:            "slug1",
 				HostName:              "name1",
 			}
-			Expect(fq.Insert(db)).To(BeNil())
+			Expect(insert(fq)).To(BeNil())
 
 			_, err := db.Exec("UPDATE free_queue SET deleted_at = now() WHERE id = $1", fq.ID)
 			Expect(err).To(BeNil())
@@ -128,7 +139,7 @@ var _ = Describe("controllers/freequeue", func() {
 					RegionSlug:            "slug1",
 					HostName:              "name1",
 				}
-				Expect(fq.Insert(db)).To(BeNil())
+				Expect(insert(fq)).To(BeNil())
 			})
 
 			It("should return an error if free queue is found but a host has previously been created", func() {
@@ -215,7 +226,7 @@ var _ = Describe("controllers/freequeue", func() {
 				RegionSlug:            "slug1",
 				HostName:              "name1",
 			}
-			Expect(fq.Insert(db)).To(BeNil())
+			Expect(insert(fq)).To(BeNil())
 
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -285,7 +296,7 @@ var _ = Describe("controllers/freequeue", func() {
 					ContainerName:         "nm",
 					RegionSlug:            "slug1",
 				}
-				Expect(fq1.Insert(db)).To(BeNil())
+				Expect(insert(fq1)).To(BeNil())
 
 				fq2 = &freequeue.FreeQueue{
 					UserID:                u2.ID,
@@ -293,7 +304,7 @@ var _ = Describe("controllers/freequeue", func() {
 					ContainerName:         "nm",
 					RegionSlug:            "slug1",
 				}
-				Expect(fq2.Insert(db)).To(BeNil())
+				Expect(insert(fq2)).To(BeNil())
 
 				fq3 = &freequeue.FreeQueue{
 					UserID:                u3.ID,
@@ -301,7 +312,7 @@ var _ = Describe("controllers/freequeue", func() {
 					ContainerName:         "nm",
 					RegionSlug:            "slug1",
 				}
-				Expect(fq3.Insert(db)).To(BeNil())
+				Expect(insert(fq3)).To(BeNil())
 
 				_, err = db.Exec("UPDATE free_queue SET state = 'approved' WHERE id = $1", fq3.ID)
 				Expect(err).To(BeNil())
@@ -346,7 +357,7 @@ var _ = Describe("controllers/freequeue", func() {
 				ContainerName:         "nm",
 				RegionSlug:            "region1",
 			}
-			Expect(fq.Insert(db)).To(BeNil())
+			Expect(insert(fq)).To(BeNil())
 
 			envvars.WebHostname = "nitrous.example"
 			origMailer = user.Mailer

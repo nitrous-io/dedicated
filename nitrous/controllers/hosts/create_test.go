@@ -849,7 +849,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("creates a free queue record and responds with HTTP 403 Forbidden with a free_queue_required error", func() {
+				It("creates the host", func() {
 					_, err := db.Exec(`UPDATE plans SET price=0;`)
 					Expect(err).To(BeNil())
 
@@ -857,32 +857,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					params.Set("container_name", "my container")
 
 					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusForbidden))
-
-					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("free_queue_required"))
-
-					fqs, err := freequeue.FindAllPending(db)
-					Expect(err).To(BeNil())
-					Expect(fqs).To(HaveLen(1))
-					Expect(fqs[0].UserID).To(Equal(u.ID))
-					Expect(fqs[0].ContainerTemplateSlug).To(Equal(params.Get("container_template_slug")))
-					Expect(fqs[0].ContainerName).To(Equal(params.Get("container_name")))
-					Expect(fqs[0].HostName).To(Equal(params.Get("name")))
-					Expect(fqs[0].RegionSlug).To(Equal(params.Get("region")))
+					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 
-				It("creates a free queue record if the free queue record has been soft deleted", func() {
-					fq := &freequeue.FreeQueue{
-						UserID:                u.ID,
-						ContainerTemplateSlug: "rails",
-						ContainerName:         "my ror",
-						HostName:              "my workspace",
-						RegionSlug:            "sgp[",
-					}
-					Expect(fq.Insert(db)).To(BeNil())
-
-					_, err := db.Exec("UPDATE free_queue SET deleted_at = now() WHERE id = $1", fq.ID)
+				It("creates the host if the free queue record has been soft deleted", func() {
+					_, err := db.Exec(`INSERT INTO free_queue
+					(user_id, container_template_slug, container_name, region_slug, host_name, deleted_at)
+					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', now())`, u.ID)
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec(`UPDATE plans SET price=0;`)
@@ -892,42 +873,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					params.Set("container_name", "my container")
 
 					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusForbidden))
-
-					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("free_queue_required"))
-
-					fqs, err := freequeue.FindAllPending(db)
-					Expect(err).To(BeNil())
-					Expect(fqs).To(HaveLen(1))
-					Expect(fqs[0].UserID).To(Equal(u.ID))
-					Expect(fqs[0].ContainerTemplateSlug).To(Equal(params.Get("container_template_slug")))
-					Expect(fqs[0].ContainerName).To(Equal(params.Get("container_name")))
-					Expect(fqs[0].HostName).To(Equal(params.Get("name")))
-					Expect(fqs[0].RegionSlug).To(Equal(params.Get("region")))
-				})
-
-				It("responds with HTTP 400 Bad Request if user already has a free queue record", func() {
-					fq := &freequeue.FreeQueue{
-						UserID:                u.ID,
-						ContainerTemplateSlug: "rails",
-						ContainerName:         "my ror",
-						HostName:              "my workspace",
-						RegionSlug:            "sgp[",
-					}
-					Expect(fq.Insert(db)).To(BeNil())
-
-					_, err := db.Exec(`UPDATE plans SET price=0;`)
-					Expect(err).To(BeNil())
-
-					params.Set("container_template_slug", "rails")
-					params.Set("container_name", "my container")
-
-					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-					errType, _ := test.ErrorSlug(res.Body)
-					Expect(errType).To(Equal("free_queue_exists"))
+					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 
 				It("responds with error if paid plan is selected", func() {
@@ -953,16 +899,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				})
 
 				It("continues creating if the free queue has been approved", func() {
-					fq := &freequeue.FreeQueue{
-						UserID:                u.ID,
-						ContainerTemplateSlug: "rails",
-						ContainerName:         "my ror",
-						HostName:              "my workspace",
-						RegionSlug:            "sgp[",
-					}
-					Expect(fq.Insert(db)).To(BeNil())
-
-					_, err := db.Exec(`UPDATE free_queue SET state = $1 WHERE user_id = $2;`, freequeue.StateApproved, u.ID)
+					_, err := db.Exec(`INSERT INTO free_queue
+					(user_id, container_template_slug, container_name, region_slug, host_name, state)
+					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', $2)`, u.ID, freequeue.StateApproved)
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec(`UPDATE plans SET price=0;`)
@@ -976,16 +915,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				})
 
 				It("continues creating if free queue has been approved and user has orphan hosts", func() {
-					fq := &freequeue.FreeQueue{
-						UserID:                u.ID,
-						ContainerTemplateSlug: "rails",
-						ContainerName:         "my ror",
-						HostName:              "my workspace",
-						RegionSlug:            "sgp[",
-					}
-					Expect(fq.Insert(db)).To(BeNil())
-
-					_, err := db.Exec(`UPDATE free_queue SET state = $1 WHERE user_id = $2;`, freequeue.StateApproved, u.ID)
+					_, err := db.Exec(`INSERT INTO free_queue
+					(user_id, container_template_slug, container_name, region_slug, host_name, state)
+					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', $2)`, u.ID, freequeue.StateApproved)
 					Expect(err).To(BeNil())
 
 					_, err = db.Exec(`UPDATE plans SET price=0;`)

@@ -457,7 +457,7 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(up.ID).NotTo(BeNil())
 				Expect(up.UserID).To(Equal(u.ID))
-				Expect(up.MaxHosts).To(Equal(int64(3)))
+				Expect(up.MaxHosts).To(Equal(int64(10)))
 				Expect(up.CreatedAt).NotTo(BeNil())
 				Expect(up.UpdatedAt).NotTo(BeNil())
 			})

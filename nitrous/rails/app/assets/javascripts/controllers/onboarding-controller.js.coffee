@@ -10,8 +10,6 @@ screens = [
     "waiting-create",
     "thank-you",
     "waiting-finish",
-    "extra",
-    "free-tier-tip"
   ]
 
 App.OnboardingController = Em.ObjectController.extend

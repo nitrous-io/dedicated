@@ -63,13 +63,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
   ).observes 'plans.@each'
 
-  selectedPlanDidChange: (->
-    if @get('selectedPlan.isFreePlan')
-      App.set 'temporaryScreen', 'free-tier-tip'
-    else
-      App.set 'temporaryScreen', null
-  ).observes 'selectedPlan'
-
   regionsDidChange: (->
     unless @get('selectedRegion')
       @set('selectedRegion', App.get('regions.firstObject'))
@@ -169,14 +162,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           if App.get('onboardingScreen')
             App.set 'onboardingScreen', 'thank-you'
       ).catch (jqxhr) =>
-        # If host creation failed because of a queue, we redirect to the
-        # "you're in a queue" page.
-        if jqxhr.responseJSON?.error == 'free_queue_required'
-          App.set('pendingHost', null)
-          App.set('pendingContainerData', null)
-          Mp.timestamp Mp.PropertyFreeQueueEntered
-          @transitionToRoute 'hosts.queue'
-
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]

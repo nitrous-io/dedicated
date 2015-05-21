@@ -64,17 +64,6 @@ type FreeQueueWithUser struct {
 	EmailConfirmed   bool           `db:"email_confirmed"`
 }
 
-func (f *FreeQueue) Insert(db *db.Database) error {
-	nstmt, err := db.PrepareNamed(`INSERT INTO free_queue
-    (user_id, container_template_slug, container_name, host_name, region_slug)
-    VALUES (:user_id, :container_template_slug, :container_name, :host_name, :region_slug)
-    RETURNING *;`)
-	if err != nil {
-		return err
-	}
-	return nstmt.QueryRow(f).StructScan(f)
-}
-
 func Action(tx *sqlx.Tx, id int64, expectedState, newState string, userID int64) (*FreeQueue, error) {
 	validState := false
 	for _, st := range ValidStates {
