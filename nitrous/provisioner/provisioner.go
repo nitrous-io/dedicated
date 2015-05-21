@@ -668,7 +668,10 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 
 	// refresh the host for live DB data
 	// (assign, not return so the value is passed into defer)
-	h, err = host.FindByIdentifier(p.db, h.Slug)
+	nH, err := host.FindByIdentifier(p.db, h.Slug)
+	if nH != nil {
+		h = nH
+	}
 	return h, err
 }
 
