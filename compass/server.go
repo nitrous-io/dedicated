@@ -70,12 +70,6 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	// always write dns message back
 	defer func() {
-		// If we can't handle the request, just return all our SOA as NS.
-		if len(m.Answer) == 0 {
-			log.Printf("No answer for question %s", q.String())
-			m.Ns = s.allSOA()
-			m.Rcode = dns.RcodeNameError // NXDOMAIN
-		}
 		if len(m.Answer) > 1 {
 			for _, r := range m.Answer {
 				r.Header().Ttl = uint32(defaultTTL)
@@ -87,28 +81,39 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	switch q.Qtype {
 	case dns.TypeSOA:
 		m.Answer = s.soa(q.Name)
-		log.Printf("Answering SOA query with %+v", m)
+		log.Printf("Answering SOA query with %#v", m)
 		return
 	case dns.TypeNS:
 		m.Answer = s.ns(q.Name)
-		log.Printf("Answering NS query with %+v", m)
+		log.Printf("Answering NS query with %#v", m)
 		return
-	case dns.TypeA:
+	case dns.TypeA, dns.TypeAAAA:
 		start := time.Now()
 		navigator, ok := s.navigatorForA(q)
-		if ok {
-			label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
-			r, err := navigator.Lookup(q.Name)
-			if err == nil {
-				m.Answer = r
-				mh.UpdateSince(label, start)
-				log.Printf("Navigator %s: resolved %s to %+v", navigator.Name(), q.String(), r)
-				return
-			} else {
-				mh.Error(err, label)
-				log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
-			}
+		if !ok {
+			s.setNxdomain(q, m)
+			return
 		}
+		label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
+		r, err := navigator.Lookup(q.Name)
+		if err != nil {
+			mh.Error(err, label)
+			log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
+			s.setNxdomain(q, m)
+			return
+		}
+		mh.UpdateSince(label, start)
+
+		// if it's TypeAAAA, returns NODATA
+		if q.Qtype == dns.TypeAAAA {
+			m.Rcode = dns.RcodeSuccess
+			m.Ns = s.soa(q.Name)
+			log.Printf("Navigator %s: resolved %s to NODATA", navigator.Name(), q.String())
+		} else {
+			m.Answer = r
+			log.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
+		}
+		return
 	}
 }
 
@@ -130,6 +135,12 @@ func (s *Server) navigatorForA(qn dns.Question) (n.Navigator, bool) {
 	rootDomain := n.RootDomain(strings.ToLower(qn.Name))
 	n, ok := s.navigators[rootDomain]
 	return n, ok
+}
+
+func (s *Server) setNxdomain(q dns.Question, m *dns.Msg) {
+	log.Printf("No answer for question %s", q.String())
+	m.Rcode = dns.RcodeNameError // NXDOMAIN
+	m.Ns = s.allSOA()
 }
 
 func (s *Server) soa(name string) []dns.RR {

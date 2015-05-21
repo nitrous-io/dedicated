@@ -208,6 +208,41 @@ func TestServeUnhandledDomain(t *testing.T) {
 	}
 }
 
+func TestServeAAAA(t *testing.T) {
+	s, addr, err := testServer()
+	defer s.Stop()
+	if err != nil {
+		t.Fatal("failed to start server", err)
+	}
+	// AAAA -> NODATA for valid domain but we dont support AAAA
+	c := new(dns.Client)
+	m := new(dns.Msg)
+	m.SetQuestion("test.example.com.", dns.TypeAAAA)
+	r, _, err := c.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("failed to get dns response: %v", err)
+	}
+	if r.Rcode != dns.RcodeSuccess || len(r.Answer) > 0 {
+		t.Errorf("expected NODATA but got %#v", r)
+	}
+	if len(r.Ns) == 0 {
+		t.Errorf("expected authority section to filled but it's empty")
+	}
+
+	// AAAA -> NXDOMAIN for invalid domain
+	m.SetQuestion("does-not-exist.example.com.", dns.TypeAAAA)
+	r, _, err = c.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("failed to get dns response: %v", err)
+	}
+	if r.Rcode != dns.RcodeNameError || len(r.Answer) > 0 {
+		t.Errorf("expected NXDOMAIN but got %#v", r)
+	}
+	if len(r.Ns) == 0 {
+		t.Fatalf("expected authority section to filled but it's empty")
+	}
+}
+
 func TestNewServerWithEmptyNavigators(t *testing.T) {
 	s, err := NewServer(&Config{
 		Addr: fmt.Sprintf("localhost:%d", testPort),
