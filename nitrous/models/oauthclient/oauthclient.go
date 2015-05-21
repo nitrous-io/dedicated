@@ -1,10 +1,10 @@
-package oauth
+package oauthclient
 
 import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-type Client struct {
+type OAuthClient struct {
 	ID          int64  `db:"id" json:"id"`
 	UserID      int64  `db:"user_id" json:"user_id"`
 	Name        string `db:"name" json:"name"`
@@ -13,13 +13,13 @@ type Client struct {
 	RedirectURI string `db:"redirect_uri" json:"redirect_uri"`
 }
 
-type ClientWithSecret struct {
-	*Client
+type OAuthClientWithSecret struct {
+	*OAuthClient
 	ClientSecret string `db:"client_secret"`
 }
 
-func (client *Client) InsertWithSecret(d *db.Database, secret string) error {
-	c := &ClientWithSecret{client, secret}
+func (c *OAuthClient) InsertWithSecret(d *db.Database, secret string) error {
+	cl := &OAuthClientWithSecret{c, secret}
 
 	nstmt, err := d.PrepareNamed(`INSERT INTO oauth_clients
 		(user_id, name, description, client_id, client_secret, redirect_uri) VALUES
@@ -28,11 +28,11 @@ func (client *Client) InsertWithSecret(d *db.Database, secret string) error {
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(c).StructScan(c)
+	return nstmt.QueryRowx(cl).StructScan(cl)
 }
 
-func FindClientByID(d *db.Database, clientID string) (*Client, error) {
-	client := &Client{}
+func FindByID(d *db.Database, clientID string) (*OAuthClient, error) {
+	client := &OAuthClient{}
 
 	err := d.Get(client, `SELECT
 		id, user_id, name, description, client_id, redirect_uri
@@ -46,8 +46,8 @@ func FindClientByID(d *db.Database, clientID string) (*Client, error) {
 	return client, nil
 }
 
-func FindClientWithSecret(d *db.Database, clientID, secret string) (*Client, error) {
-	client := &Client{}
+func FindWithSecret(d *db.Database, clientID, secret string) (*OAuthClient, error) {
+	client := &OAuthClient{}
 
 	err := d.Get(client, `SELECT
 		id, user_id, name, description, client_id, redirect_uri
