@@ -1,4 +1,4 @@
-package oauth
+package authorizationcode
 
 import (
 	"errors"
@@ -10,18 +10,15 @@ import (
 )
 
 var (
+	Secret         = envvars.SecretToken
 	ValidityPeriod = 1 * time.Minute
-	verifier       *msgverifier.MsgVerifier
+	verifier       = msgverifier.New(Secret)
 )
 
 var (
-	ErrInvalidToken = errors.New("logintoken: invalid token")
-	ErrCodeExpired  = errors.New("logintoken: authorization code expired")
+	ErrInvalidToken = errors.New("authorizationcode: invalid token")
+	ErrCodeExpired  = errors.New("authorizationcode: authorization code expired")
 )
-
-func init() {
-	verifier = msgverifier.New(envvars.SecretToken)
-}
 
 type AuthorizationCode struct {
 	Type        string    `json:"type"`
@@ -33,14 +30,14 @@ type AuthorizationCode struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-func GenerateAuthorizationCode(userID int64, clientID, redirectURI string) (string, error) {
+func Generate(userID int64, clientID, redirectURI string) (string, error) {
 	nonce, err := securerandom.Base64(191)
 	if err != nil {
 		return "", err
 	}
 
 	createdAt := time.Now().UTC()
-	code := AuthorizationCode{
+	return verifier.Generate(&AuthorizationCode{
 		Type:        "authorization_code",
 		UserID:      userID,
 		ClientID:    clientID,
@@ -48,14 +45,11 @@ func GenerateAuthorizationCode(userID int64, clientID, redirectURI string) (stri
 		RedirectURI: redirectURI,
 		CreatedAt:   createdAt,
 		ExpiresAt:   createdAt.Add(ValidityPeriod),
-	}
-
-	return verifier.Generate(code)
+	})
 }
 
-func ReadAuthorizationCode(signedCode string) (*AuthorizationCode, error) {
+func Read(signedCode string) (*AuthorizationCode, error) {
 	code := &AuthorizationCode{}
-
 	err := verifier.Verify(signedCode, code)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -66,6 +60,5 @@ func ReadAuthorizationCode(signedCode string) (*AuthorizationCode, error) {
 	if code.ExpiresAt.Before(time.Now()) {
 		return nil, ErrCodeExpired
 	}
-
 	return code, nil
 }

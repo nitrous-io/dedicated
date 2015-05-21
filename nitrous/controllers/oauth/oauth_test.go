@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	oc "github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/oauth"
+	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/authorizationcode"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -173,7 +174,7 @@ var _ = Describe("controllers/oauth", func() {
 				var durationReceived time.Duration
 
 				BeforeEach(func() {
-					oc.TimerFunc = func(d time.Duration) *time.Timer {
+					oauth.TimerFunc = func(d time.Duration) *time.Timer {
 						durationReceived = d
 						return time.NewTimer(0) // set duration to 0 for faster tests
 					}
@@ -468,7 +469,7 @@ var _ = Describe("controllers/oauth", func() {
 			Expect(err).To(BeNil())
 			Expect(clientUser1.ID).NotTo(BeZero())
 
-			client1 := &oauth.Client{
+			client1 := &oauthclient.OAuthClient{
 				UserID:      clientUser1.ID,
 				Name:        "Builders League United",
 				Description: "A fictional company",
@@ -487,7 +488,7 @@ var _ = Describe("controllers/oauth", func() {
 			Expect(err).To(BeNil())
 			Expect(clientUser2.ID).NotTo(BeZero())
 
-			client2 := &oauth.Client{
+			client2 := &oauthclient.OAuthClient{
 				UserID:      clientUser2.ID,
 				Name:        "Reliable Excavation Demolition",
 				Description: "A fictional company",
@@ -689,10 +690,10 @@ var _ = Describe("controllers/oauth", func() {
 
 							It("should fail if authorization code is expired", func() {
 								// modify global to get a negative-lived code
-								originalValidity := oauth.ValidityPeriod
-								oauth.ValidityPeriod = -5 * time.Second
+								originalValidity := authorizationcode.ValidityPeriod
+								authorizationcode.ValidityPeriod = -5 * time.Second
 								params.Set("code", getCode())
-								oauth.ValidityPeriod = originalValidity
+								authorizationcode.ValidityPeriod = originalValidity
 
 								doRequest()
 								Expect(res.Code).To(Equal(http.StatusUnauthorized))

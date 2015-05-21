@@ -8,9 +8,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/oauth"
+	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/authorizationcode"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
@@ -30,7 +31,7 @@ var (
 
 func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	clientID := mux.Vars(r)["clientid"]
-	client, err := oauth.FindClientByID(env.DB, clientID)
+	client, err := oauthclient.FindByID(env.DB, clientID)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	state := r.FormValue("state")
 	clientID := r.FormValue("client_id")
 
-	client, err := oauth.FindClientByID(env.DB, clientID)
+	client, err := oauthclient.FindByID(env.DB, clientID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errClientNotFound
@@ -107,7 +108,7 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	code, err := oauth.GenerateAuthorizationCode(u.ID, clientID, redirectURI)
+	code, err := authorizationcode.Generate(u.ID, clientID, redirectURI)
 	if err != nil {
 		return err
 	}
@@ -135,12 +136,12 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 	}
 
 	signedCode := r.FormValue("code")
-	code, err := oauth.ReadAuthorizationCode(signedCode)
+	code, err := authorizationcode.Read(signedCode)
 	if err != nil {
 		switch err {
-		case oauth.ErrCodeExpired:
+		case authorizationcode.ErrCodeExpired:
 			return errCodeExpired
-		case oauth.ErrInvalidToken:
+		case authorizationcode.ErrInvalidToken:
 			return errInvalidAuthorizationCode
 		default:
 			return err
@@ -165,7 +166,7 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		return errInvalidClientSecret
 	}
 
-	client, err := oauth.FindClientWithSecret(db, clientID, clientSecret)
+	client, err := oauthclient.FindWithSecret(db, clientID, clientSecret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errUnauthorizedClient
