@@ -12,7 +12,6 @@ App.GutterOnboardingView = Em.View.extend
   showSelectRegion: Em.computed.equal 'screen', 'select-region'
   showSelectPlan: Em.computed.equal 'screen', 'select-plan'
   showCardholdersName: Em.computed.equal 'screen', 'cardholders-name'
-  showFreeTierTip: Em.computed.equal 'screen', 'free-tier-tip'
 
   showNextButton: (->
     @get('nextScreen')?.indexOf('waiting-') == -1
