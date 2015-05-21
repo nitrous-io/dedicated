@@ -123,10 +123,9 @@ func (s *Server) createServer(net, addr string) {
 	defer s.wg.Done()
 
 	server := &dns.Server{
-		Net:         net,
-		Addr:        addr,
-		Handler:     s.mux,
-		ReadTimeout: 1 * time.Second,
+		Net:     net,
+		Addr:    addr,
+		Handler: s.mux,
 	}
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
