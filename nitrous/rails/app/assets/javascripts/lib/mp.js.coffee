@@ -57,6 +57,9 @@ window.Mp =
       else
         personHash.$first_name = name
 
+    if bp_state = App.get('user._billingProfile.state')
+      personHash.billing_state = bp_state
+
     mixpanel.people?.set?(personHash)
     @identified = true
 
