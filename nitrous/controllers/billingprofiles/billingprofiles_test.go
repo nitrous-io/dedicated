@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -18,7 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,21 +37,24 @@ var _ = Describe("controllers/billingprofiles", func() {
 		handler *mux.Router
 
 		svr             *server.Server
-		authTokenInputs AuthTokenInputs
+		authTokenInputs test.AuthTokenInputs
 		u               *user.User
 		t               *token.Token
-		fakeStripe      *FakeStripe
+		fakeStripe      *test.FakeStripe
+		ft              *test.FakeTracker
 	)
 
 	BeforeEach(func() {
 		var err error
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
+		ft = test.NewFakeTracker()
+		svr.Tracker = ft
 		handler = svr.Router()
-		authTokenInputs = AuthTokenInputs{Handler: handler}
+		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
 			Username:  "foo",
@@ -58,7 +62,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Email:     "foo@example.com",
 			PromoCode: sql.NullString{credittype.SignupCreditType, true},
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		t = &token.Token{
@@ -69,7 +73,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		Expect(err).To(BeNil())
 
 		stripe.Key = "sk_key"
-		fakeStripe = &FakeStripe{}
+		fakeStripe = &test.FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 	})
 
@@ -81,7 +85,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 	Describe("GET /api/v0/user/billing_profile", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "GET", "/api/v0/user/billing_profile", nil)
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/user/billing_profile", nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -159,7 +163,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		Context("when an invoice is outstanding", func() {
 			BeforeEach(func() {
-				MarkDelinquentUser(db, u)
+				test.MarkDelinquentUser(db, u)
 			})
 
 			ItReturnsBillingProfile()
@@ -168,7 +172,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 	Describe("POST /api/v0/user/billing_profiles", func() {
 		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -177,7 +181,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		ItReturnsTheCreatedBillingProfile := func() {
 			It("returns the created billing profile", func() {
-				fakeStripe.Responses = []string{StripeCustomerResponse}
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
@@ -204,7 +208,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("card_token_required"))
 			Expect(errDesc).To(Equal("credit card token can't be blank"))
 		})
@@ -215,62 +219,68 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		Context("when an invoice is outstanding", func() {
 			BeforeEach(func() {
-				MarkDelinquentUser(db, u)
+				test.MarkDelinquentUser(db, u)
 			})
 
 			ItReturnsTheCreatedBillingProfile()
 		})
 
 		It("should return a card declined error when user's card is declined", func() {
-			fakeStripe.Error = StripeCardDeclined
+			fakeStripe.Error = test.StripeCardDeclined
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("card_declined"))
 			Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
 		})
 
 		It("should return a card expired error when user's card is expired", func() {
-			fakeStripe.Error = StripeCardExpired
+			fakeStripe.Error = test.StripeCardExpired
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("card_expired"))
 			Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
+
+			Expect(ft.PropsCalled).To(HaveLen(0))
 		})
 
 		It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
-			fakeStripe.Error = StripeIncorrectCvc
+			fakeStripe.Error = test.StripeIncorrectCvc
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("incorrect_cvc"))
 			Expect(errDesc).To(Equal("Your CVC is incorrect. Please try again."))
+
+			Expect(ft.PropsCalled).To(HaveLen(0))
 		})
 
 		It("should return a incorrect zip error when the supplied zip is incorrect", func() {
-			fakeStripe.Error = StripeIncorrectZip
+			fakeStripe.Error = test.StripeIncorrectZip
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("incorrect_zip"))
 			Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
+
+			Expect(ft.PropsCalled).To(HaveLen(0))
 		})
 
 		It("should cancel any freequeue entries the user might have", func() {
@@ -284,7 +294,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			}
 			Expect(fq.Insert(db)).To(BeNil())
 
-			fakeStripe.Responses = []string{StripeCustomerResponse}
+			fakeStripe.Responses = []string{test.StripeCustomerResponse}
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
 			res := doRequest(p)
@@ -293,6 +303,25 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			_, err := freequeue.Find(db, u.ID)
 			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("should send upgraded_to_paid_at to mixpanel", func() {
+			fakeStripe.Responses = []string{test.StripeCustomerResponse}
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+
+			Expect(res.Code).To(Equal(http.StatusCreated))
+
+			Expect(ft.PropsCalled).To(HaveLen(2))
+			pc1 := ft.PropsCalled[0]
+			Expect(pc1.UserID).To(Equal(u.ID))
+			Expect(pc1.Mode).To(Equal("set"))
+			Expect(pc1.PropsSet["upgraded_to_paid_from"]).To(Equal(billingprofile.StateNoCard))
+			pc2 := ft.PropsCalled[1]
+			Expect(pc2.UserID).To(Equal(u.ID))
+			Expect(pc2.Mode).To(Equal("set"))
+			Expect(pc2.PropsSet["upgraded_to_paid_at"]).To(BeTemporally("~", time.Now(), time.Minute))
 		})
 
 		Context("rewarding credits", func() {
@@ -308,7 +337,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = true WHERE user_id = $1;`, u.ID)
 				Expect(err).To(BeNil())
 
-				fakeStripe.Responses = []string{StripeCustomerResponse}
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 			})
 
 			It("should not award if the billing profile was previously activated", func() {
@@ -449,7 +478,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 					Password: "123456",
 					Email:    "foo2@example.com",
 				}
-				err := WrapInTransaction(db, u2.Insert)
+				err := test.WrapInTransaction(db, u2.Insert)
 				Expect(err).To(BeNil())
 				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
 				Expect(err).To(BeNil())
@@ -469,7 +498,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 	Describe("PUT /api/v0/user/billing_profiles", func() {
 		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "PUT", "/api/v0/user/billing_profile", params)
+			req, err := test.NewAuthedRequest(t, "PUT", "/api/v0/user/billing_profile", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
@@ -482,7 +511,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("card_token_required"))
 			Expect(errDesc).To(Equal("credit card token can't be blank"))
 		})
@@ -493,7 +522,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			res := doRequest(p)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-			errType, errDesc := ErrorSlug(res.Body)
+			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("billing_profile_not_active"))
 			Expect(errDesc).To(Equal("There's no existing card associated to this account."))
 		})
@@ -515,60 +544,60 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return a card declined error when user's card is declined'", func() {
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.Error = test.StripeCardDeclined
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_declined"))
 				Expect(errDesc).To(Equal("Your Credit Card was declined. Try contacting the bank directly for assistance."))
 			})
 
 			It("should return a card expired error when user's card is expired", func() {
-				fakeStripe.Error = StripeCardExpired
+				fakeStripe.Error = test.StripeCardExpired
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_expired"))
 				Expect(errDesc).To(Equal("Your Credit Card has expired. Please try again with a recent card."))
 			})
 
 			It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
-				fakeStripe.Error = StripeIncorrectCvc
+				fakeStripe.Error = test.StripeIncorrectCvc
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("incorrect_cvc"))
 				Expect(errDesc).To(Equal("Your CVC is incorrect. Please try again."))
 			})
 
 			It("should return a incorrect zip error when the supplied zip is incorrect", func() {
-				fakeStripe.Error = StripeIncorrectZip
+				fakeStripe.Error = test.StripeIncorrectZip
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
 				res := doRequest(p)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				errType, errDesc := ErrorSlug(res.Body)
+				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("incorrect_zip"))
 				Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 			})
 
 			ItReturnsTheCreatedBillingProfile := func() {
 				It("returns the created billing profile", func() {
-					fakeStripe.Responses = []string{StripeCustomerResponse}
+					fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 					p := &url.Values{}
 					p.Set("card_token", "cc_token")
@@ -595,7 +624,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			Context("when an invoice is outstanding", func() {
 				BeforeEach(func() {
-					MarkDelinquentUser(db, u)
+					test.MarkDelinquentUser(db, u)
 				})
 
 				ItReturnsTheCreatedBillingProfile()
