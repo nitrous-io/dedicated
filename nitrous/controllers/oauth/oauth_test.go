@@ -519,6 +519,7 @@ var _ = Describe("controllers/oauth", func() {
 			}
 
 			BeforeEach(func() {
+				params.Set("action", "approve")
 				params.Set("grant_type", "authorization_code")
 				params.Set("state", "anti_csrf")
 				params.Set("response_type", "code")

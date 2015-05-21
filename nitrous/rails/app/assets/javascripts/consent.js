@@ -11,7 +11,6 @@ document.addEventListener("DOMContentLoaded", function() {
   var clientEl = document.getElementById('client-info')
   var clientNameEl = document.getElementById('client-name')
   var usernameEl = document.getElementById('username')
-  var noButton = document.getElementById('no-button')
 
   var tokenField = document.getElementById('access-token')
   var stateField = document.getElementById('state')
@@ -119,13 +118,6 @@ document.addEventListener("DOMContentLoaded", function() {
     clientNameEl.textContent = client.name
     usernameEl.textContent = user.username
     clientEl.classList.remove('hide')
-
-    noButton.addEventListener('click', function() {
-      redirectError(redirectUri, {
-        error: 'access_denied',
-        error_description: 'the resource owner has denied the request'
-      })
-    })
   }
 
   var query = querystring.parse(location.search)

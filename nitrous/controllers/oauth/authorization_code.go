@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	errAccessDenied             = httperror.New(http.StatusNotFound, "access_denied", "the resource owner has denied the request")
 	errClientNotFound           = httperror.New(http.StatusNotFound, "invalid_request", "client ID not found")
 	errInvalidClientID          = httperror.New(http.StatusForbidden, "access_denied", "client ID does not match authorization code")
 	errUnauthorizedTokenScope   = httperror.New(http.StatusForbidden, "access_denied", "token scope not allowed to request new authorization code")
@@ -48,6 +49,7 @@ func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
+// TODO: do error redirection instead of showing them plain
 // Implement OAuth2 Authorization Code Grant
 // Specs: https://tools.ietf.org/html/rfc6749#page-24
 
@@ -110,6 +112,11 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		if inputURI.Path != originalURI.Path {
 			return errInvalidRedirectURI
 		}
+	}
+
+	action := r.FormValue("action")
+	if action != "approve" {
+		return errAccessDenied
 	}
 
 	code, err := authorizationcode.Generate(u.ID, clientID, redirectURI)

@@ -24,8 +24,9 @@
           input#redirect-uri type='hidden' name='redirect_uri'
           input type='hidden' name='response_type' value='code'
 
-          input.ui.btn type='submit' value='Authorize'
-          button.ui.btn#no-button
+          button.ui.btn type='submit' name='action' value='approve'
+            | Approve
+          button.ui.btn type='submit' name='action' value='decline'
             | Decline
 
 - content_for :body_script
