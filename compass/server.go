@@ -92,7 +92,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			return
 		}
 		label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
-		r, err := navigator.Lookup(q.Name)
+		res, err := navigator.Lookup(q.Name)
 		if err != nil {
 			mh.Error(err, label)
 			log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
@@ -107,7 +107,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			m.Ns = s.soa(q.Name)
 			log.Printf("Navigator %s: resolved %s to NODATA", navigator.Name(), q.String())
 		} else {
-			m.Answer = r
+			m.Answer = res
 			log.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
 		}
 		if len(m.Answer) > 1 {
