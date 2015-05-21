@@ -137,29 +137,33 @@ func TestServeQuestions(t *testing.T) {
 			answer: []dns.RR{},
 		},
 		{
-			qname:  "example.com.",
-			qtype:  dns.TypeSOA,
-			answer: []dns.RR{newSOA("example.com. 300 IN SOA ns1.example.com. admin.example.com. 1430388000 28800 7200 604800 300")},
+			qname: "example.com.",
+			qtype: dns.TypeSOA,
+			answer: []dns.RR{newSOA(
+				"example.com. 21600 IN SOA ns1.example.com. admin.example.com. 1430388000 28800 7200 604800 300",
+			)},
 		},
 		{
-			qname:  "exampleproxy.com.",
-			qtype:  dns.TypeSOA,
-			answer: []dns.RR{newSOA("exampleproxy.com. 300 IN SOA ns1.example.com. admin.exampleproxy.com. 1430388000 28800 7200 604800 300")},
+			qname: "exampleproxy.com.",
+			qtype: dns.TypeSOA,
+			answer: []dns.RR{newSOA(
+				"exampleproxy.com. 21600 IN SOA ns1.example.com. admin.exampleproxy.com. 1430388000 28800 7200 604800 300",
+			)},
 		},
 		{
 			qname: "example.com.",
 			qtype: dns.TypeNS,
 			answer: []dns.RR{
-				newNS("example.com. 300 IN NS ns1.example.com."),
-				newNS("example.com. 300 IN NS ns2.example.com."),
+				newNS("example.com. 21600 IN NS ns1.example.com."),
+				newNS("example.com. 21600 IN NS ns2.example.com."),
 			},
 		},
 		{
 			qname: "exampleproxy.com.",
 			qtype: dns.TypeNS,
 			answer: []dns.RR{
-				newNS("exampleproxy.com. 300 IN NS ns1.example.com."),
-				newNS("exampleproxy.com. 300 IN NS ns2.example.com."),
+				newNS("exampleproxy.com. 21600 IN NS ns1.example.com."),
+				newNS("exampleproxy.com. 21600 IN NS ns2.example.com."),
 			},
 		},
 	}

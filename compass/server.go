@@ -16,6 +16,12 @@ import (
 	"github.com/rcrowley/go-metrics/librato"
 )
 
+const (
+	defaultDomainTTL = uint32(300)
+	defaultSOATTL    = uint32(21600)
+	defaultNSTTL     = uint32(21600)
+)
+
 type NavigatorConfig struct {
 	Name   string            `json:"name"`
 	Domain string            `json:"domain"` // which domain this navigator will handle
@@ -37,10 +43,6 @@ type Server struct {
 	wg         *sync.WaitGroup
 	navigators map[string]n.Navigator
 }
-
-const (
-	defaultTTL = uint32(300)
-)
 
 func (s *Server) ListenAndServe() error {
 	s.mux = dns.NewServeMux()
@@ -70,11 +72,6 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 	// always write dns message back
 	defer func() {
-		if len(m.Answer) > 1 {
-			for _, r := range m.Answer {
-				r.Header().Ttl = uint32(defaultTTL)
-			}
-		}
 		w.WriteMsg(m)
 	}()
 
@@ -113,6 +110,11 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 			m.Answer = r
 			log.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
 		}
+		if len(m.Answer) > 1 {
+			for _, r := range m.Answer {
+				r.Header().Ttl = uint32(defaultDomainTTL)
+			}
+		}
 		return
 	}
 }
@@ -147,18 +149,17 @@ func (s *Server) soa(name string) []dns.RR {
 	if len(s.config.Nameservers) < 1 {
 		return nil
 	}
-
 	primaryNS := s.config.Nameservers[0]
 	return []dns.RR{
 		&dns.SOA{
-			Hdr:     dns.RR_Header{Name: name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultTTL},
+			Hdr:     dns.RR_Header{Name: name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: defaultSOATTL},
 			Ns:      primaryNS,
 			Mbox:    "admin." + strings.ToLower(name),
 			Serial:  uint32(time.Now().Truncate(time.Hour).Unix()),
 			Refresh: 28800,
 			Retry:   7200,
 			Expire:  604800,
-			Minttl:  defaultTTL,
+			Minttl:  defaultSOATTL,
 		},
 	}
 }
@@ -167,7 +168,7 @@ func (s *Server) ns(name string) []dns.RR {
 	rr := []dns.RR{}
 	for _, ns := range s.config.Nameservers {
 		rr = append(rr, &dns.NS{
-			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: defaultTTL},
+			Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: defaultNSTTL},
 			Ns:  ns,
 		})
 	}
