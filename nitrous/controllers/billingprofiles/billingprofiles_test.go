@@ -284,15 +284,10 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should cancel any freequeue entries the user might have", func() {
-			// Add freequeue entry for user.
-			fq := &freequeue.FreeQueue{
-				UserID:                u.ID,
-				ContainerTemplateSlug: "tmpl1",
-				ContainerName:         "nm",
-				RegionSlug:            "slug1",
-				HostName:              "name1",
-			}
-			Expect(fq.Insert(db)).To(BeNil())
+			_, err := db.Exec(`INSERT INTO free_queue
+				(user_id, container_template_slug, container_name, region_slug, host_name)
+				VALUES ($1, 'tmpl1', 'nm', 'slug1', 'name1')`, u.ID)
+			Expect(err).To(BeNil())
 
 			fakeStripe.Responses = []string{test.StripeCustomerResponse}
 			p := &url.Values{}
@@ -301,7 +296,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 			Expect(res.Code).To(Equal(http.StatusCreated))
 
-			_, err := freequeue.Find(db, u.ID)
+			_, err = freequeue.Find(db, u.ID)
 			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
