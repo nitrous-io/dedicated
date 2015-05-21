@@ -7,14 +7,10 @@ App.AuthedRoute = Em.Route.extend
       return
 
     user = App.get('user')
-    if user && !user.get('phoneAuthed') && @phoneAuthRequired(transition.targetName)
-      @transitionTo 'add-phone'
 
     if !user
       App.User.fetch().then (user) =>
         App.trigger 'fetchUser', user
-        if !user.get('phoneAuthed')
-          @transitionTo 'add-phone'
         safeRoute = transition.targetName.indexOf("billing.") != -1 || transition.targetName.indexOf("add-card") != -1
         unless safeRoute
           @checkForBillingIssues()

@@ -8,6 +8,7 @@ App.Plan = klass = App.Model.extend
   maxContainers: attr('number', as: 'max_containers')
   price: attr('number')
   basePrice: attr('number', as: 'base_price')
+  hourlyPrice: attr('number', as: 'hourly_price')
   cpu: attr()
   memory: attr()
   storage: attr()
@@ -35,13 +36,16 @@ App.Plan = klass = App.Model.extend
   ).property 'price', 'basePrice'
 
   totalPriceInDollars: (->
-    tp = @getWithDefault 'totalPrice', 0
-    return if tp == 0
-    tpd = tp / 100
-    if tpd != Math.floor(tpd)
-      tpd = tpd.toFixed(2)
-    tpd.toString()
+    formatPrice((@getWithDefault 'totalPrice', 0), 2)
   ).property 'totalPrice'
+
+  basePriceInDollars: (->
+    formatPrice((@getWithDefault 'basePrice', 0), 2, false)
+  ).property 'basePrice'
+
+  hourlyPriceInCents: (->
+    formatPrice((@getWithDefault 'hourlyPrice', 0), 3, false)
+  ).property 'hourlyPrice'
 
   isPaidPlan: (->
     return (@get('price') > 0) || (@get('basePrice') > 0)
@@ -50,6 +54,13 @@ App.Plan = klass = App.Model.extend
   isFreePlan: (->
     return (@get('price') == 0) && (@get('basePrice') == 0)
   ).property 'price', 'basePrice'
+
+formatPrice = (price, digits, ignoreZero=true) ->
+  return if price == 0 && ignoreZero
+  pd = price / Math.pow(10, digits)
+  if pd != Math.floor(pd)
+    pd = pd.toFixed(3)
+  pd.toString()
 
 klass.reopenClass
   url: '/plans'

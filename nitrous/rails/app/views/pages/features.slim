@@ -16,7 +16,7 @@
           | The future of development
         h3
           | Get your team, students, or workshop all on the same page in seconds.
-          
+
 
   article.featurette.extra-padding.anywhere.darker
     .container
@@ -174,10 +174,10 @@
 
 
 
-  = render 'layouts/stacks', locals: { theme: 'darker' }
+  = render partial: 'layouts/stacks', locals: { theme: 'darker' }
 
-  = render 'layouts/companies'
+  = render partial: 'layouts/companies', locals: { theme: '' }
 
-  = render 'layouts/cta'
+  = render partial: 'layouts/cta'
 
 = render partial: 'layouts/footer', locals: { active: 'features' }

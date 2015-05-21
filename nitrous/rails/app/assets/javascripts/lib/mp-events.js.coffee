@@ -8,6 +8,7 @@ Object.assign window.Mp,
   EventDashboardViewedContainerConfig: "Dashboard Viewed Container Config"
   EventDashboardViewedContainerKeys: "Dashboard Viewed Container Keys"
   EventDashboardViewedContainerPorts: "Dashboard Viewed Container Ports"
+  EventDashboardViewedContainerCustomDomain: "Dashboard Viewed Container Custom Domain"
   EventDashboardViewedHost: "Dashboard Viewed Host"
   EventDashboardViewedHostImages: "Dashboard Viewed Host Images"
   EventDashboardViewedHostRegistries: "Dashboard Viewed Host Registries"

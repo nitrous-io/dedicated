@@ -212,6 +212,13 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	if env.User.Admin && r.FormValue("reassign") == "true" {
+		_, err = env.DB.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2;", env.User.ID, h.ID)
+		if err != nil {
+			env.Logger.Errorf("Error reassigning host, err: %+v", err)
+		}
+	}
+
 	trackWorkspaces(env, h.UserID)
 	PublishHostEvent(env, controllers.EventHostDestroyed, h)
 	serializeHost(env, h)

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
@@ -19,22 +19,34 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-// FIXME: Stub messages
 const (
-	warningSubject = `Workspace Inactivity Notice`
-	warningMessage = `You host {{.Slug}} is inactive and will be terminated in a week if there is no usage`
+	warningSubject = `Workspace termination warning - 7 day notice`
+	warningMessage = `It looks like you have not been using your Nitrous workspace during the past month.
 
-	terminatingSubject = `Workspace termination due to inactivity`
-	terminatingMessage = `Your host {{.Slug}} will be terminated in 3 days.`
+Your workspace {{ .Slug }} will be terminated in 7 days if you are not actively developing an application.
 
-	terminatedSubject = `Workspace Termination Notice`
-	teminatedMessage  = `Your workspace {{.Slug}} has been terminated due to inactivity`
+If you no longer need your workspace and its contents, no further action is required.
+
+Should you wish to keep your workspace, simply start using it regularly.
+
+Please contact us with any questions at support@nitrous.io .
+`
+
+	terminatingSubject = `Workspace termination warning - final notice`
+	terminatingMessage = `Your workspace {{.Slug}} will be terminated in 3 days.
+
+You can upgrade to a paid plan to keep it running.  If you do not wish to upgrade, please be sure to backup your files prior to termination.`
+
+	terminatedSubject = `Workspace termination notice`
+	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
 )
 
 var (
 	d           *db.Database
 	logr        *logger.Logger
 	initiatorID int64
+
+	dryrun = true
 )
 
 func refreshHost(h *host.Host) error {
@@ -47,7 +59,7 @@ func refreshHost(h *host.Host) error {
 func terminateHost(h *host.Host) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
-	if h.HourlyPrice > 0 {
+	if !h.Free {
 		logr.Errorf("Sanity check failed: cannot terminate non-free host: %+v", h)
 		return fmt.Errorf("host is not free")
 	}
@@ -58,13 +70,23 @@ func terminateHost(h *host.Host) error {
 	}
 
 	logr.Infof("Terminating host %d for user %d", h.ID, h.UserID)
+
+	if dryrun {
+		return nil
+	}
+
 	timeStart := time.Now()
 
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 
 	err := d.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
+		// FIXME until this command has been verified on production, we only
+		// set host state to `orphan` for now so that it is hidden from the user
+		// and no data is removed
+		_, err := tx.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateOrphan, h.ID)
+		return err
+		// return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
 	})
 	if err != nil {
 		logr.Errorf("Error terminating host - %s: %+v", err, h)
@@ -81,13 +103,13 @@ func terminateHost(h *host.Host) error {
 
 	owner, err := announcement.FindOwnerByHostID(d, h.ID)
 	if err != nil {
-		logr.Errorf("Error finding host ownder detail - %s: %+v", err, h)
+		logr.Errorf("Error finding host owner detail - %s: %+v", err, h)
 		return err
 	}
 
 	ann := &announcement.Announcement{
 		SubjectTemplate: terminatedSubject,
-		MessageTemplate: teminatedMessage,
+		MessageTemplate: terminatedMessage,
 	}
 
 	// Send without saving announcement
@@ -150,6 +172,10 @@ func scanWarningHosts() {
 	for _, scan := range scans {
 		switch scan.State {
 		case hostscan.StateActive, hostscan.StateGracePeriod:
+			if dryrun {
+				logr.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := scan.UpdateHost(d)
 			if err != nil {
 				// ignore
@@ -157,12 +183,20 @@ func scanWarningHosts() {
 			}
 
 		case hostscan.StateOneWeekNotice:
+			if dryrun {
+				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := sendAnnouncementForHostScan(scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateTerminating:
+			if dryrun {
+				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
+				continue
+			}
 			err := sendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
@@ -194,6 +228,11 @@ func main() {
 	var err error
 
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
+
+	if os.Args[len(os.Args)-1] == "--live-run" {
+		dryrun = false
+		logr.Warnf("Live Run!")
+	}
 
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {

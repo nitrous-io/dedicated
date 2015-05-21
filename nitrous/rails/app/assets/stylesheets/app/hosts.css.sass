@@ -86,35 +86,56 @@
         position: relative
         text-align: center
         font-size: 14px
-        padding: 16px
+        padding: 16px 8px
 
         .name
           text-transform: uppercase
           letter-spacing: .5px
 
         .price
+          position: relative
+          height: 52px
           font-weight: 300
           line-height: 1
-          padding: 8px 0
-          margin: 16px 0
+          margin: 8px 0
           background: $n2oGray700
           letter-spacing: .5px
           border-radius: 2px
           color: $n2oGray400
           transition: background-color .3s, color .3s
-          font-size: 15px
+          font-size: 12px
+          kursor: help
 
           strong
             font-weight: 500
-            font-size: 27px
-
-          span
-            vertical-align: top
-            position: relative
-            top: 3px
+            font-size: 22px
 
           em
             font-style: normal
+
+          .monthly, .hourly
+            width: 100%
+            transition: opacity .2s
+
+          .monthly, .free
+            padding: 15px 0
+            opacity: 1
+
+          .hourly
+            padding: 8px 0
+            position: absolute
+            top: 0
+            opacity: 0
+            small
+              strong
+                font-size: 14px
+
+          &:hover
+            .monthly
+              opacity: 0
+
+            .hourly
+              opacity: 1
 
         table.specs
           margin: 0 auto
@@ -128,6 +149,9 @@
           tr
             td
               padding-bottom: 8px
+
+              &[colspan='2']
+                text-align: center
 
             &:last-of-type
               td
@@ -183,6 +207,12 @@
     text-align: center
     margin: 0
     color: $n2oGray200
+
+    a
+      text-decoration: underline
+
+  .see-faq
+    margin-top: 16px
 
   .credit-message
     max-height: 0

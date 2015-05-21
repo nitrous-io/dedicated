@@ -16,6 +16,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
   countryDict: null
+  freePlanNotAllowed: false
 
   nameFieldEdited: false
 
@@ -47,6 +48,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       templateName: null
       nameFieldEdited: false
       countryDict: null
+      freePlanNotAllowed: false
 
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
@@ -113,15 +115,17 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           name: @get 'name'
       @set 'host', host
 
+      if @get('selectedPlan.isFreePlan') && !App.get('user.phoneAuthed')
+        App.set('pendingHost', host)
+
+        @transitionTo 'add-phone'
+        return
+
       if @get('cardRequired')
         App.set('pendingHost', host)
 
         @transitionToRoute 'add-card'
         return
-
-      if pendingContainerData = App.get('pendingContainerData')
-        if App.get('onboardingScreen')
-          App.set 'onboardingScreen', 'thank-you'
 
       events = App.get 'eventsSocket'
       @set 'saving', true
@@ -160,7 +164,11 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         container_template_slug: App.get('pendingContainerData.selectedTemplate.slug')
         container_name: App.get('pendingContainerData.name')
 
-      host.save(params, json: true).catch (jqxhr) =>
+      host.save(params, json: true).then(=>
+        if pendingContainerData = App.get('pendingContainerData')
+          if App.get('onboardingScreen')
+            App.set 'onboardingScreen', 'thank-you'
+      ).catch (jqxhr) =>
         # If host creation failed because of a queue, we redirect to the
         # "you're in a queue" page.
         if jqxhr.responseJSON?.error == 'free_queue_required'
@@ -172,5 +180,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         if errMsg = jqxhr.responseJSON?.error_description
           @set 'error', errMsg
           @set 'invalidField', errMsg.match(/^\w+/)[0]
+
+        if jqxhr.responseJSON?.error == "free_plan_not_allowed"
+          @set 'freePlanNotAllowed', true
         App.postError(jqxhr.responseJSON, 'Failed to create workspace!')
         @set 'saving', false

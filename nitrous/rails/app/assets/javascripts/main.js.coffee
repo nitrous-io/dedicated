@@ -256,7 +256,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   reloadEligiblePlans: (->
     @get('eligiblePlans')?.reload()
-  ).observes 'billingProfile.state'
+  ).observes 'billingProfile.state', 'user.phoneAuthed'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 
@@ -424,6 +424,9 @@ $(document).on 'click', '.click-highlight', (e) ->
   range.selectNodeContents(e.target)
   sel.removeAllRanges()
   sel.addRange(range)
+
+$(document).on 'click', '.text-highlight', (e) ->
+  e.target.select()
 
 Em.Route.reopen
   activate: ->

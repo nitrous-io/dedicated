@@ -36,7 +36,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	// Free tier user should only have one host
 	// after upgrading, but putting this in a loop anyway
 	for _, h := range hosts {
-		if h.HourlyPrice == 0 {
+		if h.Free {
 			p, err := plan.FindByID(d, h.PlanID)
 			if err != nil {
 				return err
@@ -65,12 +65,13 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 	h.PlanID = paidPlan.ID
 	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
 	h.HourlyPrice = paidPlan.HourlyPrice()
+	h.Free = paidPlan.IsFree()
 	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (plan_id, size, hourly_price, max_containers, last_running_at, upgraded_at)
-		= (:plan_id, :size, :hourly_price, :max_containers, :last_running_at, now())
+		SET (plan_id, size, hourly_price, free, max_containers, last_running_at, upgraded_at)
+		= (:plan_id, :size, :hourly_price, :free, :max_containers, :last_running_at, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -86,6 +87,10 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		return nil, err
 	}
 
+	if bp.IsCardRequired() && !u.PhoneAuthed {
+		return plan.AllPlansForProvider(d, provider)
+	}
+
 	if bp.IsFreeTier() {
 		err := createFreeTierHostAllowed(d, u)
 		switch err {
@@ -96,10 +101,9 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 		default:
 			return nil, err
 		}
-
-	} else {
-		return plan.PaidPlansForProvider(d, provider)
 	}
+
+	return plan.PaidPlansForProvider(d, provider)
 }
 
 // Checks whether a user of given billing profile can create new free tier host.

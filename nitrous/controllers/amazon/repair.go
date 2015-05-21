@@ -110,14 +110,15 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) (e
 	h.FreighterdPort = parsedHost.FreighterdPort
 	h.State = parsedHost.State
 	h.HourlyPrice = pl.HourlyPrice()
+	h.Free = pl.IsFree()
 	h.MaxContainers = sql.NullInt64{pl.MaxContainers, true}
 	h.Size = sql.NullString{pl.Slug, true}
 
 	nstmt, err := tx.PrepareNamed(`UPDATE hosts
 		SET (provider_identifier, region_identifier, ip_address, freighterd_port,
-			state, hourly_price, max_containers, size)
+			state, hourly_price, free, max_containers, size)
 		= (:provider_identifier, :region_identifier, :ip_address, :freighterd_port,
-			:state, :hourly_price, :max_containers, :size)
+			:state, :hourly_price, :free, :max_containers, :size)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

@@ -45,3 +45,18 @@ var _ = Describe("mkdir", func() {
 		Expect(gid).To(Equal(123), "unexpected gid")
 	})
 })
+
+var _ = Describe("openFile", func() {
+	It("opens a file with 644 attribute", func() {
+		root, _ := ioutil.TempDir("/tmp", "cfs-mkdir")
+		defer os.RemoveAll(root)
+		os.Chown(root, 1234, 123)
+
+		p := filepath.Join(root, "testfile")
+		f, err := openFile(p, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+		Expect(err).To(BeNil(), "unexpected error")
+
+		stat, _ := f.Stat()
+		Expect(stat.Mode()).To(Equal(os.FileMode(0644)))
+	})
+})

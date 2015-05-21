@@ -171,9 +171,6 @@ var _ = Describe("HostQueueHandler", func() {
 			err := handler(qc, message)
 			Expect(err).To(BeNil())
 
-			updatedHost, err := host.Find(db, u, h.Slug)
-			Expect(err).To(BeNil())
-
 			evtCh := make(chan *controllers.Event)
 			go func() {
 				var evt *controllers.Event
@@ -193,6 +190,8 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreated)))
 				evtData, ok := evt.Data.(map[string]*serializers.Host)
 				Expect(ok).To(BeTrue())
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
 				Expect(evtData["host"]).To(Equal(serializers.SerializeHost(updatedHost)))
 			}
 		})
@@ -210,6 +209,7 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
 			Expect(updatedHost.State).To(Equal(host.StateRunning))
 			Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
+			Expect(updatedHost.Free).To(BeFalse())
 		})
 
 		It("does not update when the host is running", func() {
@@ -235,6 +235,7 @@ var _ = Describe("HostQueueHandler", func() {
 			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
 			Expect(updatedHost.State).To(Equal(host.StateRunning))
 			Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
+			Expect(updatedHost.Free).To(BeFalse())
 		})
 	})
 

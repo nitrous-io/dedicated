@@ -1199,5 +1199,12 @@ func init() {
 				ALTER TABLE credits ADD COLUMN added_by_id bigint REFERENCES users(id) DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "1050",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN free boolean DEFAULT false NOT NULL;
+				UPDATE hosts SET free = TRUE WHERE hourly_price = 0;
+			`,
+		},
 	}
 }

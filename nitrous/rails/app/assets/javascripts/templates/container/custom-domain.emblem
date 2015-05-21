@@ -1,0 +1,21 @@
+= container-tab-bar selected='custom-domain' model=model
+.card-body
+  p.message
+    | Custom domain support is automatically enabled for your plan. Simply create a
+    '
+    code CNAME
+    |  record pointing your subdomain to
+    '
+    code.primary #{previewHostname}
+    | . You will be able to access your container via this custom subdomain once DNS has propagrated
+    |  (~24 hours after creating your container).
+
+  p.hint-text
+    i.fa.fa-info-circle
+    | Custom domain support is not available for apex domains (e.g.
+    '
+    code example.com
+    | ). Please use a subdomain (e.g.
+    '
+    code www.example.com
+    | ).

@@ -6,7 +6,7 @@
       | Let's get your first setup started. It'll just take a few minutes.
     .card-footer
       .left
-        a.ui.text-btn href='#' click='dismissOnboarding' Dismiss
+        a.ui.btn href='#' click='dismissOnboarding' Dismiss
       .right
         a.ui.btn.primary.raised href='#' click='nextScreen' Get started
 

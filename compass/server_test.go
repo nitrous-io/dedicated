@@ -137,29 +137,33 @@ func TestServeQuestions(t *testing.T) {
 			answer: []dns.RR{},
 		},
 		{
-			qname:  "example.com.",
-			qtype:  dns.TypeSOA,
-			answer: []dns.RR{newSOA("example.com. 300 IN SOA ns1.example.com. admin.example.com. 1430388000 28800 7200 604800 300")},
+			qname: "example.com.",
+			qtype: dns.TypeSOA,
+			answer: []dns.RR{newSOA(
+				"example.com. 21600 IN SOA ns1.example.com. admin.example.com. 1430388000 28800 7200 604800 300",
+			)},
 		},
 		{
-			qname:  "exampleproxy.com.",
-			qtype:  dns.TypeSOA,
-			answer: []dns.RR{newSOA("exampleproxy.com. 300 IN SOA ns1.example.com. admin.exampleproxy.com. 1430388000 28800 7200 604800 300")},
+			qname: "exampleproxy.com.",
+			qtype: dns.TypeSOA,
+			answer: []dns.RR{newSOA(
+				"exampleproxy.com. 21600 IN SOA ns1.example.com. admin.exampleproxy.com. 1430388000 28800 7200 604800 300",
+			)},
 		},
 		{
 			qname: "example.com.",
 			qtype: dns.TypeNS,
 			answer: []dns.RR{
-				newNS("example.com. 300 IN NS ns1.example.com."),
-				newNS("example.com. 300 IN NS ns2.example.com."),
+				newNS("example.com. 21600 IN NS ns1.example.com."),
+				newNS("example.com. 21600 IN NS ns2.example.com."),
 			},
 		},
 		{
 			qname: "exampleproxy.com.",
 			qtype: dns.TypeNS,
 			answer: []dns.RR{
-				newNS("exampleproxy.com. 300 IN NS ns1.example.com."),
-				newNS("exampleproxy.com. 300 IN NS ns2.example.com."),
+				newNS("exampleproxy.com. 21600 IN NS ns1.example.com."),
+				newNS("exampleproxy.com. 21600 IN NS ns2.example.com."),
 			},
 		},
 	}
@@ -205,6 +209,41 @@ func TestServeUnhandledDomain(t *testing.T) {
 	}
 	if r.Rcode != dns.RcodeNameError {
 		t.Fatalf("Expected rcode to be NXDOMAIN but got %v", r.Rcode)
+	}
+}
+
+func TestServeAAAA(t *testing.T) {
+	s, addr, err := testServer()
+	defer s.Stop()
+	if err != nil {
+		t.Fatal("failed to start server", err)
+	}
+	// AAAA -> NODATA for valid domain but we dont support AAAA
+	c := new(dns.Client)
+	m := new(dns.Msg)
+	m.SetQuestion("test.example.com.", dns.TypeAAAA)
+	r, _, err := c.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("failed to get dns response: %v", err)
+	}
+	if r.Rcode != dns.RcodeSuccess || len(r.Answer) > 0 {
+		t.Errorf("expected NODATA but got %#v", r)
+	}
+	if len(r.Ns) == 0 {
+		t.Errorf("expected authority section to filled but it's empty")
+	}
+
+	// AAAA -> NXDOMAIN for invalid domain
+	m.SetQuestion("does-not-exist.example.com.", dns.TypeAAAA)
+	r, _, err = c.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("failed to get dns response: %v", err)
+	}
+	if r.Rcode != dns.RcodeNameError || len(r.Answer) > 0 {
+		t.Errorf("expected NXDOMAIN but got %#v", r)
+	}
+	if len(r.Ns) == 0 {
+		t.Fatalf("expected authority section to filled but it's empty")
 	}
 }
 

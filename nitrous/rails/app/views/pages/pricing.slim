@@ -17,104 +17,226 @@
         h3
           | Flexible pricing, based on the amount of resources you use
 
-
+  .pricing-toggle.container
+    label.monthly Monthly
+    .toggle-btn
+    label.hourly Hourly
 
   article.pricing.attached-bottom
     .container
       .pricing-container
-
         .pricing-block
           ul.trio
-            li.selectable.ripple data-slug='basic' data-ripple-color='#0099ED'
-              span.title Basic
-              span.focus
-                span.dollar $
-                span.price 14.99
-                span.duration
-                  | /mo.
-              span.details
-                strong 2
-                | Containers
-              span.details
-                strong 1 GB
-                | Memory
-              span.details
-                strong 20 GB
-                | Storage
-              span.details.ticked
-                i.fa.fa-check
-                | Root Enabled
-              span.details.ticked
-                i.fa.fa-check
-                | Dedicated Resources
+            li.selectable data-index='0' data-slug='basic'
+              .title Basic
+              .desc Small apps and starters
+              .plan-price
+                .monthly
+                  .focus
+                    small
+                      ' Up to
+                    | $
+                    span.price
+                    small
+                      ' /mo.
+                      sup ?
+                .hourly
+                  .focus
+                    span.price
+                    small
+                      | ¢ /hr.
+                    small.base
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | for storage
+              ul.details
+                /li.spec title="1GB RAM / 20GB SSD"
+                  /strong Standard
+                  /| Performance
+                li
+                  ' Up to
+                  strong
+                    ' 2
+                  | Containers
+                li
+                  strong
+                    ' 1 GB
+                  | Memory
+                li
+                  strong
+                    ' 20 GB
+                  | Storage
+                li.ticked
+                  i.fa.fa-check
+                  | Root Access
+                li.ticked
+                  i.fa.fa-check
+                  | Dedicated Resources
+                li.ticked
+                  i.fa.fa-check
+                  | Live Collaboration
+                li.ticked
+                  i.fa.fa-check
+                  | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
+                li.ticked
+                  i.fa.fa-check
+                  | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
-            li.selectable.ripple data-slug='standard' data-ripple-color='#0099ED'
-              span.title Standard
-              span.focus
-                span.dollar $
-                span.price 29.99
-                span.duration
-                  | /mo.
-              span.details
-                strong 5
-                | Containers
-              span.details
-                strong 2 GB
-                | Memory
-              span.details
-                strong 50 GB
-                | Storage
-              span.details.ticked
-                i.fa.fa-check
-                | Root Enabled
-              span.details.ticked
-                i.fa.fa-check
-                | Dedicated Resources
+            li.selectable.popular data-index='1' data-slug='standard'
+              .most-popular
+                .ribbon Most Popular
+              .title Standard
+              .desc Production-ready apps
+              .plan-price
+                .monthly
+                  .focus
+                    small
+                      ' Up to
+                    | $
+                    span.price
+                    small
+                      ' /mo.
+                      sup ?
+                .hourly
+                  .focus
+                    span.price
+                    small
+                      | ¢ /hr.
+                    small.base
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | for storage
+              ul.details
+                /li.spec title="2GB RAM / 50GB SSD"
+                  /strong 2x
+                  /| Performance
+                li
+                  ' Up to
+                  strong
+                    ' 5
+                  | Containers
+                li
+                  strong
+                    ' 2 GB
+                  | Memory
+                li
+                  strong
+                    ' 50 GB
+                  | Storage
+                li.ticked
+                  i.fa.fa-check
+                  | Root Access
+                li.ticked
+                  i.fa.fa-check
+                  | Dedicated Resources
+                li.ticked
+                  i.fa.fa-check
+                  | Live Collaboration
+                li.ticked
+                  i.fa.fa-check
+                  | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
+                li.ticked
+                  i.fa.fa-check
+                  | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
-            li.selectable.ripple data-slug='pro' data-ripple-color='#0099ED'
-              span.title Pro
-              span.focus
-                span.dollar $
-                span.price 64.99
-                span.duration
-                  | /mo.
-              span.details
-                strong 12
-                | Containers
-              span.details
-                strong 4 GB
-                | Memory
-              span.details
-                strong 120 GB
-                | Storage
-              span.details.ticked
-                i.fa.fa-check
-                | Root Enabled
-              span.details.ticked
-                i.fa.fa-check
-                | Dedicated Resources
+            li.selectable data-index='2' data-slug='pro'
+              .title Pro
+              .desc Heavy-duty apps
+              .plan-price
+                .monthly
+                  .focus
+                    small
+                      ' Up to
+                    | $
+                    span.price
+                    small
+                      ' /mo.
+                      sup ?
+                .hourly
+                  .focus
+                    span.price
+                    small
+                      | ¢ /hr.
+                    small.base
+                      ' +
+                      strong
+                        ' $
+                        span.base-price
+                        '
+                        ' /mo.
+                      | for storage
+              ul.details
+                /li.spec title="4GB RAM / 120GB SSD"
+                  /strong 4x
+                  /| Performance
+                li
+                  ' Up to
+                  strong
+                    ' 12
+                  | Containers
+                li
+                  strong
+                    ' 4 GB
+                  | Memory
+                li
+                  strong
+                    ' 120 GB
+                  | Storage
+                li.ticked
+                  i.fa.fa-check
+                  | Root Access
+                li.ticked
+                  i.fa.fa-check
+                  | Dedicated Resources
+                li.ticked
+                  i.fa.fa-check
+                  | Live Collaboration
+                li.ticked
+                  i.fa.fa-check
+                  | Desktop File Sync
+                li.ticked
+                  i.fa.fa-check
+                  | SSH Access
+                li.ticked
+                  i.fa.fa-check
+                  | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
 
           ul
-            li.selectable.ripple.horizontal data-slug='free' data-ripple-color='#0099ED'
+            li.selectable.horizontal data-slug='free'
               span.title Free
-              span.details
-                strong 2
-                | Containers
-              span.details
-                strong 1 GB
-                | Memory
-              span.details
-                strong 10 GB
-                | Storage
-              span.details
-                i.fa.fa-info
-                | 2h Automatic Shutdown
+              ul.details
+                li
+                  strong
+                    ' 2
+                  | Containers
+                li.spec title="1GB RAM / 10GB SSD"
+                  strong
+                    ' Standard
+                  | Performance
+                li
+                  i.fa.fa-clock-o
+                  strong
+                    ' 2-hour
+                  | Daily Usage
               a.btn.blue.ripple href="/app/#/signup/" Get started
-
 
 
       .box-wrapper.two
@@ -134,136 +256,20 @@
             a href="/education" target="_blank" Nitrous for Education
             | .
 
-
-  - if false
-    article.pricing.attached-bottom
-      .container
-        .pricing-container
-          .left
-
-            .pricing-block.paid.workspaces
-              h3 Workspaces
-              ul.trio
-                li.selectable.ripple data-slug='basic' data-ripple-color='#0099ED'
-                  span.title Basic
-                  span.focus
-                    strong 25
-                    | GB
-                  span.details
-                    strong $5.00
-                    | /mo.
-                li.selectable.ripple data-slug='standard' data-ripple-color='#0099ED'
-                  span.title Standard
-                  span.focus
-                    strong 50
-                    | GB
-                  span.details
-                    strong $10.00
-                    | /mo.
-                li.selectable.ripple data-slug='pro' data-ripple-color='#0099ED'
-                  span.title Pro
-                  span.focus
-                    strong 250
-                    | GB
-                  span.details
-                    strong $50.00
-                    | /mo.
-
-              p Nitrous Workspaces are FIXME Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
-
-
-            .pricing-block.paid.compute
-              h3 Compute Resources
-              ul.duo
-                li
-                  span.title Memory
-                  .range
-                    input type="range" data-idx="1" max="4" min="0" step="1" value="0"
-
-                  span.details
-                    strong 1 GB - $0.03
-                    | /hour
-                li
-                  span.title Average Weekly Usage
-                  .range
-                    input type="range" data-idx="2" max="168" min="0" step="8" value="0"
-
-                  span.details
-                    strong 24 hours
-                    | /w.
-
-              p Compute Resources are Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla vitae elit libero, a pharetra augue.
-
-
-            .or
-              span or
-
-
-            .pricing-block
-              ul.single
-                li.selectable.ripple data-slug='free' data-ripple-color='#0099ED'
-                  .col
-                    span.title Free plan
-                  .col.workspaces
-                    span.focus title="5 GB of storage"
-                      strong 5
-                      | GB
-                  .col.compute
-                    span.focus title="1 GB of RAM"
-                      strong 1
-                      | GB
-                  .col
-                    span.focus title="Shutsdown after 30min of inactivity"
-                      strong 30
-                      | min
-                  .col.text
-                    span.focus
-                      strong No
-                      | SSH access
-                  .col.text
-                    span.focus
-                      strong No
-                      | Desktop sync
-
-              p The free plan FIXME Nulla vitae elit libero, a pharetra augue. Curabitur blandit tempus porttitor. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Expires after 7 days of inactivity.
-
-
-
-          .right.sticky
-            .pricing-sheet
-              .inner
-                .nitrous-badge
-
-                .details
-                  .item
-                    span.title Workspaces
-                    ul
-                      li 50GB
-                    span#p1.price $0
-                  .item
-                    span.title Compute Resources
-                    ul
-                      li 1GB
-                      li 24 h/w.
-                    span#p2.price $0
-
-                .total
-                  span Total
-                  .item
-                    strong#total-price $
-                    small Estimated monthly cost
-
-                a.btn.blue.ripple data-ripple-color='rgba(0,0,0,.2)' href="#" Sign up
-
-            .for-teams
-              p Looking for a higher level of control over applications and teams?
-              a.btn.grey.ripple data-ripple-color='rgba(255,255,255,.2)' href="#" Nitrous for teams
-
-
   article.qa.darker
+    a name='faq'
     .container
-      h3.big-title Questions and Answers
+      h3.big-title Frequently Asked Questions
       .columns
+        .item
+          h4 How am I billed?
+          p Each workspace is billed per hour up to its monthly cap. Place the mouse cursor over the monthly price to see the hourly cost.
+        .item
+          h4 Do I have to pay the full cost of the workspace every time I create a new one?
+          p No &mdash; you only need to pay for the hours used. Creating a basic workspace just to test something out for a couple of hours should only cost you a few cents.
+        .item
+          h4 Am I charged when I enter a credit card?
+          p No &mdash; when you enter a card, we only run an authorization charge ($0 or $1 depending on the bank). This authorization is refunded back to your card by your bank in no more than 30 days. Your card will only be charged for any usage on the first of each month.
         .item
           h4 When is my credit card billed?
           p We will charge your credit card on the first day of the month at midnight UTC for the prior month's usage. We will email you with an invoice and a detailed summary of your usage and charges.
@@ -271,11 +277,14 @@
           h4 Why was my first bill cheaper than the other ones?
           p We perform pro-rata hourly calculations at the end of the month. This means if you create a new workspace during the middle of the month, you will be invoiced for ~50% of the monthly price at the start of the next month.
         .item
+          h4 Am I charged while my workspace is in a stopped state?
+          p Yes &mdash; but only for storage. Place the mouse cursor over the monthly price to see the storage cost.
+        .item
+          h4 How do I choose between monthly and hourly billing?
+          p There is no difference between monthly and hourly billing. All workspaces are billed hourly, up until a monthly cap. We have estimated that each month has about 672 hours (28 days). If you use your workspace for less than 672 hours during the month, you will be billed for each hour that you used it. If you use your workspace for more than 672 hours that month, you will be billed at the monthly cost, which is no greater than 672 hours.
+        .item
           h4 Is there a threshold billing amount?
           p We will only bill your card once your account balance hits or exceeds $1.00.
-        .item
-          h4 Am I charged when I enter a credit card?
-          p No — when you enter a card, we only run an authorization charge ($0 or $1 depending on the bank). This authorization is refunded back to your card by your bank in no more than 30 days. Your card will only be charged for any usage on the first of each month.
         .item
           h4 What forms of payment do you accept?
           p We accept Visa, MasterCard, American Express, and Discover cards.
@@ -285,7 +294,9 @@
             | We do not offer refunds. If you have had a problem with the service, please&nbsp;
             a href="mailto:support@nitrous.io" contact our support team
             | .
-
+        .item
+          h4 How do I cancel my account?
+          p You can cancel your account anytime through the account settings page after you have terminated all workspaces you own.
 
       p.centered.solo
         | Have more questions? Please feel free to&nbsp;
@@ -314,7 +325,6 @@
         a class="btn white-outline" href="/features"
           | More features
 
-
-  = render 'layouts/companies'
+  = render partial: 'layouts/companies', locals: { theme: 'darker' }
 
 = render partial: 'layouts/footer', locals: { active: 'pricing' }
