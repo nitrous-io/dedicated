@@ -279,6 +279,13 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
+  disableNewContainer: (->
+    return false if @get('hosts.length') == 0
+
+    @get('hosts').every (host)->
+      host.get('state') != 'running'
+  ).property 'billingProfile.free', 'hosts.firstObject.state'
+
   logoutRequest: (token) ->
     Em.$.ajax
       type: 'DELETE'

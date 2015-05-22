@@ -17,8 +17,13 @@
         a href='#'
           i.fa.fa-plus
         ul.dropdown-menu
-          li
-            link-to 'containers.new' | New Container...
+          if App.disableNewContainer
+            li.disabled
+              a href='#' title='You can only create a container when a workspace is running.'
+                | New Container...
+          else
+            li
+              link-to 'containers.new' | New Container...
           unless App.billingProfile.free
             if App.canCreateHosts
               li
