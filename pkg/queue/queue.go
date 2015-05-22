@@ -163,7 +163,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		for {
 			m, err := qc.Consume()
 			if err != nil {
-				log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
+				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v\n", queueName, err)
 				// redis emits `open connections too fast` when we exceeds the error limit
 				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 					time.Sleep(1 * time.Second)
@@ -184,7 +184,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		case m := <-msg:
 			err := queueRoutes[queueName](qc, m)
 			if err != nil {
-				log.Printf("uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 				// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
 				// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
 				// If it fails to consume first message, second message will also fail since item is not created yet.
