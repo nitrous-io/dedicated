@@ -196,7 +196,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 				m.Fail()
 			} else {
-				m.Ack(1 * time.Second)
+				err := m.Ack(1 * time.Second)
 				if err != nil {
 					log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 				}
@@ -226,7 +226,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			}
 
 			if !strings.Contains(err.Error(), "consumer with this name is already active") {
-				log.Fatalf("Failed to start queue consumer: %v\n", err)
+				log.Fatalf("[ERROR] Failed to start queue consumer: %v\n", err)
 			}
 
 			log.Printf("Waiting for previous queue comsumer to be down")
@@ -239,12 +239,12 @@ func CreateConsumer(redisHost, redisPort string, redisDB int64, queueName string
 	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
 	c, err := queue.AddConsumer(queueName)
 	if err != nil {
-		return nil, fmt.Errorf("[ERROR] Failed to add a consumer: %v\n", err)
+		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
 	}
 
 	err = c.RequeueWorking() // Requeue all messages that does not send ACK
 	if err != nil {
-		return nil, fmt.Errorf("[ERROR] Failed to requeue not finished job: %v\n", err)
+		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
 	}
 
 	return &QueueConsumer{Consumer: c}, nil
