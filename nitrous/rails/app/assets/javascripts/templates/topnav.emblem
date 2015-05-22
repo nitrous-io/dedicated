@@ -43,19 +43,16 @@
                 | Free Queue
             li
               = link-to 'admin.announcements'
-                | Announcements
+                | Create Announcements
             li
               = link-to 'provider-templates'
-                | Provider Templates
+                | Edit Provider Templates
             li
               = link-to 'admin.templates'
-                | Templates
+                | Edit Container Templates
             li
               = link-to 'admin.amazon-hosts'
                 | Amazon
-            li
-              = link-to 'admin.hosts' 'digitalocean'
-                | Digital Ocean
             li
               a href='#' click='updateAdminHosts target="view"'
                 | Update My Hosts
