@@ -48,13 +48,15 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Add("Vary", "Accept-Encoding")
-	w.WriteHeader(http.StatusServiceUnavailable)
+	var body io.Reader
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
-		io.Copy(w, bufio.NewReader(bytes.NewBuffer(proxyerror.GzippedErrorPage)))
+		body = bufio.NewReader(bytes.NewReader(proxyerror.GzippedErrorPage))
 	} else {
-		io.Copy(w, bufio.NewReader(bytes.NewBuffer(proxyerror.ErrorPage)))
+		body = bufio.NewReader(bytes.NewReader(proxyerror.ErrorPage))
 	}
+	w.WriteHeader(http.StatusServiceUnavailable)
+	io.Copy(w, body)
 }
 
 // getPublicFreighterdPort parses the output of freighterd's port list for a
