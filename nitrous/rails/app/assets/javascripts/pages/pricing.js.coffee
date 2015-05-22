@@ -13,13 +13,12 @@ pages.Pricing =
     proPlan = 'pro'
     freePlan = 'free'
 
-    selectable = $('.selectable')
-    selectable.click (event) ->
+    $('.selectable').click (event) ->
       event.preventDefault()
       hash = $(this).attr('data-slug')
-      window.location.hash = hash
+      window.location.hash = hash unless window.location.hash == '#faq'
       if($(this).hasClass('active'))
-        return false
+        false
       else
         if($(this)).is('[data-slug="free"]')
           $('.paid').css('opacity','.5')
@@ -27,28 +26,44 @@ pages.Pricing =
           $('.paid').css('opacity','1')
         $('.selectable.active').removeClass('active')
         $(this).addClass('active')
-        return false
+        false
+
+    setActiveDetails = (pricing) ->
+      forFree = $(".pricing-details > .box:first-of-type")
+      forPaid = $(".pricing-details > .box:last-of-type")
+
+      if (pricing == "free")
+        forPaid.removeClass("active")
+        forFree.addClass("active")
+      else
+        forFree.removeClass("active")
+        forPaid.addClass("active")
 
     setActivePricing = (pricing) ->
-      $('[data-slug="'+pricing+'"]').click()
+      $("[data-slug=#{pricing}]").click()
       # $('input[type="range"]').val(0)
-      return false
-
+      setActiveDetails(pricing)
+      false
 
     # Check page hash and set default pricing
     # --------------------------------
-    if !(hash == "")
-      if (hash == "#free")
-        setActivePricing(freePlan)
-      if (hash == "#basic")
-        setActivePricing(basicPlan)
-      if (hash == "#standard")
-        setActivePricing(standardPlan)
-      if (hash == "#pro")
-        setActivePricing(proPlan)
-    else
-      # Set default plan
-      setActivePricing(standardPlan)
+    onHashChange = (hash) ->
+      setActivePricing switch hash
+        when "#free"
+          freePlan
+        when "#basic"
+          basicPlan
+        when "#standard"
+          standardPlan
+        when "#pro"
+          proPlan
+        else
+          standardPlan
+
+    onHashChange(hash)
+
+    $(window).on 'hashchange', ->
+      onHashChange(location.hash)
 
     # monthly/hourly toggler
     pricingHourly = false

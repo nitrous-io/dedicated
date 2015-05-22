@@ -26,7 +26,34 @@
     .container
       .pricing-container
         .pricing-block
-          ul.trio
+          ul
+
+            li.selectable.free-plan data-index='4' data-slug='free'
+              .title Free
+              .desc Ideal for experimenting
+              .price
+                .focus
+                  small
+                    | $
+                  span.price
+                    | 0
+                  small
+                    ' /mo.
+              ul.details
+                li
+                  i.fa.fa-clock-o
+                  '
+                  | 2-hour Daily Usage
+                li
+                  strong
+                    ' 1 GB
+                  | Memory
+                li
+                  strong
+                    ' 10 GB
+                  | Storage
+              a.btn.blue.ripple href="/app/#/signup/" Get Started
+
             li.selectable data-index='0' data-slug='basic'
               .title Basic
               .desc Small apps and starters
@@ -70,24 +97,6 @@
                   strong
                     ' 20 GB
                   | Storage
-                li.ticked
-                  i.fa.fa-check
-                  | Root Access
-                li.ticked
-                  i.fa.fa-check
-                  | Dedicated Resources
-                li.ticked
-                  i.fa.fa-check
-                  | Live Collaboration
-                li.ticked
-                  i.fa.fa-check
-                  | Desktop File Sync
-                li.ticked
-                  i.fa.fa-check
-                  | SSH Access
-                li.ticked
-                  i.fa.fa-check
-                  | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
             li.selectable.popular data-index='1' data-slug='standard'
@@ -135,24 +144,6 @@
                   strong
                     ' 50 GB
                   | Storage
-                li.ticked
-                  i.fa.fa-check
-                  | Root Access
-                li.ticked
-                  i.fa.fa-check
-                  | Dedicated Resources
-                li.ticked
-                  i.fa.fa-check
-                  | Live Collaboration
-                li.ticked
-                  i.fa.fa-check
-                  | Desktop File Sync
-                li.ticked
-                  i.fa.fa-check
-                  | SSH Access
-                li.ticked
-                  i.fa.fa-check
-                  | Docker Support
               a.btn.blue.ripple href="/app/#/signup/" Sign up
 
             li.selectable data-index='2' data-slug='pro'
@@ -198,67 +189,64 @@
                   strong
                     ' 120 GB
                   | Storage
+              a.btn.blue.ripple href="/app/#/signup/" Sign up
+
+          .box-wrapper.auto.pricing-details
+            .box.free-plan
+              ul
                 li.ticked
                   i.fa.fa-check
                   | Root Access
-                li.ticked
-                  i.fa.fa-check
-                  | Dedicated Resources
+
                 li.ticked
                   i.fa.fa-check
                   | Live Collaboration
-                li.ticked
-                  i.fa.fa-check
-                  | Desktop File Sync
-                li.ticked
-                  i.fa.fa-check
-                  | SSH Access
-                li.ticked
-                  i.fa.fa-check
-                  | Docker Support
-              a.btn.blue.ripple href="/app/#/signup/" Sign up
+
+            .box.grow-2
+              .box-wrapper
+                .box
+                  ul
+                    li.ticked
+                      i.fa.fa-check
+                      | Root Access
+
+                    li.ticked
+                      i.fa.fa-check
+                      | Dedicated Resources
+
+                .box
+                  ul
+                    li.ticked
+                      i.fa.fa-check
+                      | Live Collaboration
+
+                    li.ticked
+                      i.fa.fa-check
+                      | Desktop File Sync
+
+                .box
+                  ul
+                    li.ticked
+                      i.fa.fa-check
+                      | SSH Access
+
+                    li.ticked
+                      i.fa.fa-check
+                      | Docker Support
 
 
           ul
-            li.selectable.horizontal data-slug='free'
-              span.title Free
-              ul.details
-                li
-                  strong
-                    ' 2
-                  | Containers
-                li
-                  strong
-                    ' 1 GB
-                  | Memory
-                li
-                  strong
-                    ' 10 GB
-                  | Storage
-                li
-                  i.fa.fa-clock-o
-                  strong
-                    ' 2-hour
-                  | Daily Usage
-              a.btn.blue.ripple href="/app/#/signup/" Get started
+            li.horizontal.with-arrow
+              a href="/teams-pricing" target="_blank"
+                h3 Teams
+                p Register your interest to obtain custom pricing plans for your team.
+
+            li.horizontal.with-arrow
+              a href="/education-pricing" target="_blank"
+                h3 Educators &amp; Students
+                p Register your course to obtain group pricing plans for your students.
 
 
-      .box-wrapper.two
-        .box
-          h3 Teams
-          p
-            a href="/teams-pricing" target="_blank" Register your interest
-            '  to obtain custom pricing plans for your team. Learn more about
-            a href="/teams" target="_blank" Nitrous for Teams
-            | .
-
-        .box
-          h3 Educators &amp; Students
-          p
-            a href="/education-pricing" target="_blank" Register your course
-            '  to obtain group pricing plans for your students. Learn more about
-            a href="/education" target="_blank" Nitrous for Education
-            | .
 
   article.qa.darker
     a name='faq'
