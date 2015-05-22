@@ -1988,6 +1988,38 @@ h4 + .box-wrapper
     +webkitFix
 
 // --------------------------------------
+// Q&A
+.qa
+  h4
+    font-family: $boldFont
+    font-weight: 500
+
+  p
+    color: #A5B3BE
+
+  .item
+    border-left: 2px solid rgba(255,255,255,.2)
+    padding-left: 16px
+
+
+// --------------------------------------
+// Parallax
+.parallax
+  height: 480px
+  overflow: hidden
+  border: 0 !important
+  background: $blueLink image_url('home/chromeos-blue-bg.jpg') 0 0 no-repeat
+  background-size: cover
+
+  img
+    position: relative
+    margin: 0 auto
+    top: 0
+    display: block
+    box-shadow: 0 2px 20px rgba(0,0,0,.4)
+    +webkitFix
+
+// --------------------------------------
 // Pulled out
 .pull-wrapper
   width: 96%
