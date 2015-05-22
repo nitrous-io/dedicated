@@ -161,6 +161,46 @@ var _ = Describe("hostbuilder", func() {
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
 			qp.Delete()
 		})
+
+		It("should return error when fails to create a host when queue is true", func() {
+			h := &dummy.Host{
+				ID:            "123",
+				Name:          "Created",
+				CreateSuccess: false,
+			}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
+			form.Set("queue", "true")
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			decoder := json.NewDecoder(resp.Body)
+			var info Response
+			for {
+				err := decoder.Decode(&info)
+				if err != nil {
+					break
+				}
+			}
+
+			Expect(info.Error).NotTo(BeZero())
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+
+			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			Expect(err).To(BeNil())
+			Expect(qp.GetInputLength()).To(BeZero())
+			qp.Delete()
+		})
 	})
 
 	Describe("Updating a host", func() {
