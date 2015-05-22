@@ -195,7 +195,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 
 	var info *host.Info
 	if r.Form.Get("queue") == "true" {
-		var err error
 		s.initQueueOnce.Do(func() {
 			err = s.initQueue()
 		})
