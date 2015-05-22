@@ -196,23 +196,29 @@
 #stop-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Are you ABSOLUTELY sure?
+      ' Are you
+      strong
+        ' absolutely
+      | sure?
     .card-body
-      p
-        | Containers are starting/stopping. Stopping your workspace now may cause its containers to not be shutdown cleanly
+      p Stopping your workspace now may cause its containers to not be shutdown cleanly.
+      p You may want to stop your containers first.
     .card-footer
       .right
         button.ui.btn click='cancelStop target="view"' Cancel
-        button.ui.btn.danger.stop-btn click='confirmStop target="view"' Stop
+        button.ui.btn.danger.stop-btn click='confirmStop target="view"' Stop Anyway
 
 #restart-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Are you ABSOLUTELY sure?
+      ' Are you
+      strong
+        ' absolutely
+      | sure?
     .card-body
-      p
-       | Containers are starting/stopping. Restarting your workspace now may cause its containers to not be shutdown cleanly
+      p Restarting your workspace now may cause its containers to not be shutdown cleanly.
+      p You may want to stop your containers first.
     .card-footer
       .right
         button.ui.btn click='cancelRestart target="view"' Cancel
-        button.ui.btn.danger.restart-btn click='confirmRestart target="view"' Restart
+        button.ui.btn.danger.restart-btn click='confirmRestart target="view"' Restart Anyway
