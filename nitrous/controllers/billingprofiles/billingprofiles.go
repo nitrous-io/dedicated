@@ -9,7 +9,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
-	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -79,11 +78,6 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		} else if count <= 1 {
 			credited = awardCredits(db, env.Logger, u)
 		}
-	}
-
-	// Remove any freequeue entries (since user has already paid).
-	if err := freequeue.Cancel(db, u.ID); err != nil {
-		env.Logger.Errorf("Error canceling freequeue entries: %v", err)
 	}
 
 	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
