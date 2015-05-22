@@ -154,6 +154,15 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 	return fmt.Errorf("timed out sending message %+v", m)
 }
 
+// Fail push failed message to failed queue
+// It will not retry since we can submit a message manually
+func (m *Message) Fail() {
+	err := m.p.Fail()
+	if err != nil {
+		log.Printf("[ERROR] uuid=%s Failed to push a message(%s) to failed queue: %v\n", m.UUID, m.Payload, err)
+	}
+}
+
 func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	queueName := qc.Name
 	log.Printf("started queue consumer %s", queueName)
@@ -185,11 +194,13 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			err := queueRoutes[queueName](qc, m)
 			if err != nil {
 				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
-				// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
-				// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
-				// If it fails to consume first message, second message will also fail since item is not created yet.
+				m.Fail()
+			} else {
+				m.Ack(1 * time.Second)
+				if err != nil {
+					log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+				}
 			}
-			m.Ack(1 * time.Second)
 			msg <- m
 		}
 	}
@@ -228,12 +239,12 @@ func CreateConsumer(redisHost, redisPort string, redisDB int64, queueName string
 	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
 	c, err := queue.AddConsumer(queueName)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
+		return nil, fmt.Errorf("[ERROR] Failed to add a consumer: %v\n", err)
 	}
 
 	err = c.RequeueWorking() // Requeue all messages that does not send ACK
 	if err != nil {
-		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
+		return nil, fmt.Errorf("[ERROR] Failed to requeue not finished job: %v\n", err)
 	}
 
 	return &QueueConsumer{Consumer: c}, nil
