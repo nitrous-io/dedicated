@@ -114,6 +114,11 @@ func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
 func (qc *QueueConsumer) Consume() (*Message, error) {
 	p, err := qc.Get()
 	if err != nil {
+		if qc.HasUnacked() {
+			log.Println("pushed the message to working queue even if it failes to get a message. Requeue again to process")
+			time.Sleep(1 * time.Second)
+			qc.RequeueWorking()
+		}
 		return nil, err
 	}
 
@@ -154,22 +159,41 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 	return fmt.Errorf("timed out sending message %+v", m)
 }
 
+// Fail push failed message to failed queue
+// It will not retry since we can submit a message manually
+func (m *Message) Fail() {
+	err := m.p.Fail()
+	if err != nil {
+		log.Printf("[ERROR] uuid=%s Failed to push a message(%s) to failed queue: %v\n", m.UUID, m.Payload, err)
+	}
+}
+
 func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	queueName := qc.Name
 	log.Printf("started queue consumer %s", queueName)
 
 	msg := make(chan *Message)
 	go func() {
+		var last_error error
 		for {
 			m, err := qc.Consume()
 			if err != nil {
-				log.Printf("Failed to consume a message from (%s) queue: %+v\n", queueName, err)
+				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v\n", queueName, err)
 				// redis emits `open connections too fast` when we exceeds the error limit
 				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 					time.Sleep(1 * time.Second)
+				} else {
+					if last_error == err {
+						time.Sleep(2 * time.Second)
+					} else {
+						time.Sleep(50 * time.Millisecond)
+					}
 				}
+
+				last_error = err
 				continue
 			}
+			last_error = nil
 			msg <- m
 			<-msg
 		}
@@ -184,12 +208,14 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		case m := <-msg:
 			err := queueRoutes[queueName](qc, m)
 			if err != nil {
-				log.Printf("uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
-				// FIXME: We need to decide whether let it fail or put this to failed queue and consume next message
-				// If we ignore it, it could affect next message. For example, first message is `create` and next one is `update`
-				// If it fails to consume first message, second message will also fail since item is not created yet.
+				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+				m.Fail()
+			} else {
+				err := m.Ack(1 * time.Second)
+				if err != nil {
+					log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+				}
 			}
-			m.Ack(1 * time.Second)
 			msg <- m
 		}
 	}
@@ -215,7 +241,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			}
 
 			if !strings.Contains(err.Error(), "consumer with this name is already active") {
-				log.Fatalf("Failed to start queue consumer: %v\n", err)
+				log.Fatalf("[ERROR] Failed to start queue consumer: %v\n", err)
 			}
 
 			log.Printf("Waiting for previous queue comsumer to be down")
