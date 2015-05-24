@@ -174,6 +174,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 
 	msg := make(chan *Message)
 	go func() {
+		var last_error error
 		for {
 			m, err := qc.Consume()
 			if err != nil {
@@ -182,8 +183,14 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 					time.Sleep(1 * time.Second)
 				} else {
-					time.Sleep(50 * time.Millisecond)
+					if last_error == err {
+						time.Sleep(2 * time.Second)
+					} else {
+						time.Sleep(50 * time.Millisecond)
+					}
 				}
+
+				last_error = err
 				continue
 			}
 			msg <- m
