@@ -193,6 +193,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				last_error = err
 				continue
 			}
+			last_error = nil
 			msg <- m
 			<-msg
 		}
