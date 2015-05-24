@@ -114,6 +114,11 @@ func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
 func (qc *QueueConsumer) Consume() (*Message, error) {
 	p, err := qc.Get()
 	if err != nil {
+		if qc.HasUnacked() {
+			log.Println("pushed the message to working queue even if it failes to get a message. Requeue again to process")
+			time.Sleep(1 * time.Second)
+			qc.RequeueWorking()
+		}
 		return nil, err
 	}
 
@@ -176,6 +181,8 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				// redis emits `open connections too fast` when we exceeds the error limit
 				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 					time.Sleep(1 * time.Second)
+				} else {
+					time.Sleep(50 * time.Millisecond)
 				}
 				continue
 			}
