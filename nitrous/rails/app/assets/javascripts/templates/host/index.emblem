@@ -160,7 +160,10 @@
 #terminate-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Are you ABSOLUTELY sure?
+      ' Are you
+      strong
+        ' absolutely
+      | sure?
     .card-body
       if App.billingProfile.free
         p
