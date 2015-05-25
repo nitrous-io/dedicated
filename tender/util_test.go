@@ -4,12 +4,37 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strconv"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+type responseTest struct {
+	*httptest.ResponseRecorder
+	wroteHeader bool
+}
+
+// Header returns the response headers. It always returns a new header after
+// WriteHeader is called to simulate immutable header after write
+// - https://golang.org/pkg/net/http/#ResponseWriter
+// - https://github.com/golang/go/issues/8857
+func (rw *responseTest) Header() http.Header {
+	if rw.wroteHeader {
+		return make(http.Header)
+	}
+	return rw.ResponseRecorder.Header()
+}
+
+// WriteHeader sets rw.Code.
+func (rw *responseTest) WriteHeader(code int) {
+	if !rw.wroteHeader {
+		rw.ResponseRecorder.WriteHeader(code)
+	}
+	rw.wroteHeader = true
+}
 
 var _ = Describe("parsePort", func() {
 	It("returns port of the request", func() {
@@ -30,6 +55,18 @@ var _ = Describe("parsePort", func() {
 			p := parsePort(&http.Request{Host: tc.host, URL: url})
 			Expect(p).To(Equal(tc.port), "Expect correct port to be returned")
 		}
+	})
+})
+
+var _ = Describe("handleError", func() {
+	It("writes gzip response correctly", func() {
+		w := &responseTest{ResponseRecorder: httptest.NewRecorder()}
+		r, err := http.NewRequest("GET", "/", nil)
+		Expect(err).To(BeNil())
+		r.Header.Set("Accept-Encoding", "gzip, deflate")
+
+		handleError(w, r, fmt.Errorf("this is an error"))
+		Expect(w.ResponseRecorder.Header().Get("Content-Encoding")).To(Equal("gzip"))
 	})
 })
 
