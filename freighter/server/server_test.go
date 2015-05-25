@@ -1895,6 +1895,8 @@ var _ = Describe("server", func() {
 			shellID := string(out[2:])
 
 			conn.WriteMessage(websocket.TextMessage, []byte("d|export foo=test\n"))
+
+			// "Disrupt" connection by closing it and re-connecting.
 			conn.Close()
 
 			newConn, err := doRequest("testing", "sh", shellID, "token")
@@ -1925,6 +1927,8 @@ var _ = Describe("server", func() {
 			case <-gotOutput:
 				err := <-errCh
 				Expect(err).To(Equal(io.EOF))
+			case err := <-errCh:
+				Fail(fmt.Sprintf("unexpected error reading from shell websocket: %v", err))
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for shell to exit")
 			}
