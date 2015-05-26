@@ -518,6 +518,27 @@ var _ = Describe("controllers/oauth", func() {
 				return j
 			}
 
+			// Checks if two URI matches, excluding query string
+			expectBaseURI := func(expectedURIStr string) {
+				resURI, err := url.Parse(res.Header().Get("Location"))
+				Expect(err).To(BeNil())
+				resURI.RawQuery = ""
+
+				expectURI, err := url.Parse(expectedURIStr)
+				Expect(err).To(BeNil())
+				expectURI.RawQuery = ""
+
+				Expect(resURI.String()).To(Equal(expectURI.String()))
+			}
+
+			expectErrorResponse := func(errCode, errDesc, redirectURI string) {
+				Expect(res.Code).To(Equal(http.StatusFound))
+				errType, errDesc := ErrorSlug(res.Body)
+				Expect(errType).To(Equal(errCode))
+				Expect(errDesc).To(Equal(errDesc))
+				expectBaseURI(redirectURI)
+			}
+
 			BeforeEach(func() {
 				params.Set("action", "approve")
 				params.Set("grant_type", "authorization_code")
@@ -555,10 +576,8 @@ var _ = Describe("controllers/oauth", func() {
 
 				It("should not be able to authorize other third party", func() {
 					doRequest()
-					Expect(res.Code).To(Equal(http.StatusForbidden))
-					errType, errDesc := ErrorSlug(res.Body)
-					Expect(errType).To(Equal("access_denied"))
-					Expect(errDesc).To(Equal("token scope not allowed to request new authorization code"))
+
+					expectErrorResponse("access_denied", "token scope not allowed to request new authorization code", "/app")
 				})
 			})
 
@@ -577,37 +596,33 @@ var _ = Describe("controllers/oauth", func() {
 					It("should fail if response_type is not code", func() {
 						params.Set("response_type", "klingon")
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusBadRequest))
-						errType, errDesc := ErrorSlug(res.Body)
-						Expect(errType).To(Equal("unsupported_response_type"))
-						Expect(errDesc).To(Equal("response type must be 'code'"))
+						expectErrorResponse("unsupported_response_type", "response type must be 'code'", "/app")
 					})
 
 					It("should fail if invalid client id is provided", func() {
 						params.Set("client_id", "green")
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusNotFound))
-						errType, errDesc := ErrorSlug(res.Body)
-						Expect(errType).To(Equal("invalid_request"))
-						Expect(errDesc).To(Equal("client ID not found"))
+						expectErrorResponse("invalid_request", "client ID not found", "/app")
 					})
 
 					It("should fail if redirect URI is not subpath of original", func() {
 						params.Set("redirect_uri", "http://red.co/oauth/callback")
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusBadRequest))
-						errType, errDesc := ErrorSlug(res.Body)
-						Expect(errType).To(Equal("invalid_request"))
-						Expect(errDesc).To(Equal("invalid redirect_uri"))
+						expectErrorResponse("invalid_request", "invalid redirect_uri", "/app")
 					})
 
 					It("should fail if redirect URI different scheme", func() {
 						params.Set("redirect_uri", "http://blu.co/oauth/callback")
 						doRequest()
-						Expect(res.Code).To(Equal(http.StatusBadRequest))
-						errType, errDesc := ErrorSlug(res.Body)
-						Expect(errType).To(Equal("invalid_request"))
-						Expect(errDesc).To(Equal("invalid redirect_uri"))
+						expectErrorResponse("invalid_request", "invalid redirect_uri", "/app")
+					})
+
+					It("should fail if user did not approve authorization", func() {
+						params.Set("action", "decline")
+						params.Set("redirect_uri", "https://blu.co/oauth/callback")
+
+						doRequest()
+						expectErrorResponse("access_denied", "the resource owner has denied the request", "https://blu.co/oauth/callback")
 					})
 				})
 
@@ -615,6 +630,7 @@ var _ = Describe("controllers/oauth", func() {
 					It("should get authorization code", func() {
 						doRequest()
 						Expect(res.Code).To(Equal(http.StatusFound))
+						expectBaseURI("https://blu.co/oauth/callback")
 						j := parseJSONResponse()
 						Expect(j["state"]).To(Equal("anti_csrf"))
 						Expect(j["code"]).ToNot(Equal(""))
@@ -625,6 +641,7 @@ var _ = Describe("controllers/oauth", func() {
 						params.Set("redirect_uri", "https://blu.co/oauth/callback?special=true")
 						doRequest()
 						Expect(res.Code).To(Equal(http.StatusFound))
+						expectBaseURI("https://blu.co/oauth/callback")
 						j := parseJSONResponse()
 						Expect(j["redirect_uri"]).To(Equal("https://blu.co/oauth/callback?special=true"))
 					})
