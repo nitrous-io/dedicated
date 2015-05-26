@@ -55,6 +55,23 @@ var (
 	}
 )
 
+type Host struct {
+	AccessConfig *AccessConfig
+	Config       *HostConfig
+	notifyURL    string // to be set in builder's config
+	uuid         string // request UUID set by user
+	env          string // env tag to be set for each instance
+
+	// ec2 properties
+	auth     aws.Auth // this is used when we want to query all known regions
+	provider *ec2.EC2
+	instance *ec2.Instance
+
+	// the following settings are only available during the creation phase
+	keypair       *keypair      // temporary keypair of the instance
+	createTimeout time.Duration // limit of instance's creation time
+}
+
 type HostConfig struct {
 	ID              string `json:"id"`
 	HostID          int64  `json:"host_id"` // database id of the host
@@ -93,23 +110,6 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 			Id: h.SecurityGroupID,
 		},
 	}
-}
-
-type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	notifyURL    string // to be set in builder's config
-	uuid         string // request UUID set by user
-	env          string // env tag to be set for each instance
-
-	// ec2 properties
-	auth     aws.Auth // this is used when we want to query all known regions
-	provider *ec2.EC2
-	instance *ec2.Instance
-
-	// the following settings are only available during the creation phase
-	keypair       *keypair      // temporary keypair of the instance
-	createTimeout time.Duration // limit of instance's creation time
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
