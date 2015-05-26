@@ -57,6 +57,7 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 		"$created":  u.CreatedAt,
 		"user_id":   u.ID,
 		"admin":     u.Admin,
+		"$ip":       "0",
 	}
 
 	go func() {

@@ -90,7 +90,7 @@ func (p *ProfileOp) Set() error {
 // Create is an alias for set (which creates a profile in Mixpanel if
 // distinctID does not exist).  Use it to communicate intent.
 func (p *ProfileOp) Create() error {
-	return p.Set()
+	return p.SetOnce()
 }
 
 // SetOnce updates the profile with the profile op's properties if they are not

@@ -103,7 +103,8 @@ func makeJobs() <-chan job {
 		//"gen templates":         GenTemplatesJobs,
 		//"gen github authorized": GenGithubAuthorizedJobs,
 		//"gen phone": GenPhoneJobs,
-		"gen hosts created": GenHostCreatedJobs,
+		//"gen hosts created": GenHostCreatedJobs,
+		"gen mixpanel profiles": GenMixpanelProfiles,
 	}
 	otherSteps := map[string]stepFn{}
 
