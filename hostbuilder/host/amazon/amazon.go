@@ -319,6 +319,15 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
+// Respec changes the specs of an existing host its new properties.
+// The following changes are supported:
+//   1. Changing storage size of root volume.
+//   2. TODO Changing instance type.
+//   3. TODO Allocating/de-allocating an Elastic IP.
+func (h *Host) Respec() (*host.Info, error) {
+	return nil, nil
+}
+
 // Destroy releases the instance Elastic IP and terminate it
 func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")

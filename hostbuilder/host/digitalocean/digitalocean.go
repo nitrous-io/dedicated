@@ -229,6 +229,10 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) Respec() (*host.Info, error) {
+	return h.Info()
+}
+
 func (h *Host) Destroy() error {
 	id, err := h.id()
 	if err != nil {
