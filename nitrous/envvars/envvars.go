@@ -93,16 +93,6 @@ func parseInt64(s string) int64 {
 	return i
 }
 
-func init() {
-	CheckCA()
-	CheckDB()
-	CheckSendgrid()
-	CheckStripe()
-	CheckHostnames()
-	CheckGitHubOAuth()
-	CheckSecretToken()
-}
-
 func CheckCA() {
 	if CAKeyPath == "" {
 		log.Fatal("CA_KEY_PATH is not set")

@@ -48,13 +48,21 @@ func main() {
 		}
 	}()
 
+	envvars.CheckCA()
 	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
 		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
 	}
 
+	envvars.CheckSendgrid()
+	envvars.CheckHostnames()
+	envvars.CheckGitHubOAuth()
+	envvars.CheckSecretToken()
+
+	envvars.CheckStripe()
 	stripe.Key = envvars.StripeSecretKey
 
 	// setup database
+	envvars.CheckDB()
 	dbConn, err := db.NewDatabase(envvars.NitrousPgUrl)
 	if err != nil {
 		logr.FatalExit(err)
