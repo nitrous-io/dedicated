@@ -137,14 +137,16 @@ func handleBillingError(err error) error {
 	switch err {
 	case billingprofile.StripeProfileRequiredError:
 		return errStripeProfileRequired
-	case billingprofile.CardDeclinedError:
+	case billingprofile.ErrCardDeclined:
 		return errCardDeclined
-	case billingprofile.CardExpiredError:
+	case billingprofile.ErrCardExpired:
 		return errCardExpired
-	case billingprofile.IncorrectCvcError:
+	case billingprofile.ErrIncorrectCvc:
 		return errIncorrectCvc
-	case billingprofile.IncorrectZipError:
+	case billingprofile.ErrIncorrectZipErr:
 		return errIncorrectZip
+	case user.ErrCardBanned, billingprofile.ErrCardBanned:
+		return errCardBanned
 	default:
 		return err
 	}

@@ -186,25 +186,25 @@ var _ = Describe("models/billingprofile", func() {
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
 				fakeStripe.Error = test.StripeCardDeclined
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.CardDeclinedError))
+				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 			})
 
-			It("returns CardExpiredError error, if Stripe returns a card expired error", func() {
+			It("returns ErrCardExpired error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeCardExpired
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.CardExpiredError))
+				Expect(err).To(Equal(billingprofile.ErrCardExpired))
 			})
 
-			It("returns IncorrectCvcError error, if Stripe returns a card expired error", func() {
+			It("returns ErrIncorrectCvc error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeIncorrectCvc
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.IncorrectCvcError))
+				Expect(err).To(Equal(billingprofile.ErrIncorrectCvc))
 			})
 
-			It("returns IncorrectZipError error, if Stripe returns a card expired error", func() {
+			It("returns ErrIncorrectZipErr error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeIncorrectZip
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.IncorrectZipError))
+				Expect(err).To(Equal(billingprofile.ErrIncorrectZipErr))
 			})
 
 			It("does not update the record, when Stripe returns an error", func() {

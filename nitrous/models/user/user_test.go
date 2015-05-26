@@ -1385,10 +1385,10 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns a card declined error", func() {
 			It("returns the error, without updating the record", func() {
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.Error = test.StripeCardDeclined
 
 				_, err := u.ActivateBillingProfile(db, "token")
-				Expect(err).To(Equal(billingprofile.CardDeclinedError))
+				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 
 				b, err := billingprofile.Find(db, u.ID)
 				Expect(err).To(BeNil())

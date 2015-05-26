@@ -15,10 +15,11 @@ import (
 var (
 	StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
 
-	CardExpiredError  = errors.New("billingprofile: card expired")
-	CardDeclinedError = errors.New("billingprofile: card declined")
-	IncorrectCvcError = errors.New("billingprofile: cvc is incorrect")
-	IncorrectZipError = errors.New("billingprofile: zip code is incorrect")
+	ErrCardExpired     = errors.New("billingprofile: card expired")
+	ErrCardDeclined    = errors.New("billingprofile: card declined")
+	ErrIncorrectCvc    = errors.New("billingprofile: cvc is incorrect")
+	ErrIncorrectZipErr = errors.New("billingprofile: zip code is incorrect")
+	ErrCardBanned      = errors.New("billingprofile: card banned")
 )
 
 const (
@@ -158,13 +159,13 @@ func (p *BillingProfile) IsFreeOrCardRequired() bool {
 func HandleStripeError(err error) error {
 	if e, ok := err.(*stripe.Error); ok {
 		if e.Code == stripe.CardDeclined {
-			return CardDeclinedError
+			return ErrCardDeclined
 		} else if e.Code == stripe.ExpiredCard {
-			return CardExpiredError
+			return ErrCardExpired
 		} else if e.Code == stripe.IncorrectCvc {
-			return IncorrectCvcError
+			return ErrIncorrectCvc
 		} else if e.Code == stripe.IncorrectZip {
-			return IncorrectZipError
+			return ErrIncorrectZipErr
 		}
 	}
 	return err

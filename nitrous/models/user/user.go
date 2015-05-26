@@ -45,6 +45,7 @@ var (
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
 	ErrPasswordTooLong  = errors.New("password is too long (maximum is 100 characters)")
 	ErrPhoneInvalid     = errors.New("phone number is not valid")
+	ErrCardBanned       = errors.New("credit card is banned")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
