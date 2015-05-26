@@ -79,7 +79,7 @@
               label.field-label
                 | Workspace
               .ui.select
-                Ember.Select name='host' content=App.hosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
+                Ember.Select name='host' content=view.availableHosts optionValuePath='content.slug' optionLabelPath='content.name' disabled=saving value=selectedHostSlug
 
         .ui.input-group
           label#select-container-name.field-label for='containers-new-name'
