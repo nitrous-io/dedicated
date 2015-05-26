@@ -556,6 +556,19 @@ var _ = Describe("biller", func() {
 				i.Invoice.TotalCharge = biller.MinimumInvoiceAmount - 1
 			})
 
+			It("should process banned users", func() {
+				u.DeletedAt = pq.NullTime{time.Now(), true}
+				u.BannedAt = pq.NullTime{time.Now(), true}
+
+				fakeStripe.Responses = []string{
+					`{"object": "invoice", "id": null}`,
+				}
+
+				i.Invoice.TotalCharge = 0
+				err := b.ProcessStripe(i)
+				Expect(err).To(BeNil())
+			})
+
 			It("should not create invoice items but check on outstanding invoice if charge is 0", func() {
 				fakeStripe.Responses = []string{
 					`{"object": "invoice", "id": null}`,

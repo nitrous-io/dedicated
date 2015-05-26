@@ -217,7 +217,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	inv := i.Invoice
 	items := i.Items
 
-	if b.user.DeletedAt.Valid {
+	if b.user.DeletedAt.Valid && !b.user.BannedAt.Valid {
 		return fmt.Errorf("biller: skipping stripe, user %d has been DELETED", b.user.ID)
 	}
 
