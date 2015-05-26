@@ -63,7 +63,6 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 // WaitForState watches an object and waits for it to achieve a certain
 // state.
 func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
-	log.Printf("Waiting for state to become: %s", conf.Target)
 	var notfoundTick int
 	for {
 		var currentState string

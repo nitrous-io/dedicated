@@ -355,6 +355,7 @@ func (h *Host) Destroy() error {
 		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "terminated",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return mh.Error(err, label)
@@ -395,6 +396,7 @@ func (h *Host) Stop() (*host.Info, error) {
 		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "stopped",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return nil, mh.Error(err, label)
@@ -422,6 +424,7 @@ func (h *Host) Start() (*host.Info, error) {
 		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "running",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return nil, mh.Error(err, label)
@@ -757,6 +760,7 @@ func createInstance(ctx *host.HostContext) error {
 		Target:  "running",
 		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(state)
 	if err != nil {
 		return mh.Error(fmt.Errorf("amazon: failed to change state %v", err), label)
