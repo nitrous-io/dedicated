@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/nitrous-common/httpclient"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
@@ -120,15 +120,23 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 	}
 	logr.Infof("Successfully shut down host %d for user %d in %s", hst.ID, hst.UserID, time.Since(timeStart))
 
-	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
-	c := httpclient.New("")
-	resp, err := c.PostForm(reqUrl, &url.Values{"trust_key": []string{envvars.TrustKey}})
+	u := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
+	data := url.Values{}
+	data.Set("trust_key", envvars.TrustKey)
+	client := http.DefaultClient
+	resp, err := client.PostForm(u, data)
 	if err != nil {
-		logr.Errorf("Unable to build PostForm for reqUrl %s for user %d, err: %+v", reqUrl, hst.UserID, err)
+		logr.Errorf("Error POSTing to %s for user %d, err: %v", u, hst.UserID, err)
 		return
 	}
+	defer resp.Body.Close()
 
-	if err := httpclient.CheckResponse(resp, http.StatusOK); err != nil {
-		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", hst.UserID, err)
+	if resp.StatusCode != http.StatusOK {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			logr.Errorf("Unable to read HTTP response body, err: %s", err)
+			return
+		}
+		logr.Errorf("Unable to send user_refresh for user %d, response: %s", hst.UserID, b)
 	}
 }
