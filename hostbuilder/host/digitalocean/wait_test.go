@@ -24,7 +24,7 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		a, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
@@ -41,7 +41,7 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		_, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
@@ -57,7 +57,7 @@ var _ = Describe("WaitForAction", func() {
 				},
 			},
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		_, err := digitalocean.WaitForAction(ctx, service, 1, 10*time.Millisecond, info)
