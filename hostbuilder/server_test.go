@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestDigitalOceanAPI(t *testing.T) {
+func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "hostbuilder")
 }
@@ -224,6 +224,39 @@ var _ = Describe("hostbuilder", func() {
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/update"), form)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(200))
+
+			decoder := json.NewDecoder(resp.Body)
+			var info Response
+			for {
+				err := decoder.Decode(&info)
+				if err != nil {
+					break
+				}
+			}
+			Expect(info.IPAddress).To(Equal(h.IPAddress))
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+			Expect(info.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("Respeccing a host", func() {
+		It("should successfully respec the host", func() {
+			h := &dummy.Host{RespecSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil())
+			defer srv.Close()
+
+			config, err := json.Marshal(h)
+			Expect(err).To(BeNil())
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/respec"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			decoder := json.NewDecoder(resp.Body)
 			var info Response
