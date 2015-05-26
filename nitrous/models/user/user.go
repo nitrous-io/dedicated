@@ -600,6 +600,19 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 
 	// update the profile with details returned from Stripe
 	crd := c.Cards.Values[0]
+
+	var banned bool
+	err = d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	if banned {
+		return nil, ErrCardBanned
+	}
+
 	b := &billingprofile.BillingProfile{
 		UserID:            u.ID,
 		StripeID:          sql.NullString{c.ID, true},

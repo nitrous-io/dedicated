@@ -103,6 +103,19 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	}
 
 	crd := c.Cards.Values[0]
+
+	var banned bool
+	err = d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return ErrCardBanned
+	}
+
 	b.StripeID = sql.NullString{c.ID, true}
 	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
 	b.LastFour = sql.NullString{crd.LastFour, true}

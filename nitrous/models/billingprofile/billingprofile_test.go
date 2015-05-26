@@ -225,6 +225,36 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(bp.ExpYear.Int64).To(Equal(int64(2014)))
 			})
+
+			It("returns ErrCardBanned when the card belongs to a banned user", func() {
+				b := &user.User{
+					Username: "banner",
+					Password: "123456",
+					Email:    "banner@example.com",
+				}
+				err := test.WrapInTransaction(db, b.Insert)
+				Expect(err).To(BeNil())
+
+				u2 := &user.User{
+					Username: "bad",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "bad@example.com",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err = bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.ErrCardBanned))
+			})
 		})
 	})
 

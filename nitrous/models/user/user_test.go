@@ -16,7 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stripe/stripe-go"
@@ -32,7 +32,7 @@ var _ = Describe("models/user", func() {
 
 	BeforeEach(func() {
 		var err error
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "foo", "foo@example.com", "foo bar", "foofoo")
@@ -410,7 +410,7 @@ var _ = Describe("models/user", func() {
 			var u2 *user.User
 
 			BeforeEach(func() {
-				err := WrapInTransaction(db, u.Insert)
+				err := test.WrapInTransaction(db, u.Insert)
 				Expect(err).To(BeNil())
 
 				u2, err = user.FindByUsername(db, "qux")
@@ -495,7 +495,7 @@ var _ = Describe("models/user", func() {
 		It("does not set the admin flag", func() {
 			u.Admin = true
 
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			u2, err := user.FindByUsername(db, "qux")
@@ -515,7 +515,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -576,7 +576,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -631,7 +631,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -791,7 +791,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
@@ -810,10 +810,10 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			// add 2 hosts, so we know it's not the MAX_HOSTS check lets him in.
-			hs, err := CreateHostStack(db, &HostStack{U: u})
+			hs, err := test.CreateHostStack(db, &test.HostStack{U: u})
 			Expect(err).To(BeNil())
 
-			_, err = CreateHostStack(db, &HostStack{
+			_, err = test.CreateHostStack(db, &test.HostStack{
 				U:  u,
 				R:  hs.R,
 				P:  hs.P,
@@ -828,10 +828,10 @@ var _ = Describe("models/user", func() {
 
 		ItChecksNumberOfHosts := func() {
 			It("returns false, when owned hosts == max hosts", func() {
-				hs, err := CreateHostStack(db, &HostStack{U: u})
+				hs, err := test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
-				_, err = CreateHostStack(db, &HostStack{
+				_, err = test.CreateHostStack(db, &test.HostStack{
 					U:  u,
 					R:  hs.R,
 					P:  hs.P,
@@ -847,7 +847,7 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("returns true, when owned hosts < max hosts", func() {
-				_, err := CreateHostStack(db, &HostStack{U: u})
+				_, err := test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
 				b, err := u.CanCreateHosts(db)
@@ -862,12 +862,12 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("ignores terminated hosts", func() {
-				hs, err := CreateHostStack(db, &HostStack{U: u})
+				hs, err := test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 				err = hs.H.Delete(db)
 				Expect(err).To(BeNil())
 
-				hs2, err := CreateHostStack(db, &HostStack{
+				hs2, err := test.CreateHostStack(db, &test.HostStack{
 					U:  u,
 					R:  hs.R,
 					P:  hs.P,
@@ -921,7 +921,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -963,7 +963,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`UPDATE users SET service_account = true WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
@@ -995,7 +995,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			u2, err := user.FindByID(db, u.ID)
@@ -1010,7 +1010,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '26 hours' WHERE id = $1;`, u.ID)
@@ -1033,7 +1033,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -1075,7 +1075,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE user_profiles SET max_hosts = 2 WHERE user_id = $1;`, u.ID)
@@ -1135,7 +1135,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -1178,7 +1178,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -1244,13 +1244,13 @@ var _ = Describe("models/user", func() {
 	Describe("SendConfirmationEmail", func() {
 		var (
 			u          *user.User
-			fakeMailer *FakeMailer
+			fakeMailer *test.FakeMailer
 			origMailer mailer.Mailer
 		)
 
 		BeforeEach(func() {
 			origMailer = user.Mailer
-			fakeMailer = &FakeMailer{}
+			fakeMailer = &test.FakeMailer{}
 			user.Mailer = fakeMailer
 
 			u = &user.User{
@@ -1259,7 +1259,7 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -1334,7 +1334,7 @@ var _ = Describe("models/user", func() {
 	Describe("ActivateBillingProfile", func() {
 		var (
 			u          *user.User
-			fakeStripe *FakeStripe
+			fakeStripe *test.FakeStripe
 		)
 
 		BeforeEach(func() {
@@ -1344,10 +1344,10 @@ var _ = Describe("models/user", func() {
 				Password: "123456",
 				Email:    "qux@example.com",
 			}
-			err := WrapInTransaction(db, u.Insert)
+			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			fakeStripe = &FakeStripe{}
+			fakeStripe = &test.FakeStripe{}
 			stripe.SetBackend(fakeStripe)
 		})
 
@@ -1367,7 +1367,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns the created customer", func() {
 			It("updates and persists the record", func() {
-				fakeStripe.Responses = []string{StripeCustomerResponse}
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())
@@ -1380,6 +1380,36 @@ var _ = Describe("models/user", func() {
 				Expect(b.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(b.ExpYear.Int64).To(Equal(int64(2018)))
 				Expect(b.PendingActivation).To(BeFalse())
+			})
+
+			It("should not allow a banned card", func() {
+				b := &user.User{
+					Username: "banner",
+					Password: "123456",
+					Email:    "banner@example.com",
+				}
+				err := test.WrapInTransaction(db, b.Insert)
+				Expect(err).To(BeNil())
+
+				u2 := &user.User{
+					Username: "bad",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "bad@example.com",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				_, err = u.ActivateBillingProfile(db, "token")
+				Expect(err).To(Equal(user.ErrCardBanned))
 			})
 		})
 
