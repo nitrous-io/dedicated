@@ -51,8 +51,8 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 	}
 
 	urlArgs := host.URLArgsFromHost(h)
-	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
-		if e, ok := err.(net.Error); ok && e.Timeout() {
+	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
+		if e, ok := stopErr.(net.Error); ok && e.Timeout() {
 			l.Errorf("hostbuilder timeout stopping host: %v", e)
 		}
 
@@ -78,7 +78,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		if ev != nil {
 			ev(EventHostUpdated)
 		}
-		return sErr
+		return stopErr
 	}
 
 	h.State = host.StateStopped
