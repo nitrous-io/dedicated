@@ -34,6 +34,8 @@ const (
 	GeneralVolumeType  = "gp2"
 	IOPSVolumeType     = "io1"
 	MagneticVolumeType = "standard"
+
+	rootDeviceName = "/dev/sda1"
 )
 
 var (
@@ -717,12 +719,7 @@ func createInstance(ctx *host.HostContext) error {
 		mh.UpdateSince(label, start)
 	}(time.Now())
 
-	storageSize := int64(h.Config.StorageSize * storageUnit)
-	if storageSize > maxStorageSize {
-		storageSize = maxStorageSize
-	} else if storageSize < minStorageSize {
-		storageSize = minStorageSize
-	}
+	storageSize := computeSize(h.Config.StorageSize)
 
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
@@ -736,7 +733,7 @@ func createInstance(ctx *host.HostContext) error {
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
 			{
-				DeviceName:          "/dev/sda1",
+				DeviceName:          rootDeviceName,
 				VolumeType:          GeneralVolumeType,
 				VolumeSize:          storageSize,
 				DeleteOnTermination: true,
@@ -830,4 +827,14 @@ func getState(instance *ec2.Instance) state.State {
 // isVPC checks if an instance is a EC2-VPC instance
 func isVPC(i *ec2.Instance) bool {
 	return i != nil && i.SubnetId != ""
+}
+
+func computeSize(size int) int64 {
+	storageSize := int64(size * storageUnit)
+	if storageSize > maxStorageSize {
+		storageSize = maxStorageSize
+	} else if storageSize < minStorageSize {
+		storageSize = minStorageSize
+	}
+	return storageSize
 }
