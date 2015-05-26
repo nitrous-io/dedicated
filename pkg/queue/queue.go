@@ -79,7 +79,10 @@ type Message struct {
 var actions = []string{
 	"create",
 	"update",
-	"delete",
+	"start",
+	"stop",
+	"restart",
+	"termiate",
 }
 
 type Action int
@@ -87,7 +90,10 @@ type Action int
 const (
 	Create Action = iota
 	Update
-	Delete
+	Start
+	Stop
+	Restart
+	Terminate
 )
 
 func (a Action) String() string {

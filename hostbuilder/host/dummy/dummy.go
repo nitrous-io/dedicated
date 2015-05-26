@@ -102,6 +102,25 @@ func (h *Host) Stop() (*host.Info, error) {
 	return nil, errors.New("Failed to stop host")
 }
 
+func (h *Host) StopWithQueue(qp *queue.QueuePublisher, info *host.QueueInfo) (*host.Info, error) {
+	msg := &queue.Message{
+		Action:       queue.Stop.String(),
+		Event:        string(event.HostStopped),
+		ResourceName: host.EventResourceName,
+		ResourceID:   h.ID,
+	}
+	err := qp.Publish(msg)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
+	}
+
+	if h.StopSuccess {
+		return h.Info()
+	}
+
+	return nil, errors.New("Failed to stop host")
+}
+
 func (h *Host) Start() (*host.Info, error) {
 	if h.StartSuccess {
 		return h.Info()

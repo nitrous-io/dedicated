@@ -95,7 +95,10 @@ func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 					u.Topic(),
 				)
 			}
+		} else {
+			s.logger.Debugf("uuid=%s queueHandlerTracer: unexpected message: %+v", m.UUID, m)
 		}
+
 		return nil
 	}
 }

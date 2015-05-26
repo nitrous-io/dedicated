@@ -182,29 +182,29 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create.String())
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
 			return nil, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create.String())
 	}
 
 	if h.sshKey != nil {
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create.String())
 		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create.String())
 			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create.String())
 	}
 
 	info := h.dropletToInfo()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create.String())
 	return info, nil
 }
 
@@ -364,6 +364,10 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	return nil, nil
 }
 
 func (h *Host) Start() (*host.Info, error) {

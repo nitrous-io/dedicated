@@ -82,20 +82,20 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host", queue.Create.String())
 	imageName, err := h.createImage()
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image", queue.Create.String())
 		return nil, err
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image", queue.Create.String())
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container", queue.Create.String())
 		return nil, err
 	}
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c, queue.Create.String())
 	return c, nil
 }
 
@@ -226,6 +226,26 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop.String())
+
+	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
+		switch err.(type) {
+		case *dockerclient.ContainerNotRunning:
+			return h.Info()
+		default:
+			return nil, err
+		}
+	}
+
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop.String())
+	}
+
+	return info, err
 }
 
 func (h *Host) Start() (*host.Info, error) {

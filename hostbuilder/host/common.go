@@ -222,7 +222,7 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 
 	msg := &queue.Message{
 		UUID:         uuid,
-		Action:       queue.Create.String(),
+		Action:       action,
 		Event:        string(ev),
 		ResourceName: EventResourceName,
 		Payload:      payload,
@@ -245,7 +245,7 @@ func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *Que
 
 	msg := &queue.Message{
 		UUID:         uuid,
-		Action:       queue.Create.String(),
+		Action:       action,
 		Event:        string(ev),
 		ResourceName: EventResourceName,
 		Payload:      payload,

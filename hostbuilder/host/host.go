@@ -91,6 +91,9 @@ type Host interface {
 	// create a new host, publish events into the queue
 	CreateWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
 
+	// stop a host, publish events into the queue
+	StopWithQueue(qp *queue.QueuePublisher, info *QueueInfo) (*Info, error)
+
 	Create(io.Writer) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)
 	Respec() (*Info, error)  // change specs of host. FIXME This should publish to queue.

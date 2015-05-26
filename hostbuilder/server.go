@@ -206,23 +206,13 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		}
 		log.Printf("uuid=%s Creating a host with queue %+v", providerConfig["uuid"], s.Queue)
 
-		var userID, hostID int64
-		hostSlug := r.Form.Get("slug")
-		hostID, err = strconv.ParseInt(r.Form.Get("id"), 10, 64)
+		var queueInfo *host.QueueInfo
+		queueInfo, err = getQueueInfo(r)
 		if err != nil {
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
 
-		userID, err = strconv.ParseInt(r.Form.Get("uid"), 10, 64)
-		if err != nil {
-			return mh.Error(err, fmt.Sprintf("create.%s", provider))
-		}
-
-		info, err = h.CreateWithQueue(s.Queue, &host.QueueInfo{
-			ID:     hostID,
-			UserID: userID,
-			Slug:   hostSlug,
-		})
+		info, err = h.CreateWithQueue(s.Queue, queueInfo)
 	} else {
 		info, err = h.Create(pw)
 	}
@@ -348,6 +338,9 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
+	var err error
+	var info *host.Info
+
 	if err := r.ParseForm(); err != nil {
 		return err
 	}
@@ -359,10 +352,31 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	info, err := h.Stop()
+
+	if r.Form.Get("queue") == "true" {
+		s.initQueueOnce.Do(func() {
+			err = s.initQueue()
+		})
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+		log.Printf("uuid=%s Stopping a host with queue %+v\n", providerConfig["uuid"], *s.Queue)
+
+		var queueInfo *host.QueueInfo
+		queueInfo, err = getQueueInfo(r)
+		if err != nil {
+			return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		}
+
+		info, err = h.StopWithQueue(s.Queue, queueInfo)
+	} else {
+		info, err = h.Stop()
+	}
+
 	if err != nil {
 		return err
 	}
+
 	resp := &Response{
 		StatusCode:     http.StatusOK,
 		Status:         "stopped",
@@ -640,4 +654,19 @@ func (s *Server) initQueue() error {
 	qp := queue.NewQueue(rc.Host, rc.Port, rc.DB, "v1.host")
 	s.Queue = qp
 	return nil
+}
+
+func getQueueInfo(r *http.Request) (*host.QueueInfo, error) {
+	var userID, hostID int64
+	hostSlug := r.Form.Get("slug")
+	hostID, err := strconv.ParseInt(r.Form.Get("id"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err = strconv.ParseInt(r.Form.Get("uid"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &host.QueueInfo{ID: hostID, UserID: userID, Slug: hostSlug}, nil
 }
