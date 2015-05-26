@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -1902,27 +1903,27 @@ var _ = Describe("server", func() {
 			_, out, _ = newConn.ReadMessage()
 			Expect(string(out)).To(Equal("i|" + shellID))
 
-			connClosed := make(chan error, 1)
-			finalOutput := bytes.NewBuffer(nil)
+			gotOutput := make(chan struct{})
+			errCh := make(chan error, 1)
 			go func() {
 				for {
 					_, out, err = newConn.ReadMessage()
-					finalOutput.Write(out)
 					if err != nil {
-						connClosed <- err
+						errCh <- err
 						return
+					}
+					if strings.Contains(string(out), "foo is test") {
+						newConn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
+						close(gotOutput)
 					}
 				}
 			}()
 
 			newConn.WriteMessage(websocket.TextMessage, []byte("d|echo -n foo is $foo\n"))
-			time.Sleep(100 * time.Millisecond)
-			newConn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
 
 			select {
-			case err := <-connClosed:
-				Expect(err).To(Equal(io.EOF))
-				Expect(finalOutput.String()).To(ContainSubstring("foo is test"))
+			case <-gotOutput:
+				Expect(<-errCh).To(Equal(io.EOF))
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for shell to exit")
 			}
