@@ -1213,5 +1213,12 @@ func init() {
 				UPDATE user_profiles SET max_hosts = 10 WHERE max_hosts = 3;
 			`,
 		},
+		{
+			Version: "1070",
+			Up: `
+				ALTER TABLE users ADD COLUMN banned_at timestamp without time zone CHECK (banned_at IS NULL OR deleted_at IS NOT NULL) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN banned_by_id bigint REFERENCES users(id) CHECK (banned_at IS NULL OR banned_by_id IS NOT NULL) DEFAULT NULL;
+			`,
+		},
 	}
 }

@@ -93,6 +93,9 @@ type User struct {
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
 
+	BannedAt   pq.NullTime   `db:"banned_at"`
+	BannedByID sql.NullInt64 `db:"banned_by_id"`
+
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
 }
