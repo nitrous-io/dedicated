@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	Secret         = envvars.SecretToken
 	ValidityPeriod = 1 * time.Minute
-	verifier       = msgverifier.New(Secret)
+	verifier       = msgverifier.New(envvars.SecretToken)
 )
 
 var (
@@ -20,7 +19,7 @@ var (
 	ErrCodeExpired  = errors.New("authorizationcode: authorization code expired")
 )
 
-type AuthorizationCode struct {
+type Code struct {
 	Type        string    `json:"type"`
 	UserID      int64     `json:"user_id"`
 	ClientID    string    `json:"client_id"`
@@ -37,7 +36,7 @@ func Generate(userID int64, clientID, redirectURI string) (string, error) {
 	}
 
 	createdAt := time.Now().UTC()
-	return verifier.Generate(&AuthorizationCode{
+	return verifier.Generate(&Code{
 		Type:        "authorization_code",
 		UserID:      userID,
 		ClientID:    clientID,
@@ -48,8 +47,8 @@ func Generate(userID int64, clientID, redirectURI string) (string, error) {
 	})
 }
 
-func Read(signedCode string) (*AuthorizationCode, error) {
-	code := &AuthorizationCode{}
+func Read(signedCode string) (*Code, error) {
+	code := &Code{}
 	err := verifier.Verify(signedCode, code)
 	if err != nil {
 		return nil, ErrInvalidToken

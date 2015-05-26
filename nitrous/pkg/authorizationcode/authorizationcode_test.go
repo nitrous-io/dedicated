@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/authorizationcode"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 	. "github.com/onsi/ginkgo"
@@ -21,8 +22,8 @@ var _ = Describe("pkg/authorizationcode", func() {
 			signedCode, err := authorizationcode.Generate(123, "blu_team", "https://blu.co/oauth/callback")
 			Expect(err).To(BeNil())
 
-			parsedCode := &authorizationcode.AuthorizationCode{}
-			verifier := msgverifier.New(authorizationcode.Secret)
+			parsedCode := &authorizationcode.Code{}
+			verifier := msgverifier.New(envvars.SecretToken)
 			err = verifier.Verify(signedCode, parsedCode)
 
 			Expect(parsedCode.Type).To(Equal("authorization_code"))
@@ -52,7 +53,7 @@ var _ = Describe("pkg/authorizationcode", func() {
 
 		It("should not able to read code signed with different secret", func() {
 			createdAt := time.Now()
-			unsignedCode := authorizationcode.AuthorizationCode{
+			unsignedCode := authorizationcode.Code{
 				Type:        "authorization_code",
 				UserID:      123,
 				ClientID:    "abcdefg",

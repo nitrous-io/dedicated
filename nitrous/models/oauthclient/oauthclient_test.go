@@ -20,7 +20,7 @@ var _ = Describe("models/oauthclient", func() {
 	var (
 		db            *db.Database
 		u, clientUser *user.User
-		client        *oauthclient.OAuthClient
+		client        *oauthclient.Client
 	)
 
 	BeforeEach(func() {
@@ -46,7 +46,7 @@ var _ = Describe("models/oauthclient", func() {
 		Expect(err).To(BeNil())
 		Expect(clientUser.ID).NotTo(BeZero())
 
-		client = &oauthclient.OAuthClient{
+		client = &oauthclient.Client{
 			UserID:      clientUser.ID,
 			Name:        "Builders League United",
 			Description: "A fictional company",
@@ -66,7 +66,7 @@ var _ = Describe("models/oauthclient", func() {
 			err := client.InsertWithSecret(db, "secret_sauce")
 			Expect(err).To(BeNil())
 
-			client2 := &oauthclient.OAuthClientWithSecret{}
+			client2 := &oauthclient.ClientWithSecret{}
 
 			err = db.Get(client2, `SELECT *
 				FROM oauth_clients WHERE user_id=$1;

@@ -65,8 +65,7 @@ document.addEventListener("DOMContentLoaded", function() {
       url = appendQueryString(url, params)
     }
 
-    console.log('redirecting to', url)
-    // window.location = url
+    window.location = url
   }
 
   var redirectError = function(uri, err) {
@@ -148,7 +147,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     return showConsentPage(token, query, client, user)
   }, function(err) {
-    console.log('failed to load client or user:', err)
     // TODO: display more informative page
     // if client cannot be found or error fetching
     redirect('/404')

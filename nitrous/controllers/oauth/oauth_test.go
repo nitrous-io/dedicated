@@ -469,7 +469,7 @@ var _ = Describe("controllers/oauth", func() {
 			Expect(err).To(BeNil())
 			Expect(clientUser1.ID).NotTo(BeZero())
 
-			client1 := &oauthclient.OAuthClient{
+			client1 := &oauthclient.Client{
 				UserID:      clientUser1.ID,
 				Name:        "Builders League United",
 				Description: "A fictional company",
@@ -488,7 +488,7 @@ var _ = Describe("controllers/oauth", func() {
 			Expect(err).To(BeNil())
 			Expect(clientUser2.ID).NotTo(BeZero())
 
-			client2 := &oauthclient.OAuthClient{
+			client2 := &oauthclient.Client{
 				UserID:      clientUser2.ID,
 				Name:        "Reliable Excavation Demolition",
 				Description: "A fictional company",
@@ -504,7 +504,7 @@ var _ = Describe("controllers/oauth", func() {
 
 			doRequest := func() {
 				var err error
-				req, err = NewAuthedFormRequest(t, "POST", "/api/v0/oauth/authorize", params)
+				req, err = NewFormRequest("POST", "/api/v0/oauth/authorize", params)
 				Expect(err).To(BeNil())
 				res = httptest.NewRecorder()
 				handler.ServeHTTP(res, req)
@@ -572,6 +572,8 @@ var _ = Describe("controllers/oauth", func() {
 
 					err := t.Insert(db)
 					Expect(err).To(BeNil())
+
+					params.Set("access_token", t.Token)
 				})
 
 				It("should not be able to authorize other third party", func() {
@@ -590,6 +592,8 @@ var _ = Describe("controllers/oauth", func() {
 					}
 					err := t.Insert(db)
 					Expect(err).To(BeNil())
+
+					params.Set("access_token", t.Token)
 				})
 
 				Context("when invalid parameters requested", func() {

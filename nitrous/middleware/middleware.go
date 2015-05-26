@@ -273,8 +273,7 @@ func GetBearerToken(r *http.Request) (string, error) {
 	}
 
 	if r.Method == "POST" && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
-		// TODO: How to ensure it is from POST body not query string?
-		token := r.FormValue("access_token")
+		token := r.PostFormValue("access_token")
 		if token == "" {
 			return "", errInvalidRequest
 		}
