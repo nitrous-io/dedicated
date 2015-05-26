@@ -17,8 +17,13 @@
         a href='#'
           i.fa.fa-plus
         ul.dropdown-menu
-          li
-            link-to 'containers.new' | New Container...
+          if App.disableNewContainer
+            li.disabled
+              a href='#' title='You can only create a container when a workspace is running.'
+                | New Container...
+          else
+            li
+              link-to 'containers.new' | New Container...
           unless App.billingProfile.free
             if App.canCreateHosts
               li
@@ -43,19 +48,16 @@
                 | Free Queue
             li
               = link-to 'admin.announcements'
-                | Announcements
+                | Create Announcements
             li
               = link-to 'provider-templates'
-                | Provider Templates
+                | Edit Provider Templates
             li
               = link-to 'admin.templates'
-                | Templates
+                | Edit Container Templates
             li
               = link-to 'admin.amazon-hosts'
                 | Amazon
-            li
-              = link-to 'admin.hosts' 'digitalocean'
-                | Digital Ocean
             li
               a href='#' click='updateAdminHosts target="view"'
                 | Update My Hosts
