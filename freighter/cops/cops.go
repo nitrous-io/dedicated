@@ -113,6 +113,7 @@ func parsePasswdFile(path, username string) (uid int, gid int, err error) {
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
+	var found bool
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" {
@@ -132,9 +133,13 @@ func parsePasswdFile(path, username string) (uid int, gid int, err error) {
 		if err != nil {
 			break
 		}
+		found = true
 	}
 	if err != nil {
-		return uid, gid, err
+		return -1, -1, err
+	}
+	if !found {
+		return -1, -1, fmt.Errorf("user not found: %s", username)
 	}
 	return uid, gid, s.Err()
 }

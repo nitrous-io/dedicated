@@ -55,10 +55,16 @@ func TestParsePasswdFile(t *testing.T) {
 sync:x:4:65534:sync:/bin:/bin/sync
 games:x:5:60:games:/usr/games:/usr/sbin/nologin
 man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
-nitrous:x:1000:1000::/home/nitrous:/bin/zsh
 dnsmasq:x:103:65534:dnsmasq,,,:/var/lib/misc:/bin/false
 lxc-dnsmasq:x:104:106:LXC dnsmasq,,,:/var/lib/lxc:/bin/false
-postgres:x:105:108:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash`
+postgres:x:105:108:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash
+
+invalid-uid:x:invaliduid:100:LXC dnsmasq,,,:/var/lib/lxc:/bin/false
+invalid-gid:x:100:invalidgid:LXC dnsmasq,,,:/var/lib/lxc:/bin/false
+
+dup-user:x:1000:1000::/home/nitrous:/bin/zsh
+dup-user:x:1001:1001::/home/nitrous:/bin/zsh
+`
 
 	f, err := ioutil.TempFile("", "etcpasswd")
 	if err != nil {
@@ -68,6 +74,8 @@ postgres:x:105:108:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash`
 	fmt.Fprint(f, s)
 
 	var uid, gid int
+
+	// for a normal user
 	uid, gid, err = parsePasswdFile(f.Name(), "postgres")
 	if err != nil {
 		t.Fatal(err)
@@ -76,11 +84,24 @@ postgres:x:105:108:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash`
 		t.Errorf("unexpected uid(%d), gid(%d)", uid, gid)
 	}
 
-	uid, gid, err = parsePasswdFile(f.Name(), "action")
+	// for duplicate entries in /etc/passwd
+	uid, gid, err = parsePasswdFile(f.Name(), "dup-user")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if uid != 0 || gid != 0 {
-		t.Errorf("unexpected uid(%d), gid(%d) for missing user", uid, gid)
+	if uid != 1001 || gid != 1001 {
+		t.Errorf("unexpected uid(%d), gid(%d)", uid, gid)
+	}
+
+	// for invalid usernames
+	for _, username := range []string{
+		"missing-user",
+		"invalid-uid",
+		"invalid-gid",
+	} {
+		uid, gid, err = parsePasswdFile(f.Name(), "missing-user")
+		if err == nil || uid != -1 || gid != -1 {
+			t.Fatalf("Expect error for user %s", username)
+		}
 	}
 }
