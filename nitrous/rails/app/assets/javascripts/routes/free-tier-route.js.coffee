@@ -1,4 +1,4 @@
 App.FreeTierRoute = Em.Route.extend
-  setupController: (controller) ->
-    @_super.apply this, arguments
-    controller.run()
+  beforeModel: ->
+    App.snackbar.post "We've recently removed the waitlist for our free tier. Please try recreating your workspace."
+    @transitionTo 'hosts.new'
