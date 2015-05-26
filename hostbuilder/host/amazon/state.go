@@ -50,13 +50,71 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 		}
 
 		if resp == nil || len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
-			// Sometimes AWS just has consistency issues and doesn't see
-			// our instance yet. Return an empty state.
+			// In cases when we are waiting for a newly created instance, AWS
+			// sometimes has consistency issues and doesn't see our instance
+			// yet. We just return an empty state instead of an error.
 			return nil, "", nil
 		}
 
 		i = &resp.Reservations[0].Instances[0]
 		return i, i.State.Name, nil
+	}
+}
+
+func VolumeAttachmentStateRefreshFunc(conn *ec2.EC2, volumeID, instanceID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := conn.Volumes([]string{volumeID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: error in DescribeVolumes: %v", err)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
+		}
+
+		v := resp.Volumes[0]
+		var attachment *ec2.VolumeAttachment
+		for _, att := range v.Attachments {
+			if att.InstanceId == instanceID {
+				attachment = &att
+			}
+		}
+		if attachment == nil {
+			// If we can't find an attachment, it probably means that the volume
+			// is detached from the instance.
+			return v, "detached", nil
+		}
+
+		return v, attachment.Status, nil
+	}
+}
+
+func VolumeStateRefreshFunc(conn *ec2.EC2, volumeID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := conn.Volumes([]string{volumeID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: error in DescribeVolumes: %v", err)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
+		}
+
+		v := resp.Volumes[0]
+		return v, v.Status, nil
+	}
+}
+
+func SnapshotStateRefreshFunc(conn *ec2.EC2, snapshotID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := conn.Snapshots([]string{snapshotID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: error in DescribeSnapshots: %v", err)
+		}
+		if len(resp.Snapshots) != 1 {
+			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: expected DescribeSnapshots to return one snapshot but got %+v: %v", resp, err)
+		}
+
+		s := resp.Snapshots[0]
+		return s, s.Status, nil
 	}
 }
 

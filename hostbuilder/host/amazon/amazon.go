@@ -325,7 +325,161 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 //   2. TODO Changing instance type.
 //   3. TODO Allocating/de-allocating an Elastic IP.
 func (h *Host) Respec() (*host.Info, error) {
-	return nil, nil
+	label := h.MetricsLabel("respec")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if h.Config.StorageSize != 0 { // If StorageSize is 0, no change required.
+		rootDevice := rootDevice(h.instance)
+		if rootDevice == nil {
+			return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
+		}
+
+		resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+		if err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - failed to get root volume info, err: %v", err), label)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - expected to get 1 volume but got %+v", resp.Volumes), label)
+		}
+		rootVolume := resp.Volumes[0]
+		if rootVolume.VolumeId != rootDevice.VolumeId {
+			// Sanity check - because using the wrong volume is bad m'kay.
+			return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - got unexpected volume: %+v", rootVolume), label)
+		}
+
+		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		if err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+		}
+
+		configuredSize := computeSize(h.Config.StorageSize)
+		if currentSize < configuredSize {
+			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+			// Resize root volume.
+			// 1. Stop instance.
+			// 2. Detach existing EBS volume.
+			// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
+			// 4. Create new EBS volume from snapshot with new size.
+			// 5. Attach new EBS volume to instance.
+			// 6. Start instance.
+			// 7. Delete old EBS volume.
+
+			// 1. Stop instance.
+			if err := h.stopInstance(); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance, err: %v", err), label)
+			}
+
+			// 2. Detach existing EBS volume.
+			start := time.Now()
+			if _, err := h.provider.DetachVolume(rootVolume.VolumeId); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to detach root volume %s, err: %v", rootVolume.VolumeId, err), label)
+			}
+
+			// Wait for the volume to be detached.
+			sc := &StateChangeConf{
+				Pending: []string{"detaching", "attached"},
+				Refresh: VolumeAttachmentStateRefreshFunc(h.provider, rootVolume.VolumeId, h.instance.InstanceId),
+				Target:  "detached",
+			}
+			updatedVolume, err := WaitForState(sc)
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for root volume %s to be detached, err: %v", rootVolume.VolumeId, err), label)
+			}
+			rootVolume = updatedVolume.(ec2.Volume) // Ugh.
+			h.Printf("Detached root volume in %v", time.Now().Sub(start))
+
+			// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
+			start = time.Now()
+			desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %dGB to %dGB",
+				h.instance.InstanceId, currentSize, configuredSize)
+			resp, err := h.provider.CreateSnapshot(rootVolume.VolumeId, desc)
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to create snapshot of volume %+v, err: %v", rootVolume, err), label)
+			}
+			snapshot := resp.Snapshot
+
+			tags := []ec2.Tag{
+				{Key: "InstanceID", Value: h.instance.InstanceId},
+				{Key: "dedicated", Value: h.env},
+			}
+			if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to tag snapshot %v, err: %v", snapshot.Id, err), label)
+			}
+
+			// Wait for snapshot to be completed.
+			sc = &StateChangeConf{
+				Pending: []string{"pending"},
+				Refresh: SnapshotStateRefreshFunc(h.provider, snapshot.Id),
+				Target:  "completed",
+			}
+			updatedSnapshot, err := WaitForState(sc)
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for snapshot %+v to complete, err: %v", snapshot, err), label)
+			}
+			snapshot = updatedSnapshot.(ec2.Snapshot) // Ugh 2.
+			h.Printf("Created snapshot %s of volume %s in %v", snapshot.Id, rootVolume.VolumeId, time.Now().Sub(start))
+
+			// 4. Create new EBS volume from snapshot with new size.
+			start = time.Now()
+			volResp, err := h.provider.CreateVolume(&ec2.CreateVolume{
+				AvailZone:  rootVolume.AvailZone,
+				Size:       configuredSize,
+				SnapshotId: snapshot.Id,
+				VolumeType: GeneralVolumeType,
+			})
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err), label)
+			}
+
+			// Wait for volume to be created.
+			sc = &StateChangeConf{
+				Pending: []string{"creating"},
+				Refresh: VolumeStateRefreshFunc(h.provider, volResp.VolumeId),
+				Target:  "available",
+			}
+			vol, err := WaitForState(sc)
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for volume %+v to created from snapshot, err: %v", volResp, err), label)
+			}
+			newVolume := vol.(ec2.Volume) // Ugh 3.
+			h.Printf("Created new volume %s from snapshot %s in %v", newVolume.VolumeId, snapshot.Id, time.Now().Sub(start))
+
+			// 5. Attach new EBS volume to instance.
+			start = time.Now()
+			if _, err := h.provider.AttachVolume(newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, snapshot.Id, err), label)
+			}
+
+			// Wait for the volume to be attached.
+			sc = &StateChangeConf{
+				Pending: []string{"attaching", "detached"},
+				Refresh: VolumeAttachmentStateRefreshFunc(h.provider, newVolume.VolumeId, h.instance.InstanceId),
+				Target:  "attached",
+			}
+			vol2, err := WaitForState(sc)
+			if err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for new root volume %s to be attached, err: %v", newVolume.VolumeId, err), label)
+			}
+			newVolume = vol2.(ec2.Volume) // Ugh 4.
+			h.Printf("Attached new volume %s to instance %s in %v", newVolume.VolumeId, h.instance.InstanceId, time.Now().Sub(start))
+
+			// 6. Start instance.
+			if _, err := h.Start(); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to start instance %s after respec, err: %v", h.instance.InstanceId, err), label)
+			}
+
+			// 7. Delete old EBS volume.
+			if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err), label)
+			}
+		}
+	}
+
+	return h.Info()
 }
 
 // Destroy releases the instance Elastic IP and terminate it
@@ -398,8 +552,16 @@ func (h *Host) Stop() (*host.Info, error) {
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+	if err := h.stopInstance(); err != nil {
 		return nil, mh.Error(err, label)
+	}
+
+	return h.Info()
+}
+
+func (h *Host) stopInstance() error {
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		return err
 	}
 
 	state := StateChangeConf{
@@ -410,11 +572,11 @@ func (h *Host) Stop() (*host.Info, error) {
 	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return nil, mh.Error(err, label)
+		return err
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	return h.Info()
+	return nil
 }
 
 // Start starts the instance and allocate the desired IP address to it
@@ -846,4 +1008,13 @@ func computeSize(size int) int64 {
 		storageSize = minStorageSize
 	}
 	return storageSize
+}
+
+func rootDevice(instance *ec2.Instance) *ec2.BlockDevice {
+	for _, dev := range instance.BlockDevices {
+		if dev.DeviceName == rootDeviceName {
+			return &dev
+		}
+	}
+	return nil
 }
