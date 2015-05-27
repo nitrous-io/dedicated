@@ -41,14 +41,6 @@ You can upgrade to a paid plan to keep it running.  If you do not wish to upgrad
 	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
 )
 
-var (
-	d           *db.Database
-	logr        *logger.Logger
-	initiatorID int64
-
-	dryrun = true
-)
-
 func refreshHost(h *host.Host) error {
 	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, h.UserID)
 	c := httpclient.New("")
@@ -56,7 +48,7 @@ func refreshHost(h *host.Host) error {
 	return httpclient.CheckResponse(resp, http.StatusOK)
 }
 
-func terminateHost(h *host.Host) error {
+func terminateHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun bool) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
 	if !h.Free {
@@ -122,7 +114,7 @@ func terminateHost(h *host.Host) error {
 	return nil
 }
 
-func sendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error {
+func sendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subject, message string) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
 		hostID := scan.Host.ID
 		ann := &announcement.Announcement{
@@ -160,7 +152,7 @@ func sendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message str
 	})
 }
 
-func scanWarningHosts() {
+func scanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 	scans, errs := hostscan.ScanHosts(d, time.Now())
 
 	logr.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
@@ -187,7 +179,7 @@ func scanWarningHosts() {
 				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := sendAnnouncementForHostScan(scan, warningSubject, warningMessage)
+			err := sendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
@@ -197,7 +189,7 @@ func scanWarningHosts() {
 				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := sendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
+			err := sendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}
@@ -208,7 +200,7 @@ func scanWarningHosts() {
 	}
 }
 
-func terminateInactiveFreeHosts() {
+func terminateInactiveFreeHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 	hosts, err := hostscan.FindTerminatingHosts(d, time.Now())
 	if err != nil {
 		logr.FatalfExit("Failed to query for teminating hosts")
@@ -217,7 +209,7 @@ func terminateInactiveFreeHosts() {
 	logr.Infof("Found %d free hosts to terminate", len(hosts))
 
 	for _, h := range hosts {
-		err := terminateHost(h)
+		err := terminateHost(d, h, logr, dryrun)
 		if err != nil {
 			logr.Errorf("Error terminating host: %s", err)
 		}
@@ -225,7 +217,14 @@ func terminateInactiveFreeHosts() {
 }
 
 func main() {
-	var err error
+	var (
+		err         error
+		d           *db.Database
+		logr        *logger.Logger
+		initiatorID int64
+
+		dryrun = true
+	)
 
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
 
@@ -261,6 +260,6 @@ func main() {
 		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
-	scanWarningHosts()
-	terminateInactiveFreeHosts()
+	scanWarningHosts(d, logr, dryrun)
+	terminateInactiveFreeHosts(d, logr, dryrun)
 }
