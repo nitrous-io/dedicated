@@ -43,15 +43,15 @@ var (
 	ErrInstanceNotFound = errors.New("instance not found")
 
 	KnownRegions = map[string]aws.Region{
-		aws.APNortheast.Name:  aws.APNortheast,
-		aws.APSoutheast.Name:  aws.APSoutheast,
-		aws.APSoutheast2.Name: aws.APSoutheast2,
-		aws.EUWest.Name:       aws.EUWest,
-		aws.EUCentral.Name:    aws.EUCentral,
-		aws.USEast.Name:       aws.USEast,
-		aws.USWest.Name:       aws.USWest,
-		aws.USWest2.Name:      aws.USWest2,
-		aws.SAEast.Name:       aws.SAEast,
+		// aws.APNortheast.Name:  aws.APNortheast,
+		aws.APSoutheast.Name: aws.APSoutheast,
+		// aws.APSoutheast2.Name: aws.APSoutheast2,
+		aws.EUWest.Name: aws.EUWest,
+		// aws.EUCentral.Name:    aws.EUCentral,
+		aws.USEast.Name: aws.USEast,
+		// aws.USWest.Name:       aws.USWest,
+		aws.USWest2.Name: aws.USWest2,
+		// aws.SAEast.Name:       aws.SAEast,
 	}
 )
 
@@ -467,10 +467,11 @@ func (h *Host) List() ([]*host.Info, error) {
 	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
+	var wg sync.WaitGroup
 	var (
-		mu    = &sync.Mutex{}
-		infos = []*host.Info{}
-		wg    sync.WaitGroup
+		infos   = []*host.Info{}
+		errmsgs []string
+		mu      = &sync.Mutex{}
 	)
 
 	// create a filter for the current environment
@@ -483,11 +484,13 @@ func (h *Host) List() ([]*host.Info, error) {
 		go func(conn *ec2.EC2, region aws.Region) {
 			defer wg.Done()
 			instancesResp, err := conn.Instances(nil, filter)
+			mu.Lock()
 			if err != nil {
-				h.Printf("failed to get instances in region %s, err %v", region.Name, err)
+				errmsg := fmt.Sprintf("failed to get instances in region %s, err %v", region.Name, err)
+				h.Printf(errmsg)
+				errmsgs = append(errmsgs, errmsg)
 				return
 			}
-			mu.Lock()
 			for _, reservation := range instancesResp.Reservations {
 				for _, instance := range reservation.Instances {
 					info := &host.Info{
@@ -516,7 +519,11 @@ func (h *Host) List() ([]*host.Info, error) {
 	}
 
 	wg.Wait()
-	return infos, nil
+	var err error
+	if len(errmsgs) > 0 {
+		err = fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))
+	}
+	return infos, err
 }
 
 func (h *Host) DriverName() string {
