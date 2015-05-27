@@ -345,7 +345,7 @@ func (h *Host) Respec() (*host.Info, error) {
 		if len(resp.Volumes) != 1 {
 			return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - expected to get 1 volume but got %+v", resp.Volumes), label)
 		}
-		rootVolume := resp.Volumes[0]
+		rootVolume := &resp.Volumes[0]
 		if rootVolume.VolumeId != rootDevice.VolumeId {
 			// Sanity check - because using the wrong volume is bad m'kay.
 			return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - got unexpected volume: %+v", rootVolume), label)
@@ -375,32 +375,22 @@ func (h *Host) Respec() (*host.Info, error) {
 
 			// 2. Detach existing EBS volume.
 			start := time.Now()
-			if _, err := h.provider.DetachVolume(rootVolume.VolumeId); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to detach root volume %s, err: %v", rootVolume.VolumeId, err), label)
+			if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to detach root volume, err: %v", err), label)
+			} else {
+				rootVolume = vol
 			}
-
-			// Wait for the volume to be detached.
-			sc := &StateChangeConf{
-				Pending: []string{"detaching", "attached"},
-				Refresh: VolumeAttachmentStateRefreshFunc(h.provider, rootVolume.VolumeId, h.instance.InstanceId),
-				Target:  "detached",
-			}
-			updatedVolume, err := WaitForState(sc)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for root volume %s to be detached, err: %v", rootVolume.VolumeId, err), label)
-			}
-			rootVolume = updatedVolume.(ec2.Volume) // Ugh.
 			h.Printf("Detached root volume in %v", time.Now().Sub(start))
 
 			// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
 			start = time.Now()
 			desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %dGB to %dGB",
 				h.instance.InstanceId, currentSize, configuredSize)
-			resp, err := h.provider.CreateSnapshot(rootVolume.VolumeId, desc)
+
+			snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
 			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to create snapshot of volume %+v, err: %v", rootVolume, err), label)
+				return nil, mh.Error(fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err), label)
 			}
-			snapshot := resp.Snapshot
 
 			tags := []ec2.Tag{
 				{Key: "InstanceID", Value: h.instance.InstanceId},
@@ -409,62 +399,23 @@ func (h *Host) Respec() (*host.Info, error) {
 			if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
 				return nil, mh.Error(fmt.Errorf("amazon: failed to tag snapshot %v, err: %v", snapshot.Id, err), label)
 			}
-
-			// Wait for snapshot to be completed.
-			sc = &StateChangeConf{
-				Pending: []string{"pending"},
-				Refresh: SnapshotStateRefreshFunc(h.provider, snapshot.Id),
-				Target:  "completed",
-			}
-			updatedSnapshot, err := WaitForState(sc)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for snapshot %+v to complete, err: %v", snapshot, err), label)
-			}
-			snapshot = updatedSnapshot.(ec2.Snapshot) // Ugh 2.
 			h.Printf("Created snapshot %s of volume %s in %v", snapshot.Id, rootVolume.VolumeId, time.Now().Sub(start))
 
 			// 4. Create new EBS volume from snapshot with new size.
 			start = time.Now()
-			volResp, err := h.provider.CreateVolume(&ec2.CreateVolume{
-				AvailZone:  rootVolume.AvailZone,
-				Size:       configuredSize,
-				SnapshotId: snapshot.Id,
-				VolumeType: GeneralVolumeType,
-			})
+			newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, configuredSize)
 			if err != nil {
 				return nil, mh.Error(fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err), label)
 			}
-
-			// Wait for volume to be created.
-			sc = &StateChangeConf{
-				Pending: []string{"creating"},
-				Refresh: VolumeStateRefreshFunc(h.provider, volResp.VolumeId),
-				Target:  "available",
-			}
-			vol, err := WaitForState(sc)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for volume %+v to created from snapshot, err: %v", volResp, err), label)
-			}
-			newVolume := vol.(ec2.Volume) // Ugh 3.
 			h.Printf("Created new volume %s from snapshot %s in %v", newVolume.VolumeId, snapshot.Id, time.Now().Sub(start))
 
 			// 5. Attach new EBS volume to instance.
 			start = time.Now()
-			if _, err := h.provider.AttachVolume(newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, snapshot.Id, err), label)
+			if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err), label)
+			} else {
+				newVolume = vol
 			}
-
-			// Wait for the volume to be attached.
-			sc = &StateChangeConf{
-				Pending: []string{"attaching", "detached"},
-				Refresh: VolumeAttachmentStateRefreshFunc(h.provider, newVolume.VolumeId, h.instance.InstanceId),
-				Target:  "attached",
-			}
-			vol2, err := WaitForState(sc)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed waiting for new root volume %s to be attached, err: %v", newVolume.VolumeId, err), label)
-			}
-			newVolume = vol2.(ec2.Volume) // Ugh 4.
 			h.Printf("Attached new volume %s to instance %s in %v", newVolume.VolumeId, h.instance.InstanceId, time.Now().Sub(start))
 
 			// 6. Start instance.
