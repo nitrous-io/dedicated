@@ -60,12 +60,11 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 		"$ip":       "0",
 	}
 
-	go func() {
-		err := m.client.NewProfileOp(strconv.Itoa(int(u.ID)), p).Create()
-		if err != nil {
-			logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
-		}
-	}()
+	profileOp := m.client.NewProfileOp(strconv.Itoa(int(u.ID)), p)
+	err := profileOp.Create()
+	if err != nil {
+		logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+	}
 }
 
 func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {

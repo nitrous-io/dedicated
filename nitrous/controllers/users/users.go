@@ -161,7 +161,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	env.Tracker.CreateProfile(u, env.Logger)
+	go env.Tracker.CreateProfile(u, env.Logger)
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
