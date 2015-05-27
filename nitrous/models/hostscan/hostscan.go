@@ -83,7 +83,7 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 
 	// If we didn't manage to execute host scan on time within a reasonable time
 	// after host.next_scan, skip it and let the user use one more extra period.
-	if !host.NextScan.Valid || (now.Sub(host.NextScan.Time) > ScanCatchUpLimit) {
+	if !host.NextScan.Valid || (now.Sub(host.NextScan.Time) >= ScanCatchUpLimit) {
 		return &ScanResult{
 			Host:     host,
 			State:    StateSkip,
@@ -103,7 +103,7 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 		return &ScanResult{
 			Host:     host,
 			State:    StateTerminating,
-			NextScan: end,
+			NextScan: now.Add(TerminateNoticePeriod),
 		}, nil
 	}
 

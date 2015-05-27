@@ -136,15 +136,49 @@ var _ = Describe("models/hostscan", func() {
 					expectAndUpdateScanState(3*7*24*time.Hour, StateOneWeekNotice)
 
 					expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateTerminating)
+					expectScanStateAtTimeEquals(HostScanPeriod-2*24*time.Hour, StateTerminating)
 				})
 			})
 
 			Describe("when host is never scanned before", func() {
+				It("should skip warning and terminating state", func() {
+					expectScanStateAtTimeEquals(24*time.Hour, StateGracePeriod)
+					expectScanStateAtTimeEquals(7*24*time.Hour, StateGracePeriod)
+					expectScanStateAtTimeEquals(2*7*24*time.Hour, StateGracePeriod)
+					expectScanStateAtTimeEquals(3*7*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals(HostScanPeriod-4*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals(HostScanPeriod-2*24*time.Hour, StateSkip)
 
+					expectScanStateAtTimeEquals(24*time.Hour, StateGracePeriod)
+				})
 			})
 
 			Describe("when host is scanned too late after next_scan", func() {
+				It("should skip warning and terminating state", func() {
+					expectAndUpdateScanState(2*7*24*time.Hour, StateGracePeriod)
 
+					// on time
+					expectScanStateAtTimeEquals(3*7*24*time.Hour, StateOneWeekNotice)
+
+					// missed
+					expectScanStateAtTimeEquals((3*7+3)*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals((3*7+4)*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateSkip)
+					expectScanStateAtTimeEquals(HostScanPeriod-2*24*time.Hour, StateSkip)
+				})
+
+				It("should skip terminating state", func() {
+					expectAndUpdateScanState(2*7*24*time.Hour, StateGracePeriod)
+					expectAndUpdateScanState(3*7*24*time.Hour, StateOneWeekNotice)
+
+					// on time
+					expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateTerminating)
+					expectScanStateAtTimeEquals(HostScanPeriod-2*24*time.Hour, StateTerminating)
+
+					// missed
+					expectScanStateAtTimeEquals(HostScanPeriod-1*24*time.Hour, StateSkip)
+				})
 			})
 
 			It("should terminate after 4 weeks if previous db record is terminating", func() {
@@ -152,13 +186,15 @@ var _ = Describe("models/hostscan", func() {
 				h.NextScan = pq.NullTime{scanTime, true}
 				UpdateHostScanState(db, h)
 
+				terminateTime := scanTime.Add(TerminateNoticePeriod)
+
 				hostScan := doScanHost(scanTime)
 				Expect(hostScan.State).To(Equal(StateTerminating))
-				Expect(hostScan.NextScan).To(BeTemporally("==", h.CreatedAt.Add(HostScanPeriod), 24*time.Hour))
+				Expect(hostScan.NextScan).To(BeTemporally("==", terminateTime, 24*time.Hour))
 
 				Expect(hostScan.UpdateHost(db)).To(BeNil())
 
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
+				hosts, err := FindTerminatingHosts(db, terminateTime)
 				Expect(err).To(BeNil())
 				Expect(len(hosts)).To(Equal(1))
 				Expect(hosts[0].ID).To(Equal(h.ID))
