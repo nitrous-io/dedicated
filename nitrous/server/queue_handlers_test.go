@@ -325,12 +325,15 @@ var _ = Describe("HostQueueHandler", func() {
 		)
 
 		BeforeEach(func() {
+			h.State = host.StateStopping
+			err := h.Update(db)
+			Expect(err).To(BeNil())
 			requester = &user.User{
 				Username: "requester",
 				Password: "123456",
 				Email:    "requester@example.com",
 			}
-			err := test.WrapInTransaction(db, requester.Insert)
+			err = test.WrapInTransaction(db, requester.Insert)
 			Expect(err).To(BeNil())
 
 			c1 = &container.Container{
@@ -398,8 +401,6 @@ var _ = Describe("HostQueueHandler", func() {
 
 		Context("a host is stopped", func() {
 			BeforeEach(func() {
-				h.State = host.StateStopping
-				h.Update(db)
 				queueInfo = &hh.QueueInfo{
 					ID:          h.ID,
 					Slug:        h.Slug,
@@ -429,16 +430,6 @@ var _ = Describe("HostQueueHandler", func() {
 					ResourceID:   "host-1234",
 					Payload:      payload,
 				}
-			})
-
-			It("updates the host to be stopped", func() {
-				err := handler(message)
-				Expect(err).To(BeNil())
-
-				updatedHost, err := host.Find(db, u, h.Slug)
-				Expect(err).To(BeNil())
-
-				Expect(updatedHost.State).To(Equal(host.StateStopped))
 			})
 
 			It("updates the host to be stopped", func() {
@@ -538,6 +529,59 @@ var _ = Describe("HostQueueHandler", func() {
 						Expect(cn.State).To(Equal(container.StateStopped.String()))
 					}
 				}
+			})
+		})
+
+		Context("a host failed to stop", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "1.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Running,
+					},
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "stop",
+					Event:        string(event.HostUpdated),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("resets the host to state in host info", func() {
+				err := handler(qc, message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.State).To(Equal(host.StateRunning))
+			})
+
+			It("logs transitions for the host", func() {
+				err := handler(qc, message)
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					h.ID, host.StateRunning, host.StateStopping).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 	})

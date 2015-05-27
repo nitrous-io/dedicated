@@ -234,8 +234,10 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
 		case *dockerclient.ContainerNotRunning:
+			host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, "Containers are not running", queue.Stop.String())
 			return h.Info()
 		default:
+			host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
 			return nil, err
 		}
 	}

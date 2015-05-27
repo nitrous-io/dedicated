@@ -118,6 +118,7 @@ func AfterFailToStop(db *db.Database, l *logger.Logger, h *host.Host, initiatorI
 		tx.Rollback()
 		l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
 	}
+
 	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
 		tx.Rollback()
 		l.Errorf("hosts.Stop: Unable to record transition: %v", err)

@@ -219,16 +219,21 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 	case controllers.EventHostStopping:
 		s.logger.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 	case controllers.EventHostUpdated:
+		s.logger.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
 		}
 
-		err = hostcontrol.AfterFailToStop(s.db, s.logger, h, queueInfo.RequesterID, queueInfo.Host.State.String())
+		state := strings.ToLower(queueInfo.Host.State.String())
+		err = hostcontrol.AfterFailToStop(s.db, s.logger, h, queueInfo.RequesterID, state)
 		if err != nil {
 			return err
 		}
+	default:
+		s.logger.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
+
 	return nil
 }
 
