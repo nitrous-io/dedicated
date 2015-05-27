@@ -1531,6 +1531,7 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
+			envvars.EnableQueue = false
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
@@ -2064,6 +2065,54 @@ var _ = Describe("controllers/hosts", func() {
 					sort.Strings(slugs)
 					Expect(slugs[0]).To(Equal(c2.Slug))
 					Expect(slugs[1]).To(Equal(c1.Slug))
+				})
+			})
+		})
+
+		Context("queue is enabled", func() {
+			BeforeEach(func() {
+				envvars.EnableQueue = true
+			})
+
+			Context("when hostbuilder successfully stops the host", func() {
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+
+					hosts.HostbuilderClient = hb
+				})
+
+				It("updates the host state to stopping", func() {
+					doRequest(hs.H.Slug, nil)
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopping))
+				})
+
+				It("responds with the host and status OK", func() {
+					doRequest(hs.H.Slug, nil)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					var j struct {
+						Host *serializers.Host `json:"host"`
+					}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j.Host.ID).To(Equal(hs.H.ID))
+					Expect(j.Host.Slug).To(Equal(hs.H.Slug))
+					Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+					Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
+					Expect(j.Host.Size).To(Equal(""))
+					Expect(j.Host.State).To(Equal(host.StateStopping))
+					Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
+					Expect(j.Host.RegionID).To(Equal(hs.R.ID))
+					Expect(j.Host.PlanID).To(Equal(hs.P.ID))
+					Expect(j.Host.CreatedAt).NotTo(BeNil())
+					Expect(j.Host.UpdatedAt).NotTo(BeNil())
+					Expect(j.Host.TerminatedAt).To(BeNil())
 				})
 			})
 		})

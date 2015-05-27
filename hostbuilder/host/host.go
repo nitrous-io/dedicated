@@ -80,11 +80,12 @@ type Info struct {
 
 // QueueInfo will be written to the queue to be consumed later
 type QueueInfo struct {
-	ID      int64  `json:"id"`
-	UserID  int64  `json:"user_id"`
-	Slug    string `json:"slug"`
-	Message string `json:"message,omitempty"`
-	Host    *Info  `json:"host,omitempty"`
+	ID          int64  `json:"id"`
+	UserID      int64  `json:"user_id"`
+	Slug        string `json:"slug"`
+	Message     string `json:"message,omitempty"`
+	RequesterID int64  `json:"requester_id,omitempty"`
+	Host        *Info  `json:"host,omitempty"`
 }
 
 type Host interface {

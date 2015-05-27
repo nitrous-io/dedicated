@@ -218,6 +218,92 @@ var _ = Describe("hostcontrol", func() {
 		})
 	})
 
+	Describe("StopWithQueue()", func() {
+		var (
+			h      *host.Host
+			events []hostcontrol.EventType
+			rt     *test.FakeRoundTripper
+		)
+
+		var evCallback = func(e hostcontrol.EventType) {
+			events = append(events, e)
+		}
+
+		BeforeEach(func() {
+			events = []hostcontrol.EventType{}
+
+			var err error
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					State:            host.StateRunning,
+					IPAddress:        sql.NullString{"127.0.0.1", true},
+					FreighterdPort:   sql.NullInt64{65333, true},
+					RegionIdentifier: sql.NullString{"us-east-1", true},
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			h, err = host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt = &test.FakeRoundTripper{
+				Message: stopOkResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hostcontrol.HostbuilderClient = hb
+		})
+
+		It("should send the UUID headers", func() {
+			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+
+			req := rt.Requests[0]
+			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
+			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping))
+		})
+
+		It("sends the correct payload to hostbuilder", func() {
+			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+
+			payload := &struct {
+				ID        string `json:"id"`
+				IPAddress string `json:"ip_address"`
+				Region    string `json:"region_id"`
+			}{}
+			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
+
+			Expect(payload.ID).To(Equal(h.ProviderIdentifier.String), "invalid id")
+			Expect(payload.IPAddress).To(Equal(h.IPAddress.String), "invalid ip_address")
+			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping))
+		})
+
+		It("updates the host state to stopping", func() {
+			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+
+			var err error
+			h, err = host.Find(db, u, h.Slug)
+			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal(host.StateStopping))
+			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping))
+		})
+
+		It("logs transitions for the host", func() {
+			origState := h.State
+
+			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+
+			var count int
+			err := db.QueryRowx(
+				"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+				h.ID, host.StateStopping, origState).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+	})
+
 	Describe("Terminate()", func() {
 		var (
 			hs *test.HostStack
