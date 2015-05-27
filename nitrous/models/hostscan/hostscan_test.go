@@ -100,6 +100,12 @@ var _ = Describe("models/hostscan", func() {
 			Expect(doScanHost(h.CreatedAt.Add(scanTimeSinceCreated)).State).To(Equal(expectedState))
 		}
 
+		expectAndUpdateScanState := func(scanTimeSinceCreated time.Duration, expectedState string) {
+			scan := doScanHost(h.CreatedAt.Add(scanTimeSinceCreated))
+			Expect(scan.State).To(Equal(expectedState))
+			Expect(scan.UpdateHost(db)).To(BeNil())
+		}
+
 		insertHostTransitions := func(runningTimes []time.Time) {
 			for _, runningTime := range runningTimes {
 				_, err := db.Exec(`INSERT INTO host_transitions
@@ -121,15 +127,36 @@ var _ = Describe("models/hostscan", func() {
 				Expect(scannedHost.ID).To(Equal(h.ID))
 			})
 
+			Describe("when host is scanned on time after next_scan", func() {
+				It("should give warning and terminating result at respective time", func() {
+					expectScanStateAtTimeEquals(24*time.Hour, StateGracePeriod)
+					expectScanStateAtTimeEquals(7*24*time.Hour, StateGracePeriod)
+
+					expectAndUpdateScanState(2*7*24*time.Hour, StateGracePeriod)
+					expectAndUpdateScanState(3*7*24*time.Hour, StateOneWeekNotice)
+
+					expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateTerminating)
+				})
+			})
+
+			Describe("when host is never scanned before", func() {
+
+			})
+
+			Describe("when host is scanned too late after next_scan", func() {
+
+			})
+
 			It("should terminate after 4 weeks if previous db record is terminating", func() {
-				hostScan := doScanHost(h.CreatedAt.Add(HostScanPeriod - 3*24*time.Hour))
+				scanTime := h.CreatedAt.Add(HostScanPeriod - 3*24*time.Hour)
+				h.NextScan = pq.NullTime{scanTime, true}
+				UpdateHostScanState(db, h)
+
+				hostScan := doScanHost(scanTime)
 				Expect(hostScan.State).To(Equal(StateTerminating))
 				Expect(hostScan.NextScan).To(BeTemporally("==", h.CreatedAt.Add(HostScanPeriod), 24*time.Hour))
 
-				h.NextScan = pq.NullTime{}
-				h.TerminatingAt = pq.NullTime{hostScan.NextScan, true}
-				err := UpdateHostScanState(db, h)
-				Expect(err).To(BeNil())
+				Expect(hostScan.UpdateHost(db)).To(BeNil())
 
 				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
 				Expect(err).To(BeNil())
@@ -164,9 +191,12 @@ var _ = Describe("models/hostscan", func() {
 				expectScanStateAtTimeEquals(HostScanPeriod+24*time.Hour, StateGracePeriod)
 				expectScanStateAtTimeEquals(HostScanPeriod+7*24*time.Hour, StateGracePeriod)
 				expectScanStateAtTimeEquals(HostScanPeriod+2*7*24*time.Hour, StateGracePeriod)
-				expectScanStateAtTimeEquals(HostScanPeriod+3*7*24*time.Hour, StateOneWeekNotice)
+
+				expectAndUpdateScanState(HostScanPeriod+2*7*24*time.Hour, StateGracePeriod)
+				expectAndUpdateScanState(HostScanPeriod+3*7*24*time.Hour, StateOneWeekNotice)
+
 				expectScanStateAtTimeEquals(2*HostScanPeriod-3*24*time.Hour, StateTerminating)
-				expectScanStateAtTimeEquals(2*HostScanPeriod+HostScanPeriod-2*24*time.Hour, StateTerminating)
+				expectScanStateAtTimeEquals(2*HostScanPeriod-2*24*time.Hour, StateTerminating)
 			})
 		})
 

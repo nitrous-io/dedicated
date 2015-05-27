@@ -34,7 +34,7 @@ const (
 	HostScanPeriod        = 4 * 7 * 24 * time.Hour
 	WarningPeriod         = 3 * 7 * 24 * time.Hour
 	TerminateNoticePeriod = (3*7 + 4) * 24 * time.Hour
-	ScanCatchUpLimit      = 2 * 7 * 24 * time.Hour
+	ScanCatchUpLimit      = 2 * 24 * time.Hour
 )
 
 var (
@@ -83,7 +83,7 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 
 	// If we didn't manage to execute host scan on time within a reasonable time
 	// after host.next_scan, skip it and let the user use one more extra period.
-	if !host.NextScan.Valid || (host.NextScan.Time.Sub(now) > ScanCatchUpLimit) {
+	if !host.NextScan.Valid || (now.Sub(host.NextScan.Time) > ScanCatchUpLimit) {
 		return &ScanResult{
 			Host:     host,
 			State:    StateSkip,
