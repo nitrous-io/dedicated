@@ -57,6 +57,22 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
   hideProgress: Em.computed.not('controller.saving')
   indeterminateProgress: Em.computed.none('controller.image.progress.progressDetail.start')
 
+  # We use a property + observer pair here so that we can notify the user when
+  # their selected host is no longer running.
+  availableHosts: null
+  availableHostsDidChange: (->
+    hosts = App.get('hosts').filter (host)->
+      host.get('isRunning')
+
+    if selectedHost = @get('controller.selectedHostSlug')
+      h = hosts.find (host)->
+        host.get('slug') == selectedHost
+      unless h
+        App.snackbar.post "'#{selectedHost}' is no longer running."
+
+    @set('availableHosts', hosts)
+  ).observes('App.hosts.@each.isRunning').on('init')
+
   preselectHostDidChange: (->
     if slug = @get('controller.preselectHost')
       @set 'controller.selectedHostSlug', slug
