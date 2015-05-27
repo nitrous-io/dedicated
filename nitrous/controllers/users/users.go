@@ -239,6 +239,11 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
+		"$email": u.Email,
+		"$name":  u.Name,
+	}, env.Logger)
+
 	userResponse(env, u)
 	return nil
 }
