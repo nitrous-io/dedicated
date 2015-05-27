@@ -18,6 +18,9 @@ const (
 	// Host is currently in grace period
 	StateGracePeriod = "grace"
 
+	// Skip enforcement for current period
+	StateSkip = "skip"
+
 	// Host owner is sent one week before termination notice
 	StateOneWeekNotice = "one_week_notice"
 
@@ -31,6 +34,7 @@ const (
 	HostScanPeriod        = 4 * 7 * 24 * time.Hour
 	WarningPeriod         = 3 * 7 * 24 * time.Hour
 	TerminateNoticePeriod = (3*7 + 4) * 24 * time.Hour
+	ScanCatchUpLimit      = 2 * 7 * 24 * time.Hour
 )
 
 var (
@@ -74,6 +78,16 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 			Host:     host,
 			State:    StateGracePeriod,
 			NextScan: start.Add(WarningPeriod),
+		}, nil
+	}
+
+	// If we didn't manage to execute host scan on time within a reasonable time
+	// after host.next_scan, skip it and let the user use one more extra period.
+	if !host.NextScan.Valid || (host.NextScan.Time.Sub(now) > ScanCatchUpLimit) {
+		return &ScanResult{
+			Host:     host,
+			State:    StateSkip,
+			NextScan: end.Add(WarningPeriod),
 		}, nil
 	}
 
