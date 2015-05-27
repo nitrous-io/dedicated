@@ -9,4 +9,5 @@ const (
 	HostCreateFailed Event = "host.create_failed"
 	HostStopping     Event = "host.stopping"
 	HostStopped      Event = "host.stopped"
+	ContainerStopped Event = "container.stopped"
 )
