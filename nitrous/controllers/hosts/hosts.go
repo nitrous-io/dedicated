@@ -360,13 +360,14 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 			}
 		}
 		PublishHostEvent(env, controllers.EventHostStopped, h)
+		serializeHost(env, h)
 	} else {
 		err = hostcontrol.StopWithQueue(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
 		if err != nil {
 			return err
 		}
+		serializeEmptyHost(env)
 	}
-	serializeHost(env, h)
 	return nil
 }
 
@@ -677,6 +678,11 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHostWithUser(h, u),
 	}
+}
+
+func serializeEmptyHost(env *middleware.Env) {
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{}
 }
 
 func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.Host) {

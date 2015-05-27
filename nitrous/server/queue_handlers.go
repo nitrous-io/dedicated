@@ -210,12 +210,14 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 				}
 			}
 		}
+
 		s.Events.Publish(
 			controllers.NewEvent(controllers.EventHostStopped, map[string]*serializers.Host{
 				"host": serializers.SerializeHostWithUser(h, u),
 			}),
 			u.Topic(),
 		)
+		s.logger.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
 	case controllers.EventHostStopping:
 		s.logger.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 	case controllers.EventHostUpdated:

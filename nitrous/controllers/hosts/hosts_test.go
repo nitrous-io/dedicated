@@ -2092,27 +2092,13 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal(host.StateStopping))
 				})
 
-				It("responds with the host and status OK", func() {
+				It("responds with the host and status Accepted with empty body", func() {
 					doRequest(hs.H.Slug, nil)
-					Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(res.Code).To(Equal(http.StatusAccepted))
 
-					var j struct {
-						Host *serializers.Host `json:"host"`
-					}
+					var j struct{}
 					err := json.NewDecoder(res.Body).Decode(&j)
 					Expect(err).To(BeNil())
-					Expect(j.Host.ID).To(Equal(hs.H.ID))
-					Expect(j.Host.Slug).To(Equal(hs.H.Slug))
-					Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
-					Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
-					Expect(j.Host.Size).To(Equal(""))
-					Expect(j.Host.State).To(Equal(host.StateStopping))
-					Expect(j.Host.Hostname).To(Equal(hs.H.Hostname()))
-					Expect(j.Host.RegionID).To(Equal(hs.R.ID))
-					Expect(j.Host.PlanID).To(Equal(hs.P.ID))
-					Expect(j.Host.CreatedAt).NotTo(BeNil())
-					Expect(j.Host.UpdatedAt).NotTo(BeNil())
-					Expect(j.Host.TerminatedAt).To(BeNil())
 				})
 			})
 		})
