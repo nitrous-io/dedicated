@@ -1,11 +1,13 @@
 package cops
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -52,6 +54,35 @@ func getContainerPID(containerID string) (pid int, err error) {
 		return 0, fmt.Errorf("invalid state %s", statePath)
 	}
 	return pid, nil
+}
+
+// getProcessOwner returns the process uid/gid
+func getProcessOwner(pid int) (uid int, gid int, err error) {
+	f, err := os.Open(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0, 0, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(bufio.NewReader(f))
+	for scanner.Scan() {
+		l := scanner.Text()
+		fields := strings.Fields(l)
+
+		if len(fields) > 0 && strings.ToLower(fields[0]) == "uid:" {
+			uid, err = strconv.Atoi(fields[1])
+			if err != nil {
+				return 0, 0, fmt.Errorf("invalid uid %v", err)
+			}
+		}
+		if len(fields) > 0 && strings.ToLower(fields[0]) == "gid:" {
+			gid, err = strconv.Atoi(fields[1])
+			if err != nil {
+				return 0, 0, fmt.Errorf("invalid gid %v", err)
+			}
+		}
+	}
+	return uid, gid, scanner.Err()
 }
 
 func sendErr(c chan *Message, orig *Message, err error) chan *Message {

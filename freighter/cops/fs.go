@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -16,7 +15,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 )
 
 const (
@@ -38,6 +36,7 @@ var (
 )
 
 type FS struct {
+	uid, gid int
 }
 
 func (c *FS) HandleAsync(msg *Message) chan *Message {
@@ -62,8 +61,6 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 			return sendErr(resp, msg, err)
 		}
 		return sendFinalReply(resp, msg, info)
-	case "download":
-		// FIXME
 	case "write":
 		fileName := msg.Args[0].(string)
 		content := msg.Args[1].(string)
@@ -103,10 +100,6 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 			return sendErr(resp, msg, err)
 		}
 		return sendFinalReply(resp, msg, []interface{}{oldPath})
-	case "upload":
-		// FIXME
-	case "unzip":
-		// FIXME
 	}
 	close(resp)
 	return resp
@@ -125,22 +118,14 @@ func (c *FS) deleteFile(fileName string) error {
 }
 
 func (c *FS) mkdir(dir string) error {
-	stat, err := os.Stat(filepath.Dir(dir))
-	if err != nil {
-		return err
-	}
-	uid, gid, err := owner(stat)
-	if err != nil {
-		return err
-	}
 	if err := os.Mkdir(dir, os.ModeDir|0755); err != nil {
 		return err
 	}
-	return os.Chown(dir, uid, gid)
+	return os.Chown(dir, c.uid, c.gid)
 }
 
 func (c *FS) write(path, content string) error {
-	f, err := openFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+	f, err := c.openFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
@@ -150,7 +135,7 @@ func (c *FS) write(path, content string) error {
 }
 
 func (c *FS) writeNew(path, content string) error {
-	f, err := openFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+	f, err := c.openFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL)
 	if err != nil {
 		return err
 	}
@@ -204,8 +189,11 @@ func (c *FS) read(path string) ([]interface{}, error) {
 	return []interface{}{path, contentType, content}, nil
 }
 
-func NewFsHandler() AsyncHandler {
-	return &FS{}
+func NewFsHandler(uid, gid int) AsyncHandler {
+	return &FS{
+		uid: uid,
+		gid: gid,
+	}
 }
 
 func fileInfoArgs(info os.FileInfo) []interface{} {
@@ -237,31 +225,15 @@ func detectContentType(data []byte) (string, error) {
 	return contentType, nil
 }
 
-func openFile(p string, flag int) (*os.File, error) {
-	stat, err := os.Stat(filepath.Dir(p))
-	if err != nil {
-		return nil, err
-	}
-	uid, gid, err := owner(stat)
-	if err != nil {
-		return nil, err
-	}
+func (c *FS) openFile(p string, flag int) (*os.File, error) {
 	f, err := os.OpenFile(p, flag, 0644)
 	if err != nil {
 		return nil, err
 	}
-	if err := f.Chown(uid, gid); err != nil {
+	if err := f.Chown(c.uid, c.gid); err != nil {
 		return nil, err
 	}
 	return f, nil
-}
-
-func owner(stat os.FileInfo) (int, int, error) {
-	s, ok := stat.Sys().(*syscall.Stat_t)
-	if !ok {
-		return 0, 0, fmt.Errorf("failed to get system file stat")
-	}
-	return int(s.Uid), int(s.Gid), nil
 }
 
 func readDir(name string) (fi []os.FileInfo, err error) {
