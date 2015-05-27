@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
@@ -24,7 +23,7 @@ func refreshHost(h *host.Host) error {
 	return httpclient.CheckResponse(resp, http.StatusOK)
 }
 
-func terminateHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun bool) error {
+func TerminateFreeHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun bool) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
 	if !h.Free {
@@ -48,14 +47,14 @@ func terminateHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun boo
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
 
-	err := d.WithTransaction(func(tx *sqlx.Tx) error {
-		// FIXME until this command has been verified on production, we only
-		// set host state to `orphan` for now so that it is hidden from the user
-		// and no data is removed
-		_, err := tx.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateOrphan, h.ID)
-		return err
-		// return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
-	})
+	// FIXME until this command has been verified on production, we only
+	// set host state to `orphan` for now so that it is hidden from the user
+	// and no data is removed
+	// err := d.WithTransaction(func(tx *sqlx.Tx) error {
+	//   return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
+	// })
+
+	_, err := d.Exec(`UPDATE hosts SET state = $1 WHERE id = $2;`, host.StateOrphan, h.ID)
 	if err != nil {
 		logr.Errorf("Error terminating host - %s: %+v", err, h)
 		return err
@@ -90,7 +89,7 @@ func terminateHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun boo
 	return nil
 }
 
-func terminateInactiveFreeHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
+func TerminateInactiveFreeHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 	hosts, err := hostscan.FindTerminatingHosts(d, time.Now())
 	if err != nil {
 		logr.FatalfExit("Failed to query for teminating hosts")
@@ -99,7 +98,7 @@ func terminateInactiveFreeHosts(d *db.Database, logr *logger.Logger, dryrun bool
 	logr.Infof("Found %d free hosts to terminate", len(hosts))
 
 	for _, h := range hosts {
-		err := terminateHost(d, h, logr, dryrun)
+		err := TerminateFreeHost(d, h, logr, dryrun)
 		if err != nil {
 			logr.Errorf("Error terminating host: %s", err)
 		}

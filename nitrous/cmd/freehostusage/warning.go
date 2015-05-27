@@ -11,7 +11,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-func sendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subject, message string) error {
+func SendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subject, message string) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
 		hostID := scan.Host.ID
 		ann := &announcement.Announcement{
@@ -49,7 +49,7 @@ func sendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subj
 	})
 }
 
-func scanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
+func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 	scans, errs := hostscan.ScanHosts(d, time.Now())
 
 	logr.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
@@ -76,7 +76,7 @@ func scanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := sendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
+			err := SendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
@@ -86,7 +86,7 @@ func scanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := sendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
+			err := SendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}

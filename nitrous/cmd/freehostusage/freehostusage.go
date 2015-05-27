@@ -74,6 +74,6 @@ func main() {
 		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
-	scanWarningHosts(d, logr, dryrun)
-	terminateInactiveFreeHosts(d, logr, dryrun)
+	ScanWarningHosts(d, logr, dryrun)
+	TerminateInactiveFreeHosts(d, logr, dryrun)
 }
