@@ -327,6 +327,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("uid", "123")
 			form.Set("id", "456")
 			form.Set("slug", "dummy-456")
+			form.Set("requester_id", "789")
 			form.Set("provider", "dummy")
 			form.Set("queue", "true")
 			form.Set("config", string(config))

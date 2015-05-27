@@ -657,7 +657,7 @@ func (s *Server) initQueue() error {
 }
 
 func getQueueInfo(r *http.Request) (*host.QueueInfo, error) {
-	var userID, hostID int64
+	var userID, hostID, requesterID int64
 	hostSlug := r.Form.Get("slug")
 	hostID, err := strconv.ParseInt(r.Form.Get("id"), 10, 64)
 	if err != nil {
@@ -668,5 +668,10 @@ func getQueueInfo(r *http.Request) (*host.QueueInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &host.QueueInfo{ID: hostID, UserID: userID, Slug: hostSlug}, nil
+
+	requesterID, err = strconv.ParseInt(r.Form.Get("requester_id"), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &host.QueueInfo{ID: hostID, UserID: userID, Slug: hostSlug, RequesterID: requesterID}, nil
 }
