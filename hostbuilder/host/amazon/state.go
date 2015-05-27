@@ -61,9 +61,9 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	}
 }
 
-func VolumeAttachmentStateRefreshFunc(conn *ec2.EC2, volumeID, instanceID string) StateRefreshFunc {
+func VolumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanceID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
-		resp, err := conn.Volumes([]string{volumeID}, ec2.NewFilter())
+		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
 			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: error in DescribeVolumes: %v", err)
 		}
@@ -71,7 +71,7 @@ func VolumeAttachmentStateRefreshFunc(conn *ec2.EC2, volumeID, instanceID string
 			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
 		}
 
-		v := resp.Volumes[0]
+		v := &resp.Volumes[0]
 		var attachment *ec2.VolumeAttachment
 		for _, att := range v.Attachments {
 			if att.InstanceId == instanceID {
@@ -88,9 +88,9 @@ func VolumeAttachmentStateRefreshFunc(conn *ec2.EC2, volumeID, instanceID string
 	}
 }
 
-func VolumeStateRefreshFunc(conn *ec2.EC2, volumeID string) StateRefreshFunc {
+func VolumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
-		resp, err := conn.Volumes([]string{volumeID}, ec2.NewFilter())
+		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
 			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: error in DescribeVolumes: %v", err)
 		}
@@ -98,14 +98,14 @@ func VolumeStateRefreshFunc(conn *ec2.EC2, volumeID string) StateRefreshFunc {
 			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
 		}
 
-		v := resp.Volumes[0]
+		v := &resp.Volumes[0]
 		return v, v.Status, nil
 	}
 }
 
-func SnapshotStateRefreshFunc(conn *ec2.EC2, snapshotID string) StateRefreshFunc {
+func SnapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
-		resp, err := conn.Snapshots([]string{snapshotID}, ec2.NewFilter())
+		resp, err := provider.Snapshots([]string{snapshotID}, ec2.NewFilter())
 		if err != nil {
 			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: error in DescribeSnapshots: %v", err)
 		}
@@ -113,7 +113,7 @@ func SnapshotStateRefreshFunc(conn *ec2.EC2, snapshotID string) StateRefreshFunc
 			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: expected DescribeSnapshots to return one snapshot but got %+v: %v", resp, err)
 		}
 
-		s := resp.Snapshots[0]
+		s := &resp.Snapshots[0]
 		return s, s.Status, nil
 	}
 }
