@@ -23,7 +23,7 @@ import (
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
-		h := func(m *queue.Message) error {
+		h := func(d queue.Delivery) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -37,7 +37,7 @@ func init() {
 
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
-		h := func(m *queue.Message) error {
+		h := func(d queue.Delivery) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -55,7 +55,8 @@ func init() {
 
 		stop := make(chan struct{})
 		blocking := make(chan struct{})
-		h := func(m *queue.Message) error {
+		h := func(d queue.Delivery) error {
+			m, _ := d.(*queue.Message)
 			<-blocking
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
@@ -100,7 +101,7 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("pkg/queue", func() {
-	var qp *queue.QueuePublisher
+	var qp queue.Publisher
 	var redisClient *redis.Client
 
 	BeforeEach(func() {
@@ -116,7 +117,7 @@ var _ = Describe("pkg/queue", func() {
 
 	AfterEach(func() {
 		if qp != nil {
-			qp.Queue.Delete()
+			qp.Delete()
 		}
 		redisClient.Close()
 	})
@@ -125,12 +126,12 @@ var _ = Describe("pkg/queue", func() {
 		Describe("Publish()", func() {
 			BeforeEach(func() {
 				qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-				err := qp.Queue.ResetInput()
+				err := qp.ResetInput()
 				Expect(err).To(BeNil())
 			})
 
 			It("publishes a message to queue", func() {
-				Expect(qp.Queue.GetInputLength()).To(Equal(int64(0)))
+				Expect(qp.GetInputLength()).To(Equal(int64(0)))
 				msg := &queue.Message{
 					UUID:         "1234",
 					Action:       "create",
@@ -140,7 +141,7 @@ var _ = Describe("pkg/queue", func() {
 				}
 				err := qp.Publish(msg)
 				Expect(err).To(BeNil())
-				Expect(qp.Queue.GetInputLength()).To(Equal(int64(1)))
+				Expect(qp.GetInputLength()).To(Equal(int64(1)))
 			})
 		})
 
@@ -148,7 +149,7 @@ var _ = Describe("pkg/queue", func() {
 			var msg *queue.Message
 			BeforeEach(func() {
 				qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-				err := qp.Queue.ResetInput()
+				err := qp.ResetInput()
 				Expect(err).To(BeNil())
 				msg = &queue.Message{
 					UUID:         "1234",
@@ -165,7 +166,7 @@ var _ = Describe("pkg/queue", func() {
 					Expect(err).To(BeNil())
 				})
 				Expect(err).To(BeNil())
-				Expect(qp.Queue.GetInputLength()).To(Equal(int64(1)))
+				Expect(qp.GetInputLength()).To(Equal(int64(1)))
 			})
 
 			It("retries when failed to send msg to redis", func() {
@@ -174,7 +175,7 @@ var _ = Describe("pkg/queue", func() {
 					Expect(err).To(BeNil())
 				})
 				Expect(err).To(BeNil())
-				Expect(qp.Queue.GetInputLength()).To(Equal(int64(1)))
+				Expect(qp.GetInputLength()).To(Equal(int64(1)))
 			})
 
 			It("retries until it successes when retry param is -1", func() {
@@ -183,7 +184,7 @@ var _ = Describe("pkg/queue", func() {
 					Expect(err).To(BeNil())
 				})
 				Expect(err).To(BeNil())
-				Expect(qp.Queue.GetInputLength()).To(Equal(int64(1)))
+				Expect(qp.GetInputLength()).To(Equal(int64(1)))
 			})
 		})
 	})
@@ -196,7 +197,7 @@ var _ = Describe("pkg/queue", func() {
 			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-			err := qp.Queue.ResetInput()
+			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 			msg := &queue.Message{
 				UUID:         "1234",
@@ -211,14 +212,16 @@ var _ = Describe("pkg/queue", func() {
 
 		AfterEach(func() {
 			if qp != nil {
-				qp.Queue.Delete()
+				qp.Delete()
 			}
 		})
 
 		Describe("Consume", func() {
 			It("consumes a message from queue", func() {
-				m, err := qc.Consume()
+				d, err := qc.Consume()
 				Expect(err).To(BeNil())
+
+				m := d.(*queue.Message)
 				Expect(m.UUID).To(Equal("1234"))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.Event).To(Equal("image.created"))
@@ -238,13 +241,13 @@ var _ = Describe("pkg/queue", func() {
 			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-			err = qp.Queue.ResetInput()
+			err = qp.ResetInput()
 			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
 			if qp != nil {
-				qp.Queue.Delete()
+				qp.Delete()
 			}
 		})
 
@@ -266,14 +269,19 @@ var _ = Describe("pkg/queue", func() {
 					ResourceID:   "2",
 				})
 				Expect(err).To(BeNil())
-				msg, err = qc.Consume()
+
+				d, err := qc.Consume()
 				Expect(err).To(BeNil())
+				msg = d.(*queue.Message)
 			})
 
 			It("sends ask for the message to consume next message successfully", func() {
 				msg.Ack(50 * time.Millisecond)
-				nextMsg, err := qc.Consume()
+
+				d, err := qc.Consume()
 				Expect(err).To(BeNil())
+
+				nextMsg := d.(*queue.Message)
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 
@@ -282,8 +290,10 @@ var _ = Describe("pkg/queue", func() {
 					msg.Ack(50 * time.Millisecond)
 				})
 				Expect(err).To(BeNil())
-				nextMsg, err := qc.Consume()
+
+				d, err := qc.Consume()
 				Expect(err).To(BeNil())
+				nextMsg := d.(*queue.Message)
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 		})
@@ -298,11 +308,11 @@ var _ = Describe("pkg/queue", func() {
 					ResourceID:   "1",
 				})
 				Expect(err).To(BeNil())
-				Expect(qp.Queue.GetFailedLength()).To(Equal(int64(0)))
+				Expect(qp.GetFailedLength()).To(Equal(int64(0)))
 				msg, err := qc.Consume()
 				Expect(err).To(BeNil())
 				msg.Fail()
-				Expect(qp.Queue.GetFailedLength()).To(Equal(int64(1)))
+				Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 			})
 		})
 	})
@@ -311,7 +321,8 @@ var _ = Describe("pkg/queue", func() {
 		It("starts queue consumer", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(m *queue.Message) error {
+			handler := func(d queue.Delivery) error {
+				m := d.(*queue.Message)
 				redisClient.Set("test", m.UUID)
 				return nil
 			}
@@ -320,7 +331,7 @@ var _ = Describe("pkg/queue", func() {
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-			err := qp.Queue.ResetInput()
+			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 
 			err = qp.Publish(&queue.Message{
@@ -421,7 +432,8 @@ var _ = Describe("pkg/queue", func() {
 		It("submits a failed message to failed queue", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(m *queue.Message) error {
+			handler := func(d queue.Delivery) error {
+				m := d.(*queue.Message)
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
@@ -434,16 +446,16 @@ var _ = Describe("pkg/queue", func() {
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
-			err := qp.Queue.ResetInput()
+			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 
-			Expect(qp.Queue.GetFailedLength()).To(Equal(int64(0)))
+			Expect(qp.GetFailedLength()).To(Equal(int64(0)))
 			err = qp.Publish(&queue.Message{
 				UUID: "1234",
 			})
 			Expect(err).To(BeNil())
 			time.Sleep(50 * time.Millisecond)
-			Expect(qp.Queue.GetFailedLength()).To(Equal(int64(1)))
+			Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 
 			// It still process next message
 			err = qp.Publish(&queue.Message{

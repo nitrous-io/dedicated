@@ -163,8 +163,8 @@ var _ = Describe("hostbuilder", func() {
 
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
 			Expect(err).To(BeNil())
-			Expect(qp.Queue.GetInputLength()).To(BeNumerically(">", 0))
-			qp.Queue.Delete()
+			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
+			qp.Delete()
 		})
 
 		It("should return error when fails to create a host when queue is true", func() {
@@ -204,8 +204,8 @@ var _ = Describe("hostbuilder", func() {
 			// assert that we dont have any message in the queue
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
 			Expect(err).To(BeNil())
-			Expect(qp.Queue.GetInputLength()).To(BeZero())
-			qp.Queue.Delete()
+			Expect(qp.GetInputLength()).To(BeZero())
+			qp.Delete()
 		})
 	})
 

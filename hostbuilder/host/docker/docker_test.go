@@ -95,8 +95,8 @@ var _ = Describe("host/docker", func() {
 	Describe("CreateWithQueue", func() {
 		var h host.Host
 		var info *host.Info
-		var qp *queue.QueuePublisher
-		var qc *queue.QueueConsumer
+		var qp queue.Publisher
+		var qc queue.Consumer
 		var queueInfo *host.QueueInfo
 
 		var redisClient *redis.Client
@@ -127,7 +127,7 @@ var _ = Describe("host/docker", func() {
 
 		AfterEach(func() {
 			if qp != nil {
-				qp.Queue.Delete()
+				qp.Delete()
 			}
 			if redisClient != nil {
 				redisClient.Close()
@@ -148,7 +148,7 @@ var _ = Describe("host/docker", func() {
 			info, err = h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
-			Expect(qp.Queue.GetInputLength()).To(Equal(int64(3)))
+			Expect(qp.GetInputLength()).To(Equal(int64(3)))
 			events := [3]event.Event{
 				event.HostCreating,
 				event.HostCreating,
@@ -157,7 +157,8 @@ var _ = Describe("host/docker", func() {
 
 			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
-				m, err := qc.Consume()
+				d, err := qc.Consume()
+				m := d.(*queue.Message)
 				m.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))

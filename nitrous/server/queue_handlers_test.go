@@ -28,10 +28,10 @@ import (
 var _ = Describe("HostQueueHandler", func() {
 	var (
 		redisClient *redis.Client
-		qp          *queue.QueuePublisher
-		qc          *queue.QueueConsumer
+		qp          queue.Publisher
+		qc          queue.Consumer
 		db          *db.Database
-		handler     func(m *queue.Message) error
+		handler     func(d queue.Delivery) error
 		h           *host.Host
 		u           *user.User
 		svr         *server.Server
@@ -74,7 +74,7 @@ var _ = Describe("HostQueueHandler", func() {
 
 	AfterEach(func() {
 		if qp != nil {
-			qp.Queue.Delete()
+			qp.Delete()
 		}
 		if redisClient != nil {
 			redisClient.Close()
