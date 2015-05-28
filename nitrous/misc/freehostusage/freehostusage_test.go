@@ -118,6 +118,81 @@ var _ = Describe("misc/freehostusage", func() {
 			Expect(scan.UpdateHost(db)).To(BeNil())
 		}
 
+		expectHostPassedAt := func(scanTimeSinceCreated time.Duration, expectedState string, update bool) {
+			mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+
+			Expect(len(mock.UpdatedScans)).To(Equal(1))
+			Expect(len(mock.RefreshedHosts)).To(Equal(0))
+			Expect(len(mock.TerminatedHosts)).To(Equal(0))
+			Expect(len(mock.SentMessages)).To(Equal(0))
+
+			scan := mock.UpdatedScans[0]
+			Expect(scan.State).To(Equal(expectedState))
+
+			if update {
+				Expect(scan.UpdateHost(db)).To(BeNil())
+			}
+		}
+
+		expectHostWarningAt := func(scanTimeSinceCreated time.Duration, update bool) {
+			mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+
+			Expect(len(mock.UpdatedScans)).To(Equal(1))
+			Expect(len(mock.SentMessages)).To(Equal(1))
+			Expect(len(mock.RefreshedHosts)).To(Equal(0))
+			Expect(len(mock.TerminatedHosts)).To(Equal(0))
+
+			scan := mock.UpdatedScans[0]
+			Expect(scan.State).To(Equal(hostscan.StateOneWeekNotice))
+
+			message := mock.SentMessages[0]
+			Expect(message.Host.ID).To(Equal(h.ID))
+			Expect(message.Subject).To(Equal(freehostusage.WarningSubject))
+			Expect(message.Message).To(Equal(freehostusage.WarningMessage))
+
+			if update {
+				Expect(scan.UpdateHost(db)).To(BeNil())
+			}
+		}
+
+		expectHostTerminatingAt := func(scanTimeSinceCreated time.Duration, update bool) {
+			mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+
+			Expect(len(mock.UpdatedScans)).To(Equal(1))
+			Expect(len(mock.SentMessages)).To(Equal(1))
+			Expect(len(mock.RefreshedHosts)).To(Equal(0))
+			Expect(len(mock.TerminatedHosts)).To(Equal(0))
+
+			scan := mock.UpdatedScans[0]
+			Expect(scan.State).To(Equal(hostscan.StateTerminating))
+
+			message := mock.SentMessages[0]
+			Expect(message.Host.ID).To(Equal(h.ID))
+			Expect(message.Subject).To(Equal(freehostusage.TerminatingSubject))
+			Expect(message.Message).To(Equal(freehostusage.TerminatingMessage))
+
+			if update {
+				Expect(scan.UpdateHost(db)).To(BeNil())
+			}
+		}
+
+		expectHostTerminatedAt := func(scanTimeSinceCreated time.Duration) {
+			mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+
+			Expect(len(mock.UpdatedScans)).To(Equal(0))
+			Expect(len(mock.SentMessages)).To(Equal(1))
+			Expect(len(mock.RefreshedHosts)).To(Equal(1))
+			Expect(len(mock.TerminatedHosts)).To(Equal(1))
+
+			message := mock.SentMessages[0]
+			Expect(message.Host.ID).To(Equal(h.ID))
+			Expect(message.Subject).To(Equal(freehostusage.TerminatedSubject))
+			Expect(message.Message).To(Equal(freehostusage.TerminatedMessage))
+
+			Expect(mock.RefreshedHosts[0].ID).To(Equal(h.ID))
+			Expect(mock.TerminatedHosts[0].ID).To(Equal(h.ID))
+		}
+
 		insertHostTransitions := func(runningTimes []time.Time) {
 			for _, runningTime := range runningTimes {
 				_, err := db.Exec(`INSERT INTO host_transitions
@@ -180,15 +255,19 @@ var _ = Describe("misc/freehostusage", func() {
 				})
 
 				It("should skip terminating state", func() {
-					expectAndUpdateScanState(2*7*24*time.Hour, hostscan.StateGracePeriod)
-					expectAndUpdateScanState(3*7*24*time.Hour, hostscan.StateOneWeekNotice)
+					expectHostPassedAt(2*7*24*time.Hour, hostscan.StateGracePeriod, true)
+					expectHostWarningAt(3*7*24*time.Hour, true)
 
 					// on time
-					expectScanStateAtTimeEquals(hostscan.HostScanPeriod-3*24*time.Hour, hostscan.StateTerminating)
-					expectScanStateAtTimeEquals(hostscan.HostScanPeriod-2*24*time.Hour, hostscan.StateTerminating)
+					expectHostTerminatingAt(hostscan.HostScanPeriod-3*24*time.Hour, false)
+					expectHostTerminatingAt(hostscan.HostScanPeriod-2*24*time.Hour, false)
 
 					// missed
-					expectScanStateAtTimeEquals(hostscan.HostScanPeriod-1*24*time.Hour, hostscan.StateSkip)
+					expectHostPassedAt(hostscan.HostScanPeriod-1*24*time.Hour, hostscan.StateSkip, false)
+
+					// on time and updated
+					expectHostTerminatingAt(hostscan.HostScanPeriod-3*24*time.Hour, true)
+					expectHostTerminatedAt(hostscan.HostScanPeriod)
 				})
 			})
 
@@ -197,7 +276,7 @@ var _ = Describe("misc/freehostusage", func() {
 				h.NextScan = pq.NullTime{scanTime, true}
 				hostscan.UpdateHostScanState(db, h)
 
-				terminateTime := scanTime.Add(hostscan.TerminateNoticePeriod)
+				terminateTime := scanTime.Add(hostscan.TerminatingNoticePeriod)
 
 				hostScan := doScanHost(scanTime)
 				Expect(hostScan.State).To(Equal(hostscan.StateTerminating))

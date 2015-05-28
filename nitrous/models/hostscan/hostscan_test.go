@@ -186,7 +186,7 @@ var _ = Describe("models/hostscan", func() {
 				h.NextScan = pq.NullTime{scanTime, true}
 				UpdateHostScanState(db, h)
 
-				terminateTime := scanTime.Add(TerminateNoticePeriod)
+				terminateTime := scanTime.Add(TerminatingNoticePeriod)
 
 				hostScan := doScanHost(scanTime)
 				Expect(hostScan.State).To(Equal(StateTerminating))

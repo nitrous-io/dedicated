@@ -33,10 +33,11 @@ const (
 const (
 	MinUsage = 4
 
-	HostScanPeriod        = 4 * 7 * 24 * time.Hour
-	WarningPeriod         = 3 * 7 * 24 * time.Hour
-	TerminateNoticePeriod = (3*7 + 4) * 24 * time.Hour
-	ScanCatchUpLimit      = 2 * 24 * time.Hour
+	HostScanPeriod          = 4 * 7 * 24 * time.Hour
+	WarningPeriod           = 3 * 7 * 24 * time.Hour
+	TerminatingPeriod       = (3*7 + 4) * 24 * time.Hour
+	TerminatingNoticePeriod = HostScanPeriod - TerminatingPeriod
+	ScanCatchUpLimit        = 2 * 24 * time.Hour
 )
 
 var (
@@ -93,19 +94,19 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 		}, nil
 	}
 
-	if timePassed >= WarningPeriod && timePassed < TerminateNoticePeriod {
+	if timePassed >= WarningPeriod && timePassed < TerminatingPeriod {
 		return &ScanResult{
 			Host:     host,
 			State:    StateOneWeekNotice,
-			NextScan: start.Add(TerminateNoticePeriod),
+			NextScan: start.Add(TerminatingPeriod),
 		}, nil
 	}
 
-	if timePassed >= TerminateNoticePeriod {
+	if timePassed >= TerminatingPeriod {
 		return &ScanResult{
 			Host:     host,
 			State:    StateTerminating,
-			NextScan: now.Add(TerminateNoticePeriod),
+			NextScan: now.Add(TerminatingNoticePeriod),
 		}, nil
 	}
 
