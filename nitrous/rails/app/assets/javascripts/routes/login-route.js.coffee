@@ -15,17 +15,16 @@ App.LoginRoute = Em.Route.extend
 
   setupController: (controller) ->
     controller.setProperties
-      confirmationLapsed: false
       login: null
       password: null
       error: null
       loggingIn: false
     App.on 'confirmation-lapsed', ->
       controller.setProperties
-        confirmationLapsed: true
         loggingIn: false
     Mp.track Mp.EventViewedLogin
 
   deactivate: ->
     controller = @get 'controller'
     App.off 'confirmation-lapsed'
+    App.set 'confirmationLapsed', false
