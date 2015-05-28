@@ -65,10 +65,10 @@ func VolumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanc
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: error in DescribeVolumes: %v", err)
+			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: error getting volume info: %v", err)
 		}
 		if len(resp.Volumes) != 1 {
-			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
 		}
 
 		v := &resp.Volumes[0]
@@ -92,10 +92,10 @@ func VolumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefre
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: error in DescribeVolumes: %v", err)
+			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: error getting volume info: %v", err)
 		}
 		if len(resp.Volumes) != 1 {
-			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: expected DescribeVolumes to return one volume but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
 		}
 
 		v := &resp.Volumes[0]
@@ -107,10 +107,10 @@ func SnapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateR
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Snapshots([]string{snapshotID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: error in DescribeSnapshots: %v", err)
+			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: error getting snapshot info: %v", err)
 		}
 		if len(resp.Snapshots) != 1 {
-			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: expected DescribeSnapshots to return one snapshot but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: expected to get one snapshot but got %+v: %v", resp, err)
 		}
 
 		s := &resp.Snapshots[0]
