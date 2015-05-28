@@ -11,8 +11,13 @@ type HostAction interface {
 	RefreshHost(h *host.Host) error
 	TerminateHost(h *host.Host) error
 	UpdateHostWithScan(scan *hostscan.ScanResult) error
+
+	// Update scan result to database and send announcement to owner,
+	// all in single db transaction
 	SendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error
-	SendMessageToHostOwner(hostID int64, subject, message string) error
+
+	// Send email to owner only. No interaction with database
+	SendMessageToHostOwner(h *host.Host, subject, message string) error
 }
 
 type RealHostAction struct {
@@ -43,6 +48,6 @@ func (action *RealHostAction) SendAnnouncementForHostScan(scan *hostscan.ScanRes
 	return hostscan.SendAnnouncementForHostScan(action.DB, scan, warningSubject, warningMessage)
 }
 
-func (action *RealHostAction) SendMessageToHostOwner(hostID int64, subject, message string) error {
-	return announcement.SendMessageToHostOwner(action.DB, hostID, subject, message)
+func (action *RealHostAction) SendMessageToHostOwner(h *host.Host, subject, message string) error {
+	return announcement.SendMessageToHostOwner(action.DB, h.ID, subject, message)
 }

@@ -55,7 +55,7 @@ func TerminateFreeHost(h *host.Host, logr *logger.Logger, action HostAction, dry
 		// continue
 	}
 
-	err = action.SendMessageToHostOwner(h.ID, terminatedSubject, terminatedMessage)
+	err = action.SendMessageToHostOwner(h, terminatedSubject, terminatedMessage)
 	if err != nil {
 		logr.Errorf("Unable to send terminate notice for user %d, err: %+v", h.UserID, err)
 		// continue
