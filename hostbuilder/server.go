@@ -346,6 +346,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	}
 	provider := r.Form.Get("provider")
 	providerConfig := s.providerConfig(provider)
+	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 	configJson := r.Form.Get("config")
 
 	h, err := host.InitHost(provider, providerConfig, configJson)
