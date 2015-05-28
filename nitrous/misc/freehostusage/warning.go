@@ -27,8 +27,8 @@ Please contact us with any questions at support@nitrous.io .
 You can upgrade to a paid plan to keep it running.  If you do not wish to upgrade, please be sure to backup your files prior to termination.`
 )
 
-func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
-	scans, errs := hostscan.ScanHosts(d, time.Now())
+func ScanWarningHosts(d *db.Database, logr *logger.Logger, action HostAction, now time.Time, dryrun bool) {
+	scans, errs := hostscan.ScanHosts(d, now)
 
 	logr.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
 
@@ -43,7 +43,8 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := scan.UpdateHost(d)
+
+			err := action.UpdateHostWithScan(scan)
 			if err != nil {
 				// ignore
 				logr.Errorf("Error updating scan result - %s: %+v.", err, scan)
@@ -54,7 +55,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := hostscan.SendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
+			err := action.SendAnnouncementForHostScan(scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
@@ -64,7 +65,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := hostscan.SendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
+			err := action.SendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -53,6 +54,7 @@ func main() {
 		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
-	freehostusage.ScanWarningHosts(d, logr, dryrun)
-	freehostusage.TerminateInactiveFreeHosts(d, logr, dryrun)
+	action := &freehostusage.RealHostAction{d}
+
+	freehostusage.ScanAllFreeHosts(d, logr, action, time.Now(), dryrun)
 }
