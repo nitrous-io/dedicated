@@ -16,6 +16,11 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
+const (
+	terminatedSubject = `Workspace termination notice`
+	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
+)
+
 func refreshHost(h *host.Host) error {
 	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, h.UserID)
 	c := httpclient.New("")
@@ -68,22 +73,10 @@ func TerminateFreeHost(d *db.Database, h *host.Host, logr *logger.Logger, dryrun
 		// continue
 	}
 
-	owner, err := announcement.FindOwnerByHostID(d, h.ID)
+	err = announcement.SendMessageToHostOwner(d, h.ID, terminatedSubject, terminatedMessage)
 	if err != nil {
-		logr.Errorf("Error finding host owner detail - %s: %+v", err, h)
-		return err
-	}
-
-	ann := &announcement.Announcement{
-		SubjectTemplate: terminatedSubject,
-		MessageTemplate: terminatedMessage,
-	}
-
-	// Send without saving announcement
-	err = announcement.SendToOwner(ann, owner)
-	if err != nil {
-		logr.Errorf("Error sending termination notice to host owner - %s: %+v", err, owner)
-		return err
+		logr.Errorf("Unable to send terminate notice for user %d, err: %+v", h.UserID, err)
+		// continue
 	}
 
 	return nil

@@ -379,6 +379,26 @@ func SendToOwner(ann *Announcement, owner *HostOwner) error {
 	return nil
 }
 
+func SendMessageToHostOwner(db ndb.QueryReceiver, hostID int64, subject, message string) error {
+	owner, err := FindOwnerByHostID(db, hostID)
+	if err != nil {
+		return err
+	}
+
+	ann := &Announcement{
+		SubjectTemplate: subject,
+		MessageTemplate: message,
+	}
+
+	// Send without saving announcement
+	err = SendToOwner(ann, owner)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func SendToOwners(ann *Announcement, owners []*HostOwner, errorHandler func(error)) {
 	go func() {
 		for _, owner := range owners {

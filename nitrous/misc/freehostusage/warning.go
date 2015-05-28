@@ -25,9 +25,6 @@ Please contact us with any questions at support@nitrous.io .
 	terminatingMessage = `Your workspace {{.Slug}} will be terminated in 3 days.
 
 You can upgrade to a paid plan to keep it running.  If you do not wish to upgrade, please be sure to backup your files prior to termination.`
-
-	terminatedSubject = `Workspace termination notice`
-	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
 )
 
 func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
