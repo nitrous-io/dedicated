@@ -41,6 +41,9 @@
               a href='#' click='switchUser target="view"'
                 | Switch User
             li
+              a href='#' click='viewUser target="view"'
+                | View User
+            li
               a href='#' click='creditUser target="view"'
                 | Credit User
             li
