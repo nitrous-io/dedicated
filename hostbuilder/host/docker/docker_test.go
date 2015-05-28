@@ -106,7 +106,7 @@ var _ = Describe("host/docker", func() {
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())
-			qc, err = qp.CreateConsumer()
+			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())
 
 			h, err = docker.NewHost(

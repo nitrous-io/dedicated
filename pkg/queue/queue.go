@@ -102,15 +102,6 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 	return fmt.Errorf("timed out sending message %+v", msg)
 }
 
-func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
-	c, err := qp.Queue.AddConsumer(qp.Queue.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &QueueConsumer{Consumer: c}, nil
-}
-
 func (qc *QueueConsumer) Consume() (*Message, error) {
 	p, err := qc.Consumer.Get()
 	if err != nil {
