@@ -15,7 +15,10 @@ html
 body
   font-family: $mainFont
 
-ul, p
+h1, h2, h3, h4, p, span
+  cursor: default
+
+p
   margin: 16px 0
 
 a
@@ -34,15 +37,15 @@ a
     color: $lightBlue200
 
 .container
-  width: 500px
+  width: 420px
   margin: 0 auto
 
 h1.logo
-  margin: 32px 16px 16px 16px
-  width: 140px
-  height: 14px
-  background: image_url('home/nitrous-pro-logo.svg') no-repeat
-  background-size: 140px 14px
+  margin: 60px auto 30px auto
+  width: 155px
+  height: 18px
+  background: image_url('home/nitrous-logo-white.svg') no-repeat
+  background-size: 155px 18px
 
   span
     display: none
@@ -90,6 +93,7 @@ h2
 
 #login-form
   display: none
+  padding: 10px 0 20px 0
   font-size: 13px
   max-height: 0
   overflow: hidden
@@ -100,19 +104,22 @@ h2
     margin-top: 0
 
   &.show
-    max-height: 190px
+    max-height: 240px
     opacity: 1
 
   &.shown
     max-height: none
 
-  label, input
+  .form-fields
+    padding: 6px 0
+
+  input
     display: block
 
-  label
-    margin-bottom: 2px
-    color: $n2oGray400
-    font-size: 13px
+    & + a
+      display: block
+      padding: 4px 0
+      font-size: 14px
 
   input.text-field
     width: 100%
@@ -122,7 +129,8 @@ h2
     border-radius: 2px
     outline: none
     border: 1px solid transparent
-    padding: 6px 8px
+    padding: 10px 8px
+    font-size: 16px
     transition: color .2s, border-color .2s, background-color .2s
 
     &:focus
@@ -132,32 +140,34 @@ h2
     &.error
       border: 1px solid $red600
 
-  ul
-    text-align: right
-    list-style: none
-    padding: 0
-    margin-bottom: 0
-
-    li
-      display: inline-block
-      margin-left: 16px
-
 #login-form, #logged-in
+  position: relative
+
   p
     font-size: 14px
+    font-size: 16px
+    line-height: 24px
+    font-weight: 400
+    color: $n2oGray200
 
 #logged-in
   display: none
   max-height: 0
   overflow: hidden
   opacity: 0
+  padding-top: 10px
   transition: opacity .3s, max-height .3s
 
   p
     margin: 0
+    padding-bottom: 20px
+
+  span.username
+    color: $n2oGray100
+    font-weight: 500
 
   &.show
-    max-height: 25px
+    max-height: 50px
     opacity: 1
 
   &.shown
@@ -232,6 +242,10 @@ h2
     &:disabled, &[disabled], &.disabled
       color: #f9f9f9
       background: rgba(204, 204, 204, .1)
+
+@media only screen and (max-width: 30em)
+  .container
+    width: 90%
 
 @keyframes shake
   0%

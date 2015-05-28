@@ -8,7 +8,7 @@
 
   .dialog
     h2
-      | Authorize &ldquo;{{.ClientName}}&rdquo; to access your account?
+      | Authorize this app to access your account?
 
     #client-info
       h3
@@ -26,30 +26,25 @@
       input type='hidden' name='access_token'
 
       #login-form
-        p Please log in to Nitrous to authorize this application:
+        p
+          ' Log in with your Nitrous account to authorize this application. No account yet?
+          a href='/app/#/signup' target='_blank' Sign up for Nitrous
 
-        label for='login' Username or Email
-        input.text-field id='login' type='text'
-
-        label for='password' Password
-        input.text-field id='password' type='password'
-
-        ul
-          li
-            a href='/app/#/forgot-password' target='_blank' Forgot password?
-          li
-            a href='/app/#/signup' target='_blank' Sign up for Nitrous
+        .form-fields
+          input.text-field id='login' type='text' placeholder='Username or Email'
+          input.text-field id='password' type='password' placeholder='Password'
+          a href='/app/#/forgot-password' target='_blank' Forgot password?
 
       #logged-in
         p
           ' You are logged in as
           span.username
           ' .
-          a#not-you href='#' (Not you?)
+          a#not-you href='#' Not you?
 
       .buttons
         button.btn#cancel-btn disabled='disabled' Cancel
-        input.btn.primary.raised#authorize-btn type='submit' value='Authorize Application' disabled='disabled'
+        input.btn.primary.raised#authorize-btn type='submit' value='Authorize' disabled='disabled'
 
 - content_for :body_script
   = javascript_include_tag 'compat'
