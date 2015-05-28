@@ -6,6 +6,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/kardianos/osext"
+	"github.com/nitrous-io/nitrous-common/must"
 )
 
 const (
@@ -15,6 +18,8 @@ const (
 
 var (
 	Testing = parseBoolWithDefault(os.Getenv("TESTING"), false)
+
+	RootDir = must.String(osext.ExecutableFolder())
 
 	AESKey             = os.Getenv("AES_KEY")
 	TrustKey           = os.Getenv("TRUST_KEY")

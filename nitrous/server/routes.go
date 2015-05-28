@@ -96,6 +96,7 @@ func (s *Server) drawRoutes() {
 				"/app_settings":             r("appsettings.Index", appsettings.Index),
 				"/promo_codes/{code}":       r("promocodes.Show", promocodes.Show),
 				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
+				"/oauth/authorize":          r("oauth.GetAuthorize", oauth.GetAuthorize),
 			},
 			"POST": {
 				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
@@ -160,7 +161,7 @@ func (s *Server) drawRoutes() {
 				"/oauth/clients/{clientid}":           r("oauth.ShowClient", oauth.ShowClient),
 			},
 			"POST": {
-				"/oauth/authorize":                         r("oauth.Authorize", oauth.Authorize),
+				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
 				"/user/resend_phone_code":                  r("users.ResendPhoneCode", users.ResendPhoneCode),
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),

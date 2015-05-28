@@ -17,4 +17,6 @@ Rails.application.config.assets.precompile += %w(
   token_login.js
   consent.js
   consent.css
+  oauth_authorize.js
+  oauth_authorize.css
 )

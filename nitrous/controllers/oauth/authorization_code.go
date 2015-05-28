@@ -1,132 +1,50 @@
 package oauth
 
 import (
+	"bytes"
 	"database/sql"
+	"html/template"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"path"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/authorizationcode"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous-common/must"
 )
 
 var (
-	errAccessDenied             = httperror.New(http.StatusNotFound, "access_denied", "the resource owner has denied the request")
-	errClientNotFound           = httperror.New(http.StatusNotFound, "invalid_request", "client ID not found")
+	errClientNotFound           = httperror.New(http.StatusNotFound, "invalid_request", "client not found")
 	errInvalidClientID          = httperror.New(http.StatusForbidden, "access_denied", "client ID does not match authorization code")
 	errUnauthorizedTokenScope   = httperror.New(http.StatusForbidden, "access_denied", "token scope not allowed to request new authorization code")
 	errInvalidClientSecret      = httperror.New(http.StatusBadRequest, "access_denied", "client secret must not be empty")
-	errInvalidGrantType         = httperror.New(http.StatusBadRequest, "invalid_request", "grant_type must be 'authorization_code'")
-	errInvalidAuthorizationCode = httperror.New(http.StatusBadRequest, "invalid_request", "invalid authoriazation code")
+	errInvalidGrantType         = httperror.New(http.StatusBadRequest, "invalid_request", `grant_type must be "authorization_code"`)
+	errInvalidAuthorizationCode = httperror.New(http.StatusBadRequest, "invalid_request", "invalid authorization code")
 	errInvalidRedirectURI       = httperror.New(http.StatusBadRequest, "invalid_request", "invalid redirect_uri")
-	errInvalidResponseType      = httperror.New(http.StatusBadRequest, "unsupported_response_type", "response type must be 'code'")
 	errUnauthorizedClient       = httperror.New(http.StatusUnauthorized, "access_denied", "invalid client secret")
 	errCodeExpired              = httperror.New(http.StatusUnauthorized, "access_denied", "authorization code has expired")
 	errCodeReused               = httperror.New(http.StatusUnauthorized, "access_denied", "authorization code cannot be reused")
+
+	TmplAuthorize = mustParseTemplate("oauth/authorize", "oauth_authorize.html.tmpl")
 )
 
-type redirector struct {
-	Env         *middleware.Env
-	Response    http.ResponseWriter
-	RedirectURI *url.URL
-	Values      map[string]string
-}
-
-func appendQueryString(u *url.URL, queries map[string]string) {
-	values := u.Query()
-	for k, v := range queries {
-		values.Add(k, v)
-	}
-	u.RawQuery = values.Encode()
-}
-
-func (r *redirector) Redirect() {
-	// copy struct to avoid side effects
-	redirectURI := *r.RedirectURI
-
-	appendQueryString(&redirectURI, r.Values)
-	r.Response.Header().Set("Location", redirectURI.String())
-
-	r.Env.Status = http.StatusFound
-
-	resultJson := map[string]interface{}{}
-	for k, v := range r.Values {
-		resultJson[k] = v
-	}
-
-	r.Env.Data = resultJson
-}
-
-func (r *redirector) RedirectError(err error) error {
-	slug := "server_error"
-	desc := "unexpected server error"
-
-	if httpErr, ok := err.(*httperror.Error); ok {
-		if httpErr.Type != "" {
-			slug = httpErr.Type
-		}
-
-		if httpErr.Description != "" {
-			desc = httpErr.Description
-		}
-	}
-
-	r.Values["error"] = slug
-	r.Values["error_description"] = desc
-	r.Redirect()
-
-	return nil
-}
-
-// Implement OAuth2 Authorization Code Grant
-// Specs: https://tools.ietf.org/html/rfc6749#page-24
-
-// POST /api/v0/oauth/authorize
-// Submitted from web app, user is authenticated as usual
-// from Authorization header. User must be logged in.
-func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {
-	rd := &redirector{
-		Env:      env,
-		Response: w,
-		Values:   map[string]string{},
-
-		// default redirect to our own domain
-		// TODO: make an error page to show
-		// authorize code errors
-		RedirectURI: &url.URL{Path: "/app"},
-	}
-
-	defer func() {
-		if err != nil {
-			err = rd.RedirectError(err)
-		}
-	}()
-
-	u := env.User
-	t := env.Token
-
-	if t.Scope != token.ScopeFull {
-		// Third party token is not allowed to
-		// authorize new third party
-		return errUnauthorizedTokenScope
-	}
-
-	state := r.FormValue("state")
-	action := r.FormValue("action")
-	clientID := r.FormValue("client_id")
+func GetAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	responseType := r.FormValue("response_type")
-	inputRedirectURI := r.FormValue("redirect_uri")
+	clientID := r.FormValue("client_id")
+	redirectURI := r.FormValue("redirect_uri")
+	scope := r.FormValue("scope")
+	state := r.FormValue("state")
 
-	if responseType != "code" {
-		return errInvalidResponseType
-	}
-
-	client, err := oauthclient.FindByID(env.DB, clientID)
+	client, err := oauthclient.FindByClientID(env.DB, clientID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errClientNotFound
@@ -134,59 +52,112 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err
 		return err
 	}
 
-	baseRedirectURI, err := url.ParseRequestURI(client.RedirectURI)
+	if redirectURI == "" {
+		redirectURI = client.RedirectURI
+	}
+
+	ru, err := checkRedirectURI(redirectURI, client)
 	if err != nil {
-		// should not happen. DB should contain valid redirect URI
 		return err
 	}
 
-	if inputRedirectURI == "" || inputRedirectURI == client.RedirectURI {
-		rd.RedirectURI = baseRedirectURI
+	if responseType != "code" {
+		redirect(env, w, *ru, map[string]string{
+			"error":             "unsupported_response_type",
+			"error_description": "The authorization server does not support obtaining an authorization code using this method.",
+			"state":             state,
+		})
+		return nil
+	}
 
-	} else {
-		inputURI, err := url.ParseRequestURI(inputRedirectURI)
-		if err != nil {
-			return errInvalidRedirectURI
+	html := &bytes.Buffer{}
+	data := struct {
+		ClientID          string
+		ClientName        string
+		ClientDescription string
+		RedirectURI       string
+		Scope             string
+		State             string
+	}{
+		client.ClientID,
+		client.Name,
+		client.Description,
+		redirectURI,
+		scope,
+		state,
+	}
+
+	err = TmplAuthorize.Execute(html, data)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Length", strconv.Itoa(html.Len()))
+	w.WriteHeader(http.StatusOK)
+	_, err = html.WriteTo(w)
+	return err
+}
+
+func PostAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	u := env.User
+	t := env.Token
+
+	state := r.FormValue("state")
+	action := r.FormValue("action")
+	clientID := r.FormValue("client_id")
+	redirectURI := r.FormValue("redirect_uri")
+
+	client, err := oauthclient.FindByClientID(env.DB, clientID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errClientNotFound
 		}
+		return err
+	}
 
-		if !inputURI.IsAbs() || inputURI.Fragment != "" {
-			return errInvalidRedirectURI
-		}
+	if redirectURI == "" {
+		redirectURI = client.RedirectURI
+	}
 
-		if inputURI.Scheme != baseRedirectURI.Scheme {
-			return errInvalidRedirectURI
-		}
+	ru, err := checkRedirectURI(redirectURI, client)
+	if err != nil {
+		return err
+	}
 
-		if inputURI.Host != baseRedirectURI.Host {
-			return errInvalidRedirectURI
-		}
-
-		if inputURI.Path != baseRedirectURI.Path {
-			return errInvalidRedirectURI
-		}
-
-		// any of the errors above are redirected back to
-		// our own domain instead of client's redirect URI
-
-		rd.RedirectURI = inputURI
+	// TODO: only certain tokens should be able to authorize new clients
+	if t.Scope != token.ScopeFull {
+		redirect(env, w, *ru, map[string]string{
+			"error":             "access_denied",
+			"error_description": "The access token used does not permit authorization of new clients",
+			"state":             state,
+		})
+		return nil
 	}
 
 	if action != "approve" {
-		return errAccessDenied
+		redirect(env, w, *ru, map[string]string{
+			"error":             "access_denied",
+			"error_description": "The resource owner or authorization server denied the request.",
+			"state":             state,
+		})
+		return nil
 	}
 
-	// redirect value is what client expects
-	redirectValue := rd.RedirectURI.String()
-	code, err := authorizationcode.Generate(u.ID, clientID, redirectValue)
+	ruStr := ru.String()
+	code, err := authorizationcode.Generate(u.ID, clientID, ruStr)
 	if err != nil {
-		return err
+		redirect(env, w, *ru, map[string]string{
+			"error":             "server_error",
+			"error_description": "The server failed to generate authorization code.",
+			"state":             state,
+		})
+		return nil
 	}
 
-	rd.Values["code"] = code
-	rd.Values["state"] = state
-	rd.Values["redirect_uri"] = redirectValue
-
-	rd.Redirect()
+	redirect(env, w, *ru, map[string]string{
+		"code":  code,
+		"state": state,
+	})
 	return nil
 }
 
@@ -280,7 +251,7 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 
 func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	clientID := mux.Vars(r)["clientid"]
-	client, err := oauthclient.FindByID(env.DB, clientID)
+	client, err := oauthclient.FindByClientID(env.DB, clientID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errClientNotFound
@@ -295,4 +266,51 @@ func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	return nil
+}
+
+func checkRedirectURI(uriStr string, client *oauthclient.Client) (*url.URL, error) {
+	cu, err := url.Parse(client.RedirectURI)
+	if err != nil {
+		return nil, err
+	}
+
+	if uriStr == client.RedirectURI {
+		return cu, nil
+	}
+
+	iu, err := url.Parse(uriStr)
+	if err != nil {
+		return nil, errInvalidRedirectURI
+	}
+
+	if !iu.IsAbs() || iu.Fragment != "" || iu.Scheme != cu.Scheme || iu.Host != cu.Host || iu.Path != cu.Path {
+		return nil, errInvalidRedirectURI
+	}
+
+	return iu, nil
+}
+
+func appendQueryString(u url.URL, queries map[string]string) url.URL {
+	values := u.Query()
+	for k, v := range queries {
+		values.Add(k, v)
+	}
+	u.RawQuery = values.Encode()
+	return u
+}
+
+func redirect(env *middleware.Env, w http.ResponseWriter, uri url.URL, params map[string]string) {
+	uri = appendQueryString(uri, params)
+	uris := uri.String()
+	w.Header().Set("Location", uris)
+	env.Status = http.StatusFound
+	env.Data = map[string]interface{}{}
+}
+
+var mustParseTemplate = func(name, file string) *template.Template {
+	var tmpl string
+	if !envvars.Testing {
+		tmpl = string(must.ByteArray(ioutil.ReadFile(path.Join(envvars.RootDir, "templates", file))))
+	}
+	return template.Must(template.New(name).Parse(tmpl))
 }

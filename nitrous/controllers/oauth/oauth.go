@@ -24,8 +24,9 @@ var (
 )
 
 const (
-	grantTypePassword   = "password"
-	grantTypeLoginToken = "login_token"
+	grantTypePassword          = "password"
+	grantTypeLoginToken        = "login_token"
+	grantTypeAuthorizationCode = "authorization_code"
 )
 
 var TimerFunc func(d time.Duration) *time.Timer
@@ -98,7 +99,7 @@ func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 			}
 			return err
 		}
-	} else if grantType == "authorization_code" {
+	} else if grantType == grantTypeAuthorizationCode {
 		return TokenFromAuthorizationCode(env, w, r)
 	} else {
 		return errGrantType

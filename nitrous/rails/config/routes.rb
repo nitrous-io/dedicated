@@ -3,7 +3,7 @@ Rails.application.routes.draw do
   get '/ide' => 'web_app#ide'
   get '/token_login' => 'web_app#token_login'
   get '/oauth/authorize' => 'web_app#consent'
-  
+
   get '/features' => 'pages#features'
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
@@ -22,6 +22,8 @@ Rails.application.routes.draw do
 
   get '/stacks' => 'pages#stacks'
   get '/stacks/:stack' => 'pages#stack'
+
+  get '/oauth_authorize' => 'templates#oauth_authorize'
 
   root 'pages#home'
 end

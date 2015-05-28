@@ -88,7 +88,7 @@ var _ = Describe("models/oauthclient", func() {
 		})
 
 		It("should find client result by client id", func() {
-			c, err := oauthclient.FindByID(db, "blu_team")
+			c, err := oauthclient.FindByClientID(db, "blu_team")
 			Expect(err).To(BeNil())
 
 			Expect(c.ID).To(Equal(client.ID))

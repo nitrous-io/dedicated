@@ -31,7 +31,7 @@ func (c *Client) InsertWithSecret(d *db.Database, secret string) error {
 	return nstmt.QueryRowx(cl).StructScan(cl)
 }
 
-func FindByID(d *db.Database, clientID string) (*Client, error) {
+func FindByClientID(d *db.Database, clientID string) (*Client, error) {
 	client := &Client{}
 
 	err := d.Get(client, `SELECT
