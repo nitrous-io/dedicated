@@ -24,7 +24,7 @@ func detachVolume(provider volumeProvider, volumeID, instanceID string) (*ec2.Vo
 	// Wait for the volume to be detached.
 	sc := &StateChangeConf{
 		Pending: []string{"detaching", "attached"},
-		Refresh: VolumeAttachmentStateRefreshFunc(provider, volumeID, instanceID),
+		Refresh: volumeAttachmentStateRefreshFunc(provider, volumeID, instanceID),
 		Target:  "detached",
 	}
 	vol, err := WaitForState(sc)
@@ -46,7 +46,7 @@ func createVolume(provider volumeProvider, snapshotID, availabilityZone string, 
 	// Wait for volume to be created.
 	sc := &StateChangeConf{
 		Pending: []string{"creating"},
-		Refresh: VolumeStateRefreshFunc(provider, resp.VolumeId),
+		Refresh: volumeStateRefreshFunc(provider, resp.VolumeId),
 		Target:  "available",
 	}
 	vol, err := WaitForState(sc)
@@ -65,7 +65,7 @@ func attachVolume(provider volumeProvider, volumeID, instanceID, deviceName stri
 	// Wait for the volume to be attached.
 	sc := &StateChangeConf{
 		Pending: []string{"attaching", "detached"},
-		Refresh: VolumeAttachmentStateRefreshFunc(provider, volumeID, instanceID),
+		Refresh: volumeAttachmentStateRefreshFunc(provider, volumeID, instanceID),
 		Target:  "attached",
 	}
 	vol, err := WaitForState(sc)
@@ -85,7 +85,7 @@ func createSnapshot(provider volumeProvider, volumeID, description string) (*ec2
 	// Wait for snapshot to be completed.
 	sc := &StateChangeConf{
 		Pending: []string{"pending"},
-		Refresh: SnapshotStateRefreshFunc(provider, resp.Snapshot.Id),
+		Refresh: snapshotStateRefreshFunc(provider, resp.Snapshot.Id),
 		Target:  "completed",
 	}
 	snap, err := WaitForState(sc)

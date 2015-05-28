@@ -34,9 +34,9 @@ type StateChangeConf struct {
 	Refresh StateRefreshFunc
 }
 
-// InstanceStateRefreshFunc returns a StateRefreshFunc that is used to watch
+// instanceStateRefreshFunc returns a StateRefreshFunc that is used to watch
 // an EC2 instance.
-func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
+func instanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		resp, err := conn.Instances([]string{i.InstanceId}, ec2.NewFilter())
 		if err != nil {
@@ -61,14 +61,14 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	}
 }
 
-func VolumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanceID string) StateRefreshFunc {
+func volumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanceID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: error getting volume info: %v", err)
+			return nil, "", fmt.Errorf("volumeAttachmentStateRefreshFunc: error getting volume info: %v", err)
 		}
 		if len(resp.Volumes) != 1 {
-			return nil, "", fmt.Errorf("VolumeAttachmentStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("volumeAttachmentStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
 		}
 
 		v := &resp.Volumes[0]
@@ -88,14 +88,14 @@ func VolumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanc
 	}
 }
 
-func VolumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefreshFunc {
+func volumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: error getting volume info: %v", err)
+			return nil, "", fmt.Errorf("volumeStateRefreshFunc: error getting volume info: %v", err)
 		}
 		if len(resp.Volumes) != 1 {
-			return nil, "", fmt.Errorf("VolumeStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("volumeStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
 		}
 
 		v := &resp.Volumes[0]
@@ -103,14 +103,14 @@ func VolumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefre
 	}
 }
 
-func SnapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateRefreshFunc {
+func snapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateRefreshFunc {
 	return func() (result interface{}, state string, err error) {
 		resp, err := provider.Snapshots([]string{snapshotID}, ec2.NewFilter())
 		if err != nil {
-			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: error getting snapshot info: %v", err)
+			return nil, "", fmt.Errorf("snapshotStateRefreshFunc: error getting snapshot info: %v", err)
 		}
 		if len(resp.Snapshots) != 1 {
-			return nil, "", fmt.Errorf("SnapshotStateRefreshFunc: expected to get one snapshot but got %+v: %v", resp, err)
+			return nil, "", fmt.Errorf("snapshotStateRefreshFunc: expected to get one snapshot but got %+v: %v", resp, err)
 		}
 
 		s := &resp.Snapshots[0]
