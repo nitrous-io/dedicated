@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -30,7 +31,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/tokens"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
@@ -98,7 +98,7 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
 			},
 			"POST": {
-				"/oauth/token":                  r("tokens.Post", tokens.Post),
+				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
 				"/users/email_signup":           r("users.EmailCapture", users.EmailCapture),
 				"/users":                        r("users.Create", users.Create),
 				"/user/confirm":                 r("users.Confirm", users.Confirm),
@@ -155,8 +155,10 @@ func (s *Server) drawRoutes() {
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
+				"/oauth/clients/{clientid}":           r("oauth.ShowClient", oauth.ShowClient),
 			},
 			"POST": {
+				"/oauth/authorize":                         r("oauth.Authorize", oauth.Authorize),
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
 				"/user/resend_phone_code":                  r("users.ResendPhoneCode", users.ResendPhoneCode),
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
@@ -218,7 +220,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
 				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
-				"/logout":                                 r("tokens.Logout", tokens.Logout),
+				"/logout":                                 r("oauth.Logout", oauth.Logout),
 				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
 			},
 		}

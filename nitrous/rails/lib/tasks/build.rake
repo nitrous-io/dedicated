@@ -6,6 +6,7 @@ namespace :build do
       '/public/app/index.html'         => {layout: 'layouts/web_app', template: 'web_app/index'},
       '/public/ide/index.html'         => {layout: 'layouts/web_app', template: 'web_app/ide'},
       '/public/token_login/index.html' => {layout: 'layouts/bare',    template: 'web_app/token_login'},
+      '/public/consent/index.html'     => {layout: 'layouts/bare',    template: 'web_app/consent'},
       '/public/index.html'             => {layout: 'layouts/pages',   template: 'pages/home'}
     }
 

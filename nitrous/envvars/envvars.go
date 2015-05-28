@@ -7,103 +7,36 @@ import (
 	"strings"
 )
 
-var (
-	AESKey             string
-	TrustKey           string
-	Debug              string
-	DefaultAptDist     string
-	DefaultAptLocation string
-	DefaultProvider    string
-	DockerVersion      string
-	FreighterdVersion  string
-	HostBuilderURL     string
-	HostHostname       string
-	MixpanelToken      string
-	NitrousPgUrl       string
-	ProxyHostname      string
-	PreviewHostname    string
-	WebHostname        string
-
-	StopTimeout string
-	KillTimeout string
-
-	CAKeyPath  string
-	CACertPath string
-
-	LibratoUser     string
-	LibratoToken    string
-	LibratoInterval string
-
-	SendgridUsername string
-	SendgridPassword string
-
-	StripePublicKey string
-	StripeSecretKey string
-
-	ProvisionerUser     string
-	ProvisionerInterval string
-
-	ActivationEmailInterval string
-
-	GetStartedEmailIntervalFirst  string
-	GetStartedEmailIntervalSecond string
-	GetStartedEmailIntervalThird  string
-
-	GitHubOAuthClientID     string
-	GitHubOAuthClientSecret string
-
-	TwilioNumber     string
-	TwilioAccountSID string
-	TwilioAuthToken  string
-
-	SecretToken string // for msgverifier/hmactokens
-
-	RedisHost string
-	RedisPort string
-	RedisDB   int64
-
-	// Controls whether 'update now' option is available to users.  Defaults to
-	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
-	// false
-	EnableSelfUpgrade = true
-
-	// Feature flag for queue
-	EnableQueue bool
-
-	// email blacklist
-	EmailBlacklistPath string
-)
-
 const (
 	DBEnvVar       = "NITROUS_PG_URL"
 	MixpanelEnvVar = "MIXPANEL_TOKEN"
 )
 
-func init() {
-	AESKey = os.Getenv("AES_KEY")
-	TrustKey = os.Getenv("TRUST_KEY")
-	Debug = os.Getenv("DEBUG")
-	DefaultAptDist = os.Getenv("DEFAULT_APT_DIST")
+var (
+	AESKey             = os.Getenv("AES_KEY")
+	TrustKey           = os.Getenv("TRUST_KEY")
+	Debug              = os.Getenv("DEBUG")
+	DefaultAptDist     = os.Getenv("DEFAULT_APT_DIST")
 	DefaultAptLocation = os.Getenv("DEFAULT_APT_LOCATION")
-	DefaultProvider = os.Getenv("DEFAULT_PROVIDER")
-	DockerVersion = os.Getenv("DOCKER_VERSION")
-	FreighterdVersion = os.Getenv("FREIGHTERD_VERSION")
-	HostBuilderURL = os.Getenv("HOSTBUILDER_URL")
-	HostHostname = os.Getenv("HOST_HOSTNAME")
-	MixpanelToken = os.Getenv(MixpanelEnvVar)
-	NitrousPgUrl = os.Getenv(DBEnvVar)
-	ProxyHostname = os.Getenv("PROXY_HOSTNAME")
-	PreviewHostname = os.Getenv("PREVIEW_HOSTNAME")
-	WebHostname = os.Getenv("WEB_HOSTNAME")
+	DefaultProvider    = os.Getenv("DEFAULT_PROVIDER")
+	DockerVersion      = os.Getenv("DOCKER_VERSION")
+	FreighterdVersion  = os.Getenv("FREIGHTERD_VERSION")
+	HostBuilderURL     = os.Getenv("HOSTBUILDER_URL")
+	HostHostname       = os.Getenv("HOST_HOSTNAME")
+	MixpanelToken      = os.Getenv(MixpanelEnvVar)
+	NitrousPgUrl       = os.Getenv(DBEnvVar)
+	ProxyHostname      = os.Getenv("PROXY_HOSTNAME")
+	PreviewHostname    = os.Getenv("PREVIEW_HOSTNAME")
+	WebHostname        = os.Getenv("WEB_HOSTNAME")
 
 	StopTimeout = os.Getenv("STOP_TIMEOUT")
 	KillTimeout = os.Getenv("KILL_TIMEOUT")
 
-	CAKeyPath = os.Getenv("CA_KEY_PATH")
+	CAKeyPath  = os.Getenv("CA_KEY_PATH")
 	CACertPath = os.Getenv("CA_CERT_PATH")
 
-	LibratoUser = os.Getenv("LIBRATO_USER")
-	LibratoToken = os.Getenv("LIBRATO_TOKEN")
+	LibratoUser     = os.Getenv("LIBRATO_USER")
+	LibratoToken    = os.Getenv("LIBRATO_TOKEN")
 	LibratoInterval = os.Getenv("LIBRATO_INTERVAL")
 
 	SendgridUsername = os.Getenv("SENDGRID_USERNAME")
@@ -112,67 +45,94 @@ func init() {
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
 
-	ProvisionerUser = os.Getenv("PROVISIONER_USER")
+	ProvisionerUser     = os.Getenv("PROVISIONER_USER")
 	ProvisionerInterval = os.Getenv("PROVISIONER_INTERVAL")
 
 	ActivationEmailInterval = os.Getenv("ACTIVATION_EMAIL_INTERVAL")
 
-	GetStartedEmailIntervalFirst = os.Getenv("GET_STARTED_INTERVAL_FIRST")
+	GetStartedEmailIntervalFirst  = os.Getenv("GET_STARTED_INTERVAL_FIRST")
 	GetStartedEmailIntervalSecond = os.Getenv("GET_STARTED_INTERVAL_SECOND")
-	GetStartedEmailIntervalThird = os.Getenv("GET_STARTED_INTERVAL_THIRD")
+	GetStartedEmailIntervalThird  = os.Getenv("GET_STARTED_INTERVAL_THIRD")
 
-	GitHubOAuthClientID = os.Getenv("GITHUB_CLIENT_ID")
+	GitHubOAuthClientID     = os.Getenv("GITHUB_CLIENT_ID")
 	GitHubOAuthClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 
-	TwilioNumber = os.Getenv("TWILIO_NUMBER")
+	TwilioNumber     = os.Getenv("TWILIO_NUMBER")
 	TwilioAccountSID = os.Getenv("TWILIO_ACCOUNT_SID")
-	TwilioAuthToken = os.Getenv("TWILIO_AUTH_TOKEN")
+	TwilioAuthToken  = os.Getenv("TWILIO_AUTH_TOKEN")
 
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
-	EnableQueue = os.Getenv("ENABLE_QUEUE") == "true"
-	if EnableQueue {
-		RedisHost = os.Getenv("REDIS_HOST")
-		RedisPort = os.Getenv("REDIS_PORT")
-		var err error
-		RedisDB, err = strconv.ParseInt(os.Getenv("REDIS_DB"), 10, 64)
-		if err != nil {
-			log.Fatalf("REDIS_DB is not acceptable int64: %v", err)
-		}
-	}
+	// Feature flag for queue
+	EnableQueue = parseBoolWithDefault(os.Getenv("ENABLE_QUEUE"), false)
 
-	enableUpgradeEnv := os.Getenv("ENABLE_SELF_UPGRADE")
-	if enableUpgradeEnv == "" {
-		EnableSelfUpgrade = true
-	} else {
-		var err error
-		EnableSelfUpgrade, err = strconv.ParseBool(enableUpgradeEnv)
-		if err != nil {
-			log.Fatalf("ENABLE_SELF_UPGRADE not acceptable boolean: %s", err)
-		}
-	}
+	RedisHost = os.Getenv("REDIS_HOST")
+	RedisPort = os.Getenv("REDIS_PORT")
+	RedisDB   = parseInt64(os.Getenv("REDIS_DB"))
 
+	// Controls whether 'update now' option is available to users.  Defaults to
+	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
+	// false
+
+	EnableSelfUpgrade = parseBoolWithDefault(os.Getenv("ENABLE_SELF_UPGRADE"), true)
+
+	// email blacklist
 	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
+)
+
+func parseBoolWithDefault(s string, def bool) bool {
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		return def
+	}
+	return b
 }
 
-func CheckCAVariables() {
+func parseInt64(s string) int64 {
+	i, _ := strconv.ParseInt(s, 10, 64)
+	return i
+}
+
+func init() {
+	CheckCA()
+	CheckDB()
+	CheckSendgrid()
+	CheckStripe()
+	CheckHostnames()
+	CheckGitHubOAuth()
+	CheckSecretToken()
+}
+
+func CheckCA() {
 	if CAKeyPath == "" {
-		log.Fatalf("CA_KEY_PATH is not set")
+		log.Fatal("CA_KEY_PATH is not set")
 	}
 	if CACertPath == "" {
-		log.Fatalf("CA_CERT_PATH is not set")
+		log.Fatal("CA_CERT_PATH is not set")
 	}
 }
 
-func CheckSendgridVariables() {
+func CheckDB() {
+	if NitrousPgUrl == "" {
+		log.Fatalf("nitrousd: %s is not defined", DBEnvVar)
+	}
+}
+
+func CheckSendgrid() {
 	if SendgridUsername == "" {
-		log.Fatalf("SENDGRID_USERNAME not set")
+		log.Fatal("SENDGRID_USERNAME not set")
 	} else if strings.HasPrefix(SendgridUsername, "disable") {
 		log.Println("Warning: Sendgrid mailer disabled.")
 		return
 	}
 	if SendgridPassword == "" {
-		log.Fatalf("SENDGRID_PASSWORD not set")
+		log.Fatal("SENDGRID_PASSWORD not set")
+	}
+}
+
+func CheckStripe() {
+	if StripeSecretKey == "" {
+		log.Fatal("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 

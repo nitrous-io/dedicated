@@ -48,26 +48,14 @@ func main() {
 		}
 	}()
 
-	envvars.CheckCAVariables()
 	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
 		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
 	}
-	envvars.CheckSendgridVariables()
-	envvars.CheckHostnames()
-	envvars.CheckGitHubOAuth()
-	envvars.CheckSecretToken()
 
 	stripe.Key = envvars.StripeSecretKey
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
 
 	// setup database
-	dbURL := envvars.NitrousPgUrl
-	if dbURL == "" {
-		logr.FatalfExit("nitrousd: %s is not defined", envvars.DBEnvVar)
-	}
-	dbConn, err := db.NewDatabase(dbURL)
+	dbConn, err := db.NewDatabase(envvars.NitrousPgUrl)
 	if err != nil {
 		logr.FatalExit(err)
 	}

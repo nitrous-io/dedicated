@@ -1,4 +1,4 @@
-package tokens
+package oauth
 
 import (
 	"database/sql"
@@ -34,7 +34,7 @@ func init() {
 	TimerFunc = time.NewTimer
 }
 
-func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
 	grantType := r.FormValue("grant_type")
@@ -98,6 +98,8 @@ func Post(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
+	} else if grantType == "authorization_code" {
+		return TokenFromAuthorizationCode(env, w, r)
 	} else {
 		return errGrantType
 	}
