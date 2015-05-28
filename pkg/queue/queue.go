@@ -13,11 +13,11 @@ import (
 )
 
 type QueuePublisher struct {
-	*redismq.Queue
+	Queue *redismq.Queue
 }
 
 type QueueConsumer struct {
-	*redismq.Consumer
+	Consumer *redismq.Consumer
 }
 
 type Message struct {
@@ -80,18 +80,18 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 	str := string(b)
 	forever := tries == -1
 	for forever || tries >= 0 {
-		err := qp.Put(str)
+		err := qp.Queue.Put(str)
 		if err != nil {
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
-				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Queue.Name, err)
 				tries--
 				time.Sleep(retryInterval)
 				continue
 			}
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
-				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Name, err)
+				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v\n", msg.UUID, msg.Event, qp.Queue.Name, err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -103,7 +103,7 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 }
 
 func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
-	c, err := qp.AddConsumer(qp.Name)
+	c, err := qp.Queue.AddConsumer(qp.Queue.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +112,12 @@ func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
 }
 
 func (qc *QueueConsumer) Consume() (*Message, error) {
-	p, err := qc.Get()
+	p, err := qc.Consumer.Get()
 	if err != nil {
-		if qc.HasUnacked() {
+		if qc.Consumer.HasUnacked() {
 			log.Println("pushed the message to working queue even if it failes to get a message. Requeue again to process")
 			time.Sleep(1 * time.Second)
-			qc.RequeueWorking()
+			qc.Consumer.RequeueWorking()
 		}
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (m *Message) Fail() {
 }
 
 func (qc *QueueConsumer) Start(stop chan struct{}) error {
-	queueName := qc.Name
+	queueName := qc.Consumer.Name
 	log.Printf("started queue consumer %s", queueName)
 
 	msg := make(chan *Message)

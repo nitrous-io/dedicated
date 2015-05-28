@@ -74,7 +74,7 @@ var _ = Describe("HostQueueHandler", func() {
 
 	AfterEach(func() {
 		if qp != nil {
-			qp.Delete()
+			qp.Queue.Delete()
 		}
 		if redisClient != nil {
 			redisClient.Close()

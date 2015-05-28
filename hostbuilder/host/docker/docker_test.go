@@ -127,7 +127,7 @@ var _ = Describe("host/docker", func() {
 
 		AfterEach(func() {
 			if qp != nil {
-				qp.Delete()
+				qp.Queue.Delete()
 			}
 			if redisClient != nil {
 				redisClient.Close()
@@ -148,7 +148,7 @@ var _ = Describe("host/docker", func() {
 			info, err = h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
-			Expect(qp.GetInputLength()).To(Equal(int64(3)))
+			Expect(qp.Queue.GetInputLength()).To(Equal(int64(3)))
 			events := [3]event.Event{
 				event.HostCreating,
 				event.HostCreating,
