@@ -10,12 +10,13 @@ import (
 	"github.com/nitrous-io/dedicated/event"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 )
@@ -242,32 +243,25 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 // FIXME: Copy from nitrous/controllers/containers/containers.go
 // Need to be shared
 func (s *Server) PublishContainerEvent(name controllers.EventName, c *container.Container, queueInfo *hh.QueueInfo) error {
-	var userIDs []int64
-	err := s.db.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, c.ID)
+	userIDs, err := containercollab.GetCollaboratorIDs(s.db, c.ID)
 	if err != nil {
 		return fmt.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 	}
 	userIDs = append(userIDs, c.UserID)
-
-	data := map[string]interface{}{
-		"container": serializers.SerializeContainer(c),
-	}
+	data := map[string]interface{}{}
 
 	if queueInfo.RequesterID > 0 {
 		user, err := user.FindByID(s.db, queueInfo.RequesterID)
 		if err != nil {
 			return fmt.Errorf("Failed to get requester(%d): %+v", queueInfo.RequesterID, err)
 		}
+
 		data["initiated_by"] = map[string]interface{}{
 			"username": user.Username,
 			"id":       user.ID,
 		}
 	}
 
-	for _, userID := range userIDs {
-		topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
-		s.Events.Publish(controllers.NewEvent(name, data), topic)
-	}
-
+	containers.PublishContainerEventToUsers(s.Events, name, c, userIDs, data)
 	return nil
 }
