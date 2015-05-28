@@ -500,7 +500,7 @@ func (h *Host) Destroy() error {
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "terminated",
 	}
 	h.Printf("waiting for state to become %s", state.Target)
@@ -549,7 +549,7 @@ func (h *Host) stopInstance() error {
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "stopped",
 	}
 	h.Printf("waiting for state to become %s", state.Target)
@@ -577,7 +577,7 @@ func (h *Host) Start() (*host.Info, error) {
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "stopped"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "running",
 	}
 	h.Printf("waiting for state to become %s", state.Target)
@@ -909,7 +909,7 @@ func createInstance(ctx *host.HostContext) error {
 	state := &StateChangeConf{
 		Pending: []string{"pending"},
 		Target:  "running",
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 	}
 	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(state)
