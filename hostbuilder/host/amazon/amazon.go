@@ -344,15 +344,15 @@ func (h *Host) Respec() (*host.Info, error) {
 
 	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
 	if err != nil {
-		return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - failed to get root volume info, err: %v", err), label)
+		return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
 	}
 	if len(resp.Volumes) != 1 {
-		return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - expected to get 1 volume but got %+v", resp.Volumes), label)
+		return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
 	}
 	rootVolume := &resp.Volumes[0]
 	if rootVolume.VolumeId != rootDevice.VolumeId {
 		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, mh.Error(fmt.Errorf("amazon: DescribeVolumes - got unexpected volume: %+v", rootVolume), label)
+		return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
 	}
 
 	currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
@@ -415,7 +415,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 		{Key: "dedicated", Value: h.env},
 	}
 	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
-		return fmt.Errorf("amazon: failed to tag snapshot %v, err: %v", snapshot.Id, err)
+		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
 	}
 	h.Printf("Created snapshot %s of volume %s in %v", snapshot.Id, rootVolume.VolumeId, time.Now().Sub(start))
 
@@ -459,7 +459,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	// 7. Delete old EBS volume.
 	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
 	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
-		return fmt.Errorf("amazon: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
 	}
 
 	return nil
