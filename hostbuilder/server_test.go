@@ -46,7 +46,12 @@ var _ = Describe("hostbuilder", func() {
 	var err error
 
 	BeforeEach(func() {
-		config := fmt.Sprintf("{\"dummy\":{},\"redis\":{\"host\":\"%s\",\"port\":\"%s\",\"database\":%d}}", test.RedisHost, test.RedisPort, test.RedisTestDb)
+		config := fmt.Sprintf(`
+		{"dummy":{},
+		 "allow_partial_list": true,
+		 "redis":{"host":"%s","port":"%s","database":%d}
+		}`,
+			test.RedisHost, test.RedisPort, test.RedisTestDb)
 		s, err = New([]byte(config))
 		Expect(err).To(BeNil())
 		ts = httptest.NewServer(s.Router)
@@ -357,6 +362,39 @@ var _ = Describe("hostbuilder", func() {
 				Hosts []Response `json:"hosts"`
 			}
 			json.Unmarshal(body, &j)
+			Expect(j.Hosts).To(HaveLen(2)) // See hostbuilder's dummy host.
+
+			h1 := j.Hosts[0]
+			Expect(h1.State).To(Equal(state.Running.String()))
+
+			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+		})
+
+		It("should successfully return partial hosts with AllowPartialList enabled", func() {
+			Expect(s.Config.AllowPartialList).To(BeTrue())
+			h := &dummy.Host{ListSuccess: true, ListPartialError: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.Get(fmt.Sprintf("%s/%s?%s", ts.URL, "hosts", form.Encode()))
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			body, err := ioutil.ReadAll(resp.Body)
+			fmt.Println(string(body))
+			Expect(err).To(BeNil())
+			var j struct {
+				Hosts        []Response `json:"hosts"`
+				PartialError string     `json:"partial_error"`
+			}
+			json.Unmarshal(body, &j)
+			Expect(j.PartialError).To(Equal("not enough dummies"))
 			Expect(j.Hosts).To(HaveLen(2)) // See hostbuilder's dummy host.
 
 			h1 := j.Hosts[0]
