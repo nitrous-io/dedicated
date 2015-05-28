@@ -387,7 +387,7 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 	}
 
 	info, err := h.Info()
-	if err != nil {
+	if err == nil {
 		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop.String())
 	}
 
