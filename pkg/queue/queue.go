@@ -52,7 +52,7 @@ func (a Action) IsA(actionName string) bool {
 	return a.String() == actionName
 }
 
-type queueHandler func(*QueueConsumer, *Message) error
+type queueHandler func(*Message) error
 
 var queueRoutes map[string]queueHandler
 
@@ -206,7 +206,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			stop <- c
 			return nil
 		case m := <-msg:
-			err := queueRoutes[queueName](qc, m)
+			err := queueRoutes[queueName](m)
 			if err != nil {
 				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 				m.Fail()

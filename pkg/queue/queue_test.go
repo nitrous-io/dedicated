@@ -23,7 +23,7 @@ import (
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -37,7 +37,7 @@ func init() {
 
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -55,7 +55,7 @@ func init() {
 
 		stop := make(chan struct{})
 		blocking := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			<-blocking
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
@@ -311,7 +311,7 @@ var _ = Describe("pkg/queue", func() {
 		It("starts queue consumer", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			handler := func(m *queue.Message) error {
 				redisClient.Set("test", m.UUID)
 				return nil
 			}
@@ -421,8 +421,7 @@ var _ = Describe("pkg/queue", func() {
 		It("submits a failed message to failed queue", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
-				fmt.Println("HAHAAHH")
+			handler := func(m *queue.Message) error {
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
