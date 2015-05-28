@@ -682,8 +682,39 @@ func (h *Host) stopInstance() error {
 	return nil
 }
 
-func (h *Host) StopWithQueue(qp *queue.QueuePublisher, info *host.QueueInfo) (*host.Info, error) {
-	return nil, nil
+func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("stop")
+	defer mh.UpdateSince(label, time.Now())
+
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop.String())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, mh.Error(err, label)
+	}
+
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, mh.Error(err, label)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "stopping"},
+		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "stopped",
+	}
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, mh.Error(err, label)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+	info, err := h.Info()
+	if err != nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop.String())
+	}
+
+	return info, err
 }
 
 // Start starts the instance and allocate the desired IP address to it

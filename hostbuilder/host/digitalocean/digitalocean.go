@@ -367,7 +367,31 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	return nil, nil
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop.String())
+
+	id, err := h.id()
+	if err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOff(id)
+	if err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop.String())
+		return nil, err
+	}
+
+	info, err := h.Info()
+	if err != nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop.String())
+	}
+
+	return info, err
 }
 
 func (h *Host) Start() (*host.Info, error) {
