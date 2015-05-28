@@ -359,78 +359,122 @@ func (h *Host) Respec() (*host.Info, error) {
 		configuredSize := computeSize(h.Config.StorageSize)
 		if currentSize < configuredSize {
 			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
-			// Resize root volume.
-			// 1. Stop instance.
-			// 2. Detach existing EBS volume.
-			// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
-			// 4. Create new EBS volume from snapshot with new size.
-			// 5. Attach new EBS volume to instance.
-			// 6. Start instance.
-			// 7. Delete old EBS volume.
 
-			// 1. Stop instance.
-			if err := h.stopInstance(); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance, err: %v", err), label)
-			}
-
-			// 2. Detach existing EBS volume.
-			start := time.Now()
-			if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to detach root volume, err: %v", err), label)
-			} else {
-				rootVolume = vol
-			}
-			h.Printf("Detached root volume in %v", time.Now().Sub(start))
-
-			// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
-			start = time.Now()
-			desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %dGB to %dGB",
-				h.instance.InstanceId, currentSize, configuredSize)
-
-			snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err), label)
-			}
-
-			tags := []ec2.Tag{
-				{Key: "InstanceID", Value: h.instance.InstanceId},
-				{Key: "dedicated", Value: h.env},
-			}
-			if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to tag snapshot %v, err: %v", snapshot.Id, err), label)
-			}
-			h.Printf("Created snapshot %s of volume %s in %v", snapshot.Id, rootVolume.VolumeId, time.Now().Sub(start))
-
-			// 4. Create new EBS volume from snapshot with new size.
-			start = time.Now()
-			newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, configuredSize)
-			if err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err), label)
-			}
-			h.Printf("Created new volume %s from snapshot %s in %v", newVolume.VolumeId, snapshot.Id, time.Now().Sub(start))
-
-			// 5. Attach new EBS volume to instance.
-			start = time.Now()
-			if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err), label)
-			} else {
-				newVolume = vol
-			}
-			h.Printf("Attached new volume %s to instance %s in %v", newVolume.VolumeId, h.instance.InstanceId, time.Now().Sub(start))
-
-			// 6. Start instance.
-			if _, err := h.Start(); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to start instance %s after respec, err: %v", h.instance.InstanceId, err), label)
-			}
-
-			// 7. Delete old EBS volume.
-			if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
-				return nil, mh.Error(fmt.Errorf("amazon: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err), label)
+			if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+				return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
 			}
 		}
 	}
 
 	return h.Info()
+}
+
+type resizeRecoveryError struct {
+	recoveryErr error
+	origErr     error
+}
+
+func (e *resizeRecoveryError) Error() string {
+	return fmt.Sprintf("failed to recover from resize error, err: %v, original error: %v", e.recoveryErr, e.origErr)
+}
+
+func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err error) {
+	// When set to true, we recover the existing root volume by re-attaching it
+	// to the instance and starting it back up.
+	var recoverExistingVolume bool
+	defer func() {
+		if !recoverExistingVolume {
+			return
+		}
+
+		// Re-attach existing root volume.
+		h.Printf("Recovering by re-attaching existing root volume %s to %s", rootVolume.VolumeId, h.instance.InstanceId)
+		if _, e := attachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId, rootDeviceName); e != nil {
+			err = &resizeRecoveryError{recoveryErr: e, origErr: err}
+			return
+		}
+
+		if _, e := h.Start(); e != nil {
+			err = &resizeRecoveryError{recoveryErr: e, origErr: err}
+			return
+		}
+		h.Printf("Recovered existing root volume %s for %s", rootVolume.VolumeId, h.instance.InstanceId)
+	}()
+
+	// Resize root volume.
+	// 1. Stop instance.
+	// 2. Detach existing EBS volume.
+	// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
+	// 4. Create new EBS volume from snapshot with new size.
+	// 5. Attach new EBS volume to instance.
+	// 6. Start instance.
+	// 7. Delete old EBS volume.
+
+	// 1. Stop instance.
+	if err := h.stopInstance(); err != nil {
+		return fmt.Errorf("amazon: failed to stop instance, err: %v", err)
+	}
+
+	// 2. Detach existing EBS volume.
+	start := time.Now()
+	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
+	} else {
+		rootVolume = vol
+	}
+	h.Printf("Detached root volume in %v", time.Now().Sub(start))
+
+	// 3. Take snapshot of root volume. Tag snapshot so we can identify it.
+	start = time.Now()
+	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
+		h.instance.InstanceId, rootVolume.Size, newSize)
+
+	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+	if err != nil {
+		recoverExistingVolume = true
+		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
+	}
+
+	tags := []ec2.Tag{
+		{Key: "InstanceID", Value: h.instance.InstanceId},
+		{Key: "dedicated", Value: h.env},
+	}
+	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
+		recoverExistingVolume = true
+		return fmt.Errorf("amazon: failed to tag snapshot %v, err: %v", snapshot.Id, err)
+	}
+	h.Printf("Created snapshot %s of volume %s in %v", snapshot.Id, rootVolume.VolumeId, time.Now().Sub(start))
+
+	// 4. Create new EBS volume from snapshot with new size.
+	start = time.Now()
+	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	if err != nil {
+		recoverExistingVolume = true
+		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
+	}
+	h.Printf("Created new volume %s from snapshot %s in %v", newVolume.VolumeId, snapshot.Id, time.Now().Sub(start))
+
+	// 5. Attach new EBS volume to instance.
+	start = time.Now()
+	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+		recoverExistingVolume = true
+		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
+	} else {
+		newVolume = vol
+	}
+	h.Printf("Attached new volume %s to instance %s in %v", newVolume.VolumeId, h.instance.InstanceId, time.Now().Sub(start))
+
+	// 6. Start instance.
+	if _, err := h.Start(); err != nil {
+		return fmt.Errorf("amazon: failed to start instance %s after respec, err: %v", h.instance.InstanceId, err)
+	}
+
+	// 7. Delete old EBS volume.
+	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
+		return fmt.Errorf("amazon: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	}
+
+	return nil
 }
 
 // Destroy releases the instance Elastic IP and terminate it
