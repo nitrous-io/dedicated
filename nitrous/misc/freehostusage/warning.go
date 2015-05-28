@@ -8,25 +8,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const (
-	warningSubject = `Workspace termination warning - 7 day notice`
-	warningMessage = `It looks like you have not been using your Nitrous workspace during the past month.
-
-Your workspace {{ .Slug }} will be terminated in 7 days if you are not actively developing an application.
-
-If you no longer need your workspace and its contents, no further action is required.
-
-Should you wish to keep your workspace, simply start using it regularly.
-
-Please contact us with any questions at support@nitrous.io .
-`
-
-	terminatingSubject = `Workspace termination warning - final notice`
-	terminatingMessage = `Your workspace {{.Slug}} will be terminated in 3 days.
-
-You can upgrade to a paid plan to keep it running.  If you do not wish to upgrade, please be sure to backup your files prior to termination.`
-)
-
 func ScanWarningHosts(d *db.Database, logr *logger.Logger, action HostAction, now time.Time, dryrun bool) {
 	scans, errs := hostscan.ScanHosts(d, now)
 
@@ -38,7 +19,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, action HostAction, no
 
 	for _, scan := range scans {
 		switch scan.State {
-		case hostscan.StateActive, hostscan.StateGracePeriod:
+		case hostscan.StateActive, hostscan.StateGracePeriod, hostscan.StateSkip:
 			if dryrun {
 				logr.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
 				continue
@@ -55,7 +36,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, action HostAction, no
 				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := action.SendAnnouncementForHostScan(scan, warningSubject, warningMessage)
+			err := action.SendAnnouncementForHostScan(scan, WarningSubject, WarningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
@@ -65,7 +46,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, action HostAction, no
 				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := action.SendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
+			err := action.SendAnnouncementForHostScan(scan, TerminatingSubject, TerminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}

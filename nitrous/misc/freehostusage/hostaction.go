@@ -45,7 +45,7 @@ func (action *RealHostAction) UpdateHostWithScan(scan *hostscan.ScanResult) erro
 }
 
 func (action *RealHostAction) SendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error {
-	return hostscan.SendAnnouncementForHostScan(action.DB, scan, warningSubject, warningMessage)
+	return hostscan.SendAnnouncementForHostScan(action.DB, scan, subject, message)
 }
 
 func (action *RealHostAction) SendMessageToHostOwner(h *host.Host, subject, message string) error {

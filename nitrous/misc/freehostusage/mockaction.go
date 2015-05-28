@@ -1,10 +1,8 @@
 package freehostusage
 
 import (
-	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
-	. "github.com/onsi/gomega"
 )
 
 type Message struct {
@@ -14,8 +12,6 @@ type Message struct {
 }
 
 type MockAction struct {
-	DB *db.Database
-
 	RefreshHostErr   error
 	TerminateHostErr error
 	UpdateScanErr    error
@@ -26,8 +22,7 @@ type MockAction struct {
 	RefreshedHosts  []*host.Host
 	TerminatedHosts []*host.Host
 	UpdatedScans    []*hostscan.ScanResult
-	ScanMessages    []*Message
-	OwnerMessages   []*Message
+	SentMessages    []*Message
 }
 
 func (action *MockAction) RefreshHost(h *host.Host) error {
@@ -45,23 +40,20 @@ func (action *MockAction) TerminateHost(h *host.Host) error {
 func (action *MockAction) UpdateHostWithScan(scan *hostscan.ScanResult) error {
 	action.UpdatedScans = append(action.UpdatedScans, scan)
 
-	Expect(scan.UpdateHost(action.DB)).To(BeNil())
-
 	return action.UpdateScanErr
 }
 
 func (action *MockAction) SendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message string) error {
 	msg := &Message{scan.Host, subject, message}
-	action.ScanMessages = append(action.ScanMessages, msg)
-
-	Expect(scan.UpdateHost(action.DB)).To(BeNil())
+	action.SentMessages = append(action.SentMessages, msg)
+	action.UpdatedScans = append(action.UpdatedScans, scan)
 
 	return action.HostScanAnnouncementErr
 }
 
 func (action *MockAction) SendMessageToHostOwner(h *host.Host, subject, message string) error {
 	msg := &Message{h, subject, message}
-	action.OwnerMessages = append(action.OwnerMessages, msg)
+	action.SentMessages = append(action.SentMessages, msg)
 
 	return action.MessageToOwnerErr
 }

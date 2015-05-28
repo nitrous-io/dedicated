@@ -12,11 +12,6 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 )
 
-const (
-	terminatedSubject = `Workspace termination notice`
-	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
-)
-
 func TerminateFreeHost(h *host.Host, logr *logger.Logger, action HostAction, dryrun bool) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
@@ -55,7 +50,7 @@ func TerminateFreeHost(h *host.Host, logr *logger.Logger, action HostAction, dry
 		// continue
 	}
 
-	err = action.SendMessageToHostOwner(h, terminatedSubject, terminatedMessage)
+	err = action.SendMessageToHostOwner(h, TerminatedSubject, TerminatedMessage)
 	if err != nil {
 		logr.Errorf("Unable to send terminate notice for user %d, err: %+v", h.UserID, err)
 		// continue
