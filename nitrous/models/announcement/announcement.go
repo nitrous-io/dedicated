@@ -389,6 +389,30 @@ func SendToOwners(ann *Announcement, owners []*HostOwner, errorHandler func(erro
 	}()
 }
 
+func SendAndSaveForHostID(tx *sqlx.Tx, ann *Announcement, hostID int64) error {
+	owner, err := FindOwnerByHostID(tx, hostID)
+	if err != nil {
+		return err
+	}
+
+	err = Insert(tx, ann)
+	if err != nil {
+		return err
+	}
+
+	err = AddHosts(tx, ann.ID, []int64{hostID})
+	if err != nil {
+		return err
+	}
+
+	err = SendToOwner(ann, owner)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func SendAndSaveGlobalAnnouncement(db *ndb.Database, ann *Announcement, errHandler func(error)) error {
 	owners, err := FindAllOwners(db)
 	if err != nil {

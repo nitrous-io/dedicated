@@ -4,8 +4,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -199,4 +201,27 @@ func ScanHosts(d *db.Database, now time.Time) ([]*ScanResult, []error) {
 	}
 
 	return hostScans, errors
+}
+
+func SendAnnouncementForHostScan(d *db.Database, scan *ScanResult, subject, message string) error {
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		hostID := scan.Host.ID
+		ann := &announcement.Announcement{
+			SubjectTemplate: subject,
+			MessageTemplate: message,
+			ExpiresAt:       pq.NullTime{scan.NextScan, true},
+		}
+
+		err := scan.UpdateHost(tx)
+		if err != nil {
+			return err
+		}
+
+		err = announcement.SendAndSaveForHostID(tx, ann, hostID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

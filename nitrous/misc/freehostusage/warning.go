@@ -3,10 +3,7 @@ package freehostusage
 import (
 	"time"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
 	"github.com/nitrous-io/nitrous-common/logger"
 )
@@ -32,44 +29,6 @@ You can upgrade to a paid plan to keep it running.  If you do not wish to upgrad
 	terminatedSubject = `Workspace termination notice`
 	terminatedMessage = `Your Nitrous Pro workspace has been terminated. You will no longer be able to access this workspace.`
 )
-
-func SendAnnouncementForHostScan(d *db.Database, scan *hostscan.ScanResult, subject, message string) error {
-	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		hostID := scan.Host.ID
-		ann := &announcement.Announcement{
-			SubjectTemplate: subject,
-			MessageTemplate: message,
-			ExpiresAt:       pq.NullTime{scan.NextScan, true},
-		}
-
-		err := scan.UpdateHost(tx)
-		if err != nil {
-			return err
-		}
-
-		owner, err := announcement.FindOwnerByHostID(tx, hostID)
-		if err != nil {
-			return err
-		}
-
-		err = announcement.Insert(tx, ann)
-		if err != nil {
-			return err
-		}
-
-		err = announcement.AddHosts(tx, ann.ID, []int64{hostID})
-		if err != nil {
-			return err
-		}
-
-		err = announcement.SendToOwner(ann, owner)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
 
 func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 	scans, errs := hostscan.ScanHosts(d, time.Now())
@@ -98,7 +57,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := SendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
+			err := hostscan.SendAnnouncementForHostScan(d, scan, warningSubject, warningMessage)
 			if err != nil {
 				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
@@ -108,7 +67,7 @@ func ScanWarningHosts(d *db.Database, logr *logger.Logger, dryrun bool) {
 				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
-			err := SendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
+			err := hostscan.SendAnnouncementForHostScan(d, scan, terminatingSubject, terminatingMessage)
 			if err != nil {
 				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}
