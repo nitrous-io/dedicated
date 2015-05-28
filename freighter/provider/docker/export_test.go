@@ -59,3 +59,7 @@ func NewDockerProviderWithHost(logger *util.Logger, dataPath string, host string
 		DockerClientProxy: client,
 	}, nil
 }
+
+func SetNitrousToolsHostFilepath(pth string) {
+	nitrousToolsHostPath = pth
+}

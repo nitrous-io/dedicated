@@ -2,6 +2,8 @@ package docker
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	dockerclient "github.com/fsouza/go-dockerclient"
@@ -460,6 +462,38 @@ var _ = Describe("provider/docker config", func() {
 				Expect(binds[1]).To(MatchRegexp(`.+/containers/php-box/.nitrous-container-slug:/.nitrous-container-slug:ro$`))
 				Expect(binds[2]).To(MatchRegexp(`.+/volumes/php-box+-\w+:/opt/data$`))
 			})
+		})
+
+		It("sets the Nitrous tools folder if present", func() {
+			pth, err := ioutil.TempDir("", "tools")
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(pth)
+
+			SetNitrousToolsHostFilepath(pth)
+
+			hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+				HostConfig: oldHostCfg,
+			}, &provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "nitrousio/php",
+			}, true)
+			Expect(err).To(BeNil())
+
+			Expect(hostCfg.Binds).To(ContainElement(pth + ":/.nitrous:ro"))
+		})
+
+		It("ignores the Nitrous tools folder if not present", func() {
+			SetNitrousToolsHostFilepath("/bla/bla2")
+
+			hostCfg, err := prov.MkHostConfig(&dockerclient.Container{
+				HostConfig: oldHostCfg,
+			}, &provider.ContainerConfig{
+				Hostname: cnrName,
+				Image:    "nitrousio/php",
+			}, true)
+			Expect(err).To(BeNil())
+
+			Expect(hostCfg.Binds).ToNot(ContainElement("/bla/bla2:/.nitrous:ro"))
 		})
 	})
 })
