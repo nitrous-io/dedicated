@@ -258,6 +258,10 @@
 			"Rev": "691ac7d4ac14053de3cbe16e07b79246300db97d"
 		},
 		{
+			"ImportPath": "github.com/streadway/amqp",
+			"Rev": "6a378341a305bfbc252e8a6638f16cf443221997"
+		},
+		{
 			"ImportPath": "github.com/stripe/stripe-go",
 			"Comment": "v1.0.3",
 			"Rev": "fdd4865a8a8eb649d9cb5b1370e3a12e7f75b5de"
