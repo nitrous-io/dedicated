@@ -32,6 +32,7 @@ test_app() {
   echo "===> Running test for $app"
   cd $app
 
+  export TESTING=1
   if [ -f .env-example ]; then
     forego run -e .env-example ginkgo -r -trace $@
   else

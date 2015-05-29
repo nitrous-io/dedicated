@@ -1,6 +1,7 @@
 package envvars
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -13,6 +14,8 @@ const (
 )
 
 var (
+	Testing = parseBoolWithDefault(os.Getenv("TESTING"), false)
+
 	AESKey             = os.Getenv("AES_KEY")
 	TrustKey           = os.Getenv("TRUST_KEY")
 	Debug              = os.Getenv("DEBUG")
@@ -79,6 +82,13 @@ var (
 	// email blacklist
 	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
 )
+
+func init() {
+	if strings.HasSuffix(os.Args[0], ".test") && !Testing {
+		fmt.Println("ERROR: It appears that you are running tests, but the env var \"TESTING\" is not set!")
+		os.Exit(1)
+	}
+}
 
 func parseBoolWithDefault(s string, def bool) bool {
 	b, err := strconv.ParseBool(s)
