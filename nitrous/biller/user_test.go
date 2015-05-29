@@ -349,6 +349,35 @@ var _ = Describe("biller/user", func() {
 			Expect(items).To(HaveLen(0))
 		})
 
+		It("should allow a free host if the billing profile is in state exempt", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateExempt, u.ID)
+			Expect(err).To(BeNil())
+
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 0,
+					Free:        true,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			createHostEndingTransition(db, hs1.H.ID, "born", "running", startTime, startTime.Add(7*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "running", "stopped", startTime.Add(7*time.Hour), startTime.Add(14*time.Hour))
+			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
+			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
+
+			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			Expect(ch).To(Equal(int64(0)))
+			Expect(items).To(HaveLen(1))
+			Expect(items[0].HostID).To(Equal(sql.NullInt64{hs1.H.ID, true}))
+			Expect(items[0].Hours).To(Equal(sql.NullInt64{13, true}))
+			Expect(items[0].HourlyPrice).To(Equal(sql.NullInt64{0, true}))
+			Expect(items[0].ItemType).To(Equal(invoiceitem.ItemTypeFreeCompute))
+		})
+
 		It("should collate all running and stopped usage", func() {
 			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
