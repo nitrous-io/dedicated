@@ -375,7 +375,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err != nil {
-		log.Printf("uuid=%s Failed to stop a host with queue: %+v\n", providerConfig["uuid"], err)
+		log.Printf("uuid=%s Failed to stop a host: %+v\n", providerConfig["uuid"], err)
 		return err
 	}
 
