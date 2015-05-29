@@ -399,7 +399,7 @@ var _ = Describe("controllers/amazon", func() {
 				Expect(hT.PreviousState).To(Equal(sql.NullString{"born", true}))
 				Expect(hT.State).To(Equal("running"))
 				Expect(hT.CreatedAt).To(Equal(h.CreatedAt))
-				Expect(hT.EndedAt.IsZero()).To(BeTrue())
+				Expect(hT.EndedAt).To(BeNil())
 			})
 
 			It("should not create a host transition if it already exists", func() {
