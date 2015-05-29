@@ -21,12 +21,8 @@ type progress struct {
 	Stream string `json:"stream"`
 }
 
-func (s *Server) HostQueueHandler() func(d queue.Delivery) error {
-	return func(d queue.Delivery) error {
-		m, ok := d.(*queue.Message)
-		if !ok {
-			return queue.ErrUnexpectedDelivery
-		}
+func (s *Server) HostQueueHandler() func(m *queue.Message) error {
+	return func(m *queue.Message) error {
 		db := s.db
 		if queue.Create.IsA(m.Action) {
 			var queueInfo hh.QueueInfo

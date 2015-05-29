@@ -31,7 +31,7 @@ var _ = Describe("HostQueueHandler", func() {
 		qp          queue.Publisher
 		qc          queue.Consumer
 		db          *db.Database
-		handler     func(d queue.Delivery) error
+		handler     func(m *queue.Message) error
 		h           *host.Host
 		u           *user.User
 		svr         *server.Server

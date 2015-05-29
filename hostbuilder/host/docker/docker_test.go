@@ -157,9 +157,8 @@ var _ = Describe("host/docker", func() {
 
 			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
-				d, err := qc.Consume()
-				m := d.(*queue.Message)
-				m.Ack(10 * time.Millisecond)
+				m, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))

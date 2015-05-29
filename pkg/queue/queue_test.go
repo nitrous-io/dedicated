@@ -23,7 +23,7 @@ import (
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
-		h := func(d queue.Delivery) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -37,7 +37,7 @@ func init() {
 
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
-		h := func(d queue.Delivery) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -55,8 +55,7 @@ func init() {
 
 		stop := make(chan struct{})
 		blocking := make(chan struct{})
-		h := func(d queue.Delivery) error {
-			m, _ := d.(*queue.Message)
+		h := func(m *queue.Message) error {
 			<-blocking
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
@@ -218,10 +217,9 @@ var _ = Describe("pkg/queue", func() {
 
 		Describe("Consume", func() {
 			It("consumes a message from queue", func() {
-				d, err := qc.Consume()
+				m, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 
-				m := d.(*queue.Message)
 				Expect(m.UUID).To(Equal("1234"))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.Event).To(Equal("image.created"))
@@ -236,6 +234,7 @@ var _ = Describe("pkg/queue", func() {
 		var qc *queue.QueueConsumer
 		var err error
 		var msg *queue.Message
+		var d queue.Delivery
 
 		BeforeEach(func() {
 			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
@@ -270,30 +269,26 @@ var _ = Describe("pkg/queue", func() {
 				})
 				Expect(err).To(BeNil())
 
-				d, err := qc.Consume()
+				msg, d, err = qc.Consume()
 				Expect(err).To(BeNil())
-				msg = d.(*queue.Message)
 			})
 
 			It("sends ask for the message to consume next message successfully", func() {
-				msg.Ack(50 * time.Millisecond)
+				d.Ack(50 * time.Millisecond)
 
-				d, err := qc.Consume()
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
-
-				nextMsg := d.(*queue.Message)
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 
 			It("retries when it failes to send a ACK", func() {
 				err := test.RunWhileRestartingRedis(func() {
-					msg.Ack(50 * time.Millisecond)
+					d.Ack(50 * time.Millisecond)
 				})
 				Expect(err).To(BeNil())
 
-				d, err := qc.Consume()
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
-				nextMsg := d.(*queue.Message)
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 		})
@@ -309,9 +304,10 @@ var _ = Describe("pkg/queue", func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(qp.GetFailedLength()).To(Equal(int64(0)))
-				msg, err := qc.Consume()
+
+				_, d, err := qc.Consume()
 				Expect(err).To(BeNil())
-				msg.Fail()
+				d.Fail()
 				Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 			})
 		})
@@ -321,8 +317,7 @@ var _ = Describe("pkg/queue", func() {
 		It("starts queue consumer", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(d queue.Delivery) error {
-				m := d.(*queue.Message)
+			handler := func(m *queue.Message) error {
 				redisClient.Set("test", m.UUID)
 				return nil
 			}
@@ -432,8 +427,7 @@ var _ = Describe("pkg/queue", func() {
 		It("submits a failed message to failed queue", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(d queue.Delivery) error {
-				m := d.(*queue.Message)
+			handler := func(m *queue.Message) error {
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
