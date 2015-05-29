@@ -2,7 +2,6 @@ Rails.application.routes.draw do
   get '/app' => 'web_app#index'
   get '/ide' => 'web_app#ide'
   get '/token_login' => 'web_app#token_login'
-  get '/oauth/authorize' => 'web_app#consent'
 
   get '/features' => 'pages#features'
   get '/pricing' => 'pages#pricing'
