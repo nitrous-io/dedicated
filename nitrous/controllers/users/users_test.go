@@ -303,6 +303,33 @@ var _ = Describe("controllers/users", func() {
 				})
 			})
 		})
+
+		It("should not allow banned email addresses", func() {
+			b := &user.User{
+				Username: "banner",
+				Password: "123456",
+				Email:    "banner@example.com",
+			}
+			err := test.WrapInTransaction(db, b.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("INSERT INTO users (username, email, encrypted_password, deleted_at, banned_at, banned_by_id) VALUES ('foo', 'foo@example.com', '!@#$%', now(), now(), $1)", b.ID)
+			Expect(err).To(BeNil())
+
+			params = &url.Values{}
+			params.Set("email", "foo@example.com")
+			params.Set("username", "foo")
+			params.Set("password", "123456")
+			params.Set("name", "Foo Bar")
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			j := map[string]string{}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["error"]).To(Equal("email_banned"))
+			Expect(j["error_description"]).To(Equal("this email address has been banned"))
+		})
 	})
 
 	Describe("PUT /api/v0/user", func() {
@@ -567,8 +594,41 @@ var _ = Describe("controllers/users", func() {
 			Expect(errType).To(Equal("validation_failed"))
 		})
 
+		It("responds with HTTP 400 Bad Request when phone & country code has been banned", func() {
+			b := &user.User{
+				Username: "banner",
+				Password: "123456",
+				Email:    "banner@example.com",
+			}
+			err := test.WrapInTransaction(db, b.Insert)
+			Expect(err).To(BeNil())
+
+			u2 := &user.User{
+				Username: "anotheruser",
+				Password: "123456",
+				Email:    "anotheruser@example.com",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			phone := "88884444"
+			phoneCountryCode := "65"
+			_, err = db.Exec(`UPDATE users
+				SET deleted_at = now(), banned_at = now(), phone = $1, phone_country_code = $2, phone_authed = TRUE, banned_by_id = $3 WHERE id = $4;`,
+				phone, phoneCountryCode, b.ID, u2.ID)
+
+			params := &url.Values{}
+			params.Set("phone", "88884444")
+			params.Set("phone_country_code", "65")
+
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("phone_banned"))
+			Expect(errDesc).To(Equal("this phone number has been banned"))
+		})
+
 		It("responds with HTTP 400 Bad Request when phone number is already in the database", func() {
-			// Create another user with a phone number.
 			u2 := &user.User{
 				Username: "anotheruser",
 				Password: "123456",

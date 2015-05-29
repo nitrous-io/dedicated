@@ -155,6 +155,7 @@ func (s *Server) drawRoutes() {
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
+				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
 			},
 			"POST": {
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
@@ -220,6 +221,7 @@ func (s *Server) drawRoutes() {
 				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
 				"/logout":                                 r("tokens.Logout", tokens.Logout),
 				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
+				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
 			},
 		}
 

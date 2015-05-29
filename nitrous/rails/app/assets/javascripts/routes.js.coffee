@@ -53,3 +53,4 @@ App.Router.map ->
       @route 'announcements', path: '/announcements'
       @route 'announcements-new', path: '/announcements/new'
       @route 'free-queue', path: '/free_queue'
+      @route 'user', path: '/users/:slug'

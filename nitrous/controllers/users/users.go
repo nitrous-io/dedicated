@@ -35,6 +35,9 @@ var (
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 
+	bannedEmailAddress = httperror.New(http.StatusBadRequest, "email_banned", "this email address has been banned")
+	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number has been banned")
+
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
 )
 
@@ -86,6 +89,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err := u.Validate()
 	if err != nil {
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
+	}
+
+	// check email is not banned
+	var banned bool
+	err = db.Get(&banned, `SELECT COUNT(*) > 0 FROM users WHERE banned_at IS NOT NULL AND email = $1 LIMIT 1;`, u.Email)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return bannedEmailAddress
 	}
 
 	tx, err := db.Beginx()
@@ -214,6 +227,20 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 	if phoneCountryCode == "" {
 		return httperror.New(http.StatusBadRequest, "validation_failed", "phone country code must be provided")
+	}
+
+	var banned bool
+	err := env.DB.Get(&banned, `SELECT COUNT(*) > 0
+		FROM users
+		WHERE banned_at IS NOT NULL
+		AND phone_authed = TRUE AND phone = $1 AND phone_country_code = $2
+		LIMIT 1;`,
+		phone, phoneCountryCode)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return bannedPhone
 	}
 
 	if err := u.UpdatePhone(env.DB, phone, phoneCountryCode); err != nil {

@@ -25,10 +25,19 @@ App.AdminDialogsView = Em.View.extend
       ui.showModal(@$('#switch-user-dialog'))
       @$('#switch-user-login').focus()
 
-    App.on 'open-credit-user-dialog', =>
+    App.on 'open-credit-user-dialog', (username)=>
+      @set('controller.creditUser', username)
       @get('controller').send 'loadCreditTypes'
       ui.showModal(@$('#credit-user-dialog'))
       @$('#credit-username').focus()
+
+    App.on 'open-view-user-dialog', =>
+      ui.showModal(@$('#view-user-dialog'))
+      @$('#view-user-login').focus()
+
+    App.on 'hide-view-user-dialog', =>
+      ui.hideModal @$('#view-user-dialog')
+      @set 'controller.login', null
 
   willDestroyElement: ->
     @_super()
@@ -43,3 +52,6 @@ App.AdminDialogsView = Em.View.extend
 
     cancelCreditUser: ->
       ui.hideModal(@$('#credit-user-dialog'))
+
+    cancelViewUser: ->
+      ui.hideModal(@$('#view-user-dialog'))

@@ -15,10 +15,11 @@ import (
 var (
 	StripeProfileRequiredError = errors.New("billingprofile: requires an existing Stripe profile")
 
-	CardExpiredError  = errors.New("billingprofile: card expired")
-	CardDeclinedError = errors.New("billingprofile: card declined")
-	IncorrectCvcError = errors.New("billingprofile: cvc is incorrect")
-	IncorrectZipError = errors.New("billingprofile: zip code is incorrect")
+	ErrCardExpired     = errors.New("billingprofile: card expired")
+	ErrCardDeclined    = errors.New("billingprofile: card declined")
+	ErrIncorrectCvc    = errors.New("billingprofile: cvc is incorrect")
+	ErrIncorrectZipErr = errors.New("billingprofile: zip code is incorrect")
+	ErrCardBanned      = errors.New("billingprofile: card banned")
 )
 
 const (
@@ -102,6 +103,19 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	}
 
 	crd := c.Cards.Values[0]
+
+	var banned bool
+	err = d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return ErrCardBanned
+	}
+
 	b.StripeID = sql.NullString{c.ID, true}
 	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
 	b.LastFour = sql.NullString{crd.LastFour, true}
@@ -158,13 +172,13 @@ func (p *BillingProfile) IsFreeOrCardRequired() bool {
 func HandleStripeError(err error) error {
 	if e, ok := err.(*stripe.Error); ok {
 		if e.Code == stripe.CardDeclined {
-			return CardDeclinedError
+			return ErrCardDeclined
 		} else if e.Code == stripe.ExpiredCard {
-			return CardExpiredError
+			return ErrCardExpired
 		} else if e.Code == stripe.IncorrectCvc {
-			return IncorrectCvcError
+			return ErrIncorrectCvc
 		} else if e.Code == stripe.IncorrectZip {
-			return IncorrectZipError
+			return ErrIncorrectZipErr
 		}
 	}
 	return err
