@@ -30,7 +30,7 @@ type Code struct {
 }
 
 func Generate(userID int64, clientID, redirectURI string) (string, error) {
-	nonce, err := securerandom.Base64(191)
+	nonce, err := securerandom.Base64(48)
 	if err != nil {
 		return "", err
 	}
