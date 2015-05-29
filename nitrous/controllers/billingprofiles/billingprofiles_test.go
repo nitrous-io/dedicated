@@ -317,6 +317,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(pc2.UserID).To(Equal(u.ID))
 			Expect(pc2.Mode).To(Equal("set"))
 			Expect(pc2.PropsSet["upgraded_to_paid_at"]).To(BeTemporally("~", time.Now(), time.Minute))
+
+			Expect(ft.TrackEventProperties[u.ID][0]["upgraded_to_paid_from"]).To(Equal(billingprofile.StateNoCard))
 		})
 
 		Context("rewarding credits", func() {

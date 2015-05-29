@@ -98,6 +98,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 			"upgraded_to_paid_at": time.Now(),
 		}, env.Logger)
+		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": existing.State})
 	}
 
 	ser := serializers.SerializeBillingProfile(bp)

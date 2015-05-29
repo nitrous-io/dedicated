@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -170,7 +169,7 @@ func VerifyUserBilling(resource string, mw Middleware) Middleware {
 		_, allowed := allowedUnpaidResources[resource]
 
 		if !allowed {
-			bp, err := billingprofile.Find(env.DB, env.User.ID)
+			bp, err := env.User.BillingProfile(env.DB)
 			if err != nil {
 				env.Logger.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
 				return err
@@ -195,6 +194,14 @@ func Track(event string, mw Middleware) Middleware {
 		// via Mixpanel HTTP API reference:
 		// 'If $ip is set to "0", Mixpanel will ignore IP information.'
 		env.AddEventData(map[string]interface{}{"$ip": "0"})
+
+		bp, err := env.User.BillingProfile(env.DB)
+		if err != nil {
+			env.Logger.Errorf("Track: error locating billingprofile for %+v err: %+v", env.User, err)
+		}
+		if bp != nil {
+			env.AddEventData(map[string]interface{}{"billing_state": bp.State})
+		}
 
 		if env.TrackEventName != "" {
 			env.Tracker.TrackEvent(event, env.User, env.trackEventData, env.Logger)
