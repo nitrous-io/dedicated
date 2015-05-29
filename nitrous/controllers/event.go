@@ -22,6 +22,7 @@ const (
 	EventHostDestroyed              EventName = "host.destroyed"
 	EventHostStarted                EventName = "host.started"
 	EventHostStopped                EventName = "host.stopped"
+	EventHostStopFailed             EventName = "host.stop_failed"
 	EventHostRestarted              EventName = "host.restarted"
 	EventHostStarting               EventName = "host.starting"
 	EventHostStopping               EventName = "host.stopping"

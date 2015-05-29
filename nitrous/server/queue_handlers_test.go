@@ -555,7 +555,7 @@ var _ = Describe("HostQueueHandler", func() {
 				message = &queue.Message{
 					UUID:         "uuid-1234",
 					Action:       "stop",
-					Event:        string(event.HostUpdated),
+					Event:        string(event.HostStopFailed),
 					ResourceName: "host",
 					ResourceID:   "host-1234",
 					Payload:      payload,
@@ -582,6 +582,35 @@ var _ = Describe("HostQueueHandler", func() {
 					h.ID, host.StateRunning, host.StateStopping).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+			})
+
+			It("publishes containaer stapped event host stopeed event to user", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(qc, message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventName(event.HostUpdated) {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case event := <-evtCh:
+					evtData, ok := event.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].State).To(Equal(host.StateRunning))
+				}
 			})
 		})
 	})

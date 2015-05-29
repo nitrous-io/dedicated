@@ -371,18 +371,18 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 
 	id, err := h.id()
 	if err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, err
 	}
 
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, err
 	}
 
 	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, err
 	}
 

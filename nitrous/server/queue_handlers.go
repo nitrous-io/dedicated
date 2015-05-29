@@ -221,7 +221,7 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 		s.logger.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
 	case controllers.EventHostStopping:
 		s.logger.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
-	case controllers.EventHostUpdated:
+	case controllers.EventHostStopFailed:
 		s.logger.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
@@ -233,6 +233,13 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 		if err != nil {
 			return err
 		}
+
+		s.Events.Publish(
+			controllers.NewEvent(controllers.EventHostUpdated, map[string]*serializers.Host{
+				"host": serializers.SerializeHostWithUser(h, u),
+			}),
+			u.Topic(),
+		)
 	default:
 		s.logger.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}

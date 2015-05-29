@@ -689,12 +689,12 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, mh.Error(err, label)
 	}
 
@@ -705,7 +705,7 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		host.PublishMessage(qp, event.HostUpdated, h.uuid, queueInfo, err.Error(), queue.Stop)
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
