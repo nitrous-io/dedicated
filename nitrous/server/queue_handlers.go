@@ -7,7 +7,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/nitrous-io/dedicated/event"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -56,7 +55,8 @@ func (s *Server) handleCreateMessage(qc *queue.QueueConsumer, m *queue.Message) 
 	}
 
 	eventName := controllers.EventName(m.Event)
-	if eventName == controllers.EventHostCreated {
+	switch eventName {
+	case controllers.EventHostCreated:
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
@@ -81,7 +81,7 @@ func (s *Server) handleCreateMessage(qc *queue.QueueConsumer, m *queue.Message) 
 			}),
 			u.Topic(),
 		)
-	} else if eventName == controllers.EventName(event.HostCreating) {
+	case controllers.EventHostCreating:
 		p := &progress{Stream: strings.TrimSpace(queueInfo.Message)}
 		d, err := json.Marshal(p)
 		if err != nil {
@@ -96,7 +96,7 @@ func (s *Server) handleCreateMessage(qc *queue.QueueConsumer, m *queue.Message) 
 			}),
 			u.Topic(),
 		)
-	} else if eventName == controllers.EventName(event.HostCreateFailed) {
+	case controllers.EventHostCreateFailed:
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
@@ -113,6 +113,8 @@ func (s *Server) handleCreateMessage(qc *queue.QueueConsumer, m *queue.Message) 
 			}),
 			u.Topic(),
 		)
+	default:
+		s.logger.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
 	return nil
 }
@@ -247,8 +249,6 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 	return nil
 }
 
-// FIXME: Copy from nitrous/controllers/containers/containers.go
-// Need to be shared
 func (s *Server) PublishContainerEvent(name controllers.EventName, c *container.Container, queueInfo *hh.QueueInfo) error {
 	userIDs, err := containercollab.GetCollaboratorIDs(s.db, c.ID)
 	if err != nil {

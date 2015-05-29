@@ -454,7 +454,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(count).To(Equal(1))
 			})
 
-			It("publishes containaer stapped event host stopeed event to user", func() {
+			It("publishes containaer stopped event host stopeed event to user", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -495,7 +495,7 @@ var _ = Describe("HostQueueHandler", func() {
 				}
 			})
 
-			It("publishes containaer stapped event to collaborator", func() {
+			It("publishes containaer stopped event to collaborator", func() {
 				ch := svr.Events.Subscribe(collaborator.Topic())
 				defer svr.Events.Unsubscribe(ch, collaborator.Topic())
 
@@ -584,7 +584,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(count).To(Equal(1))
 			})
 
-			It("publishes containaer stapped event host stopeed event to user", func() {
+			It("publishes containaer stopped event host stopeed event to user", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
