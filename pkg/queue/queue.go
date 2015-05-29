@@ -13,6 +13,8 @@ import (
 	"github.com/adjust/redismq"
 )
 
+type queueHandler func(Delivery) error
+
 // Publisher represents a client that publishes a message (Publishing)
 // into a queue.
 type Publisher interface {
@@ -67,6 +69,7 @@ type QueuePublisher struct {
 
 type QueueConsumer struct {
 	Consumer *redismq.Consumer
+	handler  queueHandler
 }
 
 var (
@@ -158,14 +161,6 @@ func (a Action) String() string {
 
 func (a Action) IsA(actionName string) bool {
 	return a.String() == actionName
-}
-
-type queueHandler func(Delivery) error
-
-var queueRoutes map[string]queueHandler
-
-func init() {
-	queueRoutes = map[string]queueHandler{}
 }
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) Publisher {
@@ -297,7 +292,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			stop <- c
 			return nil
 		case m := <-msg:
-			err := queueRoutes[queueName](m)
+			err := qc.handler(m)
 			if err != nil {
 				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 				m.Fail()
@@ -327,7 +322,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 		default:
 			qc, err = CreateConsumer(redisHost, redisPort, redisDB, queueName)
 			if err == nil {
-				queueRoutes[queueName] = handler
+				qc.handler = handler
 				return qc.Start(stop)
 			}
 
