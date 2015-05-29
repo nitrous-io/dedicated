@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os/exec"
 	"sync"
@@ -13,6 +14,7 @@ import (
 var RedisTestDb int64 = 12
 var RedisHost string = "localhost"
 var RedisPort string = "6379"
+var RabbitMQAddr = "amqp://localhost:5672"
 
 func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Client, error) {
 	redisClient := redis.NewTCPClient(&redis.Options{
@@ -36,26 +38,40 @@ func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Cli
 }
 
 func RunWhileRestartingRedis(fn func()) error {
+	return runWhileRestartService("redis_6379", func() error {
+		_, err := net.Dial("tcp", fmt.Sprintf("%s:%s", RedisHost, RedisPort))
+		return err
+	}, fn)
+}
+
+func RunWhileRestartingRabbitMq(fn func()) error {
+	return runWhileRestartService("rabbitmq-server", func() error {
+		_, err := net.Dial("tcp", fmt.Sprintf("%s:%s", "localhost", "5672"))
+		return err
+	}, fn)
+}
+
+func runWhileRestartService(service string, checkFn func() error, fn func()) error {
 	// stop redis before publish and then restart when it's retrying
-	err := exec.Command("service", "redis_6379", "stop").Run()
+	output, err := exec.Command("service", service, "stop").CombinedOutput()
 	if err != nil {
+		log.Println("failed to stop", service, string(output))
 		return err
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		exec.Command("service", "redis_6379", "start").Run()
-		var err error
+		exec.Command("service", service, "start").Run()
 		for i := 0; i < 5; i++ {
-			_, err = net.Dial("tcp", fmt.Sprintf("%s:%s", RedisHost, RedisPort))
-			if err != nil {
-				fmt.Printf("failed to connect to redis: %+v\n", err)
+			if err := checkFn(); err != nil {
+				fmt.Printf("failed to connect to %s: %+v", service, err)
 				time.Sleep(10 * time.Millisecond)
 			} else {
 				break
 			}
 		}
+		log.Println("started ", service)
 		wg.Done()
 	}()
 
