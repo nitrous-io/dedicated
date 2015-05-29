@@ -6,7 +6,7 @@
 
   form
     .card-body
-      if confirmationLapsed
+      if App.confirmationLapsed
         .notice-text
           if resentConfirm
             p

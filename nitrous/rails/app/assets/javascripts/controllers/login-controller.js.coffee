@@ -2,8 +2,8 @@ App.LoginController = Em.Controller.extend
   confirmationLapsed: false
 
   confirmationLapsedResendable: (->
-    @get('confirmationLapsed') && App.get('resendConfirmationAppToken') && App.get('resendConfirmationAppToken').length > 0
-  ).property 'confirmationLapsed', 'App.resendConfirmationAppToken'
+    App.get('confirmationLapsed') && App.get('resendConfirmationAppToken') && App.get('resendConfirmationAppToken').length > 0
+  ).property 'App.confirmationLapsed', 'App.resendConfirmationAppToken'
 
   login: null
   password: null
@@ -12,7 +12,7 @@ App.LoginController = Em.Controller.extend
   loggingIn: false
 
   doLogin: (login, password) ->
-    @set 'confirmationLapsed', false
+    App.set 'confirmationLapsed', false
     @set 'loggingIn', true
     @set 'error', null
     App.authenticate(login, password).then((token) =>

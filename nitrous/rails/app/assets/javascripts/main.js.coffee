@@ -59,6 +59,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   hostErrors: null
 
+  confirmationLapsed: false
+  resendConfirmationAppToken: null
+
   regionIndex: (->
     regions = @get('regions')
 
@@ -370,6 +373,9 @@ App.on 'fetchUser', (user) ->
   unless App.get 'eventsSocket'
     App.set 'eventsSocket', socket = App.EventMessageHandler.create()
     socket.connect()
+
+App.on 'confirmation-lapsed', ->
+  App.set 'confirmationLapsed', true
 
 App.loadSettings = ->
   headers = {}
