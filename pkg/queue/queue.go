@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/adjust/redismq"
 )
 
 type Handler func(*Message) error
@@ -60,7 +58,6 @@ type Message struct {
 	ResourceName string `json: "resource_name"`
 	ResourceID   string `json: "resource_id"`
 	Payload      []byte `json: "payload"`
-	p            *redismq.Package
 }
 
 // MarshalJSON encodes the message to JSON format
