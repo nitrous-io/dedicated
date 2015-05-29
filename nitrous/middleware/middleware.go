@@ -361,9 +361,14 @@ func Call(label string, mw Middleware) Middleware {
 		mh.Meter(rlabel).Mark(1)
 		defer mh.UpdateSince(label, time.Now())
 		err := mw(env, w, r)
-		if err != nil {
+		if err == nil {
+			return nil
+		}
+		// distinguish in Librato between server errors and user-facing errors (invalid input)
+		if _, ok := err.(*httperror.Error); ok {
+			return mh.Invalid(err, label)
+		} else {
 			return mh.Error(err, label)
 		}
-		return nil
 	}
 }
