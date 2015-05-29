@@ -38,6 +38,14 @@ func Error(err error, name string) error {
 	return err
 }
 
+// Invalid increments the error count and returns the
+// error. Equivalent to `Error` but with different label
+// for user-facing errors (invalid input, etc)
+func Invalid(err error, name string) error {
+	Counter(fmt.Sprintf("invalid.%s", name)).Inc(1)
+	return err
+}
+
 // UpdateSince update the named timer with duration since the time specified
 func UpdateSince(name string, start time.Time) {
 	t := Timer(name)
