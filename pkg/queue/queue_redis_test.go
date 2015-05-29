@@ -189,7 +189,7 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	Describe("RedisConsumer", func() {
-		var qc *queue.RedisConsumer
+		var qc queue.Consumer
 		var err error
 
 		BeforeEach(func() {
@@ -231,7 +231,7 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	Describe("Message", func() {
-		var qc *queue.RedisConsumer
+		var qc queue.Consumer
 		var err error
 		var msg *queue.Message
 		var d queue.Delivery

@@ -149,6 +149,11 @@ func (qc *RedisConsumer) Consume() (*Message, Delivery, error) {
 	return m, &redisDelivery{msg: m, p: p}, nil
 }
 
+// SetHandler sets the current consumer's handler to the provided one
+func (qc *RedisConsumer) SetHandler(h Handler) {
+	qc.handler = h
+}
+
 // Start begins consuming the messages. It will keep consuming until we tries
 // to stop it by sending a message to the provided stop channel.
 func (qc *RedisConsumer) Start(stop chan struct{}) error {
@@ -208,9 +213,6 @@ func (qc *RedisConsumer) Start(stop chan struct{}) error {
 }
 
 func StartRedisConsumer(host, port string, db int64, queueName string, handler Handler, stop chan struct{}) error {
-	var qc *RedisConsumer
-	var err error
-
 	for {
 		select {
 		case c := <-stop:
@@ -218,9 +220,9 @@ func StartRedisConsumer(host, port string, db int64, queueName string, handler H
 			stop <- c
 			return nil
 		default:
-			qc, err = CreateRedisConsumer(host, port, db, queueName)
+			qc, err := CreateRedisConsumer(host, port, db, queueName)
 			if err == nil {
-				qc.handler = handler
+				qc.SetHandler(handler)
 				return qc.Start(stop)
 			}
 
@@ -234,7 +236,7 @@ func StartRedisConsumer(host, port string, db int64, queueName string, handler H
 	}
 }
 
-func CreateRedisConsumer(host, port string, db int64, queueName string) (*RedisConsumer, error) {
+func CreateRedisConsumer(host, port string, db int64, queueName string) (Consumer, error) {
 	q := redismq.CreateQueue(host, port, "", db, queueName)
 	c, err := q.AddConsumer(queueName)
 	if err != nil {

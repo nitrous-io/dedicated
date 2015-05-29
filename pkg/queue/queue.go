@@ -47,6 +47,8 @@ type Delivery interface {
 // Consumer represents a client that consumes messages from a queue
 type Consumer interface {
 	Consume() (*Message, Delivery, error)
+	SetHandler(h Handler)
+	Start(stop chan struct{}) error
 }
 
 // Message satifies both Publishing and Delivering type, make it suitable to be
