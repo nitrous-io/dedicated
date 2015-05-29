@@ -210,7 +210,7 @@ func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, 
 	return flist, nil
 }
 
-func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, message string) {
+func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, message string, action queue.Event) {
 	queueInfo.Message = message
 	queueInfo.Host = nil
 
@@ -222,7 +222,7 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 
 	msg := &queue.Message{
 		UUID:         uuid,
-		Action:       action,
+		Action:       action.String(),
 		Event:        string(ev),
 		ResourceName: EventResourceName,
 		Payload:      payload,
@@ -233,7 +233,7 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 	}
 }
 
-func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, info *Info) {
+func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, info *Info, action queue.Event) {
 	queueInfo.Message = ""
 	queueInfo.Host = info
 
@@ -245,7 +245,7 @@ func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *Que
 
 	msg := &queue.Message{
 		UUID:         uuid,
-		Action:       action,
+		Action:       action.String(),
 		Event:        string(ev),
 		ResourceName: EventResourceName,
 		Payload:      payload,
