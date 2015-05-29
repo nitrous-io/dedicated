@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
@@ -244,25 +243,6 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 		"token_type":   "Bearer",
 		"scope":        scope,
 		"expires_in":   token.ExpiryInSeconds,
-	}
-
-	return nil
-}
-
-func ShowClient(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	clientID := mux.Vars(r)["clientid"]
-	client, err := oauthclient.FindByClientID(env.DB, clientID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errClientNotFound
-		}
-
-		return err
-	}
-
-	env.Status = http.StatusOK
-	env.Data = map[string]interface{}{
-		"oauth_client": client,
 	}
 
 	return nil
