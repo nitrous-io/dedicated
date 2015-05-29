@@ -637,7 +637,7 @@ func (s *Server) initQueue() error {
 	if rc.Host == "" || rc.Port == "" {
 		return fmt.Errorf("Redis config is not valid: %+v", rc)
 	}
-	qp := queue.NewQueue(rc.Host, rc.Port, rc.DB, "v1.host")
+	qp := queue.NewRedisQueue(rc.Host, rc.Port, rc.DB, "v1.host")
 	s.Queue = qp
 	return nil
 }

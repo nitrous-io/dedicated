@@ -161,7 +161,7 @@ var _ = Describe("hostbuilder", func() {
 
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 
-			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			qp := queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
 			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
 			qp.Delete()
@@ -202,7 +202,7 @@ var _ = Describe("hostbuilder", func() {
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 
 			// assert that we dont have any message in the queue
-			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			qp := queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
 			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeZero())
 			qp.Delete()

@@ -44,9 +44,9 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB)
 		Expect(err).To(BeNil())
-		qp = queue.NewQueue(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
+		qp = queue.NewRedisQueue(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
 		Expect(err).To(BeNil())
-		qc, err = queue.CreateConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
+		qc, err = queue.CreateRedisConsumer(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
 		Expect(err).To(BeNil())
 
 		u = &user.User{
