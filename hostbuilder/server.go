@@ -97,6 +97,11 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 		}
 
 		start := time.Now()
+		var err error
+		if err = r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		log.Printf("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
@@ -174,11 +179,6 @@ func (s *Server) providerConfig(provider string) map[string]string {
 // { "stream": "Creating host...Failed!" }
 // { "error": "failed to create the host" }
 func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
-	var err error
-	if err = r.ParseForm(); err != nil {
-		return err
-	}
-
 	provider := r.Form.Get("provider")
 	providerConfig := s.providerConfig(provider)
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
@@ -201,11 +201,13 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		s.initQueueOnce.Do(func() {
 			err = s.initQueue()
 		})
+
 		if err != nil {
+			log.Printf("uuid=%s [ERROR], Failed to initialize queue: %+v", providerConfig["uuid"], err)
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
-		log.Printf("uuid=%s Creating a host with queue %+v", providerConfig["uuid"], s.Queue)
 
+		log.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
 		var queueInfo *host.QueueInfo
 		queueInfo, err = getQueueInfo(r)
 		if err != nil {
@@ -341,9 +343,6 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	var err error
 	var info *host.Info
 
-	if err := r.ParseForm(); err != nil {
-		return err
-	}
 	provider := r.Form.Get("provider")
 	providerConfig := s.providerConfig(provider)
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
@@ -358,10 +357,11 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		s.initQueueOnce.Do(func() {
 			err = s.initQueue()
 		})
+
 		if err != nil {
+			log.Printf("uuid=%s [ERROR], Failed to initialize queue: %+v", providerConfig["uuid"], err)
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
-		log.Printf("uuid=%s Stopping a host with queue %+v\n", providerConfig["uuid"], *s.Queue)
 
 		var queueInfo *host.QueueInfo
 		queueInfo, err = getQueueInfo(r)
@@ -393,9 +393,6 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
-	if err := r.ParseForm(); err != nil {
-		return err
-	}
 	provider := r.Form.Get("provider")
 	providerConfig := s.providerConfig(provider)
 	configJson := r.Form.Get("config")
@@ -477,6 +474,7 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 // sleep waits for a defined seconds and then finishes the request
 // This is useful for testing graceful shutdown and should only be enabled in
 // debug mode
+
 func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 	if !s.Config.Debug {
 		return nil
@@ -671,9 +669,8 @@ func getQueueInfo(r *http.Request) (*host.QueueInfo, error) {
 		return nil, err
 	}
 
-	requesterID, err = strconv.ParseInt(r.Form.Get("requester_id"), 10, 64)
-	if err != nil {
-		return nil, err
-	}
+	// FIXME: requester_id can be nil from old nitrousd.
+	// Once we successfully release this, we can have error check here.
+	requesterID, _ = strconv.ParseInt(r.Form.Get("requester_id"), 10, 64)
 	return &host.QueueInfo{ID: hostID, UserID: userID, Slug: hostSlug, RequesterID: requesterID}, nil
 }

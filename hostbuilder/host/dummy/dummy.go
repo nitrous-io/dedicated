@@ -102,7 +102,7 @@ func (h *Host) Stop() (*host.Info, error) {
 	return nil, errors.New("Failed to stop host")
 }
 
-func (h *Host) StopWithQueue(qp *queue.QueuePublisher, info *host.QueueInfo) (*host.Info, error) {
+func (h *Host) StopWithQueue(qp queue.Publisher, info *host.QueueInfo) (*host.Info, error) {
 	msg := &queue.Message{
 		Action:       queue.Stop.String(),
 		Event:        string(event.HostStopped),

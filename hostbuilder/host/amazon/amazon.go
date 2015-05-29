@@ -682,7 +682,7 @@ func (h *Host) stopInstance() error {
 	return nil
 }
 
-func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -700,7 +700,7 @@ func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "stopped",
 	}
 	updatedInstance, err := WaitForState(&state)

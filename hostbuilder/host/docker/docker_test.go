@@ -251,7 +251,7 @@ var _ = Describe("host/docker", func() {
 	Describe("Stop", func() {
 		var h host.Host
 		var info *host.Info
-		var qp *queue.QueuePublisher
+		var qp queue.Publisher
 		var qc *queue.QueueConsumer
 		var queueInfo *host.QueueInfo
 
@@ -286,8 +286,8 @@ var _ = Describe("host/docker", func() {
 			Expect(err).To(BeNil())
 			// Remove 3 message for creation
 			for i := 0; i < 3; i++ {
-				m, err := qc.Consume()
-				m.Ack(10 * time.Millisecond)
+				_, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 			}
 		})
@@ -324,8 +324,8 @@ var _ = Describe("host/docker", func() {
 
 			var queueInfos [2]*host.QueueInfo
 			for index, event := range events {
-				m, err := qc.Consume()
-				m.Ack(10 * time.Millisecond)
+				m, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))

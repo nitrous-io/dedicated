@@ -228,7 +228,7 @@ func (h *Host) Stop() (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) StopWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
