@@ -1895,7 +1895,6 @@ var _ = Describe("server", func() {
 			shellID := string(out[2:])
 
 			conn.WriteMessage(websocket.TextMessage, []byte("d|export foo=test\n"))
-
 			// "Disrupt" connection by closing it and re-connecting.
 			conn.Close()
 
@@ -1914,21 +1913,17 @@ var _ = Describe("server", func() {
 						return
 					}
 					if strings.Contains(string(out), "foo is test") {
+						newConn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
 						close(gotOutput)
 					}
 				}
 			}()
 
 			newConn.WriteMessage(websocket.TextMessage, []byte("d|echo -n foo is $foo\n"))
-			time.Sleep(100 * time.Millisecond)
-			newConn.WriteMessage(websocket.TextMessage, []byte("c|bye"))
 
 			select {
 			case <-gotOutput:
-				err := <-errCh
-				Expect(err).To(Equal(io.EOF))
-			case err := <-errCh:
-				Fail(fmt.Sprintf("unexpected error reading from shell websocket: %v", err))
+				Expect(<-errCh).To(Equal(io.EOF))
 			case <-time.After(1 * time.Second):
 				Fail("timed out waiting for shell to exit")
 			}

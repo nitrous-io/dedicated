@@ -19,7 +19,10 @@ App.RESTAdapter = SM.RESTAdapter.extend
             App.trigger 'confirmation-lapsed'
           , ->
             App.trigger 'confirmation-lapsed'
-        if jqxhr.responseJSON.error_description
+          App.postError "Your confirmation email has expired. You can resend one below."
+          return
+
+        if !App.get("confirmationLapsed")
           App.postError(jqxhr.responseJSON, "Confirmation token has expired")
     ajax
 

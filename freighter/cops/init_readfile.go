@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"runtime"
-	"strconv"
 	"syscall"
 
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -24,7 +23,7 @@ func init() {
 func readFileInit() {
 	runtime.LockOSThread()
 	flag.Parse()
-	// id  is arg 0
+	// required init pid to be argv 0th
 	localPath := flag.Arg(1)
 
 	if err := syscall.Chdir("/"); err != nil {
@@ -48,8 +47,7 @@ func ReadFromContainer(id string, localPath string, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to get container %s pid: %v", id, err)
 	}
-	// create the command, pass the child as fd3 of the command
-	cmd := reexec.Command(readFileCommandName, strconv.Itoa(initPID), localPath)
+	cmd := newCommand(readFileCommandName, initPID, localPath)
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

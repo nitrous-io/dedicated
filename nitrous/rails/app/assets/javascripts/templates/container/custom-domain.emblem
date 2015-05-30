@@ -7,7 +7,7 @@
     |  record pointing your subdomain to
     '
     code.primary #{previewHostname}
-    | . You will be able to access your container via this custom subdomain once DNS has propagrated
+    | . You will be able to access your container via this custom subdomain once DNS has propagated
     |  (~24 hours after creating your container).
 
   p.hint-text

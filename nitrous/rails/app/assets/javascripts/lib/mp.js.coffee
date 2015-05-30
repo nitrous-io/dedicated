@@ -78,6 +78,9 @@ window.Mp =
       p['email'] = user.get('email')
       p['distinct_id'] = user.get('id').toString()
 
+    if b = App?.get 'billingProfile'
+      p['billing_state'] = b.get("state")
+
     Object.assign(p, properties)
     mixpanel.register_once?('First Time': 'TRUE')
     mixpanel.track?(eventName, p)

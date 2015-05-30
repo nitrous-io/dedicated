@@ -24,6 +24,7 @@ var (
 	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
 	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
+	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card has been banned.")
 )
 
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -97,6 +98,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 			"upgraded_to_paid_at": time.Now(),
 		}, env.Logger)
+		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": existing.State})
 	}
 
 	ser := serializers.SerializeBillingProfile(bp)
@@ -137,14 +139,16 @@ func handleBillingError(err error) error {
 	switch err {
 	case billingprofile.StripeProfileRequiredError:
 		return errStripeProfileRequired
-	case billingprofile.CardDeclinedError:
+	case billingprofile.ErrCardDeclined:
 		return errCardDeclined
-	case billingprofile.CardExpiredError:
+	case billingprofile.ErrCardExpired:
 		return errCardExpired
-	case billingprofile.IncorrectCvcError:
+	case billingprofile.ErrIncorrectCvc:
 		return errIncorrectCvc
-	case billingprofile.IncorrectZipError:
+	case billingprofile.ErrIncorrectZipErr:
 		return errIncorrectZip
+	case user.ErrCardBanned, billingprofile.ErrCardBanned:
+		return errCardBanned
 	default:
 		return err
 	}

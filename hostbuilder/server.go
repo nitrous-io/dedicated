@@ -134,6 +134,9 @@ type config struct {
 
 	// redis setting
 	RedisConfig RedisConfig `json:"redis"`
+
+	// whether partial provider List() calls are considered an error
+	AllowPartialList bool `json:"allow_partial_list"`
 }
 
 type Server struct {
@@ -458,9 +461,11 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	label := fmt.Sprintf("list.%s", h.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	hosts, err := h.List()
-	if err != nil {
-		return mh.Error(err, label)
+	hosts, partialErr := h.List()
+	if partialErr != nil {
+		if len(hosts) == 0 || !s.Config.AllowPartialList {
+			return mh.Error(partialErr, label)
+		}
 	}
 
 	responses := make([]Response, 0, len(hosts))
@@ -477,9 +482,14 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
-	data, err := json.Marshal(map[string]interface{}{
+	dataMap := map[string]interface{}{
 		"hosts": responses,
-	})
+	}
+	if partialErr != nil {
+		dataMap["partial_error"] = partialErr.Error()
+	}
+
+	data, err := json.Marshal(dataMap)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		data = []byte(`{"status":"error"}`)

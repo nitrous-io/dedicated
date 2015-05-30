@@ -45,6 +45,7 @@ var (
 	ErrPasswordTooShort = errors.New("password is too short (minimum is 6 characters)")
 	ErrPasswordTooLong  = errors.New("password is too long (maximum is 100 characters)")
 	ErrPhoneInvalid     = errors.New("phone number is not valid")
+	ErrCardBanned       = errors.New("credit card is banned")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
@@ -91,6 +92,9 @@ type User struct {
 	PhoneAuthed      bool           `db:"phone_authed"`
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
+
+	BannedAt   pq.NullTime   `db:"banned_at"`
+	BannedByID sql.NullInt64 `db:"banned_by_id"`
 
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
@@ -596,6 +600,19 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 
 	// update the profile with details returned from Stripe
 	crd := c.Cards.Values[0]
+
+	var banned bool
+	err = d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	if banned {
+		return nil, ErrCardBanned
+	}
+
 	b := &billingprofile.BillingProfile{
 		UserID:            u.ID,
 		StripeID:          sql.NullString{c.ID, true},

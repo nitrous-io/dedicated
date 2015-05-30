@@ -317,6 +317,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(pc2.UserID).To(Equal(u.ID))
 			Expect(pc2.Mode).To(Equal("set"))
 			Expect(pc2.PropsSet["upgraded_to_paid_at"]).To(BeTemporally("~", time.Now(), time.Minute))
+
+			Expect(ft.TrackEventProperties[u.ID][0]["upgraded_to_paid_from"]).To(Equal(billingprofile.StateNoCard))
 		})
 
 		Context("rewarding credits", func() {
@@ -489,6 +491,41 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(count).To(Equal(0))
 			})
 		})
+
+		It("should return an error if the card is banned", func() {
+			b := &user.User{
+				Username: "banner",
+				Password: "123456",
+				Email:    "banner@example.com",
+			}
+			err := test.WrapInTransaction(db, b.Insert)
+			Expect(err).To(BeNil())
+
+			u2 := &user.User{
+				Username: "bad",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "bad@example.com",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Responses = []string{test.StripeCustomerResponse}
+			p := &url.Values{}
+			p.Set("card_token", "cc_token")
+			res := doRequest(p)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("card_banned"))
+			Expect(errDesc).To(Equal("Your credit card has been banned."))
+		})
 	})
 
 	Describe("PUT /api/v0/user/billing_profiles", func() {
@@ -588,6 +625,41 @@ var _ = Describe("controllers/billingprofiles", func() {
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("incorrect_zip"))
 				Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
+			})
+
+			It("should return an error if the card is banned", func() {
+				b := &user.User{
+					Username: "banner",
+					Password: "123456",
+					Email:    "banner@example.com",
+				}
+				err := test.WrapInTransaction(db, b.Insert)
+				Expect(err).To(BeNil())
+
+				u2 := &user.User{
+					Username: "bad",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "bad@example.com",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("card_banned"))
+				Expect(errDesc).To(Equal("Your credit card has been banned."))
 			})
 
 			ItReturnsTheCreatedBillingProfile := func() {

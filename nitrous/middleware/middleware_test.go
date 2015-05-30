@@ -326,6 +326,11 @@ var _ = Describe("middleware", func() {
 			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("0"))
 		})
 
+		It("adds billing_state to event data", func() {
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.TrackEventProperties[u.ID][0]["billing_state"]).To(Equal("no_card"))
+		})
+
 		It("Responds with 200 OK", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})

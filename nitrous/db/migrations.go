@@ -1213,5 +1213,33 @@ func init() {
 				UPDATE user_profiles SET max_hosts = 10 WHERE max_hosts = 3;
 			`,
 		},
+		{
+			Version: "1070",
+			Up: `
+				ALTER TABLE users ADD COLUMN banned_at timestamp without time zone CHECK (banned_at IS NULL OR deleted_at IS NOT NULL) DEFAULT NULL;
+				ALTER TABLE users ADD COLUMN banned_by_id bigint REFERENCES users(id) CHECK (banned_at IS NULL OR banned_by_id IS NOT NULL) DEFAULT NULL;
+			`,
+		},
+		{
+			Version: "1080",
+			Up: `
+				CREATE TABLE oauth_clients (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					name character varying(255) NOT NULL,
+					description text DEFAULT '',
+					client_id character varying(255) NOT NULL,
+					client_secret character varying(255) NOT NULL,
+					redirect_uri text NOT NULL
+				);
+
+				ALTER TABLE tokens ADD COLUMN nonce character varying(1024) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN
+					client_id bigint REFERENCES oauth_clients(id) DEFAULT NULL;
+				ALTER TABLE tokens ADD COLUMN scope character varying(255) DEFAULT 'full';
+
+				CREATE UNIQUE INDEX tokens_nonce ON tokens USING btree (nonce);
+			`,
+		},
 	}
 }

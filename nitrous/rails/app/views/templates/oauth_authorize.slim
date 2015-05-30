@@ -1,0 +1,52 @@
+- @title = 'Authorize “{{.ClientName}}” · Nitrous'
+- content_for :head_stylesheet
+  = stylesheet_link_tag 'oauth_authorize', media: 'all'
+
+.container
+  h1.logo
+    span Nitrous
+
+  .dialog
+    h2
+      | Authorize this app to access your account?
+
+    #client-info
+      h3
+        | {{.ClientName}}
+      p
+        | {{.ClientDescription}}
+
+    form#authorize-form action='authorize' method='post'
+      input type='hidden' name='response_type' value='code'
+      input type='hidden' name='client_id' value='{{.ClientID}}'
+      input type='hidden' name='redirect_uri' value='{{.RedirectURI}}'
+      input type='hidden' name='state' value='{{.State}}'
+      input type='hidden' name='scope' value='{{.Scope}}'
+      input type='hidden' name='action' value='approve'
+      input type='hidden' name='access_token'
+
+      #login-form
+        p
+          ' Log in with your Nitrous account to authorize this application. No account yet?
+          a href='/app/#/signup' target='_blank' Sign up for Nitrous
+
+        .form-fields
+          input.text-field id='login' type='text' placeholder='Username or Email'
+          input.text-field id='password' type='password' placeholder='Password'
+          a href='/app/#/forgot-password' target='_blank' Forgot password?
+
+      #logged-in
+        p
+          ' You are logged in as
+          span.username
+          ' .
+          a#not-you href='#' Not you?
+
+      .buttons
+        button.btn#cancel-btn disabled='disabled' Cancel
+        input.btn.primary.raised#authorize-btn type='submit' value='Authorize' disabled='disabled'
+
+- content_for :body_script
+  = javascript_include_tag 'compat'
+  = javascript_include_tag 'jquery'
+  = javascript_include_tag 'oauth_authorize'

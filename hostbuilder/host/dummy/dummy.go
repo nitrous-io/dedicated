@@ -14,17 +14,18 @@ import (
 )
 
 type Host struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	IPAddress      string `json:"ip_address"`
-	FreighterdPort int64  `json:"freighterd_port"`
-	DestroySuccess bool   `json:"destroy"`
-	CreateSuccess  bool   `json:"create"`
-	UpdateSuccess  bool   `json:"update"`
-	StopSuccess    bool   `json:"stop"`
-	StartSuccess   bool   `json:"start"`
-	RestartSuccess bool   `json:"restart"`
-	ListSuccess    bool   `json:"list"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	IPAddress        string `json:"ip_address"`
+	FreighterdPort   int64  `json:"freighterd_port"`
+	DestroySuccess   bool   `json:"destroy"`
+	CreateSuccess    bool   `json:"create"`
+	UpdateSuccess    bool   `json:"update"`
+	StopSuccess      bool   `json:"stop"`
+	StartSuccess     bool   `json:"start"`
+	RestartSuccess   bool   `json:"restart"`
+	ListSuccess      bool   `json:"list"`
+	ListPartialError bool   `json:"list_partial"`
 
 	Version string
 }
@@ -111,6 +112,10 @@ func (h *Host) List() ([]*host.Info, error) {
 	if !h.ListSuccess {
 		return nil, errors.New("Failed to list hosts")
 	}
+	var err error
+	if h.ListPartialError {
+		err = errors.New("not enough dummies")
+	}
 	return []*host.Info{
 		{
 			Provider:       h.DriverName(),
@@ -130,7 +135,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			FreighterdPort: uint16(60002),
 			State:          state.Running,
 		},
-	}, nil
+	}, err
 }
 
 func (h *Host) DriverName() string {

@@ -1034,7 +1034,7 @@ func (p *DockerProvider) CopyFromHost(id string, location string, input map[stri
 	// and copy the parts over
 	for filename, r := range input {
 		dest := filepath.Join(location, filename)
-		if err := cops.CopyToContainer(container.ID, dest, r); err != nil {
+		if err := cops.CopyToContainer(container.ID, container.Config.Env, dest, r); err != nil {
 			return err
 		}
 	}

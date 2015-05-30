@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kardianos/osext"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -17,7 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/nitrous-io/nitrous-common/must"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/stripe/stripe-go"
@@ -48,26 +46,22 @@ func main() {
 		}
 	}()
 
-	envvars.CheckCAVariables()
+	envvars.CheckCA()
 	if _, err := certauth.NewCAInfo(envvars.CACertPath, envvars.CAKeyPath); err != nil {
 		panic(fmt.Errorf("Error with keypair (%s,%s): %s", envvars.CACertPath, envvars.CAKeyPath, err))
 	}
-	envvars.CheckSendgridVariables()
+
+	envvars.CheckSendgrid()
 	envvars.CheckHostnames()
 	envvars.CheckGitHubOAuth()
 	envvars.CheckSecretToken()
 
+	envvars.CheckStripe()
 	stripe.Key = envvars.StripeSecretKey
-	if stripe.Key == "" {
-		panic("STRIPE_SECRET_KEY environment variable not set")
-	}
 
 	// setup database
-	dbURL := envvars.NitrousPgUrl
-	if dbURL == "" {
-		logr.FatalfExit("nitrousd: %s is not defined", envvars.DBEnvVar)
-	}
-	dbConn, err := db.NewDatabase(dbURL)
+	envvars.CheckDB()
+	dbConn, err := db.NewDatabase(envvars.NitrousPgUrl)
 	if err != nil {
 		logr.FatalExit(err)
 	}
@@ -121,7 +115,7 @@ func main() {
 
 	conf := &provisioner.Config{Username: pu, Interval: pi}
 
-	svr := server.NewServer(must.String(osext.ExecutableFolder()), dbConn, logr, conf)
+	svr := server.NewServer(envvars.RootDir, dbConn, logr, conf)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)
 	if err != nil {

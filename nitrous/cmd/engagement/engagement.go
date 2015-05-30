@@ -25,7 +25,7 @@ func main() {
 		logr.FatalExit(err)
 	}
 
-	envvars.CheckSendgridVariables()
+	envvars.CheckSendgrid()
 	logr.Info("engagement: Starting Activation Emails")
 	users, err := engagement.ActivationEmailCandidates(dbConn)
 	if err != nil {

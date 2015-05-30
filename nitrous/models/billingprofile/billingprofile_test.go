@@ -186,25 +186,25 @@ var _ = Describe("models/billingprofile", func() {
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
 				fakeStripe.Error = test.StripeCardDeclined
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.CardDeclinedError))
+				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 			})
 
-			It("returns CardExpiredError error, if Stripe returns a card expired error", func() {
+			It("returns ErrCardExpired error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeCardExpired
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.CardExpiredError))
+				Expect(err).To(Equal(billingprofile.ErrCardExpired))
 			})
 
-			It("returns IncorrectCvcError error, if Stripe returns a card expired error", func() {
+			It("returns ErrIncorrectCvc error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeIncorrectCvc
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.IncorrectCvcError))
+				Expect(err).To(Equal(billingprofile.ErrIncorrectCvc))
 			})
 
-			It("returns IncorrectZipError error, if Stripe returns a card expired error", func() {
+			It("returns ErrIncorrectZipErr error, if Stripe returns a card expired error", func() {
 				fakeStripe.Error = test.StripeIncorrectZip
 				err := bp.UpdateCard(db, "token")
-				Expect(err).To(Equal(billingprofile.IncorrectZipError))
+				Expect(err).To(Equal(billingprofile.ErrIncorrectZipErr))
 			})
 
 			It("does not update the record, when Stripe returns an error", func() {
@@ -224,6 +224,36 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.CardType.String).To(Equal("MasterCard"))
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(bp.ExpYear.Int64).To(Equal(int64(2014)))
+			})
+
+			It("returns ErrCardBanned when the card belongs to a banned user", func() {
+				b := &user.User{
+					Username: "banner",
+					Password: "123456",
+					Email:    "banner@example.com",
+				}
+				err := test.WrapInTransaction(db, b.Insert)
+				Expect(err).To(BeNil())
+
+				u2 := &user.User{
+					Username: "bad",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "bad@example.com",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err = bp.UpdateCard(db, "token")
+				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 			})
 		})
 	})

@@ -1,3 +1,4 @@
+.syncignore
 build/
 Godeps/_workspace/pkg/*
 Godeps/_workspace/bin/*

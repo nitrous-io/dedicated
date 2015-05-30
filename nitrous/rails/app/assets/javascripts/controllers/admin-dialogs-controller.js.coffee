@@ -17,6 +17,13 @@ App.AdminDialogsController = Em.Controller.extend
       @set 'selectedCreditType', f.get("name")
   ).observes 'creditTypes.@each', 'selectedCreditType'
 
+  init: ->
+    @_super.apply this, arguments
+
+    App.on 'switch-to-user', (username)=>
+      @set 'login', username
+      @send 'switchUser'
+
   clear: ->
     @setProperties
       login: null
@@ -84,6 +91,10 @@ App.AdminDialogsController = Em.Controller.extend
           App.snackbar.post('Updated given hosts.')
         , (jqxhr) =>
           App.postError(jqxhr.responseJSON, 'Failed to update some hosts. Please try again.')
+
+    viewUser: ->
+      @transitionToRoute 'admin.user', @get('login')
+      App.trigger 'hide-view-user-dialog'
 
     switchUser: ->
       @set 'switching', true

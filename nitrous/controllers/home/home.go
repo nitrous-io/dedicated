@@ -6,9 +6,9 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
-	"github.com/nitrous-io/dedicated/nitrous/middleware"
 )
 
 var homeIndexHtml []byte
@@ -26,5 +26,4 @@ func renderHTML(logger *logger.Logger, w http.ResponseWriter, status int, html [
 	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
 	w.WriteHeader(status)
 	w.Write(html)
-	logger.Infof("Response: %v", status)
 }

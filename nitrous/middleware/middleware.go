@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -53,7 +52,7 @@ var (
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
 		"billingprofiles.Show":       1,
-		"tokens.Logout":              1,
+		"oauth.Logout":               1,
 		"feedback.Send":              1,
 	}
 )
@@ -84,7 +83,11 @@ func (env *Env) AddEventData(data map[string]interface{}) {
 }
 
 func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
-	t := &token.Token{UserID: u.ID}
+	t := &token.Token{
+		UserID: u.ID,
+		Type:   "login",
+		Scope:  token.ScopeFull,
+	}
 
 	err := t.Insert(env.DB)
 	if err != nil {
@@ -170,7 +173,7 @@ func VerifyUserBilling(resource string, mw Middleware) Middleware {
 		_, allowed := allowedUnpaidResources[resource]
 
 		if !allowed {
-			bp, err := billingprofile.Find(env.DB, env.User.ID)
+			bp, err := env.User.BillingProfile(env.DB)
 			if err != nil {
 				env.Logger.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
 				return err
@@ -195,6 +198,14 @@ func Track(event string, mw Middleware) Middleware {
 		// via Mixpanel HTTP API reference:
 		// 'If $ip is set to "0", Mixpanel will ignore IP information.'
 		env.AddEventData(map[string]interface{}{"$ip": "0"})
+
+		bp, err := env.User.BillingProfile(env.DB)
+		if err != nil {
+			env.Logger.Errorf("Track: error locating billingprofile for %+v err: %+v", env.User, err)
+		}
+		if bp != nil {
+			env.AddEventData(map[string]interface{}{"billing_state": bp.State})
+		}
 
 		if env.TrackEventName != "" {
 			env.Tracker.TrackEvent(event, env.User, env.trackEventData, env.Logger)
@@ -257,14 +268,27 @@ func SharedHostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 
 func GetBearerToken(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
-	prefix := "Bearer "
-	if len(authHeader) <= len(prefix) ||
-		(!strings.HasPrefix(authHeader, prefix) &&
-			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-		return "", errInvalidRequest
+	if authHeader != "" {
+		prefix := "Bearer "
+		if len(authHeader) <= len(prefix) ||
+			(!strings.HasPrefix(authHeader, prefix) &&
+				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+			return "", errInvalidRequest
+		}
+
+		return authHeader[len(prefix):], nil
 	}
 
-	return authHeader[len(prefix):], nil
+	if r.Method == "POST" && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+		token := r.PostFormValue("access_token")
+		if token == "" {
+			return "", errInvalidRequest
+		}
+
+		return token, nil
+	}
+
+	return "", errInvalidRequest
 }
 
 // Stolen from Rack:
@@ -361,9 +385,14 @@ func Call(label string, mw Middleware) Middleware {
 		mh.Meter(rlabel).Mark(1)
 		defer mh.UpdateSince(label, time.Now())
 		err := mw(env, w, r)
-		if err != nil {
+		if err == nil {
+			return nil
+		}
+		// distinguish in Librato between server errors and user-facing errors (invalid input)
+		if _, ok := err.(*httperror.Error); ok {
+			return mh.Invalid(err, label)
+		} else {
 			return mh.Error(err, label)
 		}
-		return nil
 	}
 }
