@@ -64,7 +64,7 @@ func main() {
 	if err != nil {
 		logr.FatalExit(err)
 	}
-	envvars.CheckSendgridVariables()
+	envvars.CheckSendgrid()
 
 	if len(os.Args) < 2 {
 		logr.FatalExit(usage)

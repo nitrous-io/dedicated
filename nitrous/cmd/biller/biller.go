@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 func init() {
 	logr = &logger.Logger{Level: logger.LogLevelDebug}
 
-	envvars.CheckSendgridVariables()
+	envvars.CheckSendgrid()
 
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {

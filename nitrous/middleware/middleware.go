@@ -52,7 +52,7 @@ var (
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
 		"billingprofiles.Show":       1,
-		"tokens.Logout":              1,
+		"oauth.Logout":               1,
 		"feedback.Send":              1,
 	}
 )
@@ -83,7 +83,11 @@ func (env *Env) AddEventData(data map[string]interface{}) {
 }
 
 func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
-	t := &token.Token{UserID: u.ID}
+	t := &token.Token{
+		UserID: u.ID,
+		Type:   "login",
+		Scope:  token.ScopeFull,
+	}
 
 	err := t.Insert(env.DB)
 	if err != nil {
@@ -264,14 +268,27 @@ func SharedHostViaPath(srcVar string, fn hostHandlerFn) Middleware {
 
 func GetBearerToken(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
-	prefix := "Bearer "
-	if len(authHeader) <= len(prefix) ||
-		(!strings.HasPrefix(authHeader, prefix) &&
-			!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
-		return "", errInvalidRequest
+	if authHeader != "" {
+		prefix := "Bearer "
+		if len(authHeader) <= len(prefix) ||
+			(!strings.HasPrefix(authHeader, prefix) &&
+				!strings.HasPrefix(authHeader, strings.ToLower(prefix))) {
+			return "", errInvalidRequest
+		}
+
+		return authHeader[len(prefix):], nil
 	}
 
-	return authHeader[len(prefix):], nil
+	if r.Method == "POST" && r.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+		token := r.PostFormValue("access_token")
+		if token == "" {
+			return "", errInvalidRequest
+		}
+
+		return token, nil
+	}
+
+	return "", errInvalidRequest
 }
 
 // Stolen from Rack:

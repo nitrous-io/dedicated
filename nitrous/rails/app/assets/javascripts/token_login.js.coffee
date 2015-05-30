@@ -46,7 +46,7 @@ main = ->
       headers:
         Authorization: "Bearer #{existingToken}"
     ).done((data)->
-      # exisiting oauth token is still valid, just redirect
+      # existing oauth token is still valid, just redirect
       redirect(redirectUrl)
     ).fail ->
       # existing oauth token is invalid, delete token

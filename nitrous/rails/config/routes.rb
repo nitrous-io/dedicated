@@ -22,5 +22,7 @@ Rails.application.routes.draw do
   get '/stacks' => 'pages#stacks'
   get '/stacks/:stack' => 'pages#stack'
 
+  get '/oauth_authorize' => 'templates#oauth_authorize'
+
   root 'pages#home'
 end
