@@ -1,6 +1,7 @@
 package containercollab
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/lib/pq"
@@ -10,24 +11,28 @@ import (
 type ContainerCollabUser struct {
 	ContainerCollab
 
-	Username string `db:"username"`
-	Email    string `db:"email"`
-	Name     string `db:"name"`
+	Username sql.NullString `db:"username"`
+	Email    sql.NullString `db:"email"`
+	Name     sql.NullString `db:"name"`
 }
 
 type ContainerCollab struct {
-	ID          int64       `db:"id"`
-	ContainerID int64       `db:"container_id"`
-	UserID      int64       `db:"user_id"`
-	EmailSentAt pq.NullTime `db:"email_sent_at"`
-	CreatedAt   *time.Time  `db:"created_at"`
-	UpdatedAt   *time.Time  `db:"updated_at"`
+	ID          int64         `db:"id"`
+	ContainerID int64         `db:"container_id"`
+	UserID      sql.NullInt64 `db:"user_id"`
+	EmailSentAt pq.NullTime   `db:"email_sent_at"`
+
+	InviteEmail sql.NullString `db:"invite_email"`
+	InviteCode  sql.NullString `db:"invite_code"`
+
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 }
 
 func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
 	sc := &ContainerCollab{
 		ContainerID: cID,
-		UserID:      uID,
+		UserID:      sql.NullInt64{uID, true},
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO container_collabs (user_id, container_id) VALUES (:user_id, :container_id) RETURNING *;`)
 	if err != nil {
@@ -49,8 +54,9 @@ func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollabUser, error) {
 		users.email,
 		users.name
 		FROM container_collabs
-		INNER JOIN users ON users.id = container_collabs.user_id
-		WHERE container_id = $1 AND users.deleted_at IS NULL;`,
+		LEFT JOIN users ON users.id = container_collabs.user_id
+		WHERE container_id = $1 AND users.deleted_at IS NULL
+		ORDER BY COALESCE(users.username, invite_email);`,
 		cID)
 	if err != nil {
 		return nil, err
