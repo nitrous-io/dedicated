@@ -89,6 +89,9 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) (e
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
+	if err == sql.ErrNoRows {
+		hT = nil
+	}
 
 	tx, err := db.Beginx()
 	if err != nil {
