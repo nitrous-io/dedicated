@@ -1,11 +1,12 @@
 App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
-  queryParams: [{ incomingEmail: 'email', promoCode: 'promo' }]
+  queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code' }]
   user: null
   signingUp: false
   error: null
   invalidField: null
   suggestedEmail: null
   promoCode: null
+  inviteCode: null
 
   clear: ->
     @setProperties
@@ -13,6 +14,16 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       signingUp: false
       error: null
       invalidField: null
+
+  emailDisabled: (->
+    return true if @get 'signingUp'
+    @get('inviteCode') && @get('user.email')
+  ).property 'inviteCode', 'user.email', 'signingUp'
+
+  showSuggested: (->
+    return false if @get('emailDisabled')
+    @get 'suggestedEmail'
+  ).property 'suggestedEmail', 'emailDisabled'
 
   handleIncomingEmail: ->
     return unless email = @get("incomingEmail")
@@ -31,7 +42,7 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       @set 'invalidField', null
       @set 'signingUp', true
       user = @get 'user'
-      user.save(promo_code: @get('promoCode')).then(=>
+      user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode')).then(=>
         if window.Mp.initialized
           window.mixpanel.alias?(user.get('id').toString())
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))

@@ -6,6 +6,10 @@ App.HomeIndexController = Em.Controller.extend
         @transitionToRoute "free-tier", queryParams: { skip: true }
 
     handleNoHost: ->
+      if shared = App.get('sharedContainers.firstObject.slug')
+        @transitionToRoute 'container.index', shared
+        return
+
       unless App.get "freeQueue"
         @transitionToRoute 'containers.new'
 
