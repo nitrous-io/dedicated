@@ -47,9 +47,6 @@
               a href='#' click='creditUser target="view"'
                 | Credit User
             li
-              = link-to 'admin.free-queue'
-                | Free Queue
-            li
               = link-to 'admin.announcements'
                 | Create Announcements
             li

@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
-	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -281,23 +280,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 			Expect(errDesc).To(Equal("Your Zip code is incorrect. Please try again."))
 
 			Expect(ft.PropsCalled).To(HaveLen(0))
-		})
-
-		It("should cancel any freequeue entries the user might have", func() {
-			_, err := db.Exec(`INSERT INTO free_queue
-				(user_id, container_template_slug, container_name, region_slug, host_name)
-				VALUES ($1, 'tmpl1', 'nm', 'slug1', 'name1')`, u.ID)
-			Expect(err).To(BeNil())
-
-			fakeStripe.Responses = []string{test.StripeCustomerResponse}
-			p := &url.Values{}
-			p.Set("card_token", "cc_token")
-			res := doRequest(p)
-
-			Expect(res.Code).To(Equal(http.StatusCreated))
-
-			_, err = freequeue.Find(db, u.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
 		It("should send upgraded_to_paid_at to mixpanel", func() {

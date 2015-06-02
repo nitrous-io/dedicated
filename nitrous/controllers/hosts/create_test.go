@@ -22,7 +22,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
-	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -860,22 +859,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 
-				It("creates the host if the free queue record has been soft deleted", func() {
-					_, err := db.Exec(`INSERT INTO free_queue
-					(user_id, container_template_slug, container_name, region_slug, host_name, deleted_at)
-					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', now())`, u.ID)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE plans SET price=0;`)
-					Expect(err).To(BeNil())
-
-					params.Set("container_template_slug", "rails")
-					params.Set("container_name", "my container")
-
-					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
-				})
-
 				It("responds with error if paid plan is selected", func() {
 					res := doRequest(params)
 					Expect(res.Code).To(Equal(http.StatusForbidden))
@@ -896,55 +879,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 					errType, _ := test.ErrorSlug(res.Body)
 					Expect(errType).To(Equal("max_free_host_reached"))
-				})
-
-				It("continues creating if the free queue has been approved", func() {
-					_, err := db.Exec(`INSERT INTO free_queue
-					(user_id, container_template_slug, container_name, region_slug, host_name, state)
-					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', $2)`, u.ID, freequeue.StateApproved)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE plans SET price=0;`)
-					Expect(err).To(BeNil())
-
-					params.Set("container_template_slug", "rails")
-					params.Set("container_name", "my container")
-
-					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
-				})
-
-				It("continues creating if free queue has been approved and user has orphan hosts", func() {
-					_, err := db.Exec(`INSERT INTO free_queue
-					(user_id, container_template_slug, container_name, region_slug, host_name, state)
-					VALUES ($1, 'rails', 'my ror', 'my workspace', 'sgp[', $2)`, u.ID, freequeue.StateApproved)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE plans SET price=0;`)
-					Expect(err).To(BeNil())
-
-					h1 := &host.Host{
-						Slug:        "my-orphaned-host",
-						HourlyPrice: 0,
-						Free:        true,
-						State:       host.StateOrphan,
-					}
-
-					freePlan, err := plan.FindByID(db, hs.P.ID)
-					Expect(err).To(BeNil())
-
-					_, err = test.CreateHostStack(db, &test.HostStack{
-						H: h1,
-						U: u,
-						P: freePlan,
-					})
-					Expect(err).To(BeNil())
-
-					params.Set("container_template_slug", "rails")
-					params.Set("container_name", "my container")
-
-					res := doRequest(params)
-					Expect(res.Code).To(Equal(http.StatusAccepted))
 				})
 			})
 		})

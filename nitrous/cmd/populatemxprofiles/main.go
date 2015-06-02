@@ -105,9 +105,7 @@ func makeJobs() <-chan job {
 		//"gen phone": GenPhoneJobs,
 		"gen hosts created": GenHostCreatedJobs,
 	}
-	otherSteps := map[string]stepFn{
-		"gen waitlist": GenWaitlistJobs,
-	}
+	otherSteps := map[string]stepFn{}
 
 	go func() {
 		defer close(jobs)

@@ -300,24 +300,6 @@ var _ = Describe("controllers/users", func() {
 				Expect(count).To(Equal(0))
 			})
 
-			It("should soft delete the free queue requests for the user", func() {
-				_, err := db.Exec(`INSERT INTO free_queue
-					(user_id, container_template_slug, container_name, host_name, region_slug)
-					VALUES ($1, 'slug1', 'name', 'host', 'reg');`, u.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				_, err = user.FindByID(db, u.ID)
-				Expect(err).To(Equal(sql.ErrNoRows))
-
-				var count int
-				err = db.QueryRow(`SELECT COUNT(*) FROM free_queue WHERE user_id = $1 AND deleted_at IS NOT NULL;`, u.ID).Scan(&count)
-				Expect(err).To(BeNil())
-				Expect(count).To(Equal(1))
-			})
-
 			It("should delete all verifications", func() {
 				_, err := db.Exec(`INSERT INTO verifications
 					(user_id, phone, code)
