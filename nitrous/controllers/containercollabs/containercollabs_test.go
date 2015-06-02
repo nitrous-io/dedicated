@@ -296,6 +296,29 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})
 
+		It("should return an error if the user has not confirmed", func() {
+			otherUser := &user.User{
+				Username: "steph",
+				Email:    "steph@nitrous.io",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '72 hours', confirmed_at = NULL WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("steph")
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("user_not_confirmed"))
+			Expect(errDesc).To(Equal("the specified user has not confirmed their account"))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
 		It("should add the user as a collaborator", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -303,6 +326,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -346,6 +372,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err = test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
 
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
 			doRequest("steve")
 
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -374,6 +403,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -466,6 +498,9 @@ var _ = Describe("controllers/containercollabs", func() {
 			err := test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
 
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
 			chOwner := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(chOwner, u.Topic())
 			chCollab := svr.Events.Subscribe(otherUser.Topic())
@@ -512,6 +547,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			_, err = containercollab.Create(db, cnr.ID, otherUser.ID)

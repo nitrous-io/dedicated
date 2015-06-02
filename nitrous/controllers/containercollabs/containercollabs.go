@@ -40,6 +40,7 @@ var (
 	errUserNotFound     = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
 	errSameUser         = httperror.New(http.StatusBadRequest, "same_user", "you cannot add yourself as a collaborator")
 	errAlreadyAdded     = httperror.New(http.StatusConflict, "already_added", "this user is already a collaborator")
+	errUserNotConfirmed = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
 	errEmailAlreadySent = errors.New("email already sent")
 	Mailer              mailer.Mailer
 )
@@ -81,6 +82,10 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 
 	if usr.ID == env.User.ID {
 		return errSameUser
+	}
+
+	if !usr.CanLogin() {
+		return errUserNotConfirmed
 	}
 
 	collab, err := containercollab.Create(env.DB, cn.ID, usr.ID)
