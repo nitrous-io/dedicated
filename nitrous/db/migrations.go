@@ -1262,5 +1262,19 @@ func init() {
 				CREATE INDEX index_hosts_on_last_pinged_at ON hosts USING btree (last_pinged_at);
 			`,
 		},
+		{
+			Version: "1100",
+			Up: `
+				CREATE TABLE respecs (
+					id bigserial PRIMARY KEY NOT NULL,
+					host_id bigint REFERENCES hosts(id) NOT NULL,
+					provider_template_id bigint REFERENCES provider_templates(id) NOT NULL,
+					state character varying(255) NOT NULL DEFAULT 'pending',
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE INDEX index_respecs_on_host_id ON respecs USING btree (host_id);
+			`,
+		},
 	}
 }
