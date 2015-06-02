@@ -17,7 +17,10 @@ var _ = Describe("user serializer", func() {
 	var (
 		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
+		model     *user.User
+	)
 
+	BeforeEach(func() {
 		model = &user.User{
 			ID:                10,
 			Name:              "Emma Watson",                 // Not serialized.
@@ -34,10 +37,12 @@ var _ = Describe("user serializer", func() {
 			PhoneAuthed:       false,
 			MaxRunningTime:    sql.NullInt64{19, true},
 			RefreshPeriod:     sql.NullInt64{240, true},
+			MaxContainers:     sql.NullInt64{99, true},
 			CreatedAt:         &createdAt,
 			UpdatedAt:         &updatedAt,
 		}
-	)
+
+	})
 
 	Describe("SerializeUser", func() {
 		It("serializes to JSON", func() {
@@ -58,6 +63,7 @@ var _ = Describe("user serializer", func() {
 				"phone_authed": false,
 				"max_running_time": 19,
 				"refresh_period": 240,
+				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -81,6 +87,7 @@ var _ = Describe("user serializer", func() {
 				"phone_country_code": "65",
 				"phone_authed": false,
 				"refresh_period": 240,
+				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -103,6 +110,8 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"max_running_time": 19,
+				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -124,6 +133,33 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"max_running_time": 19,
+				"refresh_period": 240,
+				"max_containers": 99,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
+		It("should omit an empty MaxContainers", func() {
+			model.MaxContainers = sql.NullInt64{0, false}
+			u := serializers.SerializeUser(model)
+			b, err := json.Marshal(u)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Emma Watson",
+				"username": "emmawatson",
+				"email": "h.granger@hogwarts.edu",
+				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
+				"admin": true,
+				"promo_code": "hogwarts",
+				"first_time": true,
+				"phone": "88884444",
+				"phone_country_code": "65",
+				"phone_authed": false,
+				"max_running_time": 19,
+				"refresh_period": 240,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -162,6 +198,7 @@ var _ = Describe("user serializer", func() {
 				"name": "Emma Watson",
 				"username": "emmawatson",
 				"email": "h.granger@hogwarts.edu",
+				"unconfirmed_email": "h.granger+nospam@hogwarts.edu",
 				"admin": true,
 				"user_profile": {
 					"max_hosts": 2,
@@ -183,6 +220,9 @@ var _ = Describe("user serializer", func() {
 				"phone": "88884444",
 				"phone_country_code": "65",
 				"phone_authed": false,
+				"max_running_time": 19,
+				"refresh_period": 240,
+				"max_containers": 99,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))

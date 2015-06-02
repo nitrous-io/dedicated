@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
-	"github.com/nitrous-io/dedicated/nitrous/controllers/freequeue"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
@@ -152,10 +151,8 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates":           r("providertemplates.Index", providertemplates.Index),
 				"/admin/provider_templates/{ptid}":    r("providertemplates.Show", providertemplates.Show),
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
-				"/admin/free_queue/pending":           r("freequeue.Pending", freequeue.Pending),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/github/authorize":                   r("github.Authorize", github.Authorize),
-				"/free_queue":                         r("freequeue.ForCurrentUser", freequeue.ForCurrentUser),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
 			},
 			"POST": {
@@ -197,7 +194,6 @@ func (s *Server) drawRoutes() {
 				"/admin/templates":                         r("admin.TemplatesCreate", admin.TemplatesCreate),
 				"/admin/terminate_unaccounted_host":        r("admin.TerminateUnaccountedHost", admin.TerminateUnaccountedHost),
 				"/admin/change_host_state":                 r("admin.ChangeHostState", admin.ChangeHostState),
-				"/admin/free_queue/{id}/action":            r("freequeue.Action", freequeue.Action),
 				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
 			},
@@ -220,10 +216,9 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
-				"/free_queue":                             r("freequeue.Cancel", freequeue.Cancel),
-				"/logout":                                 r("oauth.Logout", oauth.Logout),
-				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
-				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
+				"/logout":               r("oauth.Logout", oauth.Logout),
+				"/user":                 r("users.Delete", users.Delete, EventUserDeleted),
+				"/admin/users/{id}/ban": r("admin.BanUser", admin.BanUser),
 			},
 		}
 

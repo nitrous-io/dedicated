@@ -60,7 +60,7 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
 
   focus: ->
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('.search-text').focus()
+      @$('.search-text').select().focus()
 
   refreshEditor: ->
     Em.run.scheduleOnce 'afterRender', =>

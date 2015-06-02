@@ -45,8 +45,6 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
-	errFreeQueueExists = httperror.New(http.StatusBadRequest, "free_queue_exists",
-		"You already have a workspace in queue. We will email you when it's ready.")
 )
 
 // hostCreateRequest describes the JSON request used to create a host

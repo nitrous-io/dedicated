@@ -3,8 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-
-	"github.com/nitrous-io/dedicated/nitrous/models/freequeue"
 )
 
 func GenConfirmedJobs(jobs chan job, u *User) error {
@@ -97,32 +95,5 @@ func GenHostCreatedJobs(jobs chan job, u *User) error {
 	jobs <- NewJob("set", u.ID, map[string]interface{}{
 		"workspaces_plans": plans,
 	})
-	return nil
-}
-
-func GenWaitlistJobs(jobs chan job) error {
-	entries := []*FreeQueue{}
-	err := dbConn.Select(&entries, `
-		SELECT id, user_id, state, created_at, actioned_at, deleted_at
-		FROM free_queue;
-	`)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		props := map[string]interface{}{
-			"waitlist_entered_date": e.CreatedAt.Time,
-		}
-		switch e.State {
-		case freequeue.StateApproved:
-			props["waitlist_approved_date"] = e.ActionedAt.Time
-		case freequeue.StateRejected:
-			props["waitlist_rejected_date"] = e.ActionedAt.Time
-		}
-		if e.DeletedAt.Valid {
-			props["waitlist_canceled_date"] = e.DeletedAt.Time
-		}
-		jobs <- NewJob("set", e.UserID, props)
-	}
 	return nil
 }

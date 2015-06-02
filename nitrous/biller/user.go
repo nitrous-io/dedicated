@@ -119,7 +119,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		if err != nil {
 			return 0, []invoiceitem.InvoiceItem{}, err
 		}
-		if bp.State != billingprofile.StateFree && !h.UserAdmin {
+		if !(bp.State == billingprofile.StateExempt || bp.State == billingprofile.StateFree) && !h.UserAdmin {
 			if h.Host.TerminatedAt != nil && !h.Host.UpgradedAt.Valid {
 				return 0, []invoiceitem.InvoiceItem{}, nil
 			} else {
