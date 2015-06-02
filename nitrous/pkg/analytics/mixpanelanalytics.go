@@ -45,7 +45,7 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 	}()
 }
 
-func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) chan struct{} {
+func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
 	if m.client == nil {
 		return nil
 	}
@@ -60,13 +60,28 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) cha
 		"$ip":       "0",
 	}
 
+	userID := strconv.Itoa(int(u.ID))
 	finished := make(chan struct{}, 1)
 	go func() {
-		profileOp := m.client.NewProfileOp(strconv.Itoa(int(u.ID)), p)
-		err := profileOp.Create()
-		if err != nil {
-			logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+		if distinctID == "" {
+			profileOp := m.client.NewProfileOp(userID, p)
+			err := profileOp.Create()
+			if err != nil {
+				logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+			}
+		} else {
+			profileOp := m.client.NewProfileOp(distinctID, p)
+			err := profileOp.Create()
+			if err != nil {
+				logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+			}
+
+			err = profileOp.Alias(userID)
+			if err != nil {
+				logger.Errorf("analytics: failed to alias user profile %s to distinct_id %s. err: %v", u.Email, distinctID, err)
+			}
 		}
+
 		finished <- struct{}{}
 	}()
 

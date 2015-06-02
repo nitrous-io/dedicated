@@ -44,7 +44,7 @@ func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interf
 	}
 }
 
-func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger) chan struct{} {
+func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
 	f.ProfileCreated = u
 	return nil
 }
