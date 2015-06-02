@@ -52,6 +52,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   onboardingReady: false
   onboardingIDEOpen: false
   temporaryScreen: null
+  sharedContainerTip: false
 
   fiveMinWarned: false
   oneMinWarned: false

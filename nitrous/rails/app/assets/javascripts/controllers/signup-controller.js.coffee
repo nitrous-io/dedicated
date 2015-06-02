@@ -43,6 +43,9 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       @set 'signingUp', true
       user = @get 'user'
       user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode')).then(=>
+        if @get('inviteCode')
+          App.set 'sharedContainerTip', true
+
         if window.Mp.initialized
           window.mixpanel.alias?(user.get('id').toString())
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))

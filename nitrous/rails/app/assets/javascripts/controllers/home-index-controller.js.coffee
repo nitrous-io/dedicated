@@ -6,15 +6,15 @@ App.HomeIndexController = Em.Controller.extend
         @transitionToRoute "free-tier", queryParams: { skip: true }
 
     handleNoHost: ->
+      if App.get('user.firstTime')
+        App.set 'onboardingReady', true
+
       if shared = App.get('sharedContainers.firstObject.slug')
         @transitionToRoute 'container.index', shared
         return
 
       unless App.get "freeQueue"
         @transitionToRoute 'containers.new'
-
-      if App.get('user.firstTime')
-        App.set 'onboardingReady', true
 
     redirectToFirstHost: ->
       slug = App.get('hosts').findBy('state', 'running')?.get('slug')
