@@ -36,6 +36,9 @@ const (
 	MagneticVolumeType = "standard"
 
 	rootDeviceName = "/dev/sda1"
+
+	updateTimeout           = 30 * time.Second
+	resizeRootVolumeTimeout = 30 * time.Minute
 )
 
 var (
@@ -301,7 +304,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, mh.Error(err, label)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), updateTimeout)
 	defer cancel()
 
 	hctx := host.NewContext(ctx, h, h, w)
@@ -388,7 +391,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeRootVolumeTimeout)
 	defer cancel()
 
 	h.rootVolume = rootVolume
