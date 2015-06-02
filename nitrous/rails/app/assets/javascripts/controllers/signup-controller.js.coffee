@@ -42,6 +42,10 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       @set 'invalidField', null
       @set 'signingUp', true
       user = @get 'user'
+
+      if distinctId = window.mixpanel?.get_distinct_id?()
+        user.set('distinctId', distinctId)
+
       user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode')).then(=>
         if @get('inviteCode')
           App.set 'sharedContainerTip', true
