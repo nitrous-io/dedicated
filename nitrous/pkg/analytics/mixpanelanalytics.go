@@ -45,9 +45,9 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 	}()
 }
 
-func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
+func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) chan struct{} {
 	if m.client == nil {
-		return
+		return nil
 	}
 
 	p := map[string]interface{}{
@@ -60,11 +60,17 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger) {
 		"$ip":       "0",
 	}
 
-	profileOp := m.client.NewProfileOp(strconv.Itoa(int(u.ID)), p)
-	err := profileOp.Create()
-	if err != nil {
-		logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
-	}
+	finished := make(chan struct{}, 1)
+	go func() {
+		profileOp := m.client.NewProfileOp(strconv.Itoa(int(u.ID)), p)
+		err := profileOp.Create()
+		if err != nil {
+			logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+		}
+		finished <- struct{}{}
+	}()
+
+	return finished
 }
 
 func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {

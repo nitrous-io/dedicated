@@ -109,7 +109,9 @@ func GenMixpanelProfiles(jobs chan job, u *User) error {
 		Email:     u.Email,
 		CreatedAt: &u.CreatedAt.Time,
 	}
-	tracker.CreateProfile(u2, logr)
-
+	finished := tracker.CreateProfile(u2, logr)
+	if finished != nil {
+		<-finished
+	}
 	return nil
 }
