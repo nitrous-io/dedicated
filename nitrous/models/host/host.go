@@ -121,6 +121,8 @@ type Host struct {
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
 	UpdateAvailable       string
+
+	PendingRespec bool
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {

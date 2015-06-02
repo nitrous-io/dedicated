@@ -47,6 +47,7 @@ var _ = Describe("host serializer", func() {
 			LiveDockerVersion:     "1.2-docker",
 			LiveFreighterdVersion: "2.3-freighterd",
 			UpdateAvailable:       host.UpdateAvailableHard,
+			PendingRespec:         true,
 		}
 	})
 
@@ -78,7 +79,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -112,7 +114,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -146,8 +149,9 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
-				"max_containers": 3
+				"update_available": "hard",
+				"max_containers": 3,
+				"pending_respec": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -178,7 +182,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -221,7 +226,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -269,7 +275,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})
@@ -307,7 +314,8 @@ var _ = Describe("host serializer", func() {
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
-				"max_containers": 3
+				"max_containers": 3,
+				"pending_respec": true
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 

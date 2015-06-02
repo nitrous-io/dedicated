@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -346,6 +347,33 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.LiveDockerVersion).To(Equal(""))
 			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
 			Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableSoft))
+			Expect(j.Host.PendingRespec).To(Equal(false))
+		})
+
+		It("responds with pending_respec set to true if host has a pending respec record", func() {
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				R: hs.R,
+			})
+			Expect(err).To(BeNil())
+
+			tx, err := db.Beginx()
+			Expect(err).To(BeNil())
+			r := &respec.Respec{
+				HostID:             hs.H.ID,
+				ProviderTemplateID: hs2.PT.ID,
+			}
+			Expect(r.Insert(tx)).To(BeNil())
+			Expect(tx.Commit()).To(BeNil())
+
+			doRequest(hs.H.Slug, t.Token)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.PendingRespec).To(Equal(true))
 		})
 
 		It("responds with an empty update_available if required freighterd & docker version is empty", func() {

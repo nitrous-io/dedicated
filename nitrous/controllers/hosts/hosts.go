@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -118,6 +119,10 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 	if !envvars.EnableSelfUpgrade && !env.User.Admin {
 		h.UpdateAvailable = ""
+	}
+
+	if _, err := respec.Find(env.DB, h.ID); err == nil {
+		h.PendingRespec = true
 	}
 
 	serializeHost(env, h)
