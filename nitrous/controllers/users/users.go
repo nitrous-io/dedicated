@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -435,6 +438,16 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
 			"$email": u.Email,
 		}, env.Logger)
+	}
+
+	// notify any collaborators that the collaborator has joined
+	cns, err := container.FindAllShared(db, u.ID)
+	if err != nil {
+		env.Logger.Errorf("Unable to fetch containers, err: %v", err)
+		return env.Login(u, w)
+	}
+	for _, cn := range cns {
+		containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
 	}
 
 	return env.Login(u, w)

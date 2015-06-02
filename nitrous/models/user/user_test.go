@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
@@ -1238,6 +1239,49 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 			Expect(u.Email).To(Equal("buddy@hotmail.com"))
 			Expect(u.UnconfirmedEmail.String).To(BeEmpty())
+		})
+
+		It("should update all outstanding container collabs to user IDs", func() {
+			owner := &user.User{
+				Username: "owner",
+				Email:    "owner@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, owner.Insert)
+			Expect(err).To(BeNil())
+
+			hs, err := test.CreateHostStack(db, &test.HostStack{
+				U: owner,
+			})
+			Expect(err).To(BeNil())
+
+			cnr := &container.Container{
+				CID:    "cafebabe",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container",
+				Name:   sql.NullString{"Java", true},
+			}
+			err = cnr.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, $2, '22x2') RETURNING ID`, cnr.ID, u.Email)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			var found bool
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(found).To(BeTrue())
 		})
 	})
 
