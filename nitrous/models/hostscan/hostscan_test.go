@@ -78,10 +78,18 @@ var _ = Describe("models/hostscan", func() {
 				State:       host.StateRunning,
 			}
 
-			_, err = test.CreateHostStack(db, &test.HostStack{
+			// Create host stack for free and paid plans so that we have the
+			// corresponding regions and provider templates.
+			hs, err := test.CreateHostStack(db, &test.HostStack{
 				H: h,
 				U: u,
 				P: freePlan,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				P: paidPlan,
+				R: hs.R,
 			})
 			Expect(err).To(BeNil())
 		})
@@ -182,10 +190,8 @@ var _ = Describe("models/hostscan", func() {
 				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
 				Expect(err).To(BeNil())
 				Expect(len(hosts)).To(Equal(1))
-			})
 
-			BeforeEach(func() {
-				_, err := db.Exec(`UPDATE billing_profiles
+				_, err = db.Exec(`UPDATE billing_profiles
 						SET state='paid' WHERE user_id=$1;
 						`, u.ID)
 				Expect(err).To(BeNil())
