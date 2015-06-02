@@ -14,7 +14,7 @@ hostActions =
     perform: (host) ->
       Em.$.ajax
         type: 'POST'
-        url: "/api/v0/hosts/#{host.slug}/upgrade"
+        url: "/api/v0/hosts/#{host.slug}/update_software"
         headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   start:

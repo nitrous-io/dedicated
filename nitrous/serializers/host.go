@@ -37,7 +37,7 @@ type Host struct {
 
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
-	UpgradeAvailable      string `json:"upgrade_available"`
+	UpdateAvailable       string `json:"update_available"`
 
 	MaxContainers int64 `json:"max_containers,omitempty"`
 }
@@ -68,7 +68,7 @@ func SerializeHost(h *host.Host) *Host {
 		TerminatedAt:          h.TerminatedAt,
 		LiveDockerVersion:     h.LiveDockerVersion,
 		LiveFreighterdVersion: h.LiveFreighterdVersion,
-		UpgradeAvailable:      h.UpgradeAvailable,
+		UpdateAvailable:       h.UpdateAvailable,
 		MaxContainers:         h.MaxContainers.Int64,
 	}
 	if h.AssignedAt != nil {

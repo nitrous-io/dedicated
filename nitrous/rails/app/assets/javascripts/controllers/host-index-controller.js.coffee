@@ -32,29 +32,29 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
     upgradePaid: ->
       @transitionToRoute 'add-card', queryParams: { upgradingFromFree: true }
 
-    upgrade: ->
+    update: ->
       host = @get('model')
       events = App.get 'eventsSocket'
 
-      unless host.get('canUpgrade')
-        App.postError("Containers must be stopped to perform this upgrade")
+      unless host.get('canUpdate')
+        App.postError('Containers must be stopped to perform this update.')
         return
 
-      onUpgradeFailed = (data) ->
+      onUpdateFailed = (data) ->
         hostData = data.host
         return unless hostData.id == host.get('id')
-        events.off 'host.upgrade_failed', onUpgradeFailed
-        events.off 'host.upgraded', onUpgraded
-        App.postError("Failed to upgrade workspace!")
+        events.off 'host.update_failed', onUpdateFailed
+        events.off 'host.updated', onUpdated
+        App.postError('Failed to update workspace!')
 
-      onUpgraded = (data) ->
+      onUpdated = (data) ->
         hostData = data.host
         return unless hostData.id == host.get('id')
-        events.off 'host.upgrade_failed', onUpgradeFailed
-        events.off 'host.upgraded', onUpgraded
-        App.snackbar.post("Your workspace “#{host.get('slug')}” has been upgraded.")
+        events.off 'host.update_failed', onUpdateFailed
+        events.off 'host.updated', onUpdated
+        App.snackbar.post("Your workspace “#{host.get('slug')}” has been updated.")
 
-      events.on 'host.upgrade_failed', onUpgradeFailed
-      events.on 'host.upgraded', onUpgraded
+      events.on 'host.update_failed', onUpdateFailed
+      events.on 'host.updated', onUpdated
 
-      @performAction('POST', 'upgrade', 'upgrading')
+      @performAction('POST', 'update_software', 'updating')

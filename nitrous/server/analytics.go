@@ -13,12 +13,12 @@ const (
 	EventContainerTerminated     = "Container Terminated"
 	EventContainerTokenRequested = "Container Token Requested"
 
-	EventHostCreated    = "Host Created"
-	EventHostStarted    = "Host Started"
-	EventHostStopped    = "Host Stopped"
-	EventHostRestarted  = "Host Restarted"
-	EventHostTerminated = "Host Terminated"
-	EventHostUpgraded   = "Host Upgraded"
+	EventHostCreated         = "Host Created"
+	EventHostStarted         = "Host Started"
+	EventHostStopped         = "Host Stopped"
+	EventHostRestarted       = "Host Restarted"
+	EventHostTerminated      = "Host Terminated"
+	EventHostSoftwareUpdated = "Host Software Updated"
 
 	EventImageBuilt   = "Image Built"
 	EventImagePulled  = "Image Pulled"

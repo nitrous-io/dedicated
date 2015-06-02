@@ -46,7 +46,7 @@ var _ = Describe("host serializer", func() {
 			LastPingedAt:          pq.NullTime{lastPingedAt, true},
 			LiveDockerVersion:     "1.2-docker",
 			LiveFreighterdVersion: "2.3-freighterd",
-			UpgradeAvailable:      host.UpgradeAvailableHard,
+			UpdateAvailable:       host.UpdateAvailableHard,
 		}
 	})
 
@@ -77,7 +77,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -111,7 +111,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -177,7 +177,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -220,7 +220,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -268,7 +268,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -306,7 +306,7 @@ var _ = Describe("host serializer", func() {
 				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard",
+				"update_available": "hard",
 				"max_containers": 3
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})

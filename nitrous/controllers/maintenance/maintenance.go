@@ -55,8 +55,8 @@ func UserRefresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 			evState = controllers.EventHostStarting
 		case host.StateRestarting:
 			evState = controllers.EventHostRestarting
-		case host.StateUpgrading:
-			evState = controllers.EventHostUpgrading
+		case host.StateUpdating:
+			evState = controllers.EventHostSoftwareUpdating
 		case host.StateTerminated:
 			evState = controllers.EventHostDestroyed
 		}

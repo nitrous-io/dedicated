@@ -345,10 +345,10 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.TerminatedAt).To(BeNil())
 			Expect(j.Host.LiveDockerVersion).To(Equal(""))
 			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
-			Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableSoft))
+			Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableSoft))
 		})
 
-		It("responds with an empty upgrade_available if required freighterd & docker version is empty", func() {
+		It("responds with an empty update_available if required freighterd & docker version is empty", func() {
 			hs.H.DockerVersion = ""
 			hs.H.FreighterdVersion = ""
 			err := hs.H.Update(db)
@@ -362,10 +362,10 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Host.UpgradeAvailable).To(Equal(""))
+			Expect(j.Host.UpdateAvailable).To(Equal(""))
 		})
 
-		It("should return with a `hard` upgrade_available if the docker versions do not match", func() {
+		It("should return with a `hard` update_available if the docker versions do not match", func() {
 			hs.H.DockerVersion = "1.2.0-nitrous1"
 			hs.H.FreighterdVersion = ""
 			err := hs.H.Update(db)
@@ -379,10 +379,10 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableHard))
+			Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableHard))
 		})
 
-		It("when self upgrade is disabled, returns empty upgrade_available even if versions do not match", func() {
+		It("when self upgrade is disabled, returns empty update_available even if versions do not match", func() {
 			envvars.EnableSelfUpgrade = false
 			defer func() {
 				envvars.EnableSelfUpgrade = true
@@ -401,7 +401,7 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.Host.UpgradeAvailable).To(Equal(""))
+			Expect(j.Host.UpdateAvailable).To(Equal(""))
 		})
 
 		It("responds with host info even when called with the host ID", func() {
@@ -462,7 +462,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(mockClient.HostVersionsCalled).To(Equal(1))
 				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
 				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
-				Expect(j.Host.UpgradeAvailable).To(Equal(host.UpgradeAvailableSoft))
+				Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableSoft))
 			})
 		})
 
@@ -2584,7 +2584,7 @@ var _ = Describe("controllers/hosts", func() {
 		})
 	})
 
-	Describe("POST /api/v0/hosts/{slug}/upgrade", func() {
+	Describe("POST /api/v0/hosts/{slug}/update_software", func() {
 		var (
 			hs         *test.HostStack
 			mockClient *freighterclient.MockClient
@@ -2592,7 +2592,7 @@ var _ = Describe("controllers/hosts", func() {
 		)
 
 		doRequest := func() {
-			req, err := test.NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/upgrade", nil)
+			req, err := test.NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/update_software", nil)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer "+tok.Token)
 			handler.ServeHTTP(res, req)
@@ -2613,7 +2613,7 @@ var _ = Describe("controllers/hosts", func() {
 			test.UnstubFreighterFn()
 		})
 
-		It("responds with HTTP 202 Accepted and publishes a host upgrading event", func() {
+		It("responds with HTTP 202 Accepted and publishes a host software updating event", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -2624,14 +2624,14 @@ var _ = Describe("controllers/hosts", func() {
 
 			h, err := queryHost(db, hs.H.ID)
 			Expect(err).To(BeNil())
-			Expect(h.State).To(Equal(host.StateUpgrading))
+			Expect(h.State).To(Equal(host.StateUpdating))
 
 			select {
 			case <-time.After(50 * time.Millisecond):
-				Fail("Timed out waiting for host upgrading event")
+				Fail("Timed out waiting for host software updating event")
 			case msg := <-ch:
 				Expect(msg).To(Equal(&controllers.Event{
-					Name: controllers.EventHostUpgrading,
+					Name: controllers.EventHostSoftwareUpdating,
 					Data: map[string]*serializers.Host{
 						"host": serializers.SerializeHost(h),
 					},
@@ -2639,7 +2639,7 @@ var _ = Describe("controllers/hosts", func() {
 			}
 		})
 
-		It("responds with HTTP 200 OK, the host, and publishes a host upgrade event when host is already upgraded", func() {
+		It("responds with HTTP 200 OK, the host, and publishes a host software updated event when host has already been updated", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -2658,10 +2658,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			select {
 			case <-time.After(50 * time.Millisecond):
-				Fail("Timed out waiting for host upgraded event")
+				Fail("Timed out waiting for host software updated event")
 			case msg := <-ch:
 				Expect(msg).To(Equal(&controllers.Event{
-					Name: controllers.EventHostUpgraded,
+					Name: controllers.EventHostSoftwareUpdated,
 					Data: map[string]*serializers.Host{
 						"host": serializers.SerializeHost(hs.H),
 					},
@@ -2669,14 +2669,14 @@ var _ = Describe("controllers/hosts", func() {
 			}
 		})
 
-		It("responds with HTTP 500 when upgrading fails", func() {
-			mockClient.UpgradeServerError = errors.New("host not upgradable")
+		It("responds with HTTP 500 when software update fails", func() {
+			mockClient.UpgradeServerError = errors.New("host cannot be updated")
 
 			doRequest()
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("internal_server_error"))
-			Expect(errDesc).To(Equal("an error occurred while attempting to upgrade your workspace"))
+			Expect(errDesc).To(Equal("an error occurred while attempting to update your workspace"))
 
 			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
 		})

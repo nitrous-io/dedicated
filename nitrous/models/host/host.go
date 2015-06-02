@@ -41,13 +41,13 @@ const (
 	StateStopping   = "stopping"
 	StateStarting   = "starting"
 	StateRestarting = "restarting"
-	StateUpgrading  = "upgrading"
+	StateUpdating   = "updating"
 	StateOrphan     = "orphan"
 	StateTerminated = "terminated"
 	StateMigrating  = "migrating"
 
-	UpgradeAvailableHard = "hard"
-	UpgradeAvailableSoft = "soft"
+	UpdateAvailableHard = "hard"
+	UpdateAvailableSoft = "soft"
 )
 
 type Host struct {
@@ -120,7 +120,7 @@ type Host struct {
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
 	LiveFreighterdVersion string
-	UpgradeAvailable      string
+	UpdateAvailable       string
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {

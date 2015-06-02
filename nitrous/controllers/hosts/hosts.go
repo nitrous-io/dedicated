@@ -105,9 +105,9 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
 			if h.DockerVersion != "" && ver.DockerVersion != h.DockerVersion {
-				h.UpgradeAvailable = host.UpgradeAvailableHard
+				h.UpdateAvailable = host.UpdateAvailableHard
 			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
-				h.UpgradeAvailable = host.UpgradeAvailableSoft
+				h.UpdateAvailable = host.UpdateAvailableSoft
 			}
 			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
@@ -117,7 +117,7 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	if !envvars.EnableSelfUpgrade && !env.User.Admin {
-		h.UpgradeAvailable = ""
+		h.UpdateAvailable = ""
 	}
 
 	serializeHost(env, h)
@@ -471,7 +471,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
-func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
@@ -482,20 +482,20 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
-			PublishHostEvent(env, controllers.EventHostUpgraded, h)
+			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
 			serializeHost(env, h)
 			return nil
 		}
-		env.Logger.Errorf("failed to upgrade server, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		env.Logger.Errorf("failed to update server, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
 	}
 
-	h.State = host.StateUpgrading
+	h.State = host.StateUpdating
 	if err := h.Update(env.DB); err != nil {
 		return err
 	}
 
-	PublishHostEvent(env, controllers.EventHostUpgrading, h)
+	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 	env.Status = http.StatusAccepted
 	env.Data = map[string]interface{}{
 		"status": "accepted",

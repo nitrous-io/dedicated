@@ -37,12 +37,12 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['host.restarted', 'host.restarting', 'host.updated',
       'host.stopping', 'host.stopped', 'host.starting', 'host.started',
-      'host.upgrading', 'host.upgrade_failed'].forEach (evt) =>
+      'host.software_updating', 'host.software_update_failed'].forEach (evt) =>
       @on evt, (data) ->
         hostData = data.host
         findHost(hostData)?.load(hostData)
 
-    @on 'host.upgraded', (data) ->
+    @on 'host.software_updated', (data) ->
         hostData = data.host
         return unless host = findHost(hostData)
         host.load(hostData)

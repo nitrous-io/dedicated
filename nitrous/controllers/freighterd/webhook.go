@@ -58,7 +58,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return nil
 
 	case "started":
-		if h.State != host.StateUpgrading {
+		if h.State != host.StateUpdating {
 			return errNotFound
 		}
 
@@ -67,7 +67,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}
 
 		env.Events.Publish(
-			controllers.NewEvent(controllers.EventHostUpgraded, map[string]*serializers.Host{
+			controllers.NewEvent(controllers.EventHostSoftwareUpdated, map[string]*serializers.Host{
 				"host": serializers.SerializeHost(h),
 			}),
 			u.Topic(),
@@ -80,7 +80,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return nil
 
 	case "upgrade":
-		if h.State != host.StateUpgrading {
+		if h.State != host.StateUpdating {
 			return errNotFound
 		}
 
@@ -89,9 +89,9 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return err
 		}
 
-		env.Logger.Errorf("freighter upgrade failed with err: %s", m.Error)
+		env.Logger.Errorf("freighter software update failed with err: %s", m.Error)
 		env.Events.Publish(
-			controllers.NewEvent(controllers.EventHostUpgradeFailed, map[string]interface{}{
+			controllers.NewEvent(controllers.EventHostSoftwareUpdateFailed, map[string]interface{}{
 				"host":  serializers.SerializeHost(h),
 				"error": m.Error,
 			}),

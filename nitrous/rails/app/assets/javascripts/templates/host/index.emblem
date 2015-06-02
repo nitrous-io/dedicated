@@ -1,23 +1,23 @@
 = host-tab-bar selected='general' model=model
 
 .card-body
-  if upgradeAvailable
-    unless isUpgrading
+  if updateAvailable
+    unless isUpdating
       .notice-text
         i.fa.fa-warning
-        if canUpgrade
+        if canUpdate
           '
           | There are updates available for this workspace.
           '
-          a click='upgrade' href="#" Update Now
+          a click='update' href="#" Update Now
         else
           | There are updates available for this workspace. Please stop your containers before updating.
 
   if hasError
-      .notice-text.error
-        i.fa.fa-warning
-        '
-        | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
+    .notice-text.error
+      i.fa.fa-warning
+      '
+      | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
 
   if topAnnouncement
     .notice-text.multi-line
