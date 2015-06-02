@@ -4,8 +4,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -18,6 +20,9 @@ const (
 	// Host is currently in grace period
 	StateGracePeriod = "grace"
 
+	// Skip enforcement for current period
+	StateSkip = "skip"
+
 	// Host owner is sent one week before termination notice
 	StateOneWeekNotice = "one_week_notice"
 
@@ -28,9 +33,11 @@ const (
 const (
 	MinUsage = 4
 
-	HostScanPeriod        = 4 * 7 * 24 * time.Hour
-	WarningPeriod         = 3 * 7 * 24 * time.Hour
-	TerminateNoticePeriod = (3*7 + 4) * 24 * time.Hour
+	HostScanPeriod          = 4 * 7 * 24 * time.Hour
+	WarningPeriod           = 3 * 7 * 24 * time.Hour
+	TerminatingPeriod       = (3*7 + 4) * 24 * time.Hour
+	TerminatingNoticePeriod = HostScanPeriod - TerminatingPeriod
+	ScanCatchUpLimit        = 2 * 24 * time.Hour
 )
 
 var (
@@ -77,19 +84,29 @@ func ScanHost(d *db.Database, host *host.Host, now time.Time) (*ScanResult, erro
 		}, nil
 	}
 
-	if timePassed >= WarningPeriod && timePassed < TerminateNoticePeriod {
+	// If we didn't manage to execute host scan on time within a reasonable time
+	// after host.next_scan, skip it and let the user use one more extra period.
+	if !host.NextScan.Valid || (now.Sub(host.NextScan.Time) >= ScanCatchUpLimit) {
 		return &ScanResult{
 			Host:     host,
-			State:    StateOneWeekNotice,
-			NextScan: start.Add(TerminateNoticePeriod),
+			State:    StateSkip,
+			NextScan: end.Add(WarningPeriod),
 		}, nil
 	}
 
-	if timePassed >= TerminateNoticePeriod {
+	if timePassed >= WarningPeriod && timePassed < TerminatingPeriod {
+		return &ScanResult{
+			Host:     host,
+			State:    StateOneWeekNotice,
+			NextScan: start.Add(TerminatingPeriod),
+		}, nil
+	}
+
+	if timePassed >= TerminatingPeriod {
 		return &ScanResult{
 			Host:     host,
 			State:    StateTerminating,
-			NextScan: end,
+			NextScan: now.Add(TerminatingNoticePeriod),
 		}, nil
 	}
 
@@ -185,4 +202,27 @@ func ScanHosts(d *db.Database, now time.Time) ([]*ScanResult, []error) {
 	}
 
 	return hostScans, errors
+}
+
+func SendAnnouncementForHostScan(d *db.Database, scan *ScanResult, subject, message string) error {
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		hostID := scan.Host.ID
+		ann := &announcement.Announcement{
+			SubjectTemplate: subject,
+			MessageTemplate: message,
+			ExpiresAt:       pq.NullTime{scan.NextScan, true},
+		}
+
+		err := scan.UpdateHost(tx)
+		if err != nil {
+			return err
+		}
+
+		err = announcement.SendAndSaveForHostID(tx, ann, hostID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

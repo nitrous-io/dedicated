@@ -1,4 +1,4 @@
-package hostscan
+package hostscan_test
 
 import (
 	"database/sql"
@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -64,11 +65,71 @@ var _ = Describe("models/hostscan", func() {
 		}
 	})
 
+	doScanHost := func(scanTime time.Time) *hostscan.ScanResult {
+		hostScans, errs := hostscan.ScanHosts(db, scanTime)
+		Expect(len(errs)).To(Equal(0))
+		Expect(len(hostScans)).To(Equal(1))
+
+		hostScan := hostScans[0]
+		Expect(hostScan.Host.ID).To(Equal(h.ID))
+		return hostScan
+	}
+
+	expectNoHostFoundAt := func(scanTimeSinceCreated time.Duration) {
+		hostScans, errs := hostscan.ScanHosts(db, h.CreatedAt.Add(scanTimeSinceCreated))
+		Expect(len(errs)).To(Equal(0))
+		Expect(len(hostScans)).To(Equal(0))
+	}
+
+	expectHostPassedAt := func(scanTimeSinceCreated time.Duration, expectedState string, update bool) {
+		scan := doScanHost(h.CreatedAt.Add(scanTimeSinceCreated))
+		Expect(scan.State).To(Equal(expectedState))
+
+		if update {
+			Expect(scan.UpdateHost(db)).To(BeNil())
+		}
+	}
+
+	expectHostWarningAt := func(scanTimeSinceCreated time.Duration, update bool) {
+		scan := doScanHost(h.CreatedAt.Add(scanTimeSinceCreated))
+		Expect(scan.State).To(Equal(hostscan.StateOneWeekNotice))
+
+		if update {
+			Expect(scan.UpdateHost(db)).To(BeNil())
+		}
+	}
+
+	expectHostTerminatingAt := func(scanTimeSinceCreated time.Duration, update bool) {
+		scan := doScanHost(h.CreatedAt.Add(scanTimeSinceCreated))
+		Expect(scan.State).To(Equal(hostscan.StateTerminating))
+
+		if update {
+			Expect(scan.UpdateHost(db)).To(BeNil())
+		}
+	}
+
+	expectHostTerminatedAt := func(scanTimeSinceCreated time.Duration) {
+		hosts, err := hostscan.FindTerminatingHosts(db, h.CreatedAt.Add(scanTimeSinceCreated))
+		Expect(err).To(BeNil())
+		Expect(len(hosts)).To(Equal(1))
+		Expect(hosts[0].ID).To(Equal(h.ID))
+	}
+
+	insertHostTransitions := func(runningTimes []time.Time) {
+		for _, runningTime := range runningTimes {
+			_, err := db.Exec(`INSERT INTO host_transitions
+						(host_id, previous_state, state, created_at, ended_at)
+						VALUES ($1, $2, $3, $4, $5);`,
+				h.ID, "stopped", "running", runningTime, runningTime.Add(2*time.Hour))
+			Expect(err).To(BeNil())
+		}
+	}
+
 	Describe("with free host", func() {
 		BeforeEach(func() {
 			_, err := db.Exec(`UPDATE billing_profiles
-				SET state='free' WHERE user_id=$1;
-				`, u.ID)
+							SET state='free' WHERE user_id=$1;
+							`, u.ID)
 			Expect(err).To(BeNil())
 
 			h = &host.Host{
@@ -86,55 +147,87 @@ var _ = Describe("models/hostscan", func() {
 			Expect(err).To(BeNil())
 		})
 
-		doScanHost := func(scanTime time.Time) *ScanResult {
-			hostScans, errs := ScanHosts(db, scanTime)
-			Expect(len(errs)).To(Equal(0))
-			Expect(len(hostScans)).To(Equal(1))
-
-			hostScan := hostScans[0]
-			Expect(hostScan.Host.ID).To(Equal(h.ID))
-			return hostScan
-		}
-
-		expectScanStateAtTimeEquals := func(scanTimeSinceCreated time.Duration, expectedState string) {
-			Expect(doScanHost(h.CreatedAt.Add(scanTimeSinceCreated)).State).To(Equal(expectedState))
-		}
-
-		insertHostTransitions := func(runningTimes []time.Time) {
-			for _, runningTime := range runningTimes {
-				_, err := db.Exec(`INSERT INTO host_transitions
-					(host_id, previous_state, state, created_at, ended_at)
-					VALUES ($1, $2, $3, $4, $5);`,
-					h.ID, "stopped", "running", runningTime, runningTime.Add(2*time.Hour))
-				Expect(err).To(BeNil())
-			}
-		}
-
 		Describe("when initially created with no usage", func() {
 			It("should be listed in scannable hosts", func() {
-				scannedHosts, err := FindScannableHosts(db, *h.CreatedAt)
-				Expect(err).To(BeNil())
+				hostScans, errs := hostscan.ScanHosts(db, *h.CreatedAt)
+				Expect(len(errs)).To(Equal(0))
+				Expect(len(hostScans)).To(Equal(1))
 
-				Expect(len(scannedHosts)).To(Equal(1))
+				hostScan := hostScans[0]
+				Expect(hostScan.Host.ID).To(Equal(h.ID))
+			})
 
-				scannedHost := scannedHosts[0]
-				Expect(scannedHost.ID).To(Equal(h.ID))
+			It("should give warning and terminating result at respective time", func() {
+				expectHostPassedAt(24*time.Hour, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(7*24*time.Hour, hostscan.StateGracePeriod, false)
+
+				expectHostPassedAt(2*7*24*time.Hour, hostscan.StateGracePeriod, true)
+				expectHostWarningAt(3*7*24*time.Hour, true)
+
+				expectHostTerminatingAt(hostscan.HostScanPeriod-3*24*time.Hour, false)
+				expectHostTerminatingAt(hostscan.HostScanPeriod-2*24*time.Hour, true)
+
+				expectHostTerminatedAt(hostscan.HostScanPeriod + 1*24*time.Hour)
+			})
+
+			It("should skip when host is never scanned before", func() {
+				expectHostPassedAt(24*time.Hour, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(7*24*time.Hour, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(2*7*24*time.Hour, hostscan.StateGracePeriod, false)
+
+				expectHostPassedAt(3*7*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-4*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-3*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-2*24*time.Hour, hostscan.StateSkip, false)
+			})
+
+			It("should skip warning and terminating state", func() {
+				expectHostPassedAt(2*7*24*time.Hour, hostscan.StateGracePeriod, true)
+
+				// on time
+				expectHostWarningAt(3*7*24*time.Hour, false)
+
+				// missed
+				expectHostPassedAt((3*7+3)*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt((3*7+4)*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-3*24*time.Hour, hostscan.StateSkip, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-2*24*time.Hour, hostscan.StateSkip, false)
+			})
+
+			It("should terminate or skip depending on scan time", func() {
+				expectHostPassedAt(2*7*24*time.Hour, hostscan.StateGracePeriod, true)
+				expectNoHostFoundAt((2*7 + 1) * 24 * time.Hour)
+				expectNoHostFoundAt((2*7 + 2) * 24 * time.Hour)
+
+				expectHostWarningAt(3*7*24*time.Hour, true)
+				expectNoHostFoundAt((3*7 + 1) * 24 * time.Hour)
+
+				// on time
+				expectHostTerminatingAt(hostscan.HostScanPeriod-3*24*time.Hour, false)
+				expectHostTerminatingAt(hostscan.HostScanPeriod-2*24*time.Hour, false)
+
+				// missed
+				expectHostPassedAt(hostscan.HostScanPeriod-1*24*time.Hour, hostscan.StateSkip, false)
+
+				// on time and updated
+				expectHostTerminatingAt(hostscan.HostScanPeriod-3*24*time.Hour, true)
+				expectHostTerminatedAt(hostscan.HostScanPeriod)
 			})
 
 			It("should terminate after 4 weeks if previous db record is terminating", func() {
-				hostScan := doScanHost(h.CreatedAt.Add(HostScanPeriod - 3*24*time.Hour))
-				Expect(hostScan.State).To(Equal(StateTerminating))
-				Expect(hostScan.NextScan).To(BeTemporally("==", h.CreatedAt.Add(HostScanPeriod), 24*time.Hour))
+				scanTime := h.CreatedAt.Add(hostscan.HostScanPeriod - 3*24*time.Hour)
+				h.NextScan = pq.NullTime{scanTime, true}
+				hostscan.UpdateHostScanState(db, h)
 
-				h.NextScan = pq.NullTime{}
-				h.TerminatingAt = pq.NullTime{hostScan.NextScan, true}
-				err := UpdateHostScanState(db, h)
-				Expect(err).To(BeNil())
+				terminateTime := scanTime.Add(hostscan.TerminatingNoticePeriod)
 
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(1))
-				Expect(hosts[0].ID).To(Equal(h.ID))
+				hostScan := doScanHost(scanTime)
+				Expect(hostScan.State).To(Equal(hostscan.StateTerminating))
+				Expect(hostScan.NextScan).To(BeTemporally("==", terminateTime, 24*time.Hour))
+
+				Expect(hostScan.UpdateHost(db)).To(BeNil())
+
+				expectHostTerminatedAt(hostscan.HostScanPeriod)
 			})
 		})
 
@@ -151,22 +244,26 @@ var _ = Describe("models/hostscan", func() {
 			})
 
 			It("should pass with active state within 4 weeks period", func() {
-				expectScanStateAtTimeEquals(5*24*time.Hour, StateActive)
-				expectScanStateAtTimeEquals(7*24*time.Hour, StateActive)
-				expectScanStateAtTimeEquals(2*7*24*time.Hour, StateActive)
-				expectScanStateAtTimeEquals(3*7*24*time.Hour, StateActive)
-				expectScanStateAtTimeEquals(HostScanPeriod-3*24*time.Hour, StateActive)
-				expectScanStateAtTimeEquals(HostScanPeriod-2*24*time.Hour, StateActive)
+				expectHostPassedAt(5*24*time.Hour, hostscan.StateActive, false)
+				expectHostPassedAt(7*24*time.Hour, hostscan.StateActive, false)
+				expectHostPassedAt(2*7*24*time.Hour, hostscan.StateActive, false)
+				expectHostPassedAt(3*7*24*time.Hour, hostscan.StateActive, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-3*24*time.Hour, hostscan.StateActive, false)
+				expectHostPassedAt(hostscan.HostScanPeriod-2*24*time.Hour, hostscan.StateActive, false)
 			})
 
 			It("should reset after 4 weeks period", func() {
-				expectScanStateAtTimeEquals(HostScanPeriod, StateGracePeriod)
-				expectScanStateAtTimeEquals(HostScanPeriod+24*time.Hour, StateGracePeriod)
-				expectScanStateAtTimeEquals(HostScanPeriod+7*24*time.Hour, StateGracePeriod)
-				expectScanStateAtTimeEquals(HostScanPeriod+2*7*24*time.Hour, StateGracePeriod)
-				expectScanStateAtTimeEquals(HostScanPeriod+3*7*24*time.Hour, StateOneWeekNotice)
-				expectScanStateAtTimeEquals(2*HostScanPeriod-3*24*time.Hour, StateTerminating)
-				expectScanStateAtTimeEquals(2*HostScanPeriod+HostScanPeriod-2*24*time.Hour, StateTerminating)
+				expectHostPassedAt(hostscan.HostScanPeriod, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(hostscan.HostScanPeriod+24*time.Hour, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(hostscan.HostScanPeriod+7*24*time.Hour, hostscan.StateGracePeriod, false)
+				expectHostPassedAt(hostscan.HostScanPeriod+2*7*24*time.Hour, hostscan.StateGracePeriod, false)
+
+				expectHostPassedAt(hostscan.HostScanPeriod+2*7*24*time.Hour, hostscan.StateGracePeriod, true)
+				expectHostWarningAt(hostscan.HostScanPeriod+3*7*24*time.Hour, true)
+
+				expectHostTerminatingAt(2*hostscan.HostScanPeriod-3*24*time.Hour, false)
+				expectHostTerminatingAt(2*hostscan.HostScanPeriod-2*24*time.Hour, true)
+				expectHostTerminatedAt(2*hostscan.HostScanPeriod + 1*24*time.Hour)
 			})
 		})
 
@@ -174,20 +271,15 @@ var _ = Describe("models/hostscan", func() {
 			BeforeEach(func() {
 				// host was about to be terminated
 				h.NextScan = pq.NullTime{}
-				h.TerminatingAt = pq.NullTime{h.CreatedAt.Add(HostScanPeriod), true}
-				err := UpdateHostScanState(db, h)
+				h.TerminatingAt = pq.NullTime{h.CreatedAt.Add(hostscan.HostScanPeriod), true}
+				err := hostscan.UpdateHostScanState(db, h)
 				Expect(err).To(BeNil())
-
-				// originally can be terminated
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(1))
 			})
 
 			BeforeEach(func() {
 				_, err := db.Exec(`UPDATE billing_profiles
-						SET state='paid' WHERE user_id=$1;
-						`, u.ID)
+							SET state='paid' WHERE user_id=$1;
+							`, u.ID)
 				Expect(err).To(BeNil())
 
 				err = freetier.UpgradeFreeUserHosts(db, u)
@@ -195,16 +287,8 @@ var _ = Describe("models/hostscan", func() {
 			})
 
 			It("should not be listed in scannable hosts", func() {
-				scannedHosts, err := FindScannableHosts(db, *h.CreatedAt)
-				Expect(err).To(BeNil())
-
-				Expect(len(scannedHosts)).To(Equal(0))
-			})
-
-			It("should not be listed in terminating hosts", func() {
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(0))
+				expectNoHostFoundAt(0 * time.Hour)
+				expectNoHostFoundAt(24 * time.Hour)
 			})
 		})
 	})
@@ -226,11 +310,8 @@ var _ = Describe("models/hostscan", func() {
 		})
 
 		It("should not be listed in scannable hosts", func() {
-			scanTime := *h.CreatedAt
-			scannedHosts, err := FindScannableHosts(db, scanTime)
-			Expect(err).To(BeNil())
-
-			Expect(len(scannedHosts)).To(Equal(0))
+			expectNoHostFoundAt(0 * time.Hour)
+			expectNoHostFoundAt(24 * time.Hour)
 		})
 	})
 })
