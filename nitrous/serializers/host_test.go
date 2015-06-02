@@ -74,7 +74,8 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -106,7 +107,8 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -139,7 +141,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -180,7 +183,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -226,7 +230,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})
@@ -262,7 +267,8 @@ var _ = Describe("host serializer", func() {
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
-				"upgrade_available": "hard"
+				"upgrade_available": "hard",
+				"max_containers": 3
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 

@@ -26,6 +26,8 @@ type User struct {
 	MaxRunningTime int64 `json:"max_running_time,omitempty"`
 	RefreshPeriod  int64 `json:"refresh_period,omitempty"`
 
+	MaxContainers int64 `json:"max_containers,omitempty"`
+
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 }
@@ -46,6 +48,7 @@ func SerializeUser(u *user.User) *User {
 		Phone:            u.Phone.String,
 		PhoneCountryCode: u.PhoneCountryCode.String,
 		PhoneAuthed:      u.PhoneAuthed,
+		MaxContainers:    u.MaxContainers.Int64,
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
