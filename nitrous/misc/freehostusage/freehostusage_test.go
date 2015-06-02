@@ -75,6 +75,18 @@ var _ = Describe("misc/freehostusage", func() {
 		return action
 	}
 
+	scanWarning := func(scanTime time.Time) *freehostusage.MockAction {
+		action := &freehostusage.MockAction{}
+		freehostusage.ScanWarningHosts(db, logr, action, scanTime, false)
+		return action
+	}
+
+	scanTerminate := func(scanTime time.Time) *freehostusage.MockAction {
+		action := &freehostusage.MockAction{}
+		freehostusage.TerminateInactiveFreeHosts(db, logr, action, scanTime, false)
+		return action
+	}
+
 	doScanHost := func(scanTime time.Time) *hostscan.ScanResult {
 		mock := scanAll(scanTime)
 
@@ -95,7 +107,7 @@ var _ = Describe("misc/freehostusage", func() {
 	}
 
 	expectHostPassedAt := func(scanTimeSinceCreated time.Duration, expectedState string, update bool) {
-		mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+		mock := scanWarning(h.CreatedAt.Add(scanTimeSinceCreated))
 
 		Expect(len(mock.UpdatedScans)).To(Equal(1))
 		Expect(len(mock.RefreshedHosts)).To(Equal(0))
@@ -111,7 +123,7 @@ var _ = Describe("misc/freehostusage", func() {
 	}
 
 	expectHostWarningAt := func(scanTimeSinceCreated time.Duration, update bool) {
-		mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+		mock := scanWarning(h.CreatedAt.Add(scanTimeSinceCreated))
 
 		Expect(len(mock.UpdatedScans)).To(Equal(1))
 		Expect(len(mock.SentMessages)).To(Equal(1))
@@ -132,7 +144,7 @@ var _ = Describe("misc/freehostusage", func() {
 	}
 
 	expectHostTerminatingAt := func(scanTimeSinceCreated time.Duration, update bool) {
-		mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+		mock := scanWarning(h.CreatedAt.Add(scanTimeSinceCreated))
 
 		Expect(len(mock.UpdatedScans)).To(Equal(1))
 		Expect(len(mock.SentMessages)).To(Equal(1))
@@ -153,7 +165,7 @@ var _ = Describe("misc/freehostusage", func() {
 	}
 
 	expectHostTerminatedAt := func(scanTimeSinceCreated time.Duration) {
-		mock := scanAll(h.CreatedAt.Add(scanTimeSinceCreated))
+		mock := scanTerminate(h.CreatedAt.Add(scanTimeSinceCreated))
 
 		Expect(len(mock.UpdatedScans)).To(Equal(0))
 		Expect(len(mock.SentMessages)).To(Equal(1))
