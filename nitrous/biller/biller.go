@@ -38,6 +38,9 @@ var (
 	ErrInvoiceUserRunning = errors.New("biller: invoice createOrUpdate() already running for user")
 )
 
+// used for non-critical errors that are more informational, e.g. skipping free users
+type infoError error
+
 type Biller struct {
 	db     *db.Database
 	logger *logger.Logger
@@ -218,7 +221,7 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	items := i.Items
 
 	if b.user.DeletedAt.Valid && !b.user.BannedAt.Valid {
-		return fmt.Errorf("biller: skipping stripe, user %d has been DELETED", b.user.ID)
+		return infoError(fmt.Errorf("biller: skipping stripe, user %d has been DELETED", b.user.ID))
 	}
 
 	bp, err := billingprofile.Find(b.db, b.user.ID)
@@ -233,14 +236,14 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 		if err := inv.Update(b.db); err != nil {
 			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
 		}
-		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state exempt", b.user.ID)
+		return infoError(fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state exempt", b.user.ID))
 	}
 	if bp.State == billingprofile.StateFree {
 		inv.State = invoice.StateNotPayable
 		if err := inv.Update(b.db); err != nil {
 			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
 		}
-		return fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID)
+		return infoError(fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID))
 	}
 	if bp.StripeID.String == "" {
 		return fmt.Errorf("biller: skipping stripe, billing profile for user %d lacks StripeID", b.user.ID)
@@ -607,7 +610,11 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 			}
 			err = inst.Process()
 			if err != nil {
-				l.Error(err)
+				if _, ok := err.(infoError); ok {
+					l.Info(err)
+				} else {
+					l.Error(err)
+				}
 			}
 		}
 	}
