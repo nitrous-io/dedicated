@@ -1,5 +1,6 @@
 package server
 
-var freighterFeatures = []string{
+var FreighterFeatures = []string{
 	"collab",
+	"ping",
 }

@@ -104,6 +104,60 @@ var _ = Describe("server", func() {
 		})
 	})
 
+	Describe("GET /features", func() {
+		It("responds with 200 ok and the list of features supported", func() {
+			req, err := NewRequest("GET", "/features", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j map[string][]string
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+
+			Expect(j["features"]).To(Equal(server.FreighterFeatures))
+		})
+	})
+
+	Describe("POST /ping", func() {
+		doRequest := func() {
+			req, err = NewRequest("POST", "/ping", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("responds with 200 ok immediately and notifies the webhook", func() {
+			var notified bool
+
+			webhookSvr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				w.Write([]byte("OK"))
+				var m map[string]interface{}
+				err := msgverifier.New(hostSecret).Verify(r.PostFormValue("msg"), &m)
+				Expect(err).To(BeNil())
+				Expect(m["event"]).To(Equal("ping"))
+				notified = true
+			}))
+			defer webhookSvr.Close()
+
+			logger := &util.Logger{Level: util.LogLevelQuiet}
+			svr = server.NewServer(logger, prov, &freighter.Config{
+				NotifyURL: webhookSvr.URL,
+			})
+			svr.SetSecret(hostSecret)
+			handler = svr.Router()
+
+			svr.SetRunner(&fakeRunner{err: errors.New("command failed to execute")})
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(notified).To(BeFalse())
+
+			Eventually(func() bool {
+				return notified
+			}).Should(BeTrue())
+		})
+	})
+
 	Describe("GET /containers", func() {
 		doRequest := func() {
 			req, err = NewRequestWithSecret(hostSecret, "GET", "/containers", nil)
