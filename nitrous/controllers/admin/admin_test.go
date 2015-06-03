@@ -137,6 +137,7 @@ var _ = Describe("controllers/admin", func() {
 					Expect(t.UserID).To(Equal(u2.ID))
 					Expect(t.Token).NotTo(BeNil())
 					Expect(t.CreatedAt).NotTo(BeNil())
+					Expect(t.Scope).To(Equal(token.ScopeAdmin))
 				})
 
 				It("responds with the token added for the matching user", func() {
