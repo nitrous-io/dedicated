@@ -484,13 +484,17 @@ func (h *Host) List() ([]*host.Info, error) {
 		go func(conn *ec2.EC2, region aws.Region) {
 			defer wg.Done()
 			instancesResp, err := conn.Instances(nil, filter)
+
 			mu.Lock()
+			defer mu.Unlock()
+
 			if err != nil {
 				errmsg := fmt.Sprintf("failed to get instances in region %s, err %v", region.Name, err)
 				h.Printf(errmsg)
 				errmsgs = append(errmsgs, errmsg)
 				return
 			}
+
 			for _, reservation := range instancesResp.Reservations {
 				for _, instance := range reservation.Instances {
 					info := &host.Info{
@@ -514,7 +518,6 @@ func (h *Host) List() ([]*host.Info, error) {
 					infos = append(infos, info)
 				}
 			}
-			mu.Unlock()
 		}(conn, region)
 	}
 
