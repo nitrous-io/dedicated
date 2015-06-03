@@ -220,7 +220,7 @@ var _ = Describe("HostQueueHandler", func() {
 			h.FreighterdPort = sql.NullInt64{12345, true}
 			h.HourlyPrice = 1000000
 
-			err := h.Update(db)
+			err := h.UpdateWithPrice(db)
 			Expect(err).To(BeNil())
 
 			err = handler(qc, message)

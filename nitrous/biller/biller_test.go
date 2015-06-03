@@ -183,11 +183,11 @@ var _ = Describe("biller", func() {
 			It("should not perform anything if the monthly price of a plan is out of sync with a host pricing", func() {
 				prevPrice := h2.HourlyPrice
 				h2.HourlyPrice = 200
-				Expect(h2.Update(db)).To(BeNil())
+				Expect(h2.UpdateWithPrice(db)).To(BeNil())
 
 				defer func() {
 					h2.HourlyPrice = prevPrice
-					Expect(h2.Update(db)).To(BeNil())
+					Expect(h2.UpdateWithPrice(db)).To(BeNil())
 				}()
 
 				_, err := b.CreateOrUpdateInvoice()

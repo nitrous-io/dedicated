@@ -324,6 +324,22 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
+			preprovisioned, freighterd_version, docker_version, updated_at,
+			region_identifier)
+		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
+			:preprovisioned, :freighterd_version, :docker_version, now(),
+			:region_identifier)
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
 			region_identifier)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
