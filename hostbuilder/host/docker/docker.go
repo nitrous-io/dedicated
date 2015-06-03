@@ -159,6 +159,10 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}, nil
 }
 
+func (h *Host) Respec() (*host.Info, error) {
+	return h.Info()
+}
+
 func (h *Host) Destroy() error {
 	return h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
 		ID:    h.ID,

@@ -34,9 +34,9 @@ type StateChangeConf struct {
 	Refresh StateRefreshFunc
 }
 
-// InstanceStateRefreshFunc returns a StateRefreshFunc that is used to watch
+// instanceStateRefreshFunc returns a StateRefreshFunc that is used to watch
 // an EC2 instance.
-func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
+func instanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	return func() (interface{}, string, error) {
 		resp, err := conn.Instances([]string{i.InstanceId}, ec2.NewFilter())
 		if err != nil {
@@ -50,8 +50,9 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 		}
 
 		if resp == nil || len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
-			// Sometimes AWS just has consistency issues and doesn't see
-			// our instance yet. Return an empty state.
+			// In cases when we are waiting for a newly created instance, AWS
+			// sometimes has consistency issues and doesn't see our instance
+			// yet. We just return an empty state instead of an error.
 			return nil, "", nil
 		}
 
@@ -60,10 +61,66 @@ func InstanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 	}
 }
 
+func volumeAttachmentStateRefreshFunc(provider volumeProvider, volumeID, instanceID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("volumeAttachmentStateRefreshFunc: error getting volume info: %v", err)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, "", fmt.Errorf("volumeAttachmentStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
+		}
+
+		v := &resp.Volumes[0]
+		var attachment *ec2.VolumeAttachment
+		for _, att := range v.Attachments {
+			if att.InstanceId == instanceID {
+				attachment = &att
+			}
+		}
+		if attachment == nil {
+			// If we can't find an attachment, it probably means that the volume
+			// is detached from the instance.
+			return v, "detached", nil
+		}
+
+		return v, attachment.Status, nil
+	}
+}
+
+func volumeStateRefreshFunc(provider volumeProvider, volumeID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := provider.Volumes([]string{volumeID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("volumeStateRefreshFunc: error getting volume info: %v", err)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, "", fmt.Errorf("volumeStateRefreshFunc: expected to get one volume but got %+v: %v", resp, err)
+		}
+
+		v := &resp.Volumes[0]
+		return v, v.Status, nil
+	}
+}
+
+func snapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateRefreshFunc {
+	return func() (result interface{}, state string, err error) {
+		resp, err := provider.Snapshots([]string{snapshotID}, ec2.NewFilter())
+		if err != nil {
+			return nil, "", fmt.Errorf("snapshotStateRefreshFunc: error getting snapshot info: %v", err)
+		}
+		if len(resp.Snapshots) != 1 {
+			return nil, "", fmt.Errorf("snapshotStateRefreshFunc: expected to get one snapshot but got %+v: %v", resp, err)
+		}
+
+		s := &resp.Snapshots[0]
+		return s, s.Status, nil
+	}
+}
+
 // WaitForState watches an object and waits for it to achieve a certain
 // state.
 func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
-	log.Printf("Waiting for state to become: %s", conf.Target)
 	var notfoundTick int
 	for {
 		var currentState string

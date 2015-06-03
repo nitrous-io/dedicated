@@ -299,6 +299,36 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func (s *Server) respecHost(w http.ResponseWriter, r *http.Request) error {
+	h, err := s.hostFromRequest(r, nil)
+	if err != nil {
+		label := fmt.Sprintf("respec.%s", r.Form.Get("provider"))
+		return mh.Error(err, label)
+	}
+
+	label := fmt.Sprintf("respec.%s", h.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	info, err := h.Respec()
+	if err != nil {
+		return mh.Error(err, label)
+	}
+
+	resp := &Response{
+		StatusCode:     http.StatusOK,
+		Status:         "respecced",
+		Provider:       info.Provider,
+		ID:             info.ID,
+		Name:           info.Name,
+		IPAddress:      info.IPAddress,
+		FreighterdPort: info.FreighterdPort,
+		Region:         info.Region,
+		State:          info.State.String(),
+	}
+	writeResponse(w, resp)
+	return nil
+}
+
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 	h, err := s.hostFromRequest(r, nil)
 	if err != nil {
@@ -527,6 +557,7 @@ func (s *Server) CreateRouter() {
 		"POST": {
 			"/hosts":         s.createHost,
 			"/hosts/update":  s.updateHost,
+			"/hosts/respec":  s.respecHost,
 			"/hosts/delete":  s.deleteHost,
 			"/hosts/stop":    s.stopHost,
 			"/hosts/start":   s.startHost,
