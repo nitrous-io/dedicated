@@ -37,6 +37,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   container: null
   hostBinding: Em.Binding.oneWay 'container.host'
 
+  eventsSocket: null
+  pinger: null
+
   terminalJsPath: null
   terminalCssPath: null
 

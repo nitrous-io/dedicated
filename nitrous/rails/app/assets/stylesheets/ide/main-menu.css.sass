@@ -43,6 +43,47 @@
             &.key
               padding-left: 24px
 
+#ide-pinger-view
+  display: inline-block
+  height: 32px
+  line-height: 32px
+  margin-right: 8px
+
+  > div
+    display: inline-block
+    width: 6px
+    height: 6px
+    border-radius: 3px
+    border: 1px solid $n2oGray200
+    background: transparent
+    margin-right: 1px
+    transition: background-color .3s
+    vertical-align: middle
+
+  &.excellent
+    > div
+      background: $n2oGray200
+
+  &.good
+    > div
+      &:nth-of-type(1), &:nth-of-type(2), &:nth-of-type(3), &:nth-of-type(4)
+        background: $n2oGray200
+
+  &.moderate
+    > div
+      &:nth-of-type(1), &:nth-of-type(2), &:nth-of-type(3)
+        background: $n2oGray200
+
+  &.poor
+    > div
+      &:nth-of-type(1), &:nth-of-type(2)
+        background: $n2oGray200
+
+  &.appalling
+    > div
+      &:nth-of-type(1)
+        background: $n2oGray200
+
 #about-nitrous
   .card-body
     text-align: center

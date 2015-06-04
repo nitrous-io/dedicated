@@ -51,6 +51,9 @@ App.IdeController = Em.ObjectController.extend
           @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
           collabSocket.connect()
 
+        if features.contains('ping')
+          App.set 'pinger', pinger = App.Pinger.create(container: container)
+
       ['container.stopped', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
         evSocket.on evt, (data) =>
           if @get('content.id') == data?.container?.id
