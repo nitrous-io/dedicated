@@ -98,6 +98,9 @@ type Host struct {
 	// Tracks when a host has been upgraded
 	UpgradedAt pq.NullTime `db:"upgraded_at"`
 
+	// Tracks the last time at which ping webhook was called by freighter
+	LastPingedAt pq.NullTime `db:"last_pinged_at"`
+
 	Secret string `db:"secret"`
 
 	// HourlyPrice unit is milli-cents (x1000)
@@ -325,10 +328,10 @@ func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, freighterd_version, docker_version, updated_at,
-			region_identifier)
+			region_identifier, last_pinged_at)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :freighterd_version, :docker_version, now(),
-			:region_identifier)
+			:region_identifier, :last_pinged_at)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -341,10 +344,10 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
-			region_identifier)
+			region_identifier, last_pinged_at)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :hourly_price, :free, :freighterd_version, :docker_version, now(),
-			:region_identifier)
+			:region_identifier, :last_pinged_at)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

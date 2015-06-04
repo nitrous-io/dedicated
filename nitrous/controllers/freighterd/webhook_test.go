@@ -146,6 +146,37 @@ var _ = Describe("controllers/freighterd", func() {
 			})
 		})
 
+		Context("with a verified 'ping' message", func() {
+			var msg string
+
+			BeforeEach(func() {
+				hs.H.State = host.StateUpgrading
+				hs.H.Update(db)
+
+				m := &freighterd.Message{Event: "ping"}
+				msg = genMessage(hs.H.Secret, m)
+			})
+
+			It("accepts host ID in addition to slug", func() {
+				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
+				Expect(res.Code).To(Equal(http.StatusOK))
+			})
+
+			It("responds with HTTP 200 and sets last_pinged_at to current time", func() {
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.LastPingedAt.Valid).To(BeFalse())
+
+				doRequest(hs.H.Slug, msg)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				h, err = host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.LastPingedAt.Valid).To(BeTrue())
+				Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+			})
+		})
+
 		Context("with a verified 'upgrade' message", func() {
 			var msg string
 

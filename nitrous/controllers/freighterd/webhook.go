@@ -2,8 +2,10 @@ package freighterd
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -44,6 +46,18 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	}
 
 	switch m.Event {
+	case "ping":
+		h.LastPingedAt = pq.NullTime{time.Now(), true}
+		if err := h.Update(env.DB); err != nil {
+			return err
+		}
+
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"status": "ok",
+		}
+		return nil
+
 	case "started":
 		if h.State != host.StateUpgrading {
 			return errNotFound
@@ -66,6 +80,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			"status": "ok",
 		}
 		return nil
+
 	case "upgrade":
 		if h.State != host.StateUpgrading {
 			return errNotFound

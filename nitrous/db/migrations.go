@@ -1255,5 +1255,12 @@ func init() {
 					ON container_collabs USING btree (invite_email, container_id) WHERE invite_email IS NOT NULL;
 			`,
 		},
+		{
+			Version: "1095",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN last_pinged_at timestamp without time zone;
+				CREATE INDEX index_hosts_on_last_pinged_at ON hosts USING btree (last_pinged_at);
+			`,
+		},
 	}
 }

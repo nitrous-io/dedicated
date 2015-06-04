@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -760,6 +761,8 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("updates the host in the database", func() {
+			t := time.Now()
+
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"foo host", true}
 			h.State = host.StateRestarting
@@ -772,6 +775,7 @@ var _ = Describe("models/host", func() {
 			h.DockerVersion = "1.5.0"
 			h.HourlyPrice = 0
 			h.Free = true
+			h.LastPingedAt = pq.NullTime{t, true}
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -791,6 +795,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.Preprovisioned).To(BeTrue())
 			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
 			Expect(h2.DockerVersion).To(Equal("1.5.0"))
+			Expect(h2.LastPingedAt.Valid).To(BeTrue())
+			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))

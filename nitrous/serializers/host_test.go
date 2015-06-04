@@ -19,6 +19,7 @@ var _ = Describe("host serializer", func() {
 		terminatedAt = time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
 		createdAt    = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt    = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
+		lastPingedAt = time.Date(2013, time.November, 2, 1, 0, 0, 0, time.UTC)
 
 		model *host.Host
 	)
@@ -42,6 +43,7 @@ var _ = Describe("host serializer", func() {
 			TerminatedAt:          &terminatedAt,
 			CreatedAt:             &createdAt,
 			UpdatedAt:             &updatedAt,
+			LastPingedAt:          pq.NullTime{lastPingedAt, true},
 			LiveDockerVersion:     "1.2-docker",
 			LiveFreighterdVersion: "2.3-freighterd",
 			UpgradeAvailable:      host.UpgradeAvailableHard,
@@ -72,6 +74,7 @@ var _ = Describe("host serializer", func() {
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -105,6 +108,7 @@ var _ = Describe("host serializer", func() {
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-04T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -139,6 +143,38 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"live_docker_version": "1.2-docker",
+				"live_freighterd_version": "2.3-freighterd",
+				"upgrade_available": "hard",
+				"max_containers": 3
+			}`, model.Hostname(), model.ProxyHostname())))
+		})
+
+		It("omits last_pinged_at if LastPingedAt is absent", func() {
+			model.LastPingedAt.Valid = false
+			b, err := json.Marshal(serializers.SerializeHost(model))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 10,
+				"user_id": 11,
+				"region_id": 12,
+				"plan_id": 13,
+				"slug": "wild-rocket-23",
+				"name": "wildrocket.xxx",
+				"ip_address": "1.2.3.4",
+				"static_ip": false,
+				"freighterd_port": 65000,
+				"freighterd_version": "1.0.69-bed0c-88",
+				"docker_version": "1.4.1-nitrous",
+				"provider_identifier": "digitalocean",
+				"hostname": "%s",
+				"proxy_hostname": "%s",
+				"size": "micro",
+				"state": "running",
+				"terminated_at": "2013-11-03T00:00:00Z",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -181,6 +217,7 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -228,6 +265,7 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -265,6 +303,7 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
