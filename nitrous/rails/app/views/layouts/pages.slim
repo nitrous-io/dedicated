@@ -19,6 +19,7 @@ html lang='en' class=@html_class
     = javascript_include_tag 'compat'
     = javascript_include_tag 'jquery'
     = javascript_include_tag 'pages'
+    = yield :body_script
     = yield :body_after
     javascript:
       pages.Shared.init();

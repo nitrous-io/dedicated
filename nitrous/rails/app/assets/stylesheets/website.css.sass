@@ -686,9 +686,18 @@ nav
         top: -84px
         left: 50%
         margin-left: -485px
+  
 
+    
   .full-visual, .full-visual img
     background: transparent
+  
+  .full-visual
+    overflow: hidden
+    
+  .full-visual img
+    height: 100%
+    display: block
 
   .visual
     margin-bottom: 10px
@@ -853,6 +862,15 @@ article
     padding: 60px 0 30px 0
     font-size: 20px
     line-height: 34px
+  
+  &.featurette p.small
+    width: 580px
+    display: block
+    margin: 0 auto
+    padding: 60px 0 0 0
+    font-size: 13px
+    line-height: 20px
+    color: rgba(255,255,255,.4)
 
   .people
     width: 900px
@@ -1326,6 +1344,8 @@ h4 + .box-wrapper
 .dashboard .full-visual
   width: 860px
   height: 502px
+  overflow: hidden
+  border-radius: 4px 4px 1px 1px
 
 .anywhere .full-visual
   width: 558px
@@ -1338,6 +1358,8 @@ h4 + .box-wrapper
 .themes .full-visual
   width: 970px
   height: 565px
+  overflow: hidden
+  border-radius: 4px 4px 1px 1px
 
 .anywhere .box-wrapper
   padding-top: 10px
@@ -2477,13 +2499,15 @@ footer
 
   .dropdown
     position: absolute
-    bottom: -86px
-    left: 90%
+    bottom: -20px
+    left: 60%
     display: none
     background: #3D464D
     border-radius: 4px
     box-shadow: 0 1px 1px rgba(0,0,0,.2), 0 1px 6px rgba(0,0,0,.1)
-    +transition(.2s ease-out)
+    animation-duration: .25s
+    animation-fill-mode: both
+    animation-iteration-count: 1
 
     li
       border-bottom: 1px solid rgba(0,0,0,.2)
@@ -2530,6 +2554,8 @@ footer
     &:hover
       .dropdown
         display: block
+        animation-name: bounceIn
+        transform-origin: bottom left
 
 
 .footer-item
@@ -2896,6 +2922,14 @@ input[type="range"]
   width: 90%
   margin: 0 auto
 
+  
+// GreenHouse
+#grnhse_app
+  margin: 0 auto
+  #grnhse_iframe
+    width: 100%
+    margin: 0 auto
+  
 
 // Dark theme
 .dark
@@ -2925,6 +2959,10 @@ input[type="range"]
     background-size: cover
 
   #features .page-hero
+    background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
+    background-size: cover
+  
+  #jobs .page-hero
     background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
     background-size: cover
 
@@ -3249,3 +3287,19 @@ input[type="range"]
 @keyframes blink
   50%
     background: rgba(255,255,255,.3)
+
+@keyframes bounceIn
+  0%, 20%, 40%, 60%, 80%, 100%
+    -webkit-transition-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000)
+    transition-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000)
+  0%
+    opacity: 0
+    -webkit-transform: scale3d(.3, .3, .3)
+    transform: scale3d(.3, .3, .3)
+  50%
+    -webkit-transform: scale3d(1.06, 1.06, 1.06)
+    transform: scale3d(1.06, 1.06, 1.06)
+  100%
+    opacity: 1
+    -webkit-transform: scale3d(1, 1, 1)
+    transform: scale3d(1, 1, 1)
