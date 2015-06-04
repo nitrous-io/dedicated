@@ -37,7 +37,7 @@ func findSSHHostPort(ports []string) (string, error) {
 	return "", ErrSSHPortNotFound
 }
 
-func findSSHURL(h *host.Host, config *freighterclient.ContainerConfig) (string, error) {
+func FindSSHURL(h *host.Host, config *freighterclient.ContainerConfig) (string, error) {
 	env := envMap(config.Env)
 
 	enabled := env["NITROUS_SSH_ENABLED"]

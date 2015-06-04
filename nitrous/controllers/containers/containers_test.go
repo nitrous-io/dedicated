@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
@@ -56,6 +57,8 @@ var _ = Describe("controllers/containers", func() {
 		u  *user.User
 		t  *token.Token
 		hs *HostStack
+
+		originalHostHostname string
 	)
 
 	BeforeEach(func() {
@@ -95,6 +98,9 @@ var _ = Describe("controllers/containers", func() {
 			U: u,
 		})
 		Expect(err).To(BeNil())
+
+		originalHostHostname = envvars.HostHostname
+		envvars.HostHostname = "n2odev.com"
 	})
 
 	AfterEach(func() {
@@ -102,6 +108,7 @@ var _ = Describe("controllers/containers", func() {
 			db.Close()
 		}
 		UnstubFreighterFn()
+		envvars.HostHostname = originalHostHostname
 	})
 
 	Describe("WithContainerAndHost", func() {
@@ -1442,7 +1449,7 @@ var _ = Describe("controllers/containers", func() {
 		var (
 			c         *container.Container
 			fc        *freighterclient.Container
-			slug      = "elixir-web-1"
+			slug      = "foo"
 			token     = ""
 			startedAt = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
 		)
@@ -1486,8 +1493,13 @@ var _ = Describe("controllers/containers", func() {
 			}
 			mockClient.Containers = []*freighterclient.Container{fc}
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
-				PortBindings: []string{"4040:5050", "4000:3000"},
-				Env:          []string{"NITROUS_IMAGE_VERSION=1.2.3", "PAGER=less"},
+				PortBindings: []string{"public:4040:5050/tcp", "public:2020:22/tcp", "private:4000:3000/tcp"},
+				Env: []string{
+					"NITROUS_IMAGE_VERSION=1.2.3",
+					"PAGER=less",
+					"NITROUS_SSH_ENABLED=true",
+					"NITROUS_USERNAME=nitrous",
+				},
 				Mounts: []string{
 					"database-75:/var/lib/postgresql/data",
 					"/magic/bla/slug:/.nitrous-container-slug:ro",
@@ -1539,10 +1551,109 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
 			Expect(j.Container.UpdatedAt).NotTo(BeNil())
 			Expect(j.Container.TerminatedAt).To(BeNil())
+			Expect(j.Container.SSHURL).To(Equal("ssh://nitrous@foo.n2odev.com:2020"))
 			Expect(j.Container.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
 			Expect(j.Container.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 			Expect(j.Container.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
 			Expect(j.Container.Config.Mounts).To(Equal([]string{"database-75:/var/lib/postgresql/data"}))
+		})
+
+		Describe("SSH URL", func() {
+			It("should have valid URL with valid parameters", func() {
+				testCases := []struct {
+					config      *freighterclient.ContainerConfig
+					expectedURL string
+				}{
+					{
+						&freighterclient.ContainerConfig{
+							PortBindings: []string{"public:2020:22/tcp"},
+							Env: []string{
+								"NITROUS_SSH_ENABLED=true",
+								"NITROUS_USERNAME=nitrous",
+							},
+						},
+						"ssh://nitrous@foo.n2odev.com:2020",
+					},
+					{
+						&freighterclient.ContainerConfig{
+							PortBindings: []string{"public:2020:22/tcp"},
+							Env: []string{
+								"NITROUS_SSH_ENABLED=true",
+							},
+						},
+						"ssh://root@foo.n2odev.com:2020",
+					},
+				}
+
+				for _, testCase := range testCases {
+					mockClient.ConfigContainerConfig = testCase.config
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					var j struct {
+						Container *serializers.Container `json:"container"`
+					}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					cn := j.Container
+
+					Expect(cn.SSHURL).To(Equal(testCase.expectedURL))
+				}
+			})
+
+			It("should not have ssh_url field with invalid parameters", func() {
+				testConfigs := []*freighterclient.ContainerConfig{
+					{
+						PortBindings: []string{"public:2020:22/tcp"},
+						Env: []string{
+							"NITROUS_USERNAME=nitrous",
+						},
+					},
+					{
+						PortBindings: []string{"public:2020:22/tcp"},
+						Env: []string{
+							"NITROUS_SSH_ENABLED=false",
+							"NITROUS_USERNAME=nitrous",
+						},
+					},
+					{
+						PortBindings: []string{"public:8080:80/tcp"},
+						Env: []string{
+							"NITROUS_SSH_ENABLED=true",
+							"NITROUS_USERNAME=nitrous",
+						},
+					},
+					{
+						PortBindings: []string{"private:2020:22/tcp"},
+						Env: []string{
+							"NITROUS_SSH_ENABLED=true",
+							"NITROUS_USERNAME=nitrous",
+						},
+					},
+					{
+						PortBindings: []string{"public:2020:22/udp"},
+						Env: []string{
+							"NITROUS_SSH_ENABLED=true",
+							"NITROUS_USERNAME=nitrous",
+						},
+					},
+				}
+
+				for _, config := range testConfigs {
+					mockClient.ConfigContainerConfig = config
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					var j struct {
+						Container *serializers.Container `json:"container"`
+					}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					cn := j.Container
+
+					Expect(cn.SSHURL).To(Equal(""))
+				}
+			})
 		})
 
 		Context("when the Freighter client returns an error", func() {
@@ -3502,5 +3613,116 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c2.Metadata.Map["allgood"].Valid).To(BeTrue())
 			Expect(c2.Metadata.Map["allgood"].String).To(Equal(str))
 		})
+	})
+})
+
+var _ = Describe("FindSSHURL()", func() {
+	var originalHostHostname string
+	var h *host.Host = &host.Host{
+		Slug: "elixir-web-1",
+	}
+
+	BeforeEach(func() {
+		originalHostHostname = envvars.HostHostname
+		envvars.HostHostname = "n2odev.com"
+	})
+
+	AfterEach(func() {
+		envvars.HostHostname = originalHostHostname
+	})
+
+	It("should have valid URL with valid parameters", func() {
+		testCases := []struct {
+			config      *freighterclient.ContainerConfig
+			expectedURL string
+		}{
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				"ssh://nitrous@elixir-web-1.n2odev.com:2020",
+			},
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+					},
+				},
+				"ssh://root@elixir-web-1.n2odev.com:2020",
+			},
+		}
+
+		for _, testCase := range testCases {
+			url, err := containers.FindSSHURL(h, testCase.config)
+			Expect(err).To(BeNil())
+			Expect(url).To(Equal(testCase.expectedURL))
+		}
+	})
+
+	It("should get error with invalid parameters", func() {
+		testCases := []struct {
+			config        *freighterclient.ContainerConfig
+			expectedError error
+		}{
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				containers.ErrSSHNotEnabled,
+			},
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=false",
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				containers.ErrSSHNotEnabled,
+			},
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:8080:80/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				containers.ErrSSHPortNotFound,
+			},
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"private:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				containers.ErrSSHPortNotFound,
+			},
+			{
+				&freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/udp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+						"NITROUS_USERNAME=nitrous",
+					},
+				},
+				containers.ErrSSHPortNotFound,
+			},
+		}
+
+		for _, testCase := range testCases {
+			_, err := containers.FindSSHURL(h, testCase.config)
+			Expect(err).To(Equal(testCase.expectedError))
+		}
 	})
 })

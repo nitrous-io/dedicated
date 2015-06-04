@@ -335,7 +335,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	serialized := serializers.SerializeContainer(cn)
 	serialized.Config = serializers.SerializeContainerConfig(config)
 
-	sshURL, err := findSSHURL(h, config)
+	sshURL, err := FindSSHURL(h, config)
 	if err == nil {
 		serialized.SSHURL = sshURL
 	}
