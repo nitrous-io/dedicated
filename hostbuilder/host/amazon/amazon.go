@@ -7,11 +7,13 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/ec2"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
@@ -30,47 +32,37 @@ const (
 	// http://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_EbsBlockDevice.html
 	maxStorageSize = 1024
 
-	GeneralVolumeType  = "gp2"
-	IOPSVolumeType     = "io1"
-	MagneticVolumeType = "standard"
-
-	rootDeviceName = "/dev/sda1"
-
 	updateTimeout            = 30 * time.Second
 	resizeRootVolumeTimeout  = 30 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
 )
 
 var (
+	GeneralVolumeType    = aws.String("gp2")
+	rootDeviceName       = aws.String("/dev/sda1")
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
 	ErrInstanceNotFound = errors.New("instance not found")
 
-	KnownRegions = map[string]aws.Region{
-		// aws.APNortheast.Name:  aws.APNortheast,
-		aws.APSoutheast.Name: aws.APSoutheast,
-		// aws.APSoutheast2.Name: aws.APSoutheast2,
-		aws.EUWest.Name: aws.EUWest,
-		// aws.EUCentral.Name:    aws.EUCentral,
-		aws.USEast.Name: aws.USEast,
-		// aws.USWest.Name:       aws.USWest,
-		aws.USWest2.Name: aws.USWest2,
-		// aws.SAEast.Name:       aws.SAEast,
+	KnownRegions = []string{
+		"ap-southeast-1",
+		"eu-west-1",
+		"us-east-1",
+		"us-west-2",
 	}
 )
 
 type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	notifyURL    string // to be set in builder's config
-	uuid         string // request UUID set by user
-	env          string // env tag to be set for each instance
+	Config    *HostConfig
+	notifyURL string // to be set in builder's config
+	uuid      string // request UUID set by user
+	env       string // env tag to be set for each instance
 
 	// ec2 properties
-	auth     aws.Auth // this is used when we want to query all known regions
-	provider *ec2.EC2
-	instance *ec2.Instance
+	credentials *credentials.Credentials
+	provider    *ec2.EC2
+	instance    *ec2.Instance
 
 	// the following settings are only available during the creation phase
 	keypair       *keypair      // temporary keypair of the instance
@@ -113,14 +105,6 @@ type HostConfig struct {
 	AptLocation       string          `json:"apt_location"` // URI of the repository
 	AptDist           string          `json:"apt_dist"`     // distribution of the repo
 	FreighterdVersion string          `json:"freighterd_version"`
-}
-
-func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
-	return []ec2.SecurityGroup{
-		ec2.SecurityGroup{
-			Id: h.SecurityGroupID,
-		},
-	}
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -343,7 +327,7 @@ func (h *Host) Respec() (*host.Info, error) {
 
 	// Allocate Elastic IP.
 	// If instance already has an Elastic IP allocated, we skip this step.
-	addresses, err := getAddresses(h.provider, h.instance.InstanceId)
+	addresses, err := getAddresses(h.provider, h.instance.InstanceID)
 	if err != nil {
 		return nil, mh.Error(err, label)
 	}
@@ -357,7 +341,7 @@ func (h *Host) Respec() (*host.Info, error) {
 			Func:        allocateElasticIP,
 		})
 		if err != nil {
-			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
+			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", *h.instance.InstanceID, err)
 			return nil, mh.Error(err, label)
 		}
 	}
@@ -367,33 +351,18 @@ func (h *Host) Respec() (*host.Info, error) {
 		return h.Info()
 	}
 
-	rootDevice := rootDevice(h.instance)
-	if rootDevice == nil {
-		return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
+	vid := rootVolumeID(h.instance)
+	if vid == nil {
+		return nil, mh.Error(fmt.Errorf("amazon: cannot find root volume for instance %s", *h.instance.InstanceID), label)
 	}
-
-	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+	rootVolume, err := getVolume(h.provider, vid)
 	if err != nil {
-		return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
+		return nil, mh.Error(err, label)
 	}
-	if len(resp.Volumes) != 1 {
-		return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
-	}
-	rootVolume := &resp.Volumes[0]
-	if rootVolume.VolumeId != rootDevice.VolumeId {
-		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
-	}
-
-	currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
-	if err != nil {
-		return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
-	}
-
 	configuredSize := computeSize(h.Config.StorageSize)
+	currentSize := *rootVolume.Size
 	if currentSize < configuredSize {
 		h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
-
 		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
 			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
 		}
@@ -475,7 +444,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 			// context timeout.
 			if step.restartOnError {
 				if _, e := h.Start(); e != nil {
-					h.Printf("failed to start instance %s back up", h.instance.InstanceId)
+					h.Printf("failed to start instance %s back up", *h.instance.InstanceID)
 				}
 			}
 
@@ -497,26 +466,29 @@ func snapshotRootVolume(ctx *host.HostContext) error {
 	rootVolume := h.rootVolume
 	newSize := h.newSize
 
-	h.Printf("Creating snapshot of root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Creating snapshot of root volume %s of instance %s", *rootVolume.VolumeID, *h.instance.InstanceID)
 
 	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
-		h.instance.InstanceId, rootVolume.Size, newSize)
-	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+		*h.instance.InstanceID, rootVolume.Size, newSize)
+	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeID, aws.String(desc))
 	if err != nil {
 		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
 	}
 
 	h.snapshot = snapshot
 
-	tags := []ec2.Tag{
-		{Key: "InstanceID", Value: h.instance.InstanceId},
-		{Key: "dedicated", Value: h.env},
-	}
-	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
-		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
+	if _, err := h.provider.CreateTags(
+		&ec2.CreateTagsInput{
+			Resources: []*string{snapshot.SnapshotID},
+			Tags: []*ec2.Tag{
+				{Key: aws.String("InstanceID"), Value: h.instance.InstanceID},
+				{Key: aws.String("dedicated"), Value: &h.env},
+			},
+		}); err != nil {
+		h.Printf("ERROR: failed to tag snapshot %v, err: %v", *snapshot.SnapshotID, err)
 	}
 
-	h.Printf("Created snapshot %s of volume %s", snapshot.Id, rootVolume.VolumeId)
+	h.Printf("Created snapshot %s of volume %s", *snapshot.SnapshotID, rootVolume.VolumeID)
 
 	return nil
 }
@@ -530,19 +502,17 @@ func createNewVolume(ctx *host.HostContext) error {
 	snapshot := h.snapshot
 	newSize := h.newSize
 
-	h.Printf("Creating volume from snapshot %s", snapshot.Id)
-	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	h.Printf("Creating volume from snapshot %s", *snapshot.SnapshotID)
+	newVolume, err := createVolume(h.provider, snapshot.SnapshotID, rootVolume.AvailabilityZone, newSize)
 	if err != nil {
-		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
+		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", *snapshot.SnapshotID, err)
 	}
-	h.Printf("Created new volume %s from snapshot %s", newVolume.VolumeId, snapshot.Id)
-
+	h.Printf("Created new volume %s from snapshot %s", *newVolume.VolumeID, *snapshot.SnapshotID)
 	h.newVolume = newVolume
-
 	return nil
 }
 
-func swapRootVolume(ctx *host.HostContext) error {
+func swapRootVolume(ctx *host.HostContext) (err error) {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("swap_root_volume")
 	defer mh.UpdateSince(label, time.Now())
@@ -550,22 +520,19 @@ func swapRootVolume(ctx *host.HostContext) error {
 	rootVolume := h.rootVolume
 	newVolume := h.newVolume
 
-	h.Printf("Detaching root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
+	h.Printf("Detaching root volume %s of instance %s", *rootVolume.VolumeID, *h.instance.InstanceID)
+	rootVolume, err = detachVolume(h.provider, rootVolume.VolumeID, h.instance.InstanceID)
+	if err != nil {
 		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
-	} else {
-		rootVolume = vol
 	}
-	h.Printf("Detached root volume %s from %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Detached root volume %s from %s", *rootVolume.VolumeID, *h.instance.InstanceID)
 
-	h.Printf("Attaching new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
-		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
-	} else {
-		newVolume = vol
+	h.Printf("Attaching new volume %s to instance %s", *newVolume.VolumeID, *h.instance.InstanceID)
+	newVolume, err = attachVolume(h.provider, newVolume.VolumeID, h.instance.InstanceID, rootDeviceName)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, *h.instance.InstanceID, err)
 	}
-	h.Printf("Attached new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
-
+	h.Printf("Attached new volume %s to instance %s", *newVolume.VolumeID, *h.instance.InstanceID)
 	return nil
 }
 
@@ -575,13 +542,15 @@ func deleteOldVolume(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	rootVolume := h.rootVolume
+	rootVolumeID := *rootVolume.VolumeID
 
-	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
-		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	h.Printf("Deleting old root volume %s of instance %s", rootVolumeID, h.instance.InstanceID)
+	if _, err := h.provider.DeleteVolume(&ec2.DeleteVolumeInput{
+		VolumeID: rootVolume.VolumeID,
+	}); err != nil {
+		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolumeID, h.instance.InstanceID, err)
 	}
-	h.Printf("Deleted old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-
+	h.Printf("Deleted old root volume %s of instance %s", rootVolumeID, h.instance.InstanceID)
 	return nil
 }
 
@@ -604,17 +573,22 @@ func (h *Host) Destroy() error {
 			// release elastic IP stored in the client. We cant use
 			// h.instance.PublicIPAddress because it's not guaranteed to be
 			// the correct IP when the instance is stopped
-			if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+			if err := releaseAddress(h.provider, aws.String(ip), isVPC(h.instance)); err != nil {
 				err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-					h.Config.IPAddress, h.instance.InstanceId, err)
+					h.Config.IPAddress, h.instance.InstanceID, err)
 				return mh.Error(err, label)
 			}
 		}
 	}
 
 	// terminate the instance
-	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
-		err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
+	if _, err := h.provider.TerminateInstances(
+		&ec2.TerminateInstancesInput{
+			InstanceIDs: []*string{
+				h.instance.InstanceID,
+			},
+		}); err != nil {
+		err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceID, err)
 		return mh.Error(err, label)
 	}
 
@@ -634,17 +608,10 @@ func (h *Host) Destroy() error {
 }
 
 func (h *Host) Info() (*host.Info, error) {
-	if h.instance == nil {
-		return nil, errors.New("Invalid ec2 instance")
+	if h.instance == nil || h.instance.InstanceID == nil {
+		return nil, fmt.Errorf("Invalid ec2 instance %+v", h.instance)
 	}
-	return &host.Info{
-		Provider:       h.DriverName(),
-		ID:             h.instance.InstanceId,
-		IPAddress:      h.instance.PublicIpAddress,
-		FreighterdPort: host.DefaultPort,
-		Region:         h.provider.Region.Name,
-		State:          getState(h.instance),
-	}, nil
+	return info(h.DriverName(), h.provider.Config.Region, h.instance), nil
 }
 
 func (h *Host) Stop() (*host.Info, error) {
@@ -663,7 +630,11 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) stopInstance() error {
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+	if _, err := h.provider.StopInstances(&ec2.StopInstancesInput{
+		InstanceIDs: []*string{
+			h.instance.InstanceID,
+		},
+	}); err != nil {
 		return err
 	}
 
@@ -693,27 +664,15 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+	if err := h.stopInstance(); err != nil {
 		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
 		return nil, mh.Error(err, label)
 	}
 
-	state := StateChangeConf{
-		Pending: []string{"pending", "running", "stopping"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "stopped",
-	}
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
-		return nil, mh.Error(err, label)
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
 	info, err := h.Info()
 	if err == nil {
 		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
 	}
-
 	return info, err
 }
 
@@ -726,7 +685,10 @@ func (h *Host) Start() (*host.Info, error) {
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+	if _, err := h.provider.StartInstances(
+		&ec2.StartInstancesInput{
+			InstanceIDs: []*string{h.instance.InstanceID},
+		}); err != nil {
 		return nil, mh.Error(err, label)
 	}
 
@@ -746,16 +708,16 @@ func (h *Host) Start() (*host.Info, error) {
 	// it will be persisted after stop by default.
 	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
 	if !isVPC(h.instance) && !h.Config.DisableEIP {
-		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
-			InstanceId:         h.instance.InstanceId,
-			PublicIp:           h.Config.IPAddress,
-			AllowReassociation: false,
+		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddressInput{
+			InstanceID:         h.instance.InstanceID,
+			PublicIP:           aws.String(h.Config.IPAddress),
+			AllowReassociation: new(bool),
 		}); err != nil {
 			return nil, mh.Error(err, label)
 		}
 
 		// reload the instance to get a new public IP address
-		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+		if err := h.reloadInstance(*h.instance.InstanceID); err != nil {
 			return nil, mh.Error(err, label)
 		}
 	}
@@ -782,74 +744,68 @@ func (h *Host) List() ([]*host.Info, error) {
 	defer mh.UpdateSince(label, time.Now())
 
 	var (
+		wg sync.WaitGroup
+
+		mu      = &sync.Mutex{} // mutex for lists below
 		infos   = []*host.Info{}
 		errmsgs []string
 	)
 
 	for _, region := range KnownRegions {
-		conn := ec2.New(h.auth, region)
-		params := make(map[string]string)
-		params["MaxResults"] = "100"
+		conn := ec2.New(&aws.Config{Region: region, Credentials: h.credentials})
+		wg.Add(1)
+		go func(conn *ec2.EC2, region string) {
+			defer wg.Done()
+			regionInfos := []*host.Info{}
+			firstTime := true
+			var nextToken *string
 
-		firstTime := true
-		nextToken := ""
+			for firstTime || nextToken != nil {
+				instancesResp, err := conn.DescribeInstances(&ec2.DescribeInstancesInput{
+					MaxResults: aws.Long(100),
+					NextToken:  nextToken,
+				})
+				if err != nil {
+					errmsg := fmt.Sprintf("failed to get instances in region %s, err %v", region, err)
+					h.Printf(errmsg)
+					// if failed to retrieve instances for this region, saves
+					// the error messages and return
+					mu.Lock()
+					errmsgs = append(errmsgs, errmsg)
+					mu.Unlock()
+					return
+				}
 
-		for firstTime || nextToken != "" {
-			if nextToken != "" {
-				params["NextToken"] = nextToken
-			}
+				nextToken = instancesResp.NextToken
+				firstTime = false
 
-			instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
-
-			if err != nil {
-				errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
-				h.Printf(errmsg)
-				errmsgs = append(errmsgs, errmsg)
-				break
-			}
-
-			nextToken = instancesResp.NextToken
-			firstTime = false
-
-			for _, reservation := range instancesResp.Reservations {
-				for _, instance := range reservation.Instances {
-					checkInstance := false
-					// Tags is array of Tag. There is no way to check tag by key
-					for _, tag := range instance.Tags {
-						if tag.Key == "dedicated" && tag.Value == h.env {
-							checkInstance = true
-							break
+				for _, reservation := range instancesResp.Reservations {
+					for _, instance := range reservation.Instances {
+						checkInstance := false
+						// Check the instance environment
+						for _, tag := range instance.Tags {
+							if *tag.Key == "dedicated" && *tag.Value == h.env {
+								checkInstance = true
+								break
+							}
 						}
-					}
-
-					if !checkInstance {
-						continue
-					}
-
-					info := &host.Info{
-						Provider:       h.DriverName(),
-						ID:             instance.InstanceId,
-						IPAddress:      instance.PublicIpAddress,
-						FreighterdPort: host.DefaultPort,
-						State:          getState(&instance),
-						Region:         region.Name,
-						LaunchTime:     &instance.LaunchTime,
-					}
-
-					// Get EC2 instance name
-					for _, tag := range instance.Tags {
-						if tag.Key == "Name" {
-							info.Name = tag.Value
-							break
+						if !checkInstance {
+							continue
 						}
+						info := info(h.DriverName(), region, instance)
+						regionInfos = append(regionInfos, info)
 					}
-
-					infos = append(infos, info)
 				}
 			}
-		}
+
+			// append all regionnal hosts to the global list of hosts
+			mu.Lock()
+			infos = append(infos, regionInfos...)
+			mu.Unlock()
+		}(conn, region)
 	}
 
+	wg.Wait()
 	var err error
 	if len(errmsgs) > 0 {
 		err = fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))
@@ -869,7 +825,7 @@ func (h *Host) Printf(format string, v ...interface{}) {
 		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+		parts = append(parts, fmt.Sprintf("instance=%s", *h.instance.InstanceID))
 	}
 	logrus.Infof(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
 }
@@ -915,7 +871,7 @@ func (h *Host) Name() string {
 // valid during creation phase.
 func (h *Host) SSHConfig() *host.SSHConfig {
 	return &host.SSHConfig{
-		IPAddress:  h.instance.PublicIpAddress,
+		IPAddress:  *h.instance.PublicIPAddress,
 		Port:       host.SSHPort,
 		Username:   "ubuntu",
 		PrivateKey: h.keypair.privateKey,
@@ -944,9 +900,9 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 func (h *Host) logFailed() {
 	if h.instance != nil {
 		if h.keypair != nil {
-			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
+			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceID)
 		} else {
-			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
+			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceID)
 		}
 	}
 }
@@ -957,16 +913,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		logrus.Errorf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
-	accessConfig := &AccessConfig{
-		AccessKey: defaultConfig["access_key"],
-		SecretKey: defaultConfig["secret_key"],
-		RawRegion: hostConfig.RegionID,
-	}
-	auth, err := accessConfig.Auth()
-	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
-		return nil, err
-	}
+
 	// get create timeout
 	createTimeout := DefaultCreateTimeout
 	d, err := time.ParseDuration(defaultConfig["create_timeout"])
@@ -975,25 +922,26 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 
 	host := &Host{
-		AccessConfig:  accessConfig,
 		Config:        hostConfig,
-		auth:          auth,
 		createTimeout: createTimeout,
 		uuid:          defaultConfig["uuid"], // this is injected by the server per request
 		notifyURL:     defaultConfig["notify_url"],
 		env:           defaultConfig["env"],
+		credentials: credentials.NewStaticCredentials(
+			defaultConfig["access_key"],
+			defaultConfig["secret_key"],
+			"",
+		),
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
 	if _, ok := defaultConfig["ignore_region"]; !ok {
-		region, err := accessConfig.Region()
-		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
-			return nil, err
-		}
-		host.provider = ec2.New(auth, region)
+		host.provider = ec2.New(&aws.Config{
+			Region:      hostConfig.RegionID,
+			Credentials: host.credentials,
+		})
 	}
 	return host, nil
 }
@@ -1050,32 +998,36 @@ func createInstance(ctx *host.HostContext) error {
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
 
-	opts := &ec2.RunInstances{
-		KeyName:        h.keypair.name,
-		ImageId:        h.Config.SourceAMI,
-		InstanceType:   h.Config.InstanceType,
-		SecurityGroups: h.Config.securityGroups(),
-		MinCount:       0,
-		MaxCount:       0,
-		BlockDevices: []ec2.BlockDeviceMapping{
+	resp, err := h.provider.RunInstances(&ec2.RunInstancesInput{
+		KeyName:          &h.keypair.name,
+		ImageID:          &h.Config.SourceAMI, // required
+		MaxCount:         aws.Long(1),         // required
+		MinCount:         aws.Long(1),         // required
+		InstanceType:     &h.Config.InstanceType,
+		SecurityGroupIDs: []*string{&h.Config.SecurityGroupID},
+		BlockDeviceMappings: []*ec2.BlockDeviceMapping{
 			{
-				DeviceName:          rootDeviceName,
-				VolumeType:          GeneralVolumeType,
-				VolumeSize:          storageSize,
-				DeleteOnTermination: true,
+				DeviceName: rootDeviceName,
+				EBS: &ec2.EBSBlockDevice{
+					DeleteOnTermination: aws.Boolean(true),
+					VolumeType:          GeneralVolumeType,
+					VolumeSize:          &storageSize,
+				},
 			},
 		},
-		AssociatePublicIpAddress: true,
-	}
-	// assigned subnet ID for VPC instance
-	if h.Config.SubnetID != "" {
-		opts.SubnetId = h.Config.SubnetID
-	}
-	resp, err := h.provider.RunInstances(opts)
+		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+			{
+				DeviceIndex:              aws.Long(0),
+				AssociatePublicIPAddress: aws.Boolean(true),
+				DeleteOnTermination:      aws.Boolean(true),
+				SubnetID:                 aws.String(h.Config.SubnetID),
+			},
+		},
+	})
 	if err != nil || len(resp.Instances) == 0 {
 		return mh.Error(fmt.Errorf("amazon: failed to create new instance %v", err), label)
 	}
-	h.instance = &resp.Instances[0]
+	h.instance = resp.Instances[0]
 
 	// wait for the instance to be ready
 	state := &StateChangeConf{
@@ -1090,10 +1042,9 @@ func createInstance(ctx *host.HostContext) error {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	if h.instance.PublicIpAddress == "" {
-		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceId)
+	if *h.instance.PublicIPAddress == "" {
+		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceID)
 	}
-
 	return nil
 }
 
@@ -1109,16 +1060,15 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	label := h.MetricsLabel("allocate_ip")
 	defer mh.UpdateSince(label, time.Now())
 
-	_, err := assignAddress(h.provider, h.instance.InstanceId, isVPC(h.instance))
+	_, err := assignAddress(h.provider, h.instance.InstanceID, isVPC(h.instance))
 	if err != nil {
 		return mh.Error(err, label)
 	}
 
 	// reload the instance to get a new public IP address
-	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+	if err := h.reloadInstance(*h.instance.InstanceID); err != nil {
 		return mh.Error(err, label)
 	}
-
 	return nil
 }
 
@@ -1135,7 +1085,10 @@ func associateInstanceTags(ctx *host.HostContext) error {
 }
 
 func getState(instance *ec2.Instance) state.State {
-	switch instance.State.Name {
+	if instance.State == nil {
+		return state.Unknown
+	}
+	switch *instance.State.Name {
 	case "pending":
 		return state.Starting
 	case "running":
@@ -1152,7 +1105,7 @@ func getState(instance *ec2.Instance) state.State {
 
 // isVPC checks if an instance is a EC2-VPC instance
 func isVPC(i *ec2.Instance) bool {
-	return i != nil && i.SubnetId != ""
+	return i != nil && i.SubnetID != nil && *i.SubnetID != ""
 }
 
 func computeSize(size int) int64 {
@@ -1165,11 +1118,41 @@ func computeSize(size int) int64 {
 	return storageSize
 }
 
-func rootDevice(instance *ec2.Instance) *ec2.BlockDevice {
-	for _, dev := range instance.BlockDevices {
-		if dev.DeviceName == rootDeviceName {
-			return &dev
+// rootVolumeID returns the volume ID of root device. It returns nil if there's
+// no root device associated with the instance.
+func rootVolumeID(instance *ec2.Instance) *string {
+	for _, dev := range instance.BlockDeviceMappings {
+		if dev.DeviceName != nil && *dev.DeviceName == *rootDeviceName {
+			if dev.EBS == nil {
+				return nil
+			}
+			return dev.EBS.VolumeID
 		}
 	}
 	return nil
+}
+
+// info formats data of an ec2 instance and returns it
+func info(provider, region string, i *ec2.Instance) *host.Info {
+	if i == nil || i.InstanceID == nil {
+		return nil
+	}
+	info := &host.Info{
+		ID:             *i.InstanceID,
+		Provider:       provider,
+		Region:         region,
+		FreighterdPort: host.DefaultPort,
+		State:          getState(i),
+	}
+	if i.PublicIPAddress != nil {
+		info.IPAddress = *i.PublicIPAddress
+	}
+	// Get EC2 instance name
+	for _, tag := range i.Tags {
+		if *tag.Key == "Name" {
+			info.Name = *tag.Value
+			break
+		}
+	}
+	return info
 }

@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/ec2"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 const (
@@ -22,8 +23,6 @@ const (
 var (
 	dryrun = true
 
-	auth aws.Auth
-
 	Regions = map[string]*ec2.EC2{}
 )
 
@@ -31,13 +30,22 @@ type Instance struct {
 	HostID, InstanceID, Name string
 }
 
-func setName(region *ec2.EC2, instanceID, name string) error {
+// TODO: dryRun should be passed as input so we can check for permission to
+// create tags
+func setName(conn *ec2.EC2, instanceID, name string) error {
 	logrus.Printf("Naming instance ID %s as %s", instanceID, name)
 	if dryrun {
 		return nil
 	}
-	tags := []ec2.Tag{{"Name", name}}
-	_, err := region.CreateTags([]string{instanceID}, tags)
+	_, err := conn.CreateTags(&ec2.CreateTagsInput{
+		Resources: []*string{aws.String(instanceID)},
+		Tags: []*ec2.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(name),
+			},
+		},
+	})
 	return err
 }
 
@@ -56,17 +64,21 @@ func parseCSV(path string) ([][]string, error) {
 }
 
 func init() {
-	auth.AccessKey = os.Getenv("AWS_ACCESS_KEY")
-	auth.SecretKey = os.Getenv("AWS_SECRET_KEY")
-
-	if auth.AccessKey == "" || auth.SecretKey == "" {
+	accessKey := os.Getenv("AWS_ACCESS_KEY")
+	secretKey := os.Getenv("AWS_SECRET_KEY")
+	if accessKey == "" || secretKey == "" {
 		logrus.Fatal("Please set AWS_ACCESS_KEY and AWS_SECRET_KEY in environment")
 	}
+	credentials := credentials.NewStaticCredentials(accessKey, secretKey, "")
 
-	Regions[aws.APSoutheast.Name] = ec2.New(auth, aws.APSoutheast)
-	Regions[aws.EUWest.Name] = ec2.New(auth, aws.EUWest)
-	Regions[aws.USEast.Name] = ec2.New(auth, aws.USEast)
-	Regions[aws.USWest2.Name] = ec2.New(auth, aws.USWest2)
+	for _, region := range []string{
+		"ap-southeast-1",
+		"eu-west-1",
+		"us-east-1",
+		"us-west-2",
+	} {
+		Regions[region] = ec2.New(&aws.Config{Region: region, Credentials: credentials})
+	}
 }
 
 func main() {

@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mitchellh/goamz/ec2"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type keypair struct {
@@ -19,11 +20,16 @@ type keypair struct {
 }
 
 func (k *keypair) Create() error {
-	key, err := k.provider.CreateKeyPair(k.name)
+	key, err := k.provider.CreateKeyPair(&ec2.CreateKeyPairInput{
+		KeyName: aws.String(k.name),
+	})
 	if err != nil {
 		return err
 	}
-	block, _ := pem.Decode([]byte(key.KeyMaterial))
+	if key.KeyMaterial == nil {
+		return fmt.Errorf("invalid key response %+v", key)
+	}
+	block, _ := pem.Decode([]byte(*key.KeyMaterial))
 	privKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return fmt.Errorf("failed to parse a valid RSA private key, err: %v", err)
@@ -33,7 +39,9 @@ func (k *keypair) Create() error {
 }
 
 func (k *keypair) Delete() error {
-	_, err := k.provider.DeleteKeyPair(k.name)
+	_, err := k.provider.DeleteKeyPair(&ec2.DeleteKeyPairInput{
+		KeyName: aws.String(k.name),
+	})
 	return err
 }
 
