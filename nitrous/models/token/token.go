@@ -23,6 +23,9 @@ const (
 	// FIXME: Should check token scope when accessing
 	// user settings like change password.
 	ScopeThirdParty = "third_party"
+
+	// Admin is impersonating a user, the same as ScopeFull but owned by an admin
+	ScopeAdmin = "admin"
 )
 
 var (

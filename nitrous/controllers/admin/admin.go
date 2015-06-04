@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
@@ -71,7 +72,27 @@ func switchUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 
-	return env.Login(u, w)
+	t := &token.Token{
+		UserID: u.ID,
+		Type:   "login",
+		Scope:  token.ScopeAdmin,
+	}
+
+	err = t.Insert(env.DB)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"access_token": t.Token,
+		"token_type":   "Bearer",
+	}
+
+	return nil
 }
 
 type liveHost struct {
