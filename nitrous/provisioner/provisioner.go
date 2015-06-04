@@ -42,6 +42,7 @@ const (
 	DigitalOceanProvider = "digitalocean"
 	AmazonProvider       = "amazon"
 	DockerProvider       = "docker"
+	DummyProvider        = "dummy"
 )
 
 // format strings for provider name conventions
@@ -756,45 +757,46 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 		}
 	}
 
-	// FIXME: we should just store the canonical mapping in DB instead of
-	// having to remap region identifier here for different providers.
-	rid, ok := opts.Template.Config.Map["region_id"]
-	if !ok {
-		return config, nil
-	}
-	switch opts.Template.Provider {
-	case DigitalOceanProvider:
-		config["name"] = fmt.Sprintf(DigitalOceanNamef, h.ID)
-		if reg, ok := doRegionsMap[rid.String]; !ok {
-			return hostbuilderclient.Config{}, fmt.Errorf("region %s is invalid", rid.String)
-		} else {
-			config["region_id"] = reg
-		}
+	return p.ApplyProviderConfig(config, opts.Template, h)
+}
+
+func (p *Provisioner) ApplyProviderConfig(cfg hostbuilderclient.Config, pt *providertemplate.ProviderTemplate, h *host.Host) (hostbuilderclient.Config, error) {
+	switch pt.Provider {
 	case AmazonProvider:
-		config["name"] = fmt.Sprintf(AmazonNamef, h.ID)
+		cfg["name"] = fmt.Sprintf(AmazonNamef, h.ID)
 
 		// convert storage_size to format accepted by hostbuilder
-		size, err := strconv.Atoi(config["storage_size"].(string))
+		size, err := strconv.Atoi(cfg["storage_size"].(string))
 		if err != nil {
-			return config, fmt.Errorf("invalid size for config %v", config)
+			return nil, fmt.Errorf("invalid storage_size for config %v", cfg)
 		}
-		config["storage_size"] = size
+		cfg["storage_size"] = size
 
 		// convert disable_eip to format accepted by hostbuilder
 		// if disable_eip is invalid, it will be set to false
-		if disableEIPconf, ok := config["disable_eip"]; ok {
+		if disableEIPconf, ok := cfg["disable_eip"]; ok {
 			disableEIP, _ := strconv.ParseBool(disableEIPconf.(string))
-			config["disable_eip"] = disableEIP
+			cfg["disable_eip"] = disableEIP
 		} else {
-			config["disable_eip"] = false
+			cfg["disable_eip"] = false
 		}
-	case DockerProvider:
+	case DigitalOceanProvider:
+		cfg["name"] = fmt.Sprintf(DigitalOceanNamef, h.ID)
+
+		if rid, ok := pt.Config.Map["region_id"]; ok {
+			if reg, ok := doRegionsMap[rid.String]; ok {
+				cfg["region_id"] = reg
+			} else {
+				return nil, fmt.Errorf("region %s is invalid", rid.String)
+			}
+		}
+	case DockerProvider, DummyProvider:
 		// no special config required
 	default:
 		return nil, ErrUnknownProvider
 	}
 
-	return config, nil
+	return cfg, nil
 }
 
 func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) http.Header {
