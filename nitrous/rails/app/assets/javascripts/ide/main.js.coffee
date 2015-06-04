@@ -49,6 +49,8 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   oneMinWarned: false
   redirecting: false
 
+  freighterdFeatures: null
+
   didChangeToken: (->
     if token = @get('token')
       window.localStorage.setItem('token', token)

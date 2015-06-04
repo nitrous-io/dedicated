@@ -105,9 +105,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
         Mp.increment Mp.PropertyIDEFileSaveCount
 
-        ideController = App.get 'router.ideController'
-        hasCmdRun = ideController?.freighterSupports("hasCmdRun")
-        if hasCmdRun && path.get('absolutePath').match(/\.go$/)
+        if App.get('freighterdFeatures')?.contains('cmdrun') && path.get('absolutePath').match(/\.go$/)
           @saveGoDocument(doc)
         else
           doc.set 'clean', true
