@@ -450,7 +450,7 @@ func (h *Host) configFile() *configFile {
 }
 
 func (h *Host) notifyURL() string {
-	return fmt.Sprintf("http://172.17.42.1:3333/api/v0/hosts/%s/freighterd_hook", h.Name)
+	return fmt.Sprintf("http://10.1.42.1:3333/api/v0/hosts/%s/freighterd_hook", h.Name)
 }
 
 func getFreighterdPort(container *dockerclient.Container) uint16 {
