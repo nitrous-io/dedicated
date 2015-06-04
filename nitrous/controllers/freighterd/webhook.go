@@ -47,8 +47,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 
 	switch m.Event {
 	case "ping":
-		h.LastPingedAt = pq.NullTime{time.Now(), true}
-		if err := h.Update(env.DB); err != nil {
+		if err := h.UpdateColumn(env.DB, "last_pinged_at", pq.NullTime{time.Now(), true}); err != nil {
 			return err
 		}
 
@@ -63,8 +62,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return errNotFound
 		}
 
-		h.State = host.StateRunning
-		if err := h.Update(env.DB); err != nil {
+		if err := h.UpdateColumn(env.DB, "state", host.StateRunning); err != nil {
 			return err
 		}
 
