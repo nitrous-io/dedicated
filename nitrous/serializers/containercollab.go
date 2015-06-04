@@ -12,32 +12,51 @@ import (
 type ContainerCollabUser struct {
 	ID          int64      `json:"id"`
 	ContainerID int64      `json:"container_id"`
-	UserID      int64      `json:"user_id"`
+	UserID      int64      `json:"user_id,omitempty"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 
-	Username     string `json:"username"`
-	Name         string `json:"name"`
-	GravatarHash string `json:"gravatar_hash"`
+	Username     string `json:"username,omitempty"`
+	Name         string `json:"name,omitempty"`
+	GravatarHash string `json:"gravatar_hash,omitempty"`
+
+	PendingEmail string `json:"pending_email,omitempty"`
 }
 
 func SerializeContainerCollabUser(sc *containercollab.ContainerCollabUser) *ContainerCollabUser {
 	if sc == nil {
 		return nil
 	}
-	h := md5.New()
-	io.WriteString(h, sc.Email)
-	sum := h.Sum(nil)
-	return &ContainerCollabUser{
-		ID:           sc.ID,
-		ContainerID:  sc.ContainerID,
-		UserID:       sc.UserID,
-		CreatedAt:    sc.CreatedAt,
-		UpdatedAt:    sc.UpdatedAt,
-		Username:     sc.Username,
-		Name:         sc.Name,
-		GravatarHash: hex.EncodeToString(sum),
+
+	ccu := &ContainerCollabUser{
+		ID:          sc.ID,
+		ContainerID: sc.ContainerID,
+		CreatedAt:   sc.CreatedAt,
+		UpdatedAt:   sc.UpdatedAt,
+		Username:    sc.Username.String,
+		Name:        sc.Name.String,
 	}
+
+	if sc.UserID.Valid {
+		ccu.UserID = sc.UserID.Int64
+	}
+	if sc.InviteEmail.Valid {
+		ccu.PendingEmail = sc.InviteEmail.String
+	}
+	// show the gravatar of either the joined user or
+	// the email of the pending invite (who has not joined Nitrous)
+	if sc.Email.Valid || sc.InviteEmail.Valid {
+		h := md5.New()
+		str := sc.Email.String
+		if str == "" {
+			str = sc.InviteEmail.String
+		}
+		io.WriteString(h, str)
+		sum := h.Sum(nil)
+		ccu.GravatarHash = hex.EncodeToString(sum)
+	}
+
+	return ccu
 }
 
 func SerializeContainerCollabUsers(scs []*containercollab.ContainerCollabUser) []*ContainerCollabUser {

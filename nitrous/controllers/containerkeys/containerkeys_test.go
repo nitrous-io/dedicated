@@ -180,7 +180,7 @@ var _ = Describe("controllers/containerkeys", func() {
 
 		Context("when user's github token is not valid", func() {
 			It("responds with token not valid", func() {
-				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE id = $1", u.ID)
+				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE user_id = $1", u.ID)
 				Expect(err).To(BeNil())
 
 				doRequest()

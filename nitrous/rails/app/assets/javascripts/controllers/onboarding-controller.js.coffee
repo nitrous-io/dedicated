@@ -10,6 +10,7 @@ screens = [
     "waiting-create",
     "thank-you",
     "waiting-finish",
+    "shared-container"
   ]
 
 App.OnboardingController = Em.ObjectController.extend
@@ -21,11 +22,6 @@ App.OnboardingController = Em.ObjectController.extend
     App.on 'handle-transition', (url)=>
       @send 'handleTransition', url
   ).on 'init'
-
-  startWelcome: (->
-    if App.get 'onboardingReady'
-      App.set 'onboardingScreen', 'welcome'
-  ).observes 'App.onboardingReady'
 
   screen: (->
     App.get('temporaryScreen') || App.get('onboardingScreen')
@@ -58,6 +54,9 @@ App.OnboardingController = Em.ObjectController.extend
     App.set 'onboardingScreen', 'welcome'
 
   actions:
+    close: ->
+      App.set 'onboardingScreen', null
+
     dismissOnboarding: ->
       App.set 'onboardingScreen', null
       App.set 'onboardingReady', false
@@ -71,6 +70,10 @@ App.OnboardingController = Em.ObjectController.extend
 
     handleTransition: (url)->
       App.set 'temporaryScreen', null
+
+      if url.indexOf('containers/new') != -1 && App.get 'onboardingReady'
+        App.set 'onboardingScreen', 'welcome'
+        return
 
       return unless @get 'screen'
 

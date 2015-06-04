@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/mail"
 	"net/url"
@@ -39,6 +40,7 @@ var (
 	errUserNotFound     = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
 	errSameUser         = httperror.New(http.StatusBadRequest, "same_user", "you cannot add yourself as a collaborator")
 	errAlreadyAdded     = httperror.New(http.StatusConflict, "already_added", "this user is already a collaborator")
+	errUserNotConfirmed = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
 	errEmailAlreadySent = errors.New("email already sent")
 	Mailer              mailer.Mailer
 )
@@ -69,7 +71,7 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 	usr, err := user.FindByUsernameOrEmail(env.DB, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return errUserNotFound
+			return handleNoUser(cn, env, username)
 		}
 		return err
 	}
@@ -80,6 +82,10 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 
 	if usr.ID == env.User.ID {
 		return errSameUser
+	}
+
+	if !usr.CanLogin() {
+		return errUserNotConfirmed
 	}
 
 	collab, err := containercollab.Create(env.DB, cn.ID, usr.ID)
@@ -144,6 +150,24 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	return nil
 }
 
+func handleNoUser(cn *container.Container, env *middleware.Env, email string) error {
+	if !strings.Contains(email, "@") || user.IsBlacklisted(email) {
+		return errUserNotFound
+	}
+
+	err := inviteUser(env.DB, cn, email, env.User)
+	if err != nil {
+		return err
+	}
+
+	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"success": true,
+	}
+	return nil
+}
+
 func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {
 	if collab.EmailSentAt.Valid {
 		return errEmailAlreadySent
@@ -190,7 +214,7 @@ func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab 
 	}{
 		"",
 		recv.DisplayName(),
-		sharer.DisplayName(),
+		template.HTMLEscapeString(sharer.DisplayName()),
 		c.Slug,
 		url.String(),
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -329,6 +330,91 @@ var _ = Describe("controllers/users", func() {
 			Expect(err).To(BeNil())
 			Expect(j["error"]).To(Equal("email_banned"))
 			Expect(j["error_description"]).To(Equal("this email address has been banned"))
+		})
+
+		Context("invited by container collaborator", func() {
+
+			var (
+				cnr *container.Container
+			)
+
+			BeforeEach(func() {
+				owner := &user.User{
+					Username: "owner",
+					Email:    "owner@example.com",
+					Password: "123456",
+				}
+				err := test.WrapInTransaction(db, owner.Insert)
+				Expect(err).To(BeNil())
+
+				hs, err := test.CreateHostStack(db, &test.HostStack{
+					U: owner,
+				})
+				Expect(err).To(BeNil())
+
+				cnr = &container.Container{
+					CID:    "cafebabe",
+					UserID: hs.U.ID,
+					HostID: hs.H.ID,
+					Image:  "nitrous-base",
+					Slug:   "java-test-container",
+					Name:   sql.NullString{"Java", true},
+				}
+				err = cnr.Insert(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'foo@example.com', '22x2') RETURNING ID`, cnr.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should auto confirm the user and update container_collabs if invite_code provided with correct email", func() {
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeTrue())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeTrue())
+			})
+
+			It("should not auto confirm the user if the invite code is incorrect", func() {
+				params.Set("invite_code", "23x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
+
+			It("should not auto confirm the user if the email is different", func() {
+				params.Set("email", "foo@domain.com")
+				params.Set("invite_code", "22x2")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u.ConfirmedAt.Valid).To(BeFalse())
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeFalse())
+			})
 		})
 	})
 

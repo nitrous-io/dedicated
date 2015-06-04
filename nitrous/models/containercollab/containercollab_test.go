@@ -129,14 +129,23 @@ var _ = Describe("models/containercollab", func() {
 			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u3.ID)
 			Expect(err).To(BeNil())
 
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '2xx2') RETURNING ID`, cnr.ID)
+			Expect(err).To(BeNil())
+
 			_, err = db.Exec(`UPDATE users SET deleted_at = now() WHERE id = $1;`, u3.ID)
 			Expect(err).To(BeNil())
 
 			items, err := containercollab.FindAll(db, cnr.ID)
 			Expect(err).To(BeNil())
-			Expect(items).To(HaveLen(2))
-			Expect([]int64{items[0].UserID, items[1].UserID}).To(ConsistOf([]int64{u1.ID, u2.ID}))
-			Expect([]string{items[0].Username, items[1].Username}).To(ConsistOf([]string{"foo", "bar"}))
+			Expect(items).To(HaveLen(3))
+			Expect(items[0].UserID.Valid).To(BeFalse())
+			Expect(items[0].Name.Valid).To(BeFalse())
+			Expect(items[0].Email.Valid).To(BeFalse())
+			Expect(items[0].Username.Valid).To(BeFalse())
+			Expect(items[0].InviteEmail.String).To(Equal("abc@example.com"))
+
+			Expect([]int64{items[1].UserID.Int64, items[2].UserID.Int64}).To(ConsistOf([]int64{u1.ID, u2.ID}))
+			Expect([]string{items[1].Username.String, items[2].Username.String}).To(ConsistOf([]string{"foo", "bar"}))
 		})
 	})
 })

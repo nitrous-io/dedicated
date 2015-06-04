@@ -536,7 +536,12 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(u).StructScan(u)
+	if err := nstmt.QueryRowx(u).StructScan(u); err != nil {
+		return err
+	}
+
+	_, err = d.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
+	return err
 }
 
 func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {

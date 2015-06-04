@@ -52,6 +52,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
   onboardingReady: false
   onboardingIDEOpen: false
   temporaryScreen: null
+  sharedContainerTip: false
 
   fiveMinWarned: false
   oneMinWarned: false
@@ -334,6 +335,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
           if fErr = error.match(/communicate with freighter for host ([a-z0-9\-]+)/)
             a.push fErr[1]
       App.set 'hostErrors', a
+    fetchOp
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')

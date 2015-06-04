@@ -16,7 +16,12 @@
             img.gravatar.medium src=collaborator.gravatar
           .lines
             h4
-              = collaborator.username
+              if collaborator.username
+                = collaborator.username
+              else
+                = collaborator.pendingEmail
+                |  (pending)
+
             p
               | Added&nbsp;
               = ago collaborator.createdAt

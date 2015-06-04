@@ -50,3 +50,20 @@ if view.showCardholdersName
       p
         | You’re doing great! Just one last step before you can use your new workspace.
       = partial 'partials/onboarding-card-footer'
+
+if view.showSharedContainer
+  .card data-target="#container-index-view" data-arrow="top-right"
+    .card-inner
+      h2
+        | You've been invited to collaborate on a container!
+      p
+        | Nitrous allows multiple people to collaborate on projects in the same container.
+      p
+        if App.selectedContainer.isRunning
+          | Click on the IDE button to begin working together!
+        else
+          if App.selectedContainer.isStopped
+            | Click on the Start button to start up the container.
+      .card-footer
+        .right
+          a.ui.btn.primary.raised href='#' click='close' Done
