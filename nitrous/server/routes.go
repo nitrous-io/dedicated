@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"net/http/pprof"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/amazon"
@@ -79,8 +78,6 @@ func (s *Server) drawRoutes() {
 	s.route("/api/v0/github/oauth_cb", mw.Call("github.OAuthCb", github.OAuthCb), "GET")
 
 	if envvars.Debug == "true" {
-		s.router.HandleFunc("/debug/pprof/{path:.*}", pprof.Index).Methods("GET")
-		s.routeJSON("/debug", s.debugHandler, "GET")
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
 	}
 
@@ -227,6 +224,10 @@ func (s *Server) drawRoutes() {
 		}
 
 		maintenance := map[string]map[string]routeData{
+			"GET": {
+				"debug/pprof/{path:.*}": r("s.pprofHandler", s.pprofHandler),
+				"debug":                 r("s.debugHandler", s.debugHandler),
+			},
 			"POST": {
 				"user_refresh/{id}": r("maintenance.UserRefresh", maintenance.UserRefresh),
 			},

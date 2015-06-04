@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -131,6 +132,12 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = append(nsStack, ns)
 	f()
 	nsStack = nsStack[:len(nsStack)-1]
+}
+
+func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0/maintenance")
+	pprof.Index(w, r)
+	return nil
 }
 
 // debugHandler prints out debug information in json format.
