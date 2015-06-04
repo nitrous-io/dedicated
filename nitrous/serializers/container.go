@@ -29,6 +29,7 @@ type Container struct {
 	ExitCode        int              `json:"exit_code"`
 	Config          *ContainerConfig `json:"config,omitempty"`
 	PreviewHostname string           `json:"preview_hostname"`
+	SSHURL          string           `json:"ssh_url,omitempty"`
 
 	Metadata map[string]string `json:"metadata"`
 
