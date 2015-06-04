@@ -1,33 +1,46 @@
 package amazon
 
 import (
-	"github.com/mitchellh/goamz/ec2"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type instanceProvider interface {
-	Instances(ids []string, filter *ec2.Filter) (*ec2.InstancesResp, error)
-	CreateTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
+	DescribeInstances(*ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+	CreateTags(*ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 }
 
 func getInstance(provider instanceProvider, id string, h *Host) error {
-	instancesResp, err := provider.Instances([]string{id}, nil)
+	instancesResp, err := provider.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIDs: []*string{aws.String(id)},
+	})
 	if err != nil {
 		return err
 	}
 	if len(instancesResp.Reservations) == 0 || len(instancesResp.Reservations[0].Instances) == 0 {
 		return ErrInstanceNotFound
 	}
-	h.instance = &instancesResp.Reservations[0].Instances[0]
+	h.instance = instancesResp.Reservations[0].Instances[0]
 	return nil
 }
 
 func setTags(provider instanceProvider, h *Host) {
-	tags := []ec2.Tag{{"Name", h.Name()}}
+	tags := []*ec2.Tag{{
+		Key:   aws.String("Name"),
+		Value: aws.String(h.Name()),
+	}}
 	if h.env != "" {
-		tags = append(tags, ec2.Tag{"dedicated", h.env})
+		tags = append(tags, &ec2.Tag{
+			Key:   aws.String("dedicated"),
+			Value: aws.String(h.env),
+		})
 	}
-	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)
+	_, err := provider.CreateTags(
+		&ec2.CreateTagsInput{
+			Resources: []*string{h.instance.InstanceID},
+			Tags:      tags,
+		})
 	if err != nil {
-		h.Printf("Failed to set name for instance %s", h.instance.InstanceId)
+		h.Printf("Failed to set name for instance %s", h.instance.InstanceID)
 	}
 }
