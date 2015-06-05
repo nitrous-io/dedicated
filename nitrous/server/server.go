@@ -135,7 +135,7 @@ func (s *Server) namespace(ns string, f func()) {
 }
 
 func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0/maintenance")
+	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0")
 	pprof.Index(w, r)
 	return nil
 }

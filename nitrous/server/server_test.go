@@ -50,7 +50,7 @@ var _ = Describe("server/debug", func() {
 		envvars.TrustKey = originalTrust
 	})
 
-	Describe("GET /api/v0/maintenance/debug", func() {
+	Describe("GET /api/v0/debug", func() {
 		doRequest := func(url string) *httptest.ResponseRecorder {
 			req, err := NewRequest("GET", url, params)
 			Expect(err).To(BeNil())
@@ -61,27 +61,27 @@ var _ = Describe("server/debug", func() {
 
 		It("should show debug info if trust key is valid", func() {
 			params.Set("trust_key", "super_secret")
-			res := doRequest("/api/v0/maintenance/debug")
+			res := doRequest("/api/v0/debug")
 			Expect(res.Code).To(Equal(200))
 
-			res = doRequest("/api/v0/maintenance/debug/pprof/heap")
+			res = doRequest("/api/v0/debug/pprof/heap")
 			Expect(res.Code).To(Equal(200))
 		})
 
 		It("should show 404 if no trust key provided", func() {
-			res := doRequest("/api/v0/maintenance/debug")
+			res := doRequest("/api/v0/debug")
 			Expect(res.Code).To(Equal(404))
 
-			res = doRequest("/api/v0/maintenance/debug/pprof/heap")
+			res = doRequest("/api/v0/debug/pprof/heap")
 			Expect(res.Code).To(Equal(404))
 		})
 
 		It("should show 404 if invalid trust key provided", func() {
 			params.Set("trust_key", "not_this")
-			res := doRequest("/api/v0/maintenance/debug")
+			res := doRequest("/api/v0/debug")
 			Expect(res.Code).To(Equal(404))
 
-			res = doRequest("/api/v0/maintenance/debug/pprof/heap")
+			res = doRequest("/api/v0/debug/pprof/heap")
 			Expect(res.Code).To(Equal(404))
 		})
 	})
