@@ -31,4 +31,7 @@ class PagesController < ApplicationController
 
   def teams_pricing
   end
+
+  def jobs
+  end
 end

@@ -1,0 +1,89 @@
+*
+  box-sizing: border-box
+
+body
+  margin: 0 auto
+
+#wrapper
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  align-content: center
+  justify-content: center
+
+h1#board_title, h2, h3#filter-count, #header a, .company-name
+  display: none
+
+body>div:first-of-type
+  padding: 0 !important
+
+#header
+  color: #eee
+  padding: 1px 0
+  width: 583px
+  font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif
+
+#header
+  margin: 0 0 4px 0
+
+#header h1
+  font-size: 16px
+  font-weight: normal
+
+.opening
+  width: 33%
+  padding: 0
+  margin: 40px 0 40px 0
+  font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif
+  text-align: center
+
+.opening br
+  display: none
+
+.opening a
+  color: #eee
+  display: block
+  padding: 2px
+  font-size: 18px
+  font-weight: normal
+  margin: 0
+  padding-top: 32px
+  background: image_url('jobs/default.png') center top no-repeat
+  background-size: 24px 18px
+
+/* Engineering */
+.opening[department_id="2494"] a
+  background: image_url('jobs/engineering.png') center top no-repeat
+  background-size: 24px 20px
+
+/* Marketing */
+.opening[department_id="2495"] a
+  background: image_url('jobs/marketing.png') center top no-repeat
+  background-size: 19px 24px
+
+/* Dev Rel */
+.opening[department_id="2497"] a
+  background: image_url('jobs/devrel.png') center top no-repeat
+  background-size: 17px 24px
+
+/* Support */
+.opening[department_id="2496"] a
+  background: image_url('jobs/support.png') center top no-repeat
+  background-size: 24px 24px
+
+.location
+  color: #888c93
+  margin: 0
+  padding: 0
+  font-size: 14px
+  line-height: 23px
+
+#content
+  color: #ccc
+  line-height: 18px
+  width: 575px
+  margin: 0
+  padding: 20px 0
+
+#content p
+  margin: 0
