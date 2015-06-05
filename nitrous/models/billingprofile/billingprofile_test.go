@@ -93,6 +93,17 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
+	Describe("FindByID()", func() {
+		It("returns the billing profile for a given ID", func() {
+			p, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.FindByID(db, p.ID)
+			Expect(err).To(BeNil())
+			Expect(b).To(Equal(p))
+		})
+	})
+
 	Describe("Update()", func() {
 		It("updates the profile with given parameters", func() {
 			bp, err := billingprofile.Find(db, u.ID)

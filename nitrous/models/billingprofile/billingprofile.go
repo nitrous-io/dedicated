@@ -61,6 +61,15 @@ func (bp *BillingProfile) MaxMinutes() int64 {
 	return bp.MaxHours.Int64 * 60
 }
 
+func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
+	b := &BillingProfile{}
+	err := d.Get(b, "SELECT * FROM billing_profiles WHERE id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
 func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
