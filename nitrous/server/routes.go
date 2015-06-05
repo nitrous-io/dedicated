@@ -240,6 +240,7 @@ func (s *Server) drawRoutes() {
 
 		trustRoutes := map[string]map[string]routeData{
 			"GET": {
+				"/debug/stack":           r("s.pprofHandler", s.stackHandler),
 				"/debug/pprof/{path:.*}": r("s.pprofHandler", s.pprofHandler),
 			},
 		}

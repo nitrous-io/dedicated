@@ -153,6 +153,27 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	return nil
 }
 
+func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// default trace 100KiB of stack traces
+	bufferSize := 102400
+
+	sizeInput := r.FormValue("buffer_size")
+	if sizeInput != "" {
+		if size, err := strconv.Atoi(sizeInput); err == nil {
+			bufferSize = size
+		}
+	}
+
+	buffer := make([]byte, bufferSize)
+	written := runtime.Stack(buffer, true)
+	buffer = buffer[:written]
+
+	w.Header().Set("content-type", "text/plain")
+	w.Write(buffer)
+
+	return nil
+}
+
 func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	var duration int
 	if d := r.FormValue("duration"); d != "" {
