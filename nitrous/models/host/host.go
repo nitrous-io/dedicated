@@ -98,6 +98,9 @@ type Host struct {
 	// Tracks when a host has been upgraded
 	UpgradedAt pq.NullTime `db:"upgraded_at"`
 
+	// Tracks the last time at which ping webhook was called by freighter
+	LastPingedAt pq.NullTime `db:"last_pinged_at"`
+
 	Secret string `db:"secret"`
 
 	// HourlyPrice unit is milli-cents (x1000)
@@ -325,10 +328,10 @@ func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, freighterd_version, docker_version, updated_at,
-			region_identifier)
+			region_identifier, last_pinged_at)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :freighterd_version, :docker_version, now(),
-			:region_identifier)
+			:region_identifier, :last_pinged_at)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -341,10 +344,10 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
-			region_identifier)
+			region_identifier, last_pinged_at)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :hourly_price, :free, :freighterd_version, :docker_version, now(),
-			:region_identifier)
+			:region_identifier, :last_pinged_at)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -353,8 +356,14 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
+func (h *Host) UpdateColumn(d db.QueryReceiver, column string, value interface{}) error {
+	// Warning: 2nd argument (column) should never be a user provided string!
+	// Don't try update updated_at to specific time.
+	return d.QueryRowx(fmt.Sprintf(`UPDATE hosts SET ("%s", updated_at) = ($1, now()) WHERE id = $2 RETURNING *;`, column), value, h.ID).StructScan(h)
+}
+
 func (h *Host) Reassign(d db.QueryReceiver, u *user.User) error {
-	return d.QueryRowx(`UPDATE hosts SET user_id = $1, assigned_at = now() WHERE id = $2 RETURNING *`, u.ID, h.ID).StructScan(h)
+	return d.QueryRowx(`UPDATE hosts SET user_id = $1, assigned_at = now() WHERE id = $2 RETURNING *;`, u.ID, h.ID).StructScan(h)
 }
 
 func (h *Host) Delete(d db.QueryReceiver) error {

@@ -28,6 +28,8 @@ func (s *Server) drawRoutes() {
 	// advertise features
 	s.route("/features", s.cors(s.features), "GET")
 
+	s.route("/ping", s.cors(s.ping), "POST")
+
 	s.secretRoute("/containers", s.listContainers, "GET")
 	s.secretRoute("/containers", s.createContainer, "POST")
 	s.secretRoute("/containers/{id}", s.getContainerInfo, "GET")

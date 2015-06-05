@@ -43,6 +43,53 @@
             &.key
               padding-left: 24px
 
+#ide-pinger-view
+  position: relative
+  width: 16px
+  height: 32px
+  line-height: 32px
+  margin-right: 8px
+
+  .bg-triangle, .triangle, .triangle-mask
+    position: absolute
+    bottom: 8px
+    left: 0
+
+  .bg-triangle, .triangle
+    width: 16px
+    height: 16px
+    border: 8px solid transparent
+    border-right-color: rgba($n2oGray200, .2)
+    border-bottom-color: rgba($n2oGray200, .2)
+
+  .triangle
+    bottom: 0
+    border-right-color: $n2oGray200
+    border-bottom-color: $n2oGray200
+
+  .triangle-mask
+    width: 16px
+    height: 16px
+    overflow: hidden
+    border-right: 1px solid $n2oGray700
+    transition: width .3s
+
+  &.good
+    .triangle-mask
+      width: 13px
+
+  &.moderate
+    .triangle-mask
+      width: 10px
+
+  &.poor
+    .triangle-mask
+      width: 7px
+
+  &.appalling
+    .triangle-mask
+      width: 4px
+
 #about-nitrous
   .card-body
     text-align: center

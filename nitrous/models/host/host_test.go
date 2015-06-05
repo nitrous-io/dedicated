@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -760,6 +761,8 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("updates the host in the database", func() {
+			t := time.Now()
+
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"foo host", true}
 			h.State = host.StateRestarting
@@ -772,6 +775,7 @@ var _ = Describe("models/host", func() {
 			h.DockerVersion = "1.5.0"
 			h.HourlyPrice = 0
 			h.Free = true
+			h.LastPingedAt = pq.NullTime{t, true}
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -791,6 +795,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.Preprovisioned).To(BeTrue())
 			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
 			Expect(h2.DockerVersion).To(Equal("1.5.0"))
+			Expect(h2.LastPingedAt.Valid).To(BeTrue())
+			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))
@@ -811,13 +817,58 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("updates UpdatedAt", func() {
-			origUpdatedAt := h.UpdatedAt
+			origUpdatedAt := *h.UpdatedAt
+			time.Sleep(1 * time.Millisecond)
 
 			h.Name = sql.NullString{"foo host", true}
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
-			Expect(h.UpdatedAt).NotTo(Equal(origUpdatedAt))
+			Expect(h.UpdatedAt.UnixNano()).NotTo(Equal(origUpdatedAt.UnixNano()))
+			Expect(time.Now().Sub(*h.UpdatedAt)).To(BeNumerically("<=", 1*time.Second))
+		})
+	})
+
+	Describe("UpdateColumn()", func() {
+		var (
+			h  *host.Host
+			h2 *host.Host
+
+			updatedAt time.Time
+
+			slug = "foo"
+		)
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               slug,
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+			updatedAt = *h.UpdatedAt
+
+			time.Sleep(1 * time.Millisecond)
+			err = h.UpdateColumn(db, "slug", "bar")
+			Expect(err).To(BeNil())
+
+			h2 = &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+		})
+
+		It("updates a single column", func() {
+			Expect(h2.Slug).To(Equal("bar"))
+		})
+
+		It("also updates updated_at", func() {
+			Expect(h2.UpdatedAt.UnixNano()).NotTo(Equal(updatedAt.UnixNano()))
+			Expect(time.Now().Sub(*h2.UpdatedAt)).To(BeNumerically("<=", 1*time.Second))
 		})
 	})
 

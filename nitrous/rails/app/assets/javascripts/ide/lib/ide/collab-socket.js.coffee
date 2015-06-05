@@ -33,18 +33,3 @@ App.CollabSocket = klass = App.EventedSocket.extend
 
 klass.reopenClass
   heartbeatInterval: 2000
-
-  checkAvailability: (container, cb) ->
-    protocol = location.protocol
-    freighterdUrl = container.get 'freighterdUrl'
-    url = "#{protocol}//#{freighterdUrl}/features"
-    Em.$.ajax(
-      type: 'GET'
-      url: url
-    ).done((data) =>
-      if data.features && data.features.indexOf('collab') != -1
-        cb(true)
-      else
-        cb(false)
-    ).fail (jqxhr) =>
-      cb(false)
