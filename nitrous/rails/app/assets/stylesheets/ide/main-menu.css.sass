@@ -44,45 +44,51 @@
               padding-left: 24px
 
 #ide-pinger-view
-  display: inline-block
+  position: relative
+  width: 16px
   height: 32px
   line-height: 32px
   margin-right: 8px
 
-  > div
-    display: inline-block
-    width: 6px
-    height: 6px
-    border-radius: 3px
-    border: 1px solid $n2oGray200
-    background: transparent
-    margin-right: 1px
-    transition: background-color .3s
-    vertical-align: middle
+  .bg-triangle, .triangle, .triangle-mask
+    position: absolute
+    bottom: 8px
+    left: 0
 
-  &.excellent
-    > div
-      background: $n2oGray200
+  .bg-triangle, .triangle
+    width: 16px
+    height: 16px
+    border: 8px solid transparent
+    border-right-color: rgba($n2oGray200, .2)
+    border-bottom-color: rgba($n2oGray200, .2)
+
+  .triangle
+    bottom: 0
+    border-right-color: $n2oGray200
+    border-bottom-color: $n2oGray200
+
+  .triangle-mask
+    width: 16px
+    height: 16px
+    overflow: hidden
+    border-right: 1px solid $n2oGray700
+    transition: width .3s
 
   &.good
-    > div
-      &:nth-of-type(1), &:nth-of-type(2), &:nth-of-type(3), &:nth-of-type(4)
-        background: $n2oGray200
+    .triangle-mask
+      width: 13px
 
   &.moderate
-    > div
-      &:nth-of-type(1), &:nth-of-type(2), &:nth-of-type(3)
-        background: $n2oGray200
+    .triangle-mask
+      width: 10px
 
   &.poor
-    > div
-      &:nth-of-type(1), &:nth-of-type(2)
-        background: $n2oGray200
+    .triangle-mask
+      width: 7px
 
   &.appalling
-    > div
-      &:nth-of-type(1)
-        background: $n2oGray200
+    .triangle-mask
+      width: 4px
 
 #about-nitrous
   .card-body
