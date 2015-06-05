@@ -45,6 +45,36 @@ var _ = Describe("models/billingprofile", func() {
 		}
 	})
 
+	Describe("EligibleForSubscription()", func() {
+		It("should be true for Free, Paid, Exempt and PaymentDue accounts", func() {
+			bp := &billingprofile.BillingProfile{}
+			states := []string{
+				billingprofile.StateExempt,
+				billingprofile.StateFree,
+				billingprofile.StatePaid,
+				billingprofile.StatePaymentDue,
+			}
+
+			for _, st := range states {
+				bp.State = st
+				Expect(bp.EligibleForSubscription()).To(BeTrue())
+			}
+		})
+
+		It("should be false for delinquent or no card", func() {
+			bp := &billingprofile.BillingProfile{}
+			states := []string{
+				billingprofile.StateNoCard,
+				billingprofile.StateDelinquent,
+			}
+
+			for _, st := range states {
+				bp.State = st
+				Expect(bp.EligibleForSubscription()).To(BeFalse())
+			}
+		})
+	})
+
 	Describe("Find()", func() {
 		It("returns the billing profile for the given user ID", func() {
 			p, err := billingprofile.Find(db, u.ID)

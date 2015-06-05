@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -949,6 +950,39 @@ var _ = Describe("controllers/hosts", func() {
 			test.MarkDelinquentUser(db, u)
 			doRequest(hs.H.Slug, t.Token)
 			test.VerifyDelinquentUserResponse(res)
+		})
+
+		It("should request to cancel the subscription if the host is part of a subscription", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			hosts.SetSubscriptionProvider(fsub)
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			Expect(rt.Requests).To(HaveLen(0))
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
 		})
 
 		It("should send the UUID headers", func() {

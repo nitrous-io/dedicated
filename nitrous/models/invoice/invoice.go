@@ -38,6 +38,8 @@ type Invoice struct {
 	ID     int64 `db:"id"`
 	UserID int64 `db:"user_id"`
 
+	SubscriptionID sql.NullInt64 `db:"subscription_id"`
+
 	// TotalCharge is measured in cents (unlike HourlyPrice it derives from)
 	TotalCharge     int64         `db:"total_charge"`
 	CreditAmount    int64         `db:"credit_amount"` // how much was taken off by credits
@@ -90,9 +92,9 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
-    (user_id, total_charge, credit_amount, period_start, period_end, state,
+    (user_id, subscription_id, total_charge, credit_amount, period_start, period_end, state,
       available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, covered_by)
-    VALUES (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
+    VALUES (:user_id, :subscription_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
       :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :covered_by)
     RETURNING *;`)
 	if err != nil {
@@ -106,9 +108,9 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoices
-    SET (user_id, total_charge, credit_amount, period_start, period_end, state,
+    SET (user_id, subscription_id, total_charge, credit_amount, period_start, period_end, state,
       available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, covered_by, updated_at)
-    = (:user_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
+    = (:user_id, :subscription_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
       :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :covered_by, now())
     WHERE id = :id
     RETURNING *;`)

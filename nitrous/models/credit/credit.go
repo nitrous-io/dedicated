@@ -8,11 +8,12 @@ import (
 )
 
 type Credit struct {
-	ID           int64         `db:"id"`
-	UserID       int64         `db:"user_id"`
-	InvoiceID    sql.NullInt64 `db:"invoice_id"`
-	CreditTypeID sql.NullInt64 `db:"credit_type_id"`
-	Amount       int64         `db:"amount"` // stored as cents
+	ID             int64         `db:"id"`
+	UserID         int64         `db:"user_id"`
+	InvoiceID      sql.NullInt64 `db:"invoice_id"`
+	SubscriptionID sql.NullInt64 `db:"subscription_id"`
+	CreditTypeID   sql.NullInt64 `db:"credit_type_id"`
+	Amount         int64         `db:"amount"` // stored as cents
 
 	AddedByID sql.NullInt64 `db:"added_by_id"`
 

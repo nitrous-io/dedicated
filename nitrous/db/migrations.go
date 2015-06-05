@@ -1284,5 +1284,37 @@ func init() {
 				CREATE UNIQUE INDEX index_users_on_email ON users (email) WHERE deleted_at IS NULL;
 			`,
 		},
+		{
+			Version: "1300",
+			Up: `
+				ALTER TABLE plans ADD COLUMN stripe_plan_id character varying(255) DEFAULT NULL;
+
+				CREATE TABLE subscriptions (
+					id bigserial PRIMARY KEY NOT NULL,
+					plan_id bigint REFERENCES plans(id) NOT NULL,
+					billing_profile_id bigint REFERENCES billing_profiles(id) NOT NULL,
+					stripe_id character varying(255) DEFAULT NULL,
+					state character varying(255) NOT NULL,
+					current_period_start timestamp without time zone DEFAULT NULL,
+					current_period_end timestamp without time zone DEFAULT NULL,
+					pending_plan_id bigint REFERENCES plans(id) DEFAULT NULL,
+					cancel_pending boolean DEFAULT false NOT NULL,
+					cancelled_at timestamp without time zone DEFAULT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE INDEX index_subscriptions_on_billing_profile_id ON subscriptions USING btree (billing_profile_id);
+				CREATE UNIQUE INDEX index_subscriptions_on_stripe_id ON subscriptions USING btree (stripe_id) WHERE stripe_id IS NOT NULL;
+
+				ALTER TABLE credits ADD COLUMN subscription_id bigint REFERENCES subscriptions(id) DEFAULT NULL;
+				ALTER TABLE hosts ADD COLUMN subscription_id bigint REFERENCES subscriptions(id) DEFAULT NULL;
+				CREATE INDEX index_hosts_on_subscription_id ON hosts USING btree (subscription_id);
+
+				ALTER TABLE invoices ADD COLUMN subscription_id bigint REFERENCES subscriptions(id) DEFAULT NULL;
+				ALTER TABLE invoice_items ADD COLUMN total_charge bigint DEFAULT NULL;
+				ALTER TABLE invoice_items ADD COLUMN description character varying(255) DEFAULT NULL;
+			`,
+		},
 	}
 }

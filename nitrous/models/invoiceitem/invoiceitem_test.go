@@ -144,6 +144,13 @@ var _ = Describe("models/invoiceitem", func() {
 			inv.Terminated = true
 			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("'ABCDEF' compute (2 GB memory) - 900 hours at 1.231c/hour (previous)"))
 		})
+
+		It("should return the Description column if populated", func() {
+			hst.Slug = "migrated-ABCDEF"
+			inv.Terminated = true
+			inv.Description = sql.NullString{"A description from Stripe", true}
+			Expect(invoiceitem.ItemDescription(inv, hst)).To(Equal("A description from Stripe"))
+		})
 	})
 
 	Describe("HourlyCents()", func() {

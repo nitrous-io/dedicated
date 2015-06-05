@@ -57,13 +57,24 @@ func (bp *BillingProfile) IsFreeTier() bool {
 	return bp.State == StateFree
 }
 
+func (bp *BillingProfile) IsExempt() bool {
+	return bp.State == StateExempt
+}
+
 func (bp *BillingProfile) MaxMinutes() int64 {
 	return bp.MaxHours.Int64 * 60
 }
 
+func (bp *BillingProfile) EligibleForSubscription() bool {
+	return bp.State == StateFree ||
+		bp.State == StatePaid ||
+		bp.State == StateExempt ||
+		bp.State == StatePaymentDue
+}
+
 func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
-	err := d.Get(b, "SELECT * FROM billing_profiles WHERE id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
+	err := d.Get(b, "SELECT * FROM billing_profiles WHERE id = $1 ORDER BY created_at DESC LIMIT 1;", id)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,8 @@ App.PerformActionMixin = Ember.Mixin.create
 
   performActionOnRecord: (record, method, action, tempState, data=null) ->
     prevState = record.get('state')
-    record.set 'state', tempState
+    if tempState
+      record.set 'state', tempState
     rootKey = record.constructor.rootKey
     ajax = record.ajax(method, action, data)
     ajax.then (json) ->
