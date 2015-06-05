@@ -10,6 +10,7 @@ App.Container = klass = App.Model.extend
   template: attr()
   slug: attr()
   name: attr()
+  sshURL: attr(as: 'ssh_url', serialize: false)
   state: attr(serialize: false)
   cmd: attr('array', serialize: false)
   entrypoint: attr('array', serialize: false)
@@ -51,24 +52,6 @@ App.Container = klass = App.Model.extend
   freighterdUrlBinding: Em.Binding.oneWay 'host.freighterdUrl'
 
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
-
-  sshPort: (->
-    return unless portMappings = @get 'config.port'
-    prefix = 'public:'
-    suffices = [':22/tcp', ':22']
-    return unless sshPort = portMappings.find (port, i) ->
-      port.startsWith(prefix) && (port.endsWith(suffices[0]) || port.endsWith(suffices[1]))
-    sshPort.match(/^public:(\d+):22(\/tcp)?$/)?[1]
-  ).property 'config.port'
-
-  sshURL: (->
-    return unless @get('sshEnabled') && @get('sshPort') && @get('sshKeysAdded')
-
-    user = @get('loginUsername') || 'root'
-    hostname = @get 'hostname'
-    sshPort = @get 'sshPort'
-    "ssh://#{user}@#{hostname}:#{sshPort}"
-  ).property 'sshEnabled', 'sshKeysAdded', 'loginUsername', 'hostname', 'sshPort'
 
   sshKeysAdded: (->
     sshKeys = @get('userKeys')
