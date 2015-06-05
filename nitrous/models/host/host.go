@@ -358,7 +358,8 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 
 func (h *Host) UpdateColumn(d db.QueryReceiver, column string, value interface{}) error {
 	// Warning: 2nd argument (column) should never be a user provided string!
-	return d.QueryRowx(fmt.Sprintf(`UPDATE hosts SET (%s, updated_at) = ($1, now()) WHERE id = $2 RETURNING *;`, column), value, h.ID).StructScan(h)
+	// Don't try update updated_at to specific time.
+	return d.QueryRowx(fmt.Sprintf(`UPDATE hosts SET ("%s", updated_at) = ($1, now()) WHERE id = $2 RETURNING *;`, column), value, h.ID).StructScan(h)
 }
 
 func (h *Host) Reassign(d db.QueryReceiver, u *user.User) error {
