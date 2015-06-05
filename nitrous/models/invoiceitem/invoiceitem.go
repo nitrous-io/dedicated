@@ -34,12 +34,16 @@ type InvoiceItem struct {
 
 	PlanStorage sql.NullString `db:"plan_storage"`
 	PlanMemory  sql.NullString `db:"plan_memory"`
+
+	TotalStripeCharge sql.NullInt64 `db:"total_charge"`
 }
 
 const (
 	ItemTypeCredit  = "credit"
 	ItemTypeCompute = "compute"
 	ItemTypeBaseEBS = "base_ebs"
+
+	ItemTypeSubscription = "subscription"
 
 	ItemTypeFreeCompute = "free_compute"
 )
@@ -131,8 +135,8 @@ func (i *InvoiceItem) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoice_items
-    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory)
-    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory)
+    (invoice_id, host_id, terminated, hours, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory, total_charge)
+    VALUES (:invoice_id, :host_id, :terminated, :hours, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory, :total_charge)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -145,8 +149,8 @@ func (i *InvoiceItem) Update(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE invoice_items
-    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory, updated_at)
-    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory, now())
+    SET (invoice_id, host_id, hours, terminated, hourly_price, credit, stripe_id, item_type, plan_storage, plan_memory, total_charge, updated_at)
+    = (:invoice_id, :host_id, :hours, :terminated, :hourly_price, :credit, :stripe_id, :item_type, :plan_storage, :plan_memory, :total_charge, now())
     WHERE id = :id
     RETURNING *;`)
 	if err != nil {
@@ -160,6 +164,10 @@ func (i *InvoiceItem) validate() error {
 		if i.Credit.Int64 <= 0 {
 			return ErrCreditInvalid
 		}
+		return nil
+	}
+
+	if i.ItemType == ItemTypeSubscription {
 		return nil
 	}
 

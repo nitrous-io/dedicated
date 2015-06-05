@@ -26,11 +26,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 )
 
 var (
@@ -201,6 +203,24 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.Subscription {
+		sub := &subscription.Subscription{}
+		err := env.DB.Get(sub, "SELECT * FROM subscriptions WHERE host_id = $1;", h.ID)
+		if err != nil {
+			return err
+		}
+		s := &subscriptions.SubscriptionProvider{}
+		err = s.Cancel(env.DB, env.Logger, sub)
+		if err != nil {
+			return nil
+		}
+		if !h.Free {
+			serializeHost(env, h)
+			env.Data["subscription"] = "cancelled"
+			return nil
+		}
+	}
+
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})

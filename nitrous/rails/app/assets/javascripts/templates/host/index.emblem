@@ -156,10 +156,16 @@
 
             .right
               button.ui.btn.primary disabled=App.usage.expired click='start' Start
-              button.ui.btn click='showTerminateDialog target="view"' Terminate...
+              if subscription
+                button.ui.btn click='showTerminateDialog target="view"' Cancel Plan
+              else
+                button.ui.btn click='showTerminateDialog target="view"' Terminate...
           else
             .left
-              button.ui.btn click='showTerminateDialog target="view"' Terminate...
+              if subscription
+                button.ui.btn click='showTerminateDialog target="view"' Cancel Plan
+              else
+                button.ui.btn click='showTerminateDialog target="view"' Terminate...
             .right
               button.ui.btn.primary click='start' Start
         else
@@ -180,18 +186,27 @@
         p
           strong
             | You will not be able to create another free workspace.
-      p
-        ' This action
-        strong
-          ' CANNOT
-        | be undone!
-      p
-        ' This will permanently delete the workspace
-        strong
-          | &ldquo;
-          = displayName
-          ' &rdquo;
-        | and all containers, images, volumes, and archives within the workspace.
+      if subscription
+        p
+          ' Your workspace
+          strong
+            | &ldquo;
+            = displayName
+            ' &rdquo;
+          | will be deleted at the end of this billing cycle. (NOMERGE: Specify date)
+      else
+        p
+          ' This action
+          strong
+            ' CANNOT
+          | be undone!
+        p
+          ' This will permanently delete the workspace
+          strong
+            | &ldquo;
+            = displayName
+            ' &rdquo;
+          | and all containers, images, volumes, and archives within the workspace.
       p
         ' Please type in the slug of the workspace
         strong

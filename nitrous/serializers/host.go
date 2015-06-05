@@ -42,6 +42,8 @@ type Host struct {
 	MaxContainers int64 `json:"max_containers,omitempty"`
 
 	PendingRespec bool `json:"pending_respec"`
+
+	Subscription bool `json:"subscription"`
 }
 
 func SerializeHost(h *host.Host) *Host {
@@ -73,6 +75,7 @@ func SerializeHost(h *host.Host) *Host {
 		UpdateAvailable:       h.UpdateAvailable,
 		MaxContainers:         h.MaxContainers.Int64,
 		PendingRespec:         h.PendingRespec,
+		Subscription:          h.Subscription,
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt
