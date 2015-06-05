@@ -81,6 +81,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	name := r.FormValue("name")
 	promocode := r.FormValue("promo_code")
 	invitecode := r.FormValue("invite_code")
+	distinctID := r.FormValue("distinct_id")
 
 	u := &user.User{
 		Email:     email,
@@ -161,6 +162,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	env.Tracker.CreateProfile(u, env.Logger, distinctID)
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
 		"user": serializers.SerializeUser(u),
@@ -236,6 +239,11 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
+
+	env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
+		"$email": u.Email,
+		"$name":  u.Name,
+	}, env.Logger)
 
 	userResponse(env, u)
 	return nil

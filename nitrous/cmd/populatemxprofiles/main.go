@@ -89,7 +89,10 @@ func makeJobs() <-chan job {
 		users.phone_authed, users.phone_country_code, users.phone
 	FROM users
 	JOIN user_profiles ON user_profiles.user_id = users.id
-	WHERE service_account IS false ORDER BY users.id
+	WHERE 
+		service_account IS false 
+		AND deleted_at IS NULL
+	ORDER BY users.id;
 	`)
 	if err != nil {
 		logr.FatalExit(err)
@@ -103,7 +106,8 @@ func makeJobs() <-chan job {
 		//"gen templates":         GenTemplatesJobs,
 		//"gen github authorized": GenGithubAuthorizedJobs,
 		//"gen phone": GenPhoneJobs,
-		"gen hosts created": GenHostCreatedJobs,
+		//"gen hosts created": GenHostCreatedJobs,
+		"gen mixpanel profiles": GenMixpanelProfiles,
 	}
 	otherSteps := map[string]stepFn{}
 

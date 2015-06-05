@@ -157,6 +157,9 @@ var _ = Describe("controllers/users", func() {
 				Expect(u.Username).To(Equal("foo"))
 				Expect(u.Name).To(Equal("Foo Bar"))
 				Expect(u.CreatedAt).NotTo(BeNil())
+
+				Expect(ft.ProfileCreated).ToNot(BeNil())
+				Expect(ft.ProfileCreated.ID).To(Equal(u.ID))
 			})
 
 			It("encrypts the password using bcrypt", func() {

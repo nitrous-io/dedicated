@@ -309,6 +309,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @logoutRequest(@get('token'))
     .always =>
       @set('token', null)
+      window.mixpanel?.cookie?.clear?()
       Mp.track Mp.EventUserLoggedOut
 
   switchBackAdmin: ->
