@@ -8,7 +8,6 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mitchellh/goamz/aws"
@@ -725,36 +724,51 @@ func (h *Host) List() ([]*host.Info, error) {
 	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
-	var wg sync.WaitGroup
 	var (
 		infos   = []*host.Info{}
 		errmsgs []string
-		mu      = &sync.Mutex{}
 	)
-
-	// create a filter for the current environment
-	filter := ec2.NewFilter()
-	filter.Add("tag:dedicated", h.env)
 
 	for _, region := range KnownRegions {
 		conn := ec2.New(h.auth, region)
-		wg.Add(1)
-		go func(conn *ec2.EC2, region aws.Region) {
-			defer wg.Done()
-			instancesResp, err := conn.Instances(nil, filter)
+		params := make(map[string]string)
+		params["MaxResults"] = "100"
 
-			mu.Lock()
-			defer mu.Unlock()
+		firstTime := true
+		nextToken := ""
+
+		for firstTime || nextToken != "" {
+			if nextToken != "" {
+				params["NextToken"] = nextToken
+			}
+
+			instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
 
 			if err != nil {
-				errmsg := fmt.Sprintf("failed to get instances in region %s, err %v", region.Name, err)
+				errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
 				h.Printf(errmsg)
 				errmsgs = append(errmsgs, errmsg)
-				return
+				break
 			}
+
+			nextToken = instancesResp.NextToken
+			firstTime = false
 
 			for _, reservation := range instancesResp.Reservations {
 				for _, instance := range reservation.Instances {
+					checkInstance := false
+					// Tags is array of Tag. There is no way to check tag by key
+					for _, tag := range instance.Tags {
+						if tag.Key == "dedicated" && tag.Value == h.env {
+							checkInstance = true
+							break
+						}
+					}
+
+					if !checkInstance {
+						continue
+					}
+
 					info := &host.Info{
 						Provider:       h.DriverName(),
 						ID:             instance.InstanceId,
@@ -776,10 +790,9 @@ func (h *Host) List() ([]*host.Info, error) {
 					infos = append(infos, info)
 				}
 			}
-		}(conn, region)
+		}
 	}
 
-	wg.Wait()
 	var err error
 	if len(errmsgs) > 0 {
 		err = fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))

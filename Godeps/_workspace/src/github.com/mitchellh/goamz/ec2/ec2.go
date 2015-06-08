@@ -195,6 +195,12 @@ func addParamsList(params map[string]string, label string, ids []string) {
 	}
 }
 
+func addParams(params map[string]string, extraParams map[string]string) {
+	for key, value := range extraParams {
+		params[key] = value
+	}
+}
+
 func addBlockDeviceParams(prename string, params map[string]string, blockdevices []BlockDeviceMapping) {
 	for i, k := range blockdevices {
 		// Fixup index since Amazon counts these from 1
@@ -875,6 +881,7 @@ func (ec2 *EC2) TerminateInstances(instIds []string) (resp *TerminateInstancesRe
 // See http://goo.gl/mLbmw for more details.
 type InstancesResp struct {
 	RequestId    string        `xml:"requestId"`
+	NextToken    string        `xml:"nextToken,omitempty"`
 	Reservations []Reservation `xml:"reservationSet>item"`
 }
 
@@ -897,6 +904,19 @@ type Reservation struct {
 func (ec2 *EC2) Instances(instIds []string, filter *Filter) (resp *InstancesResp, err error) {
 	params := makeParams("DescribeInstances")
 	addParamsList(params, "InstanceId", instIds)
+	filter.addParams(params)
+	resp = &InstancesResp{}
+	err = ec2.query(params, resp)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (ec2 *EC2) InstancesWithExtraParams(instIds []string, filter *Filter, extraParams map[string]string) (resp *InstancesResp, err error) {
+	params := makeParams("DescribeInstances")
+	addParamsList(params, "InstanceId", instIds)
+	addParams(params, extraParams)
 	filter.addParams(params)
 	resp = &InstancesResp{}
 	err = ec2.query(params, resp)
