@@ -44,6 +44,16 @@ App.Host = klass = App.Model.extend
     @get('name') || @get('slug')
   ).property 'slug'
 
+  stateForDisplay: (->
+    switch state = @get('state')
+      when 'respeccing'
+        'upgrading in progress'
+      when 'respec_failed'
+        'upgrading failed'
+      else
+        state
+  ).property 'state'
+
   containers: (->
     if id = @get('id')
       App.get('containers')?.filterBy('hostId', id)

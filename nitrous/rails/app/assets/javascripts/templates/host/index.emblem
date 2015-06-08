@@ -47,7 +47,7 @@
       th State
       td
         .state-indicator class={state}
-        = state
+        = stateForDisplay
       th Uptime
       td.usage
         if view.hostStatsAvailable
