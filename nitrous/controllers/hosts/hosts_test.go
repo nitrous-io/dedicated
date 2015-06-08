@@ -2735,6 +2735,19 @@ var _ = Describe("controllers/hosts", func() {
 			}).Should(Equal(host.StateRunning))
 		})
 
+		It("updates the host's provider template to its new template (i.e. the one that we respecced to)", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			Eventually(func() (int64, error) {
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				if err != nil {
+					return 0, err
+				}
+				return h.ProviderTemplateID, nil
+			}).Should(Equal(hs.PT.ID))
+		})
+
 		It("changes the respec's state to processing", func() {
 			// Add some delay in hostbuilder response so that we can test the
 			// transition state.

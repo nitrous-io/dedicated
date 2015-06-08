@@ -479,7 +479,9 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	rs, err := respec.Find(env.DB, h.ID)
+	db := env.DB
+
+	rs, err := respec.Find(db, h.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errHostNoPendingRespec
@@ -487,17 +489,17 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	pt, err := providertemplate.FindByID(env.DB, rs.ProviderTemplateID)
+	pt, err := providertemplate.FindByID(db, rs.ProviderTemplateID)
 	if err != nil {
 		return err
 	}
 
 	h.State = host.StateRespeccing
-	if err := h.Update(env.DB); err != nil {
+	if err := h.Update(db); err != nil {
 		return err
 	}
 
-	if err := rs.UpdateState(env.DB, respec.StateProcessing); err != nil {
+	if err := rs.UpdateState(db, respec.StateProcessing); err != nil {
 		return err
 	}
 
@@ -522,10 +524,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		_, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
 			h.State = host.StateRespecFailed
-			if err := h.Update(env.DB); err != nil {
+			if err := h.Update(db); err != nil {
 				env.Logger.Errorf("error updating host after respec failed: %v", err)
 			}
-			if err := rs.UpdateState(env.DB, respec.StateFailed); err != nil {
+			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
 				env.Logger.Errorf("error updating respec state to failed: %v", err)
 			}
 
@@ -539,11 +541,22 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		h.State = host.StateRunning
-		if err := h.Update(env.DB); err != nil {
+		err = db.WithTransaction(func(tx *sqlx.Tx) error {
+			if err := h.UpdateColumn(tx, "state", host.StateRunning); err != nil {
+				return err
+			}
+
+			if err := h.UpdateColumn(tx, "provider_template_id", rs.ProviderTemplateID); err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
 			env.Logger.Errorf("error updating host after respec completed: %v", err)
 		}
-		if err := rs.UpdateState(env.DB, respec.StateCompleted); err != nil {
+
+		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
 			env.Logger.Errorf("error updating respec state to completed: %v", err)
 		}
 
