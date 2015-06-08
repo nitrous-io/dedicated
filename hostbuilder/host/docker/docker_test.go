@@ -95,8 +95,8 @@ var _ = Describe("host/docker", func() {
 	Describe("CreateWithQueue", func() {
 		var h host.Host
 		var info *host.Info
-		var qp *queue.QueuePublisher
-		var qc *queue.QueueConsumer
+		var qp queue.Publisher
+		var qc queue.Consumer
 		var queueInfo *host.QueueInfo
 
 		var redisClient *redis.Client
@@ -104,9 +104,9 @@ var _ = Describe("host/docker", func() {
 			var err error
 			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())
-			qc, err = qp.CreateConsumer()
+			qc, err = queue.CreateRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())
 
 			h, err = docker.NewHost(
@@ -157,8 +157,8 @@ var _ = Describe("host/docker", func() {
 
 			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
-				m, err := qc.Consume()
-				m.Ack(10 * time.Millisecond)
+				m, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))

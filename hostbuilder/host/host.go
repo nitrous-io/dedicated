@@ -89,7 +89,7 @@ type QueueInfo struct {
 
 type Host interface {
 	// create a new host, publish events into the queue
-	CreateWithQueue(qp *queue.QueuePublisher, info *QueueInfo) (*Info, error)
+	CreateWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
 
 	Create(io.Writer) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)

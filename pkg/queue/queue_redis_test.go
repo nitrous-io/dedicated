@@ -23,7 +23,7 @@ import (
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -31,13 +31,13 @@ func init() {
 			redisClient.Set("test", "handler1")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
 		log.Fatalf("queue1 failed to start %v", err)
 	})
 
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -45,7 +45,7 @@ func init() {
 			redisClient.Set("test", "handler2")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
 		log.Fatalf("queue2 failed to start %v", err)
 	})
 
@@ -55,7 +55,7 @@ func init() {
 
 		stop := make(chan struct{})
 		blocking := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			<-blocking
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
@@ -65,7 +65,7 @@ func init() {
 			return nil
 		}
 
-		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		go queue.StartRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
 
 		// sending SIGHUP will make the consumer processing the message
 		// sending SIGTERM will try to stop the consumer
@@ -100,7 +100,7 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("pkg/queue", func() {
-	var qp *queue.QueuePublisher
+	var qp queue.Publisher
 	var redisClient *redis.Client
 
 	BeforeEach(func() {
@@ -124,7 +124,7 @@ var _ = Describe("pkg/queue", func() {
 	Describe("QueuePublisher", func() {
 		Describe("Publish()", func() {
 			BeforeEach(func() {
-				qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+				qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 				err := qp.ResetInput()
 				Expect(err).To(BeNil())
 			})
@@ -147,7 +147,7 @@ var _ = Describe("pkg/queue", func() {
 		Describe("PublishRetry()", func() {
 			var msg *queue.Message
 			BeforeEach(func() {
-				qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+				qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 				err := qp.ResetInput()
 				Expect(err).To(BeNil())
 				msg = &queue.Message{
@@ -188,14 +188,14 @@ var _ = Describe("pkg/queue", func() {
 		})
 	})
 
-	Describe("QueueConsumer", func() {
-		var qc *queue.QueueConsumer
+	Describe("RedisConsumer", func() {
+		var qc queue.Consumer
 		var err error
 
 		BeforeEach(func() {
-			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qc, err = queue.CreateRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 			msg := &queue.Message{
@@ -217,8 +217,9 @@ var _ = Describe("pkg/queue", func() {
 
 		Describe("Consume", func() {
 			It("consumes a message from queue", func() {
-				m, err := qc.Consume()
+				m, _, err := qc.Consume()
 				Expect(err).To(BeNil())
+
 				Expect(m.UUID).To(Equal("1234"))
 				Expect(m.Action).To(Equal("create"))
 				Expect(m.Event).To(Equal("image.created"))
@@ -230,14 +231,15 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	Describe("Message", func() {
-		var qc *queue.QueueConsumer
+		var qc queue.Consumer
 		var err error
 		var msg *queue.Message
+		var d queue.Delivery
 
 		BeforeEach(func() {
-			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qc, err = queue.CreateRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
 			Expect(err).To(BeNil())
 		})
@@ -266,23 +268,26 @@ var _ = Describe("pkg/queue", func() {
 					ResourceID:   "2",
 				})
 				Expect(err).To(BeNil())
-				msg, err = qc.Consume()
+
+				msg, d, err = qc.Consume()
 				Expect(err).To(BeNil())
 			})
 
 			It("sends ask for the message to consume next message successfully", func() {
-				msg.Ack(50 * time.Millisecond)
-				nextMsg, err := qc.Consume()
+				d.Ack(50 * time.Millisecond)
+
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 
 			It("retries when it failes to send a ACK", func() {
 				err := test.RunWhileRestartingRedis(func() {
-					msg.Ack(50 * time.Millisecond)
+					d.Ack(50 * time.Millisecond)
 				})
 				Expect(err).To(BeNil())
-				nextMsg, err := qc.Consume()
+
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
@@ -299,27 +304,28 @@ var _ = Describe("pkg/queue", func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(qp.GetFailedLength()).To(Equal(int64(0)))
-				msg, err := qc.Consume()
+
+				_, d, err := qc.Consume()
 				Expect(err).To(BeNil())
-				msg.Fail()
+				d.Fail()
 				Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 			})
 		})
 	})
 
-	Describe("StartConsumer", func() {
+	Describe("StartRedisConsumer", func() {
 		It("starts queue consumer", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			handler := func(m *queue.Message) error {
 				redisClient.Set("test", m.UUID)
 				return nil
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
 			time.Sleep(50 * time.Millisecond)
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 
@@ -358,7 +364,7 @@ var _ = Describe("pkg/queue", func() {
 			Expect(q.Start()).To(BeNil(), "queue cannot start")
 			w.Close()
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 
@@ -397,7 +403,7 @@ var _ = Describe("pkg/queue", func() {
 			Expect(queue1.Start()).To(BeNil(), "queue1 cannot start")
 
 			// make sure that queue1 is running and accepting messages
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 			Eventually(func() string {
@@ -421,8 +427,7 @@ var _ = Describe("pkg/queue", func() {
 		It("submits a failed message to failed queue", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
-				fmt.Println("HAHAAHH")
+			handler := func(m *queue.Message) error {
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
@@ -431,10 +436,10 @@ var _ = Describe("pkg/queue", func() {
 				}
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartRedisConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
 			time.Sleep(50 * time.Millisecond)
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewRedisQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 

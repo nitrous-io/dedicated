@@ -71,6 +71,13 @@ RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
   && service redis_6379 stop \
   && rm -rf /tmp/redis-3.0.0 /tmp/redis-3.0.0.tar.gz
 
+# install rabbitmq
+# http://www.rabbitmq.com/install-debian.html
+ENV RABBITMQ_VERSION 3.5.3-1
+RUN apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys F78372A06FF50C80464FC1B4F7B8CEA6056E8E56
+RUN echo 'deb http://www.rabbitmq.com/debian/ testing main' > /etc/apt/sources.list.d/rabbitmq.list
+RUN apt-get update && apt-get install -y rabbitmq-server=$RABBITMQ_VERSION --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 RUN /etc/init.d/postgresql start &&\
   su postgres -c "psql -c 'CREATE ROLE root SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;'" &&\
   createdb -E UTF8 -T template0 -l en_US.utf8 nitrous_test &&\
