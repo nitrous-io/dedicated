@@ -19,6 +19,7 @@ const (
 	EventHostRestarted       = "Host Restarted"
 	EventHostTerminated      = "Host Terminated"
 	EventHostSoftwareUpdated = "Host Software Updated"
+	EventHostRespecced       = "Host Respecced"
 
 	EventImageBuilt   = "Image Built"
 	EventImagePulled  = "Image Pulled"

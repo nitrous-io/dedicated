@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -46,6 +47,7 @@ var (
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
@@ -473,6 +475,87 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
+	return nil
+}
+
+func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	rs, err := respec.Find(env.DB, h.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errHostNoPendingRespec
+		}
+		return err
+	}
+
+	pt, err := providertemplate.FindByID(env.DB, rs.ProviderTemplateID)
+	if err != nil {
+		return err
+	}
+
+	h.State = host.StateRespeccing
+	if err := h.Update(env.DB); err != nil {
+		return err
+	}
+
+	if err := rs.UpdateState(env.DB, respec.StateProcessing); err != nil {
+		return err
+	}
+
+	cfg := h.MachineConfig()
+	for k, v := range pt.Config.Map {
+		if v.Valid {
+			cfg[k] = v.String
+		} else {
+			cfg[k] = ""
+		}
+	}
+
+	// Apply provider-specific configuration.
+	prov := env.Provisioner
+	cfg, err = prov.ApplyProviderConfig(cfg, pt, h)
+	if err != nil {
+		env.Logger.Errorf("failed to apply provider-specific config, err: %v", err)
+		return err
+	}
+
+	go func() {
+		_, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
+		if err != nil {
+			h.State = host.StateRespecFailed
+			if err := h.Update(env.DB); err != nil {
+				env.Logger.Errorf("error updating host after respec failed: %v", err)
+			}
+			if err := rs.UpdateState(env.DB, respec.StateFailed); err != nil {
+				env.Logger.Errorf("error updating respec state to failed: %v", err)
+			}
+
+			env.Events.Publish(
+				controllers.NewEvent(controllers.EventHostRespecFailed, map[string]interface{}{
+					"host":  serializers.SerializeHost(h),
+					"error": err.Error(),
+				}),
+				env.User.Topic(),
+			)
+			return
+		}
+
+		h.State = host.StateRunning
+		if err := h.Update(env.DB); err != nil {
+			env.Logger.Errorf("error updating host after respec completed: %v", err)
+		}
+		if err := rs.UpdateState(env.DB, respec.StateCompleted); err != nil {
+			env.Logger.Errorf("error updating respec state to completed: %v", err)
+		}
+
+		PublishHostEvent(env, controllers.EventHostRespecced, h)
+	}()
+
+	PublishHostEvent(env, controllers.EventHostRespeccing, h)
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
+
 	return nil
 }
 

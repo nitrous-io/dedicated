@@ -35,16 +35,18 @@ type ProviderTemplate struct {
 }
 
 const (
-	StateBorn       = "born"
-	StateRunning    = "running"
-	StateStopped    = "stopped"
-	StateStopping   = "stopping"
-	StateStarting   = "starting"
-	StateRestarting = "restarting"
-	StateUpdating   = "updating"
-	StateOrphan     = "orphan"
-	StateTerminated = "terminated"
-	StateMigrating  = "migrating"
+	StateBorn         = "born"
+	StateRunning      = "running"
+	StateStopped      = "stopped"
+	StateStopping     = "stopping"
+	StateStarting     = "starting"
+	StateRestarting   = "restarting"
+	StateUpdating     = "updating"
+	StateOrphan       = "orphan"
+	StateTerminated   = "terminated"
+	StateMigrating    = "migrating"
+	StateRespeccing   = "respeccing"
+	StateRespecFailed = "respec_failed"
 
 	UpdateAvailableHard = "hard"
 	UpdateAvailableSoft = "soft"

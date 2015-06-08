@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
@@ -26,6 +27,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -75,6 +77,10 @@ var _ = Describe("controllers/hosts", func() {
 		u  *user.User
 		t  *token.Token
 		ft *test.FakeTracker
+
+		// Save original roundtripper of "global" hostbuilderclient to be
+		// restored after each test.
+		origHostbuilderRT = hosts.HostbuilderClient.Client.Client.Transport
 	)
 
 	BeforeEach(func() {
@@ -113,6 +119,7 @@ var _ = Describe("controllers/hosts", func() {
 		if db != nil {
 			db.Close()
 		}
+		replaceTransport(hosts.HostbuilderClient, origHostbuilderRT)
 	})
 
 	var createCollaborator = func(hs *test.HostStack) (*user.User, *token.Token) {
@@ -2608,6 +2615,271 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(slugs[0]).To(Equal(c2.Slug))
 					Expect(slugs[1]).To(Equal(c1.Slug))
 				})
+			})
+		})
+	})
+
+	Describe("POST /api/v0/hosts/{slug}/respec", func() {
+		var (
+			hs *test.HostStack
+			rt *test.FakeRoundTripper
+		)
+
+		BeforeEach(func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt = &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				PT: &providertemplate.ProviderTemplate{
+					Name:     "default-1",
+					Provider: "amazon",
+					Config: hstore.Hstore{
+						Map: map[string]sql.NullString{
+							"instance_type": sql.NullString{"t2.micro", true},
+							"storage_size":  sql.NullString{"20", true},
+							"disable_eip":   sql.NullString{"false", true},
+						},
+					},
+				},
+			})
+			Expect(err).To(BeNil())
+
+			r := &respec.Respec{
+				HostID:             hs.H.ID,
+				ProviderTemplateID: hs.PT.ID,
+			}
+			tx, err := db.Beginx()
+			Expect(err).To(BeNil())
+			Expect(r.Insert(tx)).To(BeNil())
+			Expect(tx.Commit()).To(BeNil())
+		})
+
+		doRequest := func(slug string) {
+			req, err := test.NewFormRequest("POST", "/api/v0/hosts/"+slug+"/respec", nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
+			handler.ServeHTTP(res, req)
+		}
+
+		It("responds with HTTP 400 Bad Request and does nothing if the host does not have a pending respec", func() {
+			// Create a new host that has no pending respec.
+			hs2, err := test.CreateHostStack(db, &test.HostStack{U: u})
+			Expect(err).To(BeNil())
+
+			doRequest(hs2.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("responds with HTTP 202 Accepted and respecs the host asynchronously", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.State).To(Equal(host.StateRespeccing))
+		})
+
+		It("sends the new provider template config to Hostbuilder", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			// Wait for Hostbuilder request to be received, since it's done
+			// asynchronously from the HTTP request.
+			Eventually(func() int {
+				return len(rt.Requests)
+			}).Should(Equal(1))
+
+			req := rt.Requests[0]
+			var config hostbuilderclient.Config
+			err := json.Unmarshal([]byte(req.PostFormValue("config")), &config)
+			Expect(err).To(BeNil())
+
+			Expect(config["id"]).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(config["instance_type"]).To(Equal("t2.micro"))
+		})
+
+		It("updates the host state to respeccing", func() {
+			// Add some delay in hostbuilder response so that we can test the
+			// transition state (i.e. "respeccing").
+			rt.Wait = 100 * time.Millisecond
+
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			h, err := host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal(host.StateRespeccing))
+		})
+
+		It("eventually updates the host state to running", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			Eventually(func() (string, error) {
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				if err != nil {
+					return "", err
+				}
+				return h.State, nil
+			}).Should(Equal(host.StateRunning))
+		})
+
+		It("changes the respec's state to processing", func() {
+			// Add some delay in hostbuilder response so that we can test the
+			// transition state.
+			rt.Wait = 100 * time.Millisecond
+
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			r := &respec.Respec{}
+			err := db.Get(r, `SELECT * FROM respecs WHERE host_id = $1 LIMIT 1`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			Expect(r.State).To(Equal(respec.StateProcessing))
+		})
+
+		It("eventually changes the respec's state to completed", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			Eventually(func() (string, error) {
+				r := &respec.Respec{}
+				err := db.Get(r, `SELECT * FROM respecs WHERE host_id = $1 LIMIT 1`, hs.H.ID)
+				if err != nil {
+					return "", err
+				}
+				return r.State, nil
+			}).Should(Equal(respec.StateCompleted))
+		})
+
+		It("publishes a host respeccing event", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			h, err := queryHost(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(h.State).To(Equal(host.StateRespeccing))
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host respeccing event")
+			case msg := <-ch:
+				Expect(msg).To(Equal(&controllers.Event{
+					Name: controllers.EventHostRespeccing,
+					Data: map[string]*serializers.Host{
+						"host": serializers.SerializeHost(h),
+					},
+				}))
+			}
+		})
+
+		It("eventually publishes a host respecced event", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			// 1st message is a respeccing event
+			msg := <-ch
+			evt, ok := msg.(*controllers.Event)
+			Expect(ok).To(BeTrue())
+			Expect(evt.Name).To(Equal(controllers.EventHostRespeccing))
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host respecced event")
+			case msg := <-ch:
+				h, err := queryHost(db, hs.H.ID)
+				Expect(err).To(BeNil())
+
+				Expect(msg).To(Equal(&controllers.Event{
+					Name: controllers.EventHostRespecced,
+					Data: map[string]*serializers.Host{
+						"host": serializers.SerializeHost(h),
+					},
+				}))
+			}
+		})
+
+		Context("when hostbuilder fails to create the host", func() {
+			BeforeEach(func() {
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				rt = &test.FakeRoundTripper{
+					Message: errorResponse,
+					Status:  http.StatusInternalServerError,
+				}
+				replaceTransport(hb, rt)
+				hosts.HostbuilderClient = hb
+			})
+
+			It("eventually updates the host state to 'respec failed'", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				Eventually(func() (string, error) {
+					h, err := host.FindByIdentifier(db, hs.H.Slug)
+					if err != nil {
+						return "", err
+					}
+					return h.State, nil
+				}).Should(Equal(host.StateRespecFailed))
+			})
+
+			It("eventually changes the respec's state to failed", func() {
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				Eventually(func() (string, error) {
+					r := &respec.Respec{}
+					err := db.Get(r, `SELECT * FROM respecs WHERE host_id = $1 LIMIT 1`, hs.H.ID)
+					if err != nil {
+						return "", err
+					}
+					return r.State, nil
+				}).Should(Equal(respec.StateFailed))
+			})
+
+			It("publishes a host respec failed event with the host record and error", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				// 1st message is a respeccing event, ignore it.
+				_ = <-ch
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timed out waiting for host respec failed event")
+				case msg := <-ch:
+					h, err := queryHost(db, hs.H.ID)
+					Expect(err).To(BeNil())
+
+					evt, ok := msg.(*controllers.Event)
+					Expect(ok).To(BeTrue())
+					Expect(evt.Name).To(Equal(controllers.EventHostRespecFailed))
+					evtData, ok := evt.Data.(map[string]interface{})
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(h)))
+					Expect(evtData["error"]).To(ContainSubstring("some error occurred"))
+				}
 			})
 		})
 	})

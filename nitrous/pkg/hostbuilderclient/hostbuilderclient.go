@@ -75,7 +75,7 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 		if err != nil {
 			return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, err)
 		}
-		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, string(e))
+		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, e)
 	}
 }
 
@@ -92,6 +92,10 @@ func (hb *Hostbuilder) Create(provider string, config Config, out io.Writer, hea
 func (hb *Hostbuilder) Update(provider string, config Config, out io.Writer, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
 	endpoint := hb.URL + "/hosts/update"
 	return hb.stream(endpoint, provider, config, out, headers, urlArgs)
+}
+
+func (hb *Hostbuilder) Respec(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
+	return hb.defaultRequestHandler("respec", provider, config, headers, urlArgs)
 }
 
 func (hb *Hostbuilder) Delete(provider string, config Config, headers http.Header, urlArgs url.Values) (*hostbuilder.Response, error) {
