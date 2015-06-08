@@ -521,7 +521,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	go func() {
-		_, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
+		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
 			h.State = host.StateRespecFailed
 			if err := h.Update(db); err != nil {
@@ -547,6 +547,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			}
 
 			if err := h.UpdateColumn(tx, "provider_template_id", rs.ProviderTemplateID); err != nil {
+				return err
+			}
+
+			if err := h.UpdateColumn(tx, "ip_address", info.IPAddress); err != nil {
 				return err
 			}
 

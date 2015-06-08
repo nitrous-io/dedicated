@@ -2748,6 +2748,23 @@ var _ = Describe("controllers/hosts", func() {
 			}).Should(Equal(hs.PT.ID))
 		})
 
+		It("updates the host's IP address from hostbuilder's response", func() {
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusAccepted))
+
+			h, err := host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+			Expect(h.IPAddress.String).To(Equal(""))
+
+			Eventually(func() (string, error) {
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				if err != nil {
+					return "", err
+				}
+				return h.IPAddress.String, nil
+			}).Should(Equal("127.0.0.1"))
+		})
+
 		It("changes the respec's state to processing", func() {
 			// Add some delay in hostbuilder response so that we can test the
 			// transition state.
