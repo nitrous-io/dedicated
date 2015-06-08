@@ -19,7 +19,7 @@ App.CollabSocket = klass = App.EventedSocket.extend
       message = JSON.parse message
     return if !message?  # cannot parse json, ignore message
 
-    [filename, event, data] = message
+    [namespace, event, data] = message
 
     if event == 'connected'
       if @get('connID')
@@ -28,8 +28,8 @@ App.CollabSocket = klass = App.EventedSocket.extend
       @set 'connID', data.conn_id
       return
 
-    if filename && event
-      @trigger("#{event}|#{filename}", data)
+    if namespace && event
+      @trigger("#{event}|#{namespace}", data)
 
 klass.reopenClass
   heartbeatInterval: 2000

@@ -6,6 +6,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/groupedhosts"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
@@ -35,7 +36,7 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 func healthcheck(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	hostList, err := groupedhosts.ListHosts(env.DB, HostbuilderClient, "amazon")
 	if err != nil {
-		return err
+		return httperror.New(http.StatusInternalServerError, "health_check_error", err.Error())
 	}
 
 	env.Status = http.StatusOK

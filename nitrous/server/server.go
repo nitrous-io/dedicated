@@ -168,7 +168,7 @@ func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	written := runtime.Stack(buffer, true)
 	buffer = buffer[:written]
 
-	w.Header().Set("content-type", "text/plain")
+	w.Header().Set("content-type", "text/plain; charset=utf8")
 	w.Write(buffer)
 
 	return nil
