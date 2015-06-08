@@ -65,3 +65,14 @@ func (r *Respec) Insert(tx *sqlx.Tx) error {
 
 	return nstmt.QueryRowx(r).StructScan(r)
 }
+
+func (r *Respec) UpdateState(d *db.Database, state string) error {
+	r.State = state
+	nstmt, err := d.PrepareNamed(`UPDATE respecs
+		SET (state, updated_at) = (:state, now())
+		WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(r).StructScan(r)
+}

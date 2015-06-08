@@ -94,11 +94,7 @@ var _ = Describe("models/respec", func() {
 		})
 
 		It("persists the respec in the database", func() {
-			tx, err := db.Beginx()
-			Expect(err).To(BeNil())
-			err = r.Insert(tx)
-			Expect(err).To(BeNil())
-			err = tx.Commit()
+			err := db.WithTransaction(r.Insert)
 			Expect(err).To(BeNil())
 
 			rs, err := findAll(db, hs1.H.ID)
@@ -121,11 +117,7 @@ var _ = Describe("models/respec", func() {
 				VALUES ($1, $2, $3);`, hs1.H.ID, hs1.PT.ID, respec.StateCompleted)
 			Expect(err).To(BeNil())
 
-			tx, err := db.Beginx()
-			Expect(err).To(BeNil())
-			err = r.Insert(tx)
-			Expect(err).To(BeNil())
-			err = tx.Commit()
+			err = db.WithTransaction(r.Insert)
 			Expect(err).To(BeNil())
 
 			rs, err := findAll(db, hs1.H.ID)
@@ -157,6 +149,27 @@ var _ = Describe("models/respec", func() {
 			Expect(completed).NotTo(BeNil())
 			Expect(completed.HostID).To(Equal(hs1.H.ID))
 			Expect(completed.ProviderTemplateID).To(Equal(hs1.PT.ID))
+		})
+	})
+
+	Describe("UpdateState()", func() {
+		It("updates the respec's state to the given state", func() {
+			rs := respec.Respec{
+				HostID:             hs1.H.ID,
+				ProviderTemplateID: hs2.PT.ID,
+				State:              respec.StatePending,
+			}
+
+			err := db.WithTransaction(rs.Insert)
+			Expect(err).To(BeNil())
+
+			origUpdatedAt := rs.UpdatedAt
+			Expect(origUpdatedAt.Valid).To(BeTrue())
+
+			err = rs.UpdateState(db, respec.StateCompleted)
+			Expect(err).To(BeNil())
+			Expect(rs.State).To(Equal(respec.StateCompleted))
+			Expect(rs.UpdatedAt.Time).To(BeTemporally(">", origUpdatedAt.Time))
 		})
 	})
 })
