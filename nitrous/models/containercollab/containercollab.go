@@ -41,8 +41,8 @@ func Create(d db.QueryReceiver, cID, uID int64) (*ContainerCollab, error) {
 	return sc, nstmt.QueryRowx(sc).StructScan(sc)
 }
 
-func Delete(d db.QueryReceiver, scID int64) error {
-	_, err := d.Exec(`DELETE FROM container_collabs WHERE id = $1 RETURNING *;`, scID)
+func Delete(d db.QueryReceiver, scID, cID int64) error {
+	_, err := d.Exec(`DELETE FROM container_collabs WHERE id = $1 AND container_id = $2 RETURNING *;`, scID, cID)
 	return err
 }
 
