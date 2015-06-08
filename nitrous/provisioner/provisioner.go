@@ -775,8 +775,14 @@ func (p *Provisioner) ApplyProviderConfig(cfg hostbuilderclient.Config, pt *prov
 		// convert disable_eip to format accepted by hostbuilder
 		// if disable_eip is invalid, it will be set to false
 		if disableEIPconf, ok := cfg["disable_eip"]; ok {
-			disableEIP, _ := strconv.ParseBool(disableEIPconf.(string))
-			cfg["disable_eip"] = disableEIP
+			switch disable := disableEIPconf.(type) {
+			case bool:
+				cfg["disable_eip"] = disable
+			case string:
+				cfg["disable_eip"], _ = strconv.ParseBool(disable)
+			default:
+				cfg["disable_eip"] = false
+			}
 		} else {
 			cfg["disable_eip"] = false
 		}
