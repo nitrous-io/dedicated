@@ -54,7 +54,10 @@ func (a Action) IsA(actionName string) bool {
 
 type queueHandler func(*QueueConsumer, *Message) error
 
-var queueRoutes map[string]queueHandler
+var (
+	queueRoutes    map[string]queueHandler
+	consumeTimeout = 5 * time.Minute
+)
 
 func init() {
 	queueRoutes = map[string]queueHandler{}
@@ -176,6 +179,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	go func() {
 		var last_error error
 		for {
+			log.Printf("waiting for consuming next message from (%s) queue", queueName)
 			m, err := qc.Consume()
 			if err != nil {
 				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v\n", queueName, err)
@@ -199,6 +203,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		}
 	}()
 
+	finished := make(chan bool)
 	for {
 		select {
 		case c := <-stop:
@@ -206,15 +211,27 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			stop <- c
 			return nil
 		case m := <-msg:
-			err := queueRoutes[queueName](qc, m)
-			if err != nil {
-				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
-				m.Fail()
-			} else {
-				err := m.Ack(1 * time.Second)
+			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
+			go func() {
+				err := queueRoutes[queueName](qc, m)
 				if err != nil {
-					log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					m.Fail()
+				} else {
+					err := m.Ack(1 * time.Second)
+					if err != nil {
+						log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					}
 				}
+				finished <- true
+			}()
+
+			select {
+			case <-finished:
+				log.Printf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+			case <-time.After(consumeTimeout):
+				log.Printf("[ERROR] uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				m.Fail()
 			}
 			msg <- m
 		}

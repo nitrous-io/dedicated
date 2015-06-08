@@ -89,6 +89,25 @@ func init() {
 		}
 	})
 
+	reexec.Register("queue-timeout", func() {
+		queue.SetConsumeTimeout(100 * time.Millisecond)
+		stop := make(chan struct{})
+		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			if m.UUID == "success" {
+				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+				if err != nil {
+					return err
+				}
+				redisClient.Set("test", m.UUID)
+			} else {
+				time.Sleep(5 * time.Second)
+			}
+			return nil
+		}
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		log.Fatalf("queue-timeout failed to start %v", err)
+	})
+
 	// return if running in reexec mode, and the reexec func has already finished
 	if reexec.Init() {
 		return
@@ -425,7 +444,6 @@ var _ = Describe("pkg/queue", func() {
 			stopCh := make(chan struct{})
 
 			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
-				fmt.Println("HAHAAHH")
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
@@ -463,6 +481,41 @@ var _ = Describe("pkg/queue", func() {
 			case <-time.After(100 * time.Millisecond):
 				Fail("Timeout waiting for queue consumer to be down")
 			}
+		})
+
+		It("submits a timed out message to failed queue start consuming next message", func() {
+			q := reexec.Command("queue-timeout")
+			q.Stdout = os.Stdout
+			q.Stderr = os.Stderr
+
+			defer func() {
+				if q.Process != nil {
+					q.Process.Kill()
+				}
+			}()
+
+			// start queue
+			Expect(q.Start()).To(BeNil(), "queue-timeout cannot start")
+
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+
+			Expect(qp.GetFailedLength()).To(Equal(int64(0)))
+			err := qp.Publish(&queue.Message{
+				UUID: "1234",
+			})
+			Expect(err).To(BeNil())
+
+			// Wait until timing out
+			time.Sleep(1 * time.Second)
+			Expect(qp.GetFailedLength()).To(Equal(int64(1)))
+
+			// It still process next message
+			err = qp.Publish(&queue.Message{
+				UUID: "success",
+			})
+			Expect(err).To(BeNil())
+			time.Sleep(50 * time.Millisecond)
+			Expect(redisClient.Get("test").Val()).To(Equal("success"))
 		})
 	})
 })
