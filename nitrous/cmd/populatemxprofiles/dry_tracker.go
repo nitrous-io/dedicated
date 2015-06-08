@@ -11,8 +11,9 @@ func (dt *DryTracker) TrackEvent(event string, u *user.User, p map[string]interf
 	// no-op, fulfill interface
 }
 
-func (dt *DryTracker) CreateProfile(u *user.User, logger *logger.Logger) {
+func (dt *DryTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
 	// no-op, fulfill interface
+	return nil
 }
 
 func (dt *DryTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {

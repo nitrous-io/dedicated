@@ -1,0 +1,56 @@
+- @title = 'Jobs · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'jobs'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'jobs' }
+      .hero-copy
+        h2
+          | Join the team, grow with us
+        h3
+          | We're looking for remarkable people to help us change the way the world codes
+
+
+  article.featurette.centered
+    .container
+      .greenhouse-container
+        #grnhse_app
+    
+  article.life-at.darker
+    .container
+      .box-wrapper.three.centered
+        .box
+          h3.section-title.big-title Two offices
+          p
+            | Nitrous has offices in two of the world’s most exciting cities: San Francisco and Singapore. As an employee, you can participate in our SF-Singapore Exchange Program
+
+        .box
+          h3.section-title.big-title Pick your equipment
+          p
+            | Because we want you to do the best work of your life, pick whatever equipment makes you most productive
+        
+        .box
+          h3.section-title.big-title Perks &amp; benefits
+          p
+            | On top of competitive salary and equity, Nitrous offers free lunches, Health, Vision and Dental insurance, flexible vacations, team outings, and a referral bonus program
+
+
+  article.maps
+    .map
+      .address
+        .address-1 300 Brannan St. Ste 201
+        .address-2 San Francisco
+      .pin
+    .map
+      .address
+        .address-1 1A Trengganu St. 2nd Floor
+        .address-2 Singapore
+      .pin
+
+= render partial: 'layouts/footer', locals: { active: 'jobs' }
+
+- content_for :body_script
+  = javascript_include_tag 'https://app.greenhouse.io/embed/job_board/js?for=nitrous'

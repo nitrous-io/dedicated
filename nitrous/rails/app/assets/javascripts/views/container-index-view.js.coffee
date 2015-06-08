@@ -15,6 +15,12 @@ App.ContainerIndexView = Em.View.extend
       @send 'cancelSnapshot'
   ).observes 'controller.closeSnapshotDialog'
 
+  didInsertElement: ->
+    @_super()
+    if App.get('sharedContainerTip')
+      App.set 'sharedContainerTip', false
+      App.set 'onboardingScreen', 'shared-container'
+
   actions:
     showTerminateDialog: ->
       @set 'terminateSlugConfirmation', null

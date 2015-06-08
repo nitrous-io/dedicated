@@ -474,7 +474,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 	h.Free = opts.Plan.IsFree()
 	h.Preprovisioned = false
-	if err = h.Update(p.db); err != nil {
+	if err = h.UpdateWithPrice(p.db); err != nil {
 		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
 		return
 	}

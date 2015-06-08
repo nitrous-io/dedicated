@@ -124,7 +124,17 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) features(w http.ResponseWriter, r *http.Request) {
-	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"features": freighterFeatures})
+	s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"features": FreighterFeatures})
+}
+
+func (s *Server) ping(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		s.notifyWebhook(map[string]interface{}{
+			"event": "ping",
+		})
+	}()
+
+	s.respond(w, http.StatusOK, jsonStatusOK)
 }
 
 func (s *Server) handleCORSPreflight(w http.ResponseWriter, r *http.Request) {

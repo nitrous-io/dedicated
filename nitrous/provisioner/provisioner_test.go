@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -121,13 +122,24 @@ var _ = Describe("provisioner", func() {
 
 		It("assigns hosts instead of preprovisioning if they are available with no bypass", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{Preprovisioned: true},
+				H: &host.Host{
+					Preprovisioned: true,
+					HourlyPrice:    0,
+					Free:           true,
+				},
 				PT: &providertemplate.ProviderTemplate{
 					PreprovisionMax: 1,
 					Provider:        "docker",
 				},
+				P: &plan.Plan{
+					Price: 100,
+				},
 			})
 			Expect(err).To(BeNil())
+
+			Expect(hs.H.HourlyPrice).To(Equal(int64(0)))
+			Expect(hs.H.Free).To(Equal(true))
+
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(1), "Pre-condition: 1 pre-provisioned hosts.")
@@ -174,6 +186,22 @@ var _ = Describe("provisioner", func() {
 				Expect(err).To(BeNil())
 				return count
 			}, 5*time.Second, 500*time.Millisecond).Should(Equal(0))
+
+			Eventually(func() int64 {
+				h, err := host.FindByIdentifier(db, "new-slug")
+				if err != nil {
+					return 0
+				}
+				return h.HourlyPrice
+			}, 5*time.Second, 500*time.Millisecond).Should(Equal(hs.P.HourlyPrice()))
+
+			Eventually(func() bool {
+				h, err := host.FindByIdentifier(db, "new-slug")
+				if err != nil {
+					return true
+				}
+				return h.Free
+			}, 5*time.Second, 500*time.Millisecond).Should(Equal(false))
 		})
 
 		It("bypasses preprovisioned if option given even if host is available", func() {

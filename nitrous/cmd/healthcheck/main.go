@@ -8,6 +8,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"strings"
 
@@ -67,7 +69,16 @@ func main() {
 	if err != nil {
 		logr.FatalfExit("healthcheck: endpoint error: %v", err)
 	}
+
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			logr.FatalfExit("healthcheck: got non-200 error response: %d; error reading body: %s", resp.StatusCode, err)
+		}
+
+		logr.FatalfExit("healthcheck: got non-200 error response: %d - %s", resp.StatusCode, string(body))
+	}
 
 	var rjson struct {
 		Healthcheck map[string]interface{} `json:"healthcheck"`
@@ -86,6 +97,6 @@ func main() {
 	for k, v := range h {
 		logparts = append(logparts, fmt.Sprintf("%s: %v", k, v))
 	}
-	logr.Error(strings.Join(logparts, ","))
+	logr.Error(strings.Join(logparts, "; "))
 	os.Exit(1)
 }

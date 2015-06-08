@@ -1241,5 +1241,26 @@ func init() {
 				CREATE UNIQUE INDEX tokens_nonce ON tokens USING btree (nonce);
 			`,
 		},
+		{
+			Version: "1090",
+			Up: `
+				ALTER TABLE container_collabs ALTER COLUMN user_id DROP NOT NULL;
+				ALTER TABLE container_collabs ADD COLUMN invite_email character varying(255) CHECK (user_id IS NOT NULL OR invite_email IS NOT NULL) DEFAULT NULL;
+				ALTER TABLE container_collabs ADD COLUMN invite_code character varying(255) DEFAULT NULL;
+
+				DROP INDEX index_container_collabs_user_id_container_id;
+				CREATE UNIQUE INDEX index_container_collabs_user_id_container_id
+					ON container_collabs USING btree (user_id, container_id) WHERE user_id IS NOT NULL;
+				CREATE UNIQUE INDEX index_container_collabs_invite_email_container_id
+					ON container_collabs USING btree (invite_email, container_id) WHERE invite_email IS NOT NULL;
+			`,
+		},
+		{
+			Version: "1095",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN last_pinged_at timestamp without time zone;
+				CREATE INDEX index_hosts_on_last_pinged_at ON hosts USING btree (last_pinged_at);
+			`,
+		},
 	}
 }

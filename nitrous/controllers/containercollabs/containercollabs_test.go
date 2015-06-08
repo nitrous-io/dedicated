@@ -145,6 +145,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
 				Expect(err).To(BeNil())
 
+				_, err = db.Exec(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID)
+				Expect(err).To(BeNil())
+
 				all, err = containercollab.FindAll(db, cnr.ID)
 				Expect(err).To(BeNil())
 			})
@@ -159,8 +162,8 @@ var _ = Describe("controllers/containercollabs", func() {
 				}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				Expect(j.ContainerCollabs).To(HaveLen(2))
-				Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
+				Expect(j.ContainerCollabs).To(HaveLen(3))
+				Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID, j.ContainerCollabs[2].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID, all[2].ContainerID}))
 			})
 
 			It("should not include deleted users", func() {
@@ -176,8 +179,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				}
 				err = json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
-				Expect(j.ContainerCollabs).To(HaveLen(1))
-				Expect(j.ContainerCollabs[0].ContainerID).To(Equal(all[0].ContainerID))
+				Expect(j.ContainerCollabs).To(HaveLen(2))
+				Expect([]int64{j.ContainerCollabs[0].ContainerID, j.ContainerCollabs[1].ContainerID}).To(Equal([]int64{all[0].ContainerID, all[1].ContainerID}))
+
 			})
 
 		})
@@ -292,6 +296,29 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})
 
+		It("should return an error if the user has not confirmed", func() {
+			otherUser := &user.User{
+				Username: "steph",
+				Email:    "steph@nitrous.io",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET created_at = now() - interval '72 hours', confirmed_at = NULL WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("steph")
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("user_not_confirmed"))
+			Expect(errDesc).To(Equal("the specified user has not confirmed their account"))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
+
 		It("should add the user as a collaborator", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -299,6 +326,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -330,6 +360,41 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/containers/java-test-container" target="_blank">`))
 		})
 
+		It("should not allow malicious HTML in the email", func() {
+			_, err := db.Exec("UPDATE users SET name = '<bold>HTML</bold>' WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			otherUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err = test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("steve")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() interface{} {
+				collab := &containercollab.ContainerCollab{}
+				err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
+				Expect(err).To(BeNil())
+				Expect(collab).ToNot(BeNil())
+
+				return collab.EmailSentAt.Valid
+			}).Should(BeTrue())
+
+			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.Tos).To(Equal([]string{`"steve" <steve@stevey.com>`}))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.Subject).To(Equal("&lt;bold&gt;HTML&lt;/bold&gt; has shared container java-test-container with you!"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("java-test-container by &lt;bold&gt;HTML&lt;/bold&gt;."))
+		})
+
 		It("should add the user as a collaborator even if the mailer fails", func() {
 			fakeMailer.Error = errors.New("Sorry mate!")
 			otherUser := &user.User{
@@ -338,6 +403,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			doRequest("steve")
@@ -362,6 +430,65 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(collab.EmailSentAt.Valid).To(BeFalse())
 		})
 
+		It("should invite the user to Nitrous if email does not exist in the database", func() {
+			_, err := db.Exec("UPDATE users SET name = '<p>HTML</p>' WHERE id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("robin@example.com")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j struct {
+				Success bool `json:"success"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.Success).To(BeTrue())
+
+			collab := &containercollab.ContainerCollab{}
+			err = db.Get(collab, "SELECT * FROM container_collabs WHERE invite_email = 'robin@example.com' AND container_id = $1", cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(collab).ToNot(BeNil())
+
+			Expect(collab.EmailSentAt.Valid).To(BeTrue())
+
+			url := fmt.Sprintf("https://nitrous.example/app/#/signup?email=robin@example.com&invite_code=%s", collab.InviteCode.String)
+
+			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.Tos).To(Equal([]string{"robin@example.com"}))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.Subject).To(Equal("&lt;p&gt;HTML&lt;/p&gt; has shared container java-test-container with you!"))
+			Expect(fakeMailer.Body).To(ContainSubstring("Hello robin@example.com!"))
+			Expect(fakeMailer.Body).To(ContainSubstring(url))
+			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello robin@example.com!</h3>"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("java-test-container by &lt;p&gt;HTML&lt;/p&gt;."))
+			Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf(`<a href="%s" target="_blank">`, url)))
+		})
+
+		It("should not invite the user to Nitrous if the mailer fails", func() {
+			fakeMailer.Error = errors.New("Sorry mate!")
+			doRequest("robin@example.com")
+
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+			collab := &containercollab.ContainerCollab{}
+			err := db.Get(collab, "SELECT * FROM container_collabs WHERE invite_email = 'robin@example.com' AND container_id = $1", cnr.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("should not invite the user to Nitrous if blacklisted", func() {
+			doRequest("robin@yopmail.fr")
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("user_not_found"))
+			Expect(errDesc).To(Equal("the specified user could not be found"))
+
+			collab := &containercollab.ContainerCollab{}
+			err := db.Get(collab, "SELECT * FROM container_collabs WHERE invite_email = 'robin@example.com' AND container_id = $1", cnr.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
 		It("should fire off events to the target user and container owner", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -369,6 +496,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			chOwner := svr.Events.Subscribe(u.Topic())
@@ -417,6 +547,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				Password: "Password1",
 			}
 			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
 			Expect(err).To(BeNil())
 
 			_, err = containercollab.Create(db, cnr.ID, otherUser.ID)

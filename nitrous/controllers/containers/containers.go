@@ -335,6 +335,11 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	serialized := serializers.SerializeContainer(cn)
 	serialized.Config = serializers.SerializeContainerConfig(config)
 
+	sshURL, err := FindSSHURL(h, config)
+	if err == nil {
+		serialized.SSHURL = sshURL
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"container": serialized,

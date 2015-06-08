@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/lib/pq/hstore"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -750,6 +751,8 @@ var _ = Describe("models/host", func() {
 				PlanID:             hs.P.ID,
 				ProviderTemplateID: hs.PT.ID,
 				State:              host.StateRunning,
+				HourlyPrice:        100,
+				Free:               false,
 				TerminatedAt:       nil,
 				Preprovisioned:     false,
 			}
@@ -758,6 +761,8 @@ var _ = Describe("models/host", func() {
 		})
 
 		It("updates the host in the database", func() {
+			t := time.Now()
+
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"foo host", true}
 			h.State = host.StateRestarting
@@ -768,6 +773,9 @@ var _ = Describe("models/host", func() {
 			h.Preprovisioned = true
 			h.FreighterdVersion = "0.1.0"
 			h.DockerVersion = "1.5.0"
+			h.HourlyPrice = 0
+			h.Free = true
+			h.LastPingedAt = pq.NullTime{t, true}
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -787,6 +795,141 @@ var _ = Describe("models/host", func() {
 			Expect(h2.Preprovisioned).To(BeTrue())
 			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
 			Expect(h2.DockerVersion).To(Equal("1.5.0"))
+			Expect(h2.LastPingedAt.Valid).To(BeTrue())
+			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
+
+			// Unchanged fields.
+			Expect(h2.UserID).To(Equal(hs.U.ID))
+			Expect(h2.RegionID).To(Equal(hs.R.ID))
+			Expect(h2.PlanID).To(Equal(hs.P.ID))
+			Expect(h2.ProviderTemplateID).To(Equal(hs.PT.ID))
+			Expect(h2.HourlyPrice).To(Equal(int64(100)))
+			Expect(h2.Free).To(Equal(false))
+		})
+
+		It("fills up the fields in original struct", func() {
+			h.Name = sql.NullString{"foo host", true}
+			err := h.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(h.CreatedAt).NotTo(BeNil())
+			Expect(h.UpdatedAt).NotTo(BeNil())
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := *h.UpdatedAt
+			time.Sleep(1 * time.Millisecond)
+
+			h.Name = sql.NullString{"foo host", true}
+			err := h.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(h.UpdatedAt.UnixNano()).NotTo(Equal(origUpdatedAt.UnixNano()))
+			Expect(time.Now().Sub(*h.UpdatedAt)).To(BeNumerically("<=", 1*time.Second))
+		})
+	})
+
+	Describe("UpdateColumn()", func() {
+		var (
+			h  *host.Host
+			h2 *host.Host
+
+			updatedAt time.Time
+
+			slug = "foo"
+		)
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               slug,
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+			updatedAt = *h.UpdatedAt
+
+			time.Sleep(1 * time.Millisecond)
+			err = h.UpdateColumn(db, "slug", "bar")
+			Expect(err).To(BeNil())
+
+			h2 = &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+		})
+
+		It("updates a single column", func() {
+			Expect(h2.Slug).To(Equal("bar"))
+		})
+
+		It("also updates updated_at", func() {
+			Expect(h2.UpdatedAt.UnixNano()).NotTo(Equal(updatedAt.UnixNano()))
+			Expect(time.Now().Sub(*h2.UpdatedAt)).To(BeNumerically("<=", 1*time.Second))
+		})
+	})
+
+	Describe("UpdateWithPrice()", func() {
+		var (
+			h    *host.Host
+			slug = "foo"
+		)
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               slug,
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              host.StateRunning,
+				HourlyPrice:        100,
+				Free:               false,
+				TerminatedAt:       nil,
+				Preprovisioned:     false,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the host in the database", func() {
+			h.Slug = "new-slug"
+			h.Name = sql.NullString{"foo host", true}
+			h.State = host.StateRestarting
+			h.IPAddress = sql.NullString{"1.2.3.4", true}
+			h.ProviderIdentifier = sql.NullString{"digitalocean", true}
+			h.MaxContainers = sql.NullInt64{2, true}
+			h.FreighterdPort = sql.NullInt64{60000, true}
+			h.Preprovisioned = true
+			h.FreighterdVersion = "0.1.0"
+			h.DockerVersion = "1.5.0"
+			h.HourlyPrice = 0
+			h.Free = true
+			err := h.UpdateWithPrice(db)
+			Expect(err).To(BeNil())
+
+			h2 := &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+
+			// Updated fields.
+			Expect(h2.Slug).To(Equal("new-slug"))
+			Expect(h2.Name.String).To(Equal("foo host"))
+			Expect(h2.State).To(Equal(host.StateRestarting))
+			Expect(h2.IPAddress.String).To(Equal("1.2.3.4"))
+			Expect(h2.ProviderIdentifier.String).To(Equal("digitalocean"))
+			Expect(h2.MaxContainers.Int64).To(Equal(int64(2)))
+			Expect(h2.FreighterdPort.Int64).To(Equal(int64(60000)))
+			Expect(h2.Preprovisioned).To(BeTrue())
+			Expect(h2.FreighterdVersion).To(Equal("0.1.0"))
+			Expect(h2.DockerVersion).To(Equal("1.5.0"))
+			Expect(h2.HourlyPrice).To(Equal(int64(0)))
+			Expect(h2.Free).To(Equal(true))
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))

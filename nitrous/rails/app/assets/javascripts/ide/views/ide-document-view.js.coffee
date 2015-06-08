@@ -41,6 +41,7 @@ App.IdeDocumentView = Em.View.extend
       @leaveCollab()
       return # need to return void
     @focusedDidChange()
+    @focusEditor()
 
   willDestroyElement: ->
     @_super()
@@ -193,6 +194,7 @@ App.IdeDocumentView = Em.View.extend
       @set 'otClient', otClient
       editor.set 'readOnly', false
       @focusedDidChange()
+      @focusEditor()
 
     collabSocket.on "rejoin_failed|#{fileName}", =>
       editor.set 'readOnly', true
@@ -418,7 +420,6 @@ App.IdeDocumentView = Em.View.extend
     if editor && focused
       Em.run.scheduleOnce 'afterRender', ->
         editor.refresh()
-        editor.focus()
   ).observes 'document.focused'
 
   documentPathDidChange: (->
@@ -426,6 +427,10 @@ App.IdeDocumentView = Em.View.extend
       @set 'mode', App.FileTypeDetect.detect(fileName)
       @set 'collabMode', true
   ).observes 'document.path.absolutePath'
+
+  focusEditor: ->
+    Em.run.scheduleOnce 'afterRender', =>
+      @get('editor').focus()
 
   actions:
     didClickLineCol: ->

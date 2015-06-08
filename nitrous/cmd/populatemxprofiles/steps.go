@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 func GenConfirmedJobs(jobs chan job, u *User) error {
@@ -95,5 +97,21 @@ func GenHostCreatedJobs(jobs chan job, u *User) error {
 	jobs <- NewJob("set", u.ID, map[string]interface{}{
 		"workspaces_plans": plans,
 	})
+	return nil
+}
+
+func GenMixpanelProfiles(jobs chan job, u *User) error {
+	logr.Infof("creating mixpanel profile for %s", u.Email)
+	u2 := &user.User{
+		ID:        u.ID,
+		Name:      u.Name,
+		Username:  u.Username,
+		Email:     u.Email,
+		CreatedAt: &u.CreatedAt.Time,
+	}
+	finished := tracker.CreateProfile(u2, logr, "")
+	if finished != nil {
+		<-finished
+	}
 	return nil
 }

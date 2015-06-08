@@ -26,9 +26,9 @@
       .ui.input-group
         label.field-label for='signup-email'
           | Email
-        = input type='email' id='signup-email' classNameBindings='view.emailFieldInvalid:error' disabled=signingUp value=user.email placeholder='e.g., cloudist@example.com'
-        .suggested-email class={suggestedEmail:show}
-          if suggestedEmail
+        = input type='email' id='signup-email' classNameBindings='view.emailFieldInvalid:error' disabled=emailDisabled value=user.email placeholder='e.g., cloudist@example.com'
+        .suggested-email class={showSuggested:show}
+          if showSuggested
             p.hint-text click="acceptSuggestedEmail"
               i.fa.fa-exclamation-circle
               ' Did you mean
@@ -44,7 +44,7 @@
     .card-footer
       .right
         input#signup-submit.ui.btn.primary.raised.full type='submit' disabled={view.disableSubmitButton} value='Create New Account'
-      
+
     .footer-note
       p
         ' By clicking the Create New Account button, you agree to the Nitrous

@@ -44,8 +44,9 @@ func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interf
 	}
 }
 
-func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger) {
+func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
 	f.ProfileCreated = u
+	return nil
 }
 
 func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {

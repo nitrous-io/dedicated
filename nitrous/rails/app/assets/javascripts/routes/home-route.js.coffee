@@ -1,12 +1,16 @@
 #= require ./authed-route
 
 App.HomeRoute = App.AuthedRoute.extend
-  beforeModel: ->
+  model: ->
     @_super.apply this, arguments
     App.set 'title', null
-    App.set 'hosts', App.Host.fetch().value
-    App.fetchContainers()
-    App.set 'sharedContainers', App.SharedContainer.fetch().value
+    hFetch = App.Host.fetch()
+    cFetch = App.fetchContainers()
+    sFetch = App.SharedContainer.fetch()
+    App.set 'hosts', hFetch.value
+    App.set 'sharedContainers', sFetch.value
+
+    Ember.RSVP.Promise.all [hFetch, sFetch, cFetch]
 
   renderTemplate: ->
     @_super()

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -133,6 +134,12 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
+func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0")
+	pprof.Index(w, r)
+	return nil
+}
+
 // debugHandler prints out debug information in json format.
 func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	psInfo := s.Events.Info()
@@ -143,6 +150,27 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 		"num_fds":       s.getNumFds(),
 		"num_goroutine": runtime.NumGoroutine(),
 	}
+	return nil
+}
+
+func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// default trace 100KiB of stack traces
+	bufferSize := 102400
+
+	sizeInput := r.FormValue("buffer_size")
+	if sizeInput != "" {
+		if size, err := strconv.Atoi(sizeInput); err == nil {
+			bufferSize = size
+		}
+	}
+
+	buffer := make([]byte, bufferSize)
+	written := runtime.Stack(buffer, true)
+	buffer = buffer[:written]
+
+	w.Header().Set("content-type", "text/plain")
+	w.Write(buffer)
+
 	return nil
 }
 

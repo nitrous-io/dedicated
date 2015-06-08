@@ -40,9 +40,6 @@ App.OpsSocket = klass = App.EventedSocket.extend
   fileFind: (term, root, callback) ->
     @send 'finder', 'file_find', term, root, callback
 
-  getFeatures: (callback) ->
-    @send 'features', 'get', callback
-
   # cmd : command to execute as a list e.g. ["ls"], ["ls", "-lah"]
   # cwd : current working directory e.g. "/home". empty strings means whatever
   #       is current in cops process

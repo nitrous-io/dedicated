@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -77,6 +80,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	password := r.FormValue("password")
 	name := r.FormValue("name")
 	promocode := r.FormValue("promo_code")
+	invitecode := r.FormValue("invite_code")
+	distinctID := r.FormValue("distinct_id")
 
 	u := &user.User{
 		Email:     email,
@@ -132,10 +137,32 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	err = u.SendConfirmationEmail(db, true)
-	if err != nil {
-		return err
+	confirmable := false
+	if invitecode != "" {
+		err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
+		if err != nil {
+			return err
+		}
 	}
+
+	if confirmable {
+		_, err = db.Exec("UPDATE users SET confirmed_at = now() WHERE id = $1", u.ID)
+		if err != nil {
+			return err
+		}
+		_, err = db.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
+		if err != nil {
+			return err
+		}
+		notifySharedContainers(env, u)
+	} else {
+		err = u.SendConfirmationEmail(db, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	env.Tracker.CreateProfile(u, env.Logger, distinctID)
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
@@ -212,6 +239,11 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 	}
+
+	env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
+		"$email": u.Email,
+		"$name":  u.Name,
+	}, env.Logger)
 
 	userResponse(env, u)
 	return nil
@@ -437,6 +469,8 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}, env.Logger)
 	}
 
+	notifySharedContainers(env, u)
+
 	return env.Login(u, w)
 }
 
@@ -528,6 +562,16 @@ func sanitizePhone(phoneNum string) string {
 		return -1
 	}
 	return strings.Map(onlyNumeric, phoneNum)
+}
+
+func notifySharedContainers(env *middleware.Env, u *user.User) {
+	cns, err := container.FindAllShared(env.DB, u.ID)
+	if err != nil {
+		env.Logger.Errorf("Unable to fetch containers, err: %v", err)
+	}
+	for _, cn := range cns {
+		containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
+	}
 }
 
 // twilioError parses an error and returns if it should be treated as error, and a user-facing message https://github.com/subosito/twilio/blob/ca29365f195cd8e9dfb805d4b8aca69ce8057564/exception.go

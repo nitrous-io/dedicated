@@ -176,6 +176,14 @@ var _ = Describe("middleware", func() {
 					Expect(j["error"]).To(Equal("confirmation_lapsed"))
 					Expect(j["error_description"]).To(Equal("confirmation token has lapsed"))
 				})
+
+				It("should respond with 200 OK if the token is scoped from an admin", func() {
+					_, err := db.Exec(`UPDATE tokens SET scope = $1 WHERE token = 'foobar';`, token.ScopeAdmin)
+					Expect(err).To(BeNil())
+
+					doRequest("foobar")
+					Expect(res.Code).To(Equal(http.StatusOK))
+				})
 			})
 
 			Context("when the user has been deleted", func() {

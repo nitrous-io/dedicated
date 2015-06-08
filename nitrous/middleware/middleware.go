@@ -138,7 +138,7 @@ func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) 
 		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
-	if !u.CanLogin() {
+	if t.Scope != token.ScopeAdmin && !u.CanLogin() {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="confirmation_lapsed"`)
 		return mh.Error(httperror.New(http.StatusBadRequest, "confirmation_lapsed", "confirmation token has lapsed"), label)
 	}

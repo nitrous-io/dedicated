@@ -10,7 +10,6 @@ App.IdeController = Em.ObjectController.extend
   opsTimeoutAlert: null
   repository: null
   errorDialog: null
-  freighterFeatures: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
@@ -41,14 +40,19 @@ App.IdeController = Em.ObjectController.extend
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: container)
       opsSocket.connect()
 
-      App.CollabSocket.checkAvailability container, (ok) =>
-        @set 'collabEnabled', ok
-        if ok
+      App.set 'eventsSocket', evSocket = App.EventsSocket.create()
+      evSocket.connect()
+
+      @getFreighterFeatures(container).then =>
+        features = App.get('freighterdFeatures') ? []
+
+        if features.contains('collab')
+          @set 'collabEnabled', true
           @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
           collabSocket.connect()
 
-      App.set 'eventsSocket', evSocket = App.EventsSocket.create()
-      evSocket.connect()
+        if features.contains('ping')
+          App.set 'pinger', pinger = App.Pinger.create(container: container)
 
       ['container.stopped', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
         evSocket.on evt, (data) =>
@@ -86,11 +90,6 @@ App.IdeController = Em.ObjectController.extend
     @set 'content', null
     @set 'errorDialog', null
 
-  freighterSupports: (feature) ->
-    if features = @get 'freighterFeatures'
-      return features[feature]
-    false
-
   handleContainerStopped: ->
     slug = App.get 'slug'
     dialog = App.ErrorDialog.create
@@ -126,11 +125,6 @@ App.IdeController = Em.ObjectController.extend
           if !App.localStorage.get(cacheKey)
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
-
-      socket = @get('opsSocket')
-      socket.getFeatures (err, features) =>
-        if !err
-          @set 'freighterFeatures', features
   ).observes 'opsSocketReady'
 
   warnWhenOffline: (->
@@ -139,3 +133,16 @@ App.IdeController = Em.ObjectController.extend
     else
       App.set 'flashMessage', null
   ).observes 'App.offline'
+
+  getFreighterFeatures: (container) ->
+    protocol = location.protocol
+    freighterdUrl = container.get 'freighterdUrl'
+    url = "#{protocol}//#{freighterdUrl}/features"
+
+    Em.RSVP.Promise.cast(Em.$.ajax(
+      type: 'GET'
+      url: url
+      dataType: 'json'
+    )).then (data) ->
+      if Em.isArray(data.features)
+        App.set 'freighterdFeatures', data.features

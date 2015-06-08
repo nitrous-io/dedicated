@@ -17,4 +17,5 @@ Rails.application.config.assets.precompile += %w(
   token_login.js
   oauth_authorize.js
   oauth_authorize.css
+  greenhouse.css
 )

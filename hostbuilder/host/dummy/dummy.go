@@ -26,6 +26,7 @@ type Host struct {
 	RestartSuccess   bool   `json:"restart"`
 	ListSuccess      bool   `json:"list"`
 	ListPartialError bool   `json:"list_partial"`
+	RespecSuccess    bool   `json:"respec"`
 
 	Version string
 }
@@ -42,6 +43,13 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if !h.UpdateSuccess {
 		return nil, errors.New("failed to update host")
+	}
+	return h.Info()
+}
+
+func (h *Host) Respec() (*host.Info, error) {
+	if !h.RespecSuccess {
+		return nil, errors.New("failed to respec host")
 	}
 	return h.Info()
 }

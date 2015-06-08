@@ -21,11 +21,13 @@ footer
         | About
       ul
         li
-          a class=('active' if active == 'features') href='/features' Features
-        li
           a class=('active' if active == 'pricing') href='/pricing' Pricing
         li
+          a class=('active' if active == 'features') href='/features' Features
+        li
           a class=('active' if active == 'company') href='/company' Company
+        li
+          a class=('active' if active == 'jobs') href='/jobs' Jobs
           
         li.dropdown-trigger
           span Use cases
@@ -43,11 +45,17 @@ footer
               a class=('active' if active == 'enterprises') href='/enterprises' Enterprises
             li
               a class=('active' if active == 'vpc') href='/vpc' VPC
-
-        li
-          a class=('active' if active == 'press') href='/press' Press
-        li
-          a href='http://blog.nitrous.io/' target="_blank" Blog
+        
+        li.dropdown-trigger
+          span More
+          span.carets
+            i.fa.fa-caret-up
+            i.fa.fa-caret-down
+          ol.dropdown
+            li
+              a class=('active' if active == 'press') href='/press' Press
+            li
+              a href='http://blog.nitrous.io/' target="_blank" Blog
 
     .footer-item
       h4

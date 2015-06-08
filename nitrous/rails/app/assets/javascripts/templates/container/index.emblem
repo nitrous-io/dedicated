@@ -86,7 +86,8 @@
         th SSH URL
         td colspan='3'
           if sshURL
-            ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
+            if sshKeysAdded
+              ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
           else
             if sshEnabled
               link-to 'container.keys' | Register your SSH key

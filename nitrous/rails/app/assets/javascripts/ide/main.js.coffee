@@ -37,6 +37,9 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   container: null
   hostBinding: Em.Binding.oneWay 'container.host'
 
+  eventsSocket: null
+  pinger: null
+
   terminalJsPath: null
   terminalCssPath: null
 
@@ -48,6 +51,8 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   fiveMinWarned: false
   oneMinWarned: false
   redirecting: false
+
+  freighterdFeatures: null
 
   didChangeToken: (->
     if token = @get('token')

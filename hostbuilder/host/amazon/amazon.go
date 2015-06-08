@@ -34,6 +34,11 @@ const (
 	GeneralVolumeType  = "gp2"
 	IOPSVolumeType     = "io1"
 	MagneticVolumeType = "standard"
+
+	rootDeviceName = "/dev/sda1"
+
+	updateTimeout           = 30 * time.Second
+	resizeRootVolumeTimeout = 30 * time.Minute
 )
 
 var (
@@ -54,6 +59,29 @@ var (
 		// aws.SAEast.Name:       aws.SAEast,
 	}
 )
+
+type Host struct {
+	AccessConfig *AccessConfig
+	Config       *HostConfig
+	notifyURL    string // to be set in builder's config
+	uuid         string // request UUID set by user
+	env          string // env tag to be set for each instance
+
+	// ec2 properties
+	auth     aws.Auth // this is used when we want to query all known regions
+	provider *ec2.EC2
+	instance *ec2.Instance
+
+	// the following settings are only available during the creation phase
+	keypair       *keypair      // temporary keypair of the instance
+	createTimeout time.Duration // limit of instance's creation time
+
+	// For respec.
+	rootVolume *ec2.Volume
+	newVolume  *ec2.Volume
+	snapshot   *ec2.Snapshot
+	newSize    int64 // New storage size in GB.
+}
 
 type HostConfig struct {
 	ID              string `json:"id"`
@@ -93,23 +121,6 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 			Id: h.SecurityGroupID,
 		},
 	}
-}
-
-type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	notifyURL    string // to be set in builder's config
-	uuid         string // request UUID set by user
-	env          string // env tag to be set for each instance
-
-	// ec2 properties
-	auth     aws.Auth // this is used when we want to query all known regions
-	provider *ec2.EC2
-	instance *ec2.Instance
-
-	// the following settings are only available during the creation phase
-	keypair       *keypair      // temporary keypair of the instance
-	createTimeout time.Duration // limit of instance's creation time
 }
 
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
@@ -293,7 +304,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 		return nil, mh.Error(err, label)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), updateTimeout)
 	defer cancel()
 
 	hctx := host.NewContext(ctx, h, h, w)
@@ -315,6 +326,242 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+// Respec changes the specs of an existing host its new properties.
+// The following changes are supported:
+//   1. Changing storage size of root volume.
+//   2. TODO Changing instance type.
+//   3. TODO Allocating/de-allocating an Elastic IP.
+func (h *Host) Respec() (*host.Info, error) {
+	label := h.MetricsLabel("respec")
+	defer mh.UpdateSince(label, time.Now())
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	// If StorageSize is 0, no change required.
+	if h.Config.StorageSize == 0 {
+		return h.Info()
+	}
+
+	rootDevice := rootDevice(h.instance)
+	if rootDevice == nil {
+		return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
+	}
+
+	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+	if err != nil {
+		return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
+	}
+	if len(resp.Volumes) != 1 {
+		return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
+	}
+	rootVolume := &resp.Volumes[0]
+	if rootVolume.VolumeId != rootDevice.VolumeId {
+		// Sanity check - because using the wrong volume is bad m'kay.
+		return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
+	}
+
+	currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+	if err != nil {
+		return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+	}
+
+	configuredSize := computeSize(h.Config.StorageSize)
+	if currentSize < configuredSize {
+		h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+
+		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
+		}
+	}
+
+	return h.Info()
+}
+
+type resizeStep struct {
+	host.Step
+	restartOnError bool
+}
+
+func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeRootVolumeTimeout)
+	defer cancel()
+
+	h.rootVolume = rootVolume
+	h.newSize = newSize
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	steps := []resizeStep{
+		{
+			Step: host.Step{
+				Description: "Stopping workspace",
+				Func: func(ctx *host.HostContext) error {
+					h := ctx.Host.(*Host)
+					return h.stopInstance()
+				},
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Taking snapshot of disk",
+				Func:        snapshotRootVolume,
+			},
+			restartOnError: true,
+		},
+		{
+			Step: host.Step{
+				Description: "Creating larger disk",
+				Func:        createNewVolume,
+			},
+			restartOnError: true,
+		},
+		{
+			Step: host.Step{
+				Description: "Switching to larger disk",
+				Func:        swapRootVolume,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Starting workspace",
+				Func: func(ctx *host.HostContext) error {
+					h := ctx.Host.(*Host)
+					_, err := h.Start()
+					return err
+				},
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Cleaning up",
+				Func:        deleteOldVolume,
+			},
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step.Step); err != nil {
+			h.Printf("ERROR: failed in resize root volume step %q: %v", step.Description, err)
+
+			// Start the instance back up if necessary.
+			// Note that the time to start the instance is excluded from the
+			// context timeout.
+			if step.restartOnError {
+				if _, e := h.Start(); e != nil {
+					h.Printf("failed to start instance %s back up", h.instance.InstanceId)
+				}
+			}
+
+			if err == context.DeadlineExceeded {
+				return ErrCreateTimeout
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func snapshotRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("snapshot_root_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	newSize := h.newSize
+
+	h.Printf("Creating snapshot of root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
+		h.instance.InstanceId, rootVolume.Size, newSize)
+	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
+	}
+
+	h.snapshot = snapshot
+
+	tags := []ec2.Tag{
+		{Key: "InstanceID", Value: h.instance.InstanceId},
+		{Key: "dedicated", Value: h.env},
+	}
+	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
+		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
+	}
+
+	h.Printf("Created snapshot %s of volume %s", snapshot.Id, rootVolume.VolumeId)
+
+	return nil
+}
+
+func createNewVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("create_new_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	snapshot := h.snapshot
+	newSize := h.newSize
+
+	h.Printf("Creating volume from snapshot %s", snapshot.Id)
+	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
+	}
+	h.Printf("Created new volume %s from snapshot %s", newVolume.VolumeId, snapshot.Id)
+
+	h.newVolume = newVolume
+
+	return nil
+}
+
+func swapRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("swap_root_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	newVolume := h.newVolume
+
+	h.Printf("Detaching root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
+	} else {
+		rootVolume = vol
+	}
+	h.Printf("Detached root volume %s from %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	h.Printf("Attaching new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
+	} else {
+		newVolume = vol
+	}
+	h.Printf("Attached new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
+}
+
+func deleteOldVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("delete_old_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+
+	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
+		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	}
+	h.Printf("Deleted old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
 }
 
 // Destroy releases the instance Elastic IP and terminate it
@@ -352,9 +599,10 @@ func (h *Host) Destroy() error {
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "terminated",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return mh.Error(err, label)
@@ -386,22 +634,31 @@ func (h *Host) Stop() (*host.Info, error) {
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+	if err := h.stopInstance(); err != nil {
 		return nil, mh.Error(err, label)
+	}
+
+	return h.Info()
+}
+
+func (h *Host) stopInstance() error {
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		return err
 	}
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "running", "stopping"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "stopped",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return nil, mh.Error(err, label)
+		return err
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	return h.Info()
+	return nil
 }
 
 // Start starts the instance and allocate the desired IP address to it
@@ -419,9 +676,10 @@ func (h *Host) Start() (*host.Info, error) {
 
 	state := StateChangeConf{
 		Pending: []string{"pending", "stopped"},
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 		Target:  "running",
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		return nil, mh.Error(err, label)
@@ -484,13 +742,17 @@ func (h *Host) List() ([]*host.Info, error) {
 		go func(conn *ec2.EC2, region aws.Region) {
 			defer wg.Done()
 			instancesResp, err := conn.Instances(nil, filter)
+
 			mu.Lock()
+			defer mu.Unlock()
+
 			if err != nil {
 				errmsg := fmt.Sprintf("failed to get instances in region %s, err %v", region.Name, err)
 				h.Printf(errmsg)
 				errmsgs = append(errmsgs, errmsg)
 				return
 			}
+
 			for _, reservation := range instancesResp.Reservations {
 				for _, instance := range reservation.Instances {
 					info := &host.Info{
@@ -514,7 +776,6 @@ func (h *Host) List() ([]*host.Info, error) {
 					infos = append(infos, info)
 				}
 			}
-			mu.Unlock()
 		}(conn, region)
 	}
 
@@ -714,12 +975,7 @@ func createInstance(ctx *host.HostContext) error {
 		mh.UpdateSince(label, start)
 	}(time.Now())
 
-	storageSize := int64(h.Config.StorageSize * storageUnit)
-	if storageSize > maxStorageSize {
-		storageSize = maxStorageSize
-	} else if storageSize < minStorageSize {
-		storageSize = minStorageSize
-	}
+	storageSize := computeSize(h.Config.StorageSize)
 
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
@@ -733,7 +989,7 @@ func createInstance(ctx *host.HostContext) error {
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
 			{
-				DeviceName:          "/dev/sda1",
+				DeviceName:          rootDeviceName,
 				VolumeType:          GeneralVolumeType,
 				VolumeSize:          storageSize,
 				DeleteOnTermination: true,
@@ -755,8 +1011,9 @@ func createInstance(ctx *host.HostContext) error {
 	state := &StateChangeConf{
 		Pending: []string{"pending"},
 		Target:  "running",
-		Refresh: InstanceStateRefreshFunc(h.provider, h.instance),
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
 	}
+	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(state)
 	if err != nil {
 		return mh.Error(fmt.Errorf("amazon: failed to change state %v", err), label)
@@ -826,4 +1083,23 @@ func getState(instance *ec2.Instance) state.State {
 // isVPC checks if an instance is a EC2-VPC instance
 func isVPC(i *ec2.Instance) bool {
 	return i != nil && i.SubnetId != ""
+}
+
+func computeSize(size int) int64 {
+	storageSize := int64(size * storageUnit)
+	if storageSize > maxStorageSize {
+		storageSize = maxStorageSize
+	} else if storageSize < minStorageSize {
+		storageSize = minStorageSize
+	}
+	return storageSize
+}
+
+func rootDevice(instance *ec2.Instance) *ec2.BlockDevice {
+	for _, dev := range instance.BlockDevices {
+		if dev.DeviceName == rootDeviceName {
+			return &dev
+		}
+	}
+	return nil
 }

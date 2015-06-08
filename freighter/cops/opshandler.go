@@ -12,14 +12,6 @@ import (
 	"github.com/go-fsnotify/fsnotify"
 )
 
-var (
-	copsFeatures = map[string]interface{}{
-		// for every optional feature cops provides, add entry mapping to true:
-		// "thisFeatureIsAvailable" : true,
-		"hasCmdRun": true,
-	}
-)
-
 type OpsHandler struct {
 	containerId     string
 	mu              sync.Mutex
@@ -82,16 +74,6 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 		Event:     "dirChanged.output",
 	}
 	msg.Args = []interface{}{dir}
-	oh.sendReply(msg)
-}
-
-func (oh *OpsHandler) sendFeatures(orig *Message) {
-	msg := &Message{
-		Namespace: orig.Namespace,
-		Event:     orig.Event,
-		CID:       orig.CID,
-		Args:      []interface{}{copsFeatures},
-	}
 	oh.sendReply(msg)
 }
 
@@ -193,14 +175,6 @@ func (oh *OpsHandler) copsMessageLoop() {
 				oh.fileWatcher.Remove(dir)
 			}
 			go oh.runHandler(fsHandler, msg)
-		case "features":
-			switch msg.Event {
-			case "get":
-				oh.sendFeatures(msg)
-			default:
-				log.Printf("copsMessageLoop() unknown event '%s' in namespace 'features'", msg.Event)
-				oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
-			}
 		case "finder":
 			go oh.runHandler(finderHandler, msg)
 		case "cmd":
