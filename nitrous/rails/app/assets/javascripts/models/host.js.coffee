@@ -23,6 +23,7 @@ App.Host = klass = App.Model.extend
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
   updateAvailable: attr(as: 'update_available', serialize: false)
   timeRemaining: attr('number', as: 'time_remaining', serialize: false)
+  pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
@@ -37,6 +38,7 @@ App.Host = klass = App.Model.extend
   isTerminated: Em.computed.equal 'state', 'terminated'
   isOrphan: Em.computed.equal 'state', 'orphan'
   isUpdating: Em.computed.equal 'state', 'updating'
+  isRespeccing: Em.computed.equal 'state', 'respeccing'
 
   displayName: (->
     @get('name') || @get('slug')

@@ -1,17 +1,28 @@
 = host-tab-bar selected='general' model=model
 
 .card-body
-  if updateAvailable
-    unless isUpdating
+  if pendingRespec
+    unless isRespeccing
       .notice-text
         i.fa.fa-warning
-        if canUpdate
           '
-          | There are updates available for this workspace.
+          ' You can complete upgrading this workspace to the
+          = plan.name
           '
-          a click='update' href="#" Update Now
-        else
-          | There are updates available for this workspace. Please stop your containers before updating.
+          ' plan.
+          a click='respec' href='#' Upgrade Now
+  else
+    if updateAvailable
+      unless isUpdating
+        .notice-text
+          i.fa.fa-warning
+          if canUpdate
+            '
+            | There are updates available for this workspace.
+            '
+            a click='update' href="#" Update Now
+          else
+            | There are updates available for this workspace. Please stop your containers before updating.
 
   if hasError
     .notice-text.error

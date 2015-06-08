@@ -34,7 +34,7 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
 
     update: ->
       host = @get('model')
-      events = App.get 'eventsSocket'
+      events = App.get('eventsSocket')
 
       unless host.get('canUpdate')
         App.postError('Containers must be stopped to perform this update.')
@@ -58,3 +58,26 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       events.on 'host.updated', onUpdated
 
       @performAction('POST', 'update_software', 'updating')
+
+    respec: ->
+      host = @get('model')
+      events = App.get('eventsSocket')
+
+      onRespecFailed = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.respec_failed', onRespecFailed
+        events.off 'host.respecced', onRespecced
+        App.postError('Failed to upgrade workspace!')
+
+      onRespecced = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.respec_failed', onRespecFailed
+        events.off 'host.respecced', onRespecced
+        App.snackbar.post("Your workspace “#{host.get('slug')}” has been upgraded.")
+
+      events.on 'host.respec_failed', onRespecFailed
+      events.on 'host.respecced', onRespecced
+
+      @performAction('POST', 'respec', 'respeccing')
