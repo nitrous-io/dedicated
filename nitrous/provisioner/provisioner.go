@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -182,7 +183,7 @@ func init() {
 
 	fv = envvars.FreighterdVersion
 	if fv == "" {
-		panic("provisioner: FREIGHTERD_VERSION is not set")
+		log.Println("Warning: FREIGHTERD_VERSION not set")
 	}
 
 	dv = envvars.DockerVersion
