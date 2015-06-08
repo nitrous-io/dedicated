@@ -49,6 +49,13 @@ App.IdeDocumentView = Em.View.extend
     @leaveCollab()
     $(window).off "unload.#{@get('elementId')}"
 
+  collabNamespace: (->
+    containerSlug = App.get 'container.slug'
+    fileName = @get 'document.path.absolutePath'
+    if containerSlug && fileName
+      "#{containerSlug}:#{fileName}"
+  ).property 'App.container.slug', 'document.path.absolutePath'
+
   modeName: (->
     CodeMirror.MODES[@get('mode')]
   ).property 'mode'
@@ -174,7 +181,7 @@ App.IdeDocumentView = Em.View.extend
 
   # don't call this method directly, instead, set collabMode to true
   _joinCollab: ->
-    return unless fileName = @get 'document.path.absolutePath'
+    return unless namespace = @get 'collabNamespace'
     return if @get 'otClient'
     editor = @get 'editor'
     editor.set 'readOnly', true
@@ -182,10 +189,10 @@ App.IdeDocumentView = Em.View.extend
     collabSocket = App.get 'router.ideController.collabSocket'
     doc = @get 'document.content'
 
-    collabSocket.one "doc|#{fileName}", (data) =>
+    collabSocket.one "doc|#{namespace}", (data) =>
       if data.document != doc
         @set 'document.content', data.document
-      serverAdapter = new ot.CollabSocketAdapter(collabSocket, fileName)
+      serverAdapter = new ot.CollabSocketAdapter(collabSocket, namespace)
       editorAdapter = new ot.CodeMirrorAdapter(cm)
       otClient = new ot.EditorClient(data.revision, data.clients, serverAdapter, editorAdapter)
       if undoManager = @get 'otUndoManagerOverride'
@@ -196,20 +203,20 @@ App.IdeDocumentView = Em.View.extend
       @focusedDidChange()
       @focusEditor()
 
-    collabSocket.on "rejoin_failed|#{fileName}", =>
+    collabSocket.on "rejoin_failed|#{namespace}", =>
       editor.set 'readOnly', true
       @set 'shouldReloadDocument', true
 
-    collabSocket.send(fileName, 'join', doc)
+    collabSocket.send(namespace, 'join', doc)
 
   leaveCollab: ->
     @set 'collabMode', false
     return unless otClient = @get 'otClient'
     collabSocket = App.get 'router.ideController.collabSocket'
 
-    if fileName = @get 'document.path.absolutePath'
-      collabSocket.send(fileName, 'leave')
-      collabSocket.off "rejoin_failed|#{fileName}"
+    if namespace = @get 'collabNamespace'
+      collabSocket.send(namespace, 'leave')
+      collabSocket.off "rejoin_failed|#{namespace}"
 
     otClient.serverAdapter.off()
     otClient.serverAdapter = null
