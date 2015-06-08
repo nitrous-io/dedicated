@@ -576,6 +576,42 @@ var _ = Describe("controllers/containercollabs", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		It("should return a not found if the collaborator record does not exist", func() {
+			doRequest(-200)
+
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return a not found if the collaborator record does belong to the container", func() {
+			otherUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+			cnr2 := &container.Container{
+				CID:    "cafebabe2",
+				UserID: cnr.UserID,
+				HostID: cnr.HostID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container2",
+				Name:   sql.NullString{"Java", true},
+			}
+			err = cnr2.Insert(db)
+			Expect(err).To(BeNil())
+			cc, err := containercollab.Create(db, cnr2.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(cnr2.ID)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
 		It("should perform a delete", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -599,6 +635,27 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			var count int
 			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+
+		It("should perform a delete for a pending invite", func() {
+			var collabID int64
+			err := db.QueryRow(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID).Scan(&collabID)
+			Expect(err).To(BeNil())
+
+			doRequest(collabID)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j struct {
+				Success bool `json:"success"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.Success).To(BeTrue())
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, collabID).Scan(&count)
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(0))
 		})

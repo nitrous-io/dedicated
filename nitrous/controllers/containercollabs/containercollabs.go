@@ -36,13 +36,14 @@ var (
 	Add    middleware.Middleware = containers.WithContainerAndHost(add, false)
 	Remove middleware.Middleware = containers.WithContainerAndHost(remove, false)
 
-	errMissingUserParam = httperror.New(http.StatusBadRequest, "invalid_request", "`user` must be provided")
-	errUserNotFound     = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
-	errSameUser         = httperror.New(http.StatusBadRequest, "same_user", "you cannot add yourself as a collaborator")
-	errAlreadyAdded     = httperror.New(http.StatusConflict, "already_added", "this user is already a collaborator")
-	errUserNotConfirmed = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
-	errEmailAlreadySent = errors.New("email already sent")
-	Mailer              mailer.Mailer
+	errMissingUserParam     = httperror.New(http.StatusBadRequest, "invalid_request", "`user` must be provided")
+	errUserNotFound         = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
+	errSameUser             = httperror.New(http.StatusBadRequest, "same_user", "you cannot add yourself as a collaborator")
+	errAlreadyAdded         = httperror.New(http.StatusConflict, "already_added", "this user is already a collaborator")
+	errUserNotConfirmed     = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
+	errCollaboratorNotFound = httperror.New(http.StatusNotFound, "collaborator_not_found", "the specified collaborator was not found")
+	errEmailAlreadySent     = errors.New("email already sent")
+	Mailer                  mailer.Mailer
 )
 
 func init() {
@@ -119,29 +120,35 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	var affectedUserID int64
-	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1`, ccid).Scan(&affectedUserID)
+	var affectedUserID sql.NullInt64
+	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1 AND container_id = $2`, ccid, cn.ID).Scan(&affectedUserID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return errCollaboratorNotFound
+		}
 		return err
 	}
 
-	err = containercollab.Delete(env.DB, ccid)
+	err = containercollab.Delete(env.DB, ccid, cn.ID)
 	if err != nil {
 		return err
 	}
 
 	ev := controllers.EventCollaboratorRemoved
 	containers.PublishContainerEvent(env, ev, cn, nil)
+
 	// fire to removed user
-	topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID))
-	data := map[string]interface{}{
-		"container": serializers.SerializeContainer(cn),
-		"initiated_by": map[string]interface{}{
-			"username": env.User.Username,
-			"id":       env.User.ID,
-		},
+	if affectedUserID.Valid {
+		topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID.Int64))
+		data := map[string]interface{}{
+			"container": serializers.SerializeContainer(cn),
+			"initiated_by": map[string]interface{}{
+				"username": env.User.Username,
+				"id":       env.User.ID,
+			},
+		}
+		env.Events.Publish(controllers.NewEvent(ev, data), topic)
 	}
-	env.Events.Publish(controllers.NewEvent(ev, data), topic)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

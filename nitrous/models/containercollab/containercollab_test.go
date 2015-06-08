@@ -84,13 +84,35 @@ var _ = Describe("models/containercollab", func() {
 			err = db.QueryRow(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
 			Expect(err).To(BeNil())
 
-			err = containercollab.Delete(db, scID)
+			err = containercollab.Delete(db, scID, cnr.ID)
 			Expect(err).To(BeNil())
 
 			var found bool
 			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(found).To(BeFalse())
+		})
+
+		It("should not delete a container collaborator if the container ID does not match", func() {
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			var scID int64
+			err = db.QueryRow(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID).Scan(&scID)
+			Expect(err).To(BeNil())
+
+			err = containercollab.Delete(db, scID, -2)
+			Expect(err).To(BeNil())
+
+			var found bool
+			err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(found).To(BeTrue())
 		})
 	})
 
