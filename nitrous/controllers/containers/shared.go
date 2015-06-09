@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
@@ -67,15 +66,12 @@ func Shared(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if !ok {
 			continue
 		}
-		mU := &user.User{
-			MaxRunningTime: hU.MaxRunningTime,
-		}
 		serContainerUsers[i] = &serializers.SharedContainer{
 			*c,
 			hU.UserUsername,
 			hU.UserName,
 			hU.GravatarHash,
-			serializers.SerializeHostWithUser(&hU.Host, mU),
+			serializers.SerializeHost(&hU.Host),
 		}
 	}
 	env.Data["containers"] = serContainerUsers

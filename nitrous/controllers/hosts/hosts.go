@@ -86,7 +86,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	hostsResp := make([]*serializers.Host, len(hosts))
 	for i, h := range hosts {
-		hostsResp[i] = serializers.SerializeHostWithUser(h, env.User)
+		hostsResp[i] = serializers.SerializeHost(h)
 	}
 
 	env.Status = http.StatusOK
@@ -640,7 +640,7 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"host": serializers.SerializeHostWithUser(h, u),
+		"host": serializers.SerializeHost(h),
 	}
 }
 
@@ -655,7 +655,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 	}
 	env.Events.Publish(
 		controllers.NewEvent(name, map[string]*serializers.Host{
-			"host": serializers.SerializeHostWithUser(h, u),
+			"host": serializers.SerializeHost(h),
 		}),
 		env.User.Topic(),
 	)
