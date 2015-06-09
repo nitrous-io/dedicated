@@ -132,13 +132,15 @@ var _ = Describe("provisioner", func() {
 					Provider:        "docker",
 				},
 				P: &plan.Plan{
-					Price: 100,
+					Price:        100,
+					AutoShutdown: true,
 				},
 			})
 			Expect(err).To(BeNil())
 
 			Expect(hs.H.HourlyPrice).To(Equal(int64(0)))
 			Expect(hs.H.Free).To(Equal(true))
+			Expect(hs.P.AutoShutdown).To(Equal(true))
 
 			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
 			Expect(err).To(BeNil())
@@ -201,7 +203,15 @@ var _ = Describe("provisioner", func() {
 					return true
 				}
 				return h.Free
-			}, 5*time.Second, 500*time.Millisecond).Should(Equal(false))
+			}, 5*time.Second, 500*time.Millisecond).Should(BeFalse())
+
+			Eventually(func() bool {
+				h, err := host.FindByIdentifier(db, "new-slug")
+				if err != nil {
+					return false
+				}
+				return h.AutoShutdown
+			}, 5*time.Second, 500*time.Millisecond).Should(BeTrue())
 		})
 
 		It("bypasses preprovisioned if option given even if host is available", func() {
