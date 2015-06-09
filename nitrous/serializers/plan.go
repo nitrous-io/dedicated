@@ -21,6 +21,7 @@ type Plan struct {
 
 	Hidden bool `json:"hidden"`
 
+	AutoShutdown    bool  `json:"auto_shutdown"`
 	MaxContainers   int64 `json:"max_containers"`
 	MaxSnapshots    int64 `json:"max_snapshots"`
 	CleanPreview    bool  `json:"clean_preview"`
@@ -49,6 +50,7 @@ func SerializePlan(p *plan.Plan) *Plan {
 		MostPopular:     p.MostPopular,
 		Subscription:    p.StripePlanID.Valid,
 		Hidden:          p.Hidden,
+		AutoShutdown:    p.AutoShutdown,
 		MaxContainers:   p.MaxContainers,
 		MaxSnapshots:    p.MaxSnapshots,
 		CleanPreview:    p.CleanPreview,

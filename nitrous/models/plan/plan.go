@@ -42,6 +42,7 @@ type Plan struct {
 	// Features of a plan below. As a rule, any boolean features should default
 	// to false (i.e. disabled), so choose names accordingly.
 
+	AutoShutdown    bool  `db:"auto_shutdown"`
 	MaxContainers   int64 `db:"max_containers"`
 	MaxSnapshots    int64 `db:"max_snapshots"`
 	CleanPreview    bool  `db:"clean_preview"`
@@ -110,12 +111,12 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 			SELECT DISTINCT plan_id
 			FROM provider_templates AS pt
 			WHERE pt.provider=$1 AND NOT pt.disabled
-		)
-		AND (
+		) AND (
 			plans.price > 0
 			OR plans.base_price > 0
 		)
-		ORDER BY (price, max_containers, name);`, provider)
+		ORDER BY (price, max_containers, name);
+	`, provider)
 
 	if err != nil {
 		return nil, err
@@ -143,8 +144,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown)
 		RETURNING *;`)
 	if err != nil {
 		return err
