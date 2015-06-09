@@ -360,6 +360,22 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
+func (h *Host) UpdateAfterRespec(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE hosts
+		SET (provider_template_id, state, ip_address, updated_at)
+		= (:provider_template_id, :state, :ip_address, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
+	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
+}
+
 func (h *Host) UpdateColumn(d db.QueryReceiver, column string, value interface{}) error {
 	// Warning: 2nd argument (column) should never be a user provided string!
 	// Don't try update updated_at to specific time.
@@ -372,10 +388,6 @@ func (h *Host) Reassign(d db.QueryReceiver, u *user.User) error {
 
 func (h *Host) Delete(d db.QueryReceiver) error {
 	return d.QueryRowx(`UPDATE hosts SET terminated_at = now(), state = $1 WHERE id = $2 RETURNING *;`, StateTerminated, h.ID).StructScan(h)
-}
-
-func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
-	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {

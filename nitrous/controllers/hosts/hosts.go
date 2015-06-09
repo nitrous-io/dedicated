@@ -541,25 +541,12 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		err = db.WithTransaction(func(tx *sqlx.Tx) error {
-			if err := h.UpdateColumn(tx, "state", host.StateRunning); err != nil {
-				return err
-			}
-
-			if err := h.UpdateColumn(tx, "provider_template_id", rs.ProviderTemplateID); err != nil {
-				return err
-			}
-
-			if err := h.UpdateColumn(tx, "ip_address", info.IPAddress); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
+		h.ProviderTemplateID = rs.ProviderTemplateID
+		h.State = host.StateRunning
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		if err := h.UpdateAfterRespec(db); err != nil {
 			env.Logger.Errorf("error updating host after respec completed: %v", err)
 		}
-
 		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
 			env.Logger.Errorf("error updating respec state to completed: %v", err)
 		}
