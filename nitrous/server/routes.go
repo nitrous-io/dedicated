@@ -57,18 +57,20 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 // if `track` for a route is set then we setup the track middleware for it
 func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
 	for path, r := range routes {
-		var final mw.Middleware
-		// prefix all label with `nitrous.`
-		final = mw.Call("nitrous."+r.label, r.mw)
-		if r.track != "" {
-			final = mw.Track(r.track, final)
-		}
-		if auth {
-			final = mw.VerifyUserBilling(r.label, final)
-			final = mw.Auth(final)
-		}
-		s.routeJSON(path, final, method)
+		s.routeJSON(path, chainMiddleware(auth, r), method)
 	}
+}
+
+func chainMiddleware(auth bool, r routeData) mw.Middleware {
+	final := mw.Call("nitrous."+r.label, r.mw)
+	if r.track != "" {
+		final = mw.Track(r.track, final)
+	}
+	if auth {
+		final = mw.VerifyUserBilling(r.label, final)
+		final = mw.Auth(final)
+	}
+	return final
 }
 
 func (s *Server) drawRoutes() {
@@ -81,6 +83,7 @@ func (s *Server) drawRoutes() {
 
 	s.namespace("/api/v0", func() {
 		s.route("/events", mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
+		s.route("/oauth/authorize", chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
@@ -90,7 +93,6 @@ func (s *Server) drawRoutes() {
 				"/app_settings":             r("appsettings.Index", appsettings.Index),
 				"/promo_codes/{code}":       r("promocodes.Show", promocodes.Show),
 				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
-				"/oauth/authorize":          r("oauth.GetAuthorize", oauth.GetAuthorize),
 			},
 			"POST": {
 				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
