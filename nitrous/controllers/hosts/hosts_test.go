@@ -2998,10 +2998,13 @@ var _ = Describe("controllers/hosts", func() {
 			case <-time.After(50 * time.Millisecond):
 				Fail("Timed out waiting for host software updated event")
 			case msg := <-ch:
+				h, err := queryHost(db, hs.H.ID)
+				Expect(err).To(BeNil())
+
 				Expect(msg).To(Equal(&controllers.Event{
 					Name: controllers.EventHostSoftwareUpdated,
 					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(hs.H),
+						"host": serializers.SerializeHost(h),
 					},
 				}))
 			}

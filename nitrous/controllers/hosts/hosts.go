@@ -54,6 +54,7 @@ var (
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
 	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
+	errUpgradeHostFailed        = httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient
@@ -540,27 +541,38 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	origState := h.State
+	if err := h.UpdateState(db, host.StateUpdating); err != nil {
+		if err == host.ErrUpdateFailed {
+			return errHostLocked
+		}
+		return err
+	}
+
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
 	}
 
-	if err := cl.UpgradeServer(&freighterclient.HostVersions{
+	err = cl.UpgradeServer(&freighterclient.HostVersions{
 		DockerVersion:     h.DockerVersion,
 		FreighterdVersion: h.FreighterdVersion,
-	}); err != nil {
+	})
+	if err != nil {
+		if err := h.UpdateState(db, origState); err != nil {
+			env.Logger.Errorf("failed to restore host state failed to upgrade, err: %v", err)
+		}
+
 		if err == freighterclient.ErrAlreadyUpgraded {
 			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
 			serializeHost(env, h)
 			return nil
 		}
-		env.Logger.Errorf("failed to update server, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
-	}
 
-	h.State = host.StateUpdating
-	if err := h.Update(env.DB); err != nil {
-		return err
+		env.Logger.Errorf("failed to update server, err: %v", err)
+		return errUpgradeHostFailed
 	}
 
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
