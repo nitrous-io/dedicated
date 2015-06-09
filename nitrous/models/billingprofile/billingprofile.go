@@ -134,11 +134,6 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 		return fmt.Errorf("Billing profile update failed. Reason - %s", err)
 	}
 
-	if _, err := tx.Exec("UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;", b.UserID); err != nil {
-		tx.Rollback()
-		return fmt.Errorf("User update failed. Reason - %s", err)
-	}
-
 	return tx.Commit()
 }
 
