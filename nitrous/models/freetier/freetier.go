@@ -132,8 +132,9 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 		SELECT count(*) FROM hosts
 		WHERE user_id = $1
 		AND state != $2
-		AND preprovisioned = false;
-	`, u.ID, host.StateOrphan).Scan(&count)
+		AND preprovisioned = $3
+		AND terminated_at IS NULL;
+	`, u.ID, host.StateOrphan, false).Scan(&count)
 	if err != nil {
 		return err
 	}
