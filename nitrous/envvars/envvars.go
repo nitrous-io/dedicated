@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kardianos/osext"
 	"github.com/nitrous-io/nitrous-common/must"
@@ -86,6 +87,9 @@ var (
 
 	// email blacklist
 	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
+
+	// Queue handler timeout
+	QueueHandlerTimeout = parseDurationWithDefault(os.Getenv("QUEUE_HANDLER_TIMEOUT"), 5*time.Minute)
 )
 
 func init() {
@@ -106,6 +110,16 @@ func parseBoolWithDefault(s string, def bool) bool {
 func parseInt64(s string) int64 {
 	i, _ := strconv.ParseInt(s, 10, 64)
 	return i
+}
+
+func parseDurationWithDefault(s string, def time.Duration) time.Duration {
+	var t time.Duration
+	t, err := time.ParseDuration(os.Getenv("QUEUE_HANDLER_TIMEOUT"))
+	if err != nil {
+		return def
+	}
+
+	return t
 }
 
 func CheckCA() {

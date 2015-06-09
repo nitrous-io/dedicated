@@ -18,6 +18,7 @@ type QueuePublisher struct {
 
 type QueueConsumer struct {
 	*redismq.Consumer
+	handlerTimeout time.Duration
 }
 
 type Message struct {
@@ -54,7 +55,9 @@ func (a Action) IsA(actionName string) bool {
 
 type queueHandler func(*QueueConsumer, *Message) error
 
-var queueRoutes map[string]queueHandler
+var (
+	queueRoutes map[string]queueHandler
+)
 
 func init() {
 	queueRoutes = map[string]queueHandler{}
@@ -176,6 +179,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	go func() {
 		var last_error error
 		for {
+			log.Printf("waiting for consuming next message from (%s) queue", queueName)
 			m, err := qc.Consume()
 			if err != nil {
 				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v\n", queueName, err)
@@ -199,6 +203,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		}
 	}()
 
+	finished := make(chan bool)
 	for {
 		select {
 		case c := <-stop:
@@ -206,15 +211,27 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			stop <- c
 			return nil
 		case m := <-msg:
-			err := queueRoutes[queueName](qc, m)
-			if err != nil {
-				log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
-				m.Fail()
-			} else {
-				err := m.Ack(1 * time.Second)
+			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
+			go func() {
+				err := queueRoutes[queueName](qc, m)
 				if err != nil {
-					log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					m.Fail()
+				} else {
+					err := m.Ack(1 * time.Second)
+					if err != nil {
+						log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
+					}
 				}
+				finished <- true
+			}()
+
+			select {
+			case <-finished:
+				log.Printf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+			case <-time.After(qc.handlerTimeout):
+				log.Printf("[ERROR] uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				m.Fail()
 			}
 			msg <- m
 		}
@@ -223,7 +240,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	return nil
 }
 
-func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}) error {
+func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}, queueHandlerTimeout time.Duration) error {
 	var qc *QueueConsumer
 	var err error
 
@@ -235,7 +252,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			return nil
 		default:
 			queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
-			qc, err = CreateConsumer(queue, queueName)
+			qc, err = CreateConsumer(queue, queueName, queueHandlerTimeout)
 			if err == nil {
 				queueRoutes[queueName] = handler
 				return qc.Start(stop)
@@ -251,7 +268,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	}
 }
 
-func CreateConsumer(queue *redismq.Queue, queueName string) (*QueueConsumer, error) {
+func CreateConsumer(queue *redismq.Queue, queueName string, queueHandlerTimeout time.Duration) (*QueueConsumer, error) {
 	c, err := queue.AddConsumer(queueName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
@@ -262,5 +279,5 @@ func CreateConsumer(queue *redismq.Queue, queueName string) (*QueueConsumer, err
 		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
 	}
 
-	return &QueueConsumer{Consumer: c}, nil
+	return &QueueConsumer{Consumer: c, handlerTimeout: queueHandlerTimeout}, nil
 }
