@@ -28,27 +28,22 @@ var HostbuilderClient = provisioner.HostbuilderClient
 
 func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
 	origState := h.State
-	h.State = host.StateStopping
+	if ev == nil {
+		ev = func(ev EventType) {}
+	}
 
-	tx, err := db.Beginx()
+	err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.UpdateState(tx, host.StateStopping); err != nil {
+			return err
+		}
+
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID)
+	})
 	if err != nil {
 		return err
 	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 
-	if ev != nil {
-		ev(EventHostStopping)
-	}
+	ev(EventHostStopping)
 
 	urlArgs := host.URLArgsFromHost(h)
 	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
@@ -58,50 +53,34 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := db.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
-			tx.Rollback()
-			l.Errorf("hosts.Stop: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
+			if err := h.UpdateState(tx, origState); err != nil {
+				return err
+			}
+
+			return hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID)
+		})
+		if e2 != nil {
+			l.Errorf("hosts.Stop: Failed to restore original host state: %v", err)
 		}
 
-		if ev != nil {
-			ev(EventHostUpdated)
-		}
+		ev(EventHostUpdated)
 		return stopErr
 	}
 
-	h.State = host.StateStopped
+	// stop success
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.UpdateState(tx, host.StateStopped); err != nil {
+			return err
+		}
 
-	tx, err = db.Beginx()
+		return hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID)
+	})
 	if err != nil {
 		return err
 	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 
-	if ev != nil {
-		ev(EventHostStopped)
-	}
+	ev(EventHostStopped)
 	return nil
 }
 
