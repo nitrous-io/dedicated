@@ -32,8 +32,9 @@ type Host struct {
 
 	LastRunningAt *time.Time `json:"last_running_at,omitempty"`
 	LastPingedAt  *time.Time `json:"last_pinged_at,omitempty"`
+	AutoShutdown  bool       `json:"auto_shutdown"`
 
-	TimeRemaining *int64 `json:"time_remaining,omitempty"`
+	TimeRemaining int64 `json:"time_remaining,omitempty"`
 
 	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
 	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
@@ -66,6 +67,7 @@ func SerializeHost(h *host.Host) *Host {
 		CreatedAt:             h.CreatedAt,
 		UpdatedAt:             h.UpdatedAt,
 		TerminatedAt:          h.TerminatedAt,
+		AutoShutdown:          h.AutoShutdown,
 		LiveDockerVersion:     h.LiveDockerVersion,
 		LiveFreighterdVersion: h.LiveFreighterdVersion,
 		UpgradeAvailable:      h.UpgradeAvailable,
@@ -97,8 +99,7 @@ func SerializeHostWithUser(h *host.Host, u *user.User) *Host {
 	}
 
 	stopsAt := serialized.LastRunningAt.Add(time.Duration(u.MaxRunningTime.Int64) * time.Second)
-	timeRemaining := (int64(stopsAt.Sub(time.Now())/time.Second) - 1) // adjust for latency
-	serialized.TimeRemaining = &timeRemaining
+	serialized.TimeRemaining = (int64(stopsAt.Sub(time.Now())/time.Second) - 1) // adjust for latency
 
 	return serialized
 }

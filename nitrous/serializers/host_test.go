@@ -23,6 +23,7 @@ var _ = Describe("host serializer", func() {
 
 		model *host.Host
 	)
+
 	BeforeEach(func() {
 		model = &host.Host{
 			ID:                    10,
@@ -44,6 +45,7 @@ var _ = Describe("host serializer", func() {
 			CreatedAt:             &createdAt,
 			UpdatedAt:             &updatedAt,
 			LastPingedAt:          pq.NullTime{lastPingedAt, true},
+			AutoShutdown:          true,
 			LiveDockerVersion:     "1.2-docker",
 			LiveFreighterdVersion: "2.3-freighterd",
 			UpgradeAvailable:      host.UpgradeAvailableHard,
@@ -75,6 +77,7 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -109,6 +112,7 @@ var _ = Describe("host serializer", func() {
 				"created_at": "2013-11-04T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -144,6 +148,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -175,6 +180,7 @@ var _ = Describe("host serializer", func() {
 				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -218,6 +224,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -232,7 +239,7 @@ var _ = Describe("host serializer", func() {
 				MaxRunningTime: sql.NullInt64{3600, true},
 			}
 			ser := serializers.SerializeHostWithUser(model, u)
-			Expect(*ser.TimeRemaining).To(BeNumerically("~", int64(3599), 1.00))
+			Expect(ser.TimeRemaining).To(BeNumerically("~", int64(3599), 1.00))
 		})
 	})
 
@@ -266,6 +273,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -304,6 +312,7 @@ var _ = Describe("host serializer", func() {
 				"updated_at": "2013-11-02T00:00:00Z",
 				"last_running_at": "2013-11-08T00:00:00Z",
 				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
 				"live_docker_version": "1.2-docker",
 				"live_freighterd_version": "2.3-freighterd",
 				"upgrade_available": "hard",
@@ -318,7 +327,7 @@ var _ = Describe("host serializer", func() {
 				MaxRunningTime: sql.NullInt64{3600, true},
 			}
 			ser := serializers.SerializeHostsWithUser([]host.Host{*model}, u)
-			Expect(*ser[0].TimeRemaining).To(BeNumerically("~", int64(3599), 1.00))
+			Expect(ser[0].TimeRemaining).To(BeNumerically("~", int64(3599), 1.00))
 		})
 	})
 })
