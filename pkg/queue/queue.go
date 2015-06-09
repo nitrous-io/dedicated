@@ -234,7 +234,8 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			stop <- c
 			return nil
 		default:
-			qc, err = CreateConsumer(redisHost, redisPort, redisDB, queueName)
+			queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
+			qc, err = CreateConsumer(queue, queueName)
 			if err == nil {
 				queueRoutes[queueName] = handler
 				return qc.Start(stop)
@@ -250,8 +251,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	}
 }
 
-func CreateConsumer(redisHost, redisPort string, redisDB int64, queueName string) (*QueueConsumer, error) {
-	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
+func CreateConsumer(queue *redismq.Queue, queueName string) (*QueueConsumer, error) {
 	c, err := queue.AddConsumer(queueName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)

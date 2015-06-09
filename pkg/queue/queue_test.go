@@ -13,6 +13,7 @@ import (
 
 	"gopkg.in/redis.v2"
 
+	"github.com/adjust/redismq"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 	"github.com/nitrous-io/dedicated/test"
@@ -193,7 +194,8 @@ var _ = Describe("pkg/queue", func() {
 		var err error
 
 		BeforeEach(func() {
-			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test")
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
@@ -235,7 +237,8 @@ var _ = Describe("pkg/queue", func() {
 		var msg *queue.Message
 
 		BeforeEach(func() {
-			qc, err = queue.CreateConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test")
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
