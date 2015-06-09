@@ -17,8 +17,6 @@ App.User = klass = App.Model.extend
   phone: attr()
   phoneCountryCode: attr(as: 'phone_country_code')
   phoneAuthed: attr('boolean', as: 'phone_authed', serialize: false)
-  maxRunningTime: attr('number', as: 'max_running_time', serialize: false)
-  refreshPeriod: attr('number', as: 'refresh_period', serialize: false)
 
   # used for sideloading the records, should not access directly
   # instead use `App.userProfile` and `App.billingProfile`.
