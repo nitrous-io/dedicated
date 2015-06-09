@@ -52,12 +52,12 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 	return routeData{mw: mw, track: track, label: label}
 }
 
-// drawRouteData draw the route with `routeJSON`.
+// drawRouteData draw the route with `route`.
 // if `auth` is set then we setup the auth middleware for it
 // if `track` for a route is set then we setup the track middleware for it
 func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
 	for path, r := range routes {
-		s.routeJSON(path, chainMiddleware(auth, r), method)
+		s.route(path, routeStrictJSON, chainMiddleware(auth, r), method)
 	}
 }
 
@@ -74,16 +74,16 @@ func chainMiddleware(auth bool, r routeData) mw.Middleware {
 }
 
 func (s *Server) drawRoutes() {
-	s.route("/", mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", mw.Call("github.OAuthCb", github.OAuthCb), "GET")
+	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), "GET")
+	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCb", github.OAuthCb), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {
-		s.route("/events", mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
-		s.route("/oauth/authorize", chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
+		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
+		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
@@ -236,7 +236,7 @@ func (s *Server) drawRoutes() {
 			for path, r := range routes {
 				final := mw.Call("nitrous."+r.label, r.mw)
 				final = mw.VerifyTrust(final)
-				s.routeJSON(path, final, method)
+				s.route(path, routeStrictJSON, final, method)
 			}
 		}
 
@@ -251,7 +251,7 @@ func (s *Server) drawRoutes() {
 			for path, r := range routes {
 				final := mw.Call("nitrous."+r.label, r.mw)
 				final = mw.VerifyTrust(final)
-				s.route(path, final, method)
+				s.route(path, routeWritesResponse, final, method)
 			}
 		}
 	})
