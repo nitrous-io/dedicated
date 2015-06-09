@@ -127,17 +127,15 @@
 .card-footer.bordered
   if isRunning
     .left
+      if canSafeStop
+        button.ui.btn click='restart' Restart
+        button.ui.btn click='stop' Stop
+      else
+        button.ui.btn click='showRestartDialog target="view"' Restart
+        button.ui.btn click='showStopDialog target="view"' Stop
+    .right
       if App.billingProfile.free
         button.ui.btn click='upgradePaid' Upgrade
-        button.ui.btn click='showTerminateDialog target="view"' Terminate...
-      else
-        if canSafeStop
-          button.ui.btn click='restart' Restart
-          button.ui.btn click='stop' Stop
-        else
-          button.ui.btn click='showRestartDialog target="view"' Restart
-          button.ui.btn click='showStopDialog target="view"' Stop
-    .right
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
 
   else
