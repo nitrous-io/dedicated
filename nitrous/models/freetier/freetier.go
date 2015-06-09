@@ -17,6 +17,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
+const IdleHostTimeout = 3000 * 60 * time.Second
+
 var (
 	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
 	ErrPaidPlanNotAllowed = errors.New("free tier user is not allowed to create a paid workspace")
@@ -274,6 +276,19 @@ func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
 
 	hosts := []*host.Host{}
 	err := d.Select(&hosts, query, billingprofile.StateFree, host.StateRunning)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
+	hosts := []*host.Host{}
+	cutoff := time.Now().Add(-IdleHostTimeout)
+	err := d.Select(&hosts, `SELECT * FROM hosts
+		WHERE auto_shutdown = $1 AND state = $2 AND last_pinged_at < $3 AND terminated_at IS NULL
+		ORDER BY last_pinged_at ASC
+	`, true, host.StateRunning, cutoff)
 	if err != nil {
 		return nil, err
 	}

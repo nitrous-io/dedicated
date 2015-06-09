@@ -619,4 +619,133 @@ var _ = Describe("models/freetier", func() {
 			})
 		})
 	})
+
+	Describe("IdleFreeHosts()", func() {
+		var (
+			h1, h2, h3, h4, h5, h6, h7, h8 *host.Host
+			t1, t2, t3, t4                 time.Time
+		)
+
+		BeforeEach(func() {
+			t1 = time.Now()
+			t2 = t1.Add(-freetier.IdleHostTimeout)
+			t3 = t2.Add(1 * time.Minute)
+			t4 = t2.Add(-1 * time.Minute)
+
+			h1 = &host.Host{
+				Slug:         "my-host-1",
+				State:        host.StateRunning,
+				LastPingedAt: pq.NullTime{Valid: false},
+				AutoShutdown: false,
+			}
+
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				H: h1,
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			h2 = &host.Host{
+				Slug:               "my-host-2",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t1, true},
+				AutoShutdown:       false,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h2.Insert(db)).To(BeNil())
+
+			h3 = &host.Host{
+				Slug:               "my-host-3",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t1, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h3.Insert(db)).To(BeNil())
+
+			h4 = &host.Host{
+				Slug:               "my-host-4",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h4.Insert(db)).To(BeNil())
+
+			h5 = &host.Host{
+				Slug:               "my-host-5",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h5.Insert(db)).To(BeNil())
+
+			h6 = &host.Host{
+				Slug:               "my-host-6",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       false,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h6.Insert(db)).To(BeNil())
+
+			h7 = &host.Host{
+				Slug:               "my-host-7",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t3, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h7.Insert(db)).To(BeNil())
+
+			h8 = &host.Host{
+				Slug:               "my-host-8",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t4, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h8.Insert(db)).To(BeNil())
+		})
+
+		It("returns a list of idle hosts that are eligible for auto shutdown", func() {
+			res, err := freetier.IdleFreeHosts(db)
+			Expect(err).To(BeNil())
+			Expect(res).To(HaveLen(2))
+			Expect([]int64{res[0].ID, res[1].ID}).To(Equal([]int64{h8.ID, h4.ID}))
+		})
+
+		Context("when db query fails with error", func() {
+			BeforeEach(func() {
+				db.Close()
+			})
+
+			It("returns error", func() {
+				_, err := freetier.IdleFreeHosts(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
 })

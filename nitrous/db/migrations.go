@@ -1348,5 +1348,14 @@ func init() {
 				ALTER TABLE plans ADD COLUMN hidden bool DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "1330",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+				CREATE INDEX index_hosts_on_auto_shutdown ON hosts USING btree (auto_shutdown);
+				CREATE INDEX index_hosts_on_auto_shutdown_state_and_last_pinged_at
+				  ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
+			`,
+		},
 	}
 }
