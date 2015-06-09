@@ -82,7 +82,9 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
   actions:
     close: ->
       @set 'hidden', true
-      @get('editor')?.clearSearch()
+      return unless editor = @get('editor')
+      editor.clearSearch()
+      editor.focus()
 
     findNext: ->
       @find(false)

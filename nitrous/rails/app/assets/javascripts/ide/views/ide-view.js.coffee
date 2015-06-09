@@ -5,8 +5,6 @@ App.IdeView = Em.View.extend
   willInsertElement: ->
     @_super()
     $('html').addClass 'ide'
-    $(window).bind 'focus.ideView', ->
-      App.get('router.ideEditorController').focusActiveTab()
 
     # prevent accidental backspacing
     $(window).bind 'keydown.ideView', (e) ->
@@ -25,5 +23,4 @@ App.IdeView = Em.View.extend
   willDestroyElement: ->
     @_super()
     $('html').removeClass 'ide'
-    $(window).unbind 'focus.ideView'
     $(window).unbind 'keydown.ideView'

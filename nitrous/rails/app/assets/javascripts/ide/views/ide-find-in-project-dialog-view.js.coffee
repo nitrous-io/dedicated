@@ -5,6 +5,10 @@ App.IdeFindInProjectDialogView = App.IdeModalDialogView.extend
 
   termFieldInvalid: Em.computed.equal('controller.invalidField', 'term')
 
+  viewDidDisappear: ->
+    @_super()
+    @get('controller.controllers.ideEditor.activeTab')?.set 'focused', true
+
   keyDown: (e) ->
     switch e.which
       when 13 # Enter
