@@ -242,12 +242,10 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	origState := h.State
 	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		err = h.UpdateState(tx, host.StateStarting)
-		if err != nil {
+		if err := h.UpdateState(tx, host.StateStarting); err != nil {
 			if err == host.ErrUpdateFailed {
 				return errHostLocked
 			}
-
 			return err
 		}
 
@@ -269,11 +267,9 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
-			err = h.UpdateState(tx, origState)
-			if err != nil {
+			if err = h.UpdateState(tx, origState); err != nil {
 				return err
 			}
-
 			return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
 		})
 		if e2 != nil {
@@ -289,8 +285,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		h.State = host.StateRunning
 		h.IPAddress = sql.NullString{info.IPAddress, true}
 		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
-		err := h.Update(tx)
-		if err != nil {
+
+		if err := h.Update(tx); err != nil {
 			return err
 		}
 
@@ -360,12 +356,12 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
+	db := env.DB
 
+	canStop, err := freetier.StopHostAllowed(db, env.User)
 	if err != nil {
 		return err
 	}
-
 	if !canStop {
 		return errRestartingNotAllowed
 	}
@@ -375,7 +371,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errHostRestartInvalidState
 	}
 
-	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	cns, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
 		return err
 	}
@@ -388,23 +384,21 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	h.State = host.StateRestarting
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		err = h.UpdateState(tx, host.StateRestarting)
+		if err != nil {
+			if err == host.ErrUpdateFailed {
+				return errHostLocked
+			}
+			return err
+		}
 
-	tx, err := env.DB.Beginx()
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
+	})
 	if err != nil {
 		return err
 	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+
 	PublishHostEvent(env, controllers.EventHostRestarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
@@ -416,47 +410,35 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := env.DB.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
+			if err := h.UpdateState(tx, origState); err != nil {
+				return err
+			}
+
+			return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
+		})
+		if e2 != nil {
+			env.Logger.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
-	h.State = host.StateRunning
-	h.IPAddress = sql.NullString{info.IPAddress, true}
-	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+	// Success restart
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		h.State = host.StateRunning
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	tx, err = env.DB.Beginx()
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+
+		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
+	})
 	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
+		env.Logger.Errorf("hosts.Restart: failed to update to new host state: %v", err)
 		return err
 	}
 
@@ -466,6 +448,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 			PublishContainerStopped(env, cn)
 		}
 	}
+
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
