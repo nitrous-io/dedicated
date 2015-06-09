@@ -8,7 +8,6 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -210,31 +209,6 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 	}
 
 	return nil
-}
-
-func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
-	// query for hosts where their owners have limits and the hosts have exceeded these limits
-	query := `SELECT hosts.*, pt.provider, pt.config
-    FROM hosts
-    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-    INNER JOIN users ON hosts.user_id = users.id
-    INNER JOIN billing_profiles bp ON bp.user_id = users.id
-    WHERE
-    	last_running_at IS NOT NULL
-    	AND terminated_at IS NULL
-    	AND preprovisioned IS FALSE
-    	AND bp.state = $1
-    	AND hosts.state = $2
-    	AND users.max_running_time IS NOT NULL
-    	AND users.refresh_period IS NOT NULL
-    	AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
-
-	hosts := []*host.Host{}
-	err := d.Select(&hosts, query, billingprofile.StateFree, host.StateRunning)
-	if err != nil {
-		return nil, err
-	}
-	return hosts, nil
 }
 
 func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
