@@ -1,7 +1,6 @@
 package containers
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -16,10 +15,9 @@ import (
 
 type HostWithUser struct {
 	host.Host
-	UserUsername   string        `db:"user_username"`
-	UserName       string        `db:"user_name"`
-	GravatarHash   string        `db:"user_hash"`
-	MaxRunningTime sql.NullInt64 `db:"max_running_time"`
+	UserUsername string `db:"user_username"`
+	UserName     string `db:"user_name"`
+	GravatarHash string `db:"user_hash"`
 }
 
 type HostUserContainerResult struct {

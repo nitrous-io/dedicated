@@ -102,9 +102,6 @@ var _ = Describe("controllers/hosts", func() {
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
 
-		_, err = db.Exec(`UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;`, u.ID)
-		Expect(err).To(BeNil())
-
 		t = &token.Token{
 			UserID: u.ID,
 			Token:  "valid-token",
@@ -235,26 +232,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Hosts[1].State).To(Equal(host.StateRunning))
 				Expect(j.Hosts[1].Hostname).To(Equal(hostname("bar")))
 				Expect(j.Hosts[1].CreatedAt).NotTo(BeNil())
-			})
-
-			It("should include time remaining for the user", func() {
-				_, err := db.Exec(`UPDATE users SET max_running_time = 7200, refresh_period = 84600 WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE hosts SET last_running_at = now() WHERE id = $1;`, hs2.H.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-
-				Expect(res.Code).To(Equal(http.StatusOK))
-				var j struct {
-					Hosts []*serializers.Host `json:"hosts"`
-				}
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.Hosts[0].TimeRemaining).To(BeNil())
-				Expect(j.Hosts[1].TimeRemaining).NotTo(BeNil())
 			})
 		})
 
