@@ -55,7 +55,6 @@ var (
 var HostbuilderClient = provisioner.HostbuilderClient
 var defaultProvider string
 var aesKey string
-var fv, dv string
 
 func init() {
 	aesKey = envvars.AESKey
@@ -66,16 +65,6 @@ func init() {
 	defaultProvider = envvars.DefaultProvider
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
-	}
-
-	fv := envvars.FreighterdVersion
-	if fv == "" {
-		panic("FREIGHTERD_VERSION is not set")
-	}
-
-	dv := envvars.DockerVersion
-	if dv == "" {
-		panic("DOCKER_VERSION is not set")
 	}
 }
 
