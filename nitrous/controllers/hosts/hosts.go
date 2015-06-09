@@ -45,7 +45,8 @@ var (
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
-	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
+	errMultipleRequests         = httperror.New(http.StatusConflict, "workspace_locked", "another workspace creation request is currently being processed")
+	errHostLocked               = httperror.New(http.StatusConflict, "host_locked", "host is locked for another request")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
@@ -227,6 +228,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
+	logger := env.Logger
 
 	err := freetier.StartHostAllowed(db, env.User, h)
 	if err != nil {
@@ -239,23 +241,22 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	origState := h.State
-	h.State = host.StateStarting
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		err = h.UpdateState(tx, host.StateStarting)
+		if err != nil {
+			if err == host.ErrUpdateFailed {
+				return errHostLocked
+			}
 
-	tx, err := env.DB.Beginx()
+			return err
+		}
+
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
+	})
 	if err != nil {
 		return err
 	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+
 	PublishHostEvent(env, controllers.EventHostStarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
@@ -267,44 +268,36 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := db.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
+		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
+			err = h.UpdateState(tx, origState)
+			if err != nil {
+				return err
+			}
+
+			return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
+		})
+		if e2 != nil {
+			logger.Errorf("fail to restore host to original state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
 		return err
 	}
 
-	h.State = host.StateRunning
-	h.IPAddress = sql.NullString{info.IPAddress, true}
-	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+	// Start successful
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		h.State = host.StateRunning
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+		err := h.Update(tx)
+		if err != nil {
+			return err
+		}
 
-	tx, err = db.Beginx()
+		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
+	})
 	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
+		logger.Errorf("hosts.Start: failed to update new host state: %v", err)
 		return err
 	}
 
