@@ -138,6 +138,7 @@ func main() {
 			HostQueueName,
 			svr.HostQueueHandler(),
 			svr.QueueStopCh,
+			envvars.QueueHandlerTimeout,
 		)
 	}
 

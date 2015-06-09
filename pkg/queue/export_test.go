@@ -2,10 +2,10 @@ package queue
 
 import "time"
 
-func SetConsumeTimeout(timeout time.Duration) {
-	consumeTimeout = timeout
+func (qc *QueueConsumer) SetHandlerTimeout(timeout time.Duration) {
+	qc.handlerTimeout = timeout
 }
 
-func GetConsumeTimeout() time.Duration {
-	return consumeTimeout
+func (qc *QueueConsumer) GetHandlerTimeout() time.Duration {
+	return qc.handlerTimeout
 }

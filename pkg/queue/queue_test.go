@@ -32,7 +32,7 @@ func init() {
 			redisClient.Set("test", "handler1")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 		log.Fatalf("queue1 failed to start %v", err)
 	})
 
@@ -46,7 +46,7 @@ func init() {
 			redisClient.Set("test", "handler2")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 		log.Fatalf("queue2 failed to start %v", err)
 	})
 
@@ -66,7 +66,7 @@ func init() {
 			return nil
 		}
 
-		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 
 		// sending SIGHUP will make the consumer processing the message
 		// sending SIGTERM will try to stop the consumer
@@ -90,7 +90,6 @@ func init() {
 	})
 
 	reexec.Register("queue-timeout", func() {
-		queue.SetConsumeTimeout(100 * time.Millisecond)
 		stop := make(chan struct{})
 		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
 			if m.UUID == "success" {
@@ -104,7 +103,7 @@ func init() {
 			}
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 100*time.Millisecond)
 		log.Fatalf("queue-timeout failed to start %v", err)
 	})
 
@@ -214,7 +213,7 @@ var _ = Describe("pkg/queue", func() {
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
@@ -257,7 +256,7 @@ var _ = Describe("pkg/queue", func() {
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
@@ -338,7 +337,7 @@ var _ = Describe("pkg/queue", func() {
 				return nil
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Second)
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
@@ -452,7 +451,7 @@ var _ = Describe("pkg/queue", func() {
 				}
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Minute)
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
