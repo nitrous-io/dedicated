@@ -25,25 +25,6 @@
             a href='/app/#/account'
               | Account Settings
           li.separator
-          if App.usage
-            li
-              span.usage
-                if App.usage.expired
-                  span
-                    i.fa.fa-exclamation-circle
-                    | Daily usage exceeded
-                  if App.usage.refreshIn
-                    span
-                      = durationInWords App.usage.refreshIn
-                      |  until reset
-                else
-                  span.left Usage left:
-                  span.right
-                    = durationInWords App.usage.remaining
-                  .progress-bar
-                    .progress-bar-inner style=App.usage.progressBarStyle
-
-            li.separator
           li
             a href='/app/#/logout'
               | Log Out

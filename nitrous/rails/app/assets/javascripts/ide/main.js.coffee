@@ -48,8 +48,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
   consoleMinimized: false
   fileTreeHidden: false
 
-  fiveMinWarned: false
-  oneMinWarned: false
   redirecting: false
 
   freighterdFeatures: null
@@ -101,90 +99,6 @@ window.NitrousIO = Em.Application.extend Em.Evented,
     slug = App.get 'slug'
     App.set 'title', "#{slug} · IDE"
   ).observes 'slug'
-
-  # thanks to http://www.rvdh.de/2014/11/14/time-based-triggers-in-ember-js/
-  currentTimeMetronome: (->
-    interval = 1000
-    Ember.run.later this, =>
-      this.notifyPropertyChange('currentTimePulse')
-      this.currentTimeMetronome()
-    , interval
-  ).on 'init'
-
-  usage: (->
-    if !@get('host') || !@get('user.free')
-      return
-
-    primaryHost = @get('host')
-    unless primaryHost && (expiresAt = @get('container.expiresAt'))
-      return
-
-    # if this is container shared by another user, don't apply usage restrictions
-    # that way free user accessing container shared by paid user won't be kicked out
-    user = @get('user')
-    if primaryHost.user_id != user.id
-      return
-
-    now = (new Date()).getTime()
-    maxRun = @get('user.maxRunningTime')
-    refreshPeriod = @get('user.refreshPeriod')
-
-    timeElapsed = maxRun - primaryHost.time_remaining
-    lastRunningAt = new Date(expiresAt.getTime() - maxRun*1000)
-    refreshAt = new Date(lastRunningAt.getTime() + refreshPeriod*1000)
-
-    remaining = (expiresAt - (new Date()))/1000
-    refreshIn = null
-    if (r = refreshAt.getTime()) < now
-      remaining = maxRun
-    else
-      refreshIn = (r - now)/1000
-
-    # correct for overruns or underuns
-    if remaining > maxRun
-      remaining = maxRun
-    else if remaining < 0
-      remaining = 0
-
-    expired = remaining == 0
-    percent = 0
-    if expired
-      percent = 100 - (((refreshPeriod - refreshIn) / refreshPeriod) * 100)
-    else
-      percent = ((remaining / maxRun) * 100)
-
-    return {
-      refreshIn: refreshIn,
-      remaining: remaining,
-      expired: expired,
-      progressBarStyle: "width: #{percent}%"
-    }
-  ).property 'currentTimePulse', 'container.expiresAt', 'user.maxRunningTime', 'user.refreshPeriod', 'user.free'
-
-  notifyUsageWarning: (->
-    return unless @get('host.state') == 'running'
-    return unless @get 'usage'
-    return if @get 'redirecting'
-    usage = @get 'usage'
-
-    if usage.remaining <= 0
-      $(window).unbind "beforeunload.ide"
-      @set 'redirecting', true
-      window.location.href = @get 'dashboardURL'
-
-    return if @get 'oneMinWarned'
-
-    if usage.remaining <= 60
-      App.snackbar.post 'Your workspace will be shutdown in less than a minute, please save your work.', sticky: true
-      @set 'oneMinWarned', true
-      return
-
-    return if @get 'fiveMinWarned'
-
-    if usage.remaining <= (5 * 60)
-      App.snackbar.post 'Your workspace will be shutdown in less than 5 minutes, please save your work.', sticky: true
-      @set 'fiveMinWarned', true
-  ).observes 'currentTimePulse', 'usage'
 
 window.App = NitrousIO.create
   token: window.localStorage.getItem('token')

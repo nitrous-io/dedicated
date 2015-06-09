@@ -18,9 +18,6 @@ App.User = klass = Em.Object.extend
     @get('billing_profile.state') == "free"
   ).property 'billing_profile.state'
 
-  maxRunningTimeBinding: 'max_running_time'
-  refreshPeriodBinding: 'refresh_period'
-
 klass.reopenClass
   fetch: ->
     promise = new Ember.RSVP.Promise (resolve, reject) =>
