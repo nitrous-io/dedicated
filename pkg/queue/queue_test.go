@@ -32,7 +32,7 @@ func init() {
 			redisClient.Set("test", "handler1")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 		log.Fatalf("queue1 failed to start %v", err)
 	})
 
@@ -46,7 +46,7 @@ func init() {
 			redisClient.Set("test", "handler2")
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 		log.Fatalf("queue2 failed to start %v", err)
 	})
 
@@ -66,7 +66,7 @@ func init() {
 			return nil
 		}
 
-		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop)
+		go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
 
 		// sending SIGHUP will make the consumer processing the message
 		// sending SIGTERM will try to stop the consumer
@@ -87,6 +87,24 @@ func init() {
 				os.Exit(0)
 			}
 		}
+	})
+
+	reexec.Register("queue-timeout", func() {
+		stop := make(chan struct{})
+		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			if m.UUID == "success" {
+				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+				if err != nil {
+					return err
+				}
+				redisClient.Set("test", m.UUID)
+			} else {
+				time.Sleep(5 * time.Second)
+			}
+			return nil
+		}
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 100*time.Millisecond)
+		log.Fatalf("queue-timeout failed to start %v", err)
 	})
 
 	// return if running in reexec mode, and the reexec func has already finished
@@ -195,7 +213,7 @@ var _ = Describe("pkg/queue", func() {
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
@@ -238,7 +256,7 @@ var _ = Describe("pkg/queue", func() {
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test")
+			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
@@ -319,7 +337,7 @@ var _ = Describe("pkg/queue", func() {
 				return nil
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Second)
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
@@ -425,7 +443,6 @@ var _ = Describe("pkg/queue", func() {
 			stopCh := make(chan struct{})
 
 			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
-				fmt.Println("HAHAAHH")
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
@@ -434,7 +451,7 @@ var _ = Describe("pkg/queue", func() {
 				}
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh)
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Minute)
 			time.Sleep(50 * time.Millisecond)
 
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
@@ -463,6 +480,41 @@ var _ = Describe("pkg/queue", func() {
 			case <-time.After(100 * time.Millisecond):
 				Fail("Timeout waiting for queue consumer to be down")
 			}
+		})
+
+		It("submits a timed out message to failed queue start consuming next message", func() {
+			q := reexec.Command("queue-timeout")
+			q.Stdout = os.Stdout
+			q.Stderr = os.Stderr
+
+			defer func() {
+				if q.Process != nil {
+					q.Process.Kill()
+				}
+			}()
+
+			// start queue
+			Expect(q.Start()).To(BeNil(), "queue-timeout cannot start")
+
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+
+			Expect(qp.GetFailedLength()).To(Equal(int64(0)))
+			err := qp.Publish(&queue.Message{
+				UUID: "1234",
+			})
+			Expect(err).To(BeNil())
+
+			// Wait until timing out
+			time.Sleep(1 * time.Second)
+			Expect(qp.GetFailedLength()).To(Equal(int64(1)))
+
+			// It still process next message
+			err = qp.Publish(&queue.Message{
+				UUID: "success",
+			})
+			Expect(err).To(BeNil())
+			time.Sleep(50 * time.Millisecond)
+			Expect(redisClient.Get("test").Val()).To(Equal("success"))
 		})
 	})
 })
