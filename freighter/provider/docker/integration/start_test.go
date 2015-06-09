@@ -87,4 +87,48 @@ var _ = Describe("Start", func() {
 		Expect(err).To(BeNil(), "failed to get binds")
 		Expect(binds).NotTo(ContainSubstring("backups"), "invalid host binds")
 	})
+
+	It("should expose the nitrous tools directory as a volume", func() {
+		if os.Getenv("IN_DOCKER") == "true" {
+			var err error
+
+			err = os.Mkdir("/opt/nitrous", 0700)
+			Expect(err).To(BeNil())
+
+			defer os.Remove("/opt/nitrous")
+
+			datadir := os.Getenv("FREIGHTERD_BASE")
+			if datadir == "" {
+				datadir, err = test.TempDir()
+				Expect(err).To(BeNil())
+			}
+
+			config := `{
+			  "Mounts": ["dotfiles:/etc/dotfiles","backups"],
+			  "PortBindings": ["private:65000:3000", "public:9999:9999"]
+			}`
+			prov, info, cleanupFn, err := startContainerWithData("busybox", datadir, config)
+			defer cleanupFn()
+			Expect(err).To(BeNil())
+
+			_, err = prov.Stop(info.ID)
+			Expect(err).To(BeNil(), "failed to stop %s", info.ID)
+
+			config = `{
+			"Mounts": ["dotfiles:/etc/dotfiles","restores"],
+			"PortBindings": ["private:6000:3000", "public:65000:9999"]
+			}`
+			_, err = prov.Start(info.ID, config)
+			Expect(err).To(BeNil(), "failed to start %s", info.ID)
+
+			assertVolumes(info.ID, map[string]string{
+				"/etc/dotfiles":     filepath.Join(datadir, "volumes", "dotfiles"),
+				"/volumes/restores": filepath.Join(datadir, "volumes", "restores"),
+				"/nitrous/ssh":      filepath.Join(datadir, "containers", info.Name, "ssh"),
+				"/.nitrous":         "/opt/nitrous",
+			}, nil)
+		} else {
+			fmt.Fprintln(GinkgoWriter, "Test is disabled while outside Docker")
+		}
+	})
 })

@@ -38,6 +38,11 @@ const (
 	nitrousSSHFilepath  = "/nitrous/ssh"
 )
 
+var (
+	nitrousToolsHostPath      = "/opt/nitrous"
+	nitrousToolsContainerPath = "/.nitrous"
+)
+
 var preservedEnvVars = []string{nitrousEnvImage, nitrousEnvUser}
 
 const defaultDockerRegistry = "index.docker.io"

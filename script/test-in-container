@@ -29,12 +29,14 @@ else
 		docker run \
 			--privileged=true \
 			--rm \
+			--env IN_DOCKER=true \
 			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
 	else
 		docker run \
 			--privileged=true \
 			--rm \
 			--volume "$DOCKER_BIN":/usr/bin/docker \
+			--env IN_DOCKER=true \
 			nitrousio/dedicated-dev:latest /bin/bash -c "./script/test $APP $SUITE"
 	fi
 fi
