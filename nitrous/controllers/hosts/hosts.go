@@ -21,7 +21,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -47,8 +46,6 @@ var (
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
-	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
-	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
@@ -231,17 +228,6 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
-
-	err := freetier.StartHostAllowed(db, env.User, h)
-	if err != nil {
-		switch err {
-		case freetier.ErrFreeTimeLimitExceeded:
-			return errFreeTimeLimitExceeded
-		default:
-			return err
-		}
-	}
-
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -318,16 +304,6 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
-
-	if err != nil {
-		return err
-	}
-
-	if !canStop {
-		return errStoppingNotAllowed
-	}
-
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostStopInvalidState
@@ -371,16 +347,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
-
-	if err != nil {
-		return err
-	}
-
-	if !canStop {
-		return errRestartingNotAllowed
-	}
-
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState

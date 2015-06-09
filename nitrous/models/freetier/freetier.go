@@ -173,52 +173,6 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 	return nil
 }
 
-func StopHostAllowed(d *db.Database, u *user.User) (bool, error) {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return false, err
-	}
-
-	return !bp.IsFreeTier(), nil
-}
-
-func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return err
-	}
-
-	if !bp.IsFreeTier() {
-		return nil
-	}
-
-	if !u.MaxRunningTime.Valid || !u.RefreshPeriod.Valid {
-		return nil
-	}
-
-	if !h.LastRunningAt.Valid {
-		return ErrLastRunningAtInvalid
-	}
-
-	lastTime := h.LastRunningAt.Time
-
-	now := time.Now().UTC()
-
-	// if the host was last running outside of the refresh period then the host can be started again
-	// regardless of the quota they have used (because the quota has been reset because we are in a new period)
-	refreshPeriod := lastTime.Add(time.Duration(u.RefreshPeriod.Int64) * time.Second)
-	if refreshPeriod.Before(now) {
-		return nil
-	}
-
-	used := int64(now.Sub(lastTime) / time.Second)
-	if used >= u.MaxRunningTime.Int64 {
-		return ErrFreeTimeLimitExceeded
-	}
-
-	return nil
-}
-
 func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
 	// query for hosts where their owners have limits and the hosts have exceeded these limits
 	query := `SELECT hosts.*, pt.provider, pt.config

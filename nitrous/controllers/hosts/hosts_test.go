@@ -21,7 +21,6 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -1466,19 +1465,6 @@ var _ = Describe("controllers/hosts", func() {
 			tok = t
 		})
 
-		It("should not allow the host to be stopped if the user is in the free tier", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, nil)
-
-			Expect(res.Code).To(Equal(http.StatusForbidden))
-
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(Equal("users in the free tier cannot stop a host"))
-		})
-
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
@@ -2011,19 +1997,6 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
-		})
-
-		It("should not allow the host to be restarted if the user is in the free tier", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, t.Token, nil)
-
-			Expect(res.Code).To(Equal(http.StatusForbidden))
-
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(Equal("users in the free tier cannot restart a host"))
 		})
 
 		It("should send the UUID headers", func() {
