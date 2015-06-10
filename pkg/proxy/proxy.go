@@ -11,10 +11,24 @@ import (
 	"net/http/httputil"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
 var HTTPFlushInterval = 100 * time.Millisecond
+
+// per https://code.google.com/p/go/issues/detail?id=9092
+// "And don't create more than one transport. Or if you want its cached idle
+// connections to go away, call CloseIdleConnections on it."
+// We cannot call CloseIdleConnections because websocket connections are
+// detected as idle.  Instead, we set the max idle connections to one per
+// transport, and reuse transports.
+// There is no eviction -- this map persists in-memory till process dies.
+var (
+	// maps "%s-%s" (ip address, host server name) to custom transport
+	hostTransportMap     = map[string]*customTransport{}
+	hostTransportMapLock sync.Mutex
+)
 
 func IsWebsocket(r *http.Request) bool {
 	return headerContainsValue(r.Header, "Upgrade", "websocket") &&
@@ -65,6 +79,21 @@ func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // when we cant perform a roundtrip request to the server ( for example, the
 // remote server is not running )
 func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *http.Response, err error)) http.HandlerFunc {
+	hostTransportMapLock.Lock()
+	k := addr
+	if tlsConfig != nil {
+		k = fmt.Sprintf("%s-%s", addr, tlsConfig.ServerName)
+	}
+	t, ok := hostTransportMap[k]
+	if !ok {
+		t = &customTransport{
+			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig, MaxIdleConnsPerHost: 1},
+			errorFunc:    transportErrorFn,
+		}
+		hostTransportMap[k] = t
+	}
+	hostTransportMapLock.Unlock()
+
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
@@ -75,10 +104,7 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport: &customTransport{
-			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
-			errorFunc:    transportErrorFn,
-		},
+		Transport:     t,
 		FlushInterval: HTTPFlushInterval,
 	}
 	return p.ServeHTTP
