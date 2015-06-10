@@ -31,7 +31,7 @@ var _ = Describe("HostQueueHandler", func() {
 		qp          *queue.QueuePublisher
 		qc          *queue.QueueConsumer
 		db          *db.Database
-		handler     func(qc *queue.QueueConsumer, m *queue.Message) error
+		handler     func(m *queue.Message) error
 		h           *host.Host
 		u           *user.User
 		svr         *server.Server
@@ -107,7 +107,7 @@ var _ = Describe("HostQueueHandler", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			err := handler(qc, message)
+			err := handler(message)
 			Expect(err).To(BeNil())
 
 			evtCh := make(chan *controllers.Event)
@@ -168,7 +168,7 @@ var _ = Describe("HostQueueHandler", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			err := handler(qc, message)
+			err := handler(message)
 			Expect(err).To(BeNil())
 
 			evtCh := make(chan *controllers.Event)
@@ -197,7 +197,7 @@ var _ = Describe("HostQueueHandler", func() {
 		})
 
 		It("updates the host", func() {
-			err := handler(qc, message)
+			err := handler(message)
 			Expect(err).To(BeNil())
 
 			updatedHost, err := host.Find(db, u, h.Slug)
@@ -223,7 +223,7 @@ var _ = Describe("HostQueueHandler", func() {
 			err := h.UpdateWithPrice(db)
 			Expect(err).To(BeNil())
 
-			err = handler(qc, message)
+			err = handler(message)
 			Expect(err).To(BeNil())
 
 			updatedHost, err := host.Find(db, u, h.Slug)
@@ -271,7 +271,7 @@ var _ = Describe("HostQueueHandler", func() {
 		})
 
 		It("sets the host as an orphan", func() {
-			err := handler(qc, message)
+			err := handler(message)
 			Expect(err).To(BeNil())
 
 			updatedHost, err := host.Find(db, u, h.Slug)
@@ -284,7 +284,7 @@ var _ = Describe("HostQueueHandler", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			err := handler(qc, message)
+			err := handler(message)
 			Expect(err).To(BeNil())
 
 			evtCh := make(chan *controllers.Event)

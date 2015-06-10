@@ -54,7 +54,7 @@ func (a Action) IsA(actionName string) bool {
 	return a.String() == actionName
 }
 
-type queueHandler func(*QueueConsumer, *Message) error
+type queueHandler func(*Message) error
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) *QueuePublisher {
 	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
@@ -206,7 +206,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		case m := <-msg:
 			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
 			go func() {
-				err := qc.handler(qc, m)
+				err := qc.handler(m)
 				if err != nil {
 					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 					m.Fail()
