@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -137,7 +136,7 @@ var _ = Describe("controllers/containers", func() {
 					Expect(h.State).To(Equal(host.StateRunning))
 					handlerCalled = true
 					return nil
-				}, allowCollab)
+				}, allowCollab, false)
 				err := mw(env, w, r)
 				if err != nil {
 					svr.HandleError(w, r, err)
@@ -1268,13 +1267,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 				Expect(*des.Container).To(Equal(*createResult.Container))
 			})
-
-			It("updates host's last_pinged_at", func() {
-				// host's last_pinged_at should be updated
-				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-				Expect(err).To(BeNil())
-				Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
-			})
 		})
 
 		It("should return a error information if provided", func() {
@@ -1371,14 +1363,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.FreighterID).To(Equal("1a"))
 			Expect(i.Slug).To(Equal("elixir-staging"))
 			Expect(i.Tag).To(Equal("latest"))
-		})
-
-		It("updates host's last_pinged_at", func() {
-			doRequest("elixir-staging")
-
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("returns image and container on success", func() {
@@ -1860,14 +1844,6 @@ var _ = Describe("controllers/containers", func() {
 			MarkDelinquentUser(db, u)
 			doRequest("elixir-web-1")
 			VerifyDelinquentUserResponse(res)
-		})
-
-		It("updates host's last_pinged_at", func() {
-			doRequest("elixir-web-1")
-
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("calls the Freighter client to perform the control action", func() {
@@ -2851,13 +2827,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 		})
 
-		It("updates host's last_pinged_at", func() {
-			doRequest()
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
-		})
-
 		It("should block if the user has billing issues", func() {
 			MarkDelinquentUser(db, u)
 			doRequest()
@@ -3272,14 +3241,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.UserID).To(Equal(u.ID))
 			Expect(cn.HostID).To(Equal(hs.H.ID))
-		})
-
-		It("updates host's last_pinged_at", func() {
-			doRequest(testParams)
-
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("updates container record", func() {

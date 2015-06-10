@@ -230,10 +230,6 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	db := env.DB
 
-	if err := h.Ping(db); err != nil {
-		return err
-	}
-
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -315,10 +311,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
-	if err := h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		return err
@@ -360,10 +352,6 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
-	}
-
-	if err := h.Ping(env.DB); err != nil {
-		return err
 	}
 
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
@@ -464,10 +452,6 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if err := h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err

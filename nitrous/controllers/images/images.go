@@ -233,10 +233,6 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		return errImageMissing
 	}
 
-	if err := h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	if err := cl.TagImage(srcImg.FullRepository(), newRepo, force); err != nil {
 		return err
 	}

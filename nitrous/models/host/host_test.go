@@ -70,6 +70,28 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("Touch()", func() {
+		It("updates last_pinged_at", func() {
+			h := hs.H
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).NotTo(BeNumerically("<=", 1*time.Second))
+
+			err := h.Touch(db)
+			Expect(err).To(BeNil())
+
+			h, err = host.FindByIdentifier(db, strconv.FormatInt(h.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+		})
+
+		Context("when some error occurs", func() {
+			It("returns the error", func() {
+				db.Close()
+				err := hs.H.Touch(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindAllByProvider()", func() {
 		var (
 			fv = "1.0.69-deadbeef-88"

@@ -375,8 +375,7 @@ func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
-// updates last_pinged_at
-func (h *Host) Ping(d db.QueryReceiver) error {
+func (h *Host) Touch(d db.QueryReceiver) error {
 	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
 }
 

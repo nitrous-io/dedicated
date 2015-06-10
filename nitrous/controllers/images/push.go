@@ -83,10 +83,6 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errImageMissing
 	}
 
-	if err := h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	async, _ := strconv.ParseBool(r.FormValue("async"))
 	// if async, we will just discard the progress data from freighter. It will
 	// only be outputed into the events stream. The only output we want to
