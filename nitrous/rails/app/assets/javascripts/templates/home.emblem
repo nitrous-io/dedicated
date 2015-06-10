@@ -16,5 +16,3 @@ if App.user.admin
   = outlet admin
 
 = outlet onboarding
-
-= partial 'partials/upgrade-modal'

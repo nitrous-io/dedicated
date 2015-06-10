@@ -82,10 +82,9 @@ App.AddCardController = Em.ObjectController.extend
           App.refreshBillingProfile()
 
           if wasFreeTier && anyHosts
-            @transitionToRoute 'hosts.index'
+            @transitionToRoute 'hosts.index', queryParams: { justUpgraded: true }
             if cr = bp.get 'amountCreditedDollars'
               App.set 'upgradeCredited', cr
-            App.set 'showUpgradeModal', true
             return
 
           App.snackbar.post "Credit card added."

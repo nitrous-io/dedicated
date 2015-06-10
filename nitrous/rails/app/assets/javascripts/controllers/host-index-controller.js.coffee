@@ -1,6 +1,9 @@
 #= require ../mixins/perform-action-mixin
 
 App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
+  queryParams: ['justUpgraded']
+  justUpgraded: false
+
   stateDidChange: (->
     if @get('model.state') == 'running'
       Em.run.later(this, ->
