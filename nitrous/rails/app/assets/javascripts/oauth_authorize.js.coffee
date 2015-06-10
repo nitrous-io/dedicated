@@ -166,6 +166,7 @@ showLoginForm = ->
   , 5)
 
 enableButtons = ->
-  $('.buttons .btn').attr(disabled: false)
+  $('#cancel-btn').removeClass('disabled')
+  $('#authorize-btn').attr(disabled: false)
 
 main()
