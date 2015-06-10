@@ -245,9 +245,8 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			return nil
 		default:
 			queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
-			qc, err = CreateConsumer(queue, queueName, queueHandlerTimeout)
+			qc, err = CreateConsumer(queue, queueName, handler, queueHandlerTimeout)
 			if err == nil {
-				qc.handler = handler
 				return qc.Start(stop)
 			}
 
@@ -261,8 +260,8 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	}
 }
 
-func CreateConsumer(queue *redismq.Queue, queueName string, queueHandlerTimeout time.Duration) (*QueueConsumer, error) {
-	c, err := queue.AddConsumer(queueName)
+func CreateConsumer(q *redismq.Queue, queueName string, handler queueHandler, handlerTimeout time.Duration) (*QueueConsumer, error) {
+	c, err := q.AddConsumer(queueName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
 	}
@@ -272,5 +271,9 @@ func CreateConsumer(queue *redismq.Queue, queueName string, queueHandlerTimeout 
 		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
 	}
 
-	return &QueueConsumer{Consumer: c, handlerTimeout: queueHandlerTimeout}, nil
+	return &QueueConsumer{
+		Consumer:       c,
+		handler:        handler,
+		handlerTimeout: handlerTimeout,
+	}, nil
 }

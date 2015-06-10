@@ -210,10 +210,13 @@ var _ = Describe("pkg/queue", func() {
 	Describe("QueueConsumer", func() {
 		var qc *queue.QueueConsumer
 		var err error
+		var noopHandler = func(msg *queue.Message) error {
+			return nil
+		}
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
+			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
@@ -253,10 +256,13 @@ var _ = Describe("pkg/queue", func() {
 		var qc *queue.QueueConsumer
 		var err error
 		var msg *queue.Message
+		var noopHandler = func(msg *queue.Message) error {
+			return nil
+		}
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
+			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
