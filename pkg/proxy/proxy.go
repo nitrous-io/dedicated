@@ -11,10 +11,17 @@ import (
 	"net/http/httputil"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
 var HTTPFlushInterval = 100 * time.Millisecond
+
+var (
+	// maps "%s-%s" (host domain, ip address) to custom transport
+	hostTransportMap     = map[string]*customTransport{}
+	hostTransportMapLock sync.Mutex
+)
 
 func IsWebsocket(r *http.Request) bool {
 	return headerContainsValue(r.Header, "Upgrade", "websocket") &&
@@ -65,6 +72,18 @@ func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // when we cant perform a roundtrip request to the server ( for example, the
 // remote server is not running )
 func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *http.Response, err error)) http.HandlerFunc {
+	hostTransportMapLock.Lock()
+	k := fmt.Sprintf("%s-%s", addr, tlsConfig.ServerName)
+	t, ok := hostTransportMap[k]
+	if !ok {
+		t = &customTransport{
+			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
+			errorFunc:    transportErrorFn,
+		}
+		hostTransportMap[k] = t
+	}
+	hostTransportMapLock.Unlock()
+
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
@@ -75,10 +94,7 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport: &customTransport{
-			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
-			errorFunc:    transportErrorFn,
-		},
+		Transport:     t,
 		FlushInterval: HTTPFlushInterval,
 	}
 	return p.ServeHTTP
