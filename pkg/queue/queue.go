@@ -19,6 +19,7 @@ type QueuePublisher struct {
 type QueueConsumer struct {
 	*redismq.Consumer
 	handlerTimeout time.Duration
+	handler        queueHandler
 }
 
 type Message struct {
@@ -53,15 +54,7 @@ func (a Action) IsA(actionName string) bool {
 	return a.String() == actionName
 }
 
-type queueHandler func(*QueueConsumer, *Message) error
-
-var (
-	queueRoutes map[string]queueHandler
-)
-
-func init() {
-	queueRoutes = map[string]queueHandler{}
-}
+type queueHandler func(*Message) error
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) *QueuePublisher {
 	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
@@ -213,7 +206,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 		case m := <-msg:
 			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
 			go func() {
-				err := queueRoutes[queueName](qc, m)
+				err := qc.handler(m)
 				if err != nil {
 					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v\n", m.UUID, m, queueName, err)
 					m.Fail()
@@ -252,9 +245,8 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			return nil
 		default:
 			queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
-			qc, err = CreateConsumer(queue, queueName, queueHandlerTimeout)
+			qc, err = CreateConsumer(queue, queueName, handler, queueHandlerTimeout)
 			if err == nil {
-				queueRoutes[queueName] = handler
 				return qc.Start(stop)
 			}
 
@@ -268,8 +260,8 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	}
 }
 
-func CreateConsumer(queue *redismq.Queue, queueName string, queueHandlerTimeout time.Duration) (*QueueConsumer, error) {
-	c, err := queue.AddConsumer(queueName)
+func CreateConsumer(q *redismq.Queue, queueName string, handler queueHandler, handlerTimeout time.Duration) (*QueueConsumer, error) {
+	c, err := q.AddConsumer(queueName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add a consumer: %v\n", err)
 	}
@@ -279,5 +271,9 @@ func CreateConsumer(queue *redismq.Queue, queueName string, queueHandlerTimeout 
 		return nil, fmt.Errorf("Failed to requeue not finished job: %v\n", err)
 	}
 
-	return &QueueConsumer{Consumer: c, handlerTimeout: queueHandlerTimeout}, nil
+	return &QueueConsumer{
+		Consumer:       c,
+		handler:        handler,
+		handlerTimeout: handlerTimeout,
+	}, nil
 }

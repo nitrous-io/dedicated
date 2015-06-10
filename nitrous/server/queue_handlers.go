@@ -21,8 +21,8 @@ type progress struct {
 	Stream string `json:"stream"`
 }
 
-func (s *Server) HostQueueHandler() func(qc *queue.QueueConsumer, m *queue.Message) error {
-	return func(qc *queue.QueueConsumer, m *queue.Message) error {
+func (s *Server) HostQueueHandler() func(m *queue.Message) error {
+	return func(m *queue.Message) error {
 		db := s.db
 		if queue.Create.IsA(m.Action) {
 			var queueInfo hh.QueueInfo

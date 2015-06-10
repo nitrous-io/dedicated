@@ -45,6 +45,12 @@ var (
 	maxLoggedResponseLen = 120
 )
 
+const (
+	routeJSON           = 1 + iota // route may be encoded as json if Status and Data provided
+	routeStrictJSON                // route will be encoded as json; Status and Data *must* be provided
+	routeWritesResponse            // route handles its own response writing
+)
+
 type Server struct {
 	Events      *pubsub.Pubsub
 	Provisioner *provisioner.Provisioner
@@ -184,28 +190,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
-func (s *Server) route(route string, mw middleware.Middleware, methods ...string) {
-	route = strings.Join(nsStack, "") + route
-	h := func(w http.ResponseWriter, r *http.Request) {
-		mh.Meter("requests.nitrous").Mark(1)
-		s.logger.Infof("Request: %v %v", r.Method, r.URL.String())
-		err := mw(&middleware.Env{
-			Root:        s.root,
-			Logger:      s.logger,
-			DB:          s.db,
-			Events:      s.Events,
-			Provisioner: s.Provisioner,
-			Tracker:     s.Tracker,
-			RemoteAddr:  middleware.GetRemoteAddr(r),
-		}, w, r)
-		if err != nil {
-			s.HandleError(w, r, err)
-		}
-	}
-	s.router.HandleFunc(route, h).Methods(methods...)
-}
-
-func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...string) {
+func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		remoteAddr := middleware.GetRemoteAddr(r)
@@ -228,12 +213,17 @@ func (s *Server) routeJSON(route string, mw middleware.Middleware, methods ...st
 			s.HandleError(w, r, err)
 			return
 		}
-		if env.Status == 0 || env.Data == nil {
+		routeIsJSON := env.Status != 0 && env.Data != nil
+		if respondMode == routeWritesResponse {
+			return
+		}
+		if respondMode == routeStrictJSON && !routeIsJSON {
 			s.HandleError(w, r, errors.New("Status and/or Data not set"))
 			return
 		}
-
-		s.RespondEncodeJSON(w, r, env.Status, env.Data)
+		if routeIsJSON {
+			s.RespondEncodeJSON(w, r, env.Status, env.Data)
+		}
 	}
 	s.router.HandleFunc(route, h).Methods(methods...)
 }

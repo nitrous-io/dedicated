@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -213,6 +214,11 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 	// add required nitrous configs
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+"/ssh", nitrousSSHFilepath+":ro", &newCfg)
 	addVolume(p.ContainerSettingsDir(cfg.Hostname)+nitrousSlugFilepath, nitrousSlugFilepath+":ro", &newCfg)
+
+	_, err := os.Stat(nitrousToolsHostPath)
+	if err == nil {
+		addVolume(nitrousToolsHostPath, nitrousToolsContainerPath+":ro", &newCfg)
+	}
 
 	// ExtraHosts is only available in Docker 1.3.0+.
 	newExtraHost := fmt.Sprintf("host:%s", p.gateway)
