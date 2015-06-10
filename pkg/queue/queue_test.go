@@ -24,7 +24,7 @@ import (
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -38,7 +38,7 @@ func init() {
 
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
 				return err
@@ -56,7 +56,7 @@ func init() {
 
 		stop := make(chan struct{})
 		blocking := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			<-blocking
 			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 			if err != nil {
@@ -91,7 +91,7 @@ func init() {
 
 	reexec.Register("queue-timeout", func() {
 		stop := make(chan struct{})
-		h := func(qc *queue.QueueConsumer, m *queue.Message) error {
+		h := func(m *queue.Message) error {
 			if m.UUID == "success" {
 				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
 				if err != nil {
@@ -210,10 +210,13 @@ var _ = Describe("pkg/queue", func() {
 	Describe("QueueConsumer", func() {
 		var qc *queue.QueueConsumer
 		var err error
+		var noopHandler = func(msg *queue.Message) error {
+			return nil
+		}
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
+			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err := qp.ResetInput()
@@ -253,10 +256,13 @@ var _ = Describe("pkg/queue", func() {
 		var qc *queue.QueueConsumer
 		var err error
 		var msg *queue.Message
+		var noopHandler = func(msg *queue.Message) error {
+			return nil
+		}
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", 5*time.Second)
+			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
 			err = qp.ResetInput()
@@ -332,7 +338,7 @@ var _ = Describe("pkg/queue", func() {
 		It("starts queue consumer", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			handler := func(m *queue.Message) error {
 				redisClient.Set("test", m.UUID)
 				return nil
 			}
@@ -442,7 +448,7 @@ var _ = Describe("pkg/queue", func() {
 		It("submits a failed message to failed queue", func() {
 			stopCh := make(chan struct{})
 
-			handler := func(qc *queue.QueueConsumer, m *queue.Message) error {
+			handler := func(m *queue.Message) error {
 				if m.UUID == "success" {
 					redisClient.Set("test", m.UUID)
 					return nil
