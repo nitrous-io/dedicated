@@ -204,6 +204,14 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// Update first to lock and make it visible to users
+	if err := h.UpdateState(env.DB, host.StateTerminating); err != nil {
+		if err == host.ErrUpdateFailed {
+			return errHostLocked
+		}
+		return err
+	}
+
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})

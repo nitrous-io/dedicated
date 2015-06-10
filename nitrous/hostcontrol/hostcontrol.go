@@ -98,8 +98,9 @@ func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header,
 		}
 	}
 
-	origState := h.State
+	// FIXME: if transaction fails host entry will be unchanged when actual host is already terminated
 
+	origState := h.State
 	if err := h.Delete(tx); err != nil {
 		return err
 	}
