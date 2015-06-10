@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1188,22 +1189,7 @@ var _ = Describe("controllers/containers", func() {
 
 			receivedHost = nil
 			receivedOptions = url.Values{}
-		})
 
-		doRequest := func(token, host string, params *url.Values) {
-			if params == nil {
-				params = &url.Values{}
-			}
-			params.Set("host", host)
-			req, err := NewFormRequest("POST", "/api/v0/containers", params)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			handler.ServeHTTP(res, req)
-		}
-
-		BeforeEach(func() {
 			previousCreateFn = containers.PerformCreateFn
 			containers.PerformCreateFn = func(h *host.Host, options url.Values, env *middleware.Env) (*containers.CreateResult, error) {
 				receivedHost = h
@@ -1220,6 +1206,19 @@ var _ = Describe("controllers/containers", func() {
 			receivedHost = nil
 			receivedOptions = nil
 		})
+
+		doRequest := func(token, host string, params *url.Values) {
+			if params == nil {
+				params = &url.Values{}
+			}
+			params.Set("host", host)
+			req, err := NewFormRequest("POST", "/api/v0/containers", params)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
 
 		It("should return an error if the call to Create fails", func() {
 			createError = errors.New("Unable to make TCP connection")
@@ -1246,25 +1245,36 @@ var _ = Describe("controllers/containers", func() {
 			VerifyDelinquentUserResponse(res)
 		})
 
-		It("should return a serialized form of the Container", func() {
-			createResult = &containers.CreateResult{
-				Container: &serializers.Container{
-					ID:    232,
-					CID:   "x23",
-					State: "starting",
-					Image: "img1",
-				},
-			}
+		Context("when container is successfully created", func() {
+			BeforeEach(func() {
+				createResult = &containers.CreateResult{
+					Container: &serializers.Container{
+						ID:    232,
+						CID:   "x23",
+						State: "starting",
+						Image: "img1",
+					},
+				}
+				doRequest("valid-token", "foo", params)
+			})
 
-			doRequest("valid-token", "foo", params)
-			Expect(res.Code).To(Equal(http.StatusCreated))
+			It("should return a serialized form of the Container", func() {
+				Expect(res.Code).To(Equal(http.StatusCreated))
 
-			var des struct {
-				Container *serializers.Container
-			}
-			err := json.NewDecoder(res.Body).Decode(&des)
-			Expect(err).To(BeNil())
-			Expect(*des.Container).To(Equal(*createResult.Container))
+				var des struct {
+					Container *serializers.Container
+				}
+				err := json.NewDecoder(res.Body).Decode(&des)
+				Expect(err).To(BeNil())
+				Expect(*des.Container).To(Equal(*createResult.Container))
+			})
+
+			It("updates host's last_pinged_at", func() {
+				// host's last_pinged_at should be updated
+				h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+			})
 		})
 
 		It("should return a error information if provided", func() {
@@ -1361,6 +1371,14 @@ var _ = Describe("controllers/containers", func() {
 			Expect(i.FreighterID).To(Equal("1a"))
 			Expect(i.Slug).To(Equal("elixir-staging"))
 			Expect(i.Tag).To(Equal("latest"))
+		})
+
+		It("updates host's last_pinged_at", func() {
+			doRequest("elixir-staging")
+
+			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("returns image and container on success", func() {
@@ -1842,6 +1860,14 @@ var _ = Describe("controllers/containers", func() {
 			MarkDelinquentUser(db, u)
 			doRequest("elixir-web-1")
 			VerifyDelinquentUserResponse(res)
+		})
+
+		It("updates host's last_pinged_at", func() {
+			doRequest("elixir-web-1")
+
+			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("calls the Freighter client to perform the control action", func() {
@@ -2825,6 +2851,13 @@ var _ = Describe("controllers/containers", func() {
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
 		})
 
+		It("updates host's last_pinged_at", func() {
+			doRequest()
+			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+		})
+
 		It("should block if the user has billing issues", func() {
 			MarkDelinquentUser(db, u)
 			doRequest()
@@ -3239,6 +3272,14 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.UserID).To(Equal(u.ID))
 			Expect(cn.HostID).To(Equal(hs.H.ID))
+		})
+
+		It("updates host's last_pinged_at", func() {
+			doRequest(testParams)
+
+			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("updates container record", func() {

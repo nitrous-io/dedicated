@@ -112,6 +112,10 @@ func PullImage(host *host.Host, options url.Values, env *middleware.Env, writer 
 		update = true
 	}
 
+	if err := host.Ping(env.DB); err != nil {
+		return nil, err
+	}
+
 	var img *image.Image
 	var isNew bool
 	img, err = image.Find(db, env.User, host, repo)

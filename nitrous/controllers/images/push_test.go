@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -72,6 +74,11 @@ var _ = Describe("controllers/images", func() {
 			res := ctx.doPush(svr, "foo", "scratch:latest", &url.Values{"repository": []string{"nitrousio/devenv"}})
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(fs.pushCalled).To(BeTrue())
+
+			// it also updates last_pinged_at
+			h, err = host.FindByIdentifier(db, strconv.FormatInt(h.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("requires repository param", func() {

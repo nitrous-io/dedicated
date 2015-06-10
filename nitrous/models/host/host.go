@@ -375,6 +375,11 @@ func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
 }
 
+// updates last_pinged_at
+func (h *Host) Ping(d db.QueryReceiver) error {
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
+}
+
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
 	if !h.MaxContainers.Valid && !u.MaxContainers.Valid {
 		return true, nil

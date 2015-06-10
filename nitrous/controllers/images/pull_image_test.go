@@ -85,6 +85,11 @@ var _ = Describe("controllers/images/pull", func() {
 		Expect(i.CreatedAt).NotTo(BeNil())
 		Expect(i.UpdatedAt).NotTo(BeNil())
 		Expect(rI.ID).To(Equal(i.ID))
+
+		// it also updates last_pinged_at
+		h, err = host.FindByIdentifier(db, strconv.FormatInt(h.ID, 10))
+		Expect(err).To(BeNil())
+		Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 	})
 
 	It("uses the default image if repository is not given", func() {

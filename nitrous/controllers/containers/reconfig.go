@@ -38,6 +38,10 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 		return err
 	}
 
+	if err = h.Ping(env.DB); err != nil {
+		return err
+	}
+
 	ctx := &reconfigContext{
 		db:     db,
 		cn:     cn,

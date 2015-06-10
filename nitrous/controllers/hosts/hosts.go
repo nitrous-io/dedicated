@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -228,6 +229,11 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	db := env.DB
+
+	if err := h.Ping(db); err != nil {
+		return err
+	}
+
 	origState := h.State
 	h.State = host.StateStarting
 
@@ -309,6 +315,10 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		return errHostStopInvalidState
 	}
 
+	if err := h.Ping(env.DB); err != nil {
+		return err
+	}
+
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		return err
@@ -352,6 +362,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errHostRestartInvalidState
 	}
 
+	if err := h.Ping(env.DB); err != nil {
+		return err
+	}
+
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
 		return err
@@ -366,6 +380,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	origState := h.State
 	h.State = host.StateRestarting
+	h.LastPingedAt = pq.NullTime{time.Now(), true}
 
 	tx, err := env.DB.Beginx()
 	if err != nil {
@@ -449,6 +464,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if err := h.Ping(env.DB); err != nil {
+		return err
+	}
+
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
