@@ -9,9 +9,9 @@
 
   .secondary-nav
     ul.nav
-      if App.pinger
-        li
-          App.IdePingerView
+      /if App.pinger
+        /li
+          /App.IdePingerView
       li.ui.dropdown
         a href='#'
           img.gravatar src={App.user.gravatar}
