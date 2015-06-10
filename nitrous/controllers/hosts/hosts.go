@@ -204,15 +204,19 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	// Update first to lock and make it visible to users
-	if err := h.UpdateState(env.DB, host.StateTerminating); err != nil {
-		if err == host.ErrUpdateFailed {
-			return errHostLocked
-		}
+	db := env.DB
+
+	// Disallow terminate if host is already terminating
+	if h.State == host.StateTerminating {
+		return errHostLocked
+	}
+
+	// Update state to terminating to lock and make it visible to users
+	if err := transitionHostState(db, h, host.StateTerminating, env.User.ID); err != nil {
 		return err
 	}
 
-	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+	err := db.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})
 	if err != nil {
@@ -220,7 +224,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	if env.User.Admin && r.FormValue("reassign") == "true" {
-		_, err = env.DB.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2;", env.User.ID, h.ID)
+		_, err = db.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2;", env.User.ID, h.ID)
 		if err != nil {
 			env.Logger.Errorf("Error reassigning host, err: %+v", err)
 		}
@@ -333,8 +337,13 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
+	// locking done inside hostcontrol.Stop
 	err = hostcontrol.Stop(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
 	if err != nil {
+		if err == host.ErrUpdateFailed {
+			return errHostLocked
+		}
+
 		return err
 	}
 
