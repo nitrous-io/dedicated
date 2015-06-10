@@ -43,6 +43,7 @@ var (
 		"containers.Index":           1,
 		"containers.Show":            1,
 		"containers.Config":          1,
+		"containers.Shared":          1,
 		"volumes.Index":              1,
 		"images.Index":               1,
 		"registries.Index":           1,
