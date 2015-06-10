@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -242,17 +243,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	origState := h.State
-	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.UpdateState(tx, host.StateStarting); err != nil {
-			if err == host.ErrUpdateFailed {
-				return errHostLocked
-			}
-			return err
-		}
-
-		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
-	})
-	if err != nil {
+	if err := transitionHostState(db, h, host.StateStarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -267,14 +258,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
-			if err = h.UpdateState(tx, origState); err != nil {
-				return err
-			}
-			return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
-		})
-		if e2 != nil {
-			logger.Errorf("fail to restore host to original state: %v", err)
+		if err := transitionHostState(db, h, origState, env.User.ID); err != nil {
+			env.Logger.Errorf("hosts.Start: Unable to restore host state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -385,18 +370,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		err = h.UpdateState(tx, host.StateRestarting)
-		if err != nil {
-			if err == host.ErrUpdateFailed {
-				return errHostLocked
-			}
-			return err
-		}
-
-		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
-	})
-	if err != nil {
+	if err := transitionHostState(db, h, host.StateRestarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -411,14 +385,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		e2 := db.WithTransaction(func(tx *sqlx.Tx) error {
-			if err := h.UpdateState(tx, origState); err != nil {
-				return err
-			}
-
-			return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
-		})
-		if e2 != nil {
+		if err := transitionHostState(db, h, origState, env.User.ID); err != nil {
 			env.Logger.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
@@ -719,6 +686,20 @@ func CanCreateContainers(h *host.Host, env *middleware.Env, w http.ResponseWrite
 	}
 
 	return nil
+}
+
+func transitionHostState(d *db.Database, h *host.Host, newState string, initiatorID int64) error {
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		origState := h.State
+		if err := h.UpdateState(tx, newState); err != nil {
+			if err == host.ErrUpdateFailed {
+				return errHostLocked
+			}
+			return err
+		}
+
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID)
+	})
 }
 
 func trackWorkspaces(env *middleware.Env, userID int64) {
