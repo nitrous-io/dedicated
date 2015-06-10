@@ -405,6 +405,11 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 	return d.QueryRowx(`UPDATE hosts SET terminated_at = now(), state = $1 WHERE id = $2 RETURNING *;`, StateTerminated, h.ID).StructScan(h)
 }
 
+// updates last_pinged_at
+func (h *Host) Ping(d db.QueryReceiver) error {
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
+}
+
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {
 	if !h.MaxContainers.Valid && !u.MaxContainers.Valid {
 		return true, nil

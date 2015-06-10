@@ -196,11 +196,16 @@ func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*f
 	return liveContainers, nil
 }
 
-func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
+
+	if err = h.Ping(env.DB); err != nil {
+		return err
+	}
+
 	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
@@ -226,6 +231,10 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	name := r.FormValue("name")
 	if name == "" {
 		return errImageNameRequired
+	}
+
+	if err = h.Ping(env.DB); err != nil {
+		return err
 	}
 
 	created, err := cl.Commit(cn.CID, name)
@@ -357,7 +366,12 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 	r.ParseForm()
+
 	if err := prepareConfig(config, r.PostForm, hv); err != nil {
+		return err
+	}
+
+	if err = h.Ping(env.DB); err != nil {
 		return err
 	}
 
@@ -393,6 +407,10 @@ type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient
 
 func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
 	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if err := h.Ping(env.DB); err != nil {
+			return err
+		}
+
 		cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 		if err != nil {
 			return err
@@ -447,6 +465,9 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	return doContainerExclusive(
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
+			if err := h.Ping(db); err != nil {
+				return err
+			}
 			// broadcast transitioning state
 			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
@@ -547,8 +568,7 @@ func withSharedContainerAndHost(fn containerHandler, env *middleware.Env, w http
 	return fn(cn, h, env, w, r)
 }
 
-type runningHost *host.Host
-type hostFn func(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
+type hostFn func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 // requiresRunningHost is a wrapper which guarantees the action is called for a running host
 func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
