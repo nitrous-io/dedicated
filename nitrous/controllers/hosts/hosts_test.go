@@ -1286,13 +1286,6 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
-		It("updates last_pinged_at", func() {
-			doRequest(hs.H.Slug)
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
-		})
-
 		It("sends the correct payload to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
@@ -1575,22 +1568,6 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
 		})
 
-		It("updates last_pinged_at", func() {
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
-				Message: stopOkResponse,
-				Status:  http.StatusOK,
-			}
-			replaceTransport(hb, rt)
-			hosts.HostbuilderClient = hb
-
-			doRequest(hs.H.Slug, nil)
-
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
-		})
-
 		It("sends the correct payload to hostbuilder", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
@@ -1841,22 +1818,6 @@ var _ = Describe("controllers/hosts", func() {
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
-		})
-
-		It("updates last_pinged_at", func() {
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
-				Message: okResponse,
-				Status:  http.StatusOK,
-			}
-			replaceTransport(hb, rt)
-			hosts.HostbuilderClient = hb
-
-			doRequest(hs.H.Slug, t.Token, nil)
-
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		It("sends the correct payload to hostbuilder", func() {

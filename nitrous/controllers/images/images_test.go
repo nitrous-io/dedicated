@@ -17,7 +17,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -1174,11 +1173,6 @@ var _ = Describe("controllers/images", func() {
 			Expect(i.Name).To(Equal("staging v1 from scratch"))
 			Expect(i.Slug).To(Equal("staging"))
 			Expect(i.Tag).To(Equal("latest"))
-
-			// it also updates last_pinged_at
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
 		})
 
 		Context("when image already exists", func() {

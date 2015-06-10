@@ -22,7 +22,7 @@ import (
 const reconfigLockTime = 2 * time.Minute
 
 var (
-	Reconfig = WithContainerAndHost(reconfig, false)
+	Reconfig = WithContainerAndHost(reconfig, false, true)
 )
 
 func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -36,10 +36,6 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 	r.ParseForm()
 	config := &freighterclient.ContainerConfig{}
 	if err := prepareConfig(config, r.PostForm, hv); err != nil {
-		return err
-	}
-
-	if err = h.Ping(env.DB); err != nil {
 		return err
 	}
 

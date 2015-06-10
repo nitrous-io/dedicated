@@ -405,8 +405,7 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 	return d.QueryRowx(`UPDATE hosts SET terminated_at = now(), state = $1 WHERE id = $2 RETURNING *;`, StateTerminated, h.ID).StructScan(h)
 }
 
-// updates last_pinged_at
-func (h *Host) Ping(d db.QueryReceiver) error {
+func (h *Host) Touch(d db.QueryReceiver) error {
 	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
 }
 

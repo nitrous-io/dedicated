@@ -58,15 +58,15 @@ var (
 )
 
 var (
-	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit, false)
-	Config  = WithContainerAndHost(config, true)
-	Show    = WithContainerAndHost(show, true)
-	Start   = WithContainerAndHost(start, true)
-	Stop    = WithContainerAndHost(stop, true)
-	Restart = WithContainerAndHost(restart, true)
-	Destroy = WithContainerAndHost(destroy, false)
-	Token   = WithContainerAndHost(token, true)
+	Create  = middleware.HostViaForm("host", middleware.TouchHost(requiresRunningHost(create)))
+	Commit  = WithContainerAndHost(commit, false, true)
+	Config  = WithContainerAndHost(config, true, true)
+	Show    = WithContainerAndHost(show, true, false)
+	Start   = WithContainerAndHost(start, true, true)
+	Stop    = WithContainerAndHost(stop, true, true)
+	Restart = WithContainerAndHost(restart, true, true)
+	Destroy = WithContainerAndHost(destroy, false, true)
+	Token   = WithContainerAndHost(token, true, false)
 )
 
 var (
@@ -202,10 +202,6 @@ func create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	if err = h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
@@ -231,10 +227,6 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	name := r.FormValue("name")
 	if name == "" {
 		return errImageNameRequired
-	}
-
-	if err = h.Ping(env.DB); err != nil {
-		return err
 	}
 
 	created, err := cl.Commit(cn.CID, name)
@@ -371,10 +363,6 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
-	if err = h.Ping(env.DB); err != nil {
-		return err
-	}
-
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
@@ -407,10 +395,6 @@ type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient
 
 func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
 	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-		if err := h.Ping(env.DB); err != nil {
-			return err
-		}
-
 		cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 		if err != nil {
 			return err
@@ -465,9 +449,6 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 	return doContainerExclusive(
 		cn, env, container.StateTerminating, transitionLockTime,
 		func() error {
-			if err := h.Ping(db); err != nil {
-				return err
-			}
 			// broadcast transitioning state
 			PublishContainerEvent(env, controllers.EventContainerDestroying, cn, nil)
 
@@ -519,7 +500,7 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Middleware {
+func WithContainerAndHost(fn containerHandler, allowCollab bool, touchHost bool) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 		slug := mux.Vars(r)["slug"]
@@ -541,6 +522,9 @@ func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Midd
 				return errHostNotFound
 			}
 			return err
+		}
+		if touchHost {
+			h.Touch(db)
 		}
 		return fn(cn, h, env, w, r)
 	}

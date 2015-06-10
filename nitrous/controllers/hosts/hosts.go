@@ -251,10 +251,6 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	db := env.DB
 
-	if err := h.Ping(db); err != nil {
-		return err
-	}
-
 	origState := h.State
 	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
 		return err
@@ -316,10 +312,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostStopInvalidState
-	}
-
-	if err := h.Ping(env.DB); err != nil {
-		return err
 	}
 
 	cns, err := container.FindAllByHostID(env.DB, h.ID)

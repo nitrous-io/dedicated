@@ -28,9 +28,9 @@ var (
 
 var (
 	Index     middleware.Middleware = withContainer(index)
-	Create    middleware.Middleware = containers.WithContainerAndHost(create, true)
-	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll, false)
-	Delete    middleware.Middleware = containers.WithContainerAndHost(delete, true)
+	Create    middleware.Middleware = containers.WithContainerAndHost(create, true, true)
+	DeleteAll middleware.Middleware = containers.WithContainerAndHost(deleteAll, false, true)
+	Delete    middleware.Middleware = containers.WithContainerAndHost(delete, true, true)
 )
 
 func index(cn *container.Container, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
