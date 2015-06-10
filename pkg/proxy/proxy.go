@@ -17,9 +17,16 @@ import (
 
 var HTTPFlushInterval = 100 * time.Millisecond
 
+var TransportCleanupInterval = 30 * time.Second
+
+type hostTransport struct {
+	Transport *customTransport
+	Timer     *time.Timer
+}
+
 var (
 	// maps "%s-%s" (host domain, ip address) to custom transport
-	hostTransportMap     = map[string]*customTransport{}
+	hostTransportMap     = map[string]*hostTransport{}
 	hostTransportMapLock sync.Mutex
 )
 
@@ -51,12 +58,12 @@ func DefaultTransportErrorHandler(res *http.Response, err error) {
 // specify the errorFunc, then it will be called when there's an error
 // performing the RoundTrip.
 type customTransport struct {
-	http.RoundTripper
+	*http.Transport
 	errorFunc func(res *http.Response, err error)
 }
 
 func (t *customTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	res, err := t.RoundTripper.RoundTrip(r)
+	res, err := t.RoundTrip(r)
 	if err != nil && t.errorFunc != nil {
 		if res == nil {
 			res = &http.Response{Request: r}
@@ -75,10 +82,19 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 	hostTransportMapLock.Lock()
 	k := fmt.Sprintf("%s-%s", addr, tlsConfig.ServerName)
 	t, ok := hostTransportMap[k]
-	if !ok {
-		t = &customTransport{
-			RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
-			errorFunc:    transportErrorFn,
+	if ok {
+		// reschedule cleanup
+		t.Timer.Reset(TransportCleanupInterval)
+	} else {
+		tr := &customTransport{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+			errorFunc: transportErrorFn,
+		}
+		t = &hostTransport{
+			Transport: tr,
+			Timer: time.AfterFunc(TransportCleanupInterval, func() {
+				tr.CloseIdleConnections()
+			}),
 		}
 		hostTransportMap[k] = t
 	}
@@ -94,7 +110,7 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 				r.URL.Scheme = "http"
 			}
 		},
-		Transport:     t,
+		Transport:     t.Transport,
 		FlushInterval: HTTPFlushInterval,
 	}
 	return p.ServeHTTP
