@@ -991,6 +991,36 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
+		It("should lock and prevent concurrent terminate", func() {
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+				Wait:    100 * time.Millisecond,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			var res1 *httptest.ResponseRecorder
+
+			go func() {
+				// this request inside goroutine will be executed
+				// slightly later than request 2, causing race condition
+				res1 = doRequest(hs.H.Slug, t.Token)
+			}()
+
+			res2 := doRequest(hs.H.Slug, t.Token)
+			Expect(res2.Code).To(Equal(http.StatusOK))
+
+			Eventually(func() int {
+				if res1 != nil {
+					return res1.Code
+				} else {
+					return 0
+				}
+			}).Should(Equal(http.StatusConflict))
+		})
+
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
