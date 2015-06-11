@@ -13,7 +13,10 @@ App.HostIndexView = Em.View.extend
 
   showUpgradeModal: (->
     if @get('controller.justUpgraded')
-      ui.showModal('#upgrade-complete-modal-dialog')
+      Em.run.later(->
+        Em.run.scheduleOnce 'afterRender', ->
+          ui.showModal('#upgrade-complete-modal-dialog')
+      , 100)
   ).observes('controller.justUpgraded').on('init')
 
   actions:

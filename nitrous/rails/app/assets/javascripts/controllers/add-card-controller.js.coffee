@@ -1,9 +1,11 @@
 #= require jquery.payment
 
 App.AddCardController = Em.ObjectController.extend
-  queryParams: ['upgradingFromFree']
+  queryParams: ['upgradingFromFree', 'hostSlug']
   # To indicate whether user is upgrading from free tier.
   upgradingFromFree: false
+  # Slug of the host that we are upgrading.
+  hostSlug: null
 
   name: null
   number: null
@@ -76,15 +78,15 @@ App.AddCardController = Em.ObjectController.extend
           exp_year: @get('expYear'),
           cvc: @get('cvc'),
           zipcode: @get('zipcode')
-        ).then (bp)=>
+        ).then (bp) =>
           @set 'saving', false
           App.refreshUsage()
           App.refreshBillingProfile()
 
           if wasFreeTier && anyHosts
-            @transitionToRoute 'hosts.index', queryParams: { justUpgraded: true }
-            if cr = bp.get 'amountCreditedDollars'
-              App.set 'upgradeCredited', cr
+            if credit = bp.get('amountCreditedDollars')
+              App.set 'upgradeCredited', credit
+            @transitionToRoute 'host.index', @get('hostSlug'), queryParams: { justUpgraded: true }
             return
 
           App.snackbar.post "Credit card added."
