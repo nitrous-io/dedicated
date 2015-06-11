@@ -13,7 +13,7 @@ App.GroupedInvoiceItem = Em.Object.extend
 App.GroupedInvoiceItemsMixin = Em.Mixin.create
   groupedItems: (->
     set = []
-    @get('_items').forEach (item)=>
+    @get('_items')?.forEach (item)=>
       inv = App.InvoiceItem.create()
       inv.load item
 
