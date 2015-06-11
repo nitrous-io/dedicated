@@ -208,7 +208,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc

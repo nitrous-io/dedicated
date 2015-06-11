@@ -144,7 +144,7 @@ type Server struct {
 	Router *mux.Router
 
 	initQueueOnce sync.Once
-	Queue         *queue.QueuePublisher
+	Queue         queue.Publisher
 }
 
 // Return a copy of the original provider config
@@ -204,7 +204,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
-		log.Printf("uuid=%s Creating a host with queue %+v\n", providerConfig["uuid"], *s.Queue)
+		log.Printf("uuid=%s Creating a host with queue %+v", providerConfig["uuid"], s.Queue)
 
 		var userID, hostID int64
 		hostSlug := r.Form.Get("slug")

@@ -12,6 +12,31 @@ import (
 	"github.com/adjust/redismq"
 )
 
+// Publisher represents a client that publishes a message (Publishing)
+// into a queue.
+type Publisher interface {
+	// Publish publishes a message to the queue.
+	Publish(msg *Message) error
+	// PublishRetry publishes a message to the queue. If it fails to publish
+	// the message, it will retry for the configurable number of times, sleep
+	// for a configurable duration in between.
+	PublishRetry(msg *Message, tries int, retryInterval time.Duration) error
+	// Delete removes all messages from the queues. It will not be deleted if
+	// there are any consumers on the queue
+	Delete() error
+	// ResetInput removes all messages from the input queue.
+	ResetInput() error
+	// GetInputLength returns the number of messages currently in the input
+	// queue
+	GetInputLength() int64
+	// GetFailedLength returns the number of messages that has been marked as
+	// Failed
+	GetFailedLength() int64
+	// CreateConsumer creates a consumer to read messages from the current
+	// queue. This is likely Redis-only.
+	CreateConsumer() (*QueueConsumer, error)
+}
+
 type QueuePublisher struct {
 	Queue *redismq.Queue
 }
@@ -56,7 +81,7 @@ func (a Action) IsA(actionName string) bool {
 
 type queueHandler func(*Message) error
 
-func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) *QueuePublisher {
+func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) Publisher {
 	return &QueuePublisher{Queue: redismq.CreateQueue(redisUrl, redisPort, "", redisDatabase, name)}
 }
 
@@ -98,6 +123,7 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 	return fmt.Errorf("timed out sending message %+v", msg)
 }
 
+// CreateConsumer creates a consumer to read message from the redis queue.
 func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
 	c, err := qp.Queue.AddConsumer(qp.Queue.Name)
 	if err != nil {
