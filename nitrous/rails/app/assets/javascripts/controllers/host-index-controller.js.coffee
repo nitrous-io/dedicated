@@ -4,13 +4,6 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
   queryParams: ['justUpgraded']
   justUpgraded: false
 
-  stateDidChange: (->
-    if @get('model.state') == 'running'
-      Em.run.later(this, ->
-        @send('refresh')
-      , 1000)
-  ).observes 'model.state'
-
   actions:
     start: ->
       @performAction('POST', 'start', 'starting')

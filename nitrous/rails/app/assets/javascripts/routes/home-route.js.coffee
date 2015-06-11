@@ -5,9 +5,10 @@ App.HomeRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', null
     hFetch = App.Host.fetch()
-    cFetch = App.fetchContainers()
+    cFetch = App.Container.fetch()
     sFetch = App.SharedContainer.fetch()
     App.set 'hosts', hFetch.value
+    App.set 'containers', cFetch.value
     App.set 'sharedContainers', sFetch.value
 
     Ember.RSVP.Promise.all [hFetch, sFetch, cFetch]

@@ -8,6 +8,7 @@ App.HostIndexRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', model.get('displayName')
     model.prefetchResources()
+    model.fetchStats()
     Mp.track Mp.EventDashboardViewedHost
 
   resetController: (controller) ->
