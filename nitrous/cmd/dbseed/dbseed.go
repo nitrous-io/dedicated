@@ -28,23 +28,34 @@ var (
 	logr           *logger.Logger
 	providerToSeed string
 
-	amazonPlanConfig = `{
+	amazonFreeConfig = `{
 		"source_ami": "ami-8b6450bb",
 		"instance_type": "t2.micro",
 		"region_id": "us-west-2",
 		"storage_size": "8",
 		"security_group_id": "sg-491c282c",
-		"subnet_id": "subnet-3e0e045c"
+		"subnet_id": "subnet-3e0e045c",
+		"disable_eip": "true"
+	}`
+
+	amazonPaidConfig = `{
+		"source_ami": "ami-8b6450bb",
+		"instance_type": "t2.micro",
+		"region_id": "us-west-2",
+		"storage_size": "8",
+		"security_group_id": "sg-491c282c",
+		"subnet_id": "subnet-3e0e045c",
+		"disable_eip": "false"
 	}`
 
 	// default configuration for amazon provider
 	// FIXME: replace this with proper configuration once the AMIs/security
 	// groups for all supported regions are in place
 	amazonRegionConfig = map[string]string{
-		"free": amazonPlanConfig,
-		"1gb":  amazonPlanConfig,
-		"2gb":  amazonPlanConfig,
-		"4gb":  amazonPlanConfig,
+		"free": amazonFreeConfig,
+		"1gb":  amazonPaidConfig,
+		"2gb":  amazonPaidConfig,
+		"4gb":  amazonPaidConfig,
 	}
 
 	// Point every region to use us-west-2 in dev
@@ -242,6 +253,7 @@ func providertemplates(d db.QueryReceiver) error {
 						"storage_size":      {cfg["storage_size"], true},
 						"security_group_id": {cfg["security_group_id"], true},
 						"subnet_id":         {cfg["subnet_id"], true},
+						"disable_eip":       {cfg["disable_eip"], true},
 					},
 				}
 			}
