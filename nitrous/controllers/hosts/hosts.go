@@ -439,6 +439,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// FIXME: should not allow concurrent request with other transitions, i.e. updating
 	if h.State == host.StateRespeccing {
 		return errHostLocked
 	}
@@ -458,14 +459,17 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
-		if err == host.ErrUpdateFailed {
-			return errHostLocked
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.UpdateState(db, host.StateRespeccing); err != nil {
+			if err == host.ErrUpdateFailed {
+				return errHostLocked
+			}
+			return err
 		}
-		return err
-	}
 
-	if err := rs.UpdateState(db, respec.StateProcessing); err != nil {
+		return rs.UpdateState(db, respec.StateProcessing)
+	})
+	if err != nil {
 		return err
 	}
 
@@ -489,8 +493,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	go func() {
 		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
-			h.State = host.StateRespecFailed
-			if err := h.Update(db); err != nil {
+			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
 				env.Logger.Errorf("error updating host after respec failed: %v", err)
 			}
 			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
@@ -530,22 +533,23 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// FIXME: should not allow concurrent request with other transitions, i.e. respeccing
 	if h.State == host.StateUpdating {
 		return errHostLocked
 	}
 
 	db := env.DB
 
+	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+	if err != nil {
+		return err
+	}
+
 	origState := h.State
 	if err := h.UpdateState(db, host.StateUpdating); err != nil {
 		if err == host.ErrUpdateFailed {
 			return errHostLocked
 		}
-		return err
-	}
-
-	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
-	if err != nil {
 		return err
 	}
 
