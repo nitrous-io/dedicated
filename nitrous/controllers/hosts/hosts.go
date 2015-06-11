@@ -204,12 +204,11 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
-	// Disallow terminate if host is already terminating
 	if h.State == host.StateTerminating {
 		return errHostLocked
 	}
+
+	db := env.DB
 
 	// Update state to terminating to lock and make it visible to users
 	if err := transitionHostState(db, h, host.StateTerminating, env.User.ID); err != nil {
@@ -440,6 +439,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 }
 
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State == host.StateRespeccing {
+		return errHostLocked
+	}
+
 	db := env.DB
 
 	rs, err := respec.Find(db, h.ID)
@@ -455,8 +458,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	h.State = host.StateRespeccing
-	if err := h.Update(db); err != nil {
+	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
+		if err == host.ErrUpdateFailed {
+			return errHostLocked
+		}
 		return err
 	}
 
@@ -525,6 +530,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State == host.StateUpdating {
+		return errHostLocked
+	}
+
 	db := env.DB
 
 	origState := h.State
