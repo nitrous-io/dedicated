@@ -962,7 +962,7 @@ var _ = Describe("controllers/hosts", func() {
 			replaceTransport(hb, rt)
 			hosts.HostbuilderClient = hb
 
-			_ = doRequest(hs.H.Slug, t.Token)
+			doRequest(hs.H.Slug, t.Token)
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
@@ -977,7 +977,7 @@ var _ = Describe("controllers/hosts", func() {
 			replaceTransport(hb, rt)
 			hosts.HostbuilderClient = hb
 
-			_ = doRequest(hs.H.Slug, t.Token)
+			doRequest(hs.H.Slug, t.Token)
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -991,36 +991,6 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
 		})
 
-		It("should lock and prevent concurrent terminate", func() {
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
-				Message: okResponse,
-				Status:  http.StatusOK,
-				Wait:    100 * time.Millisecond,
-			}
-			replaceTransport(hb, rt)
-			hosts.HostbuilderClient = hb
-
-			var res1 *httptest.ResponseRecorder
-
-			go func() {
-				// this request inside goroutine will be executed
-				// slightly later than request 2, causing race condition
-				res1 = doRequest(hs.H.Slug, t.Token)
-			}()
-
-			res2 := doRequest(hs.H.Slug, t.Token)
-			Expect(res2.Code).To(Equal(http.StatusOK))
-
-			Eventually(func() int {
-				if res1 != nil {
-					return res1.Code
-				} else {
-					return 0
-				}
-			}).Should(Equal(http.StatusConflict))
-		})
-
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -1032,7 +1002,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("deletes the host record", func() {
-				_ = doRequest(hs.H.Slug, t.Token)
+				doRequest(hs.H.Slug, t.Token)
 				_, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(MatchError(sql.ErrNoRows))
 
@@ -1062,7 +1032,7 @@ var _ = Describe("controllers/hosts", func() {
 				keypairs.Create(tx, priv, "aes_key", hs.H.ID)
 				tx.Commit()
 
-				_ = doRequest(hs.H.Slug, t.Token)
+				doRequest(hs.H.Slug, t.Token)
 
 				_, err := keypairs.Get(db, hs.H.ID)
 				Expect(err).ToNot(BeNil(), "host's keypairs should be removed")
@@ -1077,7 +1047,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(crt.Insert(tx, hs.H.ID)).To(BeNil())
 				tx.Commit()
 
-				_ = doRequest(hs.H.Slug, t.Token)
+				doRequest(hs.H.Slug, t.Token)
 				_, err := cert.Find(db, hs.H.ID)
 				Expect(err).ToNot(BeNil(), "failed to remove host's certificates")
 			})
@@ -1107,7 +1077,7 @@ var _ = Describe("controllers/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				_ = doRequest(hs.H.Slug, t.Token)
+				doRequest(hs.H.Slug, t.Token)
 
 				select {
 				case <-time.After(50 * time.Millisecond):
@@ -1158,7 +1128,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("does not delete the host", func() {
-				_ = doRequest(hs.H.Slug, t.Token)
+				doRequest(hs.H.Slug, t.Token)
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
@@ -1316,7 +1286,7 @@ var _ = Describe("controllers/hosts", func() {
 			replaceTransport(hb, rt)
 			hosts.HostbuilderClient = hb
 
-			_ = doRequest(hs.H.Slug)
+			doRequest(hs.H.Slug)
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).ToNot(BeEmpty())
@@ -1331,7 +1301,7 @@ var _ = Describe("controllers/hosts", func() {
 			replaceTransport(hb, rt)
 			hosts.HostbuilderClient = hb
 
-			_ = doRequest(hs.H.Slug)
+			doRequest(hs.H.Slug)
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -1379,7 +1349,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("updates the host state to running", func() {
-				_ = doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug)
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
@@ -1412,7 +1382,7 @@ var _ = Describe("controllers/hosts", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				_ = doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug)
 
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
@@ -1481,7 +1451,7 @@ var _ = Describe("controllers/hosts", func() {
 			})
 
 			It("resets the host to its original state", func() {
-				_ = doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug)
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
@@ -1490,7 +1460,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			It("logs transitions for the host", func() {
 				origState := hs.H.State
-				_ = doRequest(hs.H.Slug)
+				doRequest(hs.H.Slug)
 
 				var count int
 				err := db.QueryRowx(

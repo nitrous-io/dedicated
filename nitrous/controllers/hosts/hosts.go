@@ -47,7 +47,7 @@ var (
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "workspace_locked", "another workspace creation request is currently being processed")
-	errHostLocked               = httperror.New(http.StatusConflict, "host_locked", "host is locked for another request")
+	errHostLocked               = httperror.New(http.StatusConflict, "host_locked", "host is locked by another request")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
