@@ -37,6 +37,26 @@ type Publisher interface {
 	CreateConsumer() (*QueueConsumer, error)
 }
 
+// Delivery represents actions that can be acted on a message that is received
+// from the queue
+type Delivery interface {
+	// Ack acknowledges the delivery of the current message. When Ack fails to
+	// send the message, it will wait for a configurable interval before
+	// retrying. Ack will not stop until it successfully sends the message to
+	// prevent data inconsistency problem.
+	Ack(t time.Duration) error
+	// Fail push failed message to failed queue. Implementation of a failed
+	// queue can differ. For example AMQP uses a dead-letter exchange, while
+	// Redis use a list
+	Fail()
+}
+
+// Consumer represents a client that consumes messages from a queue
+type Consumer interface {
+	Consume() (*Message, Delivery, error)
+	Start(stop chan struct{}) error
+}
+
 type QueuePublisher struct {
 	Queue *redismq.Queue
 }
@@ -54,7 +74,6 @@ type Message struct {
 	ResourceName string `json: "resource_name"`
 	ResourceID   string `json: "resource_id"`
 	Payload      []byte `json: "payload"`
-	p            *redismq.Package
 }
 
 var actions = []string{
@@ -154,7 +173,7 @@ func (qp *QueuePublisher) GetFailedLength() int64 {
 	return qp.Queue.GetFailedLength()
 }
 
-func (qc *QueueConsumer) Consume() (*Message, error) {
+func (qc *QueueConsumer) Consume() (*Message, Delivery, error) {
 	p, err := qc.Consumer.Get()
 	if err != nil {
 		if qc.Consumer.HasUnacked() {
@@ -162,25 +181,31 @@ func (qc *QueueConsumer) Consume() (*Message, error) {
 			time.Sleep(1 * time.Second)
 			qc.Consumer.RequeueWorking()
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
 	var m Message
 	err = json.Unmarshal([]byte(p.Payload), &m)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	m.p = p
+	return &m, &redisDelivery{msg: &m, p: p}, nil
+}
 
-	return &m, nil
+// RedisDelivery encapsulates the redis package and makes it behave as the
+// delivery interface
+type redisDelivery struct {
+	msg *Message // embeds message so we can refer to the data for logging...
+	p   *redismq.Package
 }
 
 // Ack send ack packet to consume next message
 // it sleeps for `retryInterval` duration when it fails to send it
 // it will not stop retrying because it could occur data inconsistency problem
-func (m *Message) Ack(retryInterval time.Duration) error {
+func (d *redisDelivery) Ack(retryInterval time.Duration) error {
+	m := d.msg
 	for {
-		err := m.p.Ack()
+		err := d.p.Ack()
 		if err != nil {
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
@@ -204,10 +229,11 @@ func (m *Message) Ack(retryInterval time.Duration) error {
 
 // Fail push failed message to failed queue
 // It will not retry since we can submit a message manually
-func (m *Message) Fail() {
-	err := m.p.Fail()
+func (d *redisDelivery) Fail() {
+	err := d.p.Fail()
 	if err != nil {
-		log.Printf("[ERROR] uuid=%s Failed to push a message(%s) to failed queue: %v", m.UUID, m.Payload, err)
+		log.Printf("[ERROR] uuid=%s Failed to push a message(%s) to failed queue: %v",
+			d.msg.UUID, d.msg.Payload, err)
 	}
 }
 
@@ -215,12 +241,12 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	queueName := qc.Consumer.Name
 	log.Printf("started queue consumer %s", queueName)
 
-	msg := make(chan *Message)
+	msg := make(chan *redisDelivery)
 	go func() {
 		var last_error error
 		for {
 			log.Printf("waiting for consuming next message from (%s) queue", queueName)
-			m, err := qc.Consume()
+			_, d, err := qc.Consume()
 			if err != nil {
 				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v", queueName, err)
 				// redis emits `open connections too fast` when we exceeds the error limit
@@ -238,7 +264,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				continue
 			}
 			last_error = nil
-			msg <- m
+			msg <- d.(*redisDelivery)
 			<-msg
 		}
 	}()
@@ -250,15 +276,16 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			log.Printf("stopped queue consumer %s", queueName)
 			stop <- c
 			return nil
-		case m := <-msg:
+		case d := <-msg:
+			m := d.msg
 			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
 			go func() {
 				err := qc.handler(m)
 				if err != nil {
 					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
-					m.Fail()
+					d.Fail()
 				} else {
-					err := m.Ack(1 * time.Second)
+					err := d.Ack(1 * time.Second)
 					if err != nil {
 						log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
 					}
@@ -271,9 +298,9 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 				log.Printf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
 			case <-time.After(qc.handlerTimeout):
 				log.Printf("[ERROR] uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
-				m.Fail()
+				d.Fail()
 			}
-			msg <- m
+			msg <- d
 		}
 	}
 
@@ -281,7 +308,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 }
 
 func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}, queueHandlerTimeout time.Duration) error {
-	var qc *QueueConsumer
+	var qc Consumer
 	var err error
 
 	for {
@@ -307,7 +334,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	}
 }
 
-func CreateConsumer(q *redismq.Queue, queueName string, handler queueHandler, handlerTimeout time.Duration) (*QueueConsumer, error) {
+func CreateConsumer(q *redismq.Queue, queueName string, handler queueHandler, handlerTimeout time.Duration) (Consumer, error) {
 	c, err := q.AddConsumer(queueName)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add a consumer: %v", err)
