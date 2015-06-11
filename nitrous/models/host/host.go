@@ -100,6 +100,7 @@ type Host struct {
 
 	// Tracks the last time at which ping webhook was called by freighter
 	LastPingedAt pq.NullTime `db:"last_pinged_at"`
+	AutoShutdown bool        `db:"auto_shutdown"`
 
 	Secret string `db:"secret"`
 
@@ -306,17 +307,17 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 		}
 		h.Secret = sec[:255]
 	}
-	nstmt, err := d.PrepareNamed(`INSERT INTO hosts
-		(user_id, region_id, plan_id, provider_template_id, slug, name, secret,
+	nstmt, err := d.PrepareNamed(`INSERT INTO hosts (
+			user_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned, freighterd_version, docker_version,
-			region_identifier
+			region_identifier, last_pinged_at, auto_shutdown
+		) VALUES (
+			:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
+			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
+			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
+			:region_identifier, :last_pinged_at, :auto_shutdown
 		)
-		VALUES
-		(:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
-		:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
-		:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
-		:region_identifier)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -328,10 +329,10 @@ func (h *Host) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, freighterd_version, docker_version, updated_at,
-			region_identifier, last_pinged_at)
+			region_identifier, last_pinged_at, auto_shutdown)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :freighterd_version, :docker_version, now(),
-			:region_identifier, :last_pinged_at)
+			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -344,10 +345,10 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
 		SET (slug, name, state, ip_address, provider_identifier, max_containers, freighterd_port,
 			preprovisioned, hourly_price, free, freighterd_version, docker_version, updated_at,
-			region_identifier, last_pinged_at)
+			region_identifier, last_pinged_at, auto_shutdown)
 		= (:slug, :name, :state, :ip_address, :provider_identifier, :max_containers, :freighterd_port,
 			:preprovisioned, :hourly_price, :free, :freighterd_version, :docker_version, now(),
-			:region_identifier, :last_pinged_at)
+			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -372,6 +373,10 @@ func (h *Host) Delete(d db.QueryReceiver) error {
 
 func (h *Host) UpdateVersions(d db.QueryReceiver, fv string, dv string) error {
 	return d.QueryRowx(`UPDATE hosts SET freighterd_version = $1, docker_version = $2 WHERE id = $3 RETURNING *;`, fv, dv, h.ID).StructScan(h)
+}
+
+func (h *Host) Touch(d db.QueryReceiver) error {
+	return h.UpdateColumn(d, "last_pinged_at", pq.NullTime{time.Now(), true})
 }
 
 func (h *Host) CanCreateMoreContainers(d db.QueryReceiver, u *user.User) (bool, error) {

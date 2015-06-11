@@ -116,17 +116,15 @@
 .card-footer.bordered
   if isRunning
     .left
+      if canSafeStop
+        button.ui.btn click='restart' Restart
+        button.ui.btn click='stop' Stop
+      else
+        button.ui.btn click='showRestartDialog target="view"' Restart
+        button.ui.btn click='showStopDialog target="view"' Stop
+    .right
       if App.billingProfile.free
         button.ui.btn click='upgradePaid' Upgrade
-        button.ui.btn click='showTerminateDialog target="view"' Terminate...
-      else
-        if canSafeStop
-          button.ui.btn click='restart' Restart
-          button.ui.btn click='stop' Stop
-        else
-          button.ui.btn click='showRestartDialog target="view"' Restart
-          button.ui.btn click='showStopDialog target="view"' Stop
-    .right
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
 
   else
@@ -139,18 +137,12 @@
           button.ui.btn.primary click='showTerminateDialog target="view"' Terminate
       else
         if isStopped
-          if App.billingProfile.free
-            .left
+          .left
+            button.ui.btn click='showTerminateDialog target="view"' Terminate...
+          .right
+            if App.billingProfile.free
               button.ui.btn click='upgradePaid' Upgrade
-
-            .right
-              button.ui.btn.primary disabled=App.usage.expired click='start' Start
-              button.ui.btn click='showTerminateDialog target="view"' Terminate...
-          else
-            .left
-              button.ui.btn click='showTerminateDialog target="view"' Terminate...
-            .right
-              button.ui.btn.primary click='start' Start
+            button.ui.btn.primary click='start' Start
         else
           .left
             button.ui.btn disabled='disabled'
@@ -165,10 +157,6 @@
         ' absolutely
       | sure?
     .card-body
-      if App.billingProfile.free
-        p
-          strong
-            | You will not be able to create another free workspace.
       p
         ' This action
         strong

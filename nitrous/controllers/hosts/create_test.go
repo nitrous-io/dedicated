@@ -90,9 +90,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec(`UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;`, u.ID)
-		Expect(err).To(BeNil())
-
 		t = &token.Token{
 			UserID: u.ID,
 			Token:  "valid-token",

@@ -7,11 +7,12 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
+
+const IdleHostTimeout = 3000 * 60 * time.Second
 
 var (
 	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
@@ -130,8 +131,9 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 		SELECT count(*) FROM hosts
 		WHERE user_id = $1
 		AND state != $2
-		AND preprovisioned = false;
-	`, u.ID, host.StateOrphan).Scan(&count)
+		AND preprovisioned = $3
+		AND terminated_at IS NULL;
+	`, u.ID, host.StateOrphan, false).Scan(&count)
 	if err != nil {
 		return err
 	}
@@ -171,71 +173,13 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 	return nil
 }
 
-func StopHostAllowed(d *db.Database, u *user.User) (bool, error) {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return false, err
-	}
-
-	return !bp.IsFreeTier(), nil
-}
-
-func StartHostAllowed(d *db.Database, u *user.User, h *host.Host) error {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return err
-	}
-
-	if !bp.IsFreeTier() {
-		return nil
-	}
-
-	if !u.MaxRunningTime.Valid || !u.RefreshPeriod.Valid {
-		return nil
-	}
-
-	if !h.LastRunningAt.Valid {
-		return ErrLastRunningAtInvalid
-	}
-
-	lastTime := h.LastRunningAt.Time
-
-	now := time.Now().UTC()
-
-	// if the host was last running outside of the refresh period then the host can be started again
-	// regardless of the quota they have used (because the quota has been reset because we are in a new period)
-	refreshPeriod := lastTime.Add(time.Duration(u.RefreshPeriod.Int64) * time.Second)
-	if refreshPeriod.Before(now) {
-		return nil
-	}
-
-	used := int64(now.Sub(lastTime) / time.Second)
-	if used >= u.MaxRunningTime.Int64 {
-		return ErrFreeTimeLimitExceeded
-	}
-
-	return nil
-}
-
-func ExpiredHosts(d *db.Database) ([]*host.Host, error) {
-	// query for hosts where their owners have limits and the hosts have exceeded these limits
-	query := `SELECT hosts.*, pt.provider, pt.config
-    FROM hosts
-    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-    INNER JOIN users ON hosts.user_id = users.id
-    INNER JOIN billing_profiles bp ON bp.user_id = users.id
-    WHERE
-    	last_running_at IS NOT NULL
-    	AND terminated_at IS NULL
-    	AND preprovisioned IS FALSE
-    	AND bp.state = $1
-    	AND hosts.state = $2
-    	AND users.max_running_time IS NOT NULL
-    	AND users.refresh_period IS NOT NULL
-    	AND (now() - hosts.last_running_at) > (interval '1 second' * users.max_running_time);`
-
+func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 	hosts := []*host.Host{}
-	err := d.Select(&hosts, query, billingprofile.StateFree, host.StateRunning)
+	cutoff := time.Now().Add(-IdleHostTimeout)
+	err := d.Select(&hosts, `SELECT * FROM hosts
+		WHERE auto_shutdown = $1 AND state = $2 AND last_pinged_at < $3 AND terminated_at IS NULL
+		ORDER BY last_pinged_at ASC
+	`, true, host.StateRunning, cutoff)
 	if err != nil {
 		return nil, err
 	}

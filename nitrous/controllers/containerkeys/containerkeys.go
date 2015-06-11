@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	Index       middleware.Middleware = containers.WithContainerAndHost(list, true)
-	AddToGitHub middleware.Middleware = containers.WithContainerAndHost(addToGitHub, true)
+	Index       middleware.Middleware = containers.WithContainerAndHost(list, true, false)
+	AddToGitHub middleware.Middleware = containers.WithContainerAndHost(addToGitHub, true, true)
 
 	// separated out for mocking
 	AddGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) = addGitHubKeys

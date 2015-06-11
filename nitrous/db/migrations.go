@@ -1262,5 +1262,27 @@ func init() {
 				CREATE INDEX index_hosts_on_last_pinged_at ON hosts USING btree (last_pinged_at);
 			`,
 		},
+		{
+			Version: "1100",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+				CREATE INDEX index_hosts_on_auto_shutdown ON hosts USING btree (auto_shutdown);
+				CREATE INDEX index_hosts_on_auto_shutdown_state_and_last_pinged_at
+				  ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
+			`,
+		},
+		{
+			Version: "1110",
+			Up: `
+				ALTER TABLE plans ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "1120",
+			Up: `
+				ALTER TABLE users DROP COLUMN max_running_time;
+				ALTER TABLE users DROP COLUMN refresh_period;
+			`,
+		},
 	}
 }

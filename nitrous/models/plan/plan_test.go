@@ -276,6 +276,7 @@ var _ = Describe("models/plan", func() {
 				Memory:        "512 MB",
 				Storage:       "20 GB",
 				MostPopular:   true,
+				AutoShutdown:  true,
 			}
 			err = p.Insert(db)
 			Expect(err).To(BeNil())
@@ -294,6 +295,7 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.Memory).To(Equal("512 MB"))
 			Expect(p2.Storage).To(Equal("20 GB"))
 			Expect(p2.MostPopular).To(BeTrue())
+			Expect(p2.AutoShutdown).To(BeTrue())
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})

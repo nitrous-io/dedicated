@@ -54,10 +54,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
   temporaryScreen: null
   sharedContainerTip: false
 
-  fiveMinWarned: false
-  oneMinWarned: false
-  zeroWarned: false
-
   hostErrors: null
 
   confirmationLapsed: false
@@ -173,90 +169,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
   singleHost: (->
     @get('hosts.loaded') && @get('hosts.length') == 1
   ).property 'hosts.loaded', 'hosts.length'
-
-  # thanks to http://www.rvdh.de/2014/11/14/time-based-triggers-in-ember-js/
-  currentTimeMetronome: (->
-    interval = 1000
-    Ember.run.later this, =>
-      this.notifyPropertyChange('currentTimePulse')
-      this.currentTimeMetronome()
-    , interval
-  ).on 'init'
-
-  usage: (->
-    if @get('noHost') || !@get('billingProfile.free')
-      return
-
-    primaryHost = @get('hosts.firstObject')
-    unless primaryHost && (expiresAt = primaryHost.get('expiresAt'))
-      return
-
-    now = (new Date()).getTime()
-    maxRun = @get('user.maxRunningTime')
-    refreshPeriod = @get('user.refreshPeriod')
-
-    timeElapsed = maxRun - primaryHost.get('timeRemaining')
-    lastRunningAt = new Date(expiresAt.getTime() - maxRun*1000)
-    refreshAt = new Date(lastRunningAt.getTime() + refreshPeriod*1000)
-
-    remaining = (expiresAt - (new Date()))/1000
-    refreshIn = null
-    if (r = refreshAt.getTime()) < now
-      remaining = maxRun
-    else
-      refreshIn = (r - now)/1000
-
-    # correct for overruns or underuns
-    if remaining > maxRun
-      remaining = maxRun
-    else if remaining < 0
-      remaining = 0
-
-    expired = remaining == 0
-    percent = 0
-    if expired
-      percent = 100 - (((refreshPeriod - refreshIn) / refreshPeriod) * 100)
-    else
-      percent = ((remaining / maxRun) * 100)
-
-    return {
-      refreshIn: refreshIn,
-      remaining: remaining,
-      expired: expired,
-      progressBarStyle: "width: #{percent}%"
-    }
-  ).property 'currentTimePulse', 'noHost', 'hosts.firstObject.expiresAt', 'user.maxRunningTime', 'user.refreshPeriod', 'billingProfile.free'
-
-  notifyUsageWarning: (->
-    return unless @get('hosts.firstObject.state') == 'running'
-    return unless @get 'usage'
-
-    return if @get 'zeroWarned'
-    usage = @get 'usage'
-    if usage.remaining <= 0
-      App.snackbar.post 'You have exceeded your daily usage for the free tier, please consider upgrading.', sticky: true
-      @set 'zeroWarned', true
-      return
-
-    return if @get 'oneMinWarned'
-    if usage.remaining <= 60
-      App.snackbar.post 'Your workspace will be shutdown in less than a minute, please save your work.', sticky: true
-      @set 'oneMinWarned', true
-      return
-
-    return if @get 'fiveMinWarned'
-
-    if usage.remaining <= (5 * 60)
-      App.snackbar.post 'Your workspace will be shutdown in less than 5 minutes, please save your work.', sticky: true
-      @set 'fiveMinWarned', true
-  ).observes 'currentTimePulse', 'usage'
-
-  flushWarnings: (->
-    return unless @get('zeroWarned') && @get('oneMinWarned') && @get('fiveMinWarned')
-    @set 'zeroWarned', false
-    @set 'oneMinWarned', false
-    @set 'fiveMinWarned', false
-  ).observes 'hosts.firstObject.lastRunningAt'
 
   reloadEligiblePlans: (->
     @get('eligiblePlans')?.reload()

@@ -76,9 +76,6 @@ type User struct {
 
 	MaxContainers sql.NullInt64 `db:"max_containers"`
 
-	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // seconds (free tier)
-	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // seconds (free tier)
-
 	ResetPasswordToken  sql.NullString `db:"reset_password_token"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at"`
 
@@ -238,9 +235,9 @@ func (u *User) Update(d db.QueryReceiver) error {
 	}
 	nstmt, err := d.PrepareNamed(`UPDATE users
 		SET (name, email, encrypted_password, unconfirmed_email, confirmation_sent_at,
-			confirmation_token, max_running_time, refresh_period, updated_at)
+			confirmation_token, updated_at)
 		= (:name, :email, :encrypted_password, :unconfirmed_email, :confirmation_sent_at,
-			:confirmation_token, :max_running_time, :refresh_period, now())
+			:confirmation_token, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -629,9 +626,6 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 		StripeFingerprint: sql.NullString{crd.Fingerprint, true},
 		PendingActivation: false,
 	}
-
-	u.MaxRunningTime = sql.NullInt64{Valid: false}
-	u.RefreshPeriod = sql.NullInt64{Valid: false}
 
 	tx, err := d.Beginx()
 	if err != nil {

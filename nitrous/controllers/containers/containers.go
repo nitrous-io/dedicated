@@ -56,15 +56,15 @@ var (
 )
 
 var (
-	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit, false)
-	Config  = WithContainerAndHost(config, true)
-	Show    = WithContainerAndHost(show, true)
-	Start   = WithContainerAndHost(start, true)
-	Stop    = WithContainerAndHost(stop, true)
-	Restart = WithContainerAndHost(restart, true)
-	Destroy = WithContainerAndHost(destroy, false)
-	Token   = WithContainerAndHost(token, true)
+	Create  = middleware.HostViaForm("host", middleware.TouchHost(requiresRunningHost(create)))
+	Commit  = WithContainerAndHost(commit, false, true)
+	Config  = WithContainerAndHost(config, true, true)
+	Show    = WithContainerAndHost(show, true, false)
+	Start   = WithContainerAndHost(start, true, true)
+	Stop    = WithContainerAndHost(stop, true, true)
+	Restart = WithContainerAndHost(restart, true, true)
+	Destroy = WithContainerAndHost(destroy, false, true)
+	Token   = WithContainerAndHost(token, true, false)
 )
 
 var (
@@ -194,11 +194,12 @@ func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*f
 	return liveContainers, nil
 }
 
-func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
+
 	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
@@ -354,6 +355,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 	r.ParseForm()
+
 	config, err := prepareConfig(r.PostForm, hv)
 	if err != nil {
 		return err
@@ -496,7 +498,7 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Middleware {
+func WithContainerAndHost(fn containerHandler, allowCollab bool, touchHost bool) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 		slug := mux.Vars(r)["slug"]
@@ -518,6 +520,9 @@ func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Midd
 				return errHostNotFound
 			}
 			return err
+		}
+		if touchHost {
+			h.Touch(db)
 		}
 		return fn(cn, h, env, w, r)
 	}
@@ -545,8 +550,7 @@ func withSharedContainerAndHost(fn containerHandler, env *middleware.Env, w http
 	return fn(cn, h, env, w, r)
 }
 
-type runningHost *host.Host
-type hostFn func(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
+type hostFn func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 // requiresRunningHost is a wrapper which guarantees the action is called for a running host
 func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
