@@ -24,6 +24,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -45,6 +47,7 @@ var (
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
+	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
@@ -105,9 +108,9 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
 		if ver, err = cl.HostVersions(); err == nil {
 			if h.DockerVersion != "" && ver.DockerVersion != h.DockerVersion {
-				h.UpgradeAvailable = host.UpgradeAvailableHard
+				h.UpdateAvailable = host.UpdateAvailableHard
 			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
-				h.UpgradeAvailable = host.UpgradeAvailableSoft
+				h.UpdateAvailable = host.UpdateAvailableSoft
 			}
 			if env.User.Admin {
 				h.LiveDockerVersion = ver.DockerVersion
@@ -117,7 +120,11 @@ func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	}
 
 	if !envvars.EnableSelfUpgrade && !env.User.Admin {
-		h.UpgradeAvailable = ""
+		h.UpdateAvailable = ""
+	}
+
+	if _, err := respec.Find(env.DB, h.ID); err == nil {
+		h.PendingRespec = true
 	}
 
 	serializeHost(env, h)
@@ -471,7 +478,92 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	return nil
 }
 
-func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	rs, err := respec.Find(db, h.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errHostNoPendingRespec
+		}
+		return err
+	}
+
+	pt, err := providertemplate.FindByID(db, rs.ProviderTemplateID)
+	if err != nil {
+		return err
+	}
+
+	h.State = host.StateRespeccing
+	if err := h.Update(db); err != nil {
+		return err
+	}
+
+	if err := rs.UpdateState(db, respec.StateProcessing); err != nil {
+		return err
+	}
+
+	cfg := h.MachineConfig()
+	for k, v := range pt.Config.Map {
+		if v.Valid {
+			cfg[k] = v.String
+		} else {
+			cfg[k] = ""
+		}
+	}
+
+	// Apply provider-specific configuration.
+	prov := env.Provisioner
+	cfg, err = prov.ApplyProviderConfig(cfg, pt, h)
+	if err != nil {
+		env.Logger.Errorf("failed to apply provider-specific config, err: %v", err)
+		return err
+	}
+
+	go func() {
+		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
+		if err != nil {
+			h.State = host.StateRespecFailed
+			if err := h.Update(db); err != nil {
+				env.Logger.Errorf("error updating host after respec failed: %v", err)
+			}
+			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
+				env.Logger.Errorf("error updating respec state to failed: %v", err)
+			}
+
+			env.Events.Publish(
+				controllers.NewEvent(controllers.EventHostRespecFailed, map[string]interface{}{
+					"host":  serializers.SerializeHost(h),
+					"error": err.Error(),
+				}),
+				env.User.Topic(),
+			)
+			return
+		}
+
+		h.ProviderTemplateID = rs.ProviderTemplateID
+		h.State = host.StateRunning
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		if err := h.UpdateAfterRespec(db); err != nil {
+			env.Logger.Errorf("error updating host after respec completed: %v", err)
+		}
+		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
+			env.Logger.Errorf("error updating respec state to completed: %v", err)
+		}
+
+		PublishHostEvent(env, controllers.EventHostRespecced, h)
+	}()
+
+	PublishHostEvent(env, controllers.EventHostRespeccing, h)
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"host": serializers.SerializeHost(h),
+	}
+
+	return nil
+}
+
+func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
@@ -482,20 +574,20 @@ func Upgrade(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
-			PublishHostEvent(env, controllers.EventHostUpgraded, h)
+			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
 			serializeHost(env, h)
 			return nil
 		}
-		env.Logger.Errorf("failed to upgrade server, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to upgrade your workspace")
+		env.Logger.Errorf("failed to update server, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
 	}
 
-	h.State = host.StateUpgrading
+	h.State = host.StateUpdating
 	if err := h.Update(env.DB); err != nil {
 		return err
 	}
 
-	PublishHostEvent(env, controllers.EventHostUpgrading, h)
+	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 	env.Status = http.StatusAccepted
 	env.Data = map[string]interface{}{
 		"status": "accepted",

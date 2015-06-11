@@ -9,3 +9,7 @@ App.HostIndexRoute = App.AuthedRoute.extend
     App.set 'title', model.get('displayName')
     model.prefetchResources()
     Mp.track Mp.EventDashboardViewedHost
+
+  resetController: (controller) ->
+    # Explicitly reset query params so that bad things won't happen.
+    controller.set('justUpgraded', false)

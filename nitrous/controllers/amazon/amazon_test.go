@@ -141,7 +141,7 @@ var _ = Describe("controllers/amazon", func() {
 				hs3, err = test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						ProviderIdentifier: sql.NullString{String: "ec2-inconsistent-1", Valid: true},
-						State:              host.StateUpgrading,
+						State:              host.StateUpdating,
 						Slug:               "inconsistent-host-1",
 					},
 					U:  u,
@@ -214,7 +214,7 @@ var _ = Describe("controllers/amazon", func() {
 				Expect(len(hosts.InconsistentHosts)).To(Equal(1))
 				Expect(hosts.InconsistentHosts[0].DBHost.Slug).To(Equal("inconsistent-host-1"))
 				Expect(hosts.InconsistentHosts[0].DBHost.ProviderIdentifier).To(Equal("ec2-inconsistent-1"))
-				Expect(hosts.InconsistentHosts[0].DBHost.State).To(Equal("upgrading"))
+				Expect(hosts.InconsistentHosts[0].DBHost.State).To(Equal("updating"))
 				Expect(hosts.InconsistentHosts[0].LiveHost.ID).To(Equal("ec2-inconsistent-1"))
 				Expect(hosts.InconsistentHosts[0].LiveHost.State).To(Equal("Running"))
 

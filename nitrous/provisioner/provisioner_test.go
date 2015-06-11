@@ -480,7 +480,7 @@ var _ = Describe("provisioner", func() {
 		})
 	})
 
-	Describe("mkHostbuilderConfig()", func() {
+	Describe("ApplyProviderConfig()", func() {
 		var (
 			pcfg *provisioner.Config
 			prov *provisioner.Provisioner
@@ -494,67 +494,58 @@ var _ = Describe("provisioner", func() {
 			}
 			prov = provisioner.NewProvisioner(db, lgr, nil, pcfg)
 			var err error
-			hs, err = test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{},
-				PT: &providertemplate.ProviderTemplate{
-					Config: hstore.Hstore{Map: map[string]sql.NullString{
-						"region_id":    {"usw2", true},
-						"storage_size": {"25", true},
-					}},
-				},
-			})
+			hs, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 		})
 
 		It("uses convention for provider name", func() {
-			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			opts := provisioner.ProvisionOptions{
-				Template: hs.PT,
-				Name:     "host-slug",
+			origCfg := hostbuilderclient.Config{
+				"region_id":    "usw2",
+				"storage_size": "25",
 			}
-			cfg, err := prov.MakeHostbuilderConfig(ph, opts)
+
+			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
 			Expect(err).To(BeNil())
 			Expect(cfg["name"]).To(Equal(fmt.Sprintf("userhost-{{env}}-%d", hs.H.ID)))
 		})
 
 		It("amazon provider returns config given valid opts", func() {
-			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			opts := provisioner.ProvisionOptions{
-				Template: hs.PT,
+			origCfg := hostbuilderclient.Config{
+				"region_id":    "usw2",
+				"storage_size": "25",
 			}
-			cfg, err := prov.MakeHostbuilderConfig(ph, opts)
+
+			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
 			Expect(err).To(BeNil())
 			Expect(cfg["storage_size"]).To(Equal(25))
 			Expect(cfg["disable_eip"]).To(Equal(false))
 		})
 
 		It("amazon provider disables eip if set", func() {
-			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			hs.PT.Config.Map["disable_eip"] = sql.NullString{"true", true}
-			opts := provisioner.ProvisionOptions{
-				Template: hs.PT,
+			origCfg := hostbuilderclient.Config{
+				"region_id":    "usw2",
+				"storage_size": "25",
+				"disable_eip":  "true",
 			}
-			cfg, err := prov.MakeHostbuilderConfig(ph, opts)
+
+			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
 			Expect(err).To(BeNil())
 			Expect(cfg["disable_eip"]).To(Equal(true))
 		})
 
 		It("amazon provider errs on invalid storage_size", func() {
-			ph := provisioner.NewPreparedHost(hs.H)
 			hs.PT.Provider = provisioner.AmazonProvider
-			hs.PT.Config = hstore.Hstore{Map: map[string]sql.NullString{
-				"region_id":    {"usw2", true},
-				"storage_size": {"mongo hdd", true},
-			}}
-			opts := provisioner.ProvisionOptions{
-				Template: hs.PT,
+			origCfg := hostbuilderclient.Config{
+				"region_id":    "usw2",
+				"storage_size": "mongo hdd",
 			}
-			_, err := prov.MakeHostbuilderConfig(ph, opts)
+
+			_, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
 			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("invalid size"))
+			Expect(err.Error()).To(ContainSubstring("invalid storage_size"))
 		})
 	})
 })

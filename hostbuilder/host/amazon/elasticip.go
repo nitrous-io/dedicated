@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/mitchellh/goamz/ec2"
@@ -96,7 +97,7 @@ func releaseAddress(provider ipProvider, ipAddress string, vpc bool) error {
 	if err != nil {
 		return err
 	}
-	// if we cant find the elastic IP, considered the release to be successful
+	// if we can't find the Elastic IP, consider the release to be successful.
 	if len(addresses.Addresses) == 0 {
 		return nil
 	}
@@ -140,7 +141,7 @@ func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.
 		resp, err = provider.AssociateAddress(opts)
 		switch assocErr := err.(type) {
 		case nil:
-			fmt.Printf("tryAssociateAddress attempts before success: %d\n", i+1)
+			log.Printf("tryAssociateAddress attempts before success: %d", i+1)
 			return resp, nil
 		case *ec2.Error:
 			if assocErr.Code == "InvalidAllocationID.NotFound" {
@@ -152,4 +153,16 @@ func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.
 		}
 	}
 	return resp, err // persistent InvalidAllocationID.NotFound errors
+}
+
+// getAddresses returns the addresses associated with an EC2 instance.
+func getAddresses(provider ipProvider, instanceID string) ([]ec2.Address, error) {
+	filter := ec2.NewFilter()
+	filter.Add("instance-id", instanceID)
+
+	resp, err := provider.Addresses(nil, nil, filter)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Addresses, nil
 }

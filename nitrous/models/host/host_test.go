@@ -958,6 +958,75 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("UpdateAfterRespec()", func() {
+		var h *host.Host
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               "host-1",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              host.StateRespeccing,
+				HourlyPrice:        100,
+				TerminatedAt:       nil,
+				Preprovisioned:     false,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates only the provider template ID, state, and IP address", func() {
+			hs2, err := test.CreateHostStack(db, nil)
+			Expect(err).To(BeNil())
+
+			h.ProviderTemplateID = hs2.PT.ID
+			h.State = host.StateRunning
+			h.IPAddress = sql.NullString{"192.168.0.1", true}
+
+			h.Slug = "new-slug"
+			h.Name = sql.NullString{"new name", true}
+			h.HourlyPrice = 200
+
+			err = h.UpdateAfterRespec(db)
+			Expect(err).To(BeNil())
+
+			h2 := &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+
+			// Updated fields.
+			Expect(h2.ProviderTemplateID).To(Equal(hs2.PT.ID))
+			Expect(h2.State).To(Equal(host.StateRunning))
+			Expect(h2.IPAddress.String).To(Equal("192.168.0.1"))
+
+			// Unchanged fields.
+			Expect(h2.Slug).To(Equal("host-1"))
+			Expect(h2.UserID).To(Equal(hs.U.ID))
+			Expect(h2.PlanID).To(Equal(h.PlanID))
+			Expect(h2.RegionID).To(Equal(h.RegionID))
+			Expect(h2.HourlyPrice).To(Equal(h.HourlyPrice))
+			Expect(h2.ProviderIdentifier.String).To(Equal(h.ProviderIdentifier.String))
+			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
+			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
+			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
+			Expect(h2.FreighterdVersion).To(Equal(h.FreighterdVersion))
+			Expect(h2.DockerVersion).To(Equal(h.DockerVersion))
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := h.UpdatedAt
+
+			err := h.UpdateAfterRespec(db)
+			Expect(err).To(BeNil())
+
+			Expect(*h.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
+		})
+	})
+
 	Describe("UpdateVersions()", func() {
 		var (
 			h    *host.Host
