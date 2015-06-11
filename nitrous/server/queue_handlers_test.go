@@ -28,7 +28,7 @@ import (
 var _ = Describe("HostQueueHandler", func() {
 	var (
 		redisClient *redis.Client
-		qp          *queue.QueuePublisher
+		qp          queue.Publisher
 		qc          *queue.QueueConsumer
 		db          *db.Database
 		handler     func(m *queue.Message) error

@@ -1,23 +1,34 @@
 = host-tab-bar selected='general' model=model
 
 .card-body
-  if upgradeAvailable
-    unless isUpgrading
+  if pendingRespec
+    unless isRespeccing
       .notice-text
         i.fa.fa-warning
-        if canUpgrade
           '
-          | There are updates available for this workspace.
+          ' You can complete upgrading this workspace to the
+          = plan.name
           '
-          a click='upgrade' href="#" Update Now
-        else
-          | There are updates available for this workspace. Please stop your containers before updating.
+          ' plan.
+          a click='respec' href='#' Upgrade Now
+  else
+    if updateAvailable
+      unless isUpdating
+        .notice-text
+          i.fa.fa-warning
+          if canUpdate
+            '
+            | There are updates available for this workspace.
+            '
+            a click='update' href="#" Update Now
+          else
+            | There are updates available for this workspace. Please stop your containers before updating.
 
   if hasError
-      .notice-text.error
-        i.fa.fa-warning
-        '
-        | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
+    .notice-text.error
+      i.fa.fa-warning
+      '
+      | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
 
   if topAnnouncement
     .notice-text.multi-line
@@ -36,7 +47,7 @@
       th State
       td
         .state-indicator class={state}
-        = state
+        = stateForDisplay
       th Uptime
       td.usage
         if view.hostStatsAvailable
@@ -225,3 +236,42 @@
       .right
         button.ui.btn click='cancelRestart target="view"' Cancel
         button.ui.btn.danger.restart-btn click='confirmRestart target="view"' Restart Anyway
+
+#upgrade-complete-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Do More on Nitrous
+    .card-body
+      | Your upgraded workspace has:
+
+      ul
+        li
+          i.fa.fa-check
+          | No hourly limits
+        li
+          i.fa.fa-check
+          ' Advanced container management &mdash;
+          a href="http://docs.nitrous.io/v1.0/docs/advanced-container-management-options" target="_blank" learn more
+        li
+          i.fa.fa-check
+          ' Access to Nitrous Desktop app &mdash;
+          a href=App.desktopDownloadUrl target="_blank" download now
+        if App.upgradeCredited
+          li
+            i.fa.fa-check
+            | Your $
+            = App.upgradeCredited
+            '
+            | credit has been applied!
+
+      h3 Restart required
+
+      p
+        ' Your workspace needs to be restarted in order to increase its storage.
+
+    .card-footer
+      .right
+        button.ui.btn click='hideUpgradeDialog target="view"'
+          | Later
+        button.ui.btn.primary click='respecNow target="view"'
+          | Restart workspace now

@@ -36,8 +36,9 @@ const (
 
 	rootDeviceName = "/dev/sda1"
 
-	updateTimeout           = 30 * time.Second
-	resizeRootVolumeTimeout = 30 * time.Minute
+	updateTimeout            = 30 * time.Second
+	resizeRootVolumeTimeout  = 30 * time.Minute
+	allocateElasticIPTimeout = 3 * time.Minute
 )
 
 var (
@@ -207,7 +208,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -331,13 +332,34 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 // The following changes are supported:
 //   1. Changing storage size of root volume.
 //   2. TODO Changing instance type.
-//   3. TODO Allocating/de-allocating an Elastic IP.
+//   3. Allocating/de-allocating an Elastic IP.
 func (h *Host) Respec() (*host.Info, error) {
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		return nil, mh.Error(err, label)
+	}
+
+	// Allocate Elastic IP.
+	// If instance already has an Elastic IP allocated, we skip this step.
+	addresses, err := getAddresses(h.provider, h.instance.InstanceId)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+	if len(addresses) == 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), allocateElasticIPTimeout)
+		defer cancel()
+
+		hctx := host.NewContext(ctx, h, h, nil)
+		err := hctx.Run(host.Step{
+			Description: "Allocating static IP",
+			Func:        allocateElasticIP,
+		})
+		if err != nil {
+			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
+			return nil, mh.Error(err, label)
+		}
 	}
 
 	// If StorageSize is 0, no change required.

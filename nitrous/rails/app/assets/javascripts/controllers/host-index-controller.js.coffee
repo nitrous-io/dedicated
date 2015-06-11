@@ -1,12 +1,8 @@
 #= require ../mixins/perform-action-mixin
 
 App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
-  stateDidChange: (->
-    if @get('model.state') == 'running'
-      Em.run.later(this, ->
-        @send('refresh')
-      , 1000)
-  ).observes 'model.state'
+  queryParams: ['justUpgraded']
+  justUpgraded: false
 
   actions:
     start: ->
@@ -30,31 +26,54 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }
 
     upgradePaid: ->
-      @transitionToRoute 'add-card', queryParams: { upgradingFromFree: true }
+      @transitionToRoute 'add-card', queryParams: { upgradingFromFree: true, hostSlug: @get('model.slug') }
 
-    upgrade: ->
+    update: ->
       host = @get('model')
-      events = App.get 'eventsSocket'
+      events = App.get('eventsSocket')
 
-      unless host.get('canUpgrade')
-        App.postError("Containers must be stopped to perform this upgrade")
+      unless host.get('canUpdate')
+        App.postError('Containers must be stopped to perform this update.')
         return
 
-      onUpgradeFailed = (data) ->
+      onUpdateFailed = (data) ->
         hostData = data.host
         return unless hostData.id == host.get('id')
-        events.off 'host.upgrade_failed', onUpgradeFailed
-        events.off 'host.upgraded', onUpgraded
-        App.postError("Failed to upgrade workspace!")
+        events.off 'host.update_failed', onUpdateFailed
+        events.off 'host.updated', onUpdated
+        App.postError('Failed to update workspace!')
 
-      onUpgraded = (data) ->
+      onUpdated = (data) ->
         hostData = data.host
         return unless hostData.id == host.get('id')
-        events.off 'host.upgrade_failed', onUpgradeFailed
-        events.off 'host.upgraded', onUpgraded
+        events.off 'host.update_failed', onUpdateFailed
+        events.off 'host.updated', onUpdated
+        App.snackbar.post("Your workspace “#{host.get('slug')}” has been updated.")
+
+      events.on 'host.update_failed', onUpdateFailed
+      events.on 'host.updated', onUpdated
+
+      @performAction('POST', 'update_software', 'updating')
+
+    respec: ->
+      host = @get('model')
+      events = App.get('eventsSocket')
+
+      onRespecFailed = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.respec_failed', onRespecFailed
+        events.off 'host.respecced', onRespecced
+        App.postError('Failed to upgrade workspace!')
+
+      onRespecced = (data) ->
+        hostData = data.host
+        return unless hostData.id == host.get('id')
+        events.off 'host.respec_failed', onRespecFailed
+        events.off 'host.respecced', onRespecced
         App.snackbar.post("Your workspace “#{host.get('slug')}” has been upgraded.")
 
-      events.on 'host.upgrade_failed', onUpgradeFailed
-      events.on 'host.upgraded', onUpgraded
+      events.on 'host.respec_failed', onRespecFailed
+      events.on 'host.respecced', onRespecced
 
-      @performAction('POST', 'upgrade', 'upgrading')
+      @performAction('POST', 'respec', 'respeccing')

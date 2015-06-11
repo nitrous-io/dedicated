@@ -21,8 +21,9 @@ App.Host = klass = App.Model.extend
   lastRunningAt: attr('date', as: 'last_running_at', serialize: false)
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
-  upgradeAvailable: attr(as: 'upgrade_available', serialize: false)
+  updateAvailable: attr(as: 'update_available', serialize: false)
   timeRemaining: attr('number', as: 'time_remaining', serialize: false)
+  pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
@@ -30,17 +31,30 @@ App.Host = klass = App.Model.extend
 
   stats: null
   liveHost: null
-  freighterdError: null
+
+  # True when there is an error connecting to the host.
+  connectivityError: false
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
   isTerminated: Em.computed.equal 'state', 'terminated'
   isOrphan: Em.computed.equal 'state', 'orphan'
-  isUpgrading: Em.computed.equal 'state', 'upgrading'
+  isUpdating: Em.computed.equal 'state', 'updating'
+  isRespeccing: Em.computed.equal 'state', 'respeccing'
 
   displayName: (->
     @get('name') || @get('slug')
   ).property 'slug'
+
+  stateForDisplay: (->
+    switch state = @get('state')
+      when 'respeccing'
+        'upgrading in progress'
+      when 'respec_failed'
+        'upgrading failed'
+      else
+        state
+  ).property 'state'
 
   containers: (->
     if id = @get('id')
@@ -72,7 +86,7 @@ App.Host = klass = App.Model.extend
   ).property 'id'
 
   topAnnouncement: (->
-    if an = @get 'announcements'
+    if an = @get('announcements')
       an.sortBy('createdAt').reverse()[0]
   ).property 'announcements.@each'
 
@@ -104,30 +118,34 @@ App.Host = klass = App.Model.extend
       @set 'stats', null
   ).observes 'state'
 
-  isHostUpgradeHard: (->
-    @get('upgradeAvailable') == "hard"
-  ).property 'upgradeAvailable'
+  connectivityErrorDidChange: (->
+    if @get('connectivityError') == false
+      App.get('containers')?.reload()
+  ).observes 'connectivityError'
 
-  isHostUpgradeSoft: (->
-    @get('upgradeAvailable') == "soft"
-  ).property 'upgradeAvailable'
+  isHostUpdateHard: (->
+    @get('updateAvailable') == "hard"
+  ).property 'updateAvailable'
+
+  isHostUpdateSoft: (->
+    @get('updateAvailable') == "soft"
+  ).property 'updateAvailable'
 
   hasError: (->
-    return false if @get('isUpgrading')
-    return false unless errors = App.get 'hostErrors'
-    errors.contains @get('slug')
-  ).property 'App.hostErrors.@each'
+    return false if @get('isUpdating')
+    @get('connectivityError')
+  ).property 'connectivityError', 'isUpdating'
 
-  canUpgrade: (->
-    return false if @get('isUpgrading')
-    return false if @get('upgradeAvailable') == ""
-    return true if @get('isHostUpgradeSoft')
+  canUpdate: (->
+    return false if @get('isUpdating')
+    return false if @get('updateAvailable') == ""
+    return true if @get('isHostUpdateSoft')
     return @get('containers').every (con)->
       con.get('isStopped') || con.get('isTerminated')
-  ).property 'upgradeAvailable', 'containers.@each.state'
+  ).property 'updateAvailable', 'containers.@each.state'
 
   canSafeStop: (->
-    return false if @get('isUpgrading')
+    return false if @get('isUpdating')
     return @get('containers').every (con)->
       con.get('isStopped') || con.get('isTerminated')
   ).property 'containers.@each.state'
@@ -148,10 +166,24 @@ App.Host = klass = App.Model.extend
     true
 
   fetchStats: ->
-    if @get('isRunning')
-      @ajax('GET', 'stats', period: '1s').then (data) =>
+    return unless @get('isRunning')
+    Em.RSVP.Promise.resolve(
+      Em.$.ajax(
+        type: 'GET',
+        url: "/api/v0/hosts/#{@get 'slug'}/stats",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data:
+          period: '1s'
+      )).then(
+      (data) =>
         if stats = data.stats
           @set 'stats', App.HostStats.create(stats)
+          @set 'connectivityError', false
+        data
+      , (jqxhr) =>
+        @set 'connectivityError', true
+        throw jqxhr
+    )
 
 klass.reopenClass
   url: '/hosts'

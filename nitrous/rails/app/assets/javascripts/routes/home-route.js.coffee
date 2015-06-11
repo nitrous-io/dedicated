@@ -5,9 +5,10 @@ App.HomeRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
     App.set 'title', null
     hFetch = App.Host.fetch()
-    cFetch = App.fetchContainers()
+    cFetch = App.Container.fetch()
     sFetch = App.SharedContainer.fetch()
     App.set 'hosts', hFetch.value
+    App.set 'containers', cFetch.value
     App.set 'sharedContainers', sFetch.value
 
     Ember.RSVP.Promise.all [hFetch, sFetch, cFetch]
@@ -26,4 +27,7 @@ App.HomeRoute = App.AuthedRoute.extend
       window.open App.get('desktopDownloadUrl'), '_blank'
 
     upgradePaid: ->
-      @transitionTo 'add-card', queryParams: { upgradingFromFree: true }
+      params = { upgradingFromFree: true }
+      if freeHost = App.get('hosts.firstObject')
+        params['hostSlug'] = freeHost.get('slug')
+      @transitionTo 'add-card', queryParams: params

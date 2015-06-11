@@ -17,3 +17,4 @@ App.AddCardRoute = App.AuthedRoute.extend
     if isExiting
       # Reset query params so they're not sticky.
       controller.set('upgradingFromFree', false)
+      controller.set('hostSlug', null)

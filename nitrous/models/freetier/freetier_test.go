@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -83,7 +84,11 @@ var _ = Describe("models/freetier", func() {
 		})
 
 		Describe("UpgradeFreeUserHosts()", func() {
-			var h *host.Host
+			var (
+				h      *host.Host
+				freePT *providertemplate.ProviderTemplate
+				paidPT *providertemplate.ProviderTemplate
+			)
 
 			BeforeEach(func() {
 				h = &host.Host{
@@ -93,12 +98,13 @@ var _ = Describe("models/freetier", func() {
 					MaxContainers: sql.NullInt64{1, true},
 				}
 
-				_, err := test.CreateHostStack(db, &test.HostStack{
+				hs, err := test.CreateHostStack(db, &test.HostStack{
 					H: h,
 					U: u,
 					P: freePlan,
 				})
 				Expect(err).To(BeNil())
+				freePT = hs.PT
 
 				Expect(h.UserID).To(Equal(u.ID))
 				Expect(h.PlanID).To(Equal(freePlan.ID))
@@ -106,6 +112,13 @@ var _ = Describe("models/freetier", func() {
 				Expect(h.Free).To(BeTrue())
 				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
 				Expect(h.UpgradedAt.Valid).To(BeFalse())
+
+				// Setup provider template for paid plan.
+				hs, err = test.CreateHostStack(db, &test.HostStack{
+					P: paidPlan,
+					R: hs.R,
+				})
+				paidPT = hs.PT
 			})
 
 			It("should not allow for an upgrade if there is no equivalent paid plan", func() {
@@ -138,6 +151,18 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.Free).To(BeFalse())
 				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{2, true}))
 				Expect(h2.UpgradedAt.Valid).To(BeTrue())
+			})
+
+			It("creates a pending respec for the host", func() {
+				err := freetier.UpgradeFreeUserHosts(db, u)
+				Expect(err).To(BeNil())
+
+				r, err := respec.Find(db, h.ID)
+				Expect(err).To(BeNil())
+
+				Expect(r.HostID).To(Equal(h.ID))
+				Expect(r.ProviderTemplateID).To(Equal(paidPT.ID))
+				Expect(r.State).To(Equal(respec.StatePending))
 			})
 		})
 

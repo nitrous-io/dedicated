@@ -8,7 +8,7 @@ App.EventMessageHandler = App.EventsSocket.extend
   _addEventHandlers: ->
     ['container.created', 'container.destroyed', 'host.restarted'].forEach (evt) =>
       @on evt, (data) ->
-        App.fetchContainers()
+        findAllContainers()?.reload()
 
     ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted',
      'container.updated', 'container.reconfiguring', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
@@ -37,12 +37,15 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['host.restarted', 'host.restarting', 'host.updated',
       'host.stopping', 'host.stopped', 'host.starting', 'host.started',
-      'host.upgrading', 'host.upgrade_failed'].forEach (evt) =>
+      'host.software_updating', 'host.software_update_failed',
+      'host.respeccing', 'host.respec_failed'].forEach (evt) =>
       @on evt, (data) ->
         hostData = data.host
-        findHost(hostData)?.load(hostData)
+        return unless host = findHost(hostData)
+        host.load(hostData)
 
-    @on 'host.upgraded', (data) ->
+    ['host.software_updated', 'host.respecced'].forEach (evt) =>
+      @on evt, (data) ->
         hostData = data.host
         return unless host = findHost(hostData)
         host.load(hostData)

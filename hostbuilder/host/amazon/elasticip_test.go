@@ -279,3 +279,32 @@ var _ = Describe("releaseAddress", func() {
 		Expect(p.calls[1].args[0].(string)).To(Equal("eip-001"))
 	})
 })
+
+var _ = Describe("getAddresses", func() {
+	It("returns the addresses associated with an EC2 instance", func() {
+		instanceID := "i-acafe"
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				{
+					AllocationId: "eip-001",
+					PublicIp:     "10.0.0.1",
+					Domain:       "standard",
+					InstanceId:   instanceID,
+				},
+			},
+		}
+
+		addresses, err := getAddresses(p, instanceID)
+		Expect(err).To(BeNil())
+
+		Expect(addresses).To(HaveLen(1))
+		Expect(addresses[0].AllocationId).To(Equal("eip-001"))
+		Expect(addresses[0].PublicIp).To(Equal("10.0.0.1"))
+
+		Expect(p.calls).To(HaveLen(1))
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+		filter := ec2.NewFilter()
+		filter.Add("instance-id", instanceID)
+		Expect(p.calls[0].args[2]).To(Equal(filter))
+	})
+})

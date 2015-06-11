@@ -175,7 +175,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		}
 	}
 
-	log.Printf("[INFO] request %+v to %s", r, slug)
+	log.Printf("[INFO] proxying preview request %+v to %s", r, slug)
 
 	cn, err := containerGet(s.db, slug)
 	if err != nil {

@@ -3,6 +3,7 @@ package freetier
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -10,6 +11,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -41,8 +45,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 				return err
 			}
 
-			err = upgradeHostToPaid(d, h, p)
-			if err != nil {
+			if err := upgradeHostToPaid(d, h, p); err != nil {
 				return err
 			}
 		}
@@ -56,19 +59,42 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 		return ErrUpgradeNotAvailable
 	}
 
-	paidPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	newPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("paid plan ID %d does not exist", currentPlan.PaidPlanID.Int64)
+		}
+		return err
+	}
+
+	currentPT, err := providertemplate.FindByID(d, h.ProviderTemplateID)
 	if err != nil {
 		return err
 	}
 
-	h.PlanID = paidPlan.ID
-	h.Size = sql.NullString{Valid: true, String: paidPlan.Slug}
-	h.HourlyPrice = paidPlan.HourlyPrice()
-	h.Free = paidPlan.IsFree()
-	h.MaxContainers = sql.NullInt64{Valid: true, Int64: paidPlan.MaxContainers}
+	// Find the new provider template.
+	newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, currentPT.Provider)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("provider template for region %d / plan %d / provider %s does not exist", h.RegionID, newPlan.ID, currentPT.Provider)
+		}
+		return err
+	}
+
+	h.PlanID = newPlan.ID
+	h.Size = sql.NullString{Valid: true, String: newPlan.Slug}
+	h.HourlyPrice = newPlan.HourlyPrice()
+	h.Free = newPlan.IsFree()
+	h.MaxContainers = sql.NullInt64{Valid: true, Int64: newPlan.MaxContainers}
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
-	nstmt, err := d.PrepareNamed(`UPDATE hosts
+	tx, err := d.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	nstmt, err := tx.PrepareNamed(`UPDATE hosts
 		SET (plan_id, size, hourly_price, free, max_containers, last_running_at, upgraded_at)
 		= (:plan_id, :size, :hourly_price, :free, :max_containers, :last_running_at, now())
 		WHERE id = :id
@@ -76,8 +102,20 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 	if err != nil {
 		return err
 	}
+	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
+		return err
+	}
 
-	return nstmt.QueryRowx(h).StructScan(h)
+	rs := &respec.Respec{
+		HostID:             h.ID,
+		ProviderTemplateID: newPT.ID,
+		State:              respec.StatePending,
+	}
+	if err := rs.Insert(tx); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {

@@ -20,7 +20,8 @@ puts "Respeccing instance #{id} with storage size: #{storage_size}..."
 params = {
   id: id,
   region_id: "ap-southeast-1",
-  storage_size: storage_size
+  storage_size: storage_size,
+  disable_eip: false
 }
 
 resp = client.post "http://localhost:6666/hosts/respec", {

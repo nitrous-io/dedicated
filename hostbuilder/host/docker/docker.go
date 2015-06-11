@@ -78,7 +78,7 @@ func (h *Host) Create(w io.Writer) (*host.Info, error) {
 
 // Create creates the docker container which acts as a container host, and write the
 // progress into queue
-func (h *Host) CreateWithQueue(qp *queue.QueuePublisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}

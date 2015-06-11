@@ -11,6 +11,14 @@ App.HostIndexView = Em.View.extend
     @get('controller.model.state') == 'running' && @get('controller.model.stats')
   ).property 'controller.model.state', 'controller.model.stats'
 
+  showUpgradeModal: (->
+    if @get('controller.justUpgraded')
+      Em.run.later(->
+        Em.run.scheduleOnce 'afterRender', ->
+          ui.showModal('#upgrade-complete-modal-dialog')
+      , 100)
+  ).observes('controller.justUpgraded').on('init')
+
   actions:
     refresh: ->
       $btn = @$('.refresh-btn')
@@ -50,6 +58,13 @@ App.HostIndexView = Em.View.extend
     confirmRestart: ->
       ui.hideModal('#restart-modal-dialog')
       @get('controller').send 'restart', force: true
+
+    hideUpgradeDialog: ->
+      ui.hideModal('#upgrade-complete-modal-dialog')
+
+    respecNow: ->
+      @get('controller').send 'respec'
+      @send('hideUpgradeDialog')
 
   clickTerminate: =>
     @$('.terminate-btn').click()

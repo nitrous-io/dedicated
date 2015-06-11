@@ -631,7 +631,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 
 		It("ignores provider param if provided by non-admin", func() {
-			params.Set("provider", "rackspace")
+			params.Set("provider", "dummy")
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
@@ -644,7 +644,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		It("uses provider param if provided by admin", func() {
 			pt2 := &providertemplate.ProviderTemplate{
 				Name:     "default-1",
-				Provider: "rackspace",
+				Provider: "dummy",
 				RegionID: hs.PT.RegionID,
 				PlanID:   hs.PT.PlanID,
 			}
@@ -671,7 +671,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			stack, err := test.CreateHostStack(db, &test.HostStack{
 				R:  &region.Region{Slug: "us-west-2"},
 				P:  &plan.Plan{Slug: "huge", Price: 500},
-				PT: &providertemplate.ProviderTemplate{Name: "usw2-huge-disabled", Disabled: true},
+				PT: &providertemplate.ProviderTemplate{Name: "usw2-huge-disabled", Disabled: true, Provider: "dummy"},
 			})
 			Expect(err).To(BeNil())
 
