@@ -208,7 +208,7 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	Describe("QueueConsumer", func() {
-		var qc *queue.QueueConsumer
+		var qc queue.Consumer
 		var err error
 		var noopHandler = func(msg *queue.Message) error {
 			return nil
@@ -240,7 +240,7 @@ var _ = Describe("pkg/queue", func() {
 
 		Describe("Consume", func() {
 			It("consumes a message from queue", func() {
-				m, err := qc.Consume()
+				m, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("1234"))
 				Expect(m.Action).To(Equal("create"))
@@ -253,9 +253,10 @@ var _ = Describe("pkg/queue", func() {
 	})
 
 	Describe("Message", func() {
-		var qc *queue.QueueConsumer
+		var qc queue.Consumer
 		var err error
 		var msg *queue.Message
+		var d queue.Delivery
 		var noopHandler = func(msg *queue.Message) error {
 			return nil
 		}
@@ -293,23 +294,23 @@ var _ = Describe("pkg/queue", func() {
 					ResourceID:   "2",
 				})
 				Expect(err).To(BeNil())
-				msg, err = qc.Consume()
+				msg, d, err = qc.Consume()
 				Expect(err).To(BeNil())
 			})
 
 			It("sends ask for the message to consume next message successfully", func() {
-				msg.Ack(50 * time.Millisecond)
-				nextMsg, err := qc.Consume()
+				d.Ack(50 * time.Millisecond)
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
 
 			It("retries when it failes to send a ACK", func() {
 				err := test.RunWhileRestartingRedis(func() {
-					msg.Ack(50 * time.Millisecond)
+					d.Ack(50 * time.Millisecond)
 				})
 				Expect(err).To(BeNil())
-				nextMsg, err := qc.Consume()
+				nextMsg, _, err := qc.Consume()
 				Expect(err).To(BeNil())
 				Expect(nextMsg.UUID).To(Equal("4567"))
 			})
@@ -326,9 +327,9 @@ var _ = Describe("pkg/queue", func() {
 				})
 				Expect(err).To(BeNil())
 				Expect(qp.GetFailedLength()).To(Equal(int64(0)))
-				msg, err := qc.Consume()
+				_, d, err := qc.Consume()
 				Expect(err).To(BeNil())
-				msg.Fail()
+				d.Fail()
 				Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 			})
 		})

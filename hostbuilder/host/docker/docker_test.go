@@ -96,7 +96,7 @@ var _ = Describe("host/docker", func() {
 		var h host.Host
 		var info *host.Info
 		var qp queue.Publisher
-		var qc *queue.QueueConsumer
+		var qc queue.Consumer
 		var queueInfo *host.QueueInfo
 
 		var redisClient *redis.Client
@@ -157,8 +157,8 @@ var _ = Describe("host/docker", func() {
 
 			var queueInfos [3]*host.QueueInfo
 			for index, event := range events {
-				m, err := qc.Consume()
-				m.Ack(10 * time.Millisecond)
+				m, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
 				Expect(err).To(BeNil())
 				Expect(m.UUID).To(Equal("uuid-111"))
 				Expect(m.Event).To(Equal(string(event)))
