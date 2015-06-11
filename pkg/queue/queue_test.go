@@ -119,7 +119,7 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("pkg/queue", func() {
-	var qp *queue.QueuePublisher
+	var qp queue.Publisher
 	var redisClient *redis.Client
 
 	BeforeEach(func() {

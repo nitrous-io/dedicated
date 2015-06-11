@@ -95,7 +95,7 @@ var _ = Describe("host/docker", func() {
 	Describe("CreateWithQueue", func() {
 		var h host.Host
 		var info *host.Info
-		var qp *queue.QueuePublisher
+		var qp queue.Publisher
 		var qc *queue.QueueConsumer
 		var queueInfo *host.QueueInfo
 
