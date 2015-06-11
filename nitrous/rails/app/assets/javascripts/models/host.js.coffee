@@ -31,7 +31,9 @@ App.Host = klass = App.Model.extend
 
   stats: null
   liveHost: null
-  freighterdError: null
+
+  # True when there is an error connecting to the host.
+  connectivityError: false
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -116,6 +118,11 @@ App.Host = klass = App.Model.extend
       @set 'stats', null
   ).observes 'state'
 
+  connectivityErrorDidChange: (->
+    if @get('connectivityError') == false
+      App.get('containers')?.reload()
+  ).observes 'connectivityError'
+
   isHostUpdateHard: (->
     @get('updateAvailable') == "hard"
   ).property 'updateAvailable'
@@ -126,9 +133,8 @@ App.Host = klass = App.Model.extend
 
   hasError: (->
     return false if @get('isUpdating')
-    return false unless errors = App.get 'hostErrors'
-    errors.contains @get('slug')
-  ).property 'App.hostErrors.@each'
+    @get('connectivityError')
+  ).property 'connectivityError', 'isUpdating'
 
   canUpdate: (->
     return false if @get('isUpdating')
@@ -160,10 +166,24 @@ App.Host = klass = App.Model.extend
     true
 
   fetchStats: ->
-    if @get('isRunning')
-      @ajax('GET', 'stats', period: '1s').then (data) =>
+    return unless @get('isRunning')
+    Em.RSVP.Promise.resolve(
+      Em.$.ajax(
+        type: 'GET',
+        url: "/api/v0/hosts/#{@get 'slug'}/stats",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data:
+          period: '1s'
+      )).then(
+      (data) =>
         if stats = data.stats
           @set 'stats', App.HostStats.create(stats)
+          @set 'connectivityError', false
+        data
+      , (jqxhr) =>
+        @set 'connectivityError', true
+        throw jqxhr
+    )
 
 klass.reopenClass
   url: '/hosts'
