@@ -2749,6 +2749,10 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("updates the host's IP address from hostbuilder's response", func() {
+			// Add some delay in hostbuilder response so that we can test the
+			// IP address before hostbuilder is done.
+			rt.Wait = 100 * time.Millisecond
+
 			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusAccepted))
 
@@ -2795,6 +2799,10 @@ var _ = Describe("controllers/hosts", func() {
 		})
 
 		It("publishes a host respeccing event", func() {
+			// Add some delay in hostbuilder response so that host does not get
+			// return to "running" state too quickly.
+			rt.Wait = 100 * time.Millisecond
+
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
 
