@@ -26,4 +26,7 @@ App.HomeRoute = App.AuthedRoute.extend
       window.open App.get('desktopDownloadUrl'), '_blank'
 
     upgradePaid: ->
-      @transitionTo 'add-card', queryParams: { upgradingFromFree: true }
+      params = { upgradingFromFree: true }
+      if freeHost = App.get('hosts.firstObject')
+        params['hostSlug'] = freeHost.get('slug')
+      @transitionTo 'add-card', queryParams: params
