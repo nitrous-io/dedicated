@@ -42,6 +42,7 @@ var (
 	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number has been banned")
 
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
+	updateForbidden    = httperror.New(http.StatusForbidden, "update_forbidden", "your are not granted sufficient permission to change user settings")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -174,6 +175,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !env.Token.ProfileSettingsAllowed() {
+		return updateForbidden
+	}
+
 	db := env.DB
 	u := env.User
 
@@ -250,6 +255,10 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !env.Token.ProfileSettingsAllowed() {
+		return updateForbidden
+	}
+
 	u := env.User
 
 	phone := sanitizePhone(r.PostFormValue("phone"))

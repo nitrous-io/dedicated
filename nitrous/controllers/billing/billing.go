@@ -34,8 +34,9 @@ var (
 
 	errInvoiceUserPaying = httperror.New(http.StatusBadRequest, "invoice_user_paying", "a user can only pay one invoice at a time")
 
-	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
-	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
+	errCardDeclined    = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
+	errCardExpired     = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
+	errUpdateForbidden = httperror.New(http.StatusForbidden, "update_forbidden", "your are not granted sufficient permission to change billing settings")
 )
 
 func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -205,6 +206,10 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 }
 
 func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !env.Token.ProfileSettingsAllowed() {
+		return errUpdateForbidden
+	}
+
 	// we use a transaction purely to acquire a lock on the same user paying other invoices
 	// it is rolled back whenever this func finishes up
 	txLock, err := env.DB.Beginx()
