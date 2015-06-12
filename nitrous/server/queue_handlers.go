@@ -198,7 +198,7 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 			return err
 		}
 
-		err = hostcontrol.AfterSuccessToStop(s.db, h, queueInfo.RequesterID)
+		err = hostcontrol.OnStopped(s.db, h, queueInfo.RequesterID)
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) er
 		}
 
 		state := strings.ToLower(queueInfo.Host.State.String())
-		err = hostcontrol.AfterFailToStop(s.db, s.logger, h, queueInfo.RequesterID, state)
+		err = hostcontrol.OnStopFailed(s.db, s.logger, h, queueInfo.RequesterID, state)
 		if err != nil {
 			return err
 		}

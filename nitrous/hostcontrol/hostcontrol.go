@@ -40,7 +40,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 			l.Errorf("hostbuilder timeout stopping host: %v", e)
 		}
 
-		err := AfterFailToStop(db, l, h, initiatorID, origState)
+		err := OnStopFailed(db, l, h, initiatorID, origState)
 		if err != nil {
 			return err
 		}
@@ -52,7 +52,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		return stopErr
 	}
 
-	err = AfterSuccessToStop(db, h, initiatorID)
+	err = OnStopped(db, h, initiatorID)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func beforeStop(db *db.Database, h *host.Host, ev eventFunc, initiatorID int64, 
 
 // Rollback to previous state, log any errors while rolling back, but
 // return original hostbuilderclient error.
-func AfterFailToStop(db *db.Database, l *logger.Logger, h *host.Host, initiatorID int64, origState string) error {
+func OnStopFailed(db *db.Database, l *logger.Logger, h *host.Host, initiatorID int64, origState string) error {
 	h.State = origState
 	tx, err := db.Beginx()
 	if err != nil {
@@ -130,7 +130,7 @@ func AfterFailToStop(db *db.Database, l *logger.Logger, h *host.Host, initiatorI
 	return nil
 }
 
-func AfterSuccessToStop(db *db.Database, h *host.Host, initiatorID int64) error {
+func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
 	h.State = host.StateStopped
 
 	tx, err := db.Beginx()
