@@ -46,8 +46,7 @@ var (
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
-	errMultipleRequests         = httperror.New(http.StatusConflict, "workspace_locked", "another workspace creation request is currently being processed")
-	errHostLocked               = httperror.New(http.StatusConflict, "host_locked", "host is locked by another request")
+	errHostLocked               = httperror.New(http.StatusConflict, "workspace_locked", "workspace is locked by another request")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
@@ -55,7 +54,7 @@ var (
 	errStoppingNotAllowed       = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot stop a host")
 	errRestartingNotAllowed     = httperror.New(http.StatusForbidden, "request_not_allowed", "users in the free tier cannot restart a host")
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
-	errUpgradeHostFailed        = httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
+	errUpdateHostFailed         = httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
 )
 
 var HostbuilderClient = provisioner.HostbuilderClient
@@ -211,7 +210,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	db := env.DB
 
 	// Update state to terminating to lock and make it visible to users
-	if err := transitionHostState(db, h, host.StateTerminating, env.User.ID); err != nil {
+	if err := recordNewState(db, h, host.StateTerminating, env.User.ID); err != nil {
 		return err
 	}
 
@@ -254,7 +253,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	origState := h.State
-	if err := transitionHostState(db, h, host.StateStarting, env.User.ID); err != nil {
+	if err := recordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -269,7 +268,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := transitionHostState(db, h, origState, env.User.ID); err != nil {
+		if err := recordNewState(db, h, origState, env.User.ID); err != nil {
 			env.Logger.Errorf("hosts.Start: Unable to restore host state: %v", err)
 		}
 
@@ -386,7 +385,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	if err := transitionHostState(db, h, host.StateRestarting, env.User.ID); err != nil {
+	if err := recordNewState(db, h, host.StateRestarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -401,7 +400,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := transitionHostState(db, h, origState, env.User.ID); err != nil {
+		if err := recordNewState(db, h, origState, env.User.ID); err != nil {
 			env.Logger.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
@@ -460,14 +459,14 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.UpdateState(db, host.StateRespeccing); err != nil {
+		if err := h.UpdateState(tx, host.StateRespeccing); err != nil {
 			if err == host.ErrUpdateFailed {
 				return errHostLocked
 			}
 			return err
 		}
 
-		return rs.UpdateState(db, respec.StateProcessing)
+		return rs.UpdateState(tx, respec.StateProcessing)
 	})
 	if err != nil {
 		return err
@@ -569,7 +568,7 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 		}
 
 		env.Logger.Errorf("failed to update server, err: %v", err)
-		return errUpgradeHostFailed
+		return errUpdateHostFailed
 	}
 
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
@@ -718,7 +717,7 @@ func CanCreateContainers(h *host.Host, env *middleware.Env, w http.ResponseWrite
 	return nil
 }
 
-func transitionHostState(d *db.Database, h *host.Host, newState string, initiatorID int64) error {
+func recordNewState(d *db.Database, h *host.Host, newState string, initiatorID int64) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
 		origState := h.State
 		if err := h.UpdateState(tx, newState); err != nil {

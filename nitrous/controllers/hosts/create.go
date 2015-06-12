@@ -45,6 +45,9 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
+
+	errConcurrentCreateNotAllowed = httperror.New(http.StatusConflict, "workspace_locked",
+		"another workspace creation request is currently being processed")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -193,7 +196,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		case provisioner.ErrSlugIsTaken:
 			return errHostSlugTaken
 		case provisioner.ErrMultipleHostCreationNotAllowed:
-			return errMultipleRequests
+			return errConcurrentCreateNotAllowed
 		case provisioner.ErrHostCreationNotAllowed:
 			return errHostCreationNotAllowed
 		}

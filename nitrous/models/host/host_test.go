@@ -755,7 +755,7 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should not update if there is race condition in updating", func() {
+		It("should not update if original state does not match latest state in database", func() {
 			h1, err := host.FindByIdentifier(db, "foo")
 			Expect(err).To(BeNil())
 
