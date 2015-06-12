@@ -26,14 +26,14 @@ type progress struct {
 }
 
 func (s *Server) HostQueueHandler() func(m *queue.Message) error {
-	return func(qc *queue.QueueConsumer, m *queue.Message) error {
+	return func(m *queue.Message) error {
 		var err error
 
 		switch {
 		case queue.Create.IsA(m.Action):
-			err = s.handleCreateMessage(qc, m)
+			err = s.handleCreateMessage(m)
 		case queue.Stop.IsA(m.Action):
-			err = s.handleStopMessage(qc, m)
+			err = s.handleStopMessage(m)
 		default:
 			s.logger.Debugf("uuid=%s queueHandlerTracer: unexpected message: %+v", m.UUID, m)
 		}
@@ -41,7 +41,7 @@ func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	}
 }
 
-func (s *Server) handleCreateMessage(qc *queue.QueueConsumer, m *queue.Message) error {
+func (s *Server) handleCreateMessage(m *queue.Message) error {
 	db := s.db
 	var queueInfo hh.QueueInfo
 	err := json.Unmarshal(m.Payload, &queueInfo)
@@ -170,7 +170,7 @@ func (s *Server) updateHostDetails(h *host.Host) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
-func (s *Server) handleStopMessage(qc *queue.QueueConsumer, m *queue.Message) error {
+func (s *Server) handleStopMessage(m *queue.Message) error {
 	db := s.db
 	var queueInfo hh.QueueInfo
 	err := json.Unmarshal(m.Payload, &queueInfo)

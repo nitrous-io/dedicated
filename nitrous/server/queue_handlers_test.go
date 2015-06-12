@@ -223,7 +223,7 @@ var _ = Describe("HostQueueHandler", func() {
 				h.FreighterdPort = sql.NullInt64{12345, true}
 				h.HourlyPrice = 1000000
 
-				err := h.Update(db)
+				err := h.UpdateWithPrice(db)
 				Expect(err).To(BeNil())
 
 				err = handler(message)
@@ -272,12 +272,12 @@ var _ = Describe("HostQueueHandler", func() {
 					Payload:      payload,
 				}
 
-				err := h.UpdateWithPrice(db)
+				err = h.UpdateWithPrice(db)
 				Expect(err).To(BeNil())
 			})
 
 			It("sets the host as an orphan", func() {
-				err = handler(message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 
 				updatedHost, err := host.Find(db, u, h.Slug)
@@ -354,12 +354,6 @@ var _ = Describe("HostQueueHandler", func() {
 				HostID: h.ID,
 			}
 			err = c2.Insert(db)
-		})
-
-		It("sets the host as an orphan", func() {
-			err := handler(message)
-			Expect(err).To(BeNil())
-
 			collaborator = &user.User{
 				Username: "shared",
 				Email:    "shared@example.com",
@@ -394,7 +388,7 @@ var _ = Describe("HostQueueHandler", func() {
 			})
 
 			It("does not return any errors", func() {
-				err := handler(qc, message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 			})
 		})
@@ -416,9 +410,6 @@ var _ = Describe("HostQueueHandler", func() {
 						State:          state.Stopped,
 					},
 				}
-
-				err := handler(message)
-				Expect(err).To(BeNil())
 
 				payload, err := json.Marshal(queueInfo)
 				Expect(err).To(BeNil())
@@ -443,7 +434,7 @@ var _ = Describe("HostQueueHandler", func() {
 			})
 
 			It("logs transitions for the host", func() {
-				err := handler(qc, message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 
 				var count int
@@ -467,7 +458,7 @@ var _ = Describe("HostQueueHandler", func() {
 					var evt *controllers.Event
 					for msg := range ch { // Ignore events we don't care about.
 						evt = msg.(*controllers.Event)
-						if evt.Name == controllers.EventName(event.ContainerStopped) ||
+						if evt.Name == controllers.EventContainerStopped ||
 							evt.Name == controllers.EventName(event.HostStopped) {
 							events = append(events, evt)
 							if len(events) >= 3 {
@@ -508,7 +499,7 @@ var _ = Describe("HostQueueHandler", func() {
 					var evt *controllers.Event
 					for msg := range ch { // Ignore events we don't care about.
 						evt = msg.(*controllers.Event)
-						if evt.Name == controllers.EventName(event.ContainerStopped) {
+						if evt.Name == controllers.EventContainerStopped {
 							events = append(events, evt)
 							if len(events) >= 1 {
 								evtCh <- events
@@ -563,7 +554,7 @@ var _ = Describe("HostQueueHandler", func() {
 			})
 
 			It("resets the host to state in host info", func() {
-				err := handler(qc, message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 
 				updatedHost, err := host.Find(db, u, h.Slug)
@@ -573,7 +564,7 @@ var _ = Describe("HostQueueHandler", func() {
 			})
 
 			It("logs transitions for the host", func() {
-				err := handler(qc, message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 
 				var count int
@@ -588,7 +579,7 @@ var _ = Describe("HostQueueHandler", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-				err := handler(qc, message)
+				err := handler(message)
 				Expect(err).To(BeNil())
 
 				evtCh := make(chan *controllers.Event)
