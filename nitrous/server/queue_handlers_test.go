@@ -35,7 +35,7 @@ var _ = Describe("HostQueueHandler", func() {
 	var (
 		redisClient *redis.Client
 		qp          queue.Publisher
-		qc          *queue.QueueConsumer
+		qc          queue.Consumer
 		db          *db.Database
 		handler     func(m *queue.Message) error
 		h           *host.Host

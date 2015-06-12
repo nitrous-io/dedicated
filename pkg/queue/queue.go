@@ -34,7 +34,7 @@ type Publisher interface {
 	GetFailedLength() int64
 	// CreateConsumer creates a consumer to read messages from the current
 	// queue. This is likely Redis-only.
-	CreateConsumer() (*QueueConsumer, error)
+	CreateConsumer() (Consumer, error)
 }
 
 // Delivery represents actions that can be acted on a message that is received
@@ -121,7 +121,7 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 }
 
 // CreateConsumer creates a consumer to read message from the redis queue.
-func (qp *QueuePublisher) CreateConsumer() (*QueueConsumer, error) {
+func (qp *QueuePublisher) CreateConsumer() (Consumer, error) {
 	c, err := qp.Queue.AddConsumer(qp.Queue.Name)
 	if err != nil {
 		return nil, err
