@@ -3614,6 +3614,144 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c2.Metadata.Map["allgood"].String).To(Equal(str))
 		})
 	})
+
+	Describe("PublishContainerEvent", func() {
+		var (
+			currentUser    *user.User
+			containerOwner *user.User
+			c              *container.Container
+			env            *middleware.Env
+		)
+
+		BeforeEach(func() {
+			containerOwner = &user.User{
+				Username: "owner",
+				Password: "123456",
+				Email:    "owner@example.com",
+			}
+			err := WrapInTransaction(db, containerOwner.Insert)
+			Expect(err).To(BeNil())
+
+			currentUser = &user.User{
+				Username: "currentuser",
+				Password: "123456",
+				Email:    "currentuser@example.com",
+			}
+			err = WrapInTransaction(db, currentUser.Insert)
+			Expect(err).To(BeNil())
+			hs, err := CreateHostStack(db, &HostStack{
+				H: &host.Host{
+					Slug:  "host-123",
+					Size:  sql.NullString{"micro", true},
+					State: host.StateBorn,
+				},
+				U: containerOwner,
+			})
+			Expect(err).To(BeNil())
+			h := hs.H
+
+			c = &container.Container{
+				CID:    "deadbeef",
+				Slug:   "dominant-intercooler-42",
+				Image:  "nitrous-base",
+				UserID: containerOwner.ID,
+				HostID: h.ID,
+				Name:   sql.NullString{"Rails app server", true},
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"C": {"1", true},
+					},
+				},
+			}
+
+			err = c.Insert(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c.ID, currentUser.ID)
+			Expect(err).To(BeNil())
+
+			env = &middleware.Env{
+				DB:     db,
+				User:   currentUser,
+				Events: svr.Events,
+				Logger: logger,
+			}
+		})
+
+		It("publishes events to current user", func() {
+			ch := svr.Events.Subscribe(currentUser.Topic())
+			defer svr.Events.Unsubscribe(ch, currentUser.Topic())
+
+			add := map[string]interface{}{
+				"extra": "value",
+			}
+			containers.PublishContainerEvent(env, controllers.EventContainerStopped, c, add)
+			var msg pubsub.Message
+			finished := make(chan struct{})
+			go func() {
+				msg = <-ch
+				close(finished)
+			}()
+
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail(fmt.Sprintf("timeout while waiting for controller events"))
+			case <-finished:
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+
+				data, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				// Check extra data
+				Expect(data["extra"]).To(Equal("value"))
+
+				initiator, ok := data["initiated_by"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(initiator["username"]).To(Equal("currentuser"))
+				Expect(initiator["id"]).To(Equal(currentUser.ID))
+
+				cn, ok := data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.ID).To(Equal(c.ID))
+			}
+		})
+
+		It("publishes events to collaborator", func() {
+			ch := svr.Events.Subscribe(containerOwner.Topic())
+			defer svr.Events.Unsubscribe(ch, containerOwner.Topic())
+
+			containers.PublishContainerEvent(env, controllers.EventContainerStopped, c, map[string]interface{}{})
+			var msg pubsub.Message
+			finished := make(chan struct{})
+			go func() {
+				msg = <-ch
+				close(finished)
+			}()
+
+			select {
+			case <-time.After(100 * time.Millisecond):
+				Fail(fmt.Sprintf("timeout while waiting for controller events"))
+			case <-finished:
+				evt, ok := msg.(*controllers.Event)
+				Expect(ok).To(BeTrue())
+				Expect(evt.Name).To(Equal(controllers.EventContainerStopped))
+
+				data, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				initiator, ok := data["initiated_by"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(initiator["username"]).To(Equal("currentuser"))
+				Expect(initiator["id"]).To(Equal(currentUser.ID))
+
+				cn, ok := data["container"].(*serializers.Container)
+				Expect(ok).To(BeTrue())
+				Expect(cn.ID).To(Equal(c.ID))
+			}
+		})
+	})
 })
 
 var _ = Describe("FindSSHURL()", func() {

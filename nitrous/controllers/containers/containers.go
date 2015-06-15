@@ -600,8 +600,8 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 
 func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
 	userIDs, err := containercollab.GetCollaboratorIDs(env.DB, c.ID)
+	env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 	if err != nil {
-		env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 		return
 	}
 	userIDs = append(userIDs, c.UserID)
@@ -618,7 +618,7 @@ func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 		data[k] = v
 	}
 
-	PublishContainerEventToUsers(env.Events, name, c, userIDs, add)
+	PublishContainerEventToUsers(env.Events, name, c, userIDs, data)
 }
 
 func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventName, c *container.Container, userIDs []int64, add map[string]interface{}) {
