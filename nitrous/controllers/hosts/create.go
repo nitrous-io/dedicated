@@ -73,6 +73,14 @@ type createOpts struct {
 	TemplateName       string `json:"template_name"`       // use to manually set provider_template
 }
 
+var (
+	subProvider subscriptions.Provider
+)
+
+func init() {
+	subProvider = &subscriptions.SubscriptionProvider{}
+}
+
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
@@ -236,9 +244,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func postProvision(options *createOpts, env *middleware.Env, h *host.Host, p *plan.Plan, outstream io.Writer) error {
+	if err := createSharedVolume(env, env.DB, h); err != nil {
+		return err
+	}
 	if p.IsSubscription() {
-		s := &subscriptions.SubscriptionProvider{}
-		_, err := s.Subscribe(env.DB, env.Logger, h, p, env.User)
+		_, err := subProvider.Subscribe(env.DB, env.Logger, h, p, env.User)
 		if err != nil {
 			dbErr := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 				return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
@@ -248,13 +258,6 @@ func postProvision(options *createOpts, env *middleware.Env, h *host.Host, p *pl
 			}
 			return err
 		}
-		if err := h.UpdateColumn(env.DB, "subscription", true); err != nil {
-			return err
-		}
-	}
-
-	if err := createSharedVolume(env, env.DB, h); err != nil {
-		return err
 	}
 	if err := recordTransition(env, h); err != nil {
 		env.Logger.Errorf("Unable to record transition for host %d: %v", h.ID, err)

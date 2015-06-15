@@ -30,12 +30,20 @@ import (
 	stripesub "github.com/stripe/stripe-go/sub"
 )
 
+type Provider interface {
+	Subscribe(d *db.Database, l *logger.Logger, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error)
+	Cancel(d *db.Database, l *logger.Logger, sub *subscription.Subscription) (err error)
+
+	HandleSubscriptionUpdated(d *db.Database, l *logger.Logger, subID string) error
+	HandleSubscriptionDeleted(d *db.Database, l *logger.Logger, subID string) error
+	HandleSubscriptionInvoiceCreated(d *db.Database, l *logger.Logger, invID string) error
+}
+
 type SubscriptionProvider struct {
 }
 
 var (
 	ErrNotSubscribablePlan   = errors.New("Plan does not support subscriptions")
-	ErrNoCard                = errors.New("A card must be assigned to the customer")
 	ErrInvalidBillingState   = errors.New("Invalid billing state")
 	ErrPlanNotFree           = errors.New("Plan not free but billing state in Free")
 	ErrInvoiceAlreadyCreated = errors.New("Invoice already exists")
@@ -54,11 +62,6 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 
 	bp, err := u.BillingProfile(d)
 	if err != nil {
-		return
-	}
-
-	if bp.State == billingprofile.StateNoCard {
-		err = ErrNoCard
 		return
 	}
 
@@ -120,7 +123,6 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 	sub.StripeID = sql.NullString{string(strSub.ID), true}
 	sub.CurrentPeriodStart = pq.NullTime{time.Unix(strSub.PeriodStart, 0), true}
 	sub.CurrentPeriodEnd = pq.NullTime{time.Unix(strSub.PeriodEnd, 0), true}
-
 	nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
     SET state = :state, stripe_id = :stripe_id,
     current_period_start = :current_period_start, current_period_end = :current_period_end, updated_at = now()
@@ -130,7 +132,11 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 		return
 	}
 	err = nstmt.QueryRow(sub).StructScan(sub)
+	if err != nil {
+		return
+	}
 
+	err = h.UpdateColumn(tx, "subscription", true)
 	return
 }
 
