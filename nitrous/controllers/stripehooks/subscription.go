@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	subProvider = subscriptions.SubscriptionProvider{}
+	subProvider = subscriptions.NewProvider()
 )
 
 func handleSubscriptionUpdatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) {

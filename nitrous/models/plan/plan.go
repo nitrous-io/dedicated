@@ -115,8 +115,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id, stripe_plan_id)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id, :stripe_plan_id)
 		RETURNING *;`)
 	if err != nil {
 		return err
