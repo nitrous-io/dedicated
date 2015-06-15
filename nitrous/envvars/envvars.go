@@ -179,3 +179,13 @@ func CheckSecretToken() {
 		log.Fatal("SECRET_TOKEN not set")
 	}
 }
+
+func CheckRedis() {
+	if RedisHost == "" {
+		log.Fatalf("nitrousd: REDIS_HOST is not set")
+	}
+
+	if RedisPort == "" {
+		log.Fatalf("nitrousd: REDIS_PORT is not set")
+	}
+}

@@ -130,6 +130,7 @@ func main() {
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
+	envvars.CheckRedis()
 	go queue.StartConsumer(
 		envvars.RedisHost,
 		envvars.RedisPort,
