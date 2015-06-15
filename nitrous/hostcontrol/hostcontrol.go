@@ -40,8 +40,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 			l.Errorf("hostbuilder timeout stopping host: %v", e)
 		}
 
-		err := OnStopFailed(db, l, h, initiatorID, origState)
-		if err != nil {
+		if err := OnStopFailed(db, l, h, initiatorID, origState); err != nil {
 			return err
 		}
 
@@ -52,8 +51,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		return stopErr
 	}
 
-	err = OnStopped(db, h, initiatorID)
-	if err != nil {
+	if err := OnStopped(db, h, initiatorID); err != nil {
 		return err
 	}
 
@@ -117,14 +115,17 @@ func OnStopFailed(db *db.Database, l *logger.Logger, h *host.Host, initiatorID i
 	if err := h.Update(tx); err != nil {
 		tx.Rollback()
 		l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
+		return err
 	}
 
 	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
 		tx.Rollback()
 		l.Errorf("hosts.Stop: Unable to record transition: %v", err)
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		return err
 	}
 
 	return nil
