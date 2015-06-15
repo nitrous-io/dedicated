@@ -1,52 +1,49 @@
 package github
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/google/go-github/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/nitrous-common/msgverifier"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
 )
 
+// Give user 5 minutes time to authorize at GitHub
+const ValidityPeriod = 5 * time.Minute
+
 var (
-	mu        sync.Mutex
-	oauthConf *oauth2.Config
-	// random string for oauth2 API calls to protect against CSRF
-	oauthStateString = ""
-
-	errInvalidOauthState = errors.New("invalid oauth state")
-	errUpdateFailed      = errors.New("update failed")
-
-	ErrTokenEmpty    = errors.New("token is empty")
-	ErrTokenNotValid = errors.New("token not valid")
-)
-
-func init() {
-	var src [8]byte
-	_, err := rand.Read(src[:])
-	if err != nil {
-		log.Fatalf("failed to generate oauth secret %v", err)
-	}
-	oauthStateString = hex.EncodeToString(src[:])
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
 		ClientSecret: envvars.GitHubOAuthClientSecret,
 		Scopes:       []string{"user:email", "repo", "write:public_key"},
 		Endpoint:     githuboauth.Endpoint,
 	}
+
+	errInvalidOauthState = errors.New("invalid oauth state")
+	errUpdateFailed      = errors.New("update failed")
+	errStateExpired      = errors.New("GitHub authorization timeout")
+	errInvalidUserID     = httperror.New(http.StatusBadRequest, "cannot assign GitHub credentials to another user")
+
+	ErrTokenEmpty    = errors.New("token is empty")
+	ErrTokenNotValid = errors.New("token not valid")
+
+	verifier = msgverifier.New(envvars.SecretToken)
+)
+
+type OAuthState struct {
+	UserID    int64     `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func tokenToJSON(token *oauth2.Token) (string, error) {
@@ -101,37 +98,42 @@ func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
 	return getTokenIfValidFromUserProfile(p)
 }
 
-func MakeOauthSecretFromUserId(userId int64) string {
-	return fmt.Sprintf("%s %d", oauthStateString, userId)
+func MakeOauthState(userID int64) (string, error) {
+	createdAt := time.Now().UTC()
+	return verifier.Generate(&OAuthState{
+		UserID:    userID,
+		CreatedAt: createdAt,
+		ExpiresAt: createdAt.Add(ValidityPeriod),
+	})
+}
+
+func ReadOAuthState(signedState string) (*OAuthState, error) {
+	state := &OAuthState{}
+	err := verifier.Verify(signedState, state)
+	if err != nil {
+		return nil, err
+	}
+
+	if state.ExpiresAt.Before(time.Now()) {
+		return nil, errStateExpired
+	}
+	return state, nil
 }
 
 // /api/v0/github/authorize
 // Authorize returns GitHub authorization url that front-end needs to redirect to
 func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	// hackish but the simplest way to achieve what we want: we embed
-	// user id as part of OAuth secret so that we can have it OAuthCb (which
-	// is called by github and cannot be authenticated)
-	secret := MakeOauthSecretFromUserId(env.User.ID)
-	url := oauthConf.AuthCodeURL(secret, oauth2.AccessTypeOnline)
+	state, err := MakeOauthState(env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"redirect_url": url,
 	}
 	return nil
-}
-
-// returns -1 on error
-func getUserIdFromOauthSecret(state string) int64 {
-	var secret string
-	var userId int64
-	_, err := fmt.Sscanf(state, "%s %d", &secret, &userId)
-	if err != nil {
-		return -1
-	}
-	if secret != oauthStateString {
-		return -1
-	}
-	return userId
 }
 
 func redirectAppAccountErrMsg(w http.ResponseWriter, r *http.Request, errMsg string) {
@@ -147,7 +149,6 @@ func GitHubClientFromToken(token *oauth2.Token) *github.Client {
 
 // return gitHubUserName and gitHubTokenJson
 var GetGithubUserFunc = func(env *middleware.Env, w http.ResponseWriter, r *http.Request, code string) (string, string, error) {
-
 	token, err := oauthConf.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		env.Logger.Errorf("oauthConf.Exchange() failed with '%s'\n", err)
@@ -179,18 +180,16 @@ var GetGithubUserFunc = func(env *middleware.Env, w http.ResponseWriter, r *http
 // website, GitHub redirects the user here
 func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Logger.Debugf("OAuthCb called, url: '%s', rawQuery: '%s'\n", r.URL.RequestURI(), r.URL.RawQuery)
-
 	errLabel := "github.authcb"
-	// verify 'state' and extract user id from it
-	state := r.FormValue("state")
-	userId := getUserIdFromOauthSecret(state)
-	if userId == -1 {
-		env.Logger.Errorf("invalid oauth state, expected '%s ${userId}', got '%s'\n", oauthStateString, state)
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
-		return mh.Error(errInvalidOauthState, errLabel)
+
+	signedState := r.FormValue("state")
+	state, err := ReadOAuthState(signedState)
+	if err != nil {
+		return err
 	}
 
-	p, err := userprofile.Find(env.DB, userId)
+	userID := state.UserID
+	p, err := userprofile.Find(env.DB, userID)
 	if err != nil {
 		return mh.Error(err, errLabel)
 	}
@@ -220,10 +219,10 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
 		return mh.Error(errUpdateFailed, errLabel)
 	}
-	env.Tracker.SetProfileProps("set", userId, map[string]interface{}{
+	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"github_username": gitHubUserName,
 	}, env.Logger)
-	env.Tracker.SetProfileProps("setnx", userId, map[string]interface{}{
+	env.Tracker.SetProfileProps("setnx", userID, map[string]interface{}{
 		"github_authorized_date": time.Now(),
 	}, env.Logger)
 	http.Redirect(w, r, "/app#/account", http.StatusTemporaryRedirect)
