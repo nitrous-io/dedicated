@@ -103,7 +103,7 @@ func init() {
 			}
 			return nil
 		}
-		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 100*time.Millisecond)
+		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "queue-timeout", h, stop, 100*time.Millisecond)
 		log.Fatalf("queue-timeout failed to start %v", err)
 	})
 
@@ -503,7 +503,7 @@ var _ = Describe("pkg/queue", func() {
 			// start queue
 			Expect(q.Start()).To(BeNil(), "queue-timeout cannot start")
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "queue-timeout")
 
 			Expect(qp.GetFailedLength()).To(Equal(int64(0)))
 			err := qp.Publish(&queue.Message{
@@ -512,7 +512,7 @@ var _ = Describe("pkg/queue", func() {
 			Expect(err).To(BeNil())
 
 			// Wait until timing out
-			time.Sleep(1 * time.Second)
+			time.Sleep(300 * time.Millisecond)
 			Expect(qp.GetFailedLength()).To(Equal(int64(1)))
 
 			// It still process next message
