@@ -20,6 +20,7 @@ import (
 
 // Give user 5 minutes time to authorize at GitHub
 const ValidityPeriod = 5 * time.Minute
+const ValidityPeriodSeconds = int(ValidityPeriod / time.Second)
 
 var (
 	oauthConf = &oauth2.Config{
@@ -29,10 +30,11 @@ var (
 		Endpoint:     githuboauth.Endpoint,
 	}
 
-	errInvalidOauthState = errors.New("invalid oauth state")
-	errUpdateFailed      = errors.New("update failed")
-	errStateExpired      = errors.New("GitHub authorization timeout")
+	errUpdateFailed      = httperror.New(http.StatusInternalServerError, "update failed")
+	errInvalidOauthState = httperror.New(http.StatusBadRequest, "invalid oauth state")
+	errStateExpired      = httperror.New(http.StatusBadRequest, "GitHub authorization timeout")
 	errInvalidUserID     = httperror.New(http.StatusBadRequest, "cannot assign GitHub credentials to another user")
+	errStateMismatch     = httperror.New(http.StatusBadRequest, "state provided does not match cookie state")
 
 	ErrTokenEmpty    = errors.New("token is empty")
 	ErrTokenNotValid = errors.New("token not valid")
@@ -128,6 +130,13 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	// Set state into cookie to prevent CSRF attack
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  state,
+		MaxAge: ValidityPeriodSeconds,
+	})
+
 	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -188,6 +197,13 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
+	// State must match previously set cookie value
+	// to prevent call being made by victim's user agent
+	cookie, err := r.Cookie("github_state")
+	if err != nil || cookie.Value != signedState {
+		return errStateMismatch
+	}
+
 	userID := state.UserID
 	p, err := userprofile.Find(env.DB, userID)
 	if err != nil {
@@ -219,12 +235,21 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
 		return mh.Error(errUpdateFailed, errLabel)
 	}
+
+	// Erase state cookie to prevent repeated requests
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  "",
+		MaxAge: -1,
+	})
+
 	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"github_username": gitHubUserName,
 	}, env.Logger)
 	env.Tracker.SetProfileProps("setnx", userID, map[string]interface{}{
 		"github_authorized_date": time.Now(),
 	}, env.Logger)
-	http.Redirect(w, r, "/app#/account", http.StatusTemporaryRedirect)
+
+	http.Redirect(w, r, "/app#/account", http.StatusFound)
 	return nil
 }
