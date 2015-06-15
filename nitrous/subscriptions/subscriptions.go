@@ -26,7 +26,6 @@ import (
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
-	stripeplan "github.com/stripe/stripe-go/plan"
 	stripesub "github.com/stripe/stripe-go/sub"
 )
 
@@ -39,7 +38,10 @@ type Provider interface {
 	HandleSubscriptionInvoiceCreated(d *db.Database, l *logger.Logger, invID string) error
 }
 
+type hosttermFunc func(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header, initiatorID int64) error
+
 type SubscriptionProvider struct {
+	HostTermFunc hosttermFunc
 }
 
 var (
@@ -52,6 +54,12 @@ var (
 type updatedAvailableCredits struct {
 	Consumed  int64
 	Available int64
+}
+
+func NewProvider() *SubscriptionProvider {
+	s := &SubscriptionProvider{}
+	s.HostTermFunc = hostcontrol.Terminate
+	return s
 }
 
 func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
@@ -90,6 +98,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 					l.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
 				}
 			}
+			sub = nil
 			return
 		}
 		tx.Commit()
@@ -106,7 +115,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 		return
 	}
 
-	strItem, err = creditStripeInvoice(tx, bp, sub.ID, p.StripePlanID.String, nil)
+	strItem, err = creditStripeInvoice(tx, bp, p.Price, sub.ID, p.StripePlanID.String, nil)
 	if err != nil {
 		return
 	}
@@ -116,6 +125,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 		Plan:     p.StripePlanID.String,
 	})
 	if err != nil {
+		strSub = nil
 		return
 	}
 
@@ -236,7 +246,7 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, l *logg
 		headers.Set(constants.NitrousUUIDHeader, "subscription_terminated")
 
 		return d.WithTransaction(func(tx *sqlx.Tx) error {
-			return hostcontrol.Terminate(tx, l, h, headers, initiatorID)
+			return s.HostTermFunc(tx, l, h, headers, initiatorID)
 		})
 	}
 	return nil
@@ -267,7 +277,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 		pEnd := time.Unix(sInv.End, 0)
 		inv := &invoice.Invoice{
 			SubscriptionID: sql.NullInt64{sub.ID, true},
-			TotalCharge:    sInv.Amount,
+			TotalCharge:    sInv.Total,
 			PeriodStart:    &pStart,
 			PeriodEnd:      &pEnd,
 			Attempts:       int(sInv.Attempts),
@@ -311,26 +321,36 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 		// this should not abort the transaction but log a major error
 		if !sInv.Paid {
 			var stripePlanID string
-			err = d.Get(&stripePlanID, "SELECT stripe_id FROM plans WHERE id = $1", sub.PlanID)
+			err = d.Get(&stripePlanID, "SELECT stripe_plan_id FROM plans WHERE id = $1", sub.PlanID)
 			if err != nil {
-				return err
+				l.Errorf("Unable to credit Stripe invoice %s, err: %v", inv.ID, err)
+				return nil
 			}
-			crItem, err := creditStripeInvoice(tx, bp, sub.ID, stripePlanID, inv)
+			crItem, err := creditStripeInvoice(tx, bp, inv.TotalCharge, sub.ID, stripePlanID, inv)
 			if err != nil {
-				return err
+				l.Errorf("Unable to credit Stripe invoice %s, err: %v", inv.ID, err)
+				return nil
 			}
-			item := invoiceitem.InvoiceItem{
-				InvoiceID:         inv.ID,
-				ItemType:          invoiceitem.ItemTypeCredit,
-				StripeID:          sql.NullString{crItem.ID, true},
-				TotalStripeCharge: sql.NullInt64{crItem.Amount, true},
-				Credit:            sql.NullInt64{crItem.Amount * -1, true},
-			}
-			if err := item.Insert(tx); err != nil {
-				if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
-					l.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
+			if crItem != nil {
+				item := invoiceitem.InvoiceItem{
+					InvoiceID:         inv.ID,
+					ItemType:          invoiceitem.ItemTypeCredit,
+					StripeID:          sql.NullString{crItem.ID, true},
+					TotalStripeCharge: sql.NullInt64{crItem.Amount, true},
+					Credit:            sql.NullInt64{crItem.Amount * -1, true},
 				}
-				return err
+				if err := item.Insert(tx); err != nil {
+					if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
+						l.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
+					}
+					l.Errorf("Unable to credit Stripe invoice %s, err: %v", inv.ID, err)
+				} else {
+					// update the invoice total
+					inv.TotalCharge += crItem.Amount
+					if err := inv.Update(tx); err != nil {
+						l.Errorf("Unable to update Stripe invoice for new charge %s, err: %v", inv.ID, err)
+					}
+				}
 			}
 		}
 
@@ -371,14 +391,8 @@ func findForUpdateByStripeID(tx *sqlx.Tx, id string) (*subscription.Subscription
 	return sub, nil
 }
 
-func creditStripeInvoice(tx *sqlx.Tx, bp *billingprofile.BillingProfile, subID int64, stripePlanID string, inv *invoice.Invoice) (*stripe.InvoiceItem, error) {
-	// credit the exempt user to achieve 0 bill
-	sp, err := stripeplan.Get(stripePlanID, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	if sp.Amount > 0 {
+func creditStripeInvoice(tx *sqlx.Tx, bp *billingprofile.BillingProfile, amount, subID int64, stripePlanID string, inv *invoice.Invoice) (*stripe.InvoiceItem, error) {
+	if amount > 0 {
 		if bp.State == billingprofile.StateFree {
 			return nil, ErrPlanNotFree
 		}
@@ -386,17 +400,20 @@ func creditStripeInvoice(tx *sqlx.Tx, bp *billingprofile.BillingProfile, subID i
 		if bp.State == billingprofile.StateExempt {
 			strItem, err := stripeinvoiceitem.New(&stripe.InvoiceItemParams{
 				Customer: bp.StripeID.String,
-				Amount:   int64(sp.Amount) * -1,
-				Currency: sp.Currency,
+				Amount:   int64(amount) * -1,
+				Currency: "usd",
 				Desc:     "Credit for exempt user",
 			})
 			return strItem, err
 		} else {
-			var cr *updatedAvailableCredits
+			var (
+				cr  *updatedAvailableCredits
+				err error
+			)
 			if inv != nil {
-				cr, err = updateAvailableCredits(tx, bp.UserID, sql.NullInt64{inv.ID, true}, sql.NullInt64{subID, true}, int64(sp.Amount))
+				cr, err = updateAvailableCredits(tx, bp.UserID, sql.NullInt64{inv.ID, true}, sql.NullInt64{subID, true}, int64(amount))
 			} else {
-				cr, err = updateAvailableCredits(tx, bp.UserID, sql.NullInt64{Valid: false}, sql.NullInt64{subID, true}, int64(sp.Amount))
+				cr, err = updateAvailableCredits(tx, bp.UserID, sql.NullInt64{Valid: false}, sql.NullInt64{subID, true}, int64(amount))
 			}
 			if err != nil {
 				return nil, err
@@ -405,7 +422,7 @@ func creditStripeInvoice(tx *sqlx.Tx, bp *billingprofile.BillingProfile, subID i
 				strItem, err := stripeinvoiceitem.New(&stripe.InvoiceItemParams{
 					Customer: bp.StripeID.String,
 					Amount:   cr.Consumed,
-					Currency: sp.Currency,
+					Currency: "usd",
 					Desc:     fmt.Sprintf("Credit of $%.2f", float64(cr.Consumed*-1)/100.0),
 				})
 				return strItem, err

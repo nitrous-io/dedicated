@@ -41,8 +41,8 @@ type Subscription struct {
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
-		(plan_id, billing_profile_id, state, host_id)
-		VALUES (:plan_id, :billing_profile_id, :state, :host_id)
+		(plan_id, billing_profile_id, state, host_id, stripe_id)
+    VALUES (:plan_id, :billing_profile_id, :state, :host_id, :stripe_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

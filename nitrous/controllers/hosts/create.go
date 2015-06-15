@@ -78,7 +78,7 @@ var (
 )
 
 func init() {
-	subProvider = &subscriptions.SubscriptionProvider{}
+	subProvider = subscriptions.NewProvider()
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
