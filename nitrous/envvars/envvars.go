@@ -72,9 +72,6 @@ var (
 
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
-	// Feature flag for queue
-	EnableQueue = parseBoolWithDefault(os.Getenv("ENABLE_QUEUE"), false)
-
 	RedisHost = os.Getenv("REDIS_HOST")
 	RedisPort = os.Getenv("REDIS_PORT")
 	RedisDB   = parseInt64(os.Getenv("REDIS_DB"))

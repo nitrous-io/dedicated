@@ -469,8 +469,6 @@ func URLArgsFromHost(h *Host) url.Values {
 	v.Set("id", fmt.Sprintf("%d", h.ID))
 	v.Set("uid", fmt.Sprintf("%d", h.UserID))
 	v.Set("slug", h.Slug)
-	if envvars.EnableQueue {
-		v.Set("queue", "true")
-	}
+	v.Set("queue", "true")
 	return v
 }
