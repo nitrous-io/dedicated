@@ -74,17 +74,10 @@ var FetchGithubUser = func(code string) (string, string, error) {
 // /api/v0/github/authorize
 // Authorize returns GitHub authorization url that front-end needs to redirect to
 func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	state, err := MakeOauthState(env.User.ID)
+	state, err := setOrReuseState(w, r, env.User.ID)
 	if err != nil {
 		return err
 	}
-
-	// Set state into cookie to prevent CSRF attack
-	http.SetCookie(w, &http.Cookie{
-		Name:   "github_state",
-		Value:  state,
-		MaxAge: ValidityPeriodSeconds,
-	})
 
 	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
 	env.Status = http.StatusOK
@@ -190,6 +183,33 @@ func ReadOAuthState(signedState string) (*OAuthState, error) {
 	if state.ExpiresAt.Before(time.Now()) {
 		return nil, errStateExpired
 	}
+	return state, nil
+}
+
+func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
+	// Check if existing github_state cookie is set.
+	cookie, err := r.Cookie("github_state")
+	if err == nil {
+		signedState := cookie.Value
+		state, err := ReadOAuthState(signedState)
+		if err == nil && state.UserID == userID {
+			// If old state is valid, reuse it
+			return signedState, nil
+		}
+	}
+
+	// Otherwise generate new state
+	state, err := MakeOauthState(userID)
+	if err != nil {
+		return "", err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  state,
+		MaxAge: ValidityPeriodSeconds,
+	})
+
 	return state, nil
 }
 
