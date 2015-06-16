@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -33,6 +34,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)

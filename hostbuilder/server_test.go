@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/dummy"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -21,6 +22,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -454,7 +457,6 @@ var _ = Describe("hostbuilder", func() {
 			Expect(resp.StatusCode).To(Equal(200))
 
 			body, err := ioutil.ReadAll(resp.Body)
-			fmt.Println(string(body))
 			Expect(err).To(BeNil())
 			var j struct {
 				Hosts        []Response `json:"hosts"`

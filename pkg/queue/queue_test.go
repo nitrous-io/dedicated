@@ -21,6 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func init() { logrus.SetLevel(logrus.PanicLevel) }
+
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})

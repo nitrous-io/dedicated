@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -30,6 +31,7 @@ import (
 
 func init() {
 	bcrypt.DefaultCost = bc.MinCost
+	logrus.SetLevel(logrus.PanicLevel)
 }
 
 var tables []string // retrieve list of tables once and store here

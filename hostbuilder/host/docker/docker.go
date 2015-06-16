@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -54,7 +54,6 @@ type Host struct {
 // Create creates the docker container which acts as a container host, and write the
 // progress into w
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	w = io.MultiWriter(os.Stdout, w)
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
@@ -100,8 +99,6 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 }
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
-	mw := io.MultiWriter(os.Stdout, w)
-
 	container, err := h.client.InspectContainer(h.ID)
 	if err != nil {
 		return nil, err
@@ -109,30 +106,30 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 
 	if container.Name != h.Name {
 		// Update /etc/freighterd/config.json's with new host slug.
-		err := h.updateConfigFile(container, mw)
+		err := h.updateConfigFile(container, w)
 		if err != nil {
-			fmt.Fprintf(mw, "Failed to update container's config file, err: %v\n", err)
+			fmt.Fprintf(w, "Failed to update container's config file, err: %v\n", err)
 			return nil, err
 		}
 
 		// TODO We can replace this commit -> create -> remove dance with native
 		// Docker rename in 1.5.0.
-		fmt.Fprintf(mw, "Renaming container from %q to %q\n", container.Name, h.Name)
-		fmt.Fprintln(mw, "Committing container")
+		fmt.Fprintf(w, "Renaming container from %q to %q\n", container.Name, h.Name)
+		fmt.Fprintln(w, "Committing container")
 		img, err := h.client.CommitContainer(dockerclient.CommitContainerOptions{
 			Container:  container.ID,
 			Repository: fmt.Sprintf("renamed-%s", container.ID),
 			Tag:        "latest",
 		})
 		if err != nil {
-			fmt.Fprintf(mw, "Failed to commit container, err: %v\n", err)
+			fmt.Fprintf(w, "Failed to commit container, err: %v\n", err)
 			return nil, err
 		}
-		fmt.Fprintf(mw, "Container committed to image %s\n", img.ID)
+		fmt.Fprintf(w, "Container committed to image %s\n", img.ID)
 
 		c, err := h.createContainer(img.ID)
 		if err != nil {
-			fmt.Fprintf(mw, "Failed to create container from committed image, err: %v\n", err)
+			fmt.Fprintf(w, "Failed to create container from committed image, err: %v\n", err)
 			return nil, err
 		}
 
@@ -142,10 +139,10 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 			Force: true,
 		}); err != nil {
 			// Log and proceed anyway.
-			fmt.Fprintf(mw, "Failed to remove old container, err: %v\n", err)
+			fmt.Fprintf(w, "Failed to remove old container, err: %v\n", err)
 		}
 
-		fmt.Fprintf(mw, "Container renamed. New ID: %s, old ID: %s)\n", c.ID, container.ID)
+		fmt.Fprintf(w, "Container renamed. New ID: %s, old ID: %s)\n", c.ID, container.ID)
 		return c, nil
 	}
 
@@ -330,7 +327,7 @@ func (h *Host) createImage() (string, error) {
 	opts := dockerclient.BuildImageOptions{
 		Name:         imageName,
 		InputStream:  inputbuf,
-		OutputStream: os.Stdout,
+		OutputStream: ioutil.Discard, // not interested in docker building output
 	}
 	logrus.Debugf("docker: building image %s", imageName)
 	if err := h.client.BuildImage(opts); err != nil {

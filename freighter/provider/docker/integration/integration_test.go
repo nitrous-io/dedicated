@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -25,6 +26,7 @@ import (
 )
 
 func init() {
+	logrus.SetLevel(logrus.PanicLevel)
 	// return if running in reexec mode, and the reexec func has already finished
 	if reexec.Init() {
 		return
