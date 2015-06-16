@@ -24,6 +24,7 @@ App.Host = klass = App.Model.extend
   updateAvailable: attr(as: 'update_available', serialize: false)
   timeRemaining: attr('number', as: 'time_remaining', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
+  subscription: attr('boolean')
 
   # only used in create
   planSlug: attr(as: 'size')

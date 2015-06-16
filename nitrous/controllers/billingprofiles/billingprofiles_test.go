@@ -225,7 +225,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should return a card declined error when user's card is declined", func() {
-			fakeStripe.Error = test.StripeCardDeclined
+			fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
@@ -238,7 +238,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should return a card expired error when user's card is expired", func() {
-			fakeStripe.Error = test.StripeCardExpired
+			fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
@@ -253,7 +253,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
-			fakeStripe.Error = test.StripeIncorrectCvc
+			fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
@@ -268,7 +268,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		It("should return a incorrect zip error when the supplied zip is incorrect", func() {
-			fakeStripe.Error = test.StripeIncorrectZip
+			fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
 
 			p := &url.Values{}
 			p.Set("card_token", "cc_token")
@@ -558,7 +558,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return a card declined error when user's card is declined'", func() {
-				fakeStripe.Error = test.StripeCardDeclined
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
@@ -571,7 +571,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return a card expired error when user's card is expired", func() {
-				fakeStripe.Error = test.StripeCardExpired
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
@@ -584,7 +584,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return a incorrect cvc error when the supplied cvc is incorrect", func() {
-				fakeStripe.Error = test.StripeIncorrectCvc
+				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")
@@ -597,7 +597,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 
 			It("should return a incorrect zip error when the supplied zip is incorrect", func() {
-				fakeStripe.Error = test.StripeIncorrectZip
+				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
 
 				p := &url.Values{}
 				p.Set("card_token", "cc_token")

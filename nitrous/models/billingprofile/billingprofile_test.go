@@ -11,7 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -90,6 +90,17 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(p).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("FindByID()", func() {
+		It("returns the billing profile for a given ID", func() {
+			p, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.FindByID(db, p.ID)
+			Expect(err).To(BeNil())
+			Expect(b).To(Equal(p))
 		})
 	})
 
@@ -184,34 +195,36 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
-				fakeStripe.Error = test.StripeCardDeclined
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 			})
 
 			It("returns ErrCardExpired error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = test.StripeCardExpired
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardExpired))
 			})
 
 			It("returns ErrIncorrectCvc error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = test.StripeIncorrectCvc
+				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectCvc))
 			})
 
 			It("returns ErrIncorrectZipErr error, if Stripe returns a card expired error", func() {
-				fakeStripe.Error = test.StripeIncorrectZip
+				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectZipErr))
 			})
 
 			It("does not update the record, when Stripe returns an error", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "some error occurred",
-					Code: stripe.ErrorCode(stripe.ProcessingErr),
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "some error occurred",
+						Code: stripe.ErrorCode(stripe.ProcessingErr),
+					},
 				}
 
 				err := bp.UpdateCard(db, "token")
@@ -313,11 +326,12 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("returns an error, if Stripe fails to update", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "some error occurred",
-					Code: stripe.ErrorCode(stripe.ProcessingErr),
-				}
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "some error occurred",
+						Code: stripe.ErrorCode(stripe.ProcessingErr),
+					}}
 
 				err := bp.UpdateEmail(db, "new-email@example.com")
 				Expect(err).NotTo(BeNil())

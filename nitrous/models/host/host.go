@@ -106,8 +106,9 @@ type Host struct {
 	Secret string `db:"secret"`
 
 	// HourlyPrice unit is milli-cents (x1000)
-	HourlyPrice int64 `db:"hourly_price"`
-	Free        bool  `db:"free"`
+	HourlyPrice  int64 `db:"hourly_price"`
+	Free         bool  `db:"free"`
+	Subscription bool  `db:"subscription"`
 
 	*ProviderTemplate
 

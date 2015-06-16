@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("host serializer", func() {
+var _ = FDescribe("host serializer", func() {
 	var (
 		terminatedAt = time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
 		createdAt    = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
@@ -80,7 +80,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -115,7 +116,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -151,7 +153,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -183,7 +186,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -227,7 +231,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -276,7 +281,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})
@@ -315,7 +321,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+        "subscription": false
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 
