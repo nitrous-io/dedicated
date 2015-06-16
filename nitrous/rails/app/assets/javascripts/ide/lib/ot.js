@@ -1340,6 +1340,9 @@ ot.CodeMirrorAdapter = (function (global) {
     cursorEl.className = 'ot-cursor';
     cursorEl.style.backgroundColor = ot.rgb(color.bg);
     cursorEl.style.height = (cursorCoords.bottom - cursorCoords.top) + 'px';
+    if (cursorPos.line == 0) {
+      cursorEl.className += ' ot-cursor-top';
+    }
 
     var headEl = document.createElement('span');
     headEl.className = 'ot-cursor-head';
