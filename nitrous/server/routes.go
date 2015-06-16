@@ -75,7 +75,7 @@ func chainMiddleware(auth bool, r routeData) mw.Middleware {
 
 func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCb", github.OAuthCb), "GET")
+	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")

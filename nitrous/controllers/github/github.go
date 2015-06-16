@@ -23,6 +23,7 @@ const ValidityPeriod = 5 * time.Minute
 const ValidityPeriodSeconds = int(ValidityPeriod / time.Second)
 
 var (
+	verifier  = msgverifier.New(envvars.SecretToken)
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
 		ClientSecret: envvars.GitHubOAuthClientSecret,
@@ -30,16 +31,14 @@ var (
 		Endpoint:     githuboauth.Endpoint,
 	}
 
-	errUpdateFailed      = httperror.New(http.StatusInternalServerError, "update failed")
-	errInvalidOauthState = httperror.New(http.StatusBadRequest, "invalid oauth state")
-	errStateExpired      = httperror.New(http.StatusBadRequest, "GitHub authorization timeout")
-	errInvalidUserID     = httperror.New(http.StatusBadRequest, "cannot assign GitHub credentials to another user")
-	errStateMismatch     = httperror.New(http.StatusBadRequest, "state provided does not match cookie state")
+	errUpdateFailed     = httperror.New(http.StatusInternalServerError, "update_failed", "update failed")
+	errInvalidOauthCode = httperror.New(http.StatusBadRequest, "invalid_code", "invalid code parameter")
+	errInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "invalid state parameter")
+	errStateExpired     = httperror.New(http.StatusBadRequest, "auth_timeout", "GitHub authorization timeout")
+	errStateMismatch    = httperror.New(http.StatusBadRequest, "state_mismatch", "state provided does not match cookie state")
 
 	ErrTokenEmpty    = errors.New("token is empty")
 	ErrTokenNotValid = errors.New("token not valid")
-
-	verifier = msgverifier.New(envvars.SecretToken)
 )
 
 type OAuthState struct {
@@ -48,78 +47,28 @@ type OAuthState struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-func tokenToJSON(token *oauth2.Token) (string, error) {
-	if d, err := json.Marshal(token); err != nil {
-		return "", err
-	} else {
-		return string(d), nil
-	}
-}
-
-func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
-	var token oauth2.Token
-	if err := json.Unmarshal([]byte(jsonStr), &token); err != nil {
-		return nil, err
-	}
-	return &token, nil
-}
-
-func getTokenIfValidFromUserProfile(p *userprofile.UserProfile) (*oauth2.Token, error) {
-	if p.GitHubOAuthTokenJson.String == "" {
-		return nil, ErrTokenEmpty
-	}
-	token, err := tokenFromJSON(p.GitHubOAuthTokenJson.String)
+// return gitHubUserName and gitHubTokenJson
+var FetchGithubUser = func(code string) (string, string, error) {
+	token, err := oauthConf.Exchange(oauth2.NoContext, code)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
-	// it's valid for token to expire and become invalid
-	if !token.Valid() {
-		return nil, ErrTokenNotValid
-	}
-	return token, nil
-}
 
-// returns empty string if not authorized
-func AuthorizedGitHubUserName(p *userprofile.UserProfile) string {
-	userName := p.GitHubUserName.String
-	if userName == "" || !p.GitHubUserName.Valid {
-		return ""
-	}
-	token, err := getTokenIfValidFromUserProfile(p)
-	if err != nil || !token.Valid() {
-		return ""
-	}
-	return userName
-}
-
-func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
-	p, err := userprofile.Find(env.DB, env.User.ID)
+	tokenJSON, err := tokenToJSON(token)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
-	return getTokenIfValidFromUserProfile(p)
-}
+	oauthClient := oauthConf.Client(oauth2.NoContext, token)
+	client := github.NewClient(oauthClient)
 
-func MakeOauthState(userID int64) (string, error) {
-	createdAt := time.Now().UTC()
-	return verifier.Generate(&OAuthState{
-		UserID:    userID,
-		CreatedAt: createdAt,
-		ExpiresAt: createdAt.Add(ValidityPeriod),
-	})
-}
-
-func ReadOAuthState(signedState string) (*OAuthState, error) {
-	state := &OAuthState{}
-	err := verifier.Verify(signedState, state)
+	// get github user name of authenticated user
+	user, _, err := client.Users.Get("")
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	if state.ExpiresAt.Before(time.Now()) {
-		return nil, errStateExpired
-	}
-	return state, nil
+	gitHubUserName := *user.Login
+	return gitHubUserName, tokenJSON, nil
 }
 
 // /api/v0/github/authorize
@@ -145,50 +94,13 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
-func redirectAppAccountErrMsg(w http.ResponseWriter, r *http.Request, errMsg string) {
-	// note: don't url.QueryEscape() errMsg, Redirect will do it
-	uri := "/app#/account?errmsg=" + errMsg
-	http.Redirect(w, r, uri, http.StatusTemporaryRedirect)
-}
-
-func GitHubClientFromToken(token *oauth2.Token) *github.Client {
-	oauthClient := oauthConf.Client(oauth2.NoContext, token)
-	return github.NewClient(oauthClient)
-}
-
-// return gitHubUserName and gitHubTokenJson
-var GetGithubUserFunc = func(env *middleware.Env, w http.ResponseWriter, r *http.Request, code string) (string, string, error) {
-	token, err := oauthConf.Exchange(oauth2.NoContext, code)
-	if err != nil {
-		env.Logger.Errorf("oauthConf.Exchange() failed with '%s'\n", err)
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
-		return "", "", err
-	}
-
-	tokenJSON, err := tokenToJSON(token)
-	if err != nil {
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
-		return "", "", err
-	}
-	oauthClient := oauthConf.Client(oauth2.NoContext, token)
-	client := github.NewClient(oauthClient)
-
-	// get github user name of authenticated user
-	user, _, err := client.Users.Get("")
-	if err != nil {
-		env.Logger.Errorf("client.Users.Get() faled with '%s'\n", err)
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
-		return "", "", err
-	}
-	gitHubUserName := *user.Login
-	return gitHubUserName, tokenJSON, nil
-}
-
 // /api/v0/github/oauth_cb
 // When user grants our app permission to use his GitHub account on GitHub
 // website, GitHub redirects the user here
-func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	env.Logger.Debugf("OAuthCb called, url: '%s', rawQuery: '%s'\n", r.URL.RequestURI(), r.URL.RawQuery)
+func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	logger := env.Logger
+	tracker := env.Tracker
 	errLabel := "github.authcb"
 
 	signedState := r.FormValue("state")
@@ -205,34 +117,34 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	}
 
 	userID := state.UserID
-	p, err := userprofile.Find(env.DB, userID)
-	if err != nil {
-		return mh.Error(err, errLabel)
-	}
-	code := r.FormValue("code")
-	if code == "" {
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
-		return mh.Error(errInvalidOauthState, errLabel)
-	}
-	gitHubUserName, tokenJSON, err := GetGithubUserFunc(env, w, r, code)
+	p, err := userprofile.Find(db, userID)
 	if err != nil {
 		return mh.Error(err, errLabel)
 	}
 
-	env.Logger.Debugf("github token: '%s'\n", tokenJSON)
-	env.Logger.Debugf("github user: %s\n", gitHubUserName)
-	if p.GitHubUserName.Valid {
-		if gitHubUserName != p.GitHubUserName.String {
-			// shouldn't happen, we log but ignore
-			env.Logger.Errorf("inconsistent github user names, old: %s, new: %s", p.GitHubUserName.String, gitHubUserName)
-		}
+	code := r.FormValue("code")
+	if code == "" {
+		redirectError(w, r, "failed to connect with GitHub")
+		return mh.Error(errInvalidOauthCode, errLabel)
+	}
+
+	gitHubUserName, tokenJSON, err := FetchGithubUser(code)
+	if err != nil {
+		logger.Errorf("failed to fetch GitHub user: '%s'\n", err)
+		redirectError(w, r, "failed to connect with GitHub")
+		return mh.Error(err, errLabel)
+	}
+
+	if p.GitHubUserName.Valid && gitHubUserName != p.GitHubUserName.String {
+		logger.Errorf("replacing github user for %s - old: %s, new: %s",
+			userID, p.GitHubUserName.String, gitHubUserName)
 	}
 
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
-	if err = p.UpdateGithubInfo(env.DB); err != nil {
-		env.Logger.Errorf("p.UpdateGithubInfo() faled with '%s'\n", err)
-		redirectAppAccountErrMsg(w, r, "failed to connect with GitHub")
+	if err = p.UpdateGithubInfo(db); err != nil {
+		logger.Errorf("p.UpdateGithubInfo() faled with '%s'\n", err)
+		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(errUpdateFailed, errLabel)
 	}
 
@@ -243,13 +155,113 @@ func OAuthCb(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		MaxAge: -1,
 	})
 
-	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
+	tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"github_username": gitHubUserName,
-	}, env.Logger)
-	env.Tracker.SetProfileProps("setnx", userID, map[string]interface{}{
+	}, logger)
+
+	tracker.SetProfileProps("setnx", userID, map[string]interface{}{
 		"github_authorized_date": time.Now(),
-	}, env.Logger)
+	}, logger)
 
 	http.Redirect(w, r, "/app#/account", http.StatusFound)
 	return nil
+}
+
+func MakeOauthState(userID int64) (string, error) {
+	createdAt := time.Now().UTC()
+	return verifier.Generate(&OAuthState{
+		UserID:    userID,
+		CreatedAt: createdAt,
+		ExpiresAt: createdAt.Add(ValidityPeriod),
+	})
+}
+
+func ReadOAuthState(signedState string) (*OAuthState, error) {
+	if signedState == "" {
+		return nil, errInvalidState
+	}
+
+	state := &OAuthState{}
+	err := verifier.Verify(signedState, state)
+	if err != nil {
+		return nil, errInvalidState
+	}
+
+	if state.ExpiresAt.Before(time.Now()) {
+		return nil, errStateExpired
+	}
+	return state, nil
+}
+
+func redirectError(w http.ResponseWriter, r *http.Request, errMsg string) {
+	// note: don't url.QueryEscape() errMsg, Redirect will do it
+	uri := "/app#/account?errmsg=" + errMsg
+	http.Redirect(w, r, uri, http.StatusFound)
+}
+
+func tokenToJSON(token *oauth2.Token) (string, error) {
+	// FIXME: token.expiry is incorrecty serialized to epoch time
+	// when it is supposed to be empty, because of the way
+	// time field is defined in oauth2.Token
+	if d, err := json.Marshal(token); err != nil {
+		return "", err
+	} else {
+		return string(d), nil
+	}
+}
+
+// FIXME: The functions below should not belong to this controller package.
+// They are used by few external packages.
+
+func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
+	var token oauth2.Token
+	if err := json.Unmarshal([]byte(jsonStr), &token); err != nil {
+		return nil, err
+	}
+	return &token, nil
+}
+
+func GitHubClientFromToken(token *oauth2.Token) *github.Client {
+	oauthClient := oauthConf.Client(oauth2.NoContext, token)
+	return github.NewClient(oauthClient)
+}
+
+func getTokenIfValidFromUserProfile(p *userprofile.UserProfile) (*oauth2.Token, error) {
+	if p.GitHubOAuthTokenJson.String == "" {
+		return nil, ErrTokenEmpty
+	}
+	token, err := tokenFromJSON(p.GitHubOAuthTokenJson.String)
+	if err != nil {
+		return nil, err
+	}
+
+	// it's valid for token to expire and become invalid
+	if !token.Valid() {
+		return nil, ErrTokenNotValid
+	}
+
+	return token, nil
+}
+
+// Get GitHub username from user profile, if the GitHub token
+// is not yet expired. Returns empty string if not authorized
+func AuthorizedGitHubUserName(p *userprofile.UserProfile) string {
+	userName := p.GitHubUserName.String
+	if userName == "" || !p.GitHubUserName.Valid {
+		return ""
+	}
+
+	token, err := getTokenIfValidFromUserProfile(p)
+	if err != nil || !token.Valid() {
+		return ""
+	}
+	return userName
+}
+
+func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
+	p, err := userprofile.Find(env.DB, env.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	return getTokenIfValidFromUserProfile(p)
 }
