@@ -27,7 +27,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/server"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 
 	. "github.com/nitrous-io/dedicated/freighter/test"
@@ -67,8 +66,7 @@ var _ = Describe("server", func() {
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov, &freighter.Config{})
+		svr = server.NewServer(prov, &freighter.Config{})
 		svr.SetSecret(hostSecret)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -139,8 +137,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
@@ -2239,8 +2236,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
@@ -2327,8 +2323,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)

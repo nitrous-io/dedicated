@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/facebookgo/httpdown"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -30,7 +30,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var jsonNotFound = []byte(`{"error":"not_found","error_description":"not found"}`)
@@ -69,25 +68,20 @@ type Server struct {
 
 	router *mux.Router
 	root   string
-	logger *logger.Logger
 	db     *db.Database
 }
 
-func NewServer(root string, db *db.Database, l *logger.Logger, conf *provisioner.Config) *Server {
-	if l == nil {
-		panic("server.NewServer: invalid argument")
-	}
+func NewServer(root string, db *db.Database, conf *provisioner.Config) *Server {
 	events := pubsub.New(128)
 	svr := &Server{
 		Events:      events,
-		Provisioner: provisioner.NewProvisioner(db, l, events, conf),
+		Provisioner: provisioner.NewProvisioner(db, events, conf),
 		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
 		QueueStopCh: make(chan struct{}),
 		StopTimeout: defaultStopTimeout,
 		KillTimeout: defaultKillTimeout,
 		root:        root,
 		db:          db,
-		logger:      l,
 		router:      mux.NewRouter(),
 	}
 	svr.drawRoutes()
@@ -102,7 +96,7 @@ func (s *Server) Start(host string, port uint16) error {
 	if err := s.Provisioner.Start(); err != nil {
 		switch err {
 		case provisioner.ErrPreprovisionerNotConfigured:
-			s.logger.Warn("nitrous/server: Pre-provisioner not configured")
+			logrus.Warn("nitrous/server: Pre-provisioner not configured")
 		default:
 			return err
 		}
@@ -118,12 +112,12 @@ func (s *Server) Start(host string, port uint16) error {
 		StopTimeout: s.StopTimeout,
 		KillTimeout: s.KillTimeout,
 	}
-	s.logger.Debugf("nitrous/server: starting HTTP server with stop timeout: %v, kill timeout: %v",
+	logrus.Debugf("nitrous/server: starting HTTP server with stop timeout: %v, kill timeout: %v",
 		s.StopTimeout, s.KillTimeout)
 
 	return ListenAndServe(srv, hd, func() error {
 		// wait until the queue consumer finish processing its current message and is stopped
-		log.Printf("shutting down queue consumer")
+		logrus.Debug("shutting down queue consumer")
 		s.QueueStopCh <- struct{}{}
 		<-s.QueueStopCh
 		return nil
@@ -185,7 +179,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	if d := r.FormValue("duration"); d != "" {
 		duration, _ = strconv.Atoi(d)
 	}
-	s.logger.Debugf("sleeping for %d seconds", duration)
+	logrus.Debugf("sleeping for %d seconds", duration)
 	time.Sleep(time.Duration(duration) * time.Second)
 	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
@@ -198,10 +192,9 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 		// allow for consumption by `RespondJSON`
 		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
 		mh.Meter("requests.nitrous").Mark(1)
-		s.logger.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+		logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
 		env := &middleware.Env{
 			Root:        s.root,
-			Logger:      s.logger,
 			DB:          s.db,
 			Events:      s.Events,
 			Provisioner: s.Provisioner,
@@ -245,7 +238,7 @@ func (s *Server) static(prefix string, dir string) {
 			s.RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
 			return
 		}
-		s.logger.Infof("Static asset: %v", r.URL.Path)
+		logrus.Infof("Static asset: %v", r.URL.Path)
 		http.StripPrefix(prefix, http.FileServer(http.Dir(path.Join(s.root, dir)))).ServeHTTP(w, r)
 	})
 }
@@ -280,7 +273,7 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 			str = fmt.Sprintf("TRUNC (from: %d) %s...", len(str), str[:maxLoggedResponseLen])
 		}
 	}
-	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, str)
+	logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
 }
 
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
@@ -299,7 +292,7 @@ func (s *Server) serverError(err error) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
-	s.logger.Error(errHash, errMsg)
+	logrus.Error(errHash, errMsg)
 	return e
 }
 
@@ -307,7 +300,7 @@ func (s *Server) getNumFds() int {
 	pid := os.Getpid()
 	fds, err := ioutil.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
 	if err != nil {
-		s.logger.Errorf("Error opening /proc/%d/fd: %s", pid, err)
+		logrus.Errorf("Error opening /proc/%d/fd: %s", pid, err)
 		return -1
 	}
 	return len(fds)
@@ -324,7 +317,7 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 	if err != nil {
 		return err
 	}
-	log.Printf("serving on http://%s/ with pid %d\n", s.Addr, os.Getpid())
+	logrus.Infof("serving on http://%s/ with pid %d", s.Addr, os.Getpid())
 
 	waiterr := make(chan error, 1)
 	go func() {
@@ -342,7 +335,7 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 		}
 	case s := <-signals:
 		signal.Stop(signals)
-		log.Printf("signal received: %s\n", s)
+		logrus.Debugf("signal received: %s", s)
 		if err := hs.Stop(); err != nil {
 			return err
 		}

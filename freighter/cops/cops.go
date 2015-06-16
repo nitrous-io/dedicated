@@ -9,12 +9,12 @@ import "C"
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -99,7 +99,7 @@ func (c *CopsInfo) owner() (uid int, gid int) {
 	// tries to locate current user uid/gid from local /etc/passwd
 	uid, gid, err := parsePasswdFile("/etc/passwd", username)
 	if err != nil {
-		log.Printf("failed to find user %s in container %s", username, c.CID)
+		logrus.Errorf("failed to find user %s in container %s", username, c.CID)
 		return c.UID, c.GID
 	}
 	return uid, gid

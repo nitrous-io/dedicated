@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	redistest "github.com/nitrous-io/dedicated/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/redis.v2"
@@ -69,8 +68,7 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		h = hs.H
 
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 		handler = svr.HostQueueHandler()
 	})
 

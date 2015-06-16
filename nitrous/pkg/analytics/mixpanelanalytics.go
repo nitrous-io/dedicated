@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/go-mixpanel"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type MixpanelTracker struct {
@@ -24,7 +24,7 @@ func NewMixpanelTracker(token string) *MixpanelTracker {
 	return &MixpanelTracker{client: mc}
 }
 
-func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]interface{}, logger *logger.Logger) {
+func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]interface{}) {
 	if m.client == nil {
 		return
 	}
@@ -40,12 +40,12 @@ func (m *MixpanelTracker) TrackEvent(event string, u *user.User, p map[string]in
 	go func() {
 		err := m.client.Track(event, p)
 		if err != nil {
-			logger.Errorf("analytics: failed to track event: %s. err: %v", event, err)
+			logrus.Errorf("analytics: failed to track event: %s. err: %v", event, err)
 		}
 	}()
 }
 
-func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
+func (m *MixpanelTracker) CreateProfile(u *user.User, distinctID string) chan struct{} {
 	if m.client == nil {
 		return nil
 	}
@@ -67,18 +67,18 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, dis
 			profileOp := m.client.NewProfileOp(userID, p)
 			err := profileOp.Create()
 			if err != nil {
-				logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+				logrus.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
 			}
 		} else {
 			profileOp := m.client.NewProfileOp(distinctID, p)
 			err := profileOp.Create()
 			if err != nil {
-				logger.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
+				logrus.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
 			}
 
 			err = profileOp.Alias(userID)
 			if err != nil {
-				logger.Errorf("analytics: failed to alias user profile %s to distinct_id %s. err: %v", u.Email, distinctID, err)
+				logrus.Errorf("analytics: failed to alias user profile %s to distinct_id %s. err: %v", u.Email, distinctID, err)
 			}
 		}
 
@@ -88,7 +88,7 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, logger *logger.Logger, dis
 	return finished
 }
 
-func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {
+func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}) chan struct{} {
 	if m.client == nil {
 		return nil
 	}
@@ -126,7 +126,7 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 	case "unset":
 		propFn = op.Unset
 	default:
-		logger.Errorf("analytics: unsupported mode given: %s", mode)
+		logrus.Errorf("analytics: unsupported mode given: %s", mode)
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func (m *MixpanelTracker) SetProfileProps(mode string, userID int64, p map[strin
 	go func() {
 		err := propFn()
 		if err != nil {
-			logger.Errorf("analytics: failed to update (%s) user profile: %s. err: %v", mode, uid, err)
+			logrus.Errorf("analytics: failed to update (%s) user profile: %s. err: %v", mode, uid, err)
 		}
 		finished <- struct{}{}
 	}()

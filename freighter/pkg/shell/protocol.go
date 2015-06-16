@@ -16,7 +16,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+
+	"github.com/Sirupsen/logrus"
 )
 
 var (
@@ -107,7 +108,7 @@ func (s *ShellReader) Read(p []byte) (int, error) {
 			return 0, err
 		}
 		if t != s.MessageType {
-			log.Printf("wsconn: ignored unknown message type. Got %d, wanted %d", t, s.MessageType)
+			logrus.Errorf("wsconn: ignored unknown message type. Got %d, wanted %d", t, s.MessageType)
 			return 0, nil
 		}
 		s.reader = r

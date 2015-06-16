@@ -25,7 +25,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 	"github.com/onsi/gomega/ghttp"
@@ -118,8 +117,7 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 		}
 
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir)
+		prov, err = docker.NewDockerProvider(datadir)
 		Expect(err).To(BeNil())
 	})
 
@@ -199,8 +197,7 @@ var _ = Describe("provider/docker", func() {
 			match := re.FindSubmatch(out)
 			Expect(match).To(HaveLen(2), "unexpected ifconfig output: %s", out)
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			p, err := docker.NewDockerProvider(logger, datadir)
+			p, err := docker.NewDockerProvider(datadir)
 			Expect(err).To(BeNil())
 			Expect(p.Gateway()).To(Equal(string(match[1])))
 		})
@@ -922,7 +919,6 @@ var _ = Describe("provider/docker", func() {
 	Describe(".BuildImage()", func() {
 		It("streams output from Docker", func() {
 			prov, err := docker.NewDockerProviderWithHost(
-				&util.Logger{Level: util.LogLevelQuiet},
 				datadir,
 				"tcp://127.0.0.1:1234", // TCP address: so that go-dockerclient uses HTTP.
 			)
@@ -1077,8 +1073,7 @@ var _ = Describe("provider/docker", func() {
 			// the tests uses FakeRoundTripper so we inject a random tcp address here
 			// instead of using the unix socket so go-dockerclient can inherit
 			// the FakeRoundTripper
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			prov, err = docker.NewDockerProviderWithHost(logger, datadir, "tcp://127.0.0.1:1234")
+			prov, err = docker.NewDockerProviderWithHost(datadir, "tcp://127.0.0.1:1234")
 			Expect(err).To(BeNil())
 			// FIXME: remove this stuff
 			prov.DockerConfigLocation = tempAuthFile.Name()

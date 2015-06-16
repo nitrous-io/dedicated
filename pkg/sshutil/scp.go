@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
+
+	"github.com/Sirupsen/logrus"
 )
 
 func (c *Conn) scpSession(scpCommand string, f func(io.Writer, *bufio.Reader) error) error {
@@ -43,7 +44,7 @@ func (c *Conn) scpSession(scpCommand string, f func(io.Writer, *bufio.Reader) er
 	session.Stderr = stderr
 
 	// Start the sink mode on the other side
-	log.Println("Starting remote scp process: ", scpCommand)
+	logrus.Debug("Starting remote scp process: ", scpCommand)
 	if err := session.Start(scpCommand); err != nil {
 		return err
 	}
@@ -51,7 +52,7 @@ func (c *Conn) scpSession(scpCommand string, f func(io.Writer, *bufio.Reader) er
 	// Call our callback that executes in the context of SCP. We ignore
 	// EOF errors if they occur because it usually means that SCP prematurely
 	// ended on the other side.
-	log.Println("Started SCP session, beginning transfers...")
+	logrus.Debug("Started SCP session, beginning transfers...")
 	if err := f(stdinW, stdoutR); err != nil && err != io.EOF {
 		return err
 	}
@@ -59,7 +60,7 @@ func (c *Conn) scpSession(scpCommand string, f func(io.Writer, *bufio.Reader) er
 	// Close the stdin, which sends an EOF, and then set w to nil so that
 	// our defer func doesn't close it again since that is unsafe with
 	// the Go SSH package.
-	log.Println("SCP session complete, closing stdin pipe.")
+	logrus.Debug("SCP session complete, closing stdin pipe.")
 	stdinW.Close()
 	stdinW = nil
 

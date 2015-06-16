@@ -13,78 +13,76 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/nitrous-common/httpclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
-	logr   *logger.Logger
 	dbConn *db.Database
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 
 	if envvars.WebHostname == "" {
-		logr.FatalExit("WEB_HOSTNAME is not defined")
+		logrus.Fatal("WEB_HOSTNAME is not defined")
 	}
 
 	// used as user that hits healthcheck url
 	pu := envvars.ProvisionerUser
 	if pu == "" {
-		logr.FatalExit("healthcheck: PROVISIONER_USER is not defined")
+		logrus.Fatal("healthcheck: PROVISIONER_USER is not defined")
 	}
 
 	var err error
 	dbConn, err = db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalfExit("healthcheck: db error: %s", err)
+		logrus.Fatalf("healthcheck: db error: %s", err)
 	}
 
 	u, err := user.FindByUsername(dbConn, pu)
 	if err != nil {
-		logr.FatalfExit("healthcheck: %s user not found: %s", pu, err)
-		os.Exit(1)
+		logrus.Fatalf("healthcheck: %s user not found: %s", pu, err)
 	}
 
 	t, err := token.FindByUser(dbConn, u.ID)
 	if err != nil {
-		logr.FatalfExit("healthcheck: error on token for user %d: %s", u.ID, err)
+		logrus.Fatalf("healthcheck: error on token for user %d: %s", u.ID, err)
 	}
 
 	url := fmt.Sprintf("https://%s/api/v0/admin/amazon/healthcheck", envvars.WebHostname)
 	c := httpclient.New(t.Token)
 	resp, err := c.GetAuthed(url, nil)
 	if err != nil {
-		logr.FatalfExit("healthcheck: endpoint error: %v", err)
+		logrus.Fatalf("healthcheck: endpoint error: %v", err)
 	}
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			logr.FatalfExit("healthcheck: got non-200 error response: %d; error reading body: %s", resp.StatusCode, err)
+			logrus.Fatalf("healthcheck: got non-200 error response: %d; error reading body: %s", resp.StatusCode, err)
 		}
 
-		logr.FatalfExit("healthcheck: got non-200 error response: %d - %s", resp.StatusCode, string(body))
+		logrus.Fatalf("healthcheck: got non-200 error response: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var rjson struct {
 		Healthcheck map[string]interface{} `json:"healthcheck"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&rjson); err != nil {
-		logr.FatalfExit("healthcheck: error decoding json: %s", err)
+		logrus.Fatalf("healthcheck: error decoding json: %s", err)
 	}
 
 	h := rjson.Healthcheck
@@ -97,6 +95,6 @@ func main() {
 	for k, v := range h {
 		logparts = append(logparts, fmt.Sprintf("%s: %v", k, v))
 	}
-	logr.Error(strings.Join(logparts, "; "))
+	logrus.Error(strings.Join(logparts, "; "))
 	os.Exit(1)
 }

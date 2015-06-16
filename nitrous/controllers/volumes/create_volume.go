@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -57,7 +58,7 @@ func CreateVolume(h *host.Host, options url.Values, env *middleware.Env) (*seria
 
 	if _, err := cl.CreateVolume(slug); err != nil {
 		if e := vol.Delete(db); e != nil {
-			env.Logger.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
+			logrus.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return nil, httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)

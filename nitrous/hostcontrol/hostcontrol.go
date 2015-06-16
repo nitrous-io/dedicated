@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
@@ -13,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type EventType int64
@@ -27,7 +27,7 @@ const (
 
 var HostbuilderClient = provisioner.HostbuilderClient
 
-func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
+func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
 	err := beforeStop(db, h, ev, initiatorID, origState)
 	if err != nil {
@@ -37,10 +37,10 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 	urlArgs := host.URLArgsFromHost(h)
 	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
 		if e, ok := stopErr.(net.Error); ok && e.Timeout() {
-			l.Errorf("hostbuilder timeout stopping host: %v", e)
+			logrus.Errorf("hostbuilder timeout stopping host: %v", e)
 		}
 
-		if err := OnStopFailed(db, l, h, initiatorID, origState); err != nil {
+		if err := OnStopFailed(db, h, initiatorID, origState); err != nil {
 			return err
 		}
 
@@ -62,7 +62,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 	return nil
 }
 
-func StopWithQueue(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
+func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
 	err := beforeStop(db, h, ev, initiatorID, origState)
 	if err != nil {
@@ -106,7 +106,7 @@ func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, 
 
 // Rollback to previous state, log any errors while rolling back, but
 // return original hostbuilderclient error.
-func OnStopFailed(db *db.Database, l *logger.Logger, h *host.Host, initiatorID int64, origState string) error {
+func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState string) error {
 	h.State = origState
 	tx, err := db.Beginx()
 	if err != nil {
@@ -114,17 +114,17 @@ func OnStopFailed(db *db.Database, l *logger.Logger, h *host.Host, initiatorID i
 	}
 	if err := h.Update(tx); err != nil {
 		tx.Rollback()
-		l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
+		logrus.Errorf("hosts.Stop: Unable to reset host state: %v", err)
 		return err
 	}
 
 	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
 		tx.Rollback()
-		l.Errorf("hosts.Stop: Unable to record transition: %v", err)
+		logrus.Errorf("hosts.Stop: Unable to record transition: %v", err)
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		logrus.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
 		return err
 	}
 
@@ -153,7 +153,7 @@ func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
 	return nil
 }
 
-func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header, initiatorID int64) error {
+func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
 	// If provider identifier is empty, don't attempt to delete the host in hostbuilder
 	// Provider identifier can be empty for hosts that are dangling in born or orphan states.
 	if h.ProviderIdentifier.String != "" {
@@ -161,7 +161,7 @@ func Terminate(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header,
 		_, err := HostbuilderClient.Delete(h.Provider, h.MachineConfig(), headers, urlArgs)
 		if err != nil {
 			if e, ok := err.(net.Error); ok && e.Timeout() {
-				l.Errorf("hostbuilder timeout deleting host: %v", e)
+				logrus.Errorf("hostbuilder timeout deleting host: %v", e)
 			}
 			return err
 		}

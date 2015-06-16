@@ -4,9 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -35,7 +35,7 @@ func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 		case queue.Stop.IsA(m.Action):
 			err = s.handleStopMessage(m)
 		default:
-			s.logger.Debugf("uuid=%s queueHandlerTracer: unexpected message: %+v", m.UUID, m)
+			logrus.Debugf("uuid=%s queueHandlerTracer: unexpected message: %+v", m.UUID, m)
 		}
 		return err
 	}
@@ -62,7 +62,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			return err
 		}
 		if h.State == host.StateRunning {
-			log.Printf("uuid=%s host running but received created event %+v", m.UUID, queueInfo)
+			logrus.Printf("uuid=%s host running but received created event %+v", m.UUID, queueInfo)
 			return nil
 		}
 
@@ -85,7 +85,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 		p := &progress{Stream: strings.TrimSpace(queueInfo.Message)}
 		d, err := json.Marshal(p)
 		if err != nil {
-			log.Printf("uuid=%s failed to encode progress event %+v", m.UUID, queueInfo)
+			logrus.Printf("uuid=%s failed to encode progress event %+v", m.UUID, queueInfo)
 			return err
 		}
 		s.Events.Publish(
@@ -103,7 +103,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 		}
 		h.State = host.StateOrphan
 		if err := h.Update(s.db); err != nil {
-			s.logger.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", m.UUID, err, h)
+			logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", m.UUID, err, h)
 			return err
 		}
 		s.Events.Publish(
@@ -114,13 +114,13 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 	default:
-		s.logger.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
+		logrus.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
 	return nil
 }
 
 func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) error {
-	s.logger.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
+	logrus.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
@@ -140,19 +140,19 @@ func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) erro
 	}
 
 	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
-		s.logger.Debugf("uuid=%s queueProvisionTracer: update (provider) err: %+v h: %+v", uuid, err, h)
+		logrus.Debugf("uuid=%s queueProvisionTracer: update (provider) err: %+v h: %+v", uuid, err, h)
 		return err
 	}
 
 	p, err := plan.FindByID(s.db, h.PlanID)
 	if err != nil {
-		s.logger.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
+		logrus.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
 	_, err = s.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
 		p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
 	if err != nil {
-		s.logger.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", err, h)
+		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", err, h)
 		return err
 	}
 	return nil
@@ -187,7 +187,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 
 	switch eventName {
 	case controllers.EventHostStopped:
-		s.logger.Debugf("uuid=%s queueTracer: stopped a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
+		logrus.Debugf("uuid=%s queueTracer: stopped a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
@@ -208,7 +208,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 				cn.State = container.StateStopped
 				err := s.PublishContainerEvent(controllers.EventContainerStopped, cn, &queueInfo)
 				if err != nil {
-					s.logger.Debugf("uuid=%s queueTracer: failed to send an event(%s) for container(%+v)", m.UUID, controllers.EventContainerStopped, cn)
+					logrus.Debugf("uuid=%s queueTracer: failed to send an event(%s) for container(%+v)", m.UUID, controllers.EventContainerStopped, cn)
 				}
 			}
 		}
@@ -219,18 +219,18 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			}),
 			u.Topic(),
 		)
-		s.logger.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
+		logrus.Debugf("uuid=%s queueTracer: published host stopped event", m.UUID)
 	case controllers.EventHostStopping:
-		s.logger.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
+		logrus.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 	case controllers.EventHostStopFailed:
-		s.logger.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
+		logrus.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
 		}
 
 		state := strings.ToLower(queueInfo.Host.State.String())
-		if err := hostcontrol.OnStopFailed(s.db, s.logger, h, queueInfo.RequesterID, state); err != nil {
+		if err := hostcontrol.OnStopFailed(s.db, h, queueInfo.RequesterID, state); err != nil {
 			return err
 		}
 
@@ -241,7 +241,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 	default:
-		s.logger.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
+		logrus.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
 
 	return nil

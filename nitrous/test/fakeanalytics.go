@@ -1,10 +1,6 @@
 package test
 
-import (
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
-
-	"github.com/nitrous-io/nitrous-common/logger"
-)
+import "github.com/nitrous-io/dedicated/nitrous/models/user"
 
 type FakeTracker struct {
 	Events               map[int64][]string
@@ -26,7 +22,7 @@ func NewFakeTracker() *FakeTracker {
 	}
 }
 
-func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interface{}, logger *logger.Logger) {
+func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interface{}) {
 	if u == nil {
 		return
 	}
@@ -44,12 +40,12 @@ func (f *FakeTracker) TrackEvent(event string, u *user.User, p map[string]interf
 	}
 }
 
-func (f *FakeTracker) CreateProfile(u *user.User, logger *logger.Logger, distinctID string) chan struct{} {
+func (f *FakeTracker) CreateProfile(u *user.User, distinctID string) chan struct{} {
 	f.ProfileCreated = u
 	return nil
 }
 
-func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}, logger *logger.Logger) chan struct{} {
+func (f *FakeTracker) SetProfileProps(mode string, userID int64, p map[string]interface{}) chan struct{} {
 	f.PropsCalled = append(f.PropsCalled, &PropsCall{
 		Mode:     mode,
 		UserID:   userID,

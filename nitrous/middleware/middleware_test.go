@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -40,8 +39,7 @@ var _ = Describe("middleware", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 
 		handler = mux.NewRouter()
 		res = httptest.NewRecorder()
@@ -50,7 +48,6 @@ var _ = Describe("middleware", func() {
 			return nil
 		}
 		env = &middleware.Env{
-			Logger:  logger,
 			DB:      db,
 			Tracker: NewFakeTracker(),
 		}

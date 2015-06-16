@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 // run with --live-run to actually send to mixpanel, otherwise it will be a dry run
@@ -52,7 +52,6 @@ type FreeQueue struct {
 }
 
 var (
-	logr    *logger.Logger
 	tracker analytics.Tracker
 	dbConn  *db.Database
 
@@ -61,14 +60,14 @@ var (
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func (j job) Process() {
 	j.p["$ignore_time"] = true
 	j.p["$ip"] = "0"
-	logr.Debugf("Processing job %d: %s %+v", j.uid, j.mode, j.p)
-	finished := tracker.SetProfileProps(j.mode, j.uid, j.p, logr)
+	logrus.Debugf("Processing job %d: %s %+v", j.uid, j.mode, j.p)
+	finished := tracker.SetProfileProps(j.mode, j.uid, j.p)
 	if finished != nil {
 		<-finished
 	}
@@ -89,13 +88,13 @@ func makeJobs() <-chan job {
 		users.phone_authed, users.phone_country_code, users.phone
 	FROM users
 	JOIN user_profiles ON user_profiles.user_id = users.id
-	WHERE 
-		service_account IS false 
+	WHERE
+		service_account IS false
 		AND deleted_at IS NULL
 	ORDER BY users.id;
 	`)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	type userStepFn func(chan job, *User) error
@@ -116,15 +115,13 @@ func makeJobs() <-chan job {
 		for _, u := range users {
 			for name, fn := range userSteps {
 				if err := fn(jobs, u); err != nil {
-					logr.Fatalf("User %s, step %s: %v", u.Email, name, err)
-					os.Exit(1)
+					logrus.Fatalf("User %s, step %s: %v", u.Email, name, err)
 				}
 			}
 		}
 		for name, fn := range otherSteps {
 			if err := fn(jobs); err != nil {
-				logr.Fatalf("Step %s: %v", name, err)
-				os.Exit(1)
+				logrus.Fatalf("Step %s: %v", name, err)
 			}
 		}
 	}()
@@ -142,23 +139,23 @@ func worker(jobs <-chan job) {
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	var err error
 	dbConn, err = db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	mixpanelToken := envvars.MixpanelToken
 	if mixpanelToken == "" || strings.HasPrefix(mixpanelToken, "disable") {
-		logr.FatalExit(envvars.MixpanelEnvVar, "is not defined")
+		logrus.Fatal(envvars.MixpanelEnvVar, "is not defined")
 	}
 	tracker = &DryTracker{}
 	if len(os.Args) > 1 && os.Args[1] == "--live-run" {
 		workerDelay = liveWorkerDelay
 		tracker = analytics.NewMixpanelTracker(envvars.MixpanelToken)
-		logr.Warn("Live run!")
+		logrus.Warn("Live run!")
 	}
 
 	wg := sync.WaitGroup{}
@@ -170,6 +167,6 @@ func main() {
 			worker(jobs)
 		}()
 	}
-	logr.Infof("Done!")
+	logrus.Info("Done!")
 	wg.Wait()
 }

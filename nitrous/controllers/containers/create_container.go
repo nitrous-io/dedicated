@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -37,7 +38,6 @@ var (
 
 func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res *CreateResult, err error) {
 	db := env.DB
-	log := env.Logger
 
 	tx, err := db.Beginx()
 	if err != nil {
@@ -62,7 +62,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 
 	cnCreate, err := h.CanCreateMoreContainers(tx, env.User)
 	if err != nil {
-		env.Logger.Errorf("Error checking CanCreateMoreContainers, err: %v", err)
+		logrus.Errorf("Error checking CanCreateMoreContainers, err: %v", err)
 	} else {
 		if !cnCreate {
 			return nil, errMaxContainersReached
@@ -93,7 +93,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	var containerSequence int
 	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
 	if err != nil {
-		log.Errorf("Failed to get next value of container slug sequense")
+		logrus.Errorf("Failed to get next value of container slug sequense")
 		return nil, err
 	}
 	slug := slugbuilder.BuildWithNumber(name, containerSequence)
@@ -187,11 +187,11 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	cn.FinishedAt = timePtr(created.FinishedAt)
 
 	if ok := cn.SetState(created.State); !ok { // log and continue
-		log.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
+		logrus.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
 	}
 
 	if err := cn.Update(tx); err != nil { // log and continue
-		log.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
+		logrus.Errorf("containers.create: successfully created container '%+v' in Freighter but failed to update database with '%+v'", created, cn)
 	}
 
 	if len(created.Volumes) > 0 {
@@ -222,7 +222,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 			if _, err := cvolume.Find(tx, cn, vol); err == sql.ErrNoRows {
 				cv := &cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: vol.ID}
 				if err := cv.Insert(tx); err != nil { // log and continue
-					log.Errorf("containers.create: failed to attach volume %#v: %v ", cv, err)
+					logrus.Errorf("containers.create: failed to attach volume %#v: %v ", cv, err)
 				}
 			}
 		}
@@ -234,13 +234,13 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		for _, v := range volumeSlugs(config.Mounts) {
 			cv := cvolume.ContainerVolume{ContainerID: cn.ID, VolumeID: hv[v].ID}
 			if err := cv.Insert(tx); err != nil { // log and continue
-				log.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
+				logrus.Errorf("containers.create: failed to attach volume %s to container %s", hv[v].Slug, cn.CID)
 			}
 		}
 	}
 
 	if _, err := tx.Exec("UPDATE users SET first_time = FALSE WHERE id = $1", env.User.ID); err != nil {
-		log.Errorf("Failed to disable first_time for user %d, err: %v", env.User.ID, err)
+		logrus.Errorf("Failed to disable first_time for user %d, err: %v", env.User.ID, err)
 	}
 
 	if err := tx.Commit(); err != nil {

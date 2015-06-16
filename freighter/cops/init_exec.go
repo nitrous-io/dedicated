@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -16,6 +15,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 	"github.com/nitrous-io/dedicated/pkg/shellquote"
 )
@@ -42,7 +42,7 @@ func execInit() {
 	// required init pid to be argv 0th
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("execInit failed to change dir to / : %v", err)
+		logrus.Fatalf("execInit failed to change dir to / : %v", err)
 	}
 
 	// this is used to get info of the container from the parent
@@ -50,14 +50,14 @@ func execInit() {
 	defer infoR.Close()
 	info := &CopsInfo{}
 	if err := json.NewDecoder(infoR).Decode(info); err != nil {
-		log.Fatalf("%s cmd: failed to decode info %v", execCommandName, err)
+		logrus.Fatalf("%s cmd: failed to decode info %v", execCommandName, err)
 	}
 
 	// this is used to communicate with the parent process
 	pipe := os.NewFile(4, "pipe")
 	defer pipe.Close()
 	if err := handleOps(info, os.Stdin, pipe); err != nil {
-		log.Fatalf("opsHandler failed with %v", err)
+		logrus.Fatalf("opsHandler failed with %v", err)
 	}
 	os.Exit(0)
 }
@@ -71,7 +71,7 @@ func getNitrousUser() string {
 		return user
 	}
 	// shouldn't happen, but if it does, log the error and go on using "nitrous" user
-	log.Printf("getNitrousUser: NITROUS_USERNAME not set")
+	logrus.Error("getNitrousUser: NITROUS_USERNAME not set")
 	return "nitrous"
 }
 
@@ -80,7 +80,7 @@ func getNitrousUser() string {
 func shellForUserFromEtcPasswd(user string) string {
 	d, err := ioutil.ReadFile("/etc/passwd")
 	if err != nil {
-		log.Printf("shellForUserFromEtcPasswd: ioutil.ReadFile('/etc/passwd') failed with %s", err)
+		logrus.Errorf("shellForUserFromEtcPasswd: ioutil.ReadFile('/etc/passwd') failed with %s", err)
 		return defaultShell
 	}
 	shell := extractShellFromEtcPasswd(string(d), user)
@@ -139,12 +139,12 @@ func doRun(msg *Message, ch chan *Message) {
 	}
 	cmdWithArgs, ok := getArgAsStrArray(msg.Args[0])
 	if !ok {
-		log.Printf("doRun: msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
+		logrus.Errorf("doRun: msg.Args[0] (%#v) is not a list of strings", msg.Args[0])
 		sendErr(ch, msg, errors.New("invalid cmd argument"))
 		return
 	}
 	if len(cmdWithArgs) == 0 {
-		log.Printf("doRun: msg.Args[0] is an empty list")
+		logrus.Error("doRun: msg.Args[0] is an empty list")
 		sendErr(ch, msg, errors.New("empty cmd argument"))
 		return
 	}
@@ -154,7 +154,7 @@ func doRun(msg *Message, ch chan *Message) {
 	// set custom working directory (if given)
 	cwd, ok := msg.Args[1].(string)
 	if !ok {
-		log.Printf("doRun: msg.Args[1] (%#v) is not a string", msg.Args[1])
+		logrus.Errorf("doRun: msg.Args[1] (%#v) is not a string", msg.Args[1])
 		sendErr(ch, msg, errors.New("invalid cwd argument"))
 		return
 	}
@@ -164,7 +164,7 @@ func doRun(msg *Message, ch chan *Message) {
 	// setup additional environment variables (if given)
 	env, ok := getArgAsStrArray(msg.Args[2])
 	if !ok {
-		log.Printf("doRun: msg.Args[2] (%#v) is not a list of strings", msg.Args[2])
+		logrus.Errorf("doRun: msg.Args[2] (%#v) is not a list of strings", msg.Args[2])
 		sendErr(ch, msg, errors.New("invalid env argument"))
 		return
 	}
@@ -182,7 +182,7 @@ func doRun(msg *Message, ch chan *Message) {
 			errMsg = err.Error()
 			cmdName := cmdWithArgs[0]
 			args := cmdWithArgs[1:]
-			log.Printf("doRun: cmd: '%s' args: '%#v', cmdStr: %s failed with '%s'", cmdName, args, cmdStr, err)
+			logrus.Errorf("doRun: cmd: '%s' args: '%#v', cmdStr: %s failed with '%s'", cmdName, args, cmdStr, err)
 		}
 		args := []interface{}{errMsg, stdout, stderr}
 		sendFinalReply(ch, msg, args)
@@ -195,7 +195,7 @@ func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
 	case "run":
 		go doRun(msg, resp)
 	default:
-		log.Printf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
+		logrus.Errorf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
 		return sendErr(resp, msg, fmt.Errorf("unkown event '%s'", msg.Event))
 	}
 	return resp
@@ -249,7 +249,7 @@ func Start(id string, env []string) (*exec.Cmd, io.Writer, io.Reader, error) {
 		return nil, nil, nil, err
 	}
 	if err := json.NewEncoder(infoW).Encode(info); err != nil {
-		log.Println("%s cmd: failed to write info %v", execCommandName, err)
+		logrus.Errorf("%s cmd: failed to write info %v", execCommandName, err)
 		cmd.Process.Kill()
 		return nil, nil, nil, err
 	}

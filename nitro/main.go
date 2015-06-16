@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitro/command"
 
@@ -125,7 +125,7 @@ func helpFunc(cmds map[string]cli.CommandFactory) string {
 		// we ignore missing auth token error for commands that requires auth
 		if err != nil {
 			if err != command.ErrMissingAuthToken {
-				log.Printf("[ERR] cli: Command '%s' failed to load: %s", key, err)
+				logrus.Errorf("cli: Command '%s' failed to load: %s", key, err)
 			}
 			continue
 		}

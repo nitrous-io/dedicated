@@ -3,8 +3,9 @@ package tender
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"net"
+
+	"github.com/Sirupsen/logrus"
 )
 
 // Host describes a host machine
@@ -66,7 +67,7 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 	`
 	rows, err := db.Query(q)
 	if err != nil {
-		log.Printf("[ERROR] db.Query('%s') failed with '%s'", q, err)
+		logrus.Errorf("db.Query('%s') failed with '%s'", q, err)
 		return nil, err
 	}
 	for rows.Next() {
@@ -74,16 +75,16 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 		var port int
 		err = rows.Scan(&slug, &ip, &port)
 		if err != nil {
-			log.Printf("[ERROR] rows.Scan() failed with '%s'", err)
+			logrus.Errorf("rows.Scan() failed with '%s'", err)
 			rows.Close()
 			return nil, err
 		}
 		if !ip.Valid {
-			log.Printf("[ERROR] ip_address is NULL")
+			logrus.Errorf("ip_address is NULL")
 			continue
 		}
 		if !slug.Valid {
-			log.Printf("[ERROR] slug is NULL")
+			logrus.Errorf("slug is NULL")
 			continue
 		}
 		h := &Host{
@@ -95,7 +96,7 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 	}
 	err = rows.Close()
 	if err != nil {
-		log.Printf("[ERROR] rows.Close() failed with '%s'", err)
+		logrus.Errorf("rows.Close() failed with '%s'", err)
 		return nil, err
 	}
 	return m, nil
@@ -130,7 +131,7 @@ func getContainers(db *sql.DB) (ContainersMap, error) {
 			  WHERE containers.terminated_at IS NULL`
 	rows, err := db.Query(q)
 	if err != nil {
-		log.Printf("[ERROR] db.Query('%s') failed with '%s'", q, err)
+		logrus.Errorf("db.Query('%s') failed with '%s'", q, err)
 		return nil, err
 	}
 
@@ -153,7 +154,7 @@ func getContainers(db *sql.DB) (ContainersMap, error) {
 	}
 	err = rows.Close()
 	if err != nil {
-		log.Printf("[ERROR] rows.Close() failed with '%s'", err)
+		logrus.Errorf("rows.Close() failed with '%s'", err)
 		return nil, err
 	}
 	return m, nil

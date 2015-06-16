@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -103,14 +104,14 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
+		logrus.Infof("uuid=%s Request: %v %v", uuidStr, r.Method, r.URL.String())
 		if err := handlerFunc(w, r); err != nil {
 			duration := time.Since(start)
-			log.Printf("uuid=%s [ERROR], Completed in %s: %s %s: %s\n", uuidStr, duration, r.Method, r.URL, err)
+			logrus.Errorf("uuid=%s [ERROR], Completed in %s: %s %s: %s", uuidStr, duration, r.Method, r.URL, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		} else {
 			duration := time.Since(start)
-			log.Printf("uuid=%s 200 OK Completed in %s: %s %s\n", uuidStr, duration, r.Method, r.URL.String())
+			logrus.Infof("uuid=%s 200 OK Completed in %s: %s %s", uuidStr, duration, r.Method, r.URL.String())
 		}
 	}
 }
@@ -184,7 +185,7 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 
 	configJson := r.Form.Get("config")
-	log.Printf("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
+	logrus.Infof("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
 
 	h, err := host.InitHost(provider, providerConfig, configJson)
 	if err != nil {
@@ -201,13 +202,11 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		s.initQueueOnce.Do(func() {
 			err = s.initQueue()
 		})
-
 		if err != nil {
-			log.Printf("uuid=%s [ERROR], Failed to initialize queue: %+v", providerConfig["uuid"], err)
+			logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
-
-		log.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
+		logrus.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
 		var queueInfo *host.QueueInfo
 		queueInfo, err = getQueueInfo(r)
 		if err != nil {
@@ -236,12 +235,12 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 
 	if err != nil {
 		mh.Error(err, label)
-		log.Printf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
+		logrus.Errorf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
 		baseResp.Error = fmt.Sprintf("failed to create a host on %s", provider)
 		pw.WriteResponse(baseResp)
 		return nil
 	}
-	log.Printf("uuid=%s Created host: %+v", providerConfig["uuid"], info)
+	logrus.Infof("uuid=%s Created host: %+v", providerConfig["uuid"], info)
 
 	mh.Time(fmt.Sprintf("ping.%s", label), func() {
 		// do not remove a host if freighter is down, we keep the host for debugging
@@ -359,7 +358,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		})
 
 		if err != nil {
-			log.Printf("uuid=%s [ERROR], Failed to initialize queue: %+v", providerConfig["uuid"], err)
+			logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
 			return mh.Error(err, fmt.Sprintf("create.%s", provider))
 		}
 
@@ -375,7 +374,7 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err != nil {
-		log.Printf("uuid=%s Failed to stop a host: %+v\n", providerConfig["uuid"], err)
+		logrus.Errorf("uuid=%s Failed to stop a host: %+v", providerConfig["uuid"], err)
 		return err
 	}
 
@@ -487,7 +486,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 			return err
 		}
 	}
-	log.Printf("/test/sleep - sleeping for %d seconds", duration)
+	logrus.Debugf("/test/sleep - sleeping for %d seconds", duration)
 	time.Sleep(time.Duration(duration) * time.Second)
 	fmt.Fprintf(w, "sleep for %d seconds OK", duration)
 	return nil
@@ -596,7 +595,7 @@ func (s *Server) CreateRouter() {
 func New(configData []byte) (*Server, error) {
 	config := &config{}
 	if err := json.Unmarshal(configData, config); err != nil {
-		log.Printf("hostbuilder: invalid config data %v", string(configData))
+		logrus.Errorf("hostbuilder: invalid config data %s", string(configData))
 		return nil, err
 	}
 
@@ -604,7 +603,7 @@ func New(configData []byte) (*Server, error) {
 	server.CreateRouter()
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
-		log.Print("missing librato config. Metrics logging is disabled")
+		logrus.Warn("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,

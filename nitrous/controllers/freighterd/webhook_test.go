@@ -18,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -44,8 +43,7 @@ var _ = Describe("controllers/freighterd", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = test.NewTestServer("", db, logger, nil)
+		svr = test.NewTestServer("", db, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 	})

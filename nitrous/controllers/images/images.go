@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 
 	"github.com/nitrous-io/nitrous-common/flusher"
@@ -97,7 +98,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		for _, img := range dbImgs {
 			fImg := findMatchingFreighterImage(img, fImgs)
 			if fImg == nil { // log and continue
-				env.Logger.Errorf("images.index: image '%+v' exists in database but not in Freighter: %v", img, err)
+				logrus.Errorf("images.index: image '%+v' exists in database but not in Freighter: %v", img, err)
 				continue
 			}
 			img.ActualSize = fImg.ActualSize
@@ -190,7 +191,7 @@ func Remove(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			}
 		}
 
-		env.Logger.Errorf("cl.RemoveImage() failed with %s", err)
+		logrus.Errorf("cl.RemoveImage() failed with %s", err)
 	}
 
 	if err := img.Delete(db); err != nil {
@@ -257,7 +258,7 @@ func Tag(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Reque
 		}
 	}
 	if err := taggedImg.InsertOrUpdate(db); err != nil { // log and continue
-		env.Logger.Errorf("images.tag: successfully tagged image '%+v' as '%s' in Freighter but failed to update database with '%+v'", srcImg, newRepo, taggedImg)
+		logrus.Errorf("images.tag: successfully tagged image '%+v' as '%s' in Freighter but failed to update database with '%+v'", srcImg, newRepo, taggedImg)
 	}
 
 	env.Events.Publish(

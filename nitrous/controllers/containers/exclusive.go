@@ -3,9 +3,9 @@ package containers
 import (
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 /*
@@ -58,7 +58,7 @@ func doExclusive(locker taskFn, unlocker taskFn, errHandler errorHandlerFn, task
 func lockerFn(cn *container.Container, env *middleware.Env, timeout time.Duration, tempState container.State) taskFn {
 	return func() error {
 		if cn.LockedUntil != nil && time.Now().After(*cn.LockedUntil) {
-			env.Logger.Warnf("Attempt to lock container with expired lock: %+v", cn)
+			logrus.Warnf("Attempt to lock container with expired lock: %+v", cn)
 		}
 
 		if err := cn.Lock(tempState, timeout, env.DB); err != nil {
@@ -80,7 +80,7 @@ func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
 	return func() error {
 		err := cn.Unlock(env.DB)
 		if err != nil {
-			env.Logger.Warnf("Failed to unlock container: %+v: %s", cn, err)
+			logrus.Warnf("Failed to unlock container: %+v: %s", cn, err)
 		}
 
 		return err
@@ -91,12 +91,12 @@ func unlockerFn(cn *container.Container, env *middleware.Env) taskFn {
  * Returns a logger function to log errors in locking/unlocking
  * and also errors returned by critical section task.
  */
-func errorLoggerFn(logger *logger.Logger, cn *container.Container, tempState container.State) errorHandlerFn {
+func errorLoggerFn(cn *container.Container, tempState container.State) errorHandlerFn {
 	return func(err error) {
 		if err == errContainerLocked {
-			logger.Infof("Failed to lock container: container is already locked. %+v", cn)
+			logrus.Infof("Failed to lock container: container is already locked. %+v", cn)
 		} else {
-			logger.Errorf("Error in container transition state %s for container %+v: %s", tempState, cn, err)
+			logrus.Errorf("Error in container transition state %s for container %+v: %s", tempState, cn, err)
 		}
 	}
 }
@@ -111,7 +111,7 @@ func doContainerExclusive(cn *container.Container, env *middleware.Env, tempStat
 	return doExclusive(
 		lockerFn(cn, env, lockTime, tempState),
 		unlockerFn(cn, env),
-		errorLoggerFn(env.Logger, cn, tempState),
+		errorLoggerFn(cn, tempState),
 		task)
 }
 
@@ -158,6 +158,6 @@ func doContainerSyncOrAsyncExclusive(async bool, cn *container.Container, env *m
 		async,
 		lockerFn(cn, env, lockTime, tempState),
 		unlockerFn(cn, env),
-		errorLoggerFn(env.Logger, cn, tempState),
+		errorLoggerFn(cn, tempState),
 		task)
 }

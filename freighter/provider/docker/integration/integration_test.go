@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 
 	// load required init for reexec commands
@@ -94,7 +93,7 @@ func startContainer(image, config string) (*docker.DockerProvider, *provider.Con
 // startContainerWithData returns a running container based on busybox:latest
 // with random name, and the provider used to run the container
 func startContainerWithData(image, datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
-	prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+	prov, err := docker.NewDockerProvider(datadir)
 	if err != nil {
 		return nil, nil, func() {
 			os.RemoveAll(datadir)

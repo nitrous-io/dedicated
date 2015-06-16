@@ -13,7 +13,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/nitrous/usagerecorder"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,14 +24,13 @@ func Test(t *testing.T) {
 
 var _ = Describe("usagerecorder", func() {
 	var (
-		db  *db.Database
-		u   *user.User
-		h1  *host.Host
-		h2  *host.Host
-		r   *region.Region
-		p   *plan.Plan
-		pt  *providertemplate.ProviderTemplate
-		lgr *logger.Logger
+		db *db.Database
+		u  *user.User
+		h1 *host.Host
+		h2 *host.Host
+		r  *region.Region
+		p  *plan.Plan
+		pt *providertemplate.ProviderTemplate
 
 		startTime time.Time
 		endTime   time.Time
@@ -88,8 +86,6 @@ var _ = Describe("usagerecorder", func() {
 		err = h2.Insert(db)
 		Expect(err).To(BeNil())
 
-		lgr = &logger.Logger{Level: logger.LogLevelQuiet}
-
 		base := time.Now()
 		startTime = base.Add(-48 * time.Hour)
 		endTime = base
@@ -133,7 +129,7 @@ var _ = Describe("usagerecorder", func() {
 		})
 
 		It("should create usages for all users", func() {
-			inst := usagerecorder.New(db, lgr, &startTime, &endTime)
+			inst := usagerecorder.New(db, &startTime, &endTime)
 			inst.ProcessUsages()
 
 			usages1 := []hostusage.HostUsage{}
@@ -153,7 +149,7 @@ var _ = Describe("usagerecorder", func() {
 
 	Describe("RecordForUser()", func() {
 		checkUsages := func() {
-			inst := usagerecorder.New(db, lgr, &startTime, &endTime)
+			inst := usagerecorder.New(db, &startTime, &endTime)
 			err := inst.RecordForUser(u.ID)
 			Expect(err).To(BeNil())
 
@@ -202,7 +198,7 @@ var _ = Describe("usagerecorder", func() {
 		It("should return nothing when there are no rows", func() {
 			t := time.Now()
 			e := t.Add(5 * time.Hour)
-			inst := usagerecorder.New(db, lgr, &t, &e)
+			inst := usagerecorder.New(db, &t, &e)
 			res, err := inst.BillableHostHours(int64(1))
 			Expect(err).To(BeNil())
 			Expect(res).To(BeEmpty())
@@ -234,7 +230,7 @@ var _ = Describe("usagerecorder", func() {
 
 			It("should tally up the total running hours to 3", func() {
 				e := run1.Add(48 * time.Hour)
-				inst := usagerecorder.New(db, lgr, &run1, &e)
+				inst := usagerecorder.New(db, &run1, &e)
 				res, err := inst.BillableHostHours(u.ID)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))
@@ -254,7 +250,7 @@ var _ = Describe("usagerecorder", func() {
 				Expect(err).To(BeNil())
 
 				e := run1.Add(48 * time.Hour)
-				inst := usagerecorder.New(db, lgr, &run1, &e)
+				inst := usagerecorder.New(db, &run1, &e)
 				res, err := inst.BillableHostHours(u.ID)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))
@@ -265,7 +261,7 @@ var _ = Describe("usagerecorder", func() {
 			It("should not include transitions outside a time range", func() {
 				s := run2.Add(1 * time.Minute)
 				e := run1.Add(48 * time.Hour)
-				inst := usagerecorder.New(db, lgr, &s, &e)
+				inst := usagerecorder.New(db, &s, &e)
 				res, err := inst.BillableHostHours(u.ID)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))
@@ -294,7 +290,7 @@ var _ = Describe("usagerecorder", func() {
 				Expect(err).To(BeNil())
 
 				e := run1.Add(48 * time.Hour)
-				inst := usagerecorder.New(db, lgr, &run1, &e)
+				inst := usagerecorder.New(db, &run1, &e)
 				res, err := inst.BillableHostHours(u.ID)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(2))
@@ -338,7 +334,7 @@ var _ = Describe("usagerecorder", func() {
 				Expect(err).To(BeNil())
 
 				e := run1.Add(48 * time.Hour)
-				inst := usagerecorder.New(db, lgr, &run1, &e)
+				inst := usagerecorder.New(db, &run1, &e)
 				res, err := inst.BillableHostHours(u.ID)
 				Expect(err).To(BeNil())
 				Expect(res).To(HaveLen(1))

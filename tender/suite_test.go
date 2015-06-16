@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"log"
 	"os/exec"
 	"os/user"
 	"strings"
 	"testing"
 
+	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -52,7 +52,7 @@ func runPsqlMust(dbName, sqlFile string) {
 	// so we have to check for existence of "ERROR:" in stderr output
 	stderrStr := strings.TrimSpace(string(stderr.Bytes()))
 	if -1 != strings.Index(stderrStr, "ERROR:") {
-		log.Printf("psql failed with stderr: '%s'", stderrStr)
+		logrus.Errorf("psql failed with stderr: '%s'", stderrStr)
 		panic(fmt.Errorf("psql failed to import %s", sqlFile))
 	}
 }

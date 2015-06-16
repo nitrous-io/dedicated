@@ -17,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/stripe/stripe-go"
@@ -36,10 +35,9 @@ var _ = Describe("biller", func() {
 		endTime   time.Time
 		startTime time.Time
 
-		u   *user.User
-		db  *ndb.Database
-		lgr *logger.Logger
-		b   *biller.Biller
+		u  *user.User
+		db *ndb.Database
+		b  *biller.Biller
 	)
 
 	BeforeEach(func() {
@@ -55,15 +53,13 @@ var _ = Describe("biller", func() {
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
-		lgr = &logger.Logger{Level: logger.LogLevelQuiet}
-
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
 		startTime = time.Date(2014, 1, 1, 0, 0, 0, 0, time.Local)
 		endTime = time.Date(2014, 1, 31, 24, 59, 59, 1000000000, time.Local)
 
-		b, err = biller.New(db, lgr, u, &startTime, &endTime)
+		b, err = biller.New(db, u, &startTime, &endTime)
 		Expect(err).To(BeNil())
 	})
 

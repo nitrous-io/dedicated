@@ -3,10 +3,10 @@ package proxy
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"testing"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	n "github.com/nitrous-io/dedicated/compass/navigator"
 )
@@ -48,16 +48,16 @@ func testNavigator(domain string) n.Navigator {
 	}
 	b, err := New(domain, config)
 	if err != nil {
-		log.Println("failed to create boxhost", err)
+		logrus.Error("failed to create boxhost", err)
 	}
 	for _, s := range dbStructure {
 		_, err = b.(*Navigator).db.Exec(s)
 		if err != nil {
-			log.Println("failed to set db structure", err, s)
+			logrus.Error("failed to set db structure", err, s)
 		}
 	}
 	if err := insertHost(b.(*Navigator).db, fixtures); err != nil {
-		log.Println("failed to set db fixtures", err)
+		logrus.Error("failed to set db fixtures", err)
 	}
 	return b
 }

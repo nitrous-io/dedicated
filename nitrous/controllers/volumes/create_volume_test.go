@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -49,7 +48,6 @@ var _ = Describe("CreateVolume", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 
 		u = &user.User{
 			Username: "foo",
@@ -80,7 +78,6 @@ var _ = Describe("CreateVolume", func() {
 			DB:      db,
 			Events:  pubsub.New(128),
 			Tracker: analytics.NewMixpanelTracker(envvars.MixpanelToken),
-			Logger:  logger,
 			User:    u,
 		}
 	})

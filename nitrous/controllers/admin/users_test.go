@@ -19,7 +19,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -42,9 +41,8 @@ var _ = Describe("controllers/admin", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr := test.NewTestServer("", db, logger, ft)
+		svr := test.NewTestServer("", db, ft)
 		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()
@@ -222,7 +220,7 @@ var _ = Describe("controllers/admin", func() {
 			Expect(err).To(BeNil())
 
 			tFuncCalled := false
-			tFunc := func(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header, initiatorID int64) error {
+			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
 				tFuncCalled = true
 				Expect(h.ID).To(Equal(hs1.H.ID))
 				Expect(initiatorID).To(Equal(u.ID))
@@ -273,7 +271,7 @@ var _ = Describe("controllers/admin", func() {
 			Expect(err).To(BeNil())
 
 			tFuncCalled := false
-			tFunc := func(tx *sqlx.Tx, l *logger.Logger, h *host.Host, headers http.Header, initiatorID int64) error {
+			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
 				tFuncCalled = true
 				Expect(h.ID).To(Equal(hs1.H.ID))
 				Expect(initiatorID).To(Equal(u.ID))

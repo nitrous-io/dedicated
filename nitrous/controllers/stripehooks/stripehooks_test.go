@@ -17,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
@@ -53,8 +52,7 @@ var _ = Describe("controllers/stripehooks", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 
 		fakeStripe = &FakeStripe{}
 		stripe.SetBackend(fakeStripe)
@@ -314,14 +312,14 @@ var _ = Describe("controllers/stripehooks", func() {
 		})
 
 		It("should detail the correct amount of invoice items", func() {
-			sInv, err := stripehooks.SerializeInvoice(db, inv, nil)
+			sInv, err := stripehooks.SerializeInvoice(db, inv)
 			Expect(err).To(BeNil())
 			Expect(sInv.Items).To(HaveLen(2))
 			Expect(sInv.TotalCredit).To(Equal(int64(200)))
 		})
 
 		It("should provide information about the hosts", func() {
-			sInv, err := stripehooks.SerializeInvoice(db, inv, nil)
+			sInv, err := stripehooks.SerializeInvoice(db, inv)
 			Expect(err).To(BeNil())
 			Expect(sInv.Items[0].Terminated).To(BeTrue())
 			Expect(sInv.Items[1].Terminated).To(BeFalse())

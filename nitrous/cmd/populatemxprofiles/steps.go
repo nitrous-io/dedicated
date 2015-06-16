@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -13,7 +14,7 @@ func GenConfirmedJobs(jobs chan job, u *User) error {
 			"confirmed_email_date": u.ConfirmedAt.Time,
 		})
 	} else {
-		logr.Debugf("No confirmation for user %s", u.Email)
+		logrus.Debugf("No confirmation for user %s", u.Email)
 	}
 	return nil
 }
@@ -41,7 +42,7 @@ func GenTemplatesJobs(jobs chan job, u *User) error {
 			"images_list": images,
 		})
 	} else {
-		logr.Debugf("No containers for user %s", u.Email)
+		logrus.Debugf("No containers for user %s", u.Email)
 	}
 	return nil
 }
@@ -51,7 +52,7 @@ func GenGithubAuthorizedJobs(jobs chan job, u *User) error {
 		return nil
 	}
 	if !u.CreatedAt.Valid {
-		logr.Debugf("Unexpected nil created at for user %s", u.Email)
+		logrus.Debugf("Unexpected nil created at for user %s", u.Email)
 		return nil
 	}
 	jobs <- NewJob("setnx", u.ID, map[string]interface{}{
@@ -64,14 +65,14 @@ func GenGithubAuthorizedJobs(jobs chan job, u *User) error {
 func GenPhoneJobs(jobs chan job, u *User) error {
 	if !u.PhoneAuthed {
 		// fix wrongly set verified date
-		logr.Debugf("No phone auth for user %s", u.Email)
+		logrus.Debugf("No phone auth for user %s", u.Email)
 		jobs <- NewJob("unset", u.ID, map[string]interface{}{
 			"phone_number_verified_date": 0,
 		})
 		return nil
 	}
 	if u.Phone.String == "" || u.PhoneCountryCode.String == "" {
-		logr.Debugf("No phone number for user %s", u.Email)
+		logrus.Debugf("No phone number for user %s", u.Email)
 		return nil
 	}
 	phone := fmt.Sprintf("+%s-%s", u.PhoneCountryCode.String, u.Phone.String)
@@ -101,7 +102,7 @@ func GenHostCreatedJobs(jobs chan job, u *User) error {
 }
 
 func GenMixpanelProfiles(jobs chan job, u *User) error {
-	logr.Infof("creating mixpanel profile for %s", u.Email)
+	logrus.Infof("creating mixpanel profile for %s", u.Email)
 	u2 := &user.User{
 		ID:        u.ID,
 		Name:      u.Name,
@@ -109,7 +110,7 @@ func GenMixpanelProfiles(jobs chan job, u *User) error {
 		Email:     u.Email,
 		CreatedAt: &u.CreatedAt.Time,
 	}
-	finished := tracker.CreateProfile(u2, logr, "")
+	finished := tracker.CreateProfile(u2, "")
 	if finished != nil {
 		<-finished
 	}

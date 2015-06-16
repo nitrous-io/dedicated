@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -21,7 +22,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/nitrous-common/logger"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
@@ -29,15 +29,15 @@ import (
 )
 
 type Provider interface {
-	Subscribe(d *db.Database, l *logger.Logger, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error)
-	Cancel(d *db.Database, l *logger.Logger, sub *subscription.Subscription) (err error)
+	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error)
+	Cancel(d *db.Database, sub *subscription.Subscription) (err error)
 
-	HandleSubscriptionUpdated(d *db.Database, l *logger.Logger, subID string) error
-	HandleSubscriptionDeleted(d *db.Database, l *logger.Logger, subID string) error
-	HandleSubscriptionInvoiceCreated(d *db.Database, l *logger.Logger, invID string) error
+	HandleSubscriptionUpdated(d *db.Database, subID string) error
+	HandleSubscriptionDeleted(d *db.Database, subID string) error
+	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error
 }
 
-type hostStopFunc func(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
+type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
 
 type SubscriptionProvider struct {
 	HostStopFunc hostStopFunc
@@ -61,7 +61,7 @@ func NewProvider() *SubscriptionProvider {
 	return s
 }
 
-func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
+func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
 	if !p.IsSubscription() {
 		err = ErrNotSubscribablePlan
 		return
@@ -107,7 +107,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 		})
 		if err != nil {
 			strSub = nil
-			l.Errorf("Stripe subscription: %+v", strSub)
+			logrus.Errorf("Stripe subscription: %+v", strSub)
 			return err
 		}
 
@@ -134,15 +134,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 	if err != nil {
 		sub = nil
 		if strItem != nil {
-			l.Errorf("Subscribe failed, deleting Stripe invoice item %s", strItem.ID)
+			logrus.Errorf("Subscribe failed, deleting Stripe invoice item %s", strItem.ID)
 			if err := stripeinvoiceitem.Del(strItem.ID); err != nil {
-				l.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", strItem.ID, err)
+				logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", strItem.ID, err)
 			}
 		}
 		if strSub != nil {
-			l.Errorf("Subscribe failed, deleting Stripe subscription %s", strSub.ID)
+			logrus.Errorf("Subscribe failed, deleting Stripe subscription %s", strSub.ID)
 			if err := stripesub.Cancel(strSub.ID, &stripe.SubParams{Customer: bp.StripeID.String}); err != nil {
-				l.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
+				logrus.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
 			}
 		}
 	}
@@ -150,13 +150,13 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, l *logger.Logger, h *ho
 	return
 }
 
-func (s *SubscriptionProvider) Cancel(d *db.Database, l *logger.Logger, sub *subscription.Subscription) (err error) {
+func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) (err error) {
 	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
 	if err != nil {
 		return err
 	}
 
-	l.Infof("Subscription %d has been requested to be cancelled", sub.ID)
+	logrus.Infof("Subscription %d has been requested to be cancelled", sub.ID)
 
 	return stripesub.Cancel(
 		sub.StripeID.String,
@@ -164,7 +164,7 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, l *logger.Logger, sub *sub
 	)
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, l *logger.Logger, subID string) error {
+func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) error {
 	return d.WithTransaction(func(tx *sqlx.Tx) error {
 		sub, err := findForUpdateByStripeID(tx, subID)
 		if err != nil {
@@ -206,7 +206,7 @@ func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, l *logg
 	})
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, l *logger.Logger, subID string) error {
+func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) error {
 	var sub *subscription.Subscription
 	err := d.WithTransaction(func(tx *sqlx.Tx) error {
 		var err error
@@ -252,12 +252,12 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, l *logg
 		headers := http.Header{}
 		headers.Set(constants.NitrousUUIDHeader, "subscription_terminated")
 
-		return s.HostStopFunc(d, l, host, headers, nil, initiatorID)
+		return s.HostStopFunc(d, host, headers, nil, initiatorID)
 	}
 	return nil
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, l *logger.Logger, invID string) error {
+func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error {
 	_, err := invoice.FindByStripeID(d, invID)
 	if err != sql.ErrNoRows {
 		return ErrInvoiceAlreadyCreated
@@ -353,7 +353,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 				}
 				if err := item.Insert(tx); err != nil {
 					if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
-						l.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
+						logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
 					}
 					return err
 				} else {

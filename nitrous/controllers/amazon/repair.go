@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -101,7 +102,7 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) (e
 	defer func() {
 		if err != nil {
 			if err := tx.Rollback(); err != nil {
-				env.Logger.Errorf("Error on tx Rollback, err: %+v", err)
+				logrus.Errorf("Error on tx Rollback, err: %+v", err)
 			}
 			return
 		}
@@ -197,7 +198,7 @@ func fixFromBorn(env *middleware.Env, w http.ResponseWriter, r *http.Request) (e
 
 	u, err := user.FindByID(db, h.UserID)
 	if err != nil {
-		env.Logger.Errorf("Error locating user %d, err: %v", h.UserID, err)
+		logrus.Errorf("Error locating user %d, err: %v", h.UserID, err)
 	}
 
 	if u != nil {

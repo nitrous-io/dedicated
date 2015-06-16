@@ -6,15 +6,13 @@ import (
 	"math"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/hostusage"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type UsageRecorder struct {
-	db     *db.Database
-	logger *logger.Logger
-
+	db        *db.Database
 	startTime time.Time
 	endTime   time.Time
 }
@@ -33,10 +31,9 @@ func (h *HostHourUsage) Hours() int {
 	return int(math.Ceil(totalHours))
 }
 
-func New(d *db.Database, l *logger.Logger, startTime, endTime *time.Time) *UsageRecorder {
+func New(d *db.Database, startTime, endTime *time.Time) *UsageRecorder {
 	base := &UsageRecorder{
-		db:     d,
-		logger: l,
+		db: d,
 	}
 	if endTime == nil {
 		base.endTime = time.Now()
@@ -52,7 +49,7 @@ func New(d *db.Database, l *logger.Logger, startTime, endTime *time.Time) *Usage
 }
 
 func (u *UsageRecorder) ProcessUsages() {
-	u.logger.Debugf("usage recorder: processing from %v to %v", u.startTime, u.endTime)
+	logrus.Debugf("usage recorder: processing from %v to %v", u.startTime, u.endTime)
 	lastId := int64(-1)
 	usersExhausted := false
 
@@ -64,7 +61,7 @@ func (u *UsageRecorder) ProcessUsages() {
 		userIds := []con{}
 		err := u.db.Select(&userIds, `SELECT id FROM users WHERE id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
 		if err != nil && err != sql.ErrNoRows {
-			u.logger.Errorf("usage recorder: user pager failed, err: %v", err)
+			logrus.Errorf("usage recorder: user pager failed, err: %v", err)
 		}
 
 		if err == sql.ErrNoRows || len(userIds) == 0 {
@@ -77,9 +74,9 @@ func (u *UsageRecorder) ProcessUsages() {
 				lastId = userId.Id
 			}
 
-			u.logger.Debugf("usage recorder: calculating usage for %d", userId.Id)
+			logrus.Debugf("usage recorder: calculating usage for %d", userId.Id)
 			if err := u.RecordForUser(userId.Id); err != nil {
-				u.logger.Error(err)
+				logrus.Error(err)
 			}
 		}
 	}

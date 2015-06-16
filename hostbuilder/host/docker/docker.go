@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -332,7 +332,7 @@ func (h *Host) createImage() (string, error) {
 		InputStream:  inputbuf,
 		OutputStream: os.Stdout,
 	}
-	log.Printf("docker: building image %s", imageName)
+	logrus.Debugf("docker: building image %s", imageName)
 	if err := h.client.BuildImage(opts); err != nil {
 		return "", err
 	}
@@ -340,7 +340,7 @@ func (h *Host) createImage() (string, error) {
 }
 
 func (h *Host) createContainer(imageName string) (*host.Info, error) {
-	log.Printf("docker: creating container from image %+s", imageName)
+	logrus.Debugf("docker: creating container from image %+s", imageName)
 	container, err := h.client.CreateContainer(dockerclient.CreateContainerOptions{
 		Name: h.Name,
 		Config: &dockerclient.Config{

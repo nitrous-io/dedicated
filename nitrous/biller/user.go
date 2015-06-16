@@ -6,12 +6,12 @@ import (
 	"math"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type InvoiceItemsResult struct {
@@ -19,7 +19,7 @@ type InvoiceItemsResult struct {
 	Items       []invoiceitem.InvoiceItem
 }
 
-func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, start, end time.Time) (InvoiceItemsResult, error) {
+func InvoiceItemsForUser(d db.QueryReceiver, userID int64, start, end time.Time) (InvoiceItemsResult, error) {
 	res := InvoiceItemsResult{}
 
 	var ids []int64
@@ -29,7 +29,7 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 	}
 
 	for _, id := range ids {
-		charge, hItems, err := invoicesItemsForHost(d, l, id, start, end)
+		charge, hItems, err := invoicesItemsForHost(d, id, start, end)
 		if err != nil {
 			return res, err
 		}
@@ -45,7 +45,7 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 // returns a collection of invoice items for a host
 // currently a single invoice item is returned,
 // but a collection may be returned in future iterations of the biller
-func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
+func invoicesItemsForHost(d db.QueryReceiver, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
 	type pHost struct {
 		host.Host
 		UserAdmin     bool   `db:"user_admin"`
@@ -132,7 +132,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 		i.ItemType = invoiceitem.ItemTypeFreeCompute
 	}
 
-	applyRulesToInvoiceItem(&i, l)
+	applyRulesToInvoiceItem(&i)
 	items := []invoiceitem.InvoiceItem{}
 	var totalCharge int64
 
@@ -162,7 +162,7 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 			ItemType:    invoiceitem.ItemTypeBaseEBS,
 			PlanStorage: sql.NullString{h.PlanStorage, true},
 		}
-		applyRulesToInvoiceItem(&ebsI, l)
+		applyRulesToInvoiceItem(&ebsI)
 		totalCharge += ebsI.TotalCharge(&plan.Plan{BasePrice: h.PlanBasePrice})
 		items = append(items, ebsI)
 	}
@@ -170,13 +170,11 @@ func invoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, st
 	return totalCharge, items, nil
 }
 
-func applyRulesToInvoiceItem(itm *invoiceitem.InvoiceItem, l *logger.Logger) {
+func applyRulesToInvoiceItem(itm *invoiceitem.InvoiceItem) {
 	// TODO: pull rules from database
 	if itm.Hours.Int64 > invoiceitem.MaxHours {
 		origHrs := itm.Hours.Int64
 		itm.Hours.Int64 = invoiceitem.MaxHours
-		if l != nil {
-			l.Infof("Invoice for host %d, capping to %d hrs. original = %d hrs", itm.HostID.Int64, itm.Hours.Int64, origHrs)
-		}
+		logrus.Infof("Invoice for host %d, capping to %d hrs. original = %d hrs", itm.HostID.Int64, itm.Hours.Int64, origHrs)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jinzhu/now"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -17,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
 	strinv "github.com/stripe/stripe-go/invoice"
 	striitem "github.com/stripe/stripe-go/invoiceitem"
@@ -42,9 +42,8 @@ var (
 type infoError error
 
 type Biller struct {
-	db     *db.Database
-	logger *logger.Logger
-	user   *user.User
+	db   *db.Database
+	user *user.User
 
 	periodStart *time.Time
 	periodEnd   *time.Time
@@ -60,19 +59,15 @@ type updatedAvailableCredits struct {
 	Available int64
 }
 
-func New(d *db.Database, l *logger.Logger, u *user.User, periodStart, periodEnd *time.Time) (*Biller, error) {
+func New(d *db.Database, u *user.User, periodStart, periodEnd *time.Time) (*Biller, error) {
 	if d == nil {
 		return nil, errors.New("Database must be provided")
-	}
-	if l == nil {
-		return nil, errors.New("Logger must be provided")
 	}
 	if u == nil {
 		return nil, errors.New("User must be provided")
 	}
 	return &Biller{
 		db:          d,
-		logger:      l,
 		user:        u,
 		periodStart: periodStart,
 		periodEnd:   periodEnd,
@@ -86,7 +81,7 @@ func (b *Biller) Process() error {
 			if err := b.submitRecentlyDeferred(); err != nil {
 				return err
 			}
-			b.logger.Infof("biller: no usage for user %d", b.user.ID)
+			logrus.Infof("biller: no usage for user %d", b.user.ID)
 			return nil
 		}
 		return err
@@ -114,7 +109,7 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 		return nil, err
 	}
 
-	itemResult, err := InvoiceItemsForUser(tx, b.logger, b.user.ID, *b.periodStart, *b.periodEnd)
+	itemResult, err := InvoiceItemsForUser(tx, b.user.ID, *b.periodStart, *b.periodEnd)
 	if err != nil {
 		return nil, fmt.Errorf("biller: failed retrieving invoice items for user %d, err: %v", b.user.ID, err)
 	}
@@ -158,7 +153,7 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("biller: failure inserting/updating invoice %d for user %d, err: %v", i.ID, i.UserID, err)
 	} else {
-		b.logger.Infof("biller: created/updated invoice %d for user %d, total charge = %d", i.ID, i.UserID, i.TotalCharge)
+		logrus.Infof("biller: created/updated invoice %d for user %d, total charge = %d", i.ID, i.UserID, i.TotalCharge)
 	}
 
 	cr, err := updateAvailableCredits(tx, i.UserID, i.ID, i.TotalCharge)
@@ -192,7 +187,7 @@ func (b *Biller) createOrUpdateInvoice() (res *InvoiceResult, err error) {
 }
 
 func (b *Biller) submitRecentlyDeferred() error {
-	b.logger.Debugf("biller: looking for deferred invoices to submit for user %d", b.user.ID)
+	logrus.Debugf("biller: looking for deferred invoices to submit for user %d", b.user.ID)
 
 	inv := &invoice.Invoice{}
 	err := b.db.Get(inv, `SELECT * FROM invoices WHERE user_id = $1 AND state = $2 ORDER BY id DESC LIMIT 1`,
@@ -234,14 +229,14 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	if bp.State == billingprofile.StateExempt {
 		inv.State = invoice.StateNotPayable
 		if err := inv.Update(b.db); err != nil {
-			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
+			logrus.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
 		}
 		return infoError(fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state exempt", b.user.ID))
 	}
 	if bp.State == billingprofile.StateFree {
 		inv.State = invoice.StateNotPayable
 		if err := inv.Update(b.db); err != nil {
-			b.logger.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
+			logrus.Errorf("biller: failure updating invoice %d as StateNotPayable, err: %v", inv.ID, err)
 		}
 		return infoError(fmt.Errorf("biller: skipping stripe, billing profile for user %d is in state free", b.user.ID))
 	}
@@ -255,9 +250,9 @@ func (b *Biller) processStripe(i *InvoiceResult) error {
 	}
 
 	if inv.TotalCharge == 0 {
-		b.logger.Infof("biller: charge 0, not contacting stripe to charge for items in invoice %d", inv.ID)
+		logrus.Infof("biller: charge 0, not contacting stripe to charge for items in invoice %d", inv.ID)
 	} else {
-		b.logger.Infof("biller: contacting stripe for invoice %d", inv.ID)
+		logrus.Infof("biller: contacting stripe for invoice %d", inv.ID)
 		if err := b.billStripeInvoiceItems(bp, pHMap, inv, items); err != nil {
 			return fmt.Errorf("biller: failure billing stripe for invoice %d, err: %v", inv.ID, err)
 		}
@@ -378,7 +373,7 @@ func (b *Biller) billStripeInvoiceItems(bp *billingprofile.BillingProfile, planH
 				return err
 			}
 		}
-		b.logger.Infof("biller: submitted invoice item %d, Total Charge: %d", invI.ID, invI.TotalCharge(pl))
+		logrus.Infof("biller: submitted invoice item %d, Total Charge: %d", invI.ID, invI.TotalCharge(pl))
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -485,7 +480,7 @@ func (b *Biller) associateDeferredInvoices(upI *stripe.Invoice, i *invoice.Invoi
 
 	for _, dInv := range otherInvs {
 		if dInv.CoveredBy.Valid && dInv.CoveredBy.Int64 != 0 {
-			b.logger.Warnf("biller: Invoice %d cannot be associated with %d, as it is already associated with %d", dInv.ID, i.ID, dInv.CoveredBy.Int64)
+			logrus.Warnf("biller: Invoice %d cannot be associated with %d, as it is already associated with %d", dInv.ID, i.ID, dInv.CoveredBy.Int64)
 			continue
 		}
 		dInv.CoveredBy = sql.NullInt64{i.ID, true}
@@ -509,7 +504,7 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 		}
 
 		if item.ItemType == invoiceitem.ItemTypeFreeCompute {
-			b.logger.Infof("InvoiceItem for host %d is free, no checking required", item.HostID)
+			logrus.Infof("InvoiceItem for host %d is free, no checking required", item.HostID)
 			continue
 		}
 
@@ -519,7 +514,7 @@ func (b *Biller) sanityCheckInvoiceItems(items []invoiceitem.InvoiceItem) error 
 			targetPrice = pl.BasePrice
 		}
 		totalCh := float64(item.TotalCharge(pl))
-		b.logger.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %.2f Monthly Plan: %d", b.user.ID, item.HostID.Int64, item.Hours.Int64, item.HourlyPrice.Int64, totalCh, targetPrice)
+		logrus.Infof("biller: InvoiceItem UserID: %d HostID: %d Hours: %d HourlyPrice: %d TotalCharge: %.2f Monthly Plan: %d", b.user.ID, item.HostID.Int64, item.Hours.Int64, item.HourlyPrice.Int64, totalCh, targetPrice)
 
 		uncappedRatio := float64(item.UncappedTotalCharge()) / float64(targetPrice)
 		if uncappedRatio > MaxHostPriceDiffRatio {
@@ -574,10 +569,10 @@ func (b *Biller) planHostMap() (map[int64]plan.PlanPricing, error) {
 	return plan.PlanPricingHostMap(b.db, b.user.ID)
 }
 
-func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd *time.Time) {
+func ProcessForAllUsers(d *db.Database, periodStart, periodEnd *time.Time) {
 	pS, pE := StartEndTimeOrDefault(periodStart, periodEnd)
 
-	l.Debugf("biller: Processing period %v to %v", pS, pE)
+	logrus.Debugf("biller: Processing period %v to %v", pS, pE)
 
 	lastId := int64(-1)
 	usersExhausted := false
@@ -587,7 +582,7 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 		users := []user.User{}
 		err := d.Select(&users, `SELECT * FROM users WHERE service_account IS FALSE AND id > $1 ORDER BY id ASC LIMIT 100;`, lastId)
 		if err != nil && err != sql.ErrNoRows {
-			l.FatalExit(err)
+			logrus.Fatal(err)
 		}
 
 		if err == sql.ErrNoRows {
@@ -604,16 +599,16 @@ func ProcessForAllUsers(d *db.Database, l *logger.Logger, periodStart, periodEnd
 			if user.ID > lastId {
 				lastId = user.ID
 			}
-			inst, err := New(d, l, &user, &pS, &pE)
+			inst, err := New(d, &user, &pS, &pE)
 			if err != nil {
-				l.FatalExit(err)
+				logrus.Fatal(err)
 			}
 			err = inst.Process()
 			if err != nil {
 				if _, ok := err.(infoError); ok {
-					l.Info(err)
+					logrus.Info(err)
 				} else {
-					l.Error(err)
+					logrus.Error(err)
 				}
 			}
 		}

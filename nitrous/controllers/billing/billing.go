@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
@@ -44,20 +45,20 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	availableCredits, err := credit.AvailableCredits(env.DB, env.User.ID)
 	if err != nil {
-		env.Logger.Errorf("CurrentUsage: error fetching credit.AvailableCredits. Err: %+v", err)
+		logrus.Errorf("CurrentUsage: error fetching credit.AvailableCredits. Err: %+v", err)
 		return err
 	}
 	availableCreditsDollars := float64(availableCredits) / 100.0
 
 	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
 	if err != nil {
-		env.Logger.Errorf("CurrentUsage: error fetching plan.PlanPricingHostMap. Err: %+v", err)
+		logrus.Errorf("CurrentUsage: error fetching plan.PlanPricingHostMap. Err: %+v", err)
 		return err
 	}
 
-	res, err := biller.InvoiceItemsForUser(env.DB, nil, env.User.ID, start, end)
+	res, err := biller.InvoiceItemsForUser(env.DB, env.User.ID, start, end)
 	if err != nil {
-		env.Logger.Errorf("CurrentUsage: error fetching biller.InvoiceItemsForUser. Err: %+v", err)
+		logrus.Errorf("CurrentUsage: error fetching biller.InvoiceItemsForUser. Err: %+v", err)
 		return err
 	}
 
@@ -73,7 +74,7 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	hMap, err := fetchHosts(env.DB, env.User)
 	if err != nil {
-		env.Logger.Errorf("CurrentUsage: error fetching fetchHosts. Err: %+v", err)
+		logrus.Errorf("CurrentUsage: error fetching fetchHosts. Err: %+v", err)
 		return err
 	}
 
@@ -84,7 +85,7 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 
 	usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, start, end)
 	if err != nil {
-		env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+		logrus.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
 	}
 
 	sItems := []serializers.InvoiceItem{}
@@ -95,13 +96,13 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 			ser.Description = invoiceitem.ItemDescription(&inv, hMap[ser.HostID])
 		} else {
 			ser.Description = "Information not available at this time"
-			env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
+			logrus.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
 		}
 		if price, ok := pHMap[ser.HostID]; ok {
 			ser.TotalCharge = inv.TotalCharge(&plan.Plan{Price: price.Price, BasePrice: price.BasePrice})
 		} else {
 			ser.TotalCharge = inv.UncappedTotalCharge()
-			env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+			logrus.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
 		}
 
 		if hUsages, ok := usages[ser.HostID]; ok {
@@ -166,7 +167,7 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		}
 		usages, err := hosttransition.UsageForHosts(env.DB, hostIDs, *inv.PeriodStart, *inv.PeriodEnd)
 		if err != nil {
-			env.Logger.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
+			logrus.Errorf("billing: Unable to fetch transition breakdown for user %d, err: %v", env.User.ID, err)
 		}
 		for _, item := range invItems {
 			if item.InvoiceID == inv.ID {
@@ -186,13 +187,13 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 						ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
 					} else {
 						ser.Description = "Information not available at this time"
-						env.Logger.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
+						logrus.Errorf("billing: Unable to locate host %d in hMap for user %d", ser.HostID, env.User.ID)
 					}
 					if price, ok := pHMap[ser.HostID]; ok {
 						ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: price.Price, BasePrice: price.BasePrice})
 					} else {
 						ser.TotalCharge = item.UncappedTotalCharge()
-						env.Logger.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
+						logrus.Errorf("billing: Unable to locate host %d in pHMap for user %d", ser.HostID, env.User.ID)
 					}
 					hUsages, ok := usages[ser.HostID]
 					if ok {
@@ -255,9 +256,9 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	i, err := strinv.Pay(inv.StripeID.String, nil)
 	if err != nil {
 		if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, false, err.Error()); err != nil {
-			env.Logger.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+			logrus.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
 		}
-		env.Logger.Errorf("Error manual paying Stripe invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		logrus.Errorf("Error manual paying Stripe invoice %d for user %d, err: %v", invID, env.User.ID, err)
 		sErr, ok := err.(*stripe.Error)
 		if !ok {
 			return sErr
@@ -276,7 +277,7 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, true, ""); err != nil {
-		env.Logger.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		logrus.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
 	}
 
 	env.Status = http.StatusOK

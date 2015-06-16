@@ -117,7 +117,7 @@ var _ = Describe("biller/user", func() {
 		})
 
 		It("should return the invoiceitems for the user", func() {
-			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			res, err := biller.InvoiceItemsForUser(db, u.ID, startTime, endTime)
 			items := res.Items
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(4))
@@ -167,7 +167,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, h1.ID, "terminated", "stopped", startTime.Add(2*time.Hour), startTime.Add(8*time.Hour))
 			createHostTransition(db, h1.ID, "stopped", "terminated", startTime.Add(8*time.Hour))
 
-			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			res, err := biller.InvoiceItemsForUser(db, u.ID, startTime, endTime)
 			items := res.Items
 			Expect(err).To(BeNil())
 
@@ -196,7 +196,7 @@ var _ = Describe("biller/user", func() {
 			_, err = db.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2", u2.ID, h1.ID)
 			Expect(err).To(BeNil())
 
-			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			res, err := biller.InvoiceItemsForUser(db, u.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			items := res.Items
 			Expect(items).To(HaveLen(3))
@@ -218,7 +218,7 @@ var _ = Describe("biller/user", func() {
 			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h1.ID)
 			Expect(err).To(BeNil())
 
-			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			res, err := biller.InvoiceItemsForUser(db, u.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			items := res.Items
 			Expect(items).To(HaveLen(3))
@@ -227,7 +227,7 @@ var _ = Describe("biller/user", func() {
 		})
 
 		It("should provide the total charge", func() {
-			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			res, err := biller.InvoiceItemsForUser(db, u.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(res.TotalCharge).To(Equal(int64(2500 + 336 + 4 + 9)))
 		})
@@ -235,7 +235,7 @@ var _ = Describe("biller/user", func() {
 
 	Describe("InvoicesItemsForHost()", func() {
 		It("should return an error if the host does not exist", func() {
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, -1, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, -1, startTime, endTime)
 			Expect(err).ToNot(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(BeEmpty())
@@ -251,7 +251,7 @@ var _ = Describe("biller/user", func() {
 			})
 			Expect(err).To(BeNil())
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(BeEmpty())
@@ -269,7 +269,7 @@ var _ = Describe("biller/user", func() {
 
 			createHostTransition(db, hs1.H.ID, "orphan", "terminated", startTime)
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(BeEmpty())
@@ -290,7 +290,7 @@ var _ = Describe("biller/user", func() {
 
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime)
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(HaveLen(0))
@@ -312,13 +312,13 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			_, _, err = biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("is a Free host but Billing profile state is incompatible"))
 
 			_, err = db.Exec(`UPDATE users SET admin=true WHERE id = $1;`, u.ID)
 			Expect(err).To(BeNil())
-			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			_, _, err = biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 		})
 
@@ -341,7 +341,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			_, _, err = biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("is a Free host but Billing profile state is incompatible"))
 		})
@@ -365,7 +365,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			amnt, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			amnt, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 
 			Expect(amnt).To(Equal(int64(0)))
@@ -391,7 +391,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(HaveLen(1))
@@ -416,7 +416,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(26)))
 			Expect(items).To(HaveLen(1))
@@ -444,7 +444,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			_, _, err = biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			_, _, err = biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("exceeds the maximum hours of the billing profile (13 vs 1)"))
 		})
@@ -468,7 +468,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "stopped", "running", startTime.Add(14*time.Hour), startTime.Add(20*time.Hour))
 			createHostTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(0)))
 			Expect(items).To(HaveLen(1))
@@ -494,7 +494,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(135)))
 			Expect(items).To(HaveLen(1))
@@ -522,7 +522,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(ch).To(Equal(int64(2200)))
 			Expect(items).To(HaveLen(1))
@@ -554,7 +554,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(2))
 			Expect(ch).To(Equal(int64(2700))) // 2500 + maximum plan base price (672hrs) 500c
@@ -591,7 +591,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(ch).To(Equal(int64(500)))
@@ -624,7 +624,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(2))
 			Expect(ch).To(Equal(int64(2206))) // 2200 + 7hrs * 0.745 = 5.2 = 6
@@ -661,7 +661,7 @@ var _ = Describe("biller/user", func() {
 			createHostEndingTransition(db, hs1.H.ID, "running", "terminated", startTime.Add(20*time.Hour), startTime.Add(21*time.Hour))
 			createHostTransition(db, hs1.H.ID, "terminated", "running", startTime.Add(21*time.Hour))
 
-			ch, items, err := biller.InvoicesItemsForHost(db, nil, hs1.H.ID, startTime, endTime)
+			ch, items, err := biller.InvoicesItemsForHost(db, hs1.H.ID, startTime, endTime)
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(2))
 			Expect(ch).To(Equal(int64(2205))) // 2200 + 7hrs * 0.745 = 5.2 = 6

@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -40,12 +39,11 @@ var _ = Describe("FileInfo", func() {
 	}
 
 	createNewProvider := func() (*docker.DockerProvider, string, error) {
-		logger := &util.Logger{Level: util.LogLevelQuiet}
 		data, err := ioutil.TempDir("", "freightertest")
 		if err != nil {
 			return nil, "", err
 		}
-		prov, err := docker.NewDockerProvider(logger, data)
+		prov, err := docker.NewDockerProvider(data)
 		if err != nil {
 			os.RemoveAll(data)
 			return nil, "", err

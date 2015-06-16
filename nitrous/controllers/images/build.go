@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/nitrous-common/flusher"
 	"github.com/nitrous-io/nitrous-common/isarchive"
@@ -55,7 +56,7 @@ func (c *buildContext) build(async bool, isNew bool) (*image.Image, error) {
 
 			if isNew {
 				if delErr := img.Delete(env.DB); delErr != nil {
-					env.Logger.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
+					logrus.Errorf("images.build: unable to delete image %d that failed to build on freighter: %v", img.ID, delErr)
 				}
 			}
 			ch <- &buildResult{err: err}
@@ -72,7 +73,7 @@ func (c *buildContext) build(async bool, isNew bool) (*image.Image, error) {
 
 		mergeImage(remoteImg, img)
 		if err := img.Update(env.DB); err != nil { // log and continue
-			env.Logger.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
+			logrus.Errorf("images.build: successfully built image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
 		}
 
 		env.Events.Publish(

@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/nitrous-io/nitrous-common/must"
 )
 
@@ -17,11 +16,11 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if homeIndexHtml == nil {
 		homeIndexHtml = must.ByteArray(ioutil.ReadFile(path.Join(env.Root, "public", "index.html")))
 	}
-	renderHTML(env.Logger, w, http.StatusOK, homeIndexHtml)
+	renderHTML(w, http.StatusOK, homeIndexHtml)
 	return nil
 }
 
-func renderHTML(logger *logger.Logger, w http.ResponseWriter, status int, html []byte) {
+func renderHTML(w http.ResponseWriter, status int, html []byte) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
 	w.WriteHeader(status)

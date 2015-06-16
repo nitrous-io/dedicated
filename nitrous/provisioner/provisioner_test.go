@@ -22,7 +22,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -43,7 +42,6 @@ func Test(t *testing.T) {
 var _ = Describe("provisioner", func() {
 	var (
 		db              *ndb.Database
-		lgr             *logger.Logger
 		provisionerUser *user.User
 	)
 
@@ -51,8 +49,6 @@ var _ = Describe("provisioner", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-
-		lgr = &logger.Logger{Level: logger.LogLevelQuiet}
 
 		provisionerUser = &user.User{
 			Username: "host-provisioner",
@@ -107,7 +103,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 
 			err = prov.Start()
 			Expect(err).To(BeNil())
@@ -148,7 +144,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
@@ -221,7 +217,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
@@ -270,7 +266,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 
 			_, err = db.Exec("UPDATE regions SET disabled_at = now() WHERE id = $1", hs.R.ID)
 			Expect(err).To(BeNil())
@@ -298,7 +294,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 
 			err = prov.Start()
 			Expect(err).To(BeNil())
@@ -315,7 +311,7 @@ var _ = Describe("provisioner", func() {
 				Username: "no such user",
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 
 			err := prov.Start()
 			Expect(err).To(MatchError("User 'no such user' could not be found"))
@@ -328,7 +324,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 			err := prov.Start()
 			Expect(err).To(BeNil())
 
@@ -343,7 +339,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 			err := prov.Start()
 			Expect(err).To(BeNil())
 
@@ -381,7 +377,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 10 * time.Millisecond,
 			}
-			prov := provisioner.NewProvisioner(db, lgr, nil, cfg)
+			prov := provisioner.NewProvisioner(db, nil, cfg)
 			err = prov.Start()
 			Expect(err).To(BeNil())
 
@@ -492,7 +488,7 @@ var _ = Describe("provisioner", func() {
 				Username: provisionerUser.Username,
 				Interval: 50 * time.Millisecond,
 			}
-			prov = provisioner.NewProvisioner(db, lgr, nil, pcfg)
+			prov = provisioner.NewProvisioner(db, nil, pcfg)
 			var err error
 			hs, err = test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())

@@ -7,11 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/freighter"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -216,7 +216,7 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 
 	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		logrus.Errorf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
 		return
 	}
 
@@ -229,7 +229,7 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 	}
 	err = qp.PublishRetry(msg, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Printf("uuid=%s Failed to send a message(%+v): %v", uuid, msg, err)
+		logrus.Errorf("uuid=%s Failed to send a message(%+v): %v", uuid, msg, err)
 	}
 }
 
@@ -239,7 +239,7 @@ func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *Que
 
 	payload, err := json.Marshal(queueInfo)
 	if err != nil {
-		log.Printf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
+		logrus.Errorf("uuid=%s Failed to marshal queueInfo(%+v): %v", uuid, queueInfo, err)
 		return
 	}
 
@@ -252,6 +252,6 @@ func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *Que
 	}
 	err = qp.PublishRetry(msg, -1, 100*time.Millisecond)
 	if err != nil {
-		log.Printf("uuid=%s Failed to send a message(%+v): %v", uuid, msg, err)
+		logrus.Errorf("uuid=%s Failed to send a message(%+v): %v", uuid, msg, err)
 	}
 }
