@@ -180,7 +180,7 @@ var _ = Describe("controllers/github", func() {
 
 	Describe("GET /api/v0/github/authorize", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/github/authorize", nil)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 			return sendRequest(req)
 		}
