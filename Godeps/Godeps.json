@@ -26,6 +26,11 @@
 			"Rev": "afe77d958c701557ec5dc56f6936fcc194d15520"
 		},
 		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.8.2-10-g21d4508",
+			"Rev": "21d4508646ae56d79244bd9046c1df63a5fa8c37"
+		},
+		{
 			"ImportPath": "github.com/adjust/redismq",
 			"Rev": "e7c2e6adff9265da4fbfa766e7b147b8a06b835e"
 		},
