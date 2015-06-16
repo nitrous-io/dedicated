@@ -1085,11 +1085,16 @@ func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) 
 // - upgrade docker if dv != ""
 // - restart freighter to notify the upgrade happened
 func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
-	err := s.updateAptSource()
-	if err != nil {
+	if err := s.updateAptSource(); err != nil {
 		s.notifyWebhookUpgradeFailed(err, "docker")
 		return
 	}
+
+	if err := s.installNTP(); err != nil {
+		s.notifyWebhookUpgradeFailed(err, "ntp")
+		return
+	}
+
 	// if both, upgrade docker first
 	if dv != "" {
 		if err := s.upgradeDocker(dv); err != nil {
@@ -1121,6 +1126,39 @@ func (s *Server) updateAptSource() error {
 		logrus.Errorf("error updating nitrous repo, err: %v, output: %s", err, out)
 		return err
 	}
+	return nil
+}
+
+// installNTP installs the ntp package if it's not already installed. The ntp
+// service keeps the time of the host on which freighterd is running
+// synchronized.
+func (s *Server) installNTP() error {
+	cmd := exec.Command("service", "ntp", "status")
+	cmd.Env = append(cmd.Env, "PATH=/usr/sbin:/usr/bin:/sbin:/bin")
+	out, err := s.runner.Run(cmd)
+	if err == nil {
+		return nil
+	}
+	if !strings.Contains(string(out), "unrecognized service") {
+		logrus.Errorf("unexpected output when checking for ntp service: %s, err: %v", out, err)
+		return nil
+	}
+
+	cmd = exec.Command("apt-get", "update")
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	if out, err := s.runner.Run(cmd); err != nil {
+		logrus.Errorf("error updating apt sources, err: %v, output: %s", err, out)
+		return err
+	}
+
+	cmd = exec.Command("apt-get", "install", "-y", "ntp")
+	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
+	cmd.Env = append(cmd.Env, "PATH=/usr/sbin:/usr/bin:/sbin:/bin")
+	if out, err := s.runner.Run(cmd); err != nil {
+		logrus.Errorf("error installing ntp, err: %v, output: %s", err, out)
+		return err
+	}
+
 	return nil
 }
 
