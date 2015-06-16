@@ -74,6 +74,9 @@ var FetchGithubUser = func(code string) (string, string, error) {
 // /api/v0/github/authorize
 // Authorize returns GitHub authorization url that front-end needs to redirect to
 func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// FIXME: allow this API to be called only if user is not yet
+	// linked with a GitHub account
+
 	state, err := setOrReuseState(w, r, env.User.ID)
 	if err != nil {
 		return err
@@ -186,6 +189,8 @@ func ReadOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
+// Reuse existing cookie state if it has been set previously by the
+// same API call. Otherwise generate new signed state.
 func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
 	// Check if existing github_state cookie is set.
 	cookie, err := r.Cookie("github_state")

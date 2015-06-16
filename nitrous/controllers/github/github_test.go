@@ -122,16 +122,18 @@ var _ = Describe("controllers/github", func() {
 			res := sendRequest(makeRequest())
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			Expect(res.Body.String()).To(ContainSubstring("invalid_state"))
+			slug, _ := test.ErrorSlug(res.Body)
+			Expect(slug).To(Equal("invalid_state"))
 		})
 
-		It("responds with error message when state is missing", func() {
+		It("responds with error message when state is tempered", func() {
 			params.Set("code", "githubcode")
 			params.Set("state", "temperedstate")
 			res := sendRequest(makeRequest())
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			Expect(res.Body.String()).To(ContainSubstring("invalid_state"))
+			slug, _ := test.ErrorSlug(res.Body)
+			Expect(slug).To(Equal("invalid_state"))
 		})
 
 		It("responds with error message when state is different from cookie", func() {
@@ -145,7 +147,9 @@ var _ = Describe("controllers/github", func() {
 
 			res := sendRequest(makeRequest())
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
-			Expect(res.Body.String()).To(ContainSubstring("state_mismatch"))
+
+			slug, _ := test.ErrorSlug(res.Body)
+			Expect(slug).To(Equal("state_mismatch"))
 		})
 
 		It("redirects with error message when code is missing", func() {
@@ -160,8 +164,10 @@ var _ = Describe("controllers/github", func() {
 			Expect(res.Code).To(Equal(http.StatusFound))
 
 			var gitHubUserName, gitHubToken sql.NullString
-			err := db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;", u.ID).Scan(&gitHubUserName, &gitHubToken)
+			err := db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;",
+				u.ID).Scan(&gitHubUserName, &gitHubToken)
 			Expect(err).To(BeNil())
+
 			Expect(gitHubUserName.String).To(Equal("alice"))
 			Expect(gitHubToken.String).To(Equal(`{ "access_token": "keytogithub" }`))
 
@@ -171,6 +177,7 @@ var _ = Describe("controllers/github", func() {
 			Expect(pc.UserID).To(Equal(u.ID))
 			Expect(pc.Mode).To(Equal("set"))
 			Expect(pc.PropsSet["github_username"]).To(Equal("alice"))
+
 			pc2 := ft.PropsCalled[1]
 			Expect(pc2.UserID).To(Equal(u.ID))
 			Expect(pc2.Mode).To(Equal("setnx"))
@@ -180,18 +187,69 @@ var _ = Describe("controllers/github", func() {
 
 	Describe("GET /api/v0/github/authorize", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", params)
 			Expect(err).To(BeNil())
 			return sendRequest(req)
+		}
+
+		responseJson := func(res *httptest.ResponseRecorder) map[string]interface{} {
+			j := map[string]interface{}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			return j
+		}
+
+		parseStateCookies := func(res *httptest.ResponseRecorder) string {
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			Expect(cookieState).ToNot(Equal(""))
+
+			return cookieState
+		}
+
+		parseStateJson := func(j map[string]interface{}) string {
+			redirectURL := j["redirect_url"].(string)
+			u, err := url.Parse(redirectURL)
+			Expect(err).To(BeNil())
+
+			return u.Query().Get("state")
 		}
 
 		It("returns valid json response", func() {
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
-			j := map[string]interface{}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
+
+			j := responseJson(res)
+			redirectURL := j["redirect_url"].(string)
+			Expect(redirectURL).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
+
+			cookieState := parseStateCookies(res)
+			Expect(cookieState).ToNot(Equal(""))
+
+			urlState := parseStateJson(j)
+			Expect(urlState).To(Equal(cookieState))
+		})
+
+		It("reuses state cookie if valid", func() {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", params)
 			Expect(err).To(BeNil())
-			Expect(j["redirect_url"]).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
+
+			existingState := makeState()
+			addStateCookie(req, existingState)
+
+			res := sendRequest(req)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(0))
+
+			urlState := parseStateJson(responseJson(res))
+			Expect(urlState).To(Equal(existingState))
 		})
 	})
 })
