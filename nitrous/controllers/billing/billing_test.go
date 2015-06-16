@@ -20,7 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/nitrous-common/logger"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -609,7 +609,7 @@ var _ = Describe("controllers/billing", func() {
 					`{"object": "invoice", "id": "ID1"}`,
 				}
 
-				fakeStripe.Error = StripeCardDeclined
+				fakeStripe.Errors = []*stripe.Error{StripeCardDeclined}
 				res := doRequest(in.ID)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
@@ -626,7 +626,7 @@ var _ = Describe("controllers/billing", func() {
 					`{"object": "invoice", "id": "ID1"}`,
 				}
 
-				fakeStripe.Error = StripeCardExpired
+				fakeStripe.Errors = []*stripe.Error{StripeCardExpired}
 				res := doRequest(in.ID)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := ErrorSlug(res.Body)
@@ -643,10 +643,12 @@ var _ = Describe("controllers/billing", func() {
 					`{"object": "invoice", "id": "ID1"}`,
 				}
 
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "rate limited!",
-					Code: stripe.ErrorCode(stripe.RateLimit),
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "rate limited!",
+						Code: stripe.ErrorCode(stripe.RateLimit),
+					},
 				}
 				res := doRequest(in.ID)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
@@ -660,7 +662,7 @@ var _ = Describe("controllers/billing", func() {
 				fakeStripe.Responses = []string{
 					`{"object": "invoice", "id": "ID1", "paid": false}`,
 				}
-				fakeStripe.Error = nil
+				fakeStripe.Errors = []*stripe.Error{}
 
 				res := doRequest(in.ID)
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
@@ -670,7 +672,7 @@ var _ = Describe("controllers/billing", func() {
 				fakeStripe.Responses = []string{
 					`{"object": "invoice", "id": "ID1", "paid": true}`,
 				}
-				fakeStripe.Error = nil
+				fakeStripe.Errors = []*stripe.Error{}
 
 				res := doRequest(in.ID)
 				Expect(res.Code).To(Equal(http.StatusOK))

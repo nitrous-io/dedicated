@@ -18,7 +18,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 var _ = Describe("controllers/users", func() {
@@ -415,10 +415,12 @@ var _ = Describe("controllers/users", func() {
 					WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
 				Expect(err).To(BeNil())
 
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "rate limited!",
-					Code: stripe.ErrorCode(stripe.RateLimit),
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "rate limited!",
+						Code: stripe.ErrorCode(stripe.RateLimit),
+					},
 				}
 
 				doRequest()
