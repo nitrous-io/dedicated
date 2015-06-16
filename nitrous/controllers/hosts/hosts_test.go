@@ -1460,7 +1460,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
+				Expect(h.State).To(Equal(host.StateUpdating))
 			})
 
 			It("doesn't do anything if software update fails", func() {
@@ -2324,7 +2324,7 @@ var _ = Describe("controllers/hosts", func() {
 
 				h, err := host.Find(db, hs.U, hs.H.Slug)
 				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
+				Expect(h.State).To(Equal(host.StateUpdating))
 			})
 
 			It("doesn't do anything if software update fails", func() {
@@ -3087,14 +3087,7 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest()
 			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-			Expect(res.Code).To(Equal(http.StatusOK))
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(res.Code).To(Equal(http.StatusAccepted))
 
 			select {
 			case <-time.After(50 * time.Millisecond):

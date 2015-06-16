@@ -262,13 +262,13 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			env.Logger.Errorf("hostbuilder timeout starting host: %v", e)
+			logger.Errorf("hostbuilder timeout starting host: %v", e)
 		}
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		if err := recordNewState(db, h, origState, env.User.ID); err != nil {
-			env.Logger.Errorf("hosts.Start: Unable to restore host state: %v", err)
+			logger.Errorf("hosts.Start: Unable to restore host state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -292,7 +292,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	err = updateSoftware(h, env)
 	switch err {
 	case freighterclient.ErrAlreadyUpgraded:
-		env.Logger.Infof("hosts.Start: host already up to date")
+		logger.Infof("hosts.Start: host already up to date")
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	case nil:
 		h.State = host.StateUpdating
@@ -301,7 +301,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 	default:
-		env.Logger.Errorf("hosts.Start: failed to update server: %v", err)
+		logger.Errorf("hosts.Start: failed to update server: %v", err)
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	}
 
@@ -580,7 +580,8 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 }
 
 func updateSoftware(h *host.Host, env *middleware.Env) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
+	db := env.DB
+	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
 	if err != nil {
 		return err
 	}
