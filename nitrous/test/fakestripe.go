@@ -5,14 +5,14 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 type FakeStripe struct {
 	ReceivedRequests []map[string]string
 	Responses        []string
-	ResponseIndex    int
-	Error            *stripe.Error
+	RequestIndex     int
+	Errors           []*stripe.Error
 }
 
 func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interface{}) error {
@@ -30,6 +30,9 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		if s := body.Get("customer"); s != "" {
 			m["customer"] = s
 		}
+		if s := body.Get("plan"); s != "" {
+			m["plan"] = s
+		}
 		for k, v := range *body {
 			if len(v) == 0 {
 				continue
@@ -41,14 +44,16 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 	}
 	s.ReceivedRequests = append(s.ReceivedRequests, m)
 
-	if s.Error != nil {
-		return s.Error
+	indx := s.RequestIndex
+	s.RequestIndex += 1
+
+	if len(s.Errors) > indx {
+		if e := s.Errors[indx]; e != nil {
+			return e
+		}
 	}
 
-	if len(s.Responses) > s.ResponseIndex && s.Responses[s.ResponseIndex] != "" {
-		indx := s.ResponseIndex
-		s.ResponseIndex += 1
-
+	if len(s.Responses) > indx && s.Responses[indx] != "" {
 		// stripe may pass in a nil interface
 		if v == nil {
 			return nil
