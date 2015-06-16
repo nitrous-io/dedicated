@@ -30,68 +30,58 @@ if App.billingProfile.hasCard
         button.ui.btn click='changeCard' Change Card
 
 if App.billingUsage
-  .card-header.bordered
-    h2 Current Usage
+  unless App.billingProfile.exempt
+    .card-header.bordered
+      h2 Current Usage
 
-  .card-body
-    if App.billingProfile.exempt
-      .notice-text
-        i.fa.fa-info
-        '
-        | You are using a payment exempt Nitrous account. The charges below are for informational purposes only.
-    .invoice-item
-      table.ui.table.horizontal
-        tbody
-          = each group in App.billingUsage.groupedItems
-            = each item in group.items
-              App.InvoiceItemView item=item
-        tr
-          td.gap
+    .card-body
+      .invoice-item
+        table.ui.table.horizontal
+          tbody
+            = each group in App.billingUsage.groupedItems
+              = each item in group.items
+                App.InvoiceItemView item=item
+          tr
+            td.gap
 
-        tr
-          td
-            | Current Usage
-          td.charge
-            | $
-            = currency App.billingUsage.totalChargeDollars
-        tr
-          td
-            | Available Credits
-          td class={:charge App.billingUsage.hasCredit:credit}
-            | ($-
-            = currency App.billingUsage.availableCreditsDollars
-            | )
-        tr.total-charge
-          td
-            | Total Estimated Charge
-          td.charge
-            | $
-            = currency App.billingUsage.estimatedCharge
+          tr
+            td
+              | Current Usage
+            td.charge
+              | $
+              = currency App.billingUsage.totalChargeDollars
+          tr
+            td
+              | Available Credits
+            td class={:charge App.billingUsage.hasCredit:credit}
+              | ($-
+              = currency App.billingUsage.availableCreditsDollars
+              | )
+          tr.total-charge
+            td
+              | Total Estimated Charge
+            td.charge
+              | $
+              = currency App.billingUsage.estimatedCharge
 
 
 #invoices-list.card-header.bordered
   h2 Invoices
 
 .card-body
-  if App.invoices.content
-    if App.billingProfile.exempt
-      .notice-text
-        i.fa.fa-info
-        '
-        | You are using a payment exempt Nitrous account. The invoices below are for informational purposes only.
-  else
+  unless App.invoices.content
     p.hint-text
       i.fa.fa-exclamation-circle
       | You don't have any invoices available.
   = each invoice in App.invoices
-    .invoice-item
-      .heading
-        h4
-          = simpledate invoice.periodStart
-          '  -
-          = simpledate invoice.periodEnd
-        if invoice.payable
-          unless App.billingProfile.exempt
+    if invoice.showInvoice
+      .invoice-item
+        .heading
+          h4
+            = simpledate invoice.periodStart
+            '  -
+            = simpledate invoice.periodEnd
+          if invoice.showInvoiceState
             .payment-status class={invoice.unpaid:unpaid}
               if invoice.awaitingUpdate
                 i.spinner
@@ -113,34 +103,32 @@ if App.billingUsage
                       | Deferred
                     else
                       | Unpaid
-      table.ui.table.horizontal
-        tbody
-          = each group in invoice.groupedItems
-            = each item in group.items
-              App.InvoiceItemView item=item
-        tr
-          td.gap
-
-        tr.divider
-          td
-            | Total usage this period
-          td.charge
-            | $
-            = currency invoice.totalUsageForPeriod
-        tr
-          td
-            | Credits applied
-            if invoice.creditAvailableDollars
-              |  ($
-              = currency invoice.creditAvailableDollars
-              |  available)
-          td class={:charge invoice.hasCredit:credit}
-            | ($-
-            = currency invoice.totalCreditDollars
-            | )
-        tr.total-charge
-          td
-            | Total Charge
-          td.charge
-            | $
-            = currency invoice.totalChargeDollars
+        table.ui.table.horizontal
+          tbody
+            = each group in invoice.groupedItems
+              = each item in group.items
+                App.InvoiceItemView item=item
+                
+          tr.divider
+            td
+              | Total usage this period
+            td.charge
+              | $
+              = currency invoice.totalUsageForPeriod
+          tr
+            td
+              | Credits applied
+              if invoice.creditAvailableDollars
+                |  ($
+                = currency invoice.creditAvailableDollars
+                |  available)
+            td class={:charge invoice.hasCredit:credit}
+              | ($-
+              = currency invoice.totalCreditDollars
+              | )
+          tr.total-charge
+            td
+              | Total Charge
+            td.charge
+              | $
+              = currency invoice.totalChargeDollars

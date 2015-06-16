@@ -1276,5 +1276,13 @@ func init() {
 				CREATE INDEX index_respecs_on_host_id ON respecs USING btree (host_id);
 			`,
 		},
+		{
+			Version: "1200",
+			Up: `
+				ALTER TABLE users ALTER COLUMN email TYPE citext;
+				DROP INDEX index_users_on_email;
+				CREATE UNIQUE INDEX index_users_on_email ON users (email) WHERE deleted_at IS NULL;
+			`,
+		},
 	}
 }

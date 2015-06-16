@@ -15,6 +15,13 @@ App.IdeEditorTabView = klass = Em.View.extend App.IdeTabViewMixin, App.IdeDragDr
       this.remove()
   ).observes 'content.path.deleted'
 
+  didInsertElement: ->
+    @_super()
+    @$().bind('click', (evt) =>
+      if evt.which == 2 # middle-click
+        @send('didClickClose', @get('content'))
+    )
+
   dragStart: (event) ->
     @_super.apply this, arguments
     tab = @get 'content'

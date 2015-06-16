@@ -242,8 +242,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	db := env.DB
 	logger := env.Logger
 
-	err := freetier.StartHostAllowed(db, env.User, h)
-	if err != nil {
+	if err := freetier.StartHostAllowed(db, env.User, h); err != nil {
 		switch err {
 		case freetier.ErrFreeTimeLimitExceeded:
 			return errFreeTimeLimitExceeded
@@ -276,24 +275,36 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	// Start successful
-	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		h.State = host.StateRunning
-		h.IPAddress = sql.NullString{info.IPAddress, true}
-		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
-
+	h.State = host.StateRunning
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
 		if err := h.Update(tx); err != nil {
 			return err
 		}
-
 		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
-	})
-	if err != nil {
-		logger.Errorf("hosts.Start: failed to update new host state: %v", err)
+	}); err != nil {
 		return err
 	}
 
-	PublishHostEvent(env, controllers.EventHostStarted, h)
+	// Update Freighter and Docker on host, but don't fail if there are any
+	// errors.
+	err = updateSoftware(h, env)
+	switch err {
+	case freighterclient.ErrAlreadyUpgraded:
+		env.Logger.Infof("hosts.Start: host already up to date")
+		PublishHostEvent(env, controllers.EventHostStarted, h)
+	case nil:
+		h.State = host.StateUpdating
+		if err := h.Update(db); err != nil {
+			return err
+		}
+		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
+	default:
+		env.Logger.Errorf("hosts.Start: failed to update server: %v", err)
+		PublishHostEvent(env, controllers.EventHostStarted, h)
+	}
+
 	serializeHost(env, h)
 	return nil
 }
@@ -358,7 +369,6 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-
 	canStop, err := freetier.StopHostAllowed(db, env.User)
 	if err != nil {
 		return err
@@ -409,20 +419,35 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	// Success restart
-	err = db.WithTransaction(func(tx *sqlx.Tx) error {
-		h.State = host.StateRunning
-		h.IPAddress = sql.NullString{info.IPAddress, true}
-		h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
+	h.State = host.StateRunning
+	h.IPAddress = sql.NullString{info.IPAddress, true}
+	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
 		if err := h.Update(tx); err != nil {
 			return err
 		}
-
 		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
-	})
-	if err != nil {
-		env.Logger.Errorf("hosts.Restart: failed to update to new host state: %v", err)
+	}); err != nil {
 		return err
+	}
+
+	// Update Freighter and Docker on host, but don't fail if there are any
+	// errors.
+	err = updateSoftware(h, env)
+	switch err {
+	case freighterclient.ErrAlreadyUpgraded:
+		env.Logger.Infof("hosts.Restart: host already up to date")
+		PublishHostEvent(env, controllers.EventHostRestarted, h)
+	case nil:
+		h.State = host.StateUpdating
+		if err := h.Update(db); err != nil {
+			return err
+		}
+		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
+	default:
+		env.Logger.Errorf("hosts.Restart: failed to update server: %v", err)
+		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	}
 
 	for _, cn := range cns {
@@ -432,7 +457,6 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
-	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	serializeHost(env, h)
 	return nil
 }
@@ -537,8 +561,25 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 		return errHostLocked
 	}
 
-	db := env.DB
+	if err := updateSoftware(h, env); err != nil {
+		if err == freighterclient.ErrAlreadyUpgraded {
+			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
+			serializeHost(env, h)
+			return nil
+		}
 
+		env.Logger.Errorf("failed to update server, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
+	}
+
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"status": "accepted",
+	}
+	return nil
+}
+
+func updateSoftware(h *host.Host, env *middleware.Env) error {
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
@@ -570,12 +611,8 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 		env.Logger.Errorf("failed to update server, err: %v", err)
 		return errUpdateHostFailed
 	}
-
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
-	env.Status = http.StatusAccepted
-	env.Data = map[string]interface{}{
-		"status": "accepted",
-	}
+
 	return nil
 }
 
