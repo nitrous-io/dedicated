@@ -1419,6 +1419,50 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 			})
+
+			It("updates software on the host", func() {
+				mockClient := &freighterclient.MockClient{}
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateUpdating))
+			})
+
+			It("doesn't do anything if host has already been updated", func() {
+				mockClient := &freighterclient.MockClient{}
+				mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("doesn't do anything if software update fails", func() {
+				mockClient := &freighterclient.MockClient{}
+				mockClient.UpgradeServerError = errors.New("host cannot be updated")
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
 		})
 
 		Context("when hostbuilder fails to start the host", func() {
@@ -2238,6 +2282,50 @@ var _ = Describe("controllers/hosts", func() {
 					hs.H.ID, host.StateRunning, host.StateRestarting).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+			})
+
+			It("updates software on the host", func() {
+				mockClient := &freighterclient.MockClient{}
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateUpdating))
+			})
+
+			It("doesn't do anything if host has already been updated", func() {
+				mockClient := &freighterclient.MockClient{}
+				mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
+			})
+
+			It("doesn't do anything if software update fails", func() {
+				mockClient := &freighterclient.MockClient{}
+				mockClient.UpgradeServerError = errors.New("host cannot be updated")
+				test.StubDefaultFreighterFn(mockClient)
+				defer test.UnstubFreighterFn()
+
+				doRequest(hs.H.Slug, t.Token, nil)
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
+
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.State).To(Equal(host.StateRunning))
 			})
 		})
 
