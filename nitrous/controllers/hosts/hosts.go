@@ -228,8 +228,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	db := env.DB
 
-	err := freetier.StartHostAllowed(db, env.User, h)
-	if err != nil {
+	if err := freetier.StartHostAllowed(db, env.User, h); err != nil {
 		switch err {
 		case freetier.ErrFreeTimeLimitExceeded:
 			return errFreeTimeLimitExceeded
@@ -240,22 +239,15 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	origState := h.State
 	h.State = host.StateStarting
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
+	}); err != nil {
+		return err
+	}
 
-	tx, err := env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 	PublishHostEvent(env, controllers.EventHostStarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
@@ -268,19 +260,15 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
-		tx, err := db.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
+		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+			if err := h.Update(tx); err != nil {
+				env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
+			}
+			if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
+				env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
+			}
+			return nil
+		}); err != nil {
 			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
 		}
 
@@ -291,24 +279,33 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	h.State = host.StateRunning
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
-
-	tx, err = db.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)
+	}); err != nil {
 		return err
 	}
 
-	PublishHostEvent(env, controllers.EventHostStarted, h)
+	// Update Freighter and Docker on host, but don't fail if there are any
+	// errors.
+	err = updateSoftware(h, env)
+	switch err {
+	case freighterclient.ErrAlreadyUpgraded:
+		env.Logger.Infof("hosts.Start: host already up to date")
+		PublishHostEvent(env, controllers.EventHostStarted, h)
+	case nil:
+		h.State = host.StateUpdating
+		if err := h.Update(db); err != nil {
+			return err
+		}
+		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
+	default:
+		env.Logger.Errorf("hosts.Start: failed to update server: %v", err)
+		PublishHostEvent(env, controllers.EventHostStarted, h)
+	}
+
 	serializeHost(env, h)
 	return nil
 }
@@ -367,12 +364,11 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	canStop, err := freetier.StopHostAllowed(env.DB, env.User)
-
+	db := env.DB
+	canStop, err := freetier.StopHostAllowed(db, env.User)
 	if err != nil {
 		return err
 	}
-
 	if !canStop {
 		return errRestartingNotAllowed
 	}
@@ -382,7 +378,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return errHostRestartInvalidState
 	}
 
-	cns, err := container.FindAllByHostID(env.DB, h.ID)
+	cns, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
 		return err
 	}
@@ -396,22 +392,15 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 	origState := h.State
 	h.State = host.StateRestarting
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
+	}); err != nil {
+		return err
+	}
 
-	tx, err := env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 	PublishHostEvent(env, controllers.EventHostRestarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
@@ -424,20 +413,16 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
 		h.State = origState
-		tx, err := env.DB.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
-			tx.Rollback()
-			env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			env.Logger.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+			if err := h.Update(tx); err != nil {
+				env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
+			}
+			if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
+				env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
+			}
+			return nil
+		}); err != nil {
+			env.Logger.Errorf("hosts.Restart: Failed to commit transaction: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -448,23 +433,31 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 
-	tx, err = env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	err = hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
-	if err != nil {
-		tx.Rollback()
+	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+		return hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID)
+	}); err != nil {
 		return err
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
+	// Update Freighter and Docker on host, but don't fail if there are any
+	// errors.
+	err = updateSoftware(h, env)
+	switch err {
+	case freighterclient.ErrAlreadyUpgraded:
+		env.Logger.Infof("hosts.Restart: host already up to date")
+		PublishHostEvent(env, controllers.EventHostRestarted, h)
+	case nil:
+		h.State = host.StateUpdating
+		if err := h.Update(db); err != nil {
+			return err
+		}
+		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
+	default:
+		env.Logger.Errorf("hosts.Restart: failed to update server: %v", err)
+		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	}
 
 	for _, cn := range cns {
@@ -473,7 +466,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 			PublishContainerStopped(env, cn)
 		}
 	}
-	PublishHostEvent(env, controllers.EventHostRestarted, h)
+
 	serializeHost(env, h)
 	return nil
 }
@@ -564,6 +557,25 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if err := updateSoftware(h, env); err != nil {
+		if err == freighterclient.ErrAlreadyUpgraded {
+			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
+			serializeHost(env, h)
+			return nil
+		}
+
+		env.Logger.Errorf("failed to update server, err: %v", err)
+		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
+	}
+
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{
+		"status": "accepted",
+	}
+	return nil
+}
+
+func updateSoftware(h *host.Host, env *middleware.Env) error {
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
 		return err
@@ -573,25 +585,15 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 		DockerVersion:     h.DockerVersion,
 		FreighterdVersion: h.FreighterdVersion,
 	}); err != nil {
-		if err == freighterclient.ErrAlreadyUpgraded {
-			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
-			serializeHost(env, h)
-			return nil
-		}
-		env.Logger.Errorf("failed to update server, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
+		return err
 	}
 
 	h.State = host.StateUpdating
 	if err := h.Update(env.DB); err != nil {
 		return err
 	}
-
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
-	env.Status = http.StatusAccepted
-	env.Data = map[string]interface{}{
-		"status": "accepted",
-	}
+
 	return nil
 }
 
