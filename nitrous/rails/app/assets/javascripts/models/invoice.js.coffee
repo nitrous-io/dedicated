@@ -56,6 +56,15 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     @get('state') != 'not_payable'
   ).property 'state'
 
+  showInvoice: (->
+    return true if !App.get('billingProfile.exempt')
+    @get('payable')
+  ).property 'payable', 'App.billingProfile.exempt'
+
+  showInvoiceState: (->
+    @get('payable') && !App.get('billingProfile.exempt')
+  ).property 'payable', 'App.billingProfile.exempt'
+
   manuallyPayable: (->
     return false if @get('successfulCharge') || @get('deferred')
     @get('failed') || @get('attempted')

@@ -126,6 +126,16 @@ func Logout(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// clear github_state cookie used for
+	// GitHub auth if present to prevent CSRF
+	if _, err := r.Cookie("github_state"); err == nil {
+		http.SetCookie(w, &http.Cookie{
+			Name:   "github_state",
+			Value:  "",
+			MaxAge: -1,
+		})
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
