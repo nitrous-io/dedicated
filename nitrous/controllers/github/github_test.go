@@ -33,12 +33,11 @@ func mockFetchGitHubUser(code string) (string, string, error) {
 
 var _ = Describe("controllers/github", func() {
 	var (
-		db     *db.Database
-		svr    *server.Server
-		t      *token.Token
-		u      *user.User
-		ft     *test.FakeTracker
-		params *url.Values
+		db  *db.Database
+		svr *server.Server
+		t   *token.Token
+		u   *user.User
+		ft  *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -67,8 +66,6 @@ var _ = Describe("controllers/github", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
-
-		params = &url.Values{}
 	})
 
 	AfterEach(func() {
@@ -77,49 +74,36 @@ var _ = Describe("controllers/github", func() {
 		}
 	})
 
-	makeState := func() string {
-		state, err := github.MakeOauthState(u.ID)
-		Expect(err).To(BeNil())
-		return state
-	}
-
-	addStateCookie := func(req *http.Request, state string) {
-		req.AddCookie(&http.Cookie{
-			Name:   "github_state",
-			Value:  state,
-			MaxAge: github.ValidityPeriodSeconds,
-		})
-	}
-
-	sendRequest := func(req *http.Request) *httptest.ResponseRecorder {
-		res := httptest.NewRecorder()
-		svr.Router().ServeHTTP(res, req)
-		return res
-	}
-
 	Describe("GET /api/v0/github/oauth_cb", func() {
-		makeRequest := func() *http.Request {
+		doRequest := func(code, state, cookieState string) *httptest.ResponseRecorder {
+			params := &url.Values{}
+
+			if code != "" {
+				params.Set("code", code)
+			}
+
+			if state != "" {
+				params.Set("state", state)
+			}
+
 			req, err := test.NewRequest("GET", "/api/v0/github/oauth_cb", params)
 			Expect(err).To(BeNil())
-			return req
-		}
 
-		requestWithState := func(state string) *httptest.ResponseRecorder {
-			params.Set("state", state)
-			req := makeRequest()
-			addStateCookie(req, state)
+			if cookieState != "" {
+				req.AddCookie(&http.Cookie{
+					Name:   "github_state",
+					Value:  cookieState,
+					MaxAge: github.ValidityPeriodSeconds,
+				})
+			}
 
-			return sendRequest(req)
-		}
-
-		requestWithStateAndCode := func(state, code string) *httptest.ResponseRecorder {
-			params.Set("code", code)
-			return requestWithState(state)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
 		It("responds with error message when state is missing", func() {
-			params.Set("code", "githubcode")
-			res := sendRequest(makeRequest())
+			res := doRequest("githubcode", "", "")
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			slug, _ := test.ErrorSlug(res.Body)
@@ -127,9 +111,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("responds with error message when state is tempered", func() {
-			params.Set("code", "githubcode")
-			params.Set("state", "temperedstate")
-			res := sendRequest(makeRequest())
+			res := doRequest("githubcode", "temperedstate", "temperedstate")
 
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			slug, _ := test.ErrorSlug(res.Body)
@@ -137,15 +119,13 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("responds with error message when state is different from cookie", func() {
-			state1 := makeState()
-			state2 := makeState()
+			state1, err := github.MakeOAuthState(u.ID)
+			Expect(err).To(BeNil())
 
-			params.Set("state", state1)
-			params.Set("code", "githubcode")
-			req := makeRequest()
-			addStateCookie(req, state2)
+			state2, err := github.MakeOAuthState(u.ID)
+			Expect(err).To(BeNil())
 
-			res := sendRequest(makeRequest())
+			res := doRequest("githubcode", state1, state2)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 			slug, _ := test.ErrorSlug(res.Body)
@@ -153,18 +133,24 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects with error message when code is missing", func() {
-			res := requestWithState(makeState())
+			state, err := github.MakeOAuthState(u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest("", state, state)
 
 			Expect(res.Code).To(Equal(http.StatusFound))
 			Expect(res.Body.String()).To(ContainSubstring("invalid_code"))
 		})
 
 		It("inserts github username and token to database", func() {
-			res := requestWithStateAndCode(makeState(), "foo")
+			state, err := github.MakeOAuthState(u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest("githubcode", state, state)
 			Expect(res.Code).To(Equal(http.StatusFound))
 
 			var gitHubUserName, gitHubToken sql.NullString
-			err := db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;",
+			err = db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;",
 				u.ID).Scan(&gitHubUserName, &gitHubToken)
 			Expect(err).To(BeNil())
 
@@ -187,19 +173,24 @@ var _ = Describe("controllers/github", func() {
 
 	Describe("GET /api/v0/github/authorize", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", params)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
-			return sendRequest(req)
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
 		}
 
-		responseJson := func(res *httptest.ResponseRecorder) map[string]interface{} {
+		It("returns valid json response", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
 			j := map[string]interface{}{}
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			return j
-		}
 
-		parseStateCookies := func(res *httptest.ResponseRecorder) string {
+			redirectURL := j["redirect_url"].(string)
+			Expect(redirectURL).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
+
 			cookies := (&http.Response{Header: res.Header()}).Cookies()
 			Expect(len(cookies)).To(Equal(1))
 
@@ -209,46 +200,42 @@ var _ = Describe("controllers/github", func() {
 			cookieState := cookie.Value
 			Expect(cookieState).ToNot(Equal(""))
 
-			return cookieState
-		}
-
-		parseStateJson := func(j map[string]interface{}) string {
-			redirectURL := j["redirect_url"].(string)
 			u, err := url.Parse(redirectURL)
 			Expect(err).To(BeNil())
 
-			return u.Query().Get("state")
-		}
-
-		It("returns valid json response", func() {
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			j := responseJson(res)
-			redirectURL := j["redirect_url"].(string)
-			Expect(redirectURL).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
-
-			cookieState := parseStateCookies(res)
-			Expect(cookieState).ToNot(Equal(""))
-
-			urlState := parseStateJson(j)
+			urlState := u.Query().Get("state")
 			Expect(urlState).To(Equal(cookieState))
 		})
 
 		It("reuses state cookie if valid", func() {
-			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", params)
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 
-			existingState := makeState()
-			addStateCookie(req, existingState)
+			existingState, err := github.MakeOAuthState(u.ID)
+			Expect(err).To(BeNil())
 
-			res := sendRequest(req)
+			req.AddCookie(&http.Cookie{
+				Name:   "github_state",
+				Value:  existingState,
+				MaxAge: github.ValidityPeriodSeconds,
+			})
+
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			cookies := (&http.Response{Header: res.Header()}).Cookies()
 			Expect(len(cookies)).To(Equal(0))
 
-			urlState := parseStateJson(responseJson(res))
+			j := map[string]interface{}{}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			redirectURL := j["redirect_url"].(string)
+			u, err := url.Parse(redirectURL)
+			Expect(err).To(BeNil())
+
+			urlState := u.Query().Get("state")
 			Expect(urlState).To(Equal(existingState))
 		})
 	})

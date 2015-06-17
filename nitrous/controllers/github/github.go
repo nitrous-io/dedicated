@@ -58,6 +58,7 @@ var FetchGithubUser = func(code string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
 	client := github.NewClient(oauthClient)
 
@@ -100,7 +101,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	errLabel := "github.authcb"
 
 	signedState := r.FormValue("state")
-	state, err := ReadOAuthState(signedState)
+	state, err := readOAuthState(signedState)
 	if err != nil {
 		return err
 	}
@@ -111,6 +112,13 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	if err != nil || cookie.Value != signedState {
 		return errStateMismatch
 	}
+
+	// Erase state cookie to prevent repeated requests
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  "",
+		MaxAge: -1,
+	})
 
 	userID := state.UserID
 	p, err := userprofile.Find(db, userID)
@@ -144,13 +152,6 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return mh.Error(errUpdateFailed, errLabel)
 	}
 
-	// Erase state cookie to prevent repeated requests
-	http.SetCookie(w, &http.Cookie{
-		Name:   "github_state",
-		Value:  "",
-		MaxAge: -1,
-	})
-
 	tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"github_username": gitHubUserName,
 	}, logger)
@@ -163,7 +164,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func MakeOauthState(userID int64) (string, error) {
+func makeOAuthState(userID int64) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
@@ -172,7 +173,7 @@ func MakeOauthState(userID int64) (string, error) {
 	})
 }
 
-func ReadOAuthState(signedState string) (*OAuthState, error) {
+func readOAuthState(signedState string) (*OAuthState, error) {
 	if signedState == "" {
 		return nil, errInvalidState
 	}
@@ -196,7 +197,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	cookie, err := r.Cookie("github_state")
 	if err == nil {
 		signedState := cookie.Value
-		state, err := ReadOAuthState(signedState)
+		state, err := readOAuthState(signedState)
 		if err == nil && state.UserID == userID {
 			// If old state is valid, reuse it
 			return signedState, nil
@@ -204,7 +205,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := MakeOauthState(userID)
+	state, err := makeOAuthState(userID)
 	if err != nil {
 		return "", err
 	}
