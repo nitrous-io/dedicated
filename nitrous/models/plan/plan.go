@@ -62,7 +62,10 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 		PlanBasePrice int64 `db:"base_plan_price"`
 	}
 	pHs := []*planHost{}
-	if err := d.Select(&pHs, `SELECT hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, userID); err != nil {
+	if err := d.Select(&pHs, `SELECT
+		hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price
+		FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id
+		WHERE hosts.user_id = $1 AND hosts.subscription_id IS NULL;`, userID); err != nil {
 		return nil, err
 	}
 

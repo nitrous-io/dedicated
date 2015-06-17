@@ -23,7 +23,7 @@ func InvoiceItemsForUser(d db.QueryReceiver, l *logger.Logger, userID int64, sta
 	res := InvoiceItemsResult{}
 
 	var ids []int64
-	err := d.Select(&ids, `SELECT id FROM hosts WHERE user_id = $1 AND (terminated_at IS NULL OR terminated_at >= $2);`, userID, start)
+	err := d.Select(&ids, `SELECT id FROM hosts WHERE user_id = $1 AND subscription_id IS NULL AND (terminated_at IS NULL OR terminated_at >= $2);`, userID, start)
 	if err != nil {
 		return res, err
 	}
