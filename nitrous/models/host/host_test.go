@@ -736,6 +736,45 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("UpdateState()", func() {
+		BeforeEach(func() {
+			var err error
+			h := &host.Host{
+				Slug:               "foo",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              host.StateRunning,
+				HourlyPrice:        100,
+				Free:               false,
+				TerminatedAt:       nil,
+				Preprovisioned:     false,
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("should not update if original state does not match latest state in database", func() {
+			h1, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+
+			Expect(h1.State).To(Equal(host.StateRunning))
+
+			err = h1.UpdateState(db, host.StateStopping)
+			Expect(err).To(BeNil())
+			Expect(h1.State).To(Equal(host.StateStopping))
+
+			Expect(h2.State).To(Equal(host.StateRunning))
+			err = h2.UpdateState(db, host.StateStopping)
+			Expect(err).To(Equal(host.ErrUpdateFailed))
+			Expect(h2.State).To(Equal(host.StateRunning))
+		})
+	})
+
 	Describe("Update()", func() {
 		var (
 			h    *host.Host

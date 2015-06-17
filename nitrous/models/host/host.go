@@ -27,6 +27,7 @@ var (
 	ErrSlugInvalid  = errors.New("slug may only contain alphanumeric characters or dashes and cannot begin or end with a dash")
 	ErrSlugTooShort = errors.New("slug is too short (minimum is 2 characters)")
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
+	ErrUpdateFailed = errors.New("failed to update host with stale original state")
 )
 
 type ProviderTemplate struct {
@@ -43,6 +44,7 @@ const (
 	StateRestarting   = "restarting"
 	StateUpdating     = "updating"
 	StateOrphan       = "orphan"
+	StateTerminating  = "terminating"
 	StateTerminated   = "terminated"
 	StateMigrating    = "migrating"
 	StateRespeccing   = "respeccing"
@@ -342,6 +344,18 @@ func (h *Host) Update(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) UpdateState(d db.QueryReceiver, newState string) error {
+	err := d.QueryRowx(`UPDATE hosts
+		SET state=$1, updated_at=now() WHERE id = $2 AND state=$3
+		RETURNING *;`, newState, h.ID, h.State).StructScan(h)
+
+	if err == sql.ErrNoRows {
+		return ErrUpdateFailed
+	}
+
+	return err
 }
 
 func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
