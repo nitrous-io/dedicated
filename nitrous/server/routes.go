@@ -75,7 +75,7 @@ func chainMiddleware(auth bool, r routeData) mw.Middleware {
 
 func (s *Server) drawRoutes() {
 	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCb", github.OAuthCb), "GET")
+	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), "GET")
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
@@ -149,11 +149,11 @@ func (s *Server) drawRoutes() {
 				"/admin/provider_templates/{ptid}":    r("providertemplates.Show", providertemplates.Show),
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
-				"/github/authorize":                   r("github.Authorize", github.Authorize),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
+				"/github/authorize":                        r("github.Authorize", github.Authorize),
 				"/user/phone":                              r("users.UpdatePhone", users.UpdatePhone),
 				"/user/resend_phone_code":                  r("users.ResendPhoneCode", users.ResendPhoneCode),
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
