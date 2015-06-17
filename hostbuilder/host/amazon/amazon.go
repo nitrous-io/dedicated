@@ -998,13 +998,19 @@ func createInstance(ctx *host.HostContext) error {
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
 
+	// If we have a non-default VPC / Subnet specified, we can flag
+	// AssociatePublicIpAddress to get a Public IP assigned. By default these are not provided.
+	// You cannot specify both SubnetId and the NetworkInterface.0.* parameters though, otherwise
+	// you get: Network interfaces and an instance-level subnet ID may not be specified on the same request
+	// You also need to attach Security Groups to the NetworkInterface instead of the instance,
+	// to avoid: Network interfaces and an instance-level security groups may not be specified on
+	// the same request
 	resp, err := h.provider.RunInstances(&ec2.RunInstancesInput{
-		KeyName:          &h.keypair.name,
-		ImageID:          &h.Config.SourceAMI, // required
-		MaxCount:         aws.Long(1),         // required
-		MinCount:         aws.Long(1),         // required
-		InstanceType:     &h.Config.InstanceType,
-		SecurityGroupIDs: []*string{&h.Config.SecurityGroupID},
+		KeyName:      &h.keypair.name,
+		ImageID:      &h.Config.SourceAMI, // required
+		MaxCount:     aws.Long(1),         // required
+		MinCount:     aws.Long(1),         // required
+		InstanceType: &h.Config.InstanceType,
 		BlockDeviceMappings: []*ec2.BlockDeviceMapping{
 			{
 				DeviceName: rootDeviceName,
@@ -1021,6 +1027,7 @@ func createInstance(ctx *host.HostContext) error {
 				AssociatePublicIPAddress: aws.Boolean(true),
 				DeleteOnTermination:      aws.Boolean(true),
 				SubnetID:                 aws.String(h.Config.SubnetID),
+				Groups:                   []*string{&h.Config.SecurityGroupID},
 			},
 		},
 	})
