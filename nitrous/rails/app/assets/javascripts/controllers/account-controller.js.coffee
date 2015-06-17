@@ -58,6 +58,12 @@ App.AccountController = Em.ObjectController.extend
     userProfile = App.get 'userProfile'
     userProfile.githubAuthorize()
 
+  showGitHub: (->
+    if App.get('billingProfile.isFreeOrNoCardState')
+      return App.get('user.phoneAuthed')
+    true
+  ).property 'App.billingProfile.isFreeOrNoCardState', 'App.user.phoneAuthed'
+
   actions:
     updateSettings: ->
       @set 'updatingSettings', true
