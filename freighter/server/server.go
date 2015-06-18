@@ -208,9 +208,9 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 		}
 		// so that is available in s.respond()
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
-		logrus.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
+		logrus.Infof("uuid=%s Request: %v %v", uuidStr, r.Method, r.URL.String())
 		handlerFunc(w, r)
-		logrus.Infof("uuid=%s Request: done\n", uuidStr)
+		logrus.Infof("uuid=%s Request: done", uuidStr)
 	}
 }
 
