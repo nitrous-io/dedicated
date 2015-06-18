@@ -5,37 +5,33 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/nitrous-common/logger"
 	stripe "github.com/stripe/stripe-go"
 )
 
-var (
-	logr *logger.Logger
-)
-
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 
 	envvars.CheckSendgrid()
 
 	stripe.Key = envvars.StripeSecretKey
 	if stripe.Key == "" {
-		logr.FatalExit("STRIPE_SECRET_KEY environment variable not set")
+		logrus.Fatal("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	var startTime, endTime *time.Time
@@ -50,34 +46,34 @@ func main() {
 	if targetUserID := os.Getenv("USER_ID"); len(targetUserID) != 0 {
 		uID, err := strconv.ParseInt(targetUserID, 10, 64)
 		if err != nil {
-			logr.FatalExit(err)
+			logrus.Fatal(err)
 		}
 		us, err := user.FindByID(dbConn, uID)
 		if err != nil {
-			logr.FatalExit(err)
+			logrus.Fatal(err)
 		}
 		if us == nil {
-			logr.FatalExit("biller: USER_ID is not a valid user")
+			logrus.Fatal("biller: USER_ID is not a valid user")
 		}
 
 		pS, pE := biller.StartEndTimeOrDefault(startTime, endTime)
-		b, err := biller.New(dbConn, logr, us, &pS, &pE)
+		b, err := biller.New(dbConn, us, &pS, &pE)
 		if err != nil {
-			logr.FatalExit(err)
+			logrus.Fatal(err)
 		}
 		if err := b.Process(); err != nil {
-			logr.FatalExit(err)
+			logrus.Fatal(err)
 		}
 		return
 	}
 
-	biller.ProcessForAllUsers(dbConn, logr, startTime, endTime)
+	biller.ProcessForAllUsers(dbConn, startTime, endTime)
 }
 
 func extractUnixTime(val string) time.Time {
 	i, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	return time.Unix(i, 0)
 }

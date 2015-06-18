@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -154,7 +155,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	prov := env.Provisioner
 	publishProvisionFailure := func(h *host.Host, err error) {
 		if e, ok := err.(*provisioner.HostbuilderError); ok {
-			env.Logger.Errorf("hostbuilder error provisioning host: %v", e)
+			logrus.Errorf("hostbuilder error provisioning host: %v", e)
 			// Change error into something we can display to end users.
 			err = errors.New("failed to create workspace")
 		}
@@ -239,18 +240,18 @@ func postProvision(options *createOpts, env *middleware.Env, h *host.Host, p *pl
 		return err
 	}
 	if p.IsSubscription() {
-		_, err := subProvider.Subscribe(env.DB, env.Logger, h, p, env.User)
+		_, err := subProvider.Subscribe(env.DB, h, p, env.User)
 		if err != nil {
 			if err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-				return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
+				return hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID)
 			}); err != nil {
-				env.Logger.Errorf("Unable to terminate host %d: %v", h.ID, err)
+				logrus.Errorf("Unable to terminate host %d: %v", h.ID, err)
 			}
 			return err
 		}
 	}
 	if err := recordTransition(env, h); err != nil {
-		env.Logger.Errorf("Unable to record transition for host %d: %v", h.ID, err)
+		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
 	}
 	return nil
 }
@@ -382,7 +383,7 @@ func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) err
 
 	if _, err := cl.CreateVolume(vol.Slug); err != nil {
 		if e := vol.Delete(db); e != nil {
-			env.Logger.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
+			logrus.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
 		}
 		if e, ok := err.(*freighterclient.InvalidParamError); ok {
 			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)

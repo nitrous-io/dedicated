@@ -9,7 +9,6 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -28,8 +27,7 @@ var _ = Describe("provider/docker config", func() {
 		Expect(err).To(BeNil())
 		sshBind = filepath.Join(datadir, "containers", cnrName, "ssh") + ":/nitrous/ssh:ro"
 		containerSlugBind = filepath.Join(datadir, "containers", cnrName, ".nitrous-container-slug") + ":/.nitrous-container-slug:ro"
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = NewDockerProvider(logger, datadir)
+		prov, err = NewDockerProvider(datadir)
 		Expect(err).To(BeNil())
 	})
 

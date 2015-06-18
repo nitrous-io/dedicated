@@ -12,7 +12,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
@@ -77,10 +76,9 @@ var _ = Describe("BuildImage", func() {
 
 	var prov *docker.DockerProvider
 	BeforeEach(func() {
-		logger := &util.Logger{Level: util.LogLevelQuiet}
 		data, err := ioutil.TempDir("", "freightertest")
 		Expect(err).To(BeNil(), "failed to create temp dir")
-		prov, err = docker.NewDockerProvider(logger, data)
+		prov, err = docker.NewDockerProvider(data)
 		Expect(err).To(BeNil(), "failed to initialize docker provider")
 	})
 

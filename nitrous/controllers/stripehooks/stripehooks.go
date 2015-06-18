@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/event"
@@ -43,27 +44,27 @@ func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 
 func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
 	// verify the event is legit
-	env.Logger.Debugf("Incoming event: %s", evt.Type)
+	logrus.Debugf("Incoming event: %s", evt.Type)
 	f, ok := evtHandlers[evt.Type]
 	if !ok {
 		return
 	}
 	e, err := event.Get(evt.EventID)
 	if err != nil {
-		env.Logger.Errorf("Stripe hook event lookup failed, err: %v", err)
+		logrus.Errorf("Stripe hook event lookup failed, err: %v", err)
 	}
 
 	if e.Data == nil {
-		env.Logger.Errorf("Stripe hook event is missing Data: %+v", e)
+		logrus.Errorf("Stripe hook event is missing Data: %+v", e)
 		return
 	}
 
 	stripeID, ok := e.Data.Obj["id"].(string)
 	if !ok {
-		env.Logger.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
+		logrus.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
 		return
 	}
 
-	env.Logger.Info("Processing Stripe event: %+v", e)
+	logrus.Info("Processing Stripe event: %+v", e)
 	f(env, e, stripeID)
 }

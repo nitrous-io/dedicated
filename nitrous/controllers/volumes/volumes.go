@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -85,7 +86,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	if err := vol.Delete(db); err != nil {
-		env.Logger.Errorf("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
+		logrus.Errorf("Unable to delete volume %d that was destroyed on freighter: %v", vol.ID, err)
 		return err
 	}
 

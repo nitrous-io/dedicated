@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -71,7 +72,7 @@ func (c *pullContext) run(async, isNew bool) (*image.Image, error) {
 		// when the image failed to update, just log and continue as we are
 		// treating freighterd as the canonical source here
 		if err := img.InsertOrUpdate(db); err != nil {
-			env.Logger.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
+			logrus.Errorf("images.pull: successfully pulled image '%+v' in Freighter but failed to update database with '%+v'", remoteImg, img)
 		}
 
 		env.Events.Publish(

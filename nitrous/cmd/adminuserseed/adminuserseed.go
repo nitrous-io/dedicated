@@ -1,21 +1,17 @@
 package main
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
-	"github.com/nitrous-io/nitrous-common/logger"
-)
-
-var (
-	logr *logger.Logger
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 type SeedFn func(db.QueryReceiver) error
@@ -23,32 +19,32 @@ type SeedFn func(db.QueryReceiver) error
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	err = dbConn.MigrateAll()
 	if err != nil {
-		logr.Infof("Migrations failed: %v", err)
+		logrus.Infof("Migrations failed: %v", err)
 	}
 	defer dbConn.DB.Close()
 
 	tx, err := dbConn.Beginx()
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	err = createAdminUserAndToken(tx)
 	if err != nil {
 		tx.Rollback()
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 }
 
@@ -59,12 +55,12 @@ func shouldCreateAdminUser(d db.QueryReceiver) (bool, error) {
 	case err != nil:
 		return false, err
 	case c > 0:
-		logr.Infof("%d found, no need to create admin user", c)
+		logrus.Infof("%d found, no need to create admin user", c)
 		return false, nil
 	case c == 0:
 		return true, nil
 	default: // if it's still -1
-		logr.Errorf("Unexpected count %v", c)
+		logrus.Errorf("Unexpected count %v", c)
 		return false, err
 	}
 }
@@ -95,7 +91,7 @@ func createAdminUserAndToken(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	logr.Infof("Added user %+v", admin)
+	logrus.Infof("Added user %+v", admin)
 
 	return nil
 }

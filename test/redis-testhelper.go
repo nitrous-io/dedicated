@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"gopkg.in/redis.v2"
 )
 
@@ -50,7 +51,7 @@ func RunWhileRestartingRedis(fn func()) error {
 		for i := 0; i < 5; i++ {
 			_, err = net.Dial("tcp", fmt.Sprintf("%s:%s", RedisHost, RedisPort))
 			if err != nil {
-				fmt.Printf("failed to connect to redis: %+v\n", err)
+				logrus.Printf("failed to connect to redis: %+v", err)
 				time.Sleep(10 * time.Millisecond)
 			} else {
 				break

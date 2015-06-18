@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/google/go-github/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -96,7 +97,6 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 // website, GitHub redirects the user here
 func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	logger := env.Logger
 	tracker := env.Tracker
 	errLabel := "github.authcb"
 
@@ -134,31 +134,31 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 	gitHubUserName, tokenJSON, err := FetchGithubUser(code)
 	if err != nil {
-		logger.Errorf("failed to fetch GitHub user: '%s'\n", err)
+		logrus.Errorf("failed to fetch GitHub user: '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(err, errLabel)
 	}
 
 	if p.GitHubUserName.Valid && gitHubUserName != p.GitHubUserName.String {
-		logger.Errorf("replacing github user for %s - old: %s, new: %s",
+		logrus.Errorf("replacing github user for %s - old: %s, new: %s",
 			userID, p.GitHubUserName.String, gitHubUserName)
 	}
 
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
 	if err = p.UpdateGithubInfo(db); err != nil {
-		logger.Errorf("p.UpdateGithubInfo() faled with '%s'\n", err)
+		logrus.Errorf("p.UpdateGithubInfo() faled with '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(errUpdateFailed, errLabel)
 	}
 
 	tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"github_username": gitHubUserName,
-	}, logger)
+	})
 
 	tracker.SetProfileProps("setnx", userID, map[string]interface{}{
 		"github_authorized_date": time.Now(),
-	}, logger)
+	})
 
 	http.Redirect(w, r, "/app#/account", http.StatusFound)
 	return nil

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -214,7 +215,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		if err != nil {
 			return err
 		}
-		err = subProvider.Cancel(env.DB, env.Logger, sub)
+		err = subProvider.Cancel(env.DB, sub)
 		if err != nil {
 			return nil
 		}
@@ -226,7 +227,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
+		return hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID)
 	})
 	if err != nil {
 		return err
@@ -235,7 +236,7 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	if env.User.Admin && r.FormValue("reassign") == "true" {
 		_, err = env.DB.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2;", env.User.ID, h.ID)
 		if err != nil {
-			env.Logger.Errorf("Error reassigning host, err: %+v", err)
+			logrus.Errorf("Error reassigning host, err: %+v", err)
 		}
 	}
 
@@ -278,7 +279,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			env.Logger.Errorf("hostbuilder timeout starting host: %v", e)
+			logrus.Errorf("hostbuilder timeout starting host: %v", e)
 		}
 
 		// Rollback to previous state, log any errors while rolling back, but
@@ -286,14 +287,14 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		h.State = origState
 		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
 			if err := h.Update(tx); err != nil {
-				env.Logger.Errorf("hosts.Start: Unable to reset host state: %v", err)
+				logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
 			}
 			if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-				env.Logger.Errorf("hosts.Start: Unable to record transition: %v", err)
+				logrus.Errorf("hosts.Start: Unable to record transition: %v", err)
 			}
 			return nil
 		}); err != nil {
-			env.Logger.Errorf("hosts.Start: Failed to commit transaction: %v", err)
+			logrus.Errorf("hosts.Start: Failed to commit transaction: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -317,7 +318,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	err = updateSoftware(h, env)
 	switch err {
 	case freighterclient.ErrAlreadyUpgraded:
-		env.Logger.Infof("hosts.Start: host already up to date")
+		logrus.Infof("hosts.Start: host already up to date")
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	case nil:
 		h.State = host.StateUpdating
@@ -326,7 +327,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 	default:
-		env.Logger.Errorf("hosts.Start: failed to update server: %v", err)
+		logrus.Errorf("hosts.Start: failed to update server: %v", err)
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	}
 
@@ -371,27 +372,11 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	if !envvars.EnableQueue {
-		err = hostcontrol.Stop(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
-		if err != nil {
-			return err
-		}
-
-		for _, cn := range cns {
-			state := container.State(cn.TempState.Int64)
-			if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
-				PublishContainerStopped(env, cn)
-			}
-		}
-		PublishHostEvent(env, controllers.EventHostStopped, h)
-		serializeHost(env, h)
-	} else {
-		err = hostcontrol.StopWithQueue(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
-		if err != nil {
-			return err
-		}
-		env.SetEmptyResponseBody()
+	err = hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID)
+	if err != nil {
+		return err
 	}
+	env.SetEmptyResponseBody()
 	return nil
 }
 
@@ -439,7 +424,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	info, err := HostbuilderClient.Restart(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			env.Logger.Errorf("hostbuilder timeout restarting host: %v", e)
+			logrus.Errorf("hostbuilder timeout restarting host: %v", e)
 		}
 
 		// Rollback to previous state, log any errors while rolling back, but
@@ -447,14 +432,14 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		h.State = origState
 		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
 			if err := h.Update(tx); err != nil {
-				env.Logger.Errorf("hosts.Restart: Unable to reset host state: %v", err)
+				logrus.Errorf("hosts.Restart: Unable to reset host state: %v", err)
 			}
 			if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
-				env.Logger.Errorf("hosts.Restart: Unable to record transition: %v", err)
+				logrus.Errorf("hosts.Restart: Unable to record transition: %v", err)
 			}
 			return nil
 		}); err != nil {
-			env.Logger.Errorf("hosts.Restart: Failed to commit transaction: %v", err)
+			logrus.Errorf("hosts.Restart: Failed to commit transaction: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -479,7 +464,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	err = updateSoftware(h, env)
 	switch err {
 	case freighterclient.ErrAlreadyUpgraded:
-		env.Logger.Infof("hosts.Restart: host already up to date")
+		logrus.Infof("hosts.Restart: host already up to date")
 		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	case nil:
 		h.State = host.StateUpdating
@@ -488,7 +473,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 	default:
-		env.Logger.Errorf("hosts.Restart: failed to update server: %v", err)
+		logrus.Errorf("hosts.Restart: failed to update server: %v", err)
 		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	}
 
@@ -541,7 +526,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	prov := env.Provisioner
 	cfg, err = prov.ApplyProviderConfig(cfg, pt, h)
 	if err != nil {
-		env.Logger.Errorf("failed to apply provider-specific config, err: %v", err)
+		logrus.Errorf("failed to apply provider-specific config, err: %v", err)
 		return err
 	}
 
@@ -550,10 +535,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		if err != nil {
 			h.State = host.StateRespecFailed
 			if err := h.Update(db); err != nil {
-				env.Logger.Errorf("error updating host after respec failed: %v", err)
+				logrus.Errorf("error updating host after respec failed: %v", err)
 			}
 			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
-				env.Logger.Errorf("error updating respec state to failed: %v", err)
+				logrus.Errorf("error updating respec state to failed: %v", err)
 			}
 
 			env.Events.Publish(
@@ -570,10 +555,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		h.State = host.StateRunning
 		h.IPAddress = sql.NullString{info.IPAddress, true}
 		if err := h.UpdateAfterRespec(db); err != nil {
-			env.Logger.Errorf("error updating host after respec completed: %v", err)
+			logrus.Errorf("error updating host after respec completed: %v", err)
 		}
 		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
-			env.Logger.Errorf("error updating respec state to completed: %v", err)
+			logrus.Errorf("error updating respec state to completed: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostRespecced, h)
@@ -596,7 +581,7 @@ func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r 
 			return nil
 		}
 
-		env.Logger.Errorf("failed to update server, err: %v", err)
+		logrus.Errorf("failed to update server, err: %v", err)
 		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
 	}
 
@@ -643,7 +628,7 @@ func AptAllowed(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		requireAuth(w)
-		env.Logger.Warnf("cannot decode Basic Auth header, err: %v", err)
+		logrus.Warnf("cannot decode Basic Auth header, err: %v", err)
 		return errBasicAuthFailed
 	}
 	pair := strings.SplitN(string(b), ":", 2)
@@ -655,7 +640,7 @@ func AptAllowed(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	hostID, err := strconv.ParseInt(pair[0], 10, 64)
 	if err != nil {
 		requireAuth(w)
-		env.Logger.Warnf("cannot decode parse host ID from %v, err: %v", pair[0], err)
+		logrus.Warnf("cannot decode parse host ID from %v, err: %v", pair[0], err)
 		return errBasicAuthFailed
 	}
 	password := pair[1]
@@ -695,7 +680,7 @@ func serializeHost(env *middleware.Env, h *host.Host) {
 		var err error
 		u, err = user.FindByID(env.DB, h.UserID)
 		if err != nil {
-			env.Logger.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
+			logrus.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
 		}
 	}
 	env.Status = http.StatusOK
@@ -710,7 +695,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 		var err error
 		u, err = user.FindByID(env.DB, h.UserID)
 		if err != nil {
-			env.Logger.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
+			logrus.Errorf("Error retrieving owner %d for host %d, err: %+v", h.UserID, h.ID, err)
 		}
 	}
 	env.Events.Publish(
@@ -724,7 +709,7 @@ func PublishHostEvent(env *middleware.Env, name controllers.EventName, h *host.H
 func PublishContainerstopped(env *middleware.Env, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
-		env.Logger.Errorf("hosts.Stop: Unable to list host containers: %v", err)
+		logrus.Errorf("hosts.Stop: Unable to list host containers: %v", err)
 		return
 	}
 	for _, cn := range cns {
@@ -777,12 +762,12 @@ func trackWorkspaces(env *middleware.Env, userID int64) {
 		ORDER BY hosts.created_at;
 	`, userID)
 	if err != nil && err != sql.ErrNoRows {
-		env.Logger.Errorf("hosts: Could not track user %d workspaces: %s", userID, err)
+		logrus.Errorf("hosts: Could not track user %d workspaces: %s", userID, err)
 		return
 	}
 	env.Tracker.SetProfileProps("set", userID, map[string]interface{}{
 		"workspaces_plans": plans,
-	}, env.Logger)
+	})
 }
 
 func getTransientContainerSlugs(cns []*container.Container) string {

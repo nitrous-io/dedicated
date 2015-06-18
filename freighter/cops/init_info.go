@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -27,12 +27,12 @@ func infoInit() {
 
 	// chroot the current process into path
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("infoInit failed to change dir to / : %v", err)
+		logrus.Fatalf("infoInit failed to change dir to / : %v", err)
 	}
 
 	stat, err := os.Stat(localPath)
 	if err != nil {
-		log.Fatalf("infoInit failed to stat %s: %v", localPath, err)
+		logrus.Fatalf("infoInit failed to stat %s: %v", localPath, err)
 	}
 
 	info := &FileInfo{
@@ -41,7 +41,7 @@ func infoInit() {
 		IsDir: stat.IsDir(),
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(info); err != nil {
-		log.Fatalf("infoInit failed to encode: %v", err)
+		logrus.Fatalf("infoInit failed to encode: %v", err)
 	}
 	os.Exit(0)
 }

@@ -2,9 +2,9 @@ package amazon
 
 import (
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/ec2"
 )
 
@@ -141,7 +141,7 @@ func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.
 		resp, err = provider.AssociateAddress(opts)
 		switch assocErr := err.(type) {
 		case nil:
-			log.Printf("tryAssociateAddress attempts before success: %d", i+1)
+			logrus.Debugf("tryAssociateAddress attempts before success: %d", i+1)
 			return resp, nil
 		case *ec2.Error:
 			if assocErr.Code == "InvalidAllocationID.NotFound" {

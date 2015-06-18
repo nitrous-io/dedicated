@@ -2,9 +2,10 @@ package buildcontext
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/Sirupsen/logrus"
 )
 
 // ValidateDirectory checks if all the contents of the directory
@@ -56,12 +57,12 @@ func matches(relFilePath string, patterns []string) (bool, error) {
 	for _, exclude := range patterns {
 		matched, err := filepath.Match(exclude, relFilePath)
 		if err != nil {
-			log.Printf("Error matching: %s (pattern: %s)", relFilePath, exclude)
+			logrus.Errorf("Error matching: %s (pattern: %s)", relFilePath, exclude)
 			return false, err
 		}
 		if matched {
 			if filepath.Clean(relFilePath) == "." {
-				log.Printf("Can't exclude whole path, excluding pattern: %s", exclude)
+				logrus.Warnf("Can't exclude whole path, excluding pattern: %s", exclude)
 				continue
 			}
 			return true, nil

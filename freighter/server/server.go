@@ -13,10 +13,10 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/tcputils"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
@@ -49,7 +49,6 @@ func init() {
 }
 
 type Server struct {
-	logger    *util.Logger
 	provider  provider.Provider
 	router    *mux.Router
 	conf      *freighter.Config
@@ -58,12 +57,11 @@ type Server struct {
 	runner    Runner
 }
 
-func NewServer(logger *util.Logger, provider provider.Provider, conf *freighter.Config) *Server {
-	if logger == nil || provider == nil || conf == nil {
+func NewServer(provider provider.Provider, conf *freighter.Config) *Server {
+	if provider == nil || conf == nil {
 		panic("server.NewServer: invalid argument")
 	}
 	svr := &Server{
-		logger:   logger,
 		provider: provider,
 		router:   mux.NewRouter(),
 		conf:     conf,
@@ -96,11 +94,11 @@ func (s *Server) Start() error {
 
 		svr := &http.Server{Addr: addr, Handler: s.router}
 		go func() {
-			s.logger.Infof("Listening on %s %s", proto, addr)
+			logrus.Infof("Listening on %s %s", proto, addr)
 			s.listeners = append(s.listeners, ln)
 			err := svr.Serve(ln)
 			if err != nil {
-				s.logger.Errorf("Listener on %s %s failed with %v", proto, addr, err)
+				logrus.Errorf("Listener on %s %s failed with %v", proto, addr, err)
 			}
 		}()
 	}
@@ -116,7 +114,7 @@ func (s *Server) Start() error {
 
 		err := s.notifyWebhook(data)
 		if err != nil {
-			s.logger.Errorf("failed to notify webhook, err: %v", err)
+			logrus.Errorf("failed to notify webhook, err: %v", err)
 		}
 	}()
 
@@ -210,9 +208,9 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 		}
 		// so that is available in s.respond()
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
-		s.logger.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
+		logrus.Infof("uuid=%s Request: %v %v", uuidStr, r.Method, r.URL.String())
 		handlerFunc(w, r)
-		s.logger.Infof("uuid=%s Request: done\n", uuidStr)
+		logrus.Infof("uuid=%s Request: done", uuidStr)
 	}
 }
 

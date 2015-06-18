@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -34,7 +34,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/nitrous-common/cipher"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -92,7 +91,6 @@ var (
 
 type Provisioner struct {
 	db      *db.Database
-	logger  *logger.Logger
 	events  *pubsub.Pubsub
 	didStop chan struct{}
 
@@ -184,7 +182,7 @@ func init() {
 
 	fv = envvars.FreighterdVersion
 	if fv == "" {
-		log.Println("Warning: FREIGHTERD_VERSION not set")
+		logrus.Warn("FREIGHTERD_VERSION not set")
 	}
 
 	dv = envvars.DockerVersion
@@ -202,10 +200,9 @@ func init() {
 	}
 }
 
-func NewProvisioner(d *db.Database, l *logger.Logger, e *pubsub.Pubsub, conf *Config) *Provisioner {
+func NewProvisioner(d *db.Database, e *pubsub.Pubsub, conf *Config) *Provisioner {
 	return &Provisioner{
 		db:      d,
-		logger:  l,
 		events:  e,
 		didStop: make(chan struct{}),
 		config:  conf,
@@ -227,7 +224,7 @@ func (p *Provisioner) Start() error {
 
 	p.muIsRunning.Lock()
 	if p.isRunning {
-		p.logger.Info("provisioner: Start() called but already started")
+		logrus.Info("provisioner: Start() called but already started")
 		p.muIsRunning.Unlock()
 		return nil
 	}
@@ -247,7 +244,7 @@ func (p *Provisioner) Start() error {
 		signal.Notify(ch, syscall.SIGUSR2)
 		<-ch
 
-		p.logger.Infof("provisioner: SIGUSR2 received, restarting")
+		logrus.Infof("provisioner: SIGUSR2 received, restarting")
 		p.Stop()
 		// Replace hostbuilder client with a new one.
 		hostbuilderURL := envvars.HostBuilderURL
@@ -258,7 +255,7 @@ func (p *Provisioner) Start() error {
 		p.Start()
 	}()
 
-	p.logger.Debugf("provisioner: starting with config %+v", p.config)
+	logrus.Debugf("provisioner: starting with config %+v", p.config)
 
 	// Periodically determine if we need to pre-provision any hosts.
 	go func() {
@@ -283,7 +280,7 @@ func (p *Provisioner) Start() error {
 						return
 					}
 					if numOrphans > 0 {
-						p.logger.Debugf("provisioner: %d orphan(s) in region %d, skipping job",
+						logrus.Debugf("provisioner: %d orphan(s) in region %d, skipping job",
 							numOrphans, pt.RegionID)
 						continue
 					}
@@ -297,40 +294,40 @@ func (p *Provisioner) Start() error {
 						pt.ID, pt.RegionID, pt.PlanID, numHosts, pt.PreprovisionMax)
 					needed := pt.PreprovisionMax - numHosts
 					if needed <= 0 {
-						p.logger.Debugf("%s skipping", logPrefix)
+						logrus.Debugf("%s skipping", logPrefix)
 						continue
 					}
-					p.logger.Debugf("%s creating job", logPrefix)
+					logrus.Debugf("%s creating job", logPrefix)
 
 					j := job{template: &pt}
 
 					h, err := p.preprovision(j)
 					if err != nil {
-						p.logger.Errorf("provisioner: job %s/%d/%d failed, err: %v",
+						logrus.Errorf("provisioner: job %s/%d/%d failed, err: %v",
 							j.template.Provider, j.template.RegionID, j.template.PlanID, err)
 						continue
 					}
 
-					p.logger.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
+					logrus.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
 						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
 				}
 
 				ticker = time.NewTicker(p.config.Interval)
 			case <-p.didStop:
-				p.logger.Debug("provisioner: job creator quitting")
+				logrus.Debug("provisioner: job creator quitting")
 				ticker.Stop()
 				return
 			}
 		}
 	}()
 
-	p.logger.Debug("provisioner: started")
+	logrus.Debug("provisioner: started")
 
 	return nil
 }
 
 func (p *Provisioner) StopWithError(err error) {
-	p.logger.Errorf("provisioner: job creator encountered error: %s", err)
+	logrus.Errorf("provisioner: job creator encountered error: %s", err)
 	p.Stop()
 }
 
@@ -341,7 +338,7 @@ func (p *Provisioner) Stop() {
 		return
 	}
 	p.isRunning = false
-	p.logger.Info("provisioner: stopped")
+	logrus.Info("provisioner: stopped")
 	close(p.didStop)
 }
 
@@ -374,7 +371,7 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		if err == nil {
 			return p.usePreprovisionedHost(preprovisioned, opts)
 		} else if err != sql.ErrNoRows {
-			p.logger.Warnf("Error finding preprovisioned hosts: %s", err)
+			logrus.Warnf("Error finding preprovisioned hosts: %s", err)
 		}
 	}
 
@@ -408,7 +405,7 @@ func unmarkAssignment(h *host.Host) {
 func (p *Provisioner) usePreprovisionedHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
 	assignedHost, err := p.assignHost(h, opts)
 	if err != nil {
-		p.logger.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
+		logrus.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
 		return p.provisionNewHost(opts)
 	}
 	return assignedHost, nil
@@ -462,7 +459,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			p.logger.Errorf("hostbuilder timeout updating host: %v", e)
+			logrus.Errorf("hostbuilder timeout updating host: %v", e)
 		}
 		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
 	}
@@ -624,7 +621,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 			h.State = host.StateOrphan
 			// ignore, but log
 			if err := p.updateProviderDetails(h); err != nil {
-				p.logger.Debugf("provisionTracer: defer-updateProviderDetails err: %+v h: %+v ", err, h)
+				logrus.Debugf("provisionTracer: defer-updateProviderDetails err: %+v h: %+v ", err, h)
 			}
 			if opts.ProvisionFailedFn != nil {
 				opts.ProvisionFailedFn(h, err)
@@ -639,7 +636,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 
 	urlArgs := host.URLArgsFromHost(h)
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
-	p.logger.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
+	logrus.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
 	if hostinfo != nil {
 		h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
@@ -647,7 +644,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	}
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			p.logger.Debugf("provisionTracer: hostbuilder timeout creating host: %v", e)
+			logrus.Debugf("provisionTracer: hostbuilder timeout creating host: %v", e)
 		}
 		err = &HostbuilderError{Err: err}
 		return nil, err
@@ -659,17 +656,17 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 	// only update attributes related to provisioning
 	// we don't want to replace all attributes with any outdated data
 	if err := p.updateProviderDetails(h); err != nil {
-		p.logger.Debugf("provisionTracer: updateProviderDetails err: %+v h: %+v ", err, h)
+		logrus.Debugf("provisionTracer: updateProviderDetails err: %+v h: %+v ", err, h)
 		return nil, err
 	}
 
 	_, err = p.db.Exec(`UPDATE hosts SET hourly_price=$1, free = $2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
 		opts.Plan.HourlyPrice(), opts.Plan.IsFree(), h.ID, opts.Plan.ID)
 	if err != nil {
-		p.logger.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
+		logrus.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err
 	}
-	p.logger.Debugf("provisionTracer: updated h: %+v", h)
+	logrus.Debugf("provisionTracer: updated h: %+v", h)
 
 	// refresh the host for live DB data
 	// (assign, not return so the value is passed into defer)

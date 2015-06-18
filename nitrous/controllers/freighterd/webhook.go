@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -41,7 +42,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	verifier := msgverifier.New(h.Secret)
 	var m message
 	if err := verifier.Verify(msg, &m); err != nil {
-		env.Logger.Errorf("expecting webhook message for host ID %d to verify but didn't, request: %+v", h.ID, r)
+		logrus.Errorf("expecting webhook message for host ID %d to verify but didn't, request: %+v", h.ID, r)
 		return errNotFound
 	}
 
@@ -89,7 +90,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return err
 		}
 
-		env.Logger.Errorf("freighter software update failed with err: %s", m.Error)
+		logrus.Errorf("freighter software update failed with err: %s", m.Error)
 		env.Events.Publish(
 			controllers.NewEvent(controllers.EventHostSoftwareUpdateFailed, map[string]interface{}{
 				"host":  serializers.SerializeHost(h),

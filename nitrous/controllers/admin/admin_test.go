@@ -23,7 +23,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -49,8 +48,7 @@ var _ = Describe("controllers/admin", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr := server.NewServer("", db, logger, nil)
+		svr := server.NewServer("", db, nil)
 		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()

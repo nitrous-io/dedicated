@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -42,7 +43,7 @@ func UserRefresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 
 	for _, h := range hosts {
-		env.Logger.Infof("Host state: %v", h.State)
+		logrus.Infof("Host state: %v", h.State)
 		var evState controllers.EventName
 		switch h.State {
 		case host.StateRunning:
@@ -94,7 +95,7 @@ func publishHostEvent(env *middleware.Env, u *user.User, name controllers.EventN
 func publishContainersEvent(env *middleware.Env, name controllers.EventName, state container.State, h *host.Host) {
 	cns, err := container.FindAllByHostID(env.DB, h.ID)
 	if err != nil {
-		env.Logger.Errorf("Unable to list host containers: %v", err)
+		logrus.Errorf("Unable to list host containers: %v", err)
 		return
 	}
 

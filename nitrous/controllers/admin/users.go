@@ -126,7 +126,7 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 
 	for _, h := range hosts {
 		err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-			return terminateFunc(tx, env.Logger, h, hdrs, env.User.ID)
+			return terminateFunc(tx, h, hdrs, env.User.ID)
 		})
 		if err != nil {
 			return err
@@ -154,7 +154,7 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 	env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
 		"deleted_date": time.Now(),
 		"banned_date":  time.Now(),
-	}, env.Logger)
+	})
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",

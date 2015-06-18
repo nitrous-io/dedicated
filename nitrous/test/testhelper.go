@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -24,13 +25,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/gomega"
 	bc "golang.org/x/crypto/bcrypt"
 )
 
 func init() {
 	bcrypt.DefaultCost = bc.MinCost
+	logrus.SetLevel(logrus.PanicLevel)
 }
 
 var tables []string // retrieve list of tables once and store here
@@ -215,8 +216,8 @@ func WrapInTransaction(db *db.Database, fn func(tx *sqlx.Tx) error) error {
 	return tx.Commit()
 }
 
-func NewTestServer(root string, db *db.Database, l *logger.Logger, t analytics.Tracker) *server.Server {
-	svr := server.NewServer(root, db, l, nil)
+func NewTestServer(root string, db *db.Database, t analytics.Tracker) *server.Server {
+	svr := server.NewServer(root, db, nil)
 	svr.Tracker = t
 
 	return svr

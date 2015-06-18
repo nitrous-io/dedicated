@@ -7,8 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 var testPort = 9999
 var testData = map[string]string{

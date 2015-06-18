@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
 	n "github.com/nitrous-io/dedicated/compass/navigator"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -63,7 +64,7 @@ func (s *Server) Stop() {
 
 func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	q := r.Question[0]
-	log.Printf("Question: %s", q.String())
+	logrus.Printf("Question: %s", q.String())
 
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -78,11 +79,11 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	switch q.Qtype {
 	case dns.TypeSOA:
 		m.Answer = s.soa(q.Name)
-		log.Printf("Answering SOA query with %#v", m)
+		logrus.Printf("Answering SOA query with %#v", m)
 		return
 	case dns.TypeNS:
 		m.Answer = s.ns(q.Name)
-		log.Printf("Answering NS query with %#v", m)
+		logrus.Printf("Answering NS query with %#v", m)
 		return
 	case dns.TypeA, dns.TypeAAAA:
 		start := time.Now()
@@ -95,7 +96,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		res, err := navigator.Lookup(q.Name)
 		if err != nil {
 			mh.Error(err, label)
-			log.Printf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
+			logrus.Errorf("Navigator %s: failed to resolve %s, err: %s", navigator.Name(), q.String(), err)
 			s.setNxdomain(q, m)
 			return
 		}
@@ -105,10 +106,10 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		if q.Qtype == dns.TypeAAAA {
 			m.Rcode = dns.RcodeSuccess
 			m.Ns = s.soa(q.Name)
-			log.Printf("Navigator %s: resolved %s to NODATA", navigator.Name(), q.String())
+			logrus.Printf("Navigator %s: resolved %s to NODATA", navigator.Name(), q.String())
 		} else {
 			m.Answer = res
-			log.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
+			logrus.Printf("Navigator %s: resolved %s to %#v", navigator.Name(), q.String(), r)
 		}
 		if len(m.Answer) > 1 {
 			for _, r := range m.Answer {
@@ -128,7 +129,7 @@ func (s *Server) createServer(net, addr string) {
 		Handler: s.mux,
 	}
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }
 
@@ -139,7 +140,7 @@ func (s *Server) navigatorForA(qn dns.Question) (n.Navigator, bool) {
 }
 
 func (s *Server) setNxdomain(q dns.Question, m *dns.Msg) {
-	log.Printf("No answer for question %s", q.String())
+	logrus.Printf("No answer for question %s", q.String())
 	m.Rcode = dns.RcodeNameError // NXDOMAIN
 	m.Ns = s.allSOA()
 }
@@ -195,7 +196,7 @@ func NewServer(config *Config) (*Server, error) {
 				c, err)
 		}
 		navigators[c.Domain] = n
-		log.Printf("Registered navigator %s for domain %s", n.Name(), c.Domain)
+		logrus.Infof("Registered navigator %s for domain %s", n.Name(), c.Domain)
 	}
 	if len(navigators) == 0 {
 		return nil, fmt.Errorf("ERROR: empty navigators %v", config)
@@ -210,7 +211,7 @@ func NewServer(config *Config) (*Server, error) {
 	// development environment, output the metrics to stderr
 	// by default we flush metrics every 10s
 	if config.LibratoUser == "" || config.LibratoToken == "" {
-		log.Printf("missing librato config. Metrics logging is disabled")
+		logrus.Warn("missing librato config. Metrics logging is disabled")
 		// in dev, we flush metrics every 60s into devNull
 		// because we are not interested in them
 		go metrics.Log(metrics.DefaultRegistry, 60e9,

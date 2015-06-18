@@ -9,12 +9,13 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Sirupsen/logrus"
 )
 
 const (
@@ -239,7 +240,7 @@ func (c *FS) openFile(p string, flag int) (*os.File, error) {
 func readDir(name string) (fi []os.FileInfo, err error) {
 	f, err := os.Open(name)
 	if err != nil {
-		log.Printf("readDir: os.Open('%s') failed with '%s'\n", name, err)
+		logrus.Errorf("readDir: os.Open('%s') failed with '%s'\n", name, err)
 		return nil, err
 	}
 	defer f.Close()

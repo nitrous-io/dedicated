@@ -5,7 +5,6 @@ import (
 
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
-	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 var (
@@ -44,8 +43,8 @@ func (p *DockerProvider) InspectRemoteImage(location string) (*provider.ImageInf
 // Specify another docker host instead of the default unix socket
 // This is useful when we want to inject a fake docker host or when we want to
 // use FakeRoundtripper with a dummy tcp address
-func NewDockerProviderWithHost(logger *util.Logger, dataPath string, host string) (*DockerProvider, error) {
-	if logger == nil || dataPath == "" {
+func NewDockerProviderWithHost(dataPath string, host string) (*DockerProvider, error) {
+	if dataPath == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
 	client, err := dockerclient.NewClient(host)
@@ -55,7 +54,6 @@ func NewDockerProviderWithHost(logger *util.Logger, dataPath string, host string
 	return &DockerProvider{
 		client:            client,
 		dataPath:          dataPath,
-		logger:            logger,
 		DockerClientProxy: client,
 	}, nil
 }

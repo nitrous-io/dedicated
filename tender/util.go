@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
 
+	"github.com/Sirupsen/logrus"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/tcputils"
 )
@@ -189,7 +189,7 @@ func ToggleVerboseLog() {
 		v = 0
 	}
 	atomic.StoreInt32(&VerboseLog, v)
-	log.Printf("Toggled verbose logging to %d", v)
+	logrus.Printf("Toggled verbose logging to %d", v)
 }
 
 func LogVerbosef(format string, args ...interface{}) {
@@ -197,5 +197,5 @@ func LogVerbosef(format string, args ...interface{}) {
 	if v == 0 {
 		return
 	}
-	log.Printf(format, args...)
+	logrus.Printf(format, args...)
 }

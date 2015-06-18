@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -27,12 +27,12 @@ func readFileInit() {
 	localPath := flag.Arg(1)
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("readFileInit failed to change dir to / : %v", err)
+		logrus.Fatalf("readFileInit failed to change dir to / : %v", err)
 	}
 
 	f, err := os.Open(localPath)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	defer f.Close()
 	io.Copy(os.Stdout, f)

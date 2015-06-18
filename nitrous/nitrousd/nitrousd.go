@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/pkg/queue"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
 	"github.com/stripe/stripe-go"
@@ -29,6 +29,9 @@ var (
 	nitroVersion      string // nitro version that works with current nitrousd
 )
 
+// default to debug level logging
+func init() { logrus.SetLevel(logrus.DebugLevel) }
+
 func main() {
 	flVersion := flag.Bool("v", false, "Display the version and exit")
 	flag.Parse()
@@ -38,11 +41,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	logr := &logger.Logger{Level: logger.LogLevelDebug}
-
 	defer func() {
 		if r := recover(); r != nil {
-			logr.FatalExit(r)
+			logrus.Fatal(r)
 		}
 	}()
 
@@ -63,11 +64,11 @@ func main() {
 	envvars.CheckDB()
 	dbConn, err := db.NewDatabase(envvars.NitrousPgUrl)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	defer dbConn.DB.Close()
 	if err := dbConn.MigrateAll(); err != nil {
-		logr.Infof("nitrousd: migrations failed: %v", err)
+		logrus.Infof("nitrousd: migrations failed: %v", err)
 	}
 
 	var libratoInterval time.Duration
@@ -77,7 +78,7 @@ func main() {
 	} else {
 		libratoInterval, err = time.ParseDuration(li)
 		if err != nil {
-			logr.FatalExit("nitrousd: LIBRATO_INTERVAL invalid:", err.Error())
+			logrus.Fatal("nitrousd: LIBRATO_INTERVAL invalid:", err.Error())
 		}
 	}
 
@@ -88,7 +89,7 @@ func main() {
 		libratoToken == "" ||
 		strings.HasPrefix(libratoUser, "disable") ||
 		strings.HasPrefix(libratoToken, "disable") {
-		logr.Warnf("missing librato config. Metrics logging is disabled")
+		logrus.Warnf("missing librato config. Metrics logging is disabled")
 		// in dev, we discard metrics output because we are not interested in it
 		go metrics.Log(metrics.DefaultRegistry, 60e9,
 			log.New(ioutil.Discard, "metrics: ", log.Lmicroseconds))
@@ -106,49 +107,48 @@ func main() {
 
 	pu := envvars.ProvisionerUser
 	if pu == "" {
-		logr.FatalExit("nitrousd: PROVISIONER_USER is not defined")
+		logrus.Fatal("nitrousd: PROVISIONER_USER is not defined")
 	}
 	pi, err := time.ParseDuration(envvars.ProvisionerInterval)
 	if err != nil {
-		logr.FatalExit("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
+		logrus.Fatal("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
 	}
 
 	conf := &provisioner.Config{Username: pu, Interval: pi}
 
-	svr := server.NewServer(envvars.RootDir, dbConn, logr, conf)
+	svr := server.NewServer(envvars.RootDir, dbConn, conf)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)
 	if err != nil {
-		log.Fatalf("nitrousd: STOP_TIMEOUT is not a valid duration: %v", err)
+		logrus.Fatalf("nitrousd: STOP_TIMEOUT is not a valid duration: %v", err)
 	}
 	svr.StopTimeout = st
 
 	kt, err := time.ParseDuration(envvars.KillTimeout)
 	if err != nil {
-		log.Fatalf("nitrousd: KILL_TIMEOUT is not a valid duration: %v", err)
+		logrus.Fatalf("nitrousd: KILL_TIMEOUT is not a valid duration: %v", err)
 	}
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
-	if envvars.EnableQueue {
-		go queue.StartConsumer(
-			envvars.RedisHost,
-			envvars.RedisPort,
-			envvars.RedisDB,
-			HostQueueName,
-			svr.HostQueueHandler(),
-			svr.QueueStopCh,
-			envvars.QueueHandlerTimeout,
-		)
-	}
+	envvars.CheckRedis()
+	go queue.StartConsumer(
+		envvars.RedisHost,
+		envvars.RedisPort,
+		envvars.RedisDB,
+		HostQueueName,
+		svr.HostQueueHandler(),
+		svr.QueueStopCh,
+		envvars.QueueHandlerTimeout,
+	)
 
 	pid := os.Getpid()
 	host := "0.0.0.0"
 	port := uint16(3333)
 
-	logr.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
+	logrus.Infof("nitrousd %s (pid: %v) listening on %s:%d", version, pid, host, port)
 	err = svr.Start(host, port)
 	if err != nil {
-		logr.Errorf("Error starting nitrousd: %s", err)
+		logrus.Errorf("Error starting nitrousd: %s", err)
 	}
 }

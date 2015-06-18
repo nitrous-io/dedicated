@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/tender"
 )
 
@@ -56,7 +56,7 @@ func init() {
 	// which is the proxy to freighter remote api on each host
 	hostBaseDomain = envStr("HOST_BASE_DOMAIN")
 	if hostBaseDomain[0] != '.' {
-		log.Fatalf("HOST_BASE_DOMAIN should start with .")
+		logrus.Fatalf("HOST_BASE_DOMAIN should start with .")
 	}
 	hostCACert = envStr("HOST_CA_CRT")
 	hostCAKey = envStr("HOST_CA_KEY")
@@ -69,7 +69,7 @@ func init() {
 
 	containerBaseDomain = envStr("CONTAINER_BASE_DOMAIN")
 	if containerBaseDomain[0] != '.' {
-		log.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
+		logrus.Fatalf("CONTAINER_BASE_DOMAIN should start with .")
 	}
 	containerCACert = envStr("CONTAINER_CA_CRT")
 	containerCAKey = envStr("CONTAINER_CA_KEY")
@@ -87,10 +87,10 @@ func refreshCachesWorker(db *sql.DB) {
 		// between refreshes), we fetch from db
 		time.Sleep(cacheRefreshPeriod)
 		if err = tender.RefreshContainersCache(db); err != nil {
-			log.Printf("RefreshContainersCache() failed with %s", err)
+			logrus.Errorf("RefreshContainersCache() failed with %s", err)
 		}
 		if err = tender.RefreshHostsCache(db); err != nil {
-			log.Printf("RefreshHostsCache() failed with %s", err)
+			logrus.Errorf("RefreshHostsCache() failed with %s", err)
 		}
 	}
 }
@@ -105,7 +105,7 @@ func installSignalHandlers() {
 			} else if s == syscall.SIGUSR2 {
 				tender.DumpHostsCache()
 			} else {
-				log.Printf("Unexpected signal %s", s)
+				logrus.Errorf("Unexpected signal %s", s)
 			}
 		}
 	}()
@@ -126,21 +126,21 @@ func main() {
 
 	db, err := connectDB(databaseURL)
 	if err != nil {
-		log.Fatalf("connectDB: %v", err)
+		logrus.Fatalf("connectDB: %v", err)
 	}
 
 	privCACert, err := ioutil.ReadFile(privCACertPath)
 	if err != nil {
-		log.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
+		logrus.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
 	timeStart := time.Now()
 	tender.RefreshContainersCache(db)
-	log.Printf("[INFO] initial refreshContainersCache() took %s", time.Since(timeStart))
+	logrus.Infof("initial refreshContainersCache() took %s", time.Since(timeStart))
 
 	timeStart = time.Now()
 	tender.RefreshHostsCache(db)
-	log.Printf("[INFO] initial refreshHostsCache() took %s", time.Since(timeStart))
+	logrus.Infof("nitial refreshHostsCache() took %s", time.Since(timeStart))
 
 	go refreshCachesWorker(db)
 
@@ -149,11 +149,11 @@ func main() {
 
 	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
 	if err != nil {
-		log.Fatalf("tender: failed to load host proxy's SSL certificates: %v", err)
+		logrus.Fatalf("tender: failed to load host proxy's SSL certificates: %v", err)
 	}
 	containerCert, err := tls.LoadX509KeyPair(containerCACert, containerCAKey)
 	if err != nil {
-		log.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
+		logrus.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
 	}
 
 	go serve443(hostCert, containerCert, freighterProxy, previewProxy)
@@ -175,8 +175,8 @@ func serve443(hostCert, containerCert tls.Certificate, freighterProxy, previewPr
 		PreviewProxyServer:   previewProxy,
 	}
 
-	log.Printf("listening to port %d", freighterdForwardPort)
-	log.Fatal(tender.ServeTLS(freighterdForwardPort, tlsConfig, proxyServer))
+	logrus.Printf("listening to port %d", freighterdForwardPort)
+	logrus.Fatal(tender.ServeTLS(freighterdForwardPort, tlsConfig, proxyServer))
 }
 
 func serveFreighterdProxy(cert tls.Certificate, handler http.Handler) {
@@ -185,28 +185,28 @@ func serveFreighterdProxy(cert tls.Certificate, handler http.Handler) {
 		Certificates: []tls.Certificate{cert},
 	}
 
-	log.Printf("listening to port %d", freighterdPort)
-	log.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, handler))
+	logrus.Printf("listening to port %d", freighterdPort)
+	logrus.Fatal(tender.ServeTLS(freighterdPort, tlsConfig, handler))
 }
 
 func servePreviewProxy(handler http.Handler) {
 	startPort, endPort, err := tender.PortsRange(previewStartPort, previewEndPort)
 	if err != nil {
-		log.Fatalf("tender: invalid ports, %q", err)
+		logrus.Fatalf("tender: invalid ports, %q", err)
 	}
-	log.Printf("listen to port from %d to %d", startPort, endPort)
+	logrus.Printf("listen to port from %d to %d", startPort, endPort)
 
 	// proxy port range for preview
 	for p := startPort; p <= endPort; p++ {
 		go func(port int64) {
-			log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler))
+			logrus.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), handler))
 		}(p)
 	}
 
 	// Listen to port 80.
 	go func() {
-		log.Println("listening to port 80")
-		log.Fatal(http.ListenAndServe(":80", handler))
+		logrus.Println("listening to port 80")
+		logrus.Fatal(http.ListenAndServe(":80", handler))
 	}()
 }
 

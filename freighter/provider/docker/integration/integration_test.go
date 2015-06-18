@@ -9,13 +9,13 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 
 	// load required init for reexec commands
@@ -26,6 +26,7 @@ import (
 )
 
 func init() {
+	logrus.SetLevel(logrus.PanicLevel)
 	// return if running in reexec mode, and the reexec func has already finished
 	if reexec.Init() {
 		return
@@ -94,7 +95,7 @@ func startContainer(image, config string) (*docker.DockerProvider, *provider.Con
 // startContainerWithData returns a running container based on busybox:latest
 // with random name, and the provider used to run the container
 func startContainerWithData(image, datadir, config string) (*docker.DockerProvider, *provider.ContainerInfo, func(), error) {
-	prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+	prov, err := docker.NewDockerProvider(datadir)
 	if err != nil {
 		return nil, nil, func() {
 			os.RemoveAll(datadir)

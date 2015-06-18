@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -163,7 +163,7 @@ func (s *Server) reconfigureContainer(w http.ResponseWriter, r *http.Request) {
 	s.terminateActiveCops(id)
 	info, err := s.provider.Reconfig(id, r.FormValue("config"))
 	if err != nil {
-		s.logger.Error(err)
+		logrus.Error(err)
 
 		if info != nil {
 			s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{
@@ -556,13 +556,13 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 		select {
 		case err := <-sh.Exited:
 			if err != nil {
-				log.Printf("wsNewShell: exited with err %v", err)
+				logrus.Errorf("wsNewShell: exited with err %v", err)
 			}
 			stdout.Close() // sending c| message to client so it will not reconnect
 			return err
 		case err := <-ch:
 			if err != nil {
-				log.Printf("wsNewShell: detached with err %v", err)
+				logrus.Errorf("wsNewShell: detached with err %v", err)
 			}
 			return nil
 		case msg := <-msgCh:
@@ -574,7 +574,7 @@ func (s *Server) wsShell(w http.ResponseWriter, r *http.Request) error {
 				sh.Close()
 				return nil
 			default:
-				log.Println("shell: got unknown msg ", msg)
+				logrus.Warnf("shell: got unknown msg %+v", msg)
 			}
 		}
 	}
@@ -617,7 +617,7 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 			if err := dec.Decode(&msg); err == nil {
 				msgsFromCops <- msg
 			} else {
-				log.Printf("wsContainerOps: dec.Decode() failed with %s", err)
+				logrus.Errorf("wsContainerOps: dec.Decode() failed with %s", err)
 				quit <- err
 				return
 			}
@@ -634,15 +634,15 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		for {
 			msgType, d, err = msgproto.ReadAndDecodeMessage(ws)
 			if err != nil {
-				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() failed with %s", err)
+				logrus.Errorf("wsContainerOps: msgproto.ReadAndDecodeMessage() failed with %s", err)
 				break
 			}
 			if msgType == msgproto.CloseMessage {
-				log.Printf("wsContainerOps: msgproto.ReadAndDecodeMessage() received msgproto.CloseMessge")
+				logrus.Debugf("wsContainerOps: msgproto.ReadAndDecodeMessage() received msgproto.CloseMessge")
 				break
 			}
 			if _, err = copsStdin.Write(d); err != nil {
-				log.Printf("cops.Start(): stdin.Write() failed with %s", err)
+				logrus.Errorf("cops.Start(): stdin.Write() failed with %s", err)
 				break
 			}
 		}
@@ -659,11 +659,11 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 	for {
 		select {
 		case err := <-quit:
-			log.Printf("container ops: exited with err %v", err)
+			logrus.Debugf("container ops: exited with err %v", err)
 			ActiveCops.RemoveChannel(id, quit)
 			ws.Close() // inform client that server has closed connection.
 			if cmd.Process != nil {
-				log.Printf("wsContainerOps: killing cops process")
+				logrus.Debugf("wsContainerOps: killing cops process")
 				cmd.Process.Kill()
 			}
 			return nil
@@ -671,11 +671,11 @@ func (s *Server) wsContainerOps(w http.ResponseWriter, r *http.Request) error {
 		case msg := <-msgsFromCops:
 			d, err := json.Marshal(msg)
 			if err != nil {
-				log.Printf("json.Marshal() of %v failed with %s\n", msg, err)
+				logrus.Errorf("json.Marshal() of %v failed with %s", msg, err)
 			} else {
 				_, err = msgproto.WriteDataMessage(d, ws)
 				if err != nil {
-					log.Printf("msgproto.WriteDataMessage() failed with '%s'\n", err)
+					logrus.Errorf("msgproto.WriteDataMessage() failed with '%s'", err)
 				}
 			}
 
@@ -943,7 +943,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 		if err := s.provider.AttachToContainer(id, stdin, stdout, noStdin); err != nil {
 			// Connection is already hijacked,
 			// log the error and close the connection
-			s.logger.Errorf("attach: %s", err)
+			logrus.Errorf("attach: %s", err)
 			stream.Write([]byte("c|an error occurred"))
 		}
 	}()
@@ -957,7 +957,7 @@ func (s *Server) wsAttachToContainer(w http.ResponseWriter, r *http.Request) err
 			case *shell.ResizeMsg:
 				err = s.provider.ResizeContainerTTY(id, msg.Height, msg.Width)
 			default:
-				s.logger.Info("attach: got unknown msg %v", msg)
+				logrus.Info("attach: got unknown msg %v", msg)
 			}
 		}
 	}
@@ -1071,13 +1071,13 @@ func (s *Server) upgradeServer(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) notifyWebhookUpgradeFailed(upgradeErr error, component string) {
-	s.logger.Errorf("error upgrading freighterd and/or docker: %v", upgradeErr)
+	logrus.Errorf("error upgrading freighterd and/or docker: %v", upgradeErr)
 	err := s.notifyWebhook(map[string]interface{}{
 		"event": "upgrade",
 		"error": upgradeErr.Error(),
 	})
 	if err != nil {
-		s.logger.Errorf("failed to notify webhook about %s update, err: %v", component, err)
+		logrus.Errorf("failed to notify webhook about %s update, err: %v", component, err)
 	}
 }
 
@@ -1096,18 +1096,18 @@ func (s *Server) upgradeDockerAndFreighter(dv string, fv string) {
 			s.notifyWebhookUpgradeFailed(err, "docker")
 			return
 		}
-		s.logger.Infof("updated docker package to %q", dv)
+		logrus.Infof("updated docker package to %q", dv)
 	}
 	if fv != "" {
 		if err := s.upgradeFreighterd(fv); err != nil {
 			s.notifyWebhookUpgradeFailed(err, "freighterd")
 			return
 		}
-		s.logger.Infof("updated freighterd package from %q to %q", freighter.Version, fv)
+		logrus.Infof("updated freighterd package from %q to %q", freighter.Version, fv)
 	}
 
 	if err := s.stopFreighterd(); err != nil {
-		s.logger.Errorf("error stopping freighterd: %v", err)
+		logrus.Errorf("error stopping freighterd: %v", err)
 		s.notifyWebhookUpgradeFailed(err, "freighterd")
 	}
 }
@@ -1118,7 +1118,7 @@ func (s *Server) updateAptSource() error {
 		"-o", "Dir::Etc::sourcelist=/etc/apt/sources.list.d/nitrousio.list")
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating nitrous repo, err: %v, output: %s", err, out)
+		logrus.Errorf("error updating nitrous repo, err: %v, output: %s", err, out)
 		return err
 	}
 	return nil
@@ -1134,7 +1134,7 @@ func (s *Server) upgradeDocker(version string) error {
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	cmd.Env = append(cmd.Env, "PATH=/usr/sbin:/usr/bin:/sbin:/bin")
 	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating docker package, err: %v, output: %s", err, out)
+		logrus.Errorf("error updating docker package, err: %v, output: %s", err, out)
 		return err
 	}
 	return nil
@@ -1166,7 +1166,7 @@ func (s *Server) upgradeFreighterd(version string) error {
 	cmd.Env = append(cmd.Env, fmt.Sprintf("PATH=%s:/usr/sbin:/usr/bin:/sbin:/bin", fakepath))
 	cmd.Env = append(cmd.Env, "DEBIAN_FRONTEND=noninteractive")
 	if out, err := s.runner.Run(cmd); err != nil {
-		s.logger.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
+		logrus.Errorf("error updating freighterd package, err: %v, output: %s", err, out)
 		return err
 	}
 
@@ -1189,7 +1189,7 @@ func setupFakePath(path string) error {
 // TODO We probably want to stop gracefully (maybe by sending SIGHUP to self)
 // so that existing HTTP requests are not dropped.
 func (s *Server) stopFreighterd() error {
-	s.logger.Infof("Sending freighter process signal to terminate...")
+	logrus.Infof("Sending freighter process signal to terminate...")
 	return syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 }
 

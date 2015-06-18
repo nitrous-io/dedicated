@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 )
 
@@ -53,7 +54,7 @@ func (p *DockerProvider) ListVolumes() ([]string, error) {
 		fi, err := os.Stat(m)
 		if err != nil {
 			// do not allow a single problematic path to prevent access to list
-			p.logger.Errorf("ERR: Error in ListVolumes with path %s: %s", m, err)
+			logrus.Errorf("ERR: Error in ListVolumes with path %s: %s", m, err)
 			continue
 		}
 		if !fi.IsDir() {
@@ -95,7 +96,7 @@ func (p *DockerProvider) GetVolumeInfo(slug string) (*provider.VolumeInfo, error
 
 	size, err := treeSize(path)
 	if err != nil {
-		p.logger.Errorf("ERR treeSize: %s", err)
+		logrus.Errorf("ERR treeSize: %s", err)
 		return nil, fmt.Errorf("unexpected error while checking disk usage")
 	}
 	vi := &provider.VolumeInfo{

@@ -2,12 +2,12 @@ package envvars
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/kardianos/osext"
 	"github.com/nitrous-io/nitrous-common/must"
 )
@@ -72,9 +72,6 @@ var (
 
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
-	// Feature flag for queue
-	EnableQueue = parseBoolWithDefault(os.Getenv("ENABLE_QUEUE"), false)
-
 	RedisHost = os.Getenv("REDIS_HOST")
 	RedisPort = os.Getenv("REDIS_PORT")
 	RedisDB   = parseInt64(os.Getenv("REDIS_DB"))
@@ -124,61 +121,71 @@ func parseDurationWithDefault(s string, def time.Duration) time.Duration {
 
 func CheckCA() {
 	if CAKeyPath == "" {
-		log.Fatal("CA_KEY_PATH is not set")
+		logrus.Fatal("CA_KEY_PATH is not set")
 	}
 	if CACertPath == "" {
-		log.Fatal("CA_CERT_PATH is not set")
+		logrus.Fatal("CA_CERT_PATH is not set")
 	}
 }
 
 func CheckDB() {
 	if NitrousPgUrl == "" {
-		log.Fatalf("nitrousd: %s is not defined", DBEnvVar)
+		logrus.Fatalf("nitrousd: %s is not defined", DBEnvVar)
 	}
 }
 
 func CheckSendgrid() {
 	if SendgridUsername == "" {
-		log.Fatal("SENDGRID_USERNAME not set")
+		logrus.Fatal("SENDGRID_USERNAME not set")
 	} else if strings.HasPrefix(SendgridUsername, "disable") {
-		log.Println("Warning: Sendgrid mailer disabled.")
+		logrus.Warn("Sendgrid mailer disabled.")
 		return
 	}
 	if SendgridPassword == "" {
-		log.Fatal("SENDGRID_PASSWORD not set")
+		logrus.Fatal("SENDGRID_PASSWORD not set")
 	}
 }
 
 func CheckStripe() {
 	if StripeSecretKey == "" {
-		log.Fatal("STRIPE_SECRET_KEY environment variable not set")
+		logrus.Fatal("STRIPE_SECRET_KEY environment variable not set")
 	}
 }
 
 func CheckHostnames() {
 	if HostHostname == "" {
-		log.Fatal("HOST_HOSTNAME not set")
+		logrus.Fatal("HOST_HOSTNAME not set")
 	}
 	if ProxyHostname == "" {
-		log.Fatal("PROXY_HOSTNAME not set")
+		logrus.Fatal("PROXY_HOSTNAME not set")
 	}
 	if PreviewHostname == "" {
-		log.Fatal("PREVIEW_HOSTNAME not set")
+		logrus.Fatal("PREVIEW_HOSTNAME not set")
 	}
 }
 
 func CheckGitHubOAuth() {
 	if GitHubOAuthClientID == "" {
-		log.Println("Warning: GITHUB_CLIENT_ID not set")
+		logrus.Warn("GITHUB_CLIENT_ID not set")
 	}
 
 	if GitHubOAuthClientSecret == "" {
-		log.Println("Warning: GITHUB_CLIENT_SECRET not set")
+		logrus.Warn("GITHUB_CLIENT_SECRET not set")
 	}
 }
 
 func CheckSecretToken() {
 	if SecretToken == "" {
-		log.Fatal("SECRET_TOKEN not set")
+		logrus.Fatal("SECRET_TOKEN not set")
+	}
+}
+
+func CheckRedis() {
+	if RedisHost == "" {
+		logrus.Fatalf("nitrousd: REDIS_HOST is not set")
+	}
+
+	if RedisPort == "" {
+		logrus.Fatalf("nitrousd: REDIS_PORT is not set")
 	}
 }

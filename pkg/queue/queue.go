@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/adjust/redismq"
 )
 
@@ -102,14 +102,14 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 		if err != nil {
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
-				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
+				logrus.Warnf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
 				tries--
 				time.Sleep(retryInterval)
 				continue
 			}
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
-				log.Printf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
+				logrus.Warnf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -155,7 +155,7 @@ func (qc *QueueConsumer) Consume() (*Message, Delivery, error) {
 	p, err := qc.Consumer.Get()
 	if err != nil {
 		if qc.Consumer.HasUnacked() {
-			log.Println("pushed the message to working queue even if it failes to get a message. Requeue again to process")
+			logrus.Warn("pushed the message to working queue even if it failes to get a message. Requeue again to process")
 			time.Sleep(1 * time.Second)
 			qc.Consumer.RequeueWorking()
 		}
@@ -187,14 +187,14 @@ func (d *redisDelivery) Ack(retryInterval time.Duration) error {
 		if err != nil {
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
-				log.Printf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
+				logrus.Warnf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
 				time.Sleep(retryInterval)
 				continue
 			}
 
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
-				log.Printf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
+				logrus.Warnf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -210,23 +210,23 @@ func (d *redisDelivery) Ack(retryInterval time.Duration) error {
 func (d *redisDelivery) Fail() {
 	err := d.p.Fail()
 	if err != nil {
-		log.Printf("[ERROR] uuid=%s Failed to push a message(%s) to failed queue: %v",
+		logrus.Errorf("uuid=%s Failed to push a message(%s) to failed queue: %v",
 			d.msg.UUID, d.msg.Payload, err)
 	}
 }
 
 func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	queueName := qc.Consumer.Name
-	log.Printf("started queue consumer %s", queueName)
+	logrus.Debugf("started queue consumer %s", queueName)
 
 	msg := make(chan *redisDelivery)
 	go func() {
 		var last_error error
 		for {
-			log.Printf("waiting for consuming next message from (%s) queue", queueName)
+			logrus.Debugf("waiting for consuming next message from (%s) queue", queueName)
 			_, d, err := qc.Consume()
 			if err != nil {
-				log.Printf("[ERROR] Failed to consume a message from (%s) queue: %+v", queueName, err)
+				logrus.Errorf("Failed to consume a message from (%s) queue: %+v", queueName, err)
 				// redis emits `open connections too fast` when we exceeds the error limit
 				if err == io.EOF || strings.Contains(err.Error(), "open connections too fast") {
 					time.Sleep(1 * time.Second)
@@ -251,21 +251,21 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 	for {
 		select {
 		case c := <-stop:
-			log.Printf("stopped queue consumer %s", queueName)
+			logrus.Debugf("stopped queue consumer %s", queueName)
 			stop <- c
 			return nil
 		case d := <-msg:
 			m := d.msg
-			log.Printf("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
+			logrus.Infof("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
 			go func() {
 				err := qc.handler(m)
 				if err != nil {
-					log.Printf("[ERROR] uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
+					logrus.Errorf("uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
 					d.Fail()
 				} else {
 					err := d.Ack(1 * time.Second)
 					if err != nil {
-						log.Printf("[ERROR] uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
+						logrus.Errorf("uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
 					}
 				}
 				finished <- true
@@ -273,9 +273,9 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 
 			select {
 			case <-finished:
-				log.Printf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				logrus.Debugf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
 			case <-time.After(qc.handlerTimeout):
-				log.Printf("[ERROR] uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				logrus.Errorf("uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
 				d.Fail()
 			}
 			msg <- d
@@ -292,7 +292,7 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 	for {
 		select {
 		case c := <-stop:
-			log.Printf("shutting down before initialize queue consumer: %s", queueName)
+			logrus.Debugf("shutting down before initialize queue consumer: %s", queueName)
 			stop <- c
 			return nil
 		default:
@@ -303,10 +303,10 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			}
 
 			if !strings.Contains(err.Error(), "consumer with this name is already active") {
-				log.Fatalf("[ERROR] Failed to start queue consumer: %v", err)
+				logrus.Fatalf("Failed to start queue consumer: %v", err)
 			}
 
-			log.Printf("Waiting for previous queue comsumer to be down")
+			logrus.Debugf("Waiting for previous queue comsumer to be down")
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
@@ -315,12 +315,12 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 func CreateConsumer(q *redismq.Queue, queueName string, handler queueHandler, handlerTimeout time.Duration) (Consumer, error) {
 	c, err := q.AddConsumer(queueName)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to add a consumer: %v", err)
+		return nil, fmt.Errorf("failed to add a consumer: %v", err)
 	}
 
 	err = c.RequeueWorking() // Requeue all messages that does not send ACK
 	if err != nil {
-		return nil, fmt.Errorf("Failed to requeue not finished job: %v", err)
+		return nil, fmt.Errorf("failed to requeue not finished job: %v", err)
 	}
 
 	return &QueueConsumer{

@@ -6,7 +6,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,8 +26,7 @@ var _ = Describe("InspectImage", func() {
 			Expect(err).To(BeNil())
 		}
 
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		prov, err = docker.NewDockerProvider(logger, datadir)
+		prov, err = docker.NewDockerProvider(datadir)
 		Expect(err).To(BeNil())
 	})
 

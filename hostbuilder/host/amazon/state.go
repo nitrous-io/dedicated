@@ -4,9 +4,9 @@ package amazon
 import (
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/ec2"
 )
 
@@ -44,7 +44,7 @@ func instanceStateRefreshFunc(conn *ec2.EC2, i *ec2.Instance) StateRefreshFunc {
 				// Set this to nil as if we didn't find anything.
 				resp = nil
 			} else {
-				log.Printf("Error on InstanceStateRefresh: %s", err)
+				logrus.Errorf("Error on InstanceStateRefresh: %s", err)
 				return nil, "", err
 			}
 		}

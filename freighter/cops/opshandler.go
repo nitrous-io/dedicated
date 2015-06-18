@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/go-fsnotify/fsnotify"
 )
 
@@ -62,7 +62,7 @@ func (oh *OpsHandler) sendReply(msg *Message) error {
 	err := oh.encoder.Encode(msg)
 	oh.mu.Unlock()
 	if err != nil {
-		log.Printf("sendReply: oh.encoder.Encode() failed with '%s'", err)
+		logrus.Errorf("sendReply: oh.encoder.Encode() failed with '%s'", err)
 		oh.stopWithError(fmt.Errorf("failed to encode %v, %s", msg, err))
 	}
 	return err
@@ -123,10 +123,10 @@ func (oh *OpsHandler) fileWatcherLoop() {
 				oh.notifyDirChanged(filepath.Dir(path))
 			}
 		case err := <-oh.fileWatcher.Errors:
-			log.Printf("fileWatcherLoop: got fsnotify error '%s'\n", err)
+			logrus.Errorf("fileWatcherLoop: got fsnotify error '%s'", err)
 			return
 		case <-oh.fileWatcherQuit:
-			log.Printf("quitting file watcher\n")
+			logrus.Debugf("quitting file watcher")
 			return
 		}
 	}
@@ -183,7 +183,7 @@ func (oh *OpsHandler) copsMessageLoop() {
 			// on unknown messages we send an error back. this allows IDE to work
 			// with older versions of freighter (as long as it sensibly handles this
 			// message)
-			log.Printf("copsMessageLoop() invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
+			logrus.Errorf("copsMessageLoop() invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event)
 			oh.replyWithError(msg, fmt.Sprintf("invalid operation, namespace: '%s', event: '%s'", msg.Namespace, msg.Event))
 		}
 	}

@@ -19,7 +19,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
-	"github.com/nitrous-io/nitrous-common/logger"
 	stripe "github.com/stripe/stripe-go"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -34,8 +33,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("subscriptions", func() {
 	var (
-		db  *ndb.Database
-		lgr *logger.Logger
+		db *ndb.Database
 
 		hs *test.HostStack
 		u  *user.User
@@ -85,14 +83,12 @@ var _ = Describe("subscriptions", func() {
 		Expect(err).To(BeNil())
 
 		subProvider = &subscriptions.SubscriptionProvider{}
-
-		lgr = &logger.Logger{Level: logger.LogLevelQuiet}
 	})
 
 	Describe("Subscribe()", func() {
 		It("should return an error if the plan is not subscribable", func() {
 			p := &plan.Plan{}
-			s, err := subProvider.Subscribe(db, lgr, hs.H, p, u)
+			s, err := subProvider.Subscribe(db, hs.H, p, u)
 			Expect(err).To(Equal(subscriptions.ErrNotSubscribablePlan))
 			Expect(s).To(BeNil())
 		})
@@ -101,7 +97,7 @@ var _ = Describe("subscriptions", func() {
 			_, err := db.Exec(`UPDATE billing_profiles SET state=$1 WHERE user_id=$2;`, billingprofile.StateDelinquent, u.ID)
 			Expect(err).To(BeNil())
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
 			Expect(s).To(BeNil())
 		})
@@ -112,7 +108,7 @@ var _ = Describe("subscriptions", func() {
 				`{"object": null, "id": null}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
 			Expect(s).To(BeNil())
 
@@ -137,7 +133,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(BeNil())
 			Expect(s).ToNot(BeNil())
 
@@ -180,7 +176,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(Equal(fakeStripe.Errors[1]))
 			Expect(s).To(BeNil())
 
@@ -226,7 +222,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(BeNil())
 			Expect(s).ToNot(BeNil())
 
@@ -270,7 +266,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(BeNil())
 			Expect(s).ToNot(BeNil())
 
@@ -310,7 +306,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(BeNil())
 			Expect(s).ToNot(BeNil())
 
@@ -344,7 +340,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"sub1", true},
 			}
 
-			err = subProvider.Cancel(db, lgr, sub)
+			err = subProvider.Cancel(db, sub)
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -370,7 +366,7 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if it could not locate the subscription", func() {
-			err := subProvider.HandleSubscriptionUpdated(db, lgr, "not-exist")
+			err := subProvider.HandleSubscriptionUpdated(db, "not-exist")
 			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
@@ -386,7 +382,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, lgr, "abc1")
+			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
 		})
 
@@ -402,7 +398,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, lgr, "abc1")
+			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -427,7 +423,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, lgr, "abc1")
+			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -453,7 +449,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, lgr, "abc1")
+			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -484,12 +480,12 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if it could not locate the subscription", func() {
-			err := subProvider.HandleSubscriptionDeleted(db, lgr, "not-exist")
+			err := subProvider.HandleSubscriptionDeleted(db, "not-exist")
 			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
 		It("should update the state of the subscription", func() {
-			err := subProvider.HandleSubscriptionDeleted(db, lgr, "abc1")
+			err := subProvider.HandleSubscriptionDeleted(db, "abc1")
 			Expect(err).To(BeNil())
 
 			sub := &subscription.Subscription{}
@@ -516,7 +512,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, l *logger.Logger, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
 				Expect(ev).To(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal("subscription_terminated"))
@@ -525,7 +521,7 @@ var _ = Describe("subscriptions", func() {
 				return e
 			}
 
-			err = subProvider.HandleSubscriptionDeleted(db, lgr, "abc1")
+			err = subProvider.HandleSubscriptionDeleted(db, "abc1")
 			Expect(err).To(Equal(e))
 			Expect(termCalled).To(BeTrue())
 
@@ -557,7 +553,7 @@ var _ = Describe("subscriptions", func() {
 			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end, stripe_id) VALUES ($1, 'paid', now(), now(), 'inv1')", u.ID)
 			Expect(err).To(BeNil())
 
-			err = subProvider.HandleSubscriptionInvoiceCreated(db, lgr, "inv1")
+			err = subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(Equal(subscriptions.ErrInvoiceAlreadyCreated))
 		})
 
@@ -569,7 +565,7 @@ var _ = Describe("subscriptions", func() {
 				  "object": "invoice",
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, lgr, "inv1")
+			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -625,7 +621,7 @@ var _ = Describe("subscriptions", func() {
           }
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, lgr, "inv1")
+			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -696,7 +692,7 @@ var _ = Describe("subscriptions", func() {
           }
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, lgr, "inv1")
+			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			inv, err := invoice.FindByStripeID(db, "inv1")
@@ -758,7 +754,7 @@ var _ = Describe("subscriptions", func() {
           "amount": -100
         }`,
 			}
-			err = subProvider.HandleSubscriptionInvoiceCreated(db, lgr, "inv1")
+			err = subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))

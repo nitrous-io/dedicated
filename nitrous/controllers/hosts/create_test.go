@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -71,10 +70,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = test.NewTestServer("", db, logger, test.NewFakeTracker())
-		svr.Tracker = ft
+		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 

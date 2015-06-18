@@ -21,19 +21,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/pkg/stats"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/server"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 
 	. "github.com/nitrous-io/dedicated/freighter/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func Test(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -67,8 +69,7 @@ var _ = Describe("server", func() {
 
 	BeforeEach(func() {
 		prov = &MockProvider{}
-		logger := &util.Logger{Level: util.LogLevelQuiet}
-		svr = server.NewServer(logger, prov, &freighter.Config{})
+		svr = server.NewServer(prov, &freighter.Config{})
 		svr.SetSecret(hostSecret)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
@@ -139,8 +140,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
@@ -2239,8 +2239,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
@@ -2327,8 +2326,7 @@ var _ = Describe("server", func() {
 			}))
 			defer webhookSvr.Close()
 
-			logger := &util.Logger{Level: util.LogLevelQuiet}
-			svr = server.NewServer(logger, prov, &freighter.Config{
+			svr = server.NewServer(prov, &freighter.Config{
 				NotifyURL: webhookSvr.URL,
 			})
 			svr.SetSecret(hostSecret)
