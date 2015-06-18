@@ -76,28 +76,6 @@ type Message struct {
 	Payload      []byte `json: "payload"`
 }
 
-var actions = []string{
-	"create",
-	"update",
-	"delete",
-}
-
-type Action int
-
-const (
-	Create Action = iota
-	Update
-	Delete
-)
-
-func (a Action) String() string {
-	return actions[a]
-}
-
-func (a Action) IsA(actionName string) bool {
-	return a.String() == actionName
-}
-
 type queueHandler func(*Message) error
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) Publisher {

@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -193,6 +194,28 @@ var _ = Describe("biller/user", func() {
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec("UPDATE hosts SET user_id = $1 WHERE id = $2", u2.ID, h1.ID)
+			Expect(err).To(BeNil())
+
+			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)
+			Expect(err).To(BeNil())
+			items := res.Items
+			Expect(items).To(HaveLen(3))
+
+			Expect([]int64{items[0].HostID.Int64, items[1].HostID.Int64, items[2].HostID.Int64}).To(ConsistOf([]int64{h2.ID, h3.ID, h3.ID}))
+		})
+
+		It("should not include hosts that are part of a subscription", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs1.P.ID,
+				BillingProfileID: bp.ID,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h1.ID)
 			Expect(err).To(BeNil())
 
 			res, err := biller.InvoiceItemsForUser(db, nil, u.ID, startTime, endTime)

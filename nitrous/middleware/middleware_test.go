@@ -512,4 +512,12 @@ var _ = Describe("middleware", func() {
 			Expect(t).To(Equal("ABC123x2"))
 		})
 	})
+
+	Describe("setting empty response body", func() {
+		It("return 202 with empty body", func() {
+			env.SetEmptyResponseBody()
+			Expect(env.Data).To(HaveLen(0))
+			Expect(env.Status).To(Equal(http.StatusAccepted))
+		})
+	})
 })

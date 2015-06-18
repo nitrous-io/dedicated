@@ -170,4 +170,34 @@ var _ = Describe("models/containercollab", func() {
 			Expect([]string{items[1].Username.String, items[2].Username.String}).To(ConsistOf([]string{"foo", "bar"}))
 		})
 	})
+
+	Describe("GetCollaboratorIDs", func() {
+		It("returns all collaborator ids for given container id", func() {
+			u1 := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 := &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			ids, err := containercollab.GetCollaboratorIDs(db, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(ids).To(ConsistOf(u1.ID, u2.ID))
+		})
+	})
 })

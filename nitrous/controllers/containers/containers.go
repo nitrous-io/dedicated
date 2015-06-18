@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -598,32 +599,40 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 }
 
 func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
-	var userIDs []int64
-	err := env.DB.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, c.ID)
+	userIDs, err := containercollab.GetCollaboratorIDs(env.DB, c.ID)
+	env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 	if err != nil {
-		env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 		return
 	}
 	userIDs = append(userIDs, c.UserID)
+	data := map[string]interface{}{}
 
-	data := map[string]interface{}{
-		"container": serializers.SerializeContainer(c),
-	}
 	if env.User != nil {
 		data["initiated_by"] = map[string]interface{}{
 			"username": env.User.Username,
 			"id":       env.User.ID,
 		}
 	}
-	if add != nil {
-		for k, v := range add {
-			data[k] = v
-		}
+
+	for k, v := range add {
+		data[k] = v
+	}
+
+	PublishContainerEventToUsers(env.Events, name, c, userIDs, data)
+}
+
+func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventName, c *container.Container, userIDs []int64, add map[string]interface{}) {
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(c),
+	}
+
+	for k, v := range add {
+		data[k] = v
 	}
 
 	for _, userID := range userIDs {
 		topic := pubsub.Topic(fmt.Sprintf("user-%d", userID))
-		env.Events.Publish(controllers.NewEvent(name, data), topic)
+		events.Publish(controllers.NewEvent(name, data), topic)
 	}
 }
 

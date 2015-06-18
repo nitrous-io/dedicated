@@ -9,20 +9,21 @@ import (
 )
 
 type Plan struct {
-	ID            int64         `db:"id"`
-	Name          string        `db:"name"`
-	Slug          string        `db:"slug"`
-	MaxContainers int64         `db:"max_containers"`
-	Price         int64         `db:"price"`
-	BasePrice     int64         `db:"base_price"`
-	CPU           string        `db:"cpu"`
-	Memory        string        `db:"memory"`
-	Storage       string        `db:"storage"`
-	Disabled      bool          `db:"disabled"`
-	MostPopular   bool          `db:"most_popular"`
-	PaidPlanID    sql.NullInt64 `db:"paid_plan_id"`
-	CreatedAt     *time.Time    `db:"created_at"`
-	UpdatedAt     *time.Time    `db:"updated_at"`
+	ID            int64          `db:"id"`
+	Name          string         `db:"name"`
+	Slug          string         `db:"slug"`
+	MaxContainers int64          `db:"max_containers"`
+	Price         int64          `db:"price"`
+	BasePrice     int64          `db:"base_price"`
+	CPU           string         `db:"cpu"`
+	Memory        string         `db:"memory"`
+	Storage       string         `db:"storage"`
+	Disabled      bool           `db:"disabled"`
+	MostPopular   bool           `db:"most_popular"`
+	PaidPlanID    sql.NullInt64  `db:"paid_plan_id"`
+	StripePlanID  sql.NullString `db:"stripe_plan_id"`
+	CreatedAt     *time.Time     `db:"created_at"`
+	UpdatedAt     *time.Time     `db:"updated_at"`
 }
 
 type PlanPricing struct {
@@ -32,6 +33,10 @@ type PlanPricing struct {
 
 func (p *Plan) IsFree() bool {
 	return p.Price == 0 && p.BasePrice == 0
+}
+
+func (p *Plan) IsSubscription() bool {
+	return p.StripePlanID.Valid
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
@@ -57,7 +62,10 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 		PlanBasePrice int64 `db:"base_plan_price"`
 	}
 	pHs := []*planHost{}
-	if err := d.Select(&pHs, `SELECT hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id WHERE hosts.user_id = $1`, userID); err != nil {
+	if err := d.Select(&pHs, `SELECT
+		hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price
+		FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id
+		WHERE hosts.user_id = $1 AND hosts.subscription_id IS NULL;`, userID); err != nil {
 		return nil, err
 	}
 
@@ -77,7 +85,7 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 			SELECT DISTINCT plan_id
 			FROM provider_templates AS pt
 			WHERE pt.provider=$1 AND NOT pt.disabled
-		) 
+		)
 		AND (
 			plans.price > 0
 			OR plans.base_price > 0
@@ -110,8 +118,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id, stripe_plan_id)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id, :stripe_plan_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

@@ -218,13 +218,13 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	defer func() {
 		if h.keypair != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
 			h.Printf("keyID=%s Removing key...", h.keypair.name)
 			if err := h.keypair.Delete(); err != nil {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
 				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
 			} else {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
+				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
 			}
 		}
 	}()
@@ -279,7 +279,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.Printf(errorMsg)
 			h.logFailed()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
 				return inf, ErrCreateTimeout
@@ -288,10 +288,10 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			return inf, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
 	}
 	info, err := h.Info()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create)
 	return info, err
 }
 
@@ -680,6 +680,41 @@ func (h *Host) stopInstance() error {
 	h.instance = updatedInstance.(*ec2.Instance)
 
 	return nil
+}
+
+func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("stop")
+	defer mh.UpdateSince(label, time.Now())
+
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, mh.Error(err, label)
+	}
+
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, mh.Error(err, label)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "stopping"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "stopped",
+	}
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, mh.Error(err, label)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+	}
+
+	return info, err
 }
 
 // Start starts the instance and allocate the desired IP address to it

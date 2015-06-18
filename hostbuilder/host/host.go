@@ -80,16 +80,20 @@ type Info struct {
 
 // QueueInfo will be written to the queue to be consumed later
 type QueueInfo struct {
-	ID      int64  `json:"id"`
-	UserID  int64  `json:"user_id"`
-	Slug    string `json:"slug"`
-	Message string `json:"message,omitempty"`
-	Host    *Info  `json:"host,omitempty"`
+	ID          int64  `json:"id"`
+	UserID      int64  `json:"user_id"`
+	Slug        string `json:"slug"`
+	Message     string `json:"message,omitempty"`
+	RequesterID int64  `json:"requester_id,omitempty"`
+	Host        *Info  `json:"host,omitempty"`
 }
 
 type Host interface {
 	// create a new host, publish events into the queue
 	CreateWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
+
+	// stop a host, publish events into the queue
+	StopWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
 
 	Create(io.Writer) (*Info, error) // create a new host
 	Update(io.Writer) (*Info, error)

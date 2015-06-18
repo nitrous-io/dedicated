@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -951,6 +952,39 @@ var _ = Describe("controllers/hosts", func() {
 			test.VerifyDelinquentUserResponse(res)
 		})
 
+		It("should request to cancel the subscription if the host is part of a subscription", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			hosts.SetSubscriptionProvider(fsub)
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			Expect(rt.Requests).To(HaveLen(0))
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
+		})
+
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
@@ -1531,6 +1565,7 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
+			envvars.EnableQueue = false
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
@@ -2064,6 +2099,40 @@ var _ = Describe("controllers/hosts", func() {
 					sort.Strings(slugs)
 					Expect(slugs[0]).To(Equal(c2.Slug))
 					Expect(slugs[1]).To(Equal(c1.Slug))
+				})
+			})
+		})
+
+		Context("queue is enabled", func() {
+			BeforeEach(func() {
+				envvars.EnableQueue = true
+			})
+
+			Context("when hostbuilder successfully stops the host", func() {
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+
+					hosts.HostbuilderClient = hb
+				})
+
+				It("updates the host state to stopping", func() {
+					doRequest(hs.H.Slug, nil)
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopping))
+				})
+
+				It("responds with the host and status Accepted with empty body", func() {
+					doRequest(hs.H.Slug, nil)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+
+					var j struct{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
 				})
 			})
 		})

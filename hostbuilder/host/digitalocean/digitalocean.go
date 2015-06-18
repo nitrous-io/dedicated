@@ -182,29 +182,29 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg)
+			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
 			return nil, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description)
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
 	}
 
 	if h.sshKey != nil {
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...")
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
 		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!")
+			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
 			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!")
+		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
 	}
 
 	info := h.dropletToInfo()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create)
 	return info, nil
 }
 
@@ -364,6 +364,34 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+
+	id, err := h.id()
+	if err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, err
+	}
+
+	action, _, err := h.Client.DropletActions.PowerOff(id)
+	if err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, err
+	}
+
+	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
+		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		return nil, err
+	}
+
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+	}
+
+	return info, err
 }
 
 func (h *Host) Start() (*host.Info, error) {
