@@ -30,7 +30,10 @@ var (
 )
 
 // default to debug level logging
-func init() { logrus.SetLevel(logrus.DebugLevel) }
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
+}
 
 func main() {
 	flVersion := flag.Bool("v", false, "Display the version and exit")
