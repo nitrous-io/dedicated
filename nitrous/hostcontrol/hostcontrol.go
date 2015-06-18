@@ -62,7 +62,7 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 	return nil
 }
 
-func StopWithQueue(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
+func StopWithQueue(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
 	err := beforeStop(db, h, ev, initiatorID, origState)
 	if err != nil {
@@ -78,7 +78,7 @@ func StopWithQueue(db *db.Database, l *logger.Logger, h *host.Host, headers http
 	return nil
 }
 
-func beforeStop(db *db.Database, h *host.Host, ev eventFunc, initiatorID int64, origState string) error {
+func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string) error {
 	h.State = host.StateStopping
 
 	tx, err := db.Beginx()
