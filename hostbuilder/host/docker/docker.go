@@ -82,20 +82,20 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host", queue.Create)
 	imageName, err := h.createImage()
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image", queue.Create)
 		return nil, err
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image")
+	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image", queue.Create)
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container")
+		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container", queue.Create)
 		return nil, err
 	}
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c, queue.Create)
 	return c, nil
 }
 
@@ -226,6 +226,28 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+
+	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
+		switch err.(type) {
+		case *dockerclient.ContainerNotRunning:
+			host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, "Containers are not running", queue.Stop)
+			return h.Info()
+		default:
+			host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+			return nil, err
+		}
+	}
+
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+	}
+
+	return info, err
 }
 
 func (h *Host) Start() (*host.Info, error) {

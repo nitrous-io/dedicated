@@ -247,4 +247,104 @@ var _ = Describe("host/docker", func() {
 			})
 		})
 	})
+
+	Describe("Stop", func() {
+		var h host.Host
+		var info *host.Info
+		var qp queue.Publisher
+		var qc *queue.QueueConsumer
+		var queueInfo *host.QueueInfo
+
+		var redisClient *redis.Client
+		BeforeEach(func() {
+			var err error
+			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			Expect(err).To(BeNil())
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
+			Expect(err).To(BeNil())
+			qc, err = qp.CreateConsumer()
+			Expect(err).To(BeNil())
+
+			h, err = docker.NewHost(
+				map[string]string{
+					"id":                  "host-id",
+					"uuid":                "uuid-111",
+					"endpoint":            server.URL(),
+					"freighterd_location": "/bin/true",
+				},
+				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+			)
+
+			Expect(err).To(BeNil())
+			queueInfo = &host.QueueInfo{
+				ID:     123,
+				Slug:   "go-124",
+				UserID: 125,
+			}
+			// Create a host on dockerclient fakeserver
+			info, err = h.CreateWithQueue(qp, queueInfo)
+			Expect(err).To(BeNil())
+			// Remove 3 message for creation
+			for i := 0; i < 3; i++ {
+				_, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
+				Expect(err).To(BeNil())
+			}
+		})
+
+		AfterEach(func() {
+			if qp != nil {
+				qp.Delete()
+			}
+			if redisClient != nil {
+				redisClient.Close()
+			}
+		})
+
+		It("returns host info", func() {
+			info, err = h.StopWithQueue(qp, queueInfo)
+			Expect(err).To(BeNil())
+			Expect(info).NotTo(BeNil())
+
+			Expect(info.Provider).To(Equal("docker"))
+			Expect(info.Name).To(Equal("test-123"))
+			Expect(len(info.ID)).To(BeNumerically(">", 0))
+			Expect(info.IPAddress).To(Equal("127.0.0.1"))
+		})
+
+		It("sends messages to the host queue", func() {
+			info, err = h.StopWithQueue(qp, queueInfo)
+			Expect(err).To(BeNil())
+
+			Expect(qp.GetInputLength()).To(Equal(int64(2)))
+			events := [2]event.Event{
+				event.HostStopping,
+				event.HostStopped,
+			}
+
+			var queueInfos [2]*host.QueueInfo
+			for index, event := range events {
+				m, d, err := qc.Consume()
+				d.Ack(10 * time.Millisecond)
+				Expect(err).To(BeNil())
+				Expect(m.UUID).To(Equal("uuid-111"))
+				Expect(m.Event).To(Equal(string(event)))
+				Expect(m.Action).To(Equal("stop"))
+				Expect(m.ResourceName).To(Equal("host"))
+
+				var queueInfo host.QueueInfo
+				err = json.Unmarshal(m.Payload, &queueInfo)
+				Expect(err).To(BeNil())
+				Expect(queueInfo.ID).To(Equal(int64(123)))
+				Expect(queueInfo.Slug).To(Equal("go-124"))
+				Expect(queueInfo.UserID).To(Equal(int64(125)))
+				queueInfos[index] = &queueInfo
+			}
+			Expect(queueInfos[0].Message).ToNot(BeZero())
+			Expect(queueInfos[0].Host).To(BeZero())
+
+			Expect(queueInfos[1].Message).To(BeZero())
+			Expect(queueInfos[1].Host).NotTo(BeZero())
+		})
+	})
 })

@@ -3,6 +3,7 @@ package hostcontrol
 import (
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -28,6 +29,56 @@ var HostbuilderClient = provisioner.HostbuilderClient
 
 func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
 	origState := h.State
+	err := beforeStop(db, h, ev, initiatorID, origState)
+	if err != nil {
+		return err
+	}
+
+	urlArgs := host.URLArgsFromHost(h)
+	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
+		if e, ok := stopErr.(net.Error); ok && e.Timeout() {
+			l.Errorf("hostbuilder timeout stopping host: %v", e)
+		}
+
+		if err := OnStopFailed(db, l, h, initiatorID, origState); err != nil {
+			return err
+		}
+
+		if ev != nil {
+			ev(EventHostUpdated)
+		}
+
+		return stopErr
+	}
+
+	if err := OnStopped(db, h, initiatorID); err != nil {
+		return err
+	}
+
+	if ev != nil {
+		ev(EventHostStopped)
+	}
+
+	return nil
+}
+
+func StopWithQueue(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
+	origState := h.State
+	err := beforeStop(db, h, ev, initiatorID, origState)
+	if err != nil {
+		return err
+	}
+
+	urlArgs := host.URLArgsFromHost(h)
+	urlArgs.Set("requester_id", strconv.FormatInt(initiatorID, 10))
+	if _, sErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); sErr != nil {
+		return sErr
+	}
+
+	return nil
+}
+
+func beforeStop(db *db.Database, h *host.Host, ev eventFunc, initiatorID int64, origState string) error {
 	h.State = host.StateStopping
 
 	tx, err := db.Beginx()
@@ -50,40 +101,40 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		ev(EventHostStopping)
 	}
 
-	urlArgs := host.URLArgsFromHost(h)
-	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
-		if e, ok := stopErr.(net.Error); ok && e.Timeout() {
-			l.Errorf("hostbuilder timeout stopping host: %v", e)
-		}
+	return nil
+}
 
-		// Rollback to previous state, log any errors while rolling back, but
-		// return original hostbuilderclient error.
-		h.State = origState
-		tx, err := db.Beginx()
-		if err != nil {
-			return err
-		}
-		if err := h.Update(tx); err != nil {
-			tx.Rollback()
-			l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
-		}
-		if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
-			tx.Rollback()
-			l.Errorf("hosts.Stop: Unable to record transition: %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
-		}
-
-		if ev != nil {
-			ev(EventHostUpdated)
-		}
-		return stopErr
+// Rollback to previous state, log any errors while rolling back, but
+// return original hostbuilderclient error.
+func OnStopFailed(db *db.Database, l *logger.Logger, h *host.Host, initiatorID int64, origState string) error {
+	h.State = origState
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := h.Update(tx); err != nil {
+		tx.Rollback()
+		l.Errorf("hosts.Stop: Unable to reset host state: %v", err)
+		return err
 	}
 
+	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
+		tx.Rollback()
+		l.Errorf("hosts.Stop: Unable to record transition: %v", err)
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		l.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
 	h.State = host.StateStopped
 
-	tx, err = db.Beginx()
+	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}
@@ -99,9 +150,6 @@ func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, 
 		return err
 	}
 
-	if ev != nil {
-		ev(EventHostStopped)
-	}
 	return nil
 }
 

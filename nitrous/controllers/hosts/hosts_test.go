@@ -1531,6 +1531,7 @@ var _ = Describe("controllers/hosts", func() {
 		}
 
 		BeforeEach(func() {
+			envvars.EnableQueue = false
 			var err error
 			hs, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
@@ -2064,6 +2065,40 @@ var _ = Describe("controllers/hosts", func() {
 					sort.Strings(slugs)
 					Expect(slugs[0]).To(Equal(c2.Slug))
 					Expect(slugs[1]).To(Equal(c1.Slug))
+				})
+			})
+		})
+
+		Context("queue is enabled", func() {
+			BeforeEach(func() {
+				envvars.EnableQueue = true
+			})
+
+			Context("when hostbuilder successfully stops the host", func() {
+				BeforeEach(func() {
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: stopOkResponse,
+						Status:  http.StatusOK,
+					})
+
+					hosts.HostbuilderClient = hb
+				})
+
+				It("updates the host state to stopping", func() {
+					doRequest(hs.H.Slug, nil)
+					h, err := host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h.State).To(Equal(host.StateStopping))
+				})
+
+				It("responds with the host and status Accepted with empty body", func() {
+					doRequest(hs.H.Slug, nil)
+					Expect(res.Code).To(Equal(http.StatusAccepted))
+
+					var j struct{}
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
 				})
 			})
 		})

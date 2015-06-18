@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -36,6 +37,7 @@ var _ = Describe("HostQueueHandler", func() {
 		u           *user.User
 		svr         *server.Server
 		queueInfo   *hh.QueueInfo
+		hs          *test.HostStack
 	)
 
 	BeforeEach(func() {
@@ -56,7 +58,7 @@ var _ = Describe("HostQueueHandler", func() {
 		}
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
-		hs, err := test.CreateHostStack(db, &test.HostStack{
+		hs, err = test.CreateHostStack(db, &test.HostStack{
 			H: &host.Host{
 				Slug:  "host-123",
 				Size:  sql.NullString{"micro", true},
@@ -81,230 +83,526 @@ var _ = Describe("HostQueueHandler", func() {
 		}
 	})
 
-	Context("host is being created", func() {
-		var message *queue.Message
+	Describe("Host Create Message", func() {
+		Context("host is being created", func() {
+			var message *queue.Message
 
-		BeforeEach(func() {
-			queueInfo = &hh.QueueInfo{
-				ID:      h.ID,
-				Slug:    h.Slug,
-				UserID:  u.ID,
-				Message: "creating a host",
-			}
-			payload, err := json.Marshal(queueInfo)
-			Expect(err).To(BeNil())
-			message = &queue.Message{
-				UUID:         "uuid-1234",
-				Action:       "create",
-				Event:        string(event.HostCreating),
-				ResourceName: "host",
-				ResourceID:   "host-1234",
-				Payload:      payload,
-			}
-		})
-
-		It("publishes the event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			err := handler(message)
-			Expect(err).To(BeNil())
-
-			evtCh := make(chan *controllers.Event)
-			go func() {
-				var evt *controllers.Event
-				for msg := range ch { // Ignore events we don't care about.
-					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventName(event.HostCreating) {
-						evtCh <- evt
-						break
-					}
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:      h.ID,
+					Slug:    h.Slug,
+					UserID:  u.ID,
+					Message: "creating a host",
 				}
-			}()
-
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timeout while getting image created event")
-			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreating)))
-				evtData, ok := evt.Data.(*controllers.ProgressEvent)
-				Expect(ok).To(BeTrue())
-				Expect(evtData.Progress).To(Equal(fmt.Sprintf(`{"stream":"%s"}`, queueInfo.Message)))
-			}
-		})
-	})
-
-	Context("a host is created", func() {
-		var message *queue.Message
-
-		BeforeEach(func() {
-			queueInfo = &hh.QueueInfo{
-				ID:     h.ID,
-				Slug:   h.Slug,
-				UserID: u.ID,
-				Host: &hh.Info{
-					Provider:       "docker",
-					ID:             "host-1234",
-					Region:         "somewhere",
-					Name:           "hostname-1234",
-					IPAddress:      "1.2.3.4",
-					FreighterdPort: 62345,
-					State:          state.Running,
-				},
-			}
-			payload, err := json.Marshal(queueInfo)
-			Expect(err).To(BeNil())
-			message = &queue.Message{
-				UUID:         "uuid-1234",
-				Action:       "create",
-				Event:        string(event.HostCreated),
-				ResourceName: "host",
-				ResourceID:   "host-1234",
-				Payload:      payload,
-			}
-		})
-
-		It("publishes the event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			err := handler(message)
-			Expect(err).To(BeNil())
-
-			evtCh := make(chan *controllers.Event)
-			go func() {
-				var evt *controllers.Event
-				for msg := range ch { // Ignore events we don't care about.
-					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventName(event.HostCreated) {
-						evtCh <- evt
-						break
-					}
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "create",
+					Event:        string(event.HostCreating),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
 				}
-			}()
+			})
 
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timeout while getting image created event")
-			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreated)))
-				evtData, ok := evt.Data.(map[string]*serializers.Host)
-				Expect(ok).To(BeTrue())
+			It("publishes the event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventName(event.HostCreating) {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreating)))
+					evtData, ok := evt.Data.(*controllers.ProgressEvent)
+					Expect(ok).To(BeTrue())
+					Expect(evtData.Progress).To(Equal(fmt.Sprintf(`{"stream":"%s"}`, queueInfo.Message)))
+				}
+			})
+		})
+
+		Context("a host is created", func() {
+			var message *queue.Message
+
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:     h.ID,
+					Slug:   h.Slug,
+					UserID: u.ID,
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "1.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Running,
+					},
+				}
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "create",
+					Event:        string(event.HostCreated),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("publishes the event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventName(event.HostCreated) {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreated)))
+					evtData, ok := evt.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					updatedHost, err := host.Find(db, u, h.Slug)
+					Expect(err).To(BeNil())
+					Expect(evtData["host"]).To(Equal(serializers.SerializeHost(updatedHost)))
+				}
+			})
+
+			It("updates the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
 				updatedHost, err := host.Find(db, u, h.Slug)
 				Expect(err).To(BeNil())
-				Expect(evtData["host"]).To(Equal(serializers.SerializeHost(updatedHost)))
-			}
+
+				Expect(updatedHost.IPAddress.String).To(Equal("1.2.3.4"))
+				Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-1234"))
+				Expect(updatedHost.RegionIdentifier.String).To(Equal("somewhere"))
+				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
+				Expect(updatedHost.State).To(Equal(host.StateRunning))
+				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
+				Expect(updatedHost.Free).To(BeFalse())
+			})
+
+			It("does not update when the host is running", func() {
+				h.State = host.StateRunning
+				h.IPAddress = sql.NullString{"4.5.6.7", true}
+				h.ProviderIdentifier = sql.NullString{"host-3456", true}
+				h.RegionIdentifier = sql.NullString{"here", true}
+				h.FreighterdPort = sql.NullInt64{12345, true}
+				h.HourlyPrice = 1000000
+
+				err := h.UpdateWithPrice(db)
+				Expect(err).To(BeNil())
+
+				err = handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.IPAddress.String).To(Equal("4.5.6.7"))
+				Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-3456"))
+				Expect(updatedHost.RegionIdentifier.String).To(Equal("here"))
+				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
+				Expect(updatedHost.State).To(Equal(host.StateRunning))
+				Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
+				Expect(updatedHost.Free).To(BeFalse())
+			})
 		})
 
-		It("updates the host", func() {
-			err := handler(message)
-			Expect(err).To(BeNil())
+		Context("failed to create a host", func() {
+			var message *queue.Message
 
-			updatedHost, err := host.Find(db, u, h.Slug)
-			Expect(err).To(BeNil())
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:      h.ID,
+					Slug:    h.Slug,
+					UserID:  u.ID,
+					Message: "Failed to create a host",
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "1.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Running,
+					},
+				}
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "create",
+					Event:        string(event.HostCreateFailed),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
 
-			Expect(updatedHost.IPAddress.String).To(Equal("1.2.3.4"))
-			Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-1234"))
-			Expect(updatedHost.RegionIdentifier.String).To(Equal("somewhere"))
-			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
-			Expect(updatedHost.State).To(Equal(host.StateRunning))
-			Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
-			Expect(updatedHost.Free).To(BeFalse())
-		})
+				err = h.UpdateWithPrice(db)
+				Expect(err).To(BeNil())
+			})
 
-		It("does not update when the host is running", func() {
-			h.State = host.StateRunning
-			h.IPAddress = sql.NullString{"4.5.6.7", true}
-			h.ProviderIdentifier = sql.NullString{"host-3456", true}
-			h.RegionIdentifier = sql.NullString{"here", true}
-			h.FreighterdPort = sql.NullInt64{12345, true}
-			h.HourlyPrice = 1000000
+			It("sets the host as an orphan", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
 
-			err := h.UpdateWithPrice(db)
-			Expect(err).To(BeNil())
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
 
-			err = handler(message)
-			Expect(err).To(BeNil())
+				Expect(updatedHost.State).To(Equal(host.StateOrphan))
+			})
 
-			updatedHost, err := host.Find(db, u, h.Slug)
-			Expect(err).To(BeNil())
+			It("publishes the event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
 
-			Expect(updatedHost.IPAddress.String).To(Equal("4.5.6.7"))
-			Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-3456"))
-			Expect(updatedHost.RegionIdentifier.String).To(Equal("here"))
-			Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
-			Expect(updatedHost.State).To(Equal(host.StateRunning))
-			Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
-			Expect(updatedHost.Free).To(BeFalse())
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventName(event.HostCreateFailed) {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreateFailed)))
+				}
+			})
 		})
 	})
 
-	Context("failed to create a host", func() {
-		var message *queue.Message
+	Describe("Stop Host Message", func() {
+		var (
+			message      *queue.Message
+			requester    *user.User
+			collaborator *user.User
+			c1           *container.Container
+			c2           *container.Container
+		)
 
 		BeforeEach(func() {
-			queueInfo = &hh.QueueInfo{
-				ID:      h.ID,
-				Slug:    h.Slug,
-				UserID:  u.ID,
-				Message: "Failed to create a host",
-				Host: &hh.Info{
-					Provider:       "docker",
-					ID:             "host-1234",
-					Region:         "somewhere",
-					Name:           "hostname-1234",
-					IPAddress:      "1.2.3.4",
-					FreighterdPort: 62345,
-					State:          state.Running,
-				},
-			}
-			payload, err := json.Marshal(queueInfo)
+			h.State = host.StateStopping
+			err := h.Update(db)
 			Expect(err).To(BeNil())
-			message = &queue.Message{
-				UUID:         "uuid-1234",
-				Action:       "create",
-				Event:        string(event.HostCreateFailed),
-				ResourceName: "host",
-				ResourceID:   "host-1234",
-				Payload:      payload,
+			requester = &user.User{
+				Username: "requester",
+				Password: "123456",
+				Email:    "requester@example.com",
 			}
+			err = test.WrapInTransaction(db, requester.Insert)
+			Expect(err).To(BeNil())
+
+			c1 = &container.Container{
+				CID:    "beefface",
+				Slug:   "rails-box",
+				Image:  "nitrous-base",
+				UserID: u.ID,
+				HostID: h.ID,
+			}
+			err = c1.Insert(db)
+			Expect(err).To(BeNil())
+			c2 = &container.Container{
+				CID:    "cafedead",
+				Slug:   "python-box",
+				Image:  "nitrous-base",
+				State:  container.StateRunning,
+				UserID: u.ID,
+				HostID: h.ID,
+			}
+			err = c2.Insert(db)
+			collaborator = &user.User{
+				Username: "shared",
+				Email:    "shared@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, collaborator.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`, c1.ID, collaborator.ID)
+			Expect(err).To(BeNil())
 		})
 
-		It("sets the host as an orphan", func() {
-			err := handler(message)
-			Expect(err).To(BeNil())
+		Context("a host is stopping", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Message:     "stopping host",
+				}
 
-			updatedHost, err := host.Find(db, u, h.Slug)
-			Expect(err).To(BeNil())
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "stop",
+					Event:        string(event.HostStopping),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
 
-			Expect(updatedHost.State).To(Equal(host.StateOrphan))
+			It("does not return any errors", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+			})
 		})
 
-		It("publishes the event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
+		Context("a host is stopped", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "1.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Stopped,
+					},
+				}
 
-			err := handler(message)
-			Expect(err).To(BeNil())
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "stop",
+					Event:        string(event.HostStopped),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
 
-			evtCh := make(chan *controllers.Event)
-			go func() {
-				var evt *controllers.Event
-				for msg := range ch { // Ignore events we don't care about.
-					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventName(event.HostCreateFailed) {
-						evtCh <- evt
-						break
+			It("updates the host to be stopped", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.State).To(Equal(host.StateStopped))
+			})
+
+			It("logs transitions for the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					h.ID, host.StateStopped, host.StateStopping).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+
+			It("publishes containaer stopped event host stopeed event to user", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan []*controllers.Event)
+				events := make([]*controllers.Event, 0)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerStopped ||
+							evt.Name == controllers.EventName(event.HostStopped) {
+							events = append(events, evt)
+							if len(events) >= 3 {
+								evtCh <- events
+								break
+							}
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case events := <-evtCh:
+					for _, event := range events[0:2] {
+						evtData, ok := event.Data.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+						cn, ok := evtData["container"].(*serializers.Container)
+						Expect(cn.State).To(Equal(container.StateStopped.String()))
+					}
+
+					evtData, ok := events[2].Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].State).To(Equal(host.StateStopped))
+				}
+			})
+
+			It("publishes containaer stopped event to collaborator", func() {
+				ch := svr.Events.Subscribe(collaborator.Topic())
+				defer svr.Events.Unsubscribe(ch, collaborator.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan []*controllers.Event)
+				events := make([]*controllers.Event, 0)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventContainerStopped {
+							events = append(events, evt)
+							if len(events) >= 1 {
+								evtCh <- events
+								break
+							}
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case events := <-evtCh:
+					for _, event := range events {
+						evtData, ok := event.Data.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+						cn, ok := evtData["container"].(*serializers.Container)
+						Expect(cn.State).To(Equal(container.StateStopped.String()))
 					}
 				}
-			}()
+			})
+		})
 
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timeout while getting image created event")
-			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventName(event.HostCreateFailed)))
-			}
+		Context("a host failed to stop", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "1.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Running,
+					},
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "stop",
+					Event:        string(event.HostStopFailed),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("resets the host to state in host info", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.State).To(Equal(host.StateRunning))
+			})
+
+			It("logs transitions for the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					h.ID, host.StateRunning, host.StateStopping).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+
+			It("publishes containaer stopped event host stopeed event to user", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventName(event.HostUpdated) {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting image created event")
+				case event := <-evtCh:
+					evtData, ok := event.Data.(map[string]*serializers.Host)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["host"].State).To(Equal(host.StateRunning))
+				}
+			})
 		})
 	})
 })

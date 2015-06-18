@@ -107,6 +107,11 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 	return nil
 }
 
+func (env *Env) SetEmptyResponseBody() {
+	env.Status = http.StatusAccepted
+	env.Data = map[string]interface{}{}
+}
+
 type Middleware func(env *Env, w http.ResponseWriter, r *http.Request) error
 
 func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) error {

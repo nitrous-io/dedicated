@@ -137,6 +137,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("uid", "123")
 			form.Set("id", "456")
 			form.Set("slug", "dummy-456")
+			form.Set("requester_id", "789")
 			form.Set("queue", "true")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -182,6 +183,7 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("uid", "123")
 			form.Set("id", "456")
 			form.Set("slug", "dummy-456")
+			form.Set("requester_id", "789")
 			form.Set("queue", "true")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
@@ -314,6 +316,38 @@ var _ = Describe("hostbuilder", func() {
 			err = json.Unmarshal(body, &info)
 			Expect(err).To(BeNil())
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+		})
+
+		It("should successfully stop the host when queue is true", func() {
+			h := &dummy.Host{StopSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil(), "failed to setup a dummy host")
+			defer srv.Close()
+
+			config, _ := json.Marshal(h)
+			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
+			form.Set("requester_id", "789")
+			form.Set("provider", "dummy")
+			form.Set("queue", "true")
+			form.Set("config", string(config))
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/stop"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(200))
+
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			var info Response
+			err = json.Unmarshal(body, &info)
+			Expect(err).To(BeNil())
+			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
+
+			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			Expect(err).To(BeNil())
+			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
+			qp.Delete()
 		})
 	})
 

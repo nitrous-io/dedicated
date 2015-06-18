@@ -63,3 +63,12 @@ func FindAll(d db.QueryReceiver, cID int64) ([]*ContainerCollabUser, error) {
 	}
 	return shared, nil
 }
+
+func GetCollaboratorIDs(d db.QueryReceiver, cID int64) ([]int64, error) {
+	var userIDs []int64
+	err := d.Select(&userIDs, `SELECT user_id FROM container_collabs WHERE container_id = $1;`, cID)
+	if err != nil {
+		return userIDs, err
+	}
+	return userIDs, nil
+}
