@@ -33,6 +33,10 @@ type config struct {
 	Providers []map[string]providerConfig `json:"providers"`
 }
 
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
+}
+
 func main() {
 	flConfig := flag.String("config", "", "path to the config file")
 	flVersion := flag.Bool("v", false, "current version")
