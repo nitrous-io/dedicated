@@ -371,27 +371,11 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	if !envvars.EnableQueue {
-		err = hostcontrol.Stop(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
-		if err != nil {
-			return err
-		}
-
-		for _, cn := range cns {
-			state := container.State(cn.TempState.Int64)
-			if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
-				PublishContainerStopped(env, cn)
-			}
-		}
-		PublishHostEvent(env, controllers.EventHostStopped, h)
-		serializeHost(env, h)
-	} else {
-		err = hostcontrol.StopWithQueue(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
-		if err != nil {
-			return err
-		}
-		env.SetEmptyResponseBody()
+	err = hostcontrol.StopWithQueue(env.DB, env.Logger, h, hostbuilderHeaders(env), evHandler, env.User.ID)
+	if err != nil {
+		return err
 	}
+	env.SetEmptyResponseBody()
 	return nil
 }
 
