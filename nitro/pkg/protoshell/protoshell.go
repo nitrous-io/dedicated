@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -12,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/nitrous-common/term"
 	"github.com/nitrous-io/nitrous-common/wsconn"
@@ -120,10 +120,10 @@ func (s *ProtoShell) Attach(infd uintptr, outfd uintptr, stdin io.ReadCloser, st
 		io.Copy(s.serverIn, stdin)
 		if tcpc, ok := s.netConn.(*net.TCPConn); ok {
 			if err := tcpc.CloseWrite(); err != nil {
-				log.Printf("Couldn't send EOF: %s", err)
+				logrus.Errorf("Couldn't send EOF: %s", err)
 			}
 		} else {
-			log.Printf("Unexpected network connection: %s", s.netConn)
+			logrus.Errorf("Unexpected network connection: %s", s.netConn)
 		}
 		return nil
 	})

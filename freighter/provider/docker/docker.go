@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/cops"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker/parsers"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
@@ -63,7 +63,6 @@ type DockerProvider struct {
 	client   *dockerclient.Client
 	dataPath string
 	gateway  string
-	logger   *util.Logger
 
 	DockerClientProxy interface {
 		PushImage(opts dockerclient.PushImageOptions, auth dockerclient.AuthConfiguration) error
@@ -77,8 +76,8 @@ type lookupImageResult struct {
 	byID  bool
 }
 
-func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, error) {
-	if logger == nil || dataPath == "" {
+func NewDockerProvider(dataPath string) (*DockerProvider, error) {
+	if dataPath == "" {
 		return nil, errors.New("docker.NewDockerProvider: invalid argument")
 	}
 
@@ -95,7 +94,7 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 		i++
 		if i%30 == 0 {
 			i = 0
-			logger.Warnf("DockerProvider: waiting for Docker to be available on %s", dockerHost)
+			logrus.Warnf("DockerProvider: waiting for Docker to be available on %s", dockerHost)
 		}
 		time.Sleep(1 * time.Second)
 	}
@@ -113,7 +112,6 @@ func NewDockerProvider(logger *util.Logger, dataPath string) (*DockerProvider, e
 		client:            client,
 		gateway:           dockerGateway,
 		dataPath:          dataPath,
-		logger:            logger,
 		DockerClientProxy: client,
 	}, nil
 }
@@ -166,7 +164,7 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
 	createdCnr, err := p.create(name, imageName, secret, configJSON)
 	if err != nil {
-		p.logger.Errorf("DockerProvider: failed to create container %s: %v", name, err)
+		logrus.Errorf("DockerProvider: failed to create container %s: %v", name, err)
 		return nil, err
 	}
 
@@ -174,7 +172,7 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 	if err != nil {
 		// Return container info as well if container was created but failed
 		// to start.
-		p.logger.Errorf("DockerProvider: failed to start container %s: %v", name, err)
+		logrus.Errorf("DockerProvider: failed to start container %s: %v", name, err)
 		info, _ := p.GetInfo(createdCnr.ID)
 		return info, &provider.StartFailedError{Err: err}
 	}
@@ -313,12 +311,12 @@ func (p *DockerProvider) Start(id, configJSON string) (*provider.ContainerInfo, 
 		if err != nil {
 			return nil, err
 		}
-		p.logger.Info("DockerProvider: starting container", id)
+		logrus.Info("DockerProvider: starting container", id)
 		start := time.Now()
 		if err := p.client.StartContainer(id, startConfig); err != nil {
 			return nil, err
 		}
-		p.logger.TimeInfo(start, "DockerProvider: started container", id, "in")
+		logrus.Info("DockerProvider: started container", id, "in", time.Since(start))
 	}
 
 	return p.GetInfo(id)
@@ -331,7 +329,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 	}
 
 	if container.State.Running {
-		p.logger.Info("DockerProvider: stopping container", id)
+		logrus.Info("DockerProvider: stopping container", id)
 		start := time.Now()
 
 		err := p.client.StopContainer(id, 15)
@@ -355,7 +353,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 						return
 					}
 					if info.State == provider.ContainerStateStopped && info.Host == "" {
-						p.logger.TimeInfo(start, "DockerProvider: stopped container", id)
+						logrus.Info("DockerProvider: stopped container", id, time.Since(start))
 						ch <- nil
 						return
 					}
@@ -373,7 +371,7 @@ func (p *DockerProvider) Stop(id string) (*provider.ContainerInfo, error) {
 }
 
 func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
-	p.logger.Info("DockerProvider: restarting container", id)
+	logrus.Info("DockerProvider: restarting container", id)
 	start := time.Now()
 	// Stop and then start until https://github.com/docker/docker/issues/7693
 	// is fixed.
@@ -385,7 +383,7 @@ func (p *DockerProvider) Restart(id string) (*provider.ContainerInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.logger.TimeInfo(start, "DockerProvider: restarted container", id, "in")
+	logrus.Info("DockerProvider: restarted container", id, "in", time.Since(start))
 	return info, nil
 }
 
@@ -405,7 +403,7 @@ func execForm(cmd, usr string) []string {
 }
 
 func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.ContainerInfo, error) {
-	p.logger.Info("DockerProvider: terminating container", id)
+	logrus.Info("DockerProvider: terminating container", id)
 	terminationStart := time.Now()
 
 	info, err := p.Stop(id)
@@ -413,7 +411,7 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 		return nil, err
 	}
 
-	p.logger.Info("DockerProvider: removing container", id)
+	logrus.Info("DockerProvider: removing container", id)
 	start := time.Now()
 
 	err = p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: id})
@@ -427,14 +425,14 @@ func (p *DockerProvider) Terminate(id string, removeSettings bool) (*provider.Co
 		}
 	}
 
-	p.logger.TimeInfo(start, "DockerProvider: removed container", id, "in")
+	logrus.Info("DockerProvider: removed container", id, "in", time.Since(start))
 
 	info.Host = ""
 	info.Gateway = ""
 	info.State = ""
 	info.Ports = nil
 
-	p.logger.TimeInfo(terminationStart, "DockerProvider: terminated container", id, "in")
+	logrus.Info("DockerProvider: terminated container", id, "in", time.Since(terminationStart))
 	return info, nil
 }
 
@@ -534,12 +532,12 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 		}
 
 		// Recover from errors.
-		p.logger.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
+		logrus.Errorf("reconfig: failed to reconfigure %s: %v", id, err)
 
 		switch state {
 		case stopped:
 			if cn, err := p.Start(id, ""); err != nil {
-				p.logger.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
+				logrus.Errorf("reconfig: failed to start original container %s after failure: %v", id, err)
 			} else {
 				ret = cn
 			}
@@ -630,7 +628,7 @@ func (p *DockerProvider) Reconfig(id, configJSON string) (ret *provider.Containe
 	for _, bind := range startConfig.Binds {
 		dirs := strings.Split(bind, ":")
 		if len(dirs) <= 2 {
-			p.logger.Errorf("reconfig: Invalid volume binding: %s", bind)
+			logrus.Errorf("reconfig: Invalid volume binding: %s", bind)
 			continue
 		}
 		volumes[dirs[1]] = dirs[0]
@@ -735,7 +733,7 @@ func (p *DockerProvider) IsNotFoundError(err error) bool {
 
 func (p *DockerProvider) Export(id string, output io.Writer) error {
 	defer func(start time.Time) {
-		p.logger.Infof("Export container %s took %v", id, time.Now().Sub(start))
+		logrus.Infof("Export container %s took %v", id, time.Now().Sub(start))
 	}(time.Now())
 	container, err := p.inspectContainer(id)
 	if err != nil {
@@ -1071,13 +1069,13 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 	// if we dont have the auth configuration, use unauthenticated request
 	authPath, err := p.dockerConfigLocation()
 	if err != nil {
-		p.logger.Warnf("failed to find authentication location, err: %v", err)
+		logrus.Warnf("failed to find authentication location, err: %v", err)
 		return dockerclient.AuthConfiguration{}, nil
 	}
 
 	fileContents, err := ioutil.ReadFile(authPath)
 	if err != nil {
-		p.logger.Warnf("failed to find authentication details, err: %v", err)
+		logrus.Warnf("failed to find authentication details, err: %v", err)
 		return dockerclient.AuthConfiguration{}, nil
 	}
 
@@ -1311,7 +1309,7 @@ func (p *DockerProvider) ContainerSettingsDir(containerName string) string {
 }
 
 func (p *DockerProvider) storeSharedSecret(containerName string, secret string) error {
-	p.logger.Info("DockerProvider: storing shared secret for", containerName)
+	logrus.Info("DockerProvider: storing shared secret for", containerName)
 	dir := p.ContainerSettingsDir(containerName)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -1327,7 +1325,7 @@ func (p *DockerProvider) storeSharedSecret(containerName string, secret string) 
 }
 
 func (p *DockerProvider) storeContainerName(containerName string) error {
-	p.logger.Infof("DockerProvider: storing %s for %s", nitrousSlugFilename, containerName)
+	logrus.Infof("DockerProvider: storing %s for %s", nitrousSlugFilename, containerName)
 	dir := p.ContainerSettingsDir(containerName)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
@@ -1397,13 +1395,13 @@ func (p *DockerProvider) appPID(container *dockerclient.Container, cmd string) (
 	pgrepCmd := exec.Command("pgrep", "--full", "--exact", "--newest", nsenterCmd)
 	out, err := pgrepCmd.CombinedOutput()
 	if err != nil {
-		p.logger.Errorf("pgrep for nsenter process failed, err: %v, output: %s", err, out)
+		logrus.Errorf("pgrep for nsenter process failed, err: %v, output: %s", err, out)
 		return 0, err
 	}
 
 	pid, err := strconv.Atoi(strings.TrimSpace(string(out)))
 	if err != nil {
-		p.logger.Errorf("pgrep did not return a proper pid, err: %v, output: %s", err, out)
+		logrus.Errorf("pgrep did not return a proper pid, err: %v, output: %s", err, out)
 		return 0, err
 	}
 

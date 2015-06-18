@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/host/docker"
@@ -19,6 +20,8 @@ import (
 	dockerclient "github.com/fsouza/go-dockerclient"
 	dockertest "github.com/fsouza/go-dockerclient/testing"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func TestDocker(t *testing.T) {
 	RegisterFailHandler(Fail)

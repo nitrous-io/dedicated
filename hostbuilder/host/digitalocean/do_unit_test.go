@@ -3,10 +3,13 @@ package digitalocean
 import (
 	"testing"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/digitalocean/godo"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func TestDigitalOceanUnit(t *testing.T) {
 	RegisterFailHandler(Fail)

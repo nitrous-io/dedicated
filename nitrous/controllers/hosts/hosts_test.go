@@ -37,7 +37,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	test "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -88,9 +87,8 @@ var _ = Describe("controllers/hosts", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()

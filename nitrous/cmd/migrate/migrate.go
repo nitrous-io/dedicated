@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -15,7 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -48,8 +48,6 @@ var (
 
 	uToken *token.Token
 
-	logr *logger.Logger
-
 	dbConn *db.Database
 
 	initiatorID int64
@@ -81,27 +79,27 @@ var (
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 
 	// get AES_Key
 	aesKey = envvars.AESKey
 	if aesKey == "" {
-		logr.FatalExit("AES_KEY is not defined")
+		logrus.Fatal("AES_KEY is not defined")
 	}
 
 	// get db connection
 	dbURL = envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 
 	webHostname = envvars.WebHostname
 	if webHostname == "" {
-		logr.FatalExit("WEB_HOSTNAME is not defined")
+		logrus.Fatal("WEB_HOSTNAME is not defined")
 	}
 
 	if envvars.ProvisionerUser == "" {
-		logr.FatalExit("PROVISIONER_USER is not defined")
+		logrus.Fatal("PROVISIONER_USER is not defined")
 	}
 }
 
@@ -116,12 +114,12 @@ func main() {
 	srcHostSlug = os.Args[1]
 	var destHostSlug string
 
-	logr.Infof("Connecting to %s", srcHostSlug)
+	logrus.Infof("Connecting to %s", srcHostSlug)
 	srcSSHHost, srcDBHost, err = newConn(srcHostSlug)
 	if err != nil {
-		logr.FatalfExit("Error connecting to %s: %+v\n", srcHostSlug, err)
+		logrus.Fatalf("Error connecting to %s: %+v\n", srcHostSlug, err)
 	}
-	logr.Infof("Connected to %s", srcHostSlug)
+	logrus.Infof("Connected to %s", srcHostSlug)
 
 	var refreshFn func()
 
@@ -133,15 +131,15 @@ func main() {
 
 	err = dbConn.QueryRow(`SELECT id FROM users WHERE username = $1;`, envvars.ProvisionerUser).Scan(&initiatorID)
 	if err != nil {
-		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
+		logrus.Fatalf("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
-	logr.Infof("Connecting to %s", destHostSlug)
+	logrus.Infof("Connecting to %s", destHostSlug)
 	destSSHHost, destDBHost, err = newConn(destHostSlug)
 	if err != nil {
-		logr.FatalfExit("Error connecting to %s: %+v\n", destHostSlug, err)
+		logrus.Fatalf("Error connecting to %s: %+v\n", destHostSlug, err)
 	}
-	logr.Infof("Connected to %s", destHostSlug)
+	logrus.Infof("Connected to %s", destHostSlug)
 
 	fmt.Println("---------")
 	fmt.Println("PLAN:")
@@ -291,7 +289,7 @@ func provisionDestHost() (string, func()) {
 
 	u, err := user.FindByID(dbConn, uID)
 	if err != nil {
-		logr.FatalfExit("Error fetching user %d, err: %v", uID, err)
+		logrus.Fatalf("Error fetching user %d, err: %v", uID, err)
 	}
 
 	uToken = &token.Token{
@@ -299,7 +297,7 @@ func provisionDestHost() (string, func()) {
 	}
 
 	if err := uToken.Insert(dbConn); err != nil {
-		logr.FatalfExit("Error generating token for %d, err: %v", uID, err)
+		logrus.Fatalf("Error generating token for %d, err: %v", uID, err)
 	}
 
 	var currentSlugs struct {
@@ -314,24 +312,24 @@ func provisionDestHost() (string, func()) {
 		WHERE hosts.id = $1`, srcDBHost.ID)
 
 	if err != nil {
-		logr.FatalfExit("Error fetching slugs from host err: %v", err)
+		logrus.Fatalf("Error fetching slugs from host err: %v", err)
 	}
 
 	region, ok := regionMap[currentSlugs.RegionSlug]
 	if !ok {
-		logr.FatalfExit("Error matching region %s", currentSlugs.RegionSlug)
+		logrus.Fatalf("Error matching region %s", currentSlugs.RegionSlug)
 	}
 
 	plan, ok := planMap[currentSlugs.PlanSlug]
 	if !ok {
-		logr.FatalfExit("Error matching plan %s", currentSlugs.PlanSlug)
+		logrus.Fatalf("Error matching plan %s", currentSlugs.PlanSlug)
 	}
 
-	logr.Infof("Using region '%s'", region)
-	logr.Infof("Using plan '%s'", plan)
+	logrus.Infof("Using region '%s'", region)
+	logrus.Infof("Using plan '%s'", plan)
 
 	name := fmt.Sprintf("destination-%d", srcDBHost.ID)
-	logr.Debugf("Creating your host %s", name)
+	logrus.Debugf("Creating your host %s", name)
 	bearer := fmt.Sprintf(`Authorization: Bearer %s`, uToken.Token)
 	params := fmt.Sprintf(`name=%s&region=%s&size=%s`, name, region, plan)
 	cmd := exec.Command("curl", "-H", bearer, "--data", params, fmt.Sprintf("https://%s/api/v0/hosts", webHostname))
@@ -345,7 +343,7 @@ func provisionDestHost() (string, func()) {
 	var slug string
 	err = dbConn.Get(&slug, `SELECT slug FROM hosts WHERE name = $1 AND state = 'running';`, name)
 	if err != nil {
-		logr.FatalfExit("Error fetching final host, err: %v", err)
+		logrus.Fatalf("Error fetching final host, err: %v", err)
 	}
 
 	refreshFn := func() {

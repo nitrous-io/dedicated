@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"time"
 
 	"crypto/rsa"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -36,13 +36,13 @@ func init() {
 	// get AES_Key
 	aesKey = envvars.AESKey
 	if aesKey == "" {
-		log.Fatal("AES_KEY is not defined")
+		logrus.Fatal("AES_KEY is not defined")
 	}
 
 	// get db connection
 	dbURL = envvars.NitrousPgUrl
 	if dbURL == "" {
-		log.Fatal(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 }
 
@@ -51,7 +51,7 @@ func main() {
 	// get db connection
 	dbconn, err = db.NewDatabase(dbURL)
 	if err != nil {
-		log.Fatalf("failed to open db connection %q", err)
+		logrus.Fatalf("failed to open db connection %q", err)
 	}
 
 	c := cli.NewCLI("hssh", "0.0.1-alpha")
@@ -132,21 +132,21 @@ func hostFromSlug(slug string) (*host.Host, error) {
 func pipes(s *ssh.Session) (io.WriteCloser, io.Reader, io.Reader) {
 	stdin, err := s.StdinPipe()
 	if err != nil {
-		log.Fatalf("failed to open stdin pipe %v", err)
+		logrus.Fatalf("failed to open stdin pipe %v", err)
 	}
 	stdout, err := s.StdoutPipe()
 	if err != nil {
-		log.Fatalf("failed to open stdout pipe %v", err)
+		logrus.Fatalf("failed to open stdout pipe %v", err)
 	}
 	stderr, err := s.StderrPipe()
 	if err != nil {
-		log.Fatalf("failed to open stderr pipe %v", err)
+		logrus.Fatalf("failed to open stderr pipe %v", err)
 	}
 	return stdin, stdout, stderr
 }
 
 // log and return error code 1
 func failf(format string, args ...interface{}) int {
-	log.Printf(format, args...)
+	logrus.Errorf(format, args...)
 	return 1
 }

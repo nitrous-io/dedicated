@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -102,7 +103,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	for _, host := range hosts {
 		containers, err := container.FindAllByHostID(db, host.ID)
 		if err != nil {
-			env.Logger.Errorf("unable to find all containers: %v, for host %s", err, host.Slug)
+			logrus.Errorf("unable to find all containers: %v, for host %s", err, host.Slug)
 			continue
 		}
 		containerHostMap[host.ID] = containers
@@ -138,7 +139,7 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 					containersResp = append(containersResp, serializers.SerializeContainer(sc))
 				}
 			} else {
-				env.Logger.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
+				logrus.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
 				if strings.HasPrefix(freighterErr.Error(), "freighter:") {
 					errorMessages = append(errorMessages, fmt.Sprintf("Unable to communicate with freighter for host %s", h.Slug))
 				} else {
@@ -265,7 +266,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		BuiltAt:     builtAt,
 	}
 	if err := img.InsertOrUpdate(env.DB); err != nil { // log and continue
-		env.Logger.Errorf("containers.create: failed to insert or update image '%+v'", img)
+		logrus.Errorf("containers.create: failed to insert or update image '%+v'", img)
 	}
 
 	sImg := serializers.SerializeImage(img)
@@ -600,8 +601,8 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 
 func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
 	userIDs, err := containercollab.GetCollaboratorIDs(env.DB, c.ID)
-	env.Logger.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 	if err != nil {
+		logrus.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
 		return
 	}
 	userIDs = append(userIDs, c.UserID)

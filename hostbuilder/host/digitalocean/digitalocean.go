@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 
 	"code.google.com/p/goauth2/oauth"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/digitalocean/godo"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -443,7 +443,7 @@ func (h *Host) Printf(format string, v ...interface{}) {
 	if h.droplet != nil {
 		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
 	}
-	log.Printf(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
+	logrus.Infof(fmt.Sprintf("%s %s", strings.Join(parts, " "), format), v...)
 }
 
 // MetricsLabel returns the label with the current host's region if possible
@@ -550,7 +550,7 @@ func (h *Host) generateNotifyURL() string {
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("uuid=%s digitalocean: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s digitalocean: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	if defaultConfig["token"] == "" {

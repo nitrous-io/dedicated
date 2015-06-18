@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/registry"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -82,8 +81,7 @@ var _ = Describe("controllers/registries", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 		authTokenInputs = AuthTokenInputs{Handler: handler}

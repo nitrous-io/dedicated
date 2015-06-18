@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -13,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -37,7 +37,7 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		var amount int64
 		err := env.DB.Get(&amount, "SELECT default_value FROM credit_types WHERE name = $1;", env.User.PromoCode.String)
 		if err != nil {
-			env.Logger.Errorf("Error finding promo code %s err: %+v", env.User.PromoCode.String, err)
+			logrus.Errorf("Error finding promo code %s err: %+v", env.User.PromoCode.String, err)
 		}
 		ser.AmountCredited = amount
 	}
@@ -74,24 +74,24 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
-			env.Logger.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
+			logrus.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
 		} else if count <= 1 {
-			credited = awardCredits(db, env.Logger, u)
+			credited = awardCredits(db, u)
 		}
 	}
 
 	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
-		env.Logger.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
+		logrus.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 
 	if (existing.State == billingprofile.StateFree || existing.State == billingprofile.StateNoCard) &&
 		bp.State == billingprofile.StatePaid {
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 			"upgraded_to_paid_from": existing.State,
-		}, env.Logger)
+		})
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 			"upgraded_to_paid_at": time.Now(),
-		}, env.Logger)
+		})
 		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": existing.State})
 	}
 
@@ -148,7 +148,7 @@ func handleBillingError(err error) error {
 	}
 }
 
-func awardCredits(d *db.Database, l *logger.Logger, user *user.User) int64 {
+func awardCredits(d *db.Database, user *user.User) int64 {
 	if user.PromoCode.String == "" || !user.PromoCode.Valid {
 		// promo_code is '' or NULL, return
 		return 0
@@ -157,36 +157,36 @@ func awardCredits(d *db.Database, l *logger.Logger, user *user.User) int64 {
 	ct, err := creditForUser(d, user)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			l.Errorf("Credit '%s' does not exist", user.PromoCode.String)
+			logrus.Errorf("Credit '%s' does not exist", user.PromoCode.String)
 			return 0
 		}
-		l.Errorf("Error locating credit for user, err: %+v", err)
+		logrus.Errorf("Error locating credit for user, err: %+v", err)
 		return 0
 	}
 
 	tx, err := d.Beginx()
 	if err != nil {
-		l.Errorf("Error opening db transaction, err: %+v", err)
+		logrus.Errorf("Error opening db transaction, err: %+v", err)
 		return 0
 	}
 
 	_, err = tx.Exec(`INSERT INTO credits(user_id, credit_type_id, amount) VALUES ($1, $2, $3);`, user.ID, ct.ID, ct.DefaultValue)
 	if err != nil {
 		tx.Rollback()
-		l.Errorf("Error locating credit for user, err: %+v", err)
+		logrus.Errorf("Error locating credit for user, err: %+v", err)
 		return 0
 	}
 
 	_, err = tx.Exec(`UPDATE credit_types SET used = coalesce(used, 0) + 1 WHERE id = $1`, ct.ID)
 	if err != nil {
 		tx.Rollback()
-		l.Errorf("Error incrementing used credit, err: %+v", err)
+		logrus.Errorf("Error incrementing used credit, err: %+v", err)
 		return 0
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		l.Errorf("Error committing credit for user, err: %+v", err)
+		logrus.Errorf("Error committing credit for user, err: %+v", err)
 		return 0
 	}
 

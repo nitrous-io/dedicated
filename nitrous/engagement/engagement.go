@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net/mail"
 	"net/url"
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -39,7 +39,7 @@ func extractDuration(val, defaultVal string) time.Duration {
 	}
 	parsed, err := strconv.Atoi(val)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	return time.Hour * time.Duration(parsed)
 }

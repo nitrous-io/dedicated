@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -72,7 +72,7 @@ func monitorSize(fd int, s *ssh.Session) {
 		for _ = range sigchan {
 			w, h, err := terminal.GetSize(fd)
 			if err != nil {
-				log.Printf("failed to get terminal size %v", err)
+				logrus.Errorf("failed to get terminal size %v", err)
 				w, h = 80, 24
 			}
 			req := &resizeRequest{
@@ -83,7 +83,7 @@ func monitorSize(fd int, s *ssh.Session) {
 			}
 			_, err = s.SendRequest("window-change", false, ssh.Marshal(req))
 			if err != nil {
-				log.Printf("failed to send resize request %v", err)
+				logrus.Errorf("failed to send resize request %v", err)
 			}
 		}
 	}()

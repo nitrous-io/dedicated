@@ -25,7 +25,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
-	lgr "github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -42,7 +41,6 @@ var _ = Describe("controllers/containercollabs", func() {
 		t   *token.Token
 		cnr *container.Container
 
-		logger  *lgr.Logger
 		svr     *server.Server
 		handler *mux.Router
 		res     *httptest.ResponseRecorder
@@ -53,8 +51,7 @@ var _ = Describe("controllers/containercollabs", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		logger = &lgr.Logger{Level: lgr.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 

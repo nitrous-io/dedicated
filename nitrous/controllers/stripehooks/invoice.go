@@ -1,6 +1,7 @@
 package stripehooks
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -10,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/nitrous-common/logger"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 )
@@ -23,18 +23,18 @@ var (
 func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
 	inv, err := invoice.FindByStripeID(env.DB, stripeID)
 	if err != nil {
-		env.Logger.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
+		logrus.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
 		return
 	}
 	if inv == nil {
-		env.Logger.Errorf("Could not find invoice matching Stripe event: %+v", e)
+		logrus.Errorf("Could not find invoice matching Stripe event: %+v", e)
 		return
 	}
 
 	// webhook data is found to be outdated, query the invoice for *live* info
 	strInv, err := stripeinvoice.Get(stripeID, nil)
 	if err != nil {
-		env.Logger.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
+		logrus.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
 		return
 	}
 
@@ -45,12 +45,12 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 	}
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
-		env.Logger.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
+		logrus.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
-	sInv, err := serializeInvoice(env.DB, inv, env.Logger)
+	sInv, err := serializeInvoice(env.DB, inv)
 	if err != nil {
-		env.Logger.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
+		logrus.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
 	env.Events.Publish(
@@ -61,7 +61,7 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 	)
 }
 
-func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.Logger) (*serializers.Invoice, error) {
+func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.Invoice, error) {
 	sInv := serializers.SerializeInvoice(inv)
 
 	items := []invoiceitem.InvoiceItem{}
@@ -97,9 +97,7 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.L
 			} else {
 				ser.Description = "Information not available at this time"
 				ser.TotalCharge = item.UncappedTotalCharge()
-				if logger != nil {
-					logger.Errorf("stripehooks: Unable to locate host %d in hMap for user %d", ser.HostID, inv.UserID)
-				}
+				logrus.Errorf("stripehooks: Unable to locate host %d in hMap for user %d", ser.HostID, inv.UserID)
 			}
 			sInv.Items = append(sInv.Items, *ser)
 		}
@@ -109,12 +107,12 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.L
 
 func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
 	if err := inv.PaymentSucceeded(env.DB); err != nil {
-		env.Logger.Errorf("Error marking invoice %d as succeeded, err: %v", inv.ID, err)
+		logrus.Errorf("Error marking invoice %d as succeeded, err: %v", inv.ID, err)
 	}
 }
 
 func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
 	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
-		env.Logger.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
+		logrus.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
 	}
 }

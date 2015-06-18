@@ -5,7 +5,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -16,8 +15,7 @@ var _ = Describe("GetConfig", func() {
 		datadir, err := ioutil.TempDir("", "freightertest")
 		Expect(err).To(BeNil())
 
-		prov, err := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet},
-			datadir)
+		prov, err := docker.NewDockerProvider(datadir)
 		Expect(err).To(BeNil())
 
 		name := test.RandomName("freightertest")

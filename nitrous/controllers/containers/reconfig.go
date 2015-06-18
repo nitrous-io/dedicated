@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -134,12 +135,12 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 
 	err = cn.Update(db)
 	if err != nil {
-		env.Logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+		logrus.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
 		return err
 	}
 
 	if err = updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
-		env.Logger.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
+		logrus.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
 	}
 
 	add := map[string]interface{}{

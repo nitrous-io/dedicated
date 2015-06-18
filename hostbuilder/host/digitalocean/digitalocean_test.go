@@ -2,11 +2,9 @@ package digitalocean_test
 
 import (
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -16,19 +14,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-type newlineWriter struct {
-	w io.Writer
-}
-
-func (w *newlineWriter) Write(p []byte) (int, error) {
-	n, err := w.w.Write(p)
-	if err != nil {
-		return n, err
-	}
-	w.w.Write([]byte("\n"))
-	return n, nil
-}
 
 func init() {
 	digitalocean.StateWaitTime = 10 * time.Millisecond
@@ -86,7 +71,7 @@ var _ = Describe("host/digitalocean", func() {
 				doHost := h.(*digitalocean.Host)
 				doHost.Client = c
 
-				_, err = h.Create(&newlineWriter{os.Stdout})
+				_, err = h.Create(ioutil.Discard)
 				Expect(err).To(Equal(digitalocean.ErrCreateTimeout))
 			})
 		})
@@ -109,7 +94,7 @@ var _ = Describe("host/digitalocean", func() {
 				doHost := h.(*digitalocean.Host)
 				doHost.Client = c
 
-				_, err = h.Create(&newlineWriter{os.Stdout})
+				_, err = h.Create(ioutil.Discard)
 				Expect(err).NotTo(BeNil(), "expect create to fail")
 			})
 		})

@@ -6,7 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Sirupsen/logrus"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func TestGetCopsInfo(t *testing.T) {
 	// save current value to restore later

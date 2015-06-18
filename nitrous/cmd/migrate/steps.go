@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
@@ -85,7 +86,7 @@ func setSSHKeys() error {
 	dHome := homePathForUser(destSSHHost.Config.User)
 	sHome := homePathForUser(srcSSHHost.Config.User)
 
-	logr.Info("[DEST] Uploading private key")
+	logrus.Info("[DEST] Uploading private key")
 	destSSHHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", dHome))
 	loc := fmt.Sprintf("%s/.ssh/id_rsa", dHome)
 	if err := destSSHHost.Upload(loc, privRd); err != nil {
@@ -93,21 +94,21 @@ func setSSHKeys() error {
 	}
 	destSSHHost.CombinedOutput(fmt.Sprintf("chmod 0600 %s", loc))
 
-	logr.Info("[SRC] Uploading temporary public key for appending")
+	logrus.Info("[SRC] Uploading temporary public key for appending")
 	srcSSHHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
 	loc = fmt.Sprintf("%s/.ssh/authorized_keys.tmp", sHome)
 	if err := srcSSHHost.Upload(loc, pubRd); err != nil {
 		return fmt.Errorf("[SRC] Error uploading temporary public key: %v", err)
 	}
 
-	logr.Info("[SRC] Appending temporary public key")
+	logrus.Info("[SRC] Appending temporary public key")
 	srcSSHHost.CombinedOutput(fmt.Sprintf("mkdir -p '%s/.ssh'", sHome))
 	out, err := srcSSHHost.CombinedOutput(fmt.Sprintf("cat %s >> '%s/.ssh/authorized_keys'", loc, sHome))
 	if err != nil {
 		return fmt.Errorf("[SRC] Error appending temporary public key: %s err: %v", out, err)
 	}
 
-	logr.Info("[DEST] Testing SSH comms with SRC")
+	logrus.Info("[DEST] Testing SSH comms with SRC")
 	parts := strings.Split(srcSSHHost.Client.RemoteAddr().String(), ":")
 	cmd := fmt.Sprintf(`ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null %s@%s -p %s 'echo "welcome!"'`, srcSSHHost.Config.User, parts[0], parts[1])
 	out, err = destSSHHost.CombinedOutput(cmd)
@@ -117,7 +118,7 @@ func setSSHKeys() error {
 	if !strings.Contains(string(out), "welcome!") {
 		return fmt.Errorf("[DEST] Error looking for `welcome!`: %s", out)
 	}
-	logr.Info("[DEST] Test succeeded!")
+	logrus.Info("[DEST] Test succeeded!")
 
 	return nil
 }
@@ -157,7 +158,7 @@ func restoreServers() error {
 		return fmt.Errorf("Unable to begin transaction for record updates. err: %v", err)
 	}
 
-	logr.Info("[SRC] Setting state to running")
+	logrus.Info("[SRC] Setting state to running")
 	// leave DST state in migrating so users don't see it
 	nm := namedDB{srcDBHost, "SRC"}
 	nm.host.State = "running"
@@ -173,14 +174,14 @@ func restoreServers() error {
 		return fmt.Errorf("[%s] Unable to transition host. err: %v", nm.name, err)
 	}
 
-	logr.Info("[SRC] Starting docker")
+	logrus.Info("[SRC] Starting docker")
 	out, err := srcSSHHost.CombinedOutput("sudo service docker start")
 	if err != nil {
 		tx.Rollback()
 		return fmt.Errorf("[SRC] Could not start Docker. %s err: %v", out, err)
 	}
 
-	logr.Info("[SRC] Starting freighterd")
+	logrus.Info("[SRC] Starting freighterd")
 	out, err = srcSSHHost.CombinedOutput("sudo service freighterd start")
 	if err != nil {
 		return fmt.Errorf("[SRC] Could not start Freighter. %s err: %v", out, err)
@@ -195,7 +196,7 @@ func restoreServers() error {
 }
 
 func stopServices() error {
-	logr.Info("[ALL] Stopping freighter & docker services on DEST & SRC...")
+	logrus.Info("[ALL] Stopping freighter & docker services on DEST & SRC...")
 	for _, hst := range allSSHHosts() {
 		for _, c := range []string{"freighterd", "docker"} {
 			cmd := fmt.Sprintf("sudo service %s status", c)
@@ -228,7 +229,7 @@ func getTransferrableDirectories() []string {
 	if !strings.Contains(string(chk), "No such file or directory") {
 		dirs = append(dirs, "/.dockercfg")
 	} else {
-		logr.Warn("[DEST] /.dockercfg will not be transferred from SRC, does not exit")
+		logrus.Warn("[DEST] /.dockercfg will not be transferred from SRC, does not exit")
 	}
 
 	return dirs
@@ -236,7 +237,7 @@ func getTransferrableDirectories() []string {
 
 func backupDestDirectories(dirs []string) error {
 	for _, dir := range dirs {
-		logr.Infof("[DEST] Backing up %s", dir)
+		logrus.Infof("[DEST] Backing up %s", dir)
 		cmd := fmt.Sprintf("sudo mv %s{,.bak}", dir)
 		out, err := destSSHHost.CombinedOutput(cmd)
 		if err != nil {
@@ -255,7 +256,7 @@ func backupDestDirectories(dirs []string) error {
 func removeBackupDestDirectories(dirs []string) error {
 	for _, dir := range dirs {
 		bdir := fmt.Sprintf("%s.bak", dir)
-		logr.Infof("[DEST] Removing %s", bdir)
+		logrus.Infof("[DEST] Removing %s", bdir)
 		cmd := fmt.Sprintf("sudo rm -r %s", bdir)
 		out, err := destSSHHost.CombinedOutput(cmd)
 		if err != nil {
@@ -275,14 +276,14 @@ func syncDirectories(dirs []string) error {
 	// See http://serverfault.com/questions/66338/how-do-you-synchronise-huge-sparse-files-vm-disk-images-between-machines/435514#435514
 	for _, dir := range dirs {
 		cmd := fmt.Sprintf(`sudo rsync --ignore-existing --sparse -az --rsync-path="sudo rsync" -e "%s" %s@%s:%s/ %s`, remoteCmd, srcSSHHost.Config.User, parts[0], dir, dir)
-		logr.Debugf("[DEST] Running %s", cmd)
+		logrus.Debugf("[DEST] Running %s", cmd)
 		out, err := destSSHHost.CombinedOutput(cmd)
 		if err != nil {
 			return fmt.Errorf("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
 		}
 
 		cmd = fmt.Sprintf(`sudo rsync --inplace -az --rsync-path="sudo rsync" -e "%s" %s@%s:%s/ %s`, remoteCmd, srcSSHHost.Config.User, parts[0], dir, dir)
-		logr.Debugf("[DEST] Running %s", cmd)
+		logrus.Debugf("[DEST] Running %s", cmd)
 		out, err = destSSHHost.CombinedOutput(cmd)
 		if err != nil {
 			return fmt.Errorf("[DEST] Error rsyncing `%s`: %s err: %v", dir, out, err)
@@ -292,7 +293,7 @@ func syncDirectories(dirs []string) error {
 		if strings.Contains(string(chk), "No such file or directory") {
 			return fmt.Errorf("[DEST] %s could not be located after rsync", dir)
 		}
-		logr.Infof("[DEST] Successfully rsynced %s", dir)
+		logrus.Infof("[DEST] Successfully rsynced %s", dir)
 	}
 
 	return nil
@@ -372,7 +373,7 @@ func updateRecords() error {
 	}
 
 	for _, tbl := range []string{"containers", "volumes", "images"} {
-		logr.Infof("[DEST] Updating table %s to host_id=%d from host_id=%d", tbl, destDBHost.ID, srcDBHost.ID)
+		logrus.Infof("[DEST] Updating table %s to host_id=%d from host_id=%d", tbl, destDBHost.ID, srcDBHost.ID)
 		qry := fmt.Sprintf("UPDATE %s SET host_id = $1 WHERE host_id = $2;", tbl)
 		_, err := tx.Exec(qry, destDBHost.ID, srcDBHost.ID)
 		if err != nil {
@@ -436,16 +437,16 @@ func updateRecords() error {
 }
 
 func startServices() error {
-	logr.Info("[DEST] Starting docker")
+	logrus.Info("[DEST] Starting docker")
 	out, err := destSSHHost.CombinedOutput("sudo service docker start && sleep 2")
 	if err != nil {
 		return fmt.Errorf("[DEST] Could not start Docker. %s err: %v", out, err)
 	}
 
 	chk, _ := destSSHHost.CombinedOutput("sudo docker ps -a")
-	logr.Infof("[DEST] %s", chk)
+	logrus.Infof("[DEST] %s", chk)
 
-	logr.Info("[DEST] Starting freighterd")
+	logrus.Info("[DEST] Starting freighterd")
 	out, err = destSSHHost.CombinedOutput("sudo service freighterd start")
 	if err != nil {
 		return fmt.Errorf("[DEST] Could not start Freighter. %s err: %v", out, err)
@@ -482,5 +483,5 @@ func handleFatalError(err error, w namedConn) error {
 }
 
 func handleOutput(out []byte, w namedConn) {
-	logr.Debugf("[%s] %s", w.name, out)
+	logrus.Debugf("[%s] %s", w.name, out)
 }

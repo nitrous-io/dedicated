@@ -3,10 +3,10 @@ package collab
 import (
 	"encoding/json"
 	"io"
-	"log"
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/msgproto"
 	"github.com/nitrous-io/ot.go/ot"
 	"github.com/nitrous-io/ot.go/ot/operation"
@@ -39,7 +39,7 @@ func Handle(ws MessageReaderWriter, username, connID string) {
 	for {
 		msgType, d, err = msgproto.ReadAndDecodeMessage(ws)
 		if err != nil {
-			log.Printf("wsCollab: msgproto.ReadAndDecodeMessage() failed with %s", err)
+			logrus.Errorf("wsCollab: msgproto.ReadAndDecodeMessage() failed with %s", err)
 			break
 		}
 		switch msgType {
@@ -47,7 +47,7 @@ func Handle(ws MessageReaderWriter, username, connID string) {
 			break
 		case msgproto.DataMessage:
 			if err = HandleCollabMessage(c, d); err != nil {
-				log.Printf("wsCollab: msgproto.HandleCollabMessage() failed with %s, message: %s", err, string(d))
+				logrus.Errorf("wsCollab: msgproto.HandleCollabMessage() failed with %s, message: %s", err, string(d))
 				break
 			}
 		}

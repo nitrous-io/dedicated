@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/event"
@@ -871,7 +871,7 @@ func (h *Host) Printf(format string, v ...interface{}) {
 	if h.instance != nil {
 		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
 	}
-	log.Printf(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+	logrus.Infof(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
 }
 
 // MetricsLabel returns the label with the current host's region if possible
@@ -954,7 +954,7 @@ func (h *Host) logFailed() {
 func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		log.Printf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
@@ -964,7 +964,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		log.Printf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
+		logrus.Errorf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
 		return nil, err
 	}
 	// get create timeout
@@ -990,7 +990,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 	if _, ok := defaultConfig["ignore_region"]; !ok {
 		region, err := accessConfig.Region()
 		if err != nil {
-			log.Printf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
+			logrus.Errorf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
 			return nil, err
 		}
 		host.provider = ec2.New(auth, region)

@@ -5,11 +5,11 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"errors"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
@@ -44,9 +44,9 @@ type FreighterProxyServer struct {
 func DumpHostsCache() {
 	muHosts.Lock()
 	defer muHosts.Unlock()
-	log.Printf("hostsCache: %d hosts, last updated %s ago\n", len(hostsCache), time.Since(hostsCacheLastUpdate))
+	logrus.Printf("hostsCache: %d hosts, last updated %s ago\n", len(hostsCache), time.Since(hostsCacheLastUpdate))
 	for slug, h := range hostsCache {
-		log.Printf(" %s: %s:%d\n", slug, h.IP, h.Port)
+		logrus.Printf(" %s: %s:%d\n", slug, h.IP, h.Port)
 	}
 }
 
@@ -130,10 +130,10 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err error) {
 	slug, err := getHostname(r.Host, s.domain)
 	if err != nil {
-		log.Printf("[WARN] domain: %s but got request for %q that we can't handle", s.domain, r.Host)
+		logrus.Warnf("domain: %s but got request for %q that we can't handle", s.domain, r.Host)
 		return err
 	}
-	LogVerbosef("[INFO] proxying freighter request %+v to %s", r, slug)
+	LogVerbosef("proxying freighter request %+v to %s", r, slug)
 
 	host, err := hostGet(s.db, slug)
 	if err != nil {

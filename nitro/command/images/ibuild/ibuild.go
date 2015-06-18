@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitro/command"
@@ -146,7 +146,7 @@ func (c *Command) buildImage(host, fpath, slug string, out io.Writer, termFd uin
 			defer pw.Close()
 			errCh := uploadBuildContext(writer, params, r)
 			if err := <-errCh; err != nil {
-				log.Print(err.Error())
+				logrus.Error(err.Error())
 			}
 			return
 		}()

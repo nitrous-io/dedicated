@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -16,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const (
@@ -25,7 +25,6 @@ const (
 )
 
 var (
-	logr           *logger.Logger
 	providerToSeed string
 
 	amazonFreeConfig = `{
@@ -68,7 +67,7 @@ var (
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 type SeedFn func(db.QueryReceiver) error
@@ -78,36 +77,36 @@ var seeds = []SeedFn{users, regions, plans, providertemplates, templates, credit
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	providerToSeed = envvars.DefaultProvider
 	if providerToSeed != "digitalocean" && providerToSeed != "docker" && providerToSeed != "amazon" {
-		logr.FatalfExit("DEFAULT_PROVIDER %s is invalid", providerToSeed)
+		logrus.Fatalf("DEFAULT_PROVIDER %s is invalid", providerToSeed)
 	}
 
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	if err := dbConn.MigrateAll(); err != nil {
-		logr.Infof("Migrations failed: %v", err)
+		logrus.Infof("Migrations failed: %v", err)
 	}
 	defer dbConn.DB.Close()
 
 	tx, err := dbConn.Beginx()
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	for _, f := range seeds {
 		if err := f(tx); err != nil {
 			tx.Rollback()
-			logr.FatalExit(err)
+			logrus.Fatal(err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 }
 
@@ -136,7 +135,7 @@ func users(d db.QueryReceiver) error {
 		if err != nil {
 			return err
 		}
-		logr.Infof("Added user %+v", u)
+		logrus.Infof("Added user %+v", u)
 	}
 	return nil
 }
@@ -156,7 +155,7 @@ func regions(d db.QueryReceiver) error {
 		if err := r.Insert(d); err != nil {
 			return err
 		}
-		logr.Infof("Added region %+v", r)
+		logrus.Infof("Added region %+v", r)
 	}
 	return nil
 }
@@ -181,7 +180,7 @@ func plans(d db.QueryReceiver) error {
 		if err := p.Insert(d); err != nil {
 			return err
 		}
-		logr.Infof("Added plan %+v", p)
+		logrus.Infof("Added plan %+v", p)
 	}
 
 	return nil
@@ -195,7 +194,7 @@ func providertemplates(d db.QueryReceiver) error {
 		return err
 	}
 	if c > 0 {
-		logr.Infof("%d %s found for provider %s, skipping %s seeds", c, "provider_templates", providerToSeed, "provider_templates")
+		logrus.Infof("%d %s found for provider %s, skipping %s seeds", c, "provider_templates", providerToSeed, "provider_templates")
 		return nil
 	}
 	plans := []plan.Plan{}
@@ -355,7 +354,7 @@ func templates(d db.QueryReceiver) error {
 		if err := t.Insert(d); err != nil {
 			return err
 		}
-		logr.Infof("Added template %+v", t)
+		logrus.Infof("Added template %+v", t)
 	}
 
 	return nil
@@ -389,12 +388,12 @@ func shouldSeed(d db.QueryReceiver, tableName string) (bool, error) {
 	case err != nil:
 		return false, err
 	case c > 0:
-		logr.Infof("%d %s found, skipping %s seeds", c, tableName, tableName)
+		logrus.Infof("%d %s found, skipping %s seeds", c, tableName, tableName)
 		return false, nil
 	case c == 0:
 		return true, nil
 	default: // if it's still -1
-		logr.Errorf("Unexpected count %v", c)
+		logrus.Errorf("Unexpected count %v", c)
 		return false, err
 	}
 }

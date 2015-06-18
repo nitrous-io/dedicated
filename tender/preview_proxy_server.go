@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -78,9 +78,9 @@ func RefreshContainersCache(db *sql.DB) error {
 func DumpContainersCache() {
 	muContainers.Lock()
 	defer muContainers.Unlock()
-	log.Printf("containersCache: %d containers, last updated %s ago\n", len(containersCache), time.Since(containersCacheLastUpdate))
+	logrus.Printf("containersCache: %d containers, last updated %s ago", len(containersCache), time.Since(containersCacheLastUpdate))
 	for slug, c := range containersCache {
-		log.Printf(" %s: %s:%d\n", slug, c.HostIP, c.HostPort)
+		logrus.Printf(" %s: %s:%d\n", slug, c.HostIP, c.HostPort)
 	}
 }
 
@@ -170,12 +170,12 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	if err != nil {
 		slug, err = getCNAMEHostname(r.Host, s.domain)
 		if err != nil {
-			log.Printf("[WARN] domain: %s but got request for %q that we can't handle", s.domain, r.Host)
+			logrus.Warnf("domain: %s but got request for %q that we can't handle", s.domain, r.Host)
 			return err
 		}
 	}
 
-	log.Printf("[INFO] proxying preview request %+v to %s", r, slug)
+	logrus.Infof("proxying preview request %+v to %s", r, slug)
 
 	cn, err := containerGet(s.db, slug)
 	if err != nil {

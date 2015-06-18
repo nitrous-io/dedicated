@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -44,8 +43,7 @@ var _ = Describe("controllers/oauth", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = NewTestServer("", db, logger, NewFakeTracker())
+		svr = NewTestServer("", db, NewFakeTracker())
 		handler = svr.Router()
 		params = &url.Values{}
 	})

@@ -3,10 +3,10 @@ package sshutil
 import (
 	"crypto/rsa"
 	"errors"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -27,7 +27,7 @@ type Logger interface {
 
 type logger struct{}
 
-func (l *logger) Printf(format string, v ...interface{}) { log.Printf(format, v...) }
+func (l *logger) Printf(format string, v ...interface{}) { logrus.Debugf(format, v...) }
 
 // wait for the ssh to be ready on `address`
 func WaitForSSH(
@@ -38,7 +38,7 @@ func WaitForSSH(
 	cancel <-chan struct{},
 	l Logger) (conn *Conn, err error) {
 
-	// if we dont have a logger, delegates to normal log.Printf
+	// if we dont have a logger, delegates to normal Printf
 	if l == nil {
 		l = &logger{}
 	}

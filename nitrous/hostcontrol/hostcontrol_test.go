@@ -16,7 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -37,7 +36,6 @@ func Test(t *testing.T) {
 var _ = Describe("hostcontrol", func() {
 	var (
 		db *ndb.Database
-		l  *logger.Logger
 		u  *user.User
 	)
 
@@ -45,7 +43,6 @@ var _ = Describe("hostcontrol", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		l = &logger.Logger{Level: logger.LogLevelQuiet}
 
 		u = &user.User{
 			Username: "foo",
@@ -101,7 +98,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
@@ -117,7 +114,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -144,7 +141,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("updates the host state to stopped", func() {
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -156,7 +153,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -186,7 +183,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("resets the host to its original state", func() {
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -199,7 +196,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, l, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -257,7 +254,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("should send the UUID headers", func() {
-			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
@@ -265,7 +262,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("sends the correct payload to hostbuilder", func() {
-			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -281,7 +278,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("updates the host state to stopping", func() {
-			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			var err error
 			h, err = host.Find(db, u, h.Slug)
@@ -293,7 +290,7 @@ var _ = Describe("hostcontrol", func() {
 		It("logs transitions for the host", func() {
 			origState := h.State
 
-			Expect(hostcontrol.StopWithQueue(db, l, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
 			var count int
 			err := db.QueryRowx(
@@ -340,7 +337,7 @@ var _ = Describe("hostcontrol", func() {
 
 		terminateHost := func() error {
 			return db.WithTransaction(func(tx *sqlx.Tx) error {
-				return hostcontrol.Terminate(tx, l, h, hbHeaders(), hs.H.UserID)
+				return hostcontrol.Terminate(tx, h, hbHeaders(), hs.H.UserID)
 			})
 		}
 

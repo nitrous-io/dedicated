@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/Sirupsen/logrus"
 )
 
 var (
@@ -166,7 +167,7 @@ func extractShellFromEtcPasswd(s, user string) string {
 func getArgAsStrArray(arg interface{}) ([]string, bool) {
 	a, ok := arg.([]interface{})
 	if !ok {
-		log.Printf("getArgAsStrArray: %#v of type %T is not of type []interface{}", a, a)
+		logrus.Errorf("getArgAsStrArray: %#v of type %T is not of type []interface{}", a, a)
 		return nil, false
 	}
 	n := len(a)
@@ -178,7 +179,7 @@ func getArgAsStrArray(arg interface{}) ([]string, bool) {
 	for i := 0; i < n; i++ {
 		res[i], ok = a[i].(string)
 		if !ok {
-			log.Printf("getArgAsStrArray: a[%d] (value: '%#v', type: %T) is not of type string", i, a[i], a[i])
+			logrus.Errorf("getArgAsStrArray: a[%d] (value: '%#v', type: %T) is not of type string", i, a[i], a[i])
 			return nil, false
 		}
 	}

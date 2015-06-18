@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -25,7 +26,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/subosito/twilio"
 )
 
@@ -66,7 +66,7 @@ func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	}
 	err := rec.Insert(env.DB)
 	if err != nil {
-		env.Logger.Errorf("Error recording '%s', err: %v", email, err)
+		logrus.Errorf("Error recording '%s', err: %v", email, err)
 	}
 
 	return nil
@@ -162,7 +162,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	env.Tracker.CreateProfile(u, env.Logger, distinctID)
+	env.Tracker.CreateProfile(u, distinctID)
 
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
@@ -243,7 +243,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
 		"$email": u.Email,
 		"$name":  u.Name,
-	}, env.Logger)
+	})
 
 	userResponse(env, u)
 	return nil
@@ -287,7 +287,7 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	if err := sendVerificationCode(env.DB, env.Logger, u); err != nil {
+	if err := sendVerificationCode(env.DB, u); err != nil {
 		return err
 	}
 
@@ -296,7 +296,7 @@ func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 }
 
 func ResendPhoneCode(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if err := sendVerificationCode(env.DB, env.Logger, env.User); err != nil {
+	if err := sendVerificationCode(env.DB, env.User); err != nil {
 		return err
 	}
 
@@ -307,7 +307,7 @@ func ResendPhoneCode(env *middleware.Env, w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func sendVerificationCode(d *db.Database, l *logger.Logger, u *user.User) error {
+func sendVerificationCode(d *db.Database, u *user.User) error {
 	if !u.Phone.Valid || !u.PhoneCountryCode.Valid {
 		return httperror.New(http.StatusBadRequest, "invalid_request",
 			"we do not have your phone number in our records")
@@ -326,9 +326,9 @@ func sendVerificationCode(d *db.Database, l *logger.Logger, u *user.User) error 
 		errlog := fmt.Sprintf("user.UpdatePhone: failed to send SMS, message: %+v, err: %+v", m, err)
 		logAsErr, msg := twilioError(err)
 		if logAsErr {
-			l.Errorf(errlog)
+			logrus.Errorf(errlog)
 		} else {
-			l.Debugf(errlog)
+			logrus.Debugf(errlog)
 		}
 		return httperror.New(http.StatusServiceUnavailable, "sms_failed", msg)
 	}
@@ -463,10 +463,10 @@ func Confirm(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	if u.ConfirmedAt.Valid {
 		env.Tracker.SetProfileProps("setnx", u.ID, map[string]interface{}{
 			"confirmed_email_date": u.ConfirmedAt.Time,
-		}, env.Logger)
+		})
 		env.Tracker.SetProfileProps("set", u.ID, map[string]interface{}{
 			"$email": u.Email,
-		}, env.Logger)
+		})
 	}
 
 	notifySharedContainers(env, u)
@@ -567,7 +567,7 @@ func sanitizePhone(phoneNum string) string {
 func notifySharedContainers(env *middleware.Env, u *user.User) {
 	cns, err := container.FindAllShared(env.DB, u.ID)
 	if err != nil {
-		env.Logger.Errorf("Unable to fetch containers, err: %v", err)
+		logrus.Errorf("Unable to fetch containers, err: %v", err)
 	}
 	for _, cn := range cns {
 		containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)

@@ -2,9 +2,9 @@ package digitalocean
 
 import (
 	"fmt"
-	"log"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/digitalocean/godo"
 	"golang.org/x/net/context"
 )
@@ -37,7 +37,7 @@ func WaitForAction(ctx context.Context, service godo.ActionsService, id int, wai
 					result <- err
 					return
 				}
-				log.Printf("%sWaiting for event %d to complete, got status %s", baseString, id, action.Status)
+				logrus.Debugf("%sWaiting for event %d to complete, got status %s", baseString, id, action.Status)
 				switch action.Status {
 				case erroredStatus:
 					result <- fmt.Errorf("%saction %v failed", baseString, action)

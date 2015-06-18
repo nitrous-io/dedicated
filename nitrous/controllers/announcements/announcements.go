@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	loggerLib "github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -69,9 +69,9 @@ func showAll(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	return nil
 }
 
-func mailErrorLogger(logger *loggerLib.Logger) func(error) {
+func mailErrorLogger() func(error) {
 	return func(err error) {
-		logger.Warnf("Failed to send mail to host owners: %s", err)
+		logrus.Warnf("Failed to send mail to host owners: %s", err)
 	}
 }
 
@@ -116,7 +116,7 @@ func sendAnnouncement(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 		ExpiresAt:       pq.NullTime{*form.ExpiresAt, true},
 	}
 
-	errHandler := mailErrorLogger(env.Logger)
+	errHandler := mailErrorLogger()
 
 	if form.ShowToAll {
 		err := announcement.SendAndSaveGlobalAnnouncement(env.DB, ann, errHandler)

@@ -16,7 +16,8 @@ package msgproto
 import (
 	"bytes"
 	"io"
-	"log"
+
+	"github.com/Sirupsen/logrus"
 )
 
 const (
@@ -55,7 +56,7 @@ func ReadAndDecodeMessage(ws MessageReader) (int, []byte, error) {
 				return CloseMessage, d[2:], nil
 			}
 		}
-		log.Printf("ReadAndDecodeMessage(): invalid message: %d bytes, '%s'", len(d), string(d))
+		logrus.Errorf("ReadAndDecodeMessage(): invalid message: %d bytes, '%s'", len(d), string(d))
 	}
 }
 

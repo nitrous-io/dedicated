@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 )
@@ -32,7 +32,7 @@ type Instance struct {
 }
 
 func setName(region *ec2.EC2, instanceID, name string) error {
-	log.Printf("Naming instance ID %s as %s", instanceID, name)
+	logrus.Printf("Naming instance ID %s as %s", instanceID, name)
 	if dryrun {
 		return nil
 	}
@@ -60,7 +60,7 @@ func init() {
 	auth.SecretKey = os.Getenv("AWS_SECRET_KEY")
 
 	if auth.AccessKey == "" || auth.SecretKey == "" {
-		log.Fatalf("Please set AWS_ACCESS_KEY and AWS_SECRET_KEY in environment")
+		logrus.Fatal("Please set AWS_ACCESS_KEY and AWS_SECRET_KEY in environment")
 	}
 
 	Regions[aws.APSoutheast.Name] = ec2.New(auth, aws.APSoutheast)
@@ -78,29 +78,29 @@ func main() {
 	}
 
 	if len(os.Args) < argMin {
-		log.Fatalf("Missing arguments\n%s\n", Usage)
+		logrus.Fatalf("Missing arguments\n%s\n", Usage)
 	}
 	env := os.Args[1]
 	if env != "staging" && env != "production" {
-		log.Fatalf("Wrong environment\n%s\n", Usage)
+		logrus.Fatalf("Wrong environment\n%s\n", Usage)
 	}
 
 	csvPath := os.Args[2]
 	rows, err := parseCSV(csvPath)
 	if err != nil {
-		log.Fatalf("Error parsing csv: %s", err)
+		logrus.Fatalf("Error parsing csv: %s", err)
 	}
 
 	for _, row := range rows {
 		hostID, slug, instanceID, region := row[0], row[1], row[2], row[3]
-		log.Printf("Row: hostID %s, slug %s, instanceID %s, region %s\n", hostID, slug, instanceID, region)
+		logrus.Printf("Row: hostID %s, slug %s, instanceID %s, region %s\n", hostID, slug, instanceID, region)
 		newName := fmt.Sprintf("userhost-%s-%s", env, hostID)
 		if ec2Region, ok := Regions[region]; ok {
 			if err := setName(ec2Region, instanceID, newName); err != nil {
-				log.Printf("ERROR: setting name for hostID %s: err %s", hostID, err)
+				logrus.Errorf("Setting name for hostID %s: err %s", hostID, err)
 			}
 		} else {
-			log.Printf("WARN: region %s not found", region)
+			logrus.Warnf("Region %s not found", region)
 		}
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
 var HTTPFlushInterval = 100 * time.Millisecond
@@ -96,7 +97,7 @@ func ProxyHTTP(addr string, tlsConfig *tls.Config, transportErrorFn func(res *ht
 
 	p := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
-			log.Printf("[INFO] http: proxy %s to %s", r.Host, addr)
+			logrus.Infof("http: proxy %s to %s", r.Host, addr)
 			r.URL.Host = addr
 			if tlsConfig != nil {
 				r.URL.Scheme = "https"
@@ -141,7 +142,7 @@ func logErrorHelper(callerNo int, format string, arg ...interface{}) {
 	if pc, _, _, ok := runtime.Caller(callerNo); ok {
 		s = functionFromPC(pc) + ": " + s
 	}
-	log.Print(s)
+	logrus.Print(s)
 }
 
 // logs error message with file name + line number of the function one level
@@ -199,12 +200,12 @@ func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 		defer clientConn.Close()
 
 		if verboseLog {
-			log.Printf("[INFO] temp: new websocket proxy connection, from client: %s to backend %s\n", clientAddr, addr)
+			logrus.Infof("temp: new websocket proxy connection, from client: %s to backend %s\n", clientAddr, addr)
 		}
 
 		sErr, cErr := bidirectionalCopy(serverConn, clientConn)
 		if verboseLog && !isIoError(sErr) && !isIoError(cErr) {
-			log.Printf("[INFO] cleanly shut down connection, client: %s, backend: %s\n", clientAddr, addr)
+			logrus.Infof("cleanly shut down connection, client: %s, backend: %s\n", clientAddr, addr)
 		}
 		if isIoError(sErr) {
 			logError("websocket: io.Copy() clientConn (%s) -> serverConn (%s) failed, err: '%v' (type: '%T')", clientAddr, addr, sErr, sErr)

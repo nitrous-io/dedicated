@@ -102,7 +102,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 
 	env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 		"deleted_date": time.Now(),
-	}, env.Logger)
+	})
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
@@ -154,7 +154,7 @@ func canDeleteUser(d db.QueryReceiver, u *user.User) error {
 
 	start := now.BeginningOfMonth()
 	end := time.Now()
-	res, err := biller.InvoiceItemsForUser(d, nil, u.ID, start, end)
+	res, err := biller.InvoiceItemsForUser(d, u.ID, start, end)
 	if err != nil {
 		return err
 	}

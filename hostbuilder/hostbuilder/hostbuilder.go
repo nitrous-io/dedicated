@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/facebookgo/httpdown"
 	"github.com/nitrous-io/dedicated/hostbuilder"
 )
@@ -43,20 +43,17 @@ func main() {
 		return
 	}
 	if len(*flConfig) == 0 {
-		log.Printf("hostbuilder: missing config file")
-		os.Exit(1)
+		logrus.Fatal("hostbuilder: missing config file")
 	}
 	configData, err := ioutil.ReadFile(*flConfig)
 	if err != nil {
-		log.Printf("hostbuilder: failed to read config file")
-		os.Exit(1)
+		logrus.Fatal("hostbuilder: failed to read config file")
 	}
 
 	// build the server routes
 	server, err := hostbuilder.New(configData)
 	if err != nil {
-		log.Printf("hostbuilder: failed to create server %v", err)
-		os.Exit(1)
+		logrus.Fatalf("hostbuilder: failed to create server %v", err)
 	}
 	http.Handle("/", server.Router)
 
@@ -77,7 +74,7 @@ func main() {
 	// start listening to request
 	// The server will be gracefully stopped when it receives SIGTERM or SIGINT
 	// so another server can be started in its place.
-	log.Printf("starting server at %v", server.Config.Address)
+	logrus.Infof("starting server at %v", server.Config.Address)
 	err = httpdown.ListenAndServe(httpServer, hd)
-	log.Printf("stopped server %v", err)
+	logrus.Infof("stopped server %v", err)
 }

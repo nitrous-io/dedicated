@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/compass"
 )
 
@@ -36,13 +36,12 @@ func main() {
 	if err != nil {
 		fatal("Failed to start compass server:", err)
 	}
-	log.Println("compass: Name serving since 1978")
+	logrus.Println("compass: Name serving since 1978")
 	if err := s.ListenAndServe(); err != nil {
 		fatal("compass exited with error:", err)
 	}
 }
 
 func fatal(a ...interface{}) {
-	log.Println(a...)
-	os.Exit(1)
+	logrus.Fatal(a...)
 }

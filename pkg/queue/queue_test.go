@@ -2,7 +2,6 @@ package queue_test
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 
 	"gopkg.in/redis.v2"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/adjust/redismq"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
@@ -20,6 +20,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+func init() { logrus.SetLevel(logrus.PanicLevel) }
 
 func init() {
 	reexec.Register("queue1", func() {
@@ -33,7 +35,7 @@ func init() {
 			return nil
 		}
 		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
-		log.Fatalf("queue1 failed to start %v", err)
+		logrus.Fatalf("queue1 failed to start %v", err)
 	})
 
 	reexec.Register("queue2", func() {
@@ -47,7 +49,7 @@ func init() {
 			return nil
 		}
 		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", h, stop, 5*time.Second)
-		log.Fatalf("queue2 failed to start %v", err)
+		logrus.Fatalf("queue2 failed to start %v", err)
 	})
 
 	reexec.Register("handle-stop", func() {
@@ -104,7 +106,7 @@ func init() {
 			return nil
 		}
 		err := queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "queue-timeout", h, stop, 100*time.Millisecond)
-		log.Fatalf("queue-timeout failed to start %v", err)
+		logrus.Fatalf("queue-timeout failed to start %v", err)
 	})
 
 	// return if running in reexec mode, and the reexec func has already finished

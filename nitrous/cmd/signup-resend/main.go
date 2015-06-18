@@ -10,17 +10,16 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const usage = `signup-resend <file with usernames separated by newline>`
 
 var (
-	logr    *logger.Logger
 	liveRun bool
 
 	resendEmailHtmlTemplate *template.Template
@@ -28,7 +27,7 @@ var (
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 
 	resendEmailHtmlTemplate =
 		template.Must(template.New("resendEmailHtml").Parse(resendEmailHtmlDef))
@@ -58,16 +57,16 @@ func loadUsernames(path string) ([]string, error) {
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	envvars.CheckSendgrid()
 
 	if len(os.Args) < 2 {
-		logr.FatalExit(usage)
+		logrus.Fatal(usage)
 	}
 
 	if len(os.Args) == 3 && os.Args[2] == "--live-run" {
@@ -76,18 +75,18 @@ func main() {
 
 	usernames, err := loadUsernames(os.Args[1])
 	if err != nil {
-		logr.FatalfExit("Error scanning file: %s: %s", os.Args[1], err)
+		logrus.Fatalf("Error scanning file: %s: %s", os.Args[1], err)
 	}
 
-	logr.Debugf("Usernames is %+v", usernames)
+	logrus.Debugf("Usernames is %+v", usernames)
 
 	m := mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
 
 	for _, name := range usernames {
-		logr.Debugf("Handling user: %s", name)
+		logrus.Debugf("Handling user: %s", name)
 		u, err := user.FindByUsername(dbConn, name)
 		if err != nil {
-			logr.FatalfExit("Error on name '%s': %s", name, err)
+			logrus.Fatalf("Error on name '%s': %s", name, err)
 		}
 		resetUrl := "" // hereafter resetUrl emptiness used to determine confirmed_at
 		if !u.ConfirmedAt.Valid {
@@ -116,11 +115,11 @@ func main() {
 		}
 		htmlBuf := bytes.NewBuffer(nil)
 		if err := resendEmailHtmlTemplate.Execute(htmlBuf, tmplData); err != nil {
-			logr.FatalfExit("Error compiling: %s", err)
+			logrus.Fatalf("Error compiling: %s", err)
 		}
 		txtBuf := bytes.NewBuffer(nil)
 		if err := resendEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
-			logr.FatalfExit("Error compiling: %s", err)
+			logrus.Fatalf("Error compiling: %s", err)
 		}
 		from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
 		to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
@@ -128,13 +127,13 @@ func main() {
 		if liveRun {
 			err = m.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
 			if err != nil {
-				logr.FatalfExit("Error sending: %s", err)
+				logrus.Fatalf("Error sending: %s", err)
 			}
 			time.Sleep(500 * time.Millisecond)
 		} else {
-			logr.Debugf("Sending from %s to %s, subject %s, txtBuf: %s", from, to, subject, txtBuf.String())
+			logrus.Debugf("Sending from %s to %s, subject %s, txtBuf: %s", from, to, subject, txtBuf.String())
 		}
-		logr.Debugf("Sent to user: %s", name)
+		logrus.Debugf("Sent to user: %s", name)
 	}
 }
 

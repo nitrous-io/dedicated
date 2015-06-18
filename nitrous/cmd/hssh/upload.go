@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
 )
 
@@ -70,7 +70,7 @@ func (s *uploadCmd) Run(args []string) int {
 		if err := conn.Upload(u.remote, u.f); err != nil {
 			return failf("failed to upload %q to %s:%q", u.local, slug, u.remote)
 		}
-		log.Printf("uploaded %q to %s:%q", u.local, slug, u.remote)
+		logrus.Infof("uploaded %q to %s:%q", u.local, slug, u.remote)
 	}
 
 	return 0

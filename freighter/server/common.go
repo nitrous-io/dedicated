@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 )
@@ -53,7 +54,7 @@ func (s *Server) wrapError(handler httpFunc) http.HandlerFunc {
 }
 
 func (s *Server) handleError(w http.ResponseWriter, err error) {
-	s.logger.Error(err)
+	logrus.Error(err)
 	if err != nil {
 		if s.provider.IsNotFoundError(err) {
 			s.respond(w, http.StatusNotFound, jsonErrorNotFound)
@@ -75,7 +76,7 @@ func (s *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	w.WriteHeader(status)
 	w.Write(data)
 	uuid := w.Header().Get(NitrousUUIDHeader)
-	s.logger.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
+	logrus.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
 }
 
 func (s *Server) respondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
@@ -108,7 +109,7 @@ func (s *Server) performContainerControl(w http.ResponseWriter, r *http.Request,
 	info, err := controlFunc(id)
 
 	if err != nil {
-		s.logger.Error(err)
+		logrus.Error(err)
 		s.respondEncodeJSON(w, http.StatusInternalServerError, map[string]interface{}{"error": err.Error()})
 	} else {
 		s.respondEncodeJSON(w, http.StatusOK, map[string]interface{}{"result": successStatus, "container": info})
@@ -121,6 +122,6 @@ func (s *Server) terminateActiveCops(cid string) {
 	if n == 0 {
 		return
 	}
-	s.logger.Debugf("Terminating %d active cops processes for container %s", n, cid)
+	logrus.Debugf("Terminating %d active cops processes for container %s", n, cid)
 	ActiveCops.Terminate(cid)
 }

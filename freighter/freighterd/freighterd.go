@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/server"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 
 	// load required init for reexec commands
@@ -49,11 +49,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger := &util.Logger{Level: util.LogLevelDebug}
-
 	defer func() {
 		if r := recover(); r != nil {
-			logger.FatalExit(r)
+			logrus.Fatal(r)
 		}
 	}()
 
@@ -61,11 +59,11 @@ func main() {
 	// parse config file
 	confFile, err := os.Open(*flConfigPath)
 	if err != nil {
-		logger.Info("Missing config file. Use default config")
+		logrus.Info("Missing config file. Use default config")
 		conf = server.DefaultConfig
 	} else {
 		if err := json.NewDecoder(confFile).Decode(conf); err != nil {
-			logger.FatalExit(err)
+			logrus.Fatal(err)
 		}
 	}
 
@@ -73,54 +71,54 @@ func main() {
 	if _, err := os.Stat(conf.DataPath); err != nil {
 		if os.IsNotExist(err) {
 			if err := os.Mkdir(conf.DataPath, 0755); err != nil {
-				logger.FatalExit(err)
+				logrus.Fatal(err)
 			}
 		} else {
-			logger.FatalExit(err)
+			logrus.Fatal(err)
 		}
 	}
 
-	prov, err := docker.NewDockerProvider(logger, conf.DataPath)
+	prov, err := docker.NewDockerProvider(conf.DataPath)
 	if err != nil {
-		logger.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	// save current pid
-	pid := setPid(logger, conf.DataPath)
-	defer removePid(logger, conf.DataPath)
-	logger.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
+	pid := setPid(conf.DataPath)
+	defer removePid(conf.DataPath)
+	logrus.Infof("freighterd (rev: %v, pid: %v) started", version, pid)
 
 	// start the API server
-	svr := server.NewServer(logger, prov, conf)
+	svr := server.NewServer(prov, conf)
 	svr.Start()
 
 	ch := make(chan os.Signal)
 	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
 	s := <-ch
-	logger.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
+	logrus.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
 	svr.Stop()
-	logger.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
+	logrus.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
 }
 
-func setPid(logger *util.Logger, dataPath string) int {
+func setPid(dataPath string) int {
 	file, err := os.Create(path.Join(dataPath, "freighter.pid"))
 	if err != nil {
-		logger.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	pid := os.Getpid()
 	if _, err := file.WriteString(strconv.Itoa(pid)); err != nil {
-		logger.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
 	if err := file.Close(); err != nil {
-		logger.FatalExit(err)
+		logrus.Fatal(err)
 	}
 	return pid
 }
 
-func removePid(logger *util.Logger, dataPath string) {
+func removePid(dataPath string) {
 	if err := os.RemoveAll(path.Join(dataPath, "freighter.pid")); err != nil {
-		logger.Warnf("freighterd: failed to remove pid file %q", err)
+		logrus.Warnf("freighterd: failed to remove pid file %q", err)
 	}
 }

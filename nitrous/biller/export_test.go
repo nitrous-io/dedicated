@@ -5,7 +5,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 func (b *Biller) CreateOrUpdateInvoice() (*InvoiceResult, error) {
@@ -16,6 +15,6 @@ func (b *Biller) ProcessStripe(i *InvoiceResult) error {
 	return b.processStripe(i)
 }
 
-func InvoicesItemsForHost(d db.QueryReceiver, l *logger.Logger, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
-	return invoicesItemsForHost(d, l, hostID, start, end)
+func InvoicesItemsForHost(d db.QueryReceiver, hostID int64, start, end time.Time) (int64, []invoiceitem.InvoiceItem, error) {
+	return invoicesItemsForHost(d, hostID, start, end)
 }

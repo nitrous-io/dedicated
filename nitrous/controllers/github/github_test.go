@@ -15,7 +15,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
-	"github.com/nitrous-io/nitrous-common/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,9 +45,8 @@ var _ = Describe("controllers/github", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, logger, nil)
+		svr = server.NewServer("", db, nil)
 		svr.Tracker = ft
 
 		u = &user.User{

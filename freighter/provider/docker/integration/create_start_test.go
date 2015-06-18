@@ -9,7 +9,6 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
-	"github.com/nitrous-io/dedicated/freighter/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -78,7 +77,7 @@ var _ = Describe("CreateStart", func() {
 		datadir, err := test.TempDir()
 		Expect(err).To(BeNil())
 		defer os.RemoveAll(datadir)
-		prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+		prov, _ := docker.NewDockerProvider(datadir)
 
 		_, err = prov.CreateStart(test.RandomName("freighterd-test"), "non-existent-image", "secret", "")
 		Expect(err).To(MatchError(provider.ErrImageNotFound))
@@ -89,7 +88,7 @@ var _ = Describe("CreateStart", func() {
 			datadir, err := test.TempDir()
 			Expect(err).To(BeNil())
 			defer os.RemoveAll(datadir)
-			prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
 
 			name := test.RandomName("freighterd-test")
 			configJSON := `{ "Cmd": ["yes"] }`
@@ -106,7 +105,7 @@ var _ = Describe("CreateStart", func() {
 			datadir, err := test.TempDir()
 			Expect(err).To(BeNil())
 			defer os.RemoveAll(datadir)
-			prov, _ := docker.NewDockerProvider(&util.Logger{Level: util.LogLevelQuiet}, datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
 
 			name := test.RandomName("freighterd-test")
 			configJSON := `{ "Cmd": ["non-existent-cmd"] }`

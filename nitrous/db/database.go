@@ -3,14 +3,13 @@ package db
 import (
 	"database/sql"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 type Database struct {
 	*sqlx.DB
-	Logger *logger.Logger
 }
 
 type Migration struct {
@@ -65,8 +64,6 @@ func (d *Database) MigrateAll() error {
 }
 
 func (d *Database) Migrate(migrations []*Migration) error {
-	logger := d.Logger
-
 	var i int
 
 	err := d.QueryRow(`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'schema_migrations'`).Scan(&i)
@@ -99,10 +96,8 @@ func (d *Database) Migrate(migrations []*Migration) error {
 			return err
 		}
 
-		if logger != nil {
-			logger.Infof(`Migrating "%v"...`, version)
-			logger.Info("BEGIN")
-		}
+		logrus.Infof(`Migrating "%v"...`, version)
+		logrus.Info("BEGIN")
 		tx, err := d.Begin()
 		if err != nil {
 			return err
@@ -118,9 +113,7 @@ func (d *Database) Migrate(migrations []*Migration) error {
 		}
 		for _, query := range queries {
 			if _, err = query(); err != nil {
-				if logger != nil {
-					logger.Info("ROLLBACK")
-				}
+				logrus.Info("ROLLBACK")
 				errr := tx.Rollback()
 				if errr != nil {
 					return errr
@@ -129,9 +122,7 @@ func (d *Database) Migrate(migrations []*Migration) error {
 			}
 		}
 
-		if logger != nil {
-			logger.Info("COMMIT")
-		}
+		logrus.Info("COMMIT")
 		err = tx.Commit()
 		if err != nil {
 			return err

@@ -1,32 +1,28 @@
 package main
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
-	"github.com/nitrous-io/nitrous-common/logger"
-)
-
-var (
-	logr *logger.Logger
 )
 
 func init() {
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func main() {
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 	dbConn, err := db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 
-	logr.Debug("Removing tokens")
+	logrus.Debug("Removing tokens")
 	if err := token.DeleteExpiredTokens(dbConn); err != nil {
-		logr.FatalExit(err)
+		logrus.Fatal(err)
 	}
 }

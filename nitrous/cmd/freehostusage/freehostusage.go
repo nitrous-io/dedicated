@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -16,7 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hostscan"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/nitrous-common/httpclient"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 const (
@@ -43,11 +43,14 @@ You can upgrade to a paid plan to keep it running.  If you do not wish to upgrad
 
 var (
 	d           *db.Database
-	logr        *logger.Logger
 	initiatorID int64
 
 	dryrun = true
 )
+
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+}
 
 func refreshHost(h *host.Host) error {
 	reqUrl := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, h.UserID)
@@ -60,16 +63,16 @@ func terminateHost(h *host.Host) error {
 	// Sanity checks. should never get this
 	// back from hostscan.FindTerminatingHosts
 	if !h.Free {
-		logr.Errorf("Sanity check failed: cannot terminate non-free host: %+v", h)
+		logrus.Errorf("Sanity check failed: cannot terminate non-free host: %+v", h)
 		return fmt.Errorf("host is not free")
 	}
 
 	if !h.TerminatingAt.Valid || h.TerminatingAt.Time.Before(time.Now()) {
-		logr.Errorf("Sanity check failed: host.terminating_at is not valid - %+v: %+v", h.TerminatingAt, h)
+		logrus.Errorf("Sanity check failed: host.terminating_at is not valid - %+v: %+v", h.TerminatingAt, h)
 		return fmt.Errorf("host.terminating_at is not valid")
 	}
 
-	logr.Infof("Terminating host %d for user %d", h.ID, h.UserID)
+	logrus.Infof("Terminating host %d for user %d", h.ID, h.UserID)
 
 	if dryrun {
 		return nil
@@ -89,21 +92,21 @@ func terminateHost(h *host.Host) error {
 		// return hostcontrol.Terminate(tx, logr, h, headers, initiatorID)
 	})
 	if err != nil {
-		logr.Errorf("Error terminating host - %s: %+v", err, h)
+		logrus.Errorf("Error terminating host - %s: %+v", err, h)
 		return err
 	}
 
-	logr.Infof("Successfully terminated host %d for user %d in %s", h.ID, h.UserID, time.Since(timeStart))
+	logrus.Infof("Successfully terminated host %d for user %d in %s", h.ID, h.UserID, time.Since(timeStart))
 
 	err = refreshHost(h)
 	if err != nil {
-		logr.Errorf("Unable to send user_refresh for user %d, err: %+v", h.UserID, err)
+		logrus.Errorf("Unable to send user_refresh for user %d, err: %+v", h.UserID, err)
 		// continue
 	}
 
 	owner, err := announcement.FindOwnerByHostID(d, h.ID)
 	if err != nil {
-		logr.Errorf("Error finding host owner detail - %s: %+v", err, h)
+		logrus.Errorf("Error finding host owner detail - %s: %+v", err, h)
 		return err
 	}
 
@@ -115,7 +118,7 @@ func terminateHost(h *host.Host) error {
 	// Send without saving announcement
 	err = announcement.SendToOwner(ann, owner)
 	if err != nil {
-		logr.Errorf("Error sending termination notice to host owner - %s: %+v", err, owner)
+		logrus.Errorf("Error sending termination notice to host owner - %s: %+v", err, owner)
 		return err
 	}
 
@@ -163,47 +166,47 @@ func sendAnnouncementForHostScan(scan *hostscan.ScanResult, subject, message str
 func scanWarningHosts() {
 	scans, errs := hostscan.ScanHosts(d, time.Now())
 
-	logr.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
+	logrus.Infof("Host scan found %d hosts and %d errors.", len(scans), len(errs))
 
 	for _, err := range errs {
-		logr.Errorf("Error scanning host: %s.", err)
+		logrus.Errorf("Error scanning host: %s.", err)
 	}
 
 	for _, scan := range scans {
 		switch scan.State {
 		case hostscan.StateActive, hostscan.StateGracePeriod:
 			if dryrun {
-				logr.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
+				logrus.Infof("Calling scan.UpdateHost on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
 			err := scan.UpdateHost(d)
 			if err != nil {
 				// ignore
-				logr.Errorf("Error updating scan result - %s: %+v.", err, scan)
+				logrus.Errorf("Error updating scan result - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateOneWeekNotice:
 			if dryrun {
-				logr.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
+				logrus.Infof("Calling sendAnnouncementForHostScan WARNING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
 			err := sendAnnouncementForHostScan(scan, warningSubject, warningMessage)
 			if err != nil {
-				logr.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
+				logrus.Errorf("Error sending warning announcement - %s: %+v.", err, scan)
 			}
 
 		case hostscan.StateTerminating:
 			if dryrun {
-				logr.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
+				logrus.Infof("Calling sendAnnouncementForHostScan TERMINATING on host %d for %v", scan.Host.ID, scan.State)
 				continue
 			}
 			err := sendAnnouncementForHostScan(scan, terminatingSubject, terminatingMessage)
 			if err != nil {
-				logr.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
+				logrus.Errorf("Error sending terminating announcement - %s: %+v.", err, scan)
 			}
 
 		default:
-			logr.Errorf("Unexpected host scan state %s: %+v.", scan.State, scan)
+			logrus.Errorf("Unexpected host scan state %s: %+v.", scan.State, scan)
 		}
 	}
 }
@@ -211,15 +214,15 @@ func scanWarningHosts() {
 func terminateInactiveFreeHosts() {
 	hosts, err := hostscan.FindTerminatingHosts(d, time.Now())
 	if err != nil {
-		logr.FatalfExit("Failed to query for teminating hosts")
+		logrus.Fatal("Failed to query for teminating hosts")
 	}
 
-	logr.Infof("Found %d free hosts to terminate", len(hosts))
+	logrus.Infof("Found %d free hosts to terminate", len(hosts))
 
 	for _, h := range hosts {
 		err := terminateHost(h)
 		if err != nil {
-			logr.Errorf("Error terminating host: %s", err)
+			logrus.Errorf("Error terminating host: %s", err)
 		}
 	}
 }
@@ -227,38 +230,36 @@ func terminateInactiveFreeHosts() {
 func main() {
 	var err error
 
-	logr = &logger.Logger{Level: logger.LogLevelDebug}
-
 	if os.Args[len(os.Args)-1] == "--live-run" {
 		dryrun = false
-		logr.Warnf("Live Run!")
+		logrus.Warn("Live Run!")
 	}
 
 	dbURL := envvars.NitrousPgUrl
 	if dbURL == "" {
-		logr.FatalExit(envvars.DBEnvVar, "is not defined")
+		logrus.Fatal(envvars.DBEnvVar, "is not defined")
 	}
 
 	d, err = db.NewDatabase(dbURL)
 	if err != nil {
-		logr.FatalfExit("db.NewDatabase() failed with '%s'", err)
+		logrus.Fatalf("db.NewDatabase() failed with '%s'", err)
 	}
 
 	if envvars.WebHostname == "" {
-		logr.FatalExit("WEB_HOSTNAME is not defined")
+		logrus.Fatal("WEB_HOSTNAME is not defined")
 	}
 
 	if envvars.TrustKey == "" {
-		logr.FatalExit("TRUST_KEY is not defined")
+		logrus.Fatal("TRUST_KEY is not defined")
 	}
 
 	if envvars.ProvisionerUser == "" {
-		logr.FatalExit("PROVISIONER_USER is not defined")
+		logrus.Fatal("PROVISIONER_USER is not defined")
 	}
 
 	err = d.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
 	if err != nil {
-		logr.FatalfExit("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
+		logrus.Fatalf("Failed to locate the ID of the PROVISIONER_USER. Err: '%s'", err)
 	}
 
 	scanWarningHosts()

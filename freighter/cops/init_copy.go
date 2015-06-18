@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"io"
-	"log"
 	"os"
 	"runtime"
 	"syscall"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/pkg/reexec"
 )
 
@@ -27,7 +27,7 @@ func copyInit() {
 	localPath := flag.Arg(1)
 
 	if err := syscall.Chdir("/"); err != nil {
-		log.Fatalf("copyInit failed to change dir to / : %v", err)
+		logrus.Fatalf("copyInit failed to change dir to / : %v", err)
 	}
 
 	// this is used to communicate with the parent process
@@ -35,22 +35,22 @@ func copyInit() {
 	defer infoR.Close()
 	info := &CopsInfo{}
 	if err := json.NewDecoder(infoR).Decode(info); err != nil {
-		log.Fatalf("%s cmd: failed to decode info %v", copyCommandName, err)
+		logrus.Fatalf("%s cmd: failed to decode info %v", copyCommandName, err)
 	}
 	uid, gid := info.owner()
 
 	// create the file if not exists and truncate it if exists
 	f, err := os.Create(localPath)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	defer f.Close()
 	// rename the file to correct uid/gid
 	if err := f.Chown(uid, gid); err != nil {
-		log.Fatalf("%s cmd: %v", copyCommandName, err)
+		logrus.Fatalf("%s cmd: %v", copyCommandName, err)
 	}
 	if _, err := io.Copy(f, os.Stdin); err != nil {
-		log.Fatalf("%s cmd: %v", copyCommandName, err)
+		logrus.Fatalf("%s cmd: %v", copyCommandName, err)
 	}
 	os.Exit(0)
 }
@@ -80,7 +80,7 @@ func CopyToContainer(id string, env []string, localPath string, r io.Reader) err
 	}
 	infoR.Close()
 	if err := json.NewEncoder(infoW).Encode(info); err != nil {
-		log.Println("%s cmd: failed to write info %v", copyCommandName, err)
+		logrus.Errorf("%s cmd: failed to write info %v", copyCommandName, err)
 		cmd.Process.Kill()
 		return err
 	}

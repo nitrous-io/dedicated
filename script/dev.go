@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sirupsen/logrus"
 )
 
 var (
@@ -29,13 +30,13 @@ var (
 func main() {
 	// check if we have dnsmasq to setup the internal DNS nameserver
 	if err := checkDNS(); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	if err := copyCert(); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	if err := pullImage("ubuntu"); err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	stdout = os.Stdout
@@ -56,7 +57,7 @@ func main() {
 	)
 
 	closeFn := func() {
-		log.Println("....closing")
+		logrus.Println("....closing")
 		if compass.Process != nil {
 			compass.Process.Signal(os.Interrupt)
 		}
@@ -72,7 +73,7 @@ func main() {
 			hostbuilder.Process.Signal(os.Interrupt)
 		}
 		removeDNS()
-		log.Println("closed....")
+		logrus.Println("closed....")
 	}
 
 	defer closeFn()
@@ -88,7 +89,7 @@ func main() {
 	time.Sleep(1 * time.Second)
 	compassIP, err := getIP(compassContainer)
 	if err != nil {
-		log.Println(err)
+		logrus.Error(err)
 		return
 	}
 
@@ -105,29 +106,29 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 
-	log.Println(".....READY!!")
+	logrus.Println(".....READY!!")
 	select {
 	case err := <-compassErr:
-		log.Printf("compass: FAILED %v", err)
+		logrus.Errorf("compass: FAILED %v", err)
 	case err := <-tenderErr:
-		log.Printf("tender: FAILED %v", err)
+		logrus.Errorf("tender: FAILED %v", err)
 	case err := <-nitrousErr:
-		log.Printf("nitrous: FAILED %v", err)
+		logrus.Errorf("nitrous: FAILED %v", err)
 	case err := <-hostbuilderErr:
-		log.Printf("hostbuilder: FAILED %v", err)
+		logrus.Errorf("hostbuilder: FAILED %v", err)
 	case <-c:
-		log.Printf("intercept close signal")
+		logrus.Print("intercept close signal")
 	}
 	return
 }
 
 func pullImage(image string) error {
-	log.Printf("Pulling %s...", image)
+	logrus.Printf("Pulling %s...", image)
 	err := exec.Command("docker", "run", "-rm", image, "true").Run()
 	if err != nil {
 		return err
 	}
-	log.Printf("Pulled %s", image)
+	logrus.Printf("Pulled %s", image)
 	return nil
 }
 
@@ -156,10 +157,10 @@ func copyCert() error {
 		if err != nil {
 			return err
 		}
-		log.Println("reloading certificates...")
+		logrus.Println("reloading certificates...")
 		return exec.Command("sudo", "update-ca-certificates").Run()
 	}
-	log.Println("n2odev certificate is installed. Skipping...")
+	logrus.Println("n2odev certificate is installed. Skipping...")
 	return nil
 }
 
@@ -191,7 +192,7 @@ func writeDNS(servers []dnsServer) error {
 	if err != nil {
 		return fmt.Errorf("failed to restart dnsmasq %s", string(out))
 	}
-	log.Println("dnsmasq restarted....")
+	logrus.Println("dnsmasq restarted....")
 	return nil
 }
 
@@ -202,7 +203,7 @@ func removeDNS() error {
 	if err != nil {
 		return fmt.Errorf("failed to restart dnsmasq %s", string(out))
 	}
-	log.Println("dnsmasq restarted....")
+	logrus.Println("dnsmasq restarted....")
 	return nil
 }
 

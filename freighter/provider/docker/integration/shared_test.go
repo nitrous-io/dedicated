@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
-	"github.com/nitrous-io/dedicated/freighter/util"
 )
 
 func createImageTarball(df string) (io.Reader, error) {
@@ -28,12 +27,11 @@ func createImageTarball(df string) (io.Reader, error) {
 }
 
 func createNewProvider() (*docker.DockerProvider, string, error) {
-	logger := &util.Logger{Level: util.LogLevelQuiet}
 	data, err := ioutil.TempDir("", "freightertest")
 	if err != nil {
 		return nil, "", err
 	}
-	prov, err := docker.NewDockerProvider(logger, data)
+	prov, err := docker.NewDockerProvider(data)
 	if err != nil {
 		os.RemoveAll(data)
 		return nil, "", err

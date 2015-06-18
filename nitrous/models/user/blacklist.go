@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 )
 
@@ -18,7 +18,7 @@ var blacklist map[string]struct{}
 func IsBlacklisted(email string) bool {
 	index := strings.Index(email, delimiter)
 	if index < 0 {
-		log.Printf("Email address(%s) does not contain @", email)
+		logrus.Errorf("Email address(%s) does not contain @", email)
 		return true
 	}
 
@@ -65,6 +65,6 @@ func fetchBlacklist() error {
 func init() {
 	err := fetchBlacklist()
 	if err != nil {
-		log.Printf("Failed to initalize email black list: %v", err)
+		logrus.Errorf("Failed to initalize email black list: %v", err)
 	}
 }

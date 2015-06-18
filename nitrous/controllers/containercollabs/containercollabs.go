@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -28,7 +29,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -99,9 +99,9 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 	}
 
 	go func() {
-		err := sendEmail(env.Logger, env.DB, cn, collab, env.User, usr)
+		err := sendEmail(env.DB, cn, collab, env.User, usr)
 		if err != nil {
-			env.Logger.Errorf("Failed to send email for collaborator %d, user id: %d err: %+v", collab.ID, env.User.ID, err)
+			logrus.Errorf("Failed to send email for collaborator %d, user id: %d err: %+v", collab.ID, env.User.ID, err)
 		}
 	}()
 
@@ -175,7 +175,7 @@ func handleNoUser(cn *container.Container, env *middleware.Env, email string) er
 	return nil
 }
 
-func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {
+func sendEmail(d *db.Database, c *container.Container, collab *containercollab.ContainerCollab, sharer *user.User, recv *user.User) (err error) {
 	if collab.EmailSentAt.Valid {
 		return errEmailAlreadySent
 	}
@@ -188,7 +188,7 @@ func sendEmail(l *logger.Logger, d *db.Database, c *container.Container, collab 
 	defer func() {
 		if err != nil {
 			if err := tx.Rollback(); err != nil {
-				l.Errorf("Error rolling back sendEmail, err: %+v", err)
+				logrus.Errorf("Error rolling back sendEmail, err: %+v", err)
 			}
 			return
 		}

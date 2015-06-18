@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -20,7 +21,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
-	"github.com/nitrous-io/nitrous-common/logger"
 )
 
 var (
@@ -60,7 +60,6 @@ var (
 
 type Env struct {
 	Root           string
-	Logger         *logger.Logger
 	DB             *db.Database
 	Events         *pubsub.Pubsub
 	Provisioner    *provisioner.Provisioner
@@ -141,7 +140,7 @@ func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) 
 		return mh.Error(err, label)
 	}
 	if err := t.Touch(db, GetRemoteAddr(r)); err != nil {
-		env.Logger.Errorf("Unable to touch token %d, err: %v", t.ID, err)
+		logrus.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
 	if t.Scope != token.ScopeAdmin && !u.CanLogin() {
@@ -181,7 +180,7 @@ func VerifyUserBilling(resource string, mw Middleware) Middleware {
 		if !allowed {
 			bp, err := env.User.BillingProfile(env.DB)
 			if err != nil {
-				env.Logger.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
+				logrus.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)
 				return err
 			} else {
 				if bp.HasBillingIssues() {
@@ -207,14 +206,14 @@ func Track(event string, mw Middleware) Middleware {
 
 		bp, err := env.User.BillingProfile(env.DB)
 		if err != nil {
-			env.Logger.Errorf("Track: error locating billingprofile for %+v err: %+v", env.User, err)
+			logrus.Errorf("Track: error locating billingprofile for %+v err: %+v", env.User, err)
 		}
 		if bp != nil {
 			env.AddEventData(map[string]interface{}{"billing_state": bp.State})
 		}
 
 		if env.TrackEventName != "" {
-			env.Tracker.TrackEvent(event, env.User, env.trackEventData, env.Logger)
+			env.Tracker.TrackEvent(event, env.User, env.trackEventData)
 		}
 
 		return nil
@@ -227,11 +226,11 @@ func VerifyTrust(mw Middleware) Middleware {
 		if remote == "" {
 			remote = r.RemoteAddr
 		}
-		env.Logger.Infof("VerifyTrust: Incoming trust request from %s", remote)
+		logrus.Infof("VerifyTrust: Incoming trust request from %s", remote)
 
 		trustKey := envvars.TrustKey
 		if trustKey == "" || trustKey != r.FormValue("trust_key") {
-			env.Logger.Warnf("VerifyTrust: %s provided an invalid trust_key", remote)
+			logrus.Warnf("VerifyTrust: %s provided an invalid trust_key", remote)
 			return ErrNotFound
 		}
 
@@ -369,7 +368,7 @@ func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Mid
 		if allowCollab && err == sql.ErrNoRows {
 			h, err = host.FindShared(env.DB, env.User, param)
 			if err == nil {
-				env.Logger.Infof("Collaborator user %d accessed host %d", env.User.ID, h.ID)
+				logrus.Infof("Collaborator user %d accessed host %d", env.User.ID, h.ID)
 			}
 		}
 		if err != nil {
