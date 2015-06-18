@@ -1,6 +1,8 @@
 package stripehooks
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -115,4 +117,12 @@ func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount
 	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
 		logrus.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
 	}
+
+	u, err := user.FindByID(env.DB, inv.UserID)
+	if err != nil {
+		env.Logger.Errorf("Error notifying Mixpanel of failed Invoice %d, err: %v", inv.ID, err)
+		return
+	}
+	eventName := fmt.Sprintf("Customer Card Declined %d", attemptCount)
+	env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
 }

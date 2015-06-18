@@ -210,8 +210,7 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if h.SubscriptionID.Valid {
-		sub := &subscription.Subscription{}
-		err := env.DB.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", h.SubscriptionID.Int64)
+		sub, err := subscription.Find(env.DB, h.SubscriptionID.Int64)
 		if err != nil {
 			return err
 		}
