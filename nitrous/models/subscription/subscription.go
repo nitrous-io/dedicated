@@ -6,6 +6,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
 // State can hold both our own State as well
@@ -48,4 +49,13 @@ func (s *Subscription) Insert(tx *sqlx.Tx) error {
 		return err
 	}
 	return nstmt.QueryRow(s).StructScan(s)
+}
+
+func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
+	sub := &Subscription{}
+	err := d.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", id)
+	if err != nil {
+		return nil, err
+	}
+	return sub, nil
 }
