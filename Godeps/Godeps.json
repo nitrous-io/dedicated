@@ -203,10 +203,6 @@
 			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
 		},
 		{
-			"ImportPath": "github.com/nitrous-io/nitrous-common/logger",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
-		},
-		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/msgverifier",
 			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
 		},
