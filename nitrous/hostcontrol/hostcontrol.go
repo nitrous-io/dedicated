@@ -17,7 +17,7 @@ import (
 )
 
 type EventType int64
-type eventFunc func(ev EventType)
+type EventFunc func(ev EventType)
 
 const (
 	EventHostStopping EventType = iota + 1
@@ -27,7 +27,7 @@ const (
 
 var HostbuilderClient = provisioner.HostbuilderClient
 
-func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev eventFunc, initiatorID int64) error {
+func Stop(db *db.Database, l *logger.Logger, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
 	err := beforeStop(db, h, ev, initiatorID, origState)
 	if err != nil {

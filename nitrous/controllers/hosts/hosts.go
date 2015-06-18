@@ -26,11 +26,13 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 )
 
 var (
@@ -55,9 +57,12 @@ var (
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
 )
 
-var HostbuilderClient = provisioner.HostbuilderClient
-var defaultProvider string
-var aesKey string
+var (
+	HostbuilderClient = provisioner.HostbuilderClient
+	defaultProvider   string
+	aesKey            string
+	subProvider       subscriptions.Provider
+)
 
 func init() {
 	aesKey = envvars.AESKey
@@ -69,6 +74,8 @@ func init() {
 	if defaultProvider == "" {
 		panic("DEFAULT_PROVIDER is not set")
 	}
+
+	subProvider = subscriptions.NewProvider()
 }
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -201,6 +208,23 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.SubscriptionID.Valid {
+		sub := &subscription.Subscription{}
+		err := env.DB.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", h.SubscriptionID.Int64)
+		if err != nil {
+			return err
+		}
+		err = subProvider.Cancel(env.DB, env.Logger, sub)
+		if err != nil {
+			return nil
+		}
+		if !h.Free {
+			serializeHost(env, h)
+			env.Data["subscription"] = "cancelled"
+			return nil
+		}
+	}
+
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
 		return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
 	})

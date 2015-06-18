@@ -20,7 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -1459,7 +1459,7 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns a card declined error", func() {
 			It("returns the error, without updating the record", func() {
-				fakeStripe.Error = test.StripeCardDeclined
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
 
 				_, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
@@ -1472,10 +1472,12 @@ var _ = Describe("models/user", func() {
 
 		Context("when Stripe returns an error", func() {
 			It("returns the error, without updating the record", func() {
-				fakeStripe.Error = &stripe.Error{
-					Type: stripe.ErrorType(stripe.APIErr),
-					Msg:  "some error occurred",
-					Code: stripe.ErrorCode(stripe.ProcessingErr),
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "some error occurred",
+						Code: stripe.ErrorCode(stripe.ProcessingErr),
+					},
 				}
 
 				_, err := u.ActivateBillingProfile(db, "token")

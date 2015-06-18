@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -45,9 +46,9 @@ var _ = Describe("models/plan", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true)
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, stripe_plan_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
+			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true, "Sxcvv67SDx")
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
@@ -106,6 +107,7 @@ var _ = Describe("models/plan", func() {
 				Expect(p.Memory).To(Equal("1 GB"))
 				Expect(p.Storage).To(Equal("20 GB"))
 				Expect(p.MostPopular).To(BeTrue())
+				Expect(p.StripePlanID.String).To(Equal("Sxcvv67SDx"))
 			})
 		})
 
@@ -142,8 +144,13 @@ var _ = Describe("models/plan", func() {
 	})
 
 	Describe("PlanPricingHostMap()", func() {
-		It("returns a mapping of host IDs to plan prices for a user", func() {
-			u := &user.User{
+		var (
+			u        *user.User
+			hs1, hs2 *test.HostStack
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
 				Username: "foo",
 				Email:    "foo@example.com",
 				Password: "123456",
@@ -151,7 +158,7 @@ var _ = Describe("models/plan", func() {
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
 
-			hs1, err := test.CreateHostStack(db, &test.HostStack{
+			hs1, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 2000,
@@ -170,7 +177,7 @@ var _ = Describe("models/plan", func() {
 			_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", hs1.H.ID)
 			Expect(err).To(BeNil())
 
-			hs2, err := test.CreateHostStack(db, &test.HostStack{
+			hs2, err = test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-2",
 					HourlyPrice: 500,
@@ -184,11 +191,35 @@ var _ = Describe("models/plan", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
+		})
 
+		It("returns a mapping of host IDs to plan prices for a user", func() {
 			m, err := plan.PlanPricingHostMap(db, u.ID)
 			Expect(err).To(BeNil())
 			exMap := map[int64]plan.PlanPricing{
 				hs1.H.ID: plan.PlanPricing{Price: 1901, BasePrice: 500},
+				hs2.H.ID: plan.PlanPricing{Price: 2016, BasePrice: 0},
+			}
+			Expect(m).To(Equal(exMap))
+		})
+
+		It("excludes subscription hosts from the pricing map", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs1.P.ID,
+				BillingProfileID: bp.ID,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs1.H.ID)
+			Expect(err).To(BeNil())
+
+			m, err := plan.PlanPricingHostMap(db, u.ID)
+			Expect(err).To(BeNil())
+			exMap := map[int64]plan.PlanPricing{
 				hs2.H.ID: plan.PlanPricing{Price: 2016, BasePrice: 0},
 			}
 			Expect(m).To(Equal(exMap))

@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nitrous-io/nitrous-common/flusher"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
+	"github.com/nitrous-io/nitrous-common/flusher"
 )
 
 var (
@@ -203,7 +204,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if options.Async {
 		go func() {
 			h := <-provisioned
-			if err := postProvision(options, env, h, outstream); err != nil {
+			if err := postProvision(options, env, h, pl, outstream); err != nil {
 				publishProvisionFailure(h, err)
 				return
 			}
@@ -211,7 +212,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}()
 		env.Status = http.StatusAccepted
 	} else {
-		if err := postProvision(options, env, h, outstream); err != nil {
+		if err := postProvision(options, env, h, pl, outstream); err != nil {
 			publishProvisionFailure(h, err)
 			return err
 		}
@@ -233,9 +234,20 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func postProvision(options *createOpts, env *middleware.Env, h *host.Host, outstream io.Writer) error {
+func postProvision(options *createOpts, env *middleware.Env, h *host.Host, p *plan.Plan, outstream io.Writer) error {
 	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
+	}
+	if p.IsSubscription() {
+		_, err := subProvider.Subscribe(env.DB, env.Logger, h, p, env.User)
+		if err != nil {
+			if err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+				return hostcontrol.Terminate(tx, env.Logger, h, hostbuilderHeaders(env), env.User.ID)
+			}); err != nil {
+				env.Logger.Errorf("Unable to terminate host %d: %v", h.ID, err)
+			}
+			return err
+		}
 	}
 	if err := recordTransition(env, h); err != nil {
 		env.Logger.Errorf("Unable to record transition for host %d: %v", h.ID, err)

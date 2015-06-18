@@ -174,6 +174,13 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 					inv.TotalCredit += item.Credit.Int64
 				} else {
 					ser := serializers.SerializeInvoiceItem(&item)
+					if item.ItemType == invoiceitem.ItemTypeSubscription {
+						ser.Description = invoiceitem.ItemDescription(&item, nil)
+						ser.TotalCharge = item.TotalStripeCharge.Int64
+						inv.Items = append(inv.Items, *ser)
+						continue
+					}
+
 					if hst, ok := hMap[ser.HostID]; ok {
 						ser.HostSlug = hst.Slug
 						ser.Description = invoiceitem.ItemDescription(&item, hMap[ser.HostID])
@@ -191,6 +198,7 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 					if ok {
 						ser.Usage = serializers.SerializeHostUsages(hUsages)
 					}
+
 					inv.Items = append(inv.Items, *ser)
 				}
 			}
