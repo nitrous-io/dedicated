@@ -313,10 +313,14 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 						desc = "Subscription"
 					}
 				}
+				stripeID := invItem.ID
+				if invItem.Type == stripeinvoice.TypeSubscription {
+					stripeID = fmt.Sprintf("%s-%s", sInv.ID, invItem.ID)
+				}
 				item := invoiceitem.InvoiceItem{
 					InvoiceID:         inv.ID,
 					ItemType:          invoiceitem.ItemTypeSubscription,
-					StripeID:          sql.NullString{invItem.ID, true},
+					StripeID:          sql.NullString{stripeID, true},
 					TotalStripeCharge: sql.NullInt64{invItem.Amount, true},
 					Description:       sql.NullString{desc, true},
 				}

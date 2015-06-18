@@ -590,7 +590,7 @@ var _ = Describe("subscriptions", func() {
           "lines": {
             "data": [
               {
-                "id": "stripe-item-1",
+                "id": "sub_1",
                 "object": "line_item",
                 "type": "subscription",
                 "livemode": true,
@@ -639,7 +639,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(1))
 			Expect(items[0].ItemType).To(Equal(invoiceitem.ItemTypeSubscription))
-			Expect(items[0].StripeID.String).To(Equal("stripe-item-1"))
+			Expect(items[0].StripeID.String).To(Equal("inv1-sub_1"))
 			Expect(items[0].TotalStripeCharge.Int64).To(Equal(int64(1499)))
 			Expect(items[0].Description.String).To(Equal("Subscription to ABC1 ($14.99/month)"))
 		})
@@ -660,7 +660,7 @@ var _ = Describe("subscriptions", func() {
           "lines": {
             "data": [
               {
-                "id": "stripe-item-1",
+                "id": "sub_1",
                 "object": "line_item",
                 "type": "subscription",
                 "livemode": true,
@@ -675,7 +675,7 @@ var _ = Describe("subscriptions", func() {
               {
                 "id": "stripe-item-2",
                 "object": "line_item",
-                "type": "subscription",
+                "type": "invoiceitem",
                 "livemode": true,
                 "amount": -499,
                 "currency": "usd",
@@ -702,7 +702,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(BeNil())
 			Expect(items).To(HaveLen(2))
 			Expect(items[0].ItemType).To(Equal(invoiceitem.ItemTypeSubscription))
-			Expect(items[0].StripeID.String).To(Equal("stripe-item-1"))
+			Expect(items[0].StripeID.String).To(Equal("inv1-sub_1"))
 			Expect(items[0].TotalStripeCharge.Int64).To(Equal(int64(1499)))
 
 			Expect(items[1].ItemType).To(Equal(invoiceitem.ItemTypeCredit))
