@@ -1316,5 +1316,11 @@ func init() {
 				ALTER TABLE invoice_items ADD COLUMN description character varying(255) DEFAULT NULL;
 			`,
 		},
+		{
+			Version: "1311",
+			Up: `
+				ALTER TABLE users ALTER COLUMN max_running_time SET DEFAULT 14400;
+			`,
+		},
 	}
 }
