@@ -35,6 +35,51 @@
 			"Rev": "e7c2e6adff9265da4fbfa766e7b147b8a06b835e"
 		},
 		{
+			"ImportPath": "github.com/aws/aws-sdk-go/aws",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/apierr",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/endpoints",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/ec2query",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/query/queryutil",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/rest",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/protocol/xml/xmlutil",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/internal/signer/v4",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
+			"ImportPath": "github.com/aws/aws-sdk-go/service/ec2",
+			"Comment": "v0.6.0-6-g4003236",
+			"Rev": "40032362a82cad4fbc057b8af83025f7fd9c4bc8"
+		},
+		{
 			"ImportPath": "github.com/bgentry/speakeasy",
 			"Rev": "5dfe43257d1f86b96484e760f2f0c4e2559089c7"
 		},
@@ -168,14 +213,6 @@
 		{
 			"ImportPath": "github.com/mitchellh/cli",
 			"Rev": "e3c2e3d39391e9beb9660ccd6b4bd9a2f38dd8a0"
-		},
-		{
-			"ImportPath": "github.com/mitchellh/goamz/aws",
-			"Rev": "72f92d689673c197c1dd25d6067ee274510e120e"
-		},
-		{
-			"ImportPath": "github.com/mitchellh/goamz/ec2",
-			"Rev": "72f92d689673c197c1dd25d6067ee274510e120e"
 		},
 		{
 			"ImportPath": "github.com/monochromegane/the_platinum_searcher",
