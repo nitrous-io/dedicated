@@ -68,6 +68,21 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return handleBillingError(err)
 	}
 
+	// we have had a lot of stolen credit cards used from specific countries.
+	// Use a CIDR blacklist to set user to delinquent and inform us (so we
+	// still can review their info on Stripe and manually update their billing
+	// profile if they are legit)
+	ip := middleware.GetRemoteAddr(r)
+	if err := billingprofile.CIDRBlacklisted(ip); err != nil {
+		bp.State = billingprofile.StateDelinquent
+		logrus.Warnf("CIDRBlacklisted error on user %s ip %s: %v", u.Username, ip, err)
+		if err := bp.Update(db); err != nil {
+			// since this part is technically optional, we log any errors
+			// encountered and continue
+			logrus.Errorf("Error updating CIDRBlacklisted user to delinquent: %v", err)
+		}
+	}
+
 	// determine if this user gets a credit
 	var credited int64
 	if existing.PendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {

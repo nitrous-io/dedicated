@@ -82,8 +82,9 @@ var (
 
 	EnableSelfUpgrade = parseBoolWithDefault(os.Getenv("ENABLE_SELF_UPGRADE"), true)
 
-	// email blacklist
+	// blacklists
 	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
+	CIDRBlacklistPath  = os.Getenv("CIDR_BLACKLIST_PATH")
 
 	// Queue handler timeout
 	QueueHandlerTimeout = parseDurationWithDefault(os.Getenv("QUEUE_HANDLER_TIMEOUT"), 5*time.Minute)
