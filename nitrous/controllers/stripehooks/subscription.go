@@ -8,8 +8,12 @@ import (
 )
 
 var (
-	subProvider = subscriptions.NewProvider()
+	subProvider subscriptions.Provider
 )
+
+func init() {
+	subProvider = subscriptions.NewProvider()
+}
 
 func handleSubscriptionUpdatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
 	err := subProvider.HandleSubscriptionUpdated(env.DB, stripeID)
