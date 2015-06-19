@@ -20,7 +20,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/logger"
 	"github.com/stripe/stripe-go"
 
-	. "github.com/nitrous-io/dedicated/nitrous/test"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -32,7 +32,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/stripehooks", func() {
 	var (
-		fakeStripe *FakeStripe
+		fakeStripe *test.FakeStripe
 		db         *db.Database
 		u          *user.User
 		svr        *server.Server
@@ -40,10 +40,7 @@ var _ = Describe("controllers/stripehooks", func() {
 		succeedFnCalled        bool
 		receivedSucceedInvoice *invoice.Invoice
 
-		failedFnCalled                  bool
-		receivedFailedInvoice           *invoice.Invoice
-		receivedFailedAttemptCount      int
-		receivedFailedAttemptsExhausted bool
+		fsub *test.FakeSubscriptionProvider
 
 		inv *invoice.Invoice
 	)
@@ -51,24 +48,21 @@ var _ = Describe("controllers/stripehooks", func() {
 	BeforeEach(func() {
 		var err error
 
-		db, err = TestDatabase("nitrous_test")
+		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
 		svr = server.NewServer("", db, logger, nil)
 
-		fakeStripe = &FakeStripe{}
+		fakeStripe = &test.FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
 		stripehooks.HandlePaymentSucceededFn = func(env *middleware.Env, inv *invoice.Invoice) {
 			receivedSucceedInvoice = inv
 			succeedFnCalled = true
 		}
-		stripehooks.HandlePaymentFailedFn = func(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
-			receivedFailedInvoice = inv
-			receivedFailedAttemptCount = attemptCount
-			receivedFailedAttemptsExhausted = attemptsExhausted
-			failedFnCalled = true
-		}
+
+		fsub = &test.FakeSubscriptionProvider{}
+		stripehooks.SetSubscriptionProvider(fsub)
 
 		u = &user.User{
 			Username: "foo",
@@ -76,7 +70,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			Password: "123456",
 			Name:     "Steve",
 		}
-		err = WrapInTransaction(db, u.Insert)
+		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 
 		start := time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
@@ -102,7 +96,7 @@ var _ = Describe("controllers/stripehooks", func() {
 
 	Describe("POST /api/v0/stripe_hook", func() {
 		doRequest := func(jsonStr string) *httptest.ResponseRecorder {
-			req, err := NewBodyRequest("POST", "/api/v0/stripe_hook", jsonStr)
+			req, err := test.NewBodyRequest("POST", "/api/v0/stripe_hook", jsonStr)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -132,7 +126,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			// These are false because the event type is neither payment
 			// succeeded or payment failed.
 			Expect(succeedFnCalled).To(BeFalse())
-			Expect(failedFnCalled).To(BeFalse())
+			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeFalse())
 		})
 
 		It("should not handle invoices that are not found in the database", func() {
@@ -166,44 +160,24 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(receivedSucceedInvoice).To(Equal(inv))
 		})
 
-		It("should handle the payment as failed if invoice is not paid", func() {
+		It("should call HandleSubscriptionInvoiceFailed if the invoice failed", func() {
 			fakeStripe.Responses = []string{
 				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
 				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
 			}
 
-			failedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Eventually(func() bool {
-				return failedFnCalled
+				return fsub.HandleSubscriptionInvoiceFailedCalled
 			}).Should(BeTrue())
 
-			Expect(receivedFailedInvoice).To(Equal(inv))
-			Expect(receivedFailedAttemptCount).To(Equal(2))
-			Expect(receivedFailedAttemptsExhausted).To(BeFalse())
-		})
-
-		It("should return true for attempts exhausted when NextAttempt is 0", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": null}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": null}`,
-			}
-
-			failedFnCalled = false
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Eventually(func() bool {
-				return failedFnCalled
-			}).Should(BeTrue())
-
-			Expect(receivedFailedAttemptsExhausted).To(BeTrue())
+			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
 		})
 
 		It("should publish a EventInvoiceUpdated to the user", func(done Done) {
-			hs1, err := CreateHostStack(db, &HostStack{
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 2000,
@@ -266,7 +240,7 @@ var _ = Describe("controllers/stripehooks", func() {
 		)
 
 		BeforeEach(func() {
-			hs1, err := CreateHostStack(db, &HostStack{
+			hs1, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:        "my-host-1",
 					HourlyPrice: 2000,
@@ -276,7 +250,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(err).To(BeNil())
 			h1 = hs1.H
 			t := time.Now()
-			hs2, err := CreateHostStack(db, &HostStack{
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Slug:         "my-host-2",
 					HourlyPrice:  2000,

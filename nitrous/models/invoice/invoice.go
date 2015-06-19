@@ -1,18 +1,13 @@
 package invoice
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
-	"fmt"
-	"net/mail"
-	"net/url"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
@@ -166,104 +161,4 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 		return err
 	}
 	return tx.Commit()
-}
-
-func (i *Invoice) PaymentFailed(d db.QueryReceiver, attemptCount int, attemptsExhausted bool) error {
-	if i.State == StatePaid {
-		return errors.New("This invoice has already been charged")
-	}
-	i.State = StateUnpaid
-	t := time.Now()
-	if i.FirstAttemptAt == nil || i.FirstAttemptAt.IsZero() {
-		i.FirstAttemptAt = &t
-	}
-	i.LastAttemptAt = &t
-	i.Attempts = attemptCount
-	if attemptsExhausted {
-		i.State = StateFailed
-	}
-	if err := i.Update(d); err != nil {
-		return err
-	}
-	return i.handlePaymentFailed(d, attemptsExhausted)
-}
-
-func (i *Invoice) handlePaymentFailed(d db.QueryReceiver, final bool) error {
-	user, err := user.FindByID(d, i.UserID)
-	if err != nil {
-		return err
-	}
-
-	bp, err := billingprofile.Find(d, user.ID)
-	if err != nil {
-		return err
-	}
-	if final {
-		bp.State = billingprofile.StateDelinquent
-	} else {
-		bp.State = billingprofile.StatePaymentDue
-	}
-	err = bp.Update(d)
-	if err != nil {
-		return err
-	}
-
-	from := &mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}
-	to := &mail.Address{Name: user.Name, Address: user.Email}
-
-	tmplData := struct {
-		Name          string
-		LastFour      string
-		InvoiceAmount string
-		SupportEmail  string
-		BillingUrl    string
-	}{
-		user.Name,
-		"unspecified",
-		fmt.Sprintf("$%.2f", float64(i.TotalCharge)/100.0),
-		from.Address,
-		billingUrl(),
-	}
-	if tmplData.Name == "" {
-		tmplData.Name = user.Username
-	}
-
-	if bp.LastFour.String != "" {
-		tmplData.LastFour = bp.LastFour.String
-	}
-
-	htmlTemplate := paymentFailedHtmlTemplate
-	txtTemplate := paymentFailedTxtTemplate
-	subject := "Nitrous payment unsuccessful"
-	if final {
-		htmlTemplate = finalPaymentFailedHtmlTemplate
-		txtTemplate = finalPaymentFailedTxtTemplate
-		subject = fmt.Sprintf("Final Notice: %s", subject)
-	}
-
-	// send email
-	htmlBuf := bytes.NewBuffer(nil)
-	if err := htmlTemplate.Execute(htmlBuf, tmplData); err != nil {
-		return err
-	}
-	txtBuf := bytes.NewBuffer(nil)
-	if err := txtTemplate.Execute(txtBuf, tmplData); err != nil {
-		return err
-	}
-
-	return Mailer.SendMail(from.String(), []string{to.String()}, []string{from.String()}, nil, from.String(), subject, txtBuf.String(), htmlBuf.String())
-}
-
-func billingUrl() string {
-	host := envvars.WebHostname
-	if host == "" {
-		host = "pro.nitrous.io"
-	}
-	u := &url.URL{
-		Scheme:   "https",
-		Host:     host,
-		Path:     "/app/",
-		Fragment: "/billing",
-	}
-	return u.String()
 }

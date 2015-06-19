@@ -18,8 +18,7 @@ import (
 )
 
 var (
-	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice)            = handlePaymentSucceeded
-	HandlePaymentFailedFn    func(*middleware.Env, *invoice.Invoice, int, bool) = handlePaymentFailed
+	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice) = handlePaymentSucceeded
 )
 
 func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
@@ -43,13 +42,25 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 	if strInv.Paid {
 		HandlePaymentSucceededFn(env, inv)
 	} else {
-		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt == 0)
+		i, err := subProvider.HandleSubscriptionInvoiceFailed(env.DB, env.Logger, stripeID)
+		if err != nil {
+			env.Logger.Errorf("Error invoking HandleSubscriptionInvoiceFailed for Stripe invoice %s, err: %v", stripeID, err)
+		} else if i != nil {
+			inv = i
+		}
 	}
+
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
 		env.Logger.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
 		return
 	}
+
+	if !strInv.Paid {
+		eventName := fmt.Sprintf("Customer Card Declined %d", inv.Attempts)
+		env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
+	}
+
 	sInv, err := serializeInvoice(env.DB, inv, env.Logger)
 	if err != nil {
 		env.Logger.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
@@ -113,19 +124,4 @@ func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
 	if err := inv.PaymentSucceeded(env.DB); err != nil {
 		env.Logger.Errorf("Error marking invoice %d as succeeded, err: %v", inv.ID, err)
 	}
-}
-
-func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
-	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
-		env.Logger.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
-		return
-	}
-
-	u, err := user.FindByID(env.DB, inv.UserID)
-	if err != nil {
-		env.Logger.Errorf("Error notifying Mixpanel of failed Invoice %d, err: %v", inv.ID, err)
-		return
-	}
-	eventName := fmt.Sprintf("Customer Card Declined %d", attemptCount)
-	env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
 }
