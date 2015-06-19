@@ -829,12 +829,14 @@ var _ = Describe("subscriptions", func() {
 		var (
 			sub *subscription.Subscription
 			inv *invoice.Invoice
+			bp  *billingprofile.BillingProfile
 
 			hstName string
 		)
 
 		BeforeEach(func() {
-			bp, err := u.BillingProfile(db)
+			var err error
+			bp, err = u.BillingProfile(db)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec("UPDATE billing_profiles SET last_four = '2334' WHERE id = $1;", bp.ID)
@@ -961,6 +963,50 @@ var _ = Describe("subscriptions", func() {
 
 			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
 			Expect(err).To(MatchError("Stripe invoice inv1 has already been paid"))
+		})
+
+		It("should return an error if the billing profile is exempt", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE id = $2;", billingprofile.StateExempt, bp.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Errors = []*stripe.Error{nil}
+			fakeStripe.Responses = []string{
+				`{
+				  "id": "inv1",
+				  "object": "invoice",
+          "subscription": "abc1",
+          "total": 1499,
+          "period_start": 1434418419,
+          "period_end": 1437010419,
+          "next_payment_attempt": 1434699271,
+          "attempt_count": 1,
+          "stripe_id": "str-invoice-1",
+          "paid": false,
+          "lines": {
+            "data": [
+              {
+                "id": "stripe-item-1",
+                "object": "line_item",
+                "type": "subscription",
+                "livemode": true,
+                "amount": 1499,
+                "currency": "usd",
+                "proration": false,
+                "period": {
+                  "start": 1434418419,
+                  "end": 1437010419
+                }
+              }
+            ],
+            "total_count": 1,
+            "object": "list",
+            "url": "/v1/invoices/inv1/lines"
+          }
+				}`,
+			}
+
+			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			Expect(err).To(MatchError(fmt.Sprintf("Billing profile %d should not be failing in exempt state", bp.ID)))
 		})
 
 		It("should update the billing profile that payment is due & update the invoice", func() {
