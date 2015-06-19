@@ -1,5 +1,7 @@
-# list of CIDRs
+# CIDRs in Turkey
 95.0.0.0/12
 85.96.0.0/12
-# test commented out CIDR to see if it's ignored
+# for controller tests
+1.2.3.4/24
+# for model tests: see if commented out CIDR is ignored
 # 8.8.4.0/24
