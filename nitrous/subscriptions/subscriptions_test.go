@@ -209,6 +209,46 @@ var _ = Describe("subscriptions", func() {
 			Expect(a).To(Equal(int64(2000)))
 		})
 
+		It("should handle card expired", func() {
+			fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.ExpiredCard}}
+			fakeStripe.Responses = []string{
+				`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+				  "current_period_start": 1434418419,
+				  "current_period_end": 1437010419
+				}`,
+			}
+
+			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			Expect(err).To(Equal(subscriptions.ErrCardExpired))
+			Expect(s).To(BeNil())
+
+			_, err = findByHostID(db, hs.H.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("should handle card declined", func() {
+			fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.CardDeclined}}
+			fakeStripe.Responses = []string{
+				`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+				  "current_period_start": 1434418419,
+				  "current_period_end": 1437010419
+				}`,
+			}
+
+			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			Expect(err).To(Equal(subscriptions.ErrCardDeclined))
+			Expect(s).To(BeNil())
+
+			_, err = findByHostID(db, hs.H.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
 		It("should keep the credit invoice item if it was able to submit the Subscription", func() {
 			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 2000);", u.ID)
 			Expect(err).To(BeNil())

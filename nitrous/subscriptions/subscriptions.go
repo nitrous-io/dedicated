@@ -53,6 +53,9 @@ var (
 
 	ErrInvoiceLackingSubscription = errors.New("Invoice not attached to Subscription")
 	ErrInvoiceAlreadyPaid         = errors.New("Invoice has already been paid")
+
+	ErrCardExpired  = errors.New("Your Card has expired. Please try again with a recent card.")
+	ErrCardDeclined = errors.New("Your Card was declined. Try contacting the bank directly for assistance.")
 )
 
 type updatedAvailableCredits struct {
@@ -113,7 +116,19 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		})
 		if err != nil {
 			strSub = nil
-			logrus.Errorf("Stripe subscription: %+v", strSub)
+			logrus.Errorf("Stripe subscription: %+v, err: %+v", strSub, err)
+
+			sErr, ok := err.(*stripe.Error)
+			if !ok {
+				return sErr
+			}
+
+			if sErr.Code == stripe.ExpiredCard {
+				return ErrCardExpired
+			} else if sErr.Code == stripe.CardDeclined {
+				return ErrCardDeclined
+			}
+
 			return err
 		}
 
