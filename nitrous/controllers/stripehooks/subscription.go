@@ -14,23 +14,14 @@ func init() {
 	subProvider = subscriptions.NewProvider()
 }
 
-func handleSubscriptionUpdatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
-	err := subProvider.HandleSubscriptionUpdated(env.DB, env.Logger, stripeID)
-	if err != nil {
-		env.Logger.Errorf("Error calling HandleSubscriptionUpdated stripeID: %s, err: %v", stripeID, err)
-	}
+func handleSubscriptionUpdatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
+	return subProvider.HandleSubscriptionUpdated(env.DB, env.Logger, stripeID)
 }
 
-func handleSubscriptionDeletedEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
-	err := subProvider.HandleSubscriptionDeleted(env.DB, env.Logger, stripeID)
-	if err != nil {
-		env.Logger.Errorf("Error calling HandleSubscriptionDeleted stripeID: %s, err: %v", stripeID, err)
-	}
+func handleSubscriptionDeletedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
+	return subProvider.HandleSubscriptionDeleted(env.DB, env.Logger, stripeID)
 }
 
-func handleInvoiceCreatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
-	err := subProvider.HandleSubscriptionInvoiceCreated(env.DB, env.Logger, stripeID)
-	if err != nil {
-		env.Logger.Errorf("Error calling HandleSubscriptionInvoiceCreated stripeID: %s, err: %v", stripeID, err)
-	}
+func handleInvoiceCreatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
+	return subProvider.HandleSubscriptionInvoiceCreated(env.DB, env.Logger, stripeID)
 }

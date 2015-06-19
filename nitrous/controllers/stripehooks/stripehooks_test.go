@@ -2,6 +2,7 @@ package stripehooks_test
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,8 +37,10 @@ var _ = Describe("controllers/stripehooks", func() {
 		db         *db.Database
 		u          *user.User
 		svr        *server.Server
+		ft         *test.FakeTracker
 
 		succeedFnCalled        bool
+		succeedFnErr           error
 		receivedSucceedInvoice *invoice.Invoice
 
 		fsub *test.FakeSubscriptionProvider
@@ -51,14 +54,18 @@ var _ = Describe("controllers/stripehooks", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		logger := &logger.Logger{Level: logger.LogLevelQuiet}
-		svr = server.NewServer("", db, logger, nil)
+		ft = test.NewFakeTracker()
+		svr = test.NewTestServer("", db, logger, ft)
 
 		fakeStripe = &test.FakeStripe{}
 		stripe.SetBackend(fakeStripe)
 
-		stripehooks.HandlePaymentSucceededFn = func(env *middleware.Env, inv *invoice.Invoice) {
+		succeedFnCalled = false
+		succeedFnErr = nil
+		stripehooks.HandlePaymentSucceededFn = func(env *middleware.Env, inv *invoice.Invoice) error {
 			receivedSucceedInvoice = inv
 			succeedFnCalled = true
+			return succeedFnErr
 		}
 
 		fsub = &test.FakeSubscriptionProvider{}
@@ -108,16 +115,12 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
-		It("should verify the event with Stripe", func() {
+		It("should verify the event with Stripe and return an error", func() {
 			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV"}`}
 
 			succeedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Eventually(func() int {
-				return len(fakeStripe.ReceivedRequests)
-			}).Should(Equal(1))
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 			req := fakeStripe.ReceivedRequests[0]
 			Expect(req["method"]).To(Equal("GET"))
@@ -129,16 +132,11 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeFalse())
 		})
 
-		It("should not handle invoices that are not found in the database", func() {
+		It("should not handle invoices that are not found in the database and return an error", func() {
 			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded", "data": {"object": {"id": "invalid-invoice-id"}}}`}
 
-			succeedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Eventually(func() int {
-				return len(fakeStripe.ReceivedRequests)
-			}).Should(Equal(1))
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 			Expect(succeedFnCalled).To(BeFalse())
 		})
@@ -149,14 +147,24 @@ var _ = Describe("controllers/stripehooks", func() {
 				`{"object": "invoice", "id": "Sv", "paid": true}`,
 			}
 
-			succeedFnCalled = false
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			Eventually(func() bool {
-				return succeedFnCalled
-			}).Should(BeTrue())
+			Expect(succeedFnCalled).To(BeTrue())
+			Expect(receivedSucceedInvoice).To(Equal(inv))
+		})
 
+		It("should return an error if succeed function returns an error", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": true}`,
+			}
+
+			succeedFnErr = errors.New("Woops!")
+			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+			Expect(succeedFnCalled).To(BeTrue())
 			Expect(receivedSucceedInvoice).To(Equal(inv))
 		})
 
@@ -169,11 +177,48 @@ var _ = Describe("controllers/stripehooks", func() {
 			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
+			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+		})
+
+		It("should return an error if the HandleSubscriptionInvoiceFailed return an error", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+			}
+
+			fsub.HandleSubscriptionInvoiceFailedError = errors.New("Woops!")
+			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+		})
+
+		It("should log to mixpanel if the invoice failed", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+			}
+
+			inv.Attempts = 2
+			fsub.HandleSubscriptionInvoiceFailedReturn = inv
+			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+
+			var (
+				evs []string
+				ok  bool
+			)
 			Eventually(func() bool {
-				return fsub.HandleSubscriptionInvoiceFailedCalled
+				evs, ok = ft.Events[u.ID]
+				return ok
 			}).Should(BeTrue())
 
-			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+			Expect(evs).To(Equal([]string{"Customer Card Declined 2"}))
 		})
 
 		It("should publish a EventInvoiceUpdated to the user", func(done Done) {

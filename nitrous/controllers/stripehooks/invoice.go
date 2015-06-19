@@ -18,33 +18,32 @@ import (
 )
 
 var (
-	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice) = handlePaymentSucceeded
+	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice) error = handlePaymentSucceeded
 )
 
-func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
+func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
 	inv, err := invoice.FindByStripeID(env.DB, stripeID)
 	if err != nil {
-		env.Logger.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
-		return
+		return fmt.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
 	}
 	if inv == nil {
-		env.Logger.Errorf("Could not find invoice matching Stripe event: %+v", e)
-		return
+		return fmt.Errorf("Could not find invoice matching Stripe event: %+v", e)
 	}
 
 	// webhook data is found to be outdated, query the invoice for *live* info
 	strInv, err := stripeinvoice.Get(stripeID, nil)
 	if err != nil {
-		env.Logger.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
-		return
+		return fmt.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
 	}
 
 	if strInv.Paid {
-		HandlePaymentSucceededFn(env, inv)
+		if err := HandlePaymentSucceededFn(env, inv); err != nil {
+			return err
+		}
 	} else {
 		i, err := subProvider.HandleSubscriptionInvoiceFailed(env.DB, env.Logger, stripeID)
 		if err != nil {
-			env.Logger.Errorf("Error invoking HandleSubscriptionInvoiceFailed for Stripe invoice %s, err: %v", stripeID, err)
+			return fmt.Errorf("Error invoking HandleSubscriptionInvoiceFailed for Stripe invoice %s, err: %v", stripeID, err)
 		} else if i != nil {
 			inv = i
 		}
@@ -52,26 +51,28 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
-		env.Logger.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
-		return
+		return fmt.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
 	}
 
-	if !strInv.Paid {
-		eventName := fmt.Sprintf("Customer Card Declined %d", inv.Attempts)
-		env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
-	}
+	go func() {
+		if !strInv.Paid {
+			eventName := fmt.Sprintf("Customer Card Declined %d", inv.Attempts)
+			env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
+		}
 
-	sInv, err := serializeInvoice(env.DB, inv, env.Logger)
-	if err != nil {
-		env.Logger.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
-		return
-	}
-	env.Events.Publish(
-		controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
-			"invoice": sInv,
-		}),
-		u.Topic(),
-	)
+		sInv, err := serializeInvoice(env.DB, inv, env.Logger)
+		if err != nil {
+			env.Logger.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
+			return
+		}
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
+				"invoice": sInv,
+			}),
+			u.Topic(),
+		)
+	}()
+	return nil
 }
 
 func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.Logger) (*serializers.Invoice, error) {
@@ -120,8 +121,6 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice, logger *logger.L
 	return sInv, nil
 }
 
-func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
-	if err := inv.PaymentSucceeded(env.DB); err != nil {
-		env.Logger.Errorf("Error marking invoice %d as succeeded, err: %v", inv.ID, err)
-	}
+func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) error {
+	return inv.PaymentSucceeded(env.DB)
 }
