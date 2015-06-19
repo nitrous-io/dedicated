@@ -64,6 +64,6 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) error {
 		return fmt.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
 	}
 
-	env.Logger.Infof("Processing Stripe event: %+v", e)
+	logrus.Infof("Processing Stripe event: %+v", e)
 	return f(env, e, stripeID)
 }

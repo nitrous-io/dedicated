@@ -41,7 +41,7 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 			return err
 		}
 	} else {
-		i, err := subProvider.HandleSubscriptionInvoiceFailed(env.DB, env.Logger, stripeID)
+		i, err := subProvider.HandleSubscriptionInvoiceFailed(env.DB, stripeID)
 		if err != nil {
 			return fmt.Errorf("Error invoking HandleSubscriptionInvoiceFailed for Stripe invoice %s, err: %v", stripeID, err)
 		} else if i != nil {
@@ -57,10 +57,10 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 	go func() {
 		if !strInv.Paid {
 			eventName := fmt.Sprintf("Customer Card Declined %d", inv.Attempts)
-			env.Tracker.TrackEvent(eventName, u, nil, env.Logger)
+			env.Tracker.TrackEvent(eventName, u, nil)
 		}
 
-		sInv, err := serializeInvoice(env.DB, inv, env.Logger)
+		sInv, err := serializeInvoice(env.DB, inv)
 		if err != nil {
 			logrus.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
 			return

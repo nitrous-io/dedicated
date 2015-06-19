@@ -221,7 +221,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(Equal(subscriptions.ErrCardExpired))
 			Expect(s).To(BeNil())
 
@@ -241,7 +241,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			s, err := subProvider.Subscribe(db, lgr, hs.H, pl, u)
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(Equal(subscriptions.ErrCardDeclined))
 			Expect(s).To(BeNil())
 
@@ -872,7 +872,7 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if the invoice cannot be fetched", func() {
-			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_NO")
+			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_NO")
 			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
@@ -880,7 +880,7 @@ var _ = Describe("subscriptions", func() {
 			_, err := db.Exec("UPDATE invoices SET state = $1 WHERE id = $2;", invoice.StatePaid, inv.ID)
 			Expect(err).To(BeNil())
 
-			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).ToNot(BeNil())
 			Expect(err).To(MatchError(fmt.Sprintf("Invoice %d has already been paid", inv.ID)))
 		})
@@ -921,7 +921,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
 		})
 
@@ -961,7 +961,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			_, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(MatchError("Stripe invoice inv1 has already been paid"))
 		})
 
@@ -1005,7 +1005,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(MatchError(fmt.Sprintf("Billing profile %d should not be failing in exempt state", bp.ID)))
 		})
 
@@ -1046,7 +1046,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(BeNil())
 			Expect(i).ToNot(BeNil())
 
@@ -1121,7 +1121,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(BeNil())
 			Expect(i).ToNot(BeNil())
 
@@ -1195,7 +1195,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(BeNil())
 			Expect(i).ToNot(BeNil())
 
@@ -1280,7 +1280,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, l *logger.Logger, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
 				Expect(ev).To(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
@@ -1289,7 +1289,7 @@ var _ = Describe("subscriptions", func() {
 				return e
 			}
 
-			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(BeNil())
 			Expect(i).ToNot(BeNil())
 
@@ -1335,7 +1335,7 @@ var _ = Describe("subscriptions", func() {
 			_, err := db.Exec("UPDATE invoices SET subscription_id = NULL WHERE id = $1;", inv.ID)
 			Expect(err).To(BeNil())
 
-			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, lgr, "inv_ABCD1")
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
 			Expect(err).To(BeNil())
 			Expect(i).ToNot(BeNil())
 

@@ -15,13 +15,13 @@ func init() {
 }
 
 func handleSubscriptionUpdatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
-	return subProvider.HandleSubscriptionUpdated(env.DB, env.Logger, stripeID)
+	return subProvider.HandleSubscriptionUpdated(env.DB, stripeID)
 }
 
 func handleSubscriptionDeletedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
-	return subProvider.HandleSubscriptionDeleted(env.DB, env.Logger, stripeID)
+	return subProvider.HandleSubscriptionDeleted(env.DB, stripeID)
 }
 
 func handleInvoiceCreatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
-	return subProvider.HandleSubscriptionInvoiceCreated(env.DB, env.Logger, stripeID)
+	return subProvider.HandleSubscriptionInvoiceCreated(env.DB, stripeID)
 }
