@@ -22,7 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-    "github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
@@ -36,6 +36,7 @@ type Provider interface {
 	HandleSubscriptionUpdated(d *db.Database, subID string) error
 	HandleSubscriptionDeleted(d *db.Database, subID string) error
 	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error
+	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
 }
 
 type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
@@ -328,7 +329,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 					item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
 				}
 				if err := item.Insert(tx); err != nil {
-					l.Errorf("Unable to create invoice item id %s, err: %v", inv.ID, err)
+					logrus.Errorf("Unable to create invoice item id %s, err: %v", inv.ID, err)
 					return err
 				}
 			}
@@ -374,7 +375,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 	})
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l *logger.Logger, invID string) (*invoice.Invoice, error) {
+func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {
 	var (
 		sub  *subscription.Subscription
 		inv  *invoice.Invoice
@@ -452,7 +453,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l
 		}
 
 		// update invoice
-		l.Warnf("Failed invoice %d: Next attempt at %d", inv.ID, sInv.NextAttempt)
+		logrus.Warnf("Failed invoice %d: Next attempt at %d", inv.ID, sInv.NextAttempt)
 		inv.State = invoice.StateUnpaid
 		if final {
 			inv.State = invoice.StateFailed
@@ -480,7 +481,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l
 	}
 
 	if sub != nil && (sInv.Attempts > 1 || sInv.Closed) {
-		if err := s.stopHosts(d, l, sub); err != nil {
+		if err := s.stopHosts(d, sub); err != nil {
 			return nil, err
 		}
 	}
@@ -492,7 +493,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l
 	return inv, nil
 }
 
-func (s *SubscriptionProvider) stopHosts(d *db.Database, l *logger.Logger, sub *subscription.Subscription) error {
+func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subscription) error {
 	hosts := []*host.Host{}
 	err := d.Select(&hosts, `SELECT
 		hosts.*, pt.provider, pt.config
@@ -517,7 +518,7 @@ func (s *SubscriptionProvider) stopHosts(d *db.Database, l *logger.Logger, sub *
 			continue
 		}
 
-		if err := s.HostStopFunc(d, l, h, headers, nil, initiatorID); err != nil {
+		if err := s.HostStopFunc(d, h, headers, nil, initiatorID); err != nil {
 			logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
 		}
 	}

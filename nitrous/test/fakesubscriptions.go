@@ -71,7 +71,7 @@ func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Databa
 	return s.HandleSubscriptionInvoiceCreatedError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l *logger.Logger, invID string) (*invoice.Invoice, error) {
+func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {
 	s.HandleSubscriptionInvoiceFailedCalled = true
 	s.HandleSubscriptionInvoiceFailedInvoiceID = invID
 	return s.HandleSubscriptionInvoiceFailedReturn, s.HandleSubscriptionInvoiceFailedError
