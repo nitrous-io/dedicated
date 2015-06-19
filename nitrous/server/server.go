@@ -256,7 +256,8 @@ func (s *Server) static(prefix string, dir string) {
 func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
-		e = s.serverError(err).(*httperror.Error)
+		uuid := w.Header().Get(constants.NitrousUUIDHeader)
+		e = s.serverError(err, uuid).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {
@@ -295,11 +296,11 @@ func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, statu
 // This is called when the error is not a *httperror.Error*, i.e. there's
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
-func (s *Server) serverError(err error) error {
+func (s *Server) serverError(err error, uuid string) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
-	s.logger.Error(errHash, errMsg)
+	s.logger.Error(fmt.Sprintf("uuid=%s", uuid), errHash, errMsg)
 	return e
 }
 
