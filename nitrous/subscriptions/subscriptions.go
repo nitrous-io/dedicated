@@ -428,6 +428,10 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, l
 			return fmt.Errorf("Unable to locate BillingProfile for invoice %d", inv.ID)
 		}
 
+		if bp.State == billingprofile.StateExempt {
+			return fmt.Errorf("Billing profile %d should not be failing in exempt state", bp.ID)
+		}
+
 		// update state of BillingProfile
 		final = sInv.NextAttempt == 0
 		if final {
