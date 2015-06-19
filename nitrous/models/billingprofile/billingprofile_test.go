@@ -210,7 +210,7 @@ var _ = Describe("models/billingprofile", func() {
 			})
 
 			It("removes the time restrictions on a user", func() {
-				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{7200, true}))
+				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{14400, true}))
 				Expect(u.RefreshPeriod).To(Equal(sql.NullInt64{86400, true}))
 
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
