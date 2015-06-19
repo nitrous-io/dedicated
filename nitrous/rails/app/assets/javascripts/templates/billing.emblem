@@ -29,6 +29,17 @@ if App.billingProfile.hasCard
       .right
         button.ui.btn click='changeCard' Change Card
 
+  .card-header.bordered
+    h2 Subscriptions
+
+  .card-body
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each group in App.subscriptions
+            = each item in group.items
+              App.InvoiceItemView item=item
+
 if App.billingUsage
   unless App.billingProfile.exempt
     .card-header.bordered
@@ -108,7 +119,7 @@ if App.billingUsage
             = each group in invoice.groupedItems
               = each item in group.items
                 App.InvoiceItemView item=item
-                
+
           tr.divider
             td
               | Total usage this period
