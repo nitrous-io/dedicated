@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -24,6 +25,8 @@ import (
 type progress struct {
 	Stream string `json:"stream"`
 }
+
+var errHostIsNil = errors.New("Host is nil")
 
 func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	return func(m *queue.Message) error {
@@ -223,10 +226,15 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 	case controllers.EventHostStopping:
 		s.logger.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 	case controllers.EventHostStopFailed:
-		s.logger.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
+		s.logger.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to %s", m.UUID, queueInfo.Slug, m, queueInfo.Message)
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
+		}
+
+		if queueInfo.Host == nil {
+			s.logger.Debugf("uuid=%s queueTracer: host(%s) is nil", m.UUID, queueInfo.Slug)
+			return errHostIsNil
 		}
 
 		state := strings.ToLower(queueInfo.Host.State.String())
