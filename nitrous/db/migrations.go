@@ -1333,5 +1333,12 @@ func init() {
 				ALTER TABLE plans ADD COLUMN custom_templates bool DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "1321",
+			Up: `
+				CREATE TYPE plan_type AS ENUM ('usage-based', 'prepaid');
+				ALTER TABLE plans ADD COLUMN type plan_type NOT NULL DEFAULT 'usage-based';
+			`,
+		},
 	}
 }
