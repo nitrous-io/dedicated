@@ -176,7 +176,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 			return res
 		}
 
-		ItReturnsTheCreatedBillingProfile := func() {
+		ItReturnsTheCreatedBillingProfile := func(expectedState string) {
 			It("returns the created billing profile", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
@@ -196,6 +196,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2018)))
 				Expect(j.BillingProfile.CardType).To(Equal("Visa"))
 				Expect(j.BillingProfile.LastFour).To(Equal("4242"))
+				Expect(j.BillingProfile.State).To(Equal(expectedState))
 			})
 		}
 
@@ -211,7 +212,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 		})
 
 		Context("when valid token is provided", func() {
-			ItReturnsTheCreatedBillingProfile()
+			ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
 		})
 
 		Context("when an invoice is outstanding", func() {
@@ -219,7 +220,29 @@ var _ = Describe("controllers/billingprofiles", func() {
 				test.MarkDelinquentUser(db, u)
 			})
 
-			ItReturnsTheCreatedBillingProfile()
+			ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
+		})
+
+		Context("when credit card is valid but CIDR is blocked", func() {
+			var oldDoRequest func(*url.Values) *httptest.ResponseRecorder
+
+			BeforeEach(func() {
+				oldDoRequest = doRequest
+				doRequest = func(params *url.Values) *httptest.ResponseRecorder {
+					req, err := test.NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
+					req.RemoteAddr = "1.2.3.4" // trigger CIDR block
+					Expect(err).To(BeNil())
+					res := httptest.NewRecorder()
+					handler.ServeHTTP(res, req)
+					return res
+				}
+			})
+
+			AfterEach(func() {
+				doRequest = oldDoRequest
+			})
+
+			ItReturnsTheCreatedBillingProfile(billingprofile.StateDelinquent)
 		})
 
 		It("should return a card declined error when user's card is declined", func() {

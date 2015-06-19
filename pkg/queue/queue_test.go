@@ -514,8 +514,9 @@ var _ = Describe("pkg/queue", func() {
 			Expect(err).To(BeNil())
 
 			// Wait until timing out
-			time.Sleep(300 * time.Millisecond)
-			Expect(qp.GetFailedLength()).To(Equal(int64(1)))
+			Eventually(func() int64 {
+				return qp.GetFailedLength()
+			}, 5*time.Second, 100*time.Millisecond).Should(Equal(int64(1)))
 
 			// It still process next message
 			err = qp.Publish(&queue.Message{

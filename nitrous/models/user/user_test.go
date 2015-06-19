@@ -475,7 +475,7 @@ var _ = Describe("models/user", func() {
 			})
 
 			It("sets the default max_running_time & refresh_period", func() {
-				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{7200, true}))
+				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{14400, true}))
 				Expect(u.RefreshPeriod).To(Equal(sql.NullInt64{86400, true}))
 			})
 		})
