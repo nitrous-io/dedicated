@@ -9,21 +9,31 @@ import (
 )
 
 type Plan struct {
-	ID            int64          `db:"id"`
-	Name          string         `db:"name"`
-	Slug          string         `db:"slug"`
-	MaxContainers int64          `db:"max_containers"`
-	Price         int64          `db:"price"`
-	BasePrice     int64          `db:"base_price"`
-	CPU           string         `db:"cpu"`
-	Memory        string         `db:"memory"`
-	Storage       string         `db:"storage"`
-	Disabled      bool           `db:"disabled"`
-	MostPopular   bool           `db:"most_popular"`
-	PaidPlanID    sql.NullInt64  `db:"paid_plan_id"`
-	StripePlanID  sql.NullString `db:"stripe_plan_id"`
-	CreatedAt     *time.Time     `db:"created_at"`
-	UpdatedAt     *time.Time     `db:"updated_at"`
+	ID           int64          `db:"id"`
+	Name         string         `db:"name"`
+	Slug         string         `db:"slug"`
+	Price        int64          `db:"price"`
+	BasePrice    int64          `db:"base_price"`
+	CPU          string         `db:"cpu"`
+	Memory       string         `db:"memory"`
+	Storage      string         `db:"storage"`
+	Disabled     bool           `db:"disabled"`
+	MostPopular  bool           `db:"most_popular"`
+	PaidPlanID   sql.NullInt64  `db:"paid_plan_id"`
+	StripePlanID sql.NullString `db:"stripe_plan_id"`
+	CreatedAt    *time.Time     `db:"created_at"`
+	UpdatedAt    *time.Time     `db:"updated_at"`
+
+	// Features of a plan below. As a rule, any boolean features should default
+	// to false (i.e. disabled), so choose names accordingly.
+
+	MaxContainers   int64 `db:"max_containers"`
+	MaxSnapshots    int64 `db:"max_snapshots"`
+	CleanPreview    bool  `db:"clean_preview"`
+	DesktopApp      bool  `db:"desktop_app"`
+	SSH             bool  `db:"ssh"`
+	CustomDomain    bool  `db:"custom_domain"`
+	CustomTemplates bool  `db:"custom_templates"`
 }
 
 type PlanPricing struct {
