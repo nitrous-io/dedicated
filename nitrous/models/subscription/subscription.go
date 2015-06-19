@@ -16,6 +16,9 @@ const (
 	StateCreating = "creating"
 	// subscription has been cancelled
 	StateDeleted = "deleted"
+	// subscription is activated
+	// This value is from stripe
+	// StateActive = "active"
 )
 
 type Subscription struct {
@@ -58,4 +61,15 @@ func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
 		return nil, err
 	}
 	return sub, nil
+}
+
+func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*Subscription, error) {
+	subscriptions := []*Subscription{}
+	err := d.Select(&subscriptions, `SELECT s.* FROM subscriptions s
+			JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+			WHERE bp.user_id = $1 AND s.state = 'active' ORDER BY s.created_at DESC;`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return subscriptions, nil
 }

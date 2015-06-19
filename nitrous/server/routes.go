@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
@@ -150,6 +151,7 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
+				"/subscriptions":                      r("subscriptions.Index", subscriptions.Index),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),

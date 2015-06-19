@@ -79,4 +79,84 @@ var _ = Describe("models/subscription", func() {
 			Expect(sub).To(Equal(s))
 		})
 	})
+
+	Describe("FindAllByUserID", func() {
+		var (
+			u1 *user.User
+			u2 *user.User
+			p  *plan.Plan
+			s1 *subscription.Subscription
+			s2 *subscription.Subscription
+			s3 *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			var err error
+
+			u1 = &user.User{
+				Username: "user1",
+				Email:    "user1@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "user2",
+				Email:    "user2@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			// Insert plan
+			p = &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Price:         1024,
+				Storage:       "1024 GB",
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp1, err := u1.BillingProfile(db)
+			s1 = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+			}
+			err = test.WrapInTransaction(db, s1.Insert)
+			Expect(err).To(BeNil())
+
+			s2 = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp1.ID,
+				State:            "deleted",
+				StripeID:         sql.NullString{"2", true},
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			bp2, err := u2.BillingProfile(db)
+			s3 = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp2.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"3", true},
+			}
+			err = test.WrapInTransaction(db, s3.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("returns active subscriptions for the given user id", func() {
+			subscriptions, err := subscription.FindAllActiveByUserID(db, u1.ID)
+			Expect(err).To(BeNil())
+
+			Expect(subscriptions).To(HaveLen(1))
+			Expect(subscriptions[0].ID).To(Equal(s1.ID))
+		})
+	})
 })
