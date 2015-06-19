@@ -8,10 +8,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
+const (
+	TypeUsageBased = "usage-based"
+	TypePrepaid    = "prepaid"
+)
+
 type Plan struct {
 	ID           int64          `db:"id"`
 	Name         string         `db:"name"`
 	Slug         string         `db:"slug"`
+	Type         string         `db:"type"`
 	Price        int64          `db:"price"`
 	BasePrice    int64          `db:"base_price"`
 	CPU          string         `db:"cpu"`

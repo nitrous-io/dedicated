@@ -5,6 +5,7 @@ App.Plan = klass = App.Model.extend
   id: attr('number', serialize: false)
   slug: attr()
   name: attr()
+  type: attr()
   price: attr('number')
   basePrice: attr('number', as: 'base_price')
   hourlyPrice: attr('number', as: 'hourly_price')
