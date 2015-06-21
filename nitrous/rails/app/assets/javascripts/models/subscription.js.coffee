@@ -13,6 +13,11 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   createdAt: attr('date', as: 'created_at')
   updatedAt: attr('date', as: 'updated_at')
 
+  plan: (->
+    if planId = @get('planId')
+      App.get('plans').findBy('id', planId)
+  ).property 'planId', 'App.plans.@each'
+
 klass.reopenClass
   url: '/subscriptions'
   primaryKey: 'id'
