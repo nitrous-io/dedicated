@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -378,7 +379,7 @@ func creditUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 
 func VerifyAdmin(fn middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-		if !env.User.Admin {
+		if !permission.Admin(env.Token, env.User) {
 			return httperror.New(http.StatusNotFound, "not_found", "not found")
 		}
 
@@ -388,7 +389,7 @@ func VerifyAdmin(fn middleware.Middleware) middleware.Middleware {
 
 func VerifyAdminOrService(fn middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-		if !env.User.Admin && !env.User.ServiceAccount {
+		if !permission.Service(env.Token, env.User) {
 			return httperror.New(http.StatusNotFound, "not_found", "not found")
 		}
 

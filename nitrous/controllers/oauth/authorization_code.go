@@ -16,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/authorizationcode"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous-common/must"
@@ -98,8 +99,8 @@ func GetAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 }
 
 func PostAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	u := env.User
 	t := env.Token
+	u := env.User
 
 	state := r.FormValue("state")
 	action := r.FormValue("action")
@@ -123,8 +124,7 @@ func PostAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return err
 	}
 
-	// TODO: only certain tokens should be able to authorize new clients
-	if t.Scope != token.ScopeFull {
+	if !permission.AuthorizationGrant(t, u) {
 		redirect(env, w, *ru, map[string]string{
 			"error":             "access_denied",
 			"error_description": "The access token used does not permit authorization of new clients",
