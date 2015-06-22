@@ -298,14 +298,49 @@ var _ = Describe("models/token", func() {
 			Expect(err).To(Equal(token.ErrInvalidToken))
 		})
 	})
+})
 
-	Describe("IsValid()", func() {
-		var t *token.Token
+// plain token tests
+var _ = Describe("models/token", func() {
+	var t *token.Token
 
-		BeforeEach(func() {
-			t = &token.Token{UserID: u1.ID}
+	BeforeEach(func() {
+		t = &token.Token{}
+	})
+
+	Describe("Scopes()", func() {
+		It("should work for single scope", func() {
+			t.Scope = "full"
+			Expect(t.Scopes()).To(ConsistOf([]string{"full"}))
+
+			Expect(t.HasScope("full")).To(BeTrue())
+			Expect(t.HasScope("admin")).To(BeFalse())
+
+			Expect(t.HasAllScopes([]string{"full"})).To(BeTrue())
+			Expect(t.HasAllScopes([]string{"full", "admin"})).To(BeFalse())
+
+			Expect(t.ExistScopes([]string{"full", "admin"})).To(BeTrue())
+			Expect(t.ExistScopes([]string{"third_party", "admin"})).To(BeFalse())
 		})
 
+		It("should work for multiple scope", func() {
+			t.Scope = "third_party container profile"
+			Expect(t.Scopes()).To(ConsistOf([]string{"third_party", "container", "profile"}))
+
+			Expect(t.HasScope("third_party")).To(BeTrue())
+			Expect(t.HasScope("container")).To(BeTrue())
+			Expect(t.HasScope("profile")).To(BeTrue())
+			Expect(t.HasScope("full")).To(BeFalse())
+
+			Expect(t.HasAllScopes([]string{"container", "profile"})).To(BeTrue())
+			Expect(t.HasAllScopes([]string{"profile", "admin"})).To(BeFalse())
+
+			Expect(t.ExistScopes([]string{"third_party", "full"})).To(BeTrue())
+			Expect(t.ExistScopes([]string{"admin", "collab"})).To(BeFalse())
+		})
+	})
+
+	Describe("IsValid()", func() {
 		It("should be false if token is nil", func() {
 			var t2 *token.Token
 			Expect(t2.IsValid()).To(BeFalse())

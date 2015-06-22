@@ -53,14 +53,6 @@ func (t *Token) Scopes() []string {
 	return strings.Split(t.Scope, ScopeSeparator)
 }
 
-func (t *Token) AddScope(scope string) {
-	if t.Scope == "" {
-		t.Scope = scope
-	} else {
-		t.Scope = t.Scope + ScopeSeparator + scope
-	}
-}
-
 func (t *Token) HasScope(targetScope string) bool {
 	for _, scope := range t.Scopes() {
 		if scope == targetScope {
@@ -91,10 +83,6 @@ func (t *Token) ExistScopes(targetScopes []string) bool {
 	}
 
 	return false
-}
-
-func JoinScopes(scopes []string) string {
-	return strings.Join(scopes, ScopeSeparator)
 }
 
 func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
