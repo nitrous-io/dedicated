@@ -1322,5 +1322,23 @@ func init() {
 				ALTER TABLE users ALTER COLUMN max_running_time SET DEFAULT 14400;
 			`,
 		},
+		{
+			Version: "1320",
+			Up: `
+				ALTER TABLE plans ADD COLUMN max_snapshots bigint DEFAULT 0;
+				ALTER TABLE plans ADD COLUMN clean_preview bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN desktop_app bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN ssh bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN custom_domain bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN custom_templates bool DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "1321",
+			Up: `
+				CREATE TYPE plan_type AS ENUM ('usage-based', 'prepaid');
+				ALTER TABLE plans ADD COLUMN type plan_type NOT NULL DEFAULT 'usage-based';
+			`,
+		},
 	}
 }
