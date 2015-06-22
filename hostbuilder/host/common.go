@@ -233,8 +233,8 @@ func PublishMessage(qp queue.Publisher, ev event.Event, uuid string, queueInfo *
 	}
 }
 
-func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, info *Info, action queue.Event) {
-	queueInfo.Message = ""
+func PublishHost(qp queue.Publisher, ev event.Event, uuid string, queueInfo *QueueInfo, info *Info, action queue.Event, message string) {
+	queueInfo.Message = message
 	queueInfo.Host = info
 
 	payload, err := json.Marshal(queueInfo)

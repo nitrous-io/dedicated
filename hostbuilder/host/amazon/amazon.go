@@ -123,91 +123,6 @@ func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
 	}
 }
 
-func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	// ctx is the Context for this method. Calling cancel closes the ctx.Done
-	// channel, which will in turn signal for child requests started by this
-	// method to be cancelled.
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
-	defer cancel()
-
-	defer func() {
-		if h.keypair != nil {
-			fmt.Fprintf(w, "Removing key...")
-			h.Printf("keyID=%s Removing key...", h.keypair.name)
-			if err := h.keypair.Delete(); err != nil {
-				h.progressLog(w, "Removing key...Failed!")
-				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
-			} else {
-				h.progressLog(w, "Removing key...Done!")
-			}
-		}
-	}()
-
-	hctx := host.NewContext(ctx, h, h, w)
-	steps := []host.Step{
-		{
-			Description: "Creating key",
-			Func:        createKeypair,
-		},
-		{
-			Description: "Checking image's availability",
-			Func:        inspectSourceAMI,
-		},
-		{
-			Description: "Creating workspace",
-			Func:        createInstance,
-			Timeout:     5 * time.Minute,
-		},
-		{
-			Func:    host.WaitForSSH,
-			Timeout: 5 * time.Minute,
-		},
-		{
-			Description: "Setting workspace's name",
-			Func:        associateInstanceTags,
-		},
-		{
-			Description: "Assigning network address",
-			Func:        allocateElasticIP,
-		},
-		{
-			Description: "Waiting for the workspace to be ready",
-			Func:        host.WaitForSSH,
-			Timeout:     5 * time.Minute,
-		},
-		{
-			Description: "Populating settings",
-			Func:        host.WriteSettings,
-		},
-		{
-			Description: "Fetching updates",
-			Func:        host.UpdateSoftware,
-		},
-		{
-			Description: "Applying settings",
-			Func:        host.RestartServices,
-		},
-	}
-	for _, step := range steps {
-		if err := hctx.Run(step); err != nil {
-			h.Printf("ERROR: Failed in create host step %q: %v", step.Description, err)
-			h.logFailed()
-			inf, _ := h.Info()
-			if err == context.DeadlineExceeded {
-				return inf, ErrCreateTimeout
-			}
-			return inf, err
-		}
-	}
-
-	h.progressLog(w, "Provisioning host...Done!")
-	return h.Info()
-}
-
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	var (
 		ctx    context.Context
@@ -291,7 +206,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
 	}
 	info, err := h.Info()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
 	return info, err
 }
 
@@ -689,12 +604,20 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 
@@ -705,13 +628,19 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+	} else {
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, err)
 	}
 
 	return info, err

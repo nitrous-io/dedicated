@@ -224,6 +224,9 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 		logrus.Debugf("uuid=%s queueTracer: stopping a host(%s) with message(%+v)", m.UUID, queueInfo.Slug, m)
 	case controllers.EventHostStopFailed:
 		logrus.Debugf("uuid=%s queueTracer: failed to stop a host(%s) with message(%+v) due to ", m.UUID, queueInfo.Slug, m, queueInfo.Message)
+		if queueInfo.Host == nil {
+			return fmt.Errorf("uuid=%s queueTracer: host is nil", m.UUID)
+		}
 		h, err := host.Find(db, u, queueInfo.Slug)
 		if err != nil {
 			return err
