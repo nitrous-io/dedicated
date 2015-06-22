@@ -1,6 +1,7 @@
 package plans_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -126,10 +127,27 @@ var _ = Describe("controllers/plans", func() {
 					Expect(pt.Insert(db)).To(BeNil())
 				}
 
-				// Add a plan belonging to another provider - it should not be returned.
-				pl := plan.Plan{Slug: "start-windows-azure", Price: 3000}
+				// Add a plan that uses another plan as its base plan.
+				shiftPlan, err := plan.FindBySlug(db, "shift")
+				Expect(err).To(BeNil())
+				pl := plan.Plan{
+					BasePlanID: sql.NullInt64{shiftPlan.ID, true},
+					Slug:       "shift-always-on",
+					Price:      2500,
+					Hidden:     true,
+				}
 				Expect(pl.Insert(db)).To(BeNil())
 				pt := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: envvars.DefaultProvider,
+				}
+				Expect(pt.Insert(db)).To(BeNil())
+
+				// Add a plan belonging to another provider - it should not be returned.
+				pl = plan.Plan{Slug: "start-windows-azure", Price: 3000}
+				Expect(pl.Insert(db)).To(BeNil())
+				pt = providertemplate.ProviderTemplate{
 					PlanID:   pl.ID,
 					RegionID: r.ID,
 					Provider: "windows-azure",
@@ -140,7 +158,7 @@ var _ = Describe("controllers/plans", func() {
 			Context("When user is not logged in", func() {
 				It("should show all plans", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", false)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
 				})
 			})
 
@@ -152,12 +170,12 @@ var _ = Describe("controllers/plans", func() {
 
 				It("should return paid plans of the default provider", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
 				})
 
 				It("should return all plans if no query parameter is provided", func() {
 					plans := fetchPlans("/api/v0/plans", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
 				})
 			})
 
@@ -172,7 +190,7 @@ var _ = Describe("controllers/plans", func() {
 
 				It("should return free plans of the default provider", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
 				})
 
 				Context("When user has created a free-tier host", func() {
@@ -188,7 +206,7 @@ var _ = Describe("controllers/plans", func() {
 
 					It("should return only paid plans", func() {
 						plans := fetchPlans("/api/v0/plans?eligible=true", true)
-						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
 					})
 				})
 			})
