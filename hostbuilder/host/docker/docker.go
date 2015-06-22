@@ -53,6 +53,9 @@ type Host struct {
 
 // Create creates the docker container which acts as a container host, and write the
 // progress into w
+//
+// FIXME: remove this once we can move all the tests to use CreateWithQueue,
+// preferably with a no-op implementation of queue
 func (h *Host) Create(w io.Writer) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)

@@ -33,13 +33,6 @@ type Host struct {
 
 var ReceivedNewHostDefaultConfig map[string]string
 
-func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	if !h.CreateSuccess {
-		return nil, errors.New("failed to create host")
-	}
-	return h.Info()
-}
-
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if !h.UpdateSuccess {
 		return nil, errors.New("failed to update host")

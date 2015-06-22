@@ -197,27 +197,20 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	defer mh.UpdateSince(label, time.Now())
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
-	var info *host.Info
-	if r.Form.Get("queue") == "true" {
-		s.initQueueOnce.Do(func() {
-			err = s.initQueue()
-		})
-		if err != nil {
-			logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
-			return mh.Error(err, fmt.Sprintf("create.%s", provider))
-		}
-		logrus.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
-		var queueInfo *host.QueueInfo
-		queueInfo, err = getQueueInfo(r)
-		if err != nil {
-			return mh.Error(err, fmt.Sprintf("create.%s", provider))
-		}
-
-		info, err = h.CreateWithQueue(s.Queue, queueInfo)
-	} else {
-		info, err = h.Create(pw)
+	s.initQueueOnce.Do(func() {
+		err = s.initQueue()
+	})
+	if err != nil {
+		logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
+		return mh.Error(err, fmt.Sprintf("create.%s", provider))
 	}
+	logrus.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
 
+	queueInfo, err := getQueueInfo(r)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("create.%s", provider))
+	}
+	info, err := h.CreateWithQueue(s.Queue, queueInfo)
 	// include any information about the host
 	// even if an error occurs
 	baseResp := &Response{}
@@ -232,7 +225,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		baseResp.Region = info.Region
 		baseResp.State = info.State.String()
 	}
-
 	if err != nil {
 		mh.Error(err, label)
 		logrus.Errorf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
