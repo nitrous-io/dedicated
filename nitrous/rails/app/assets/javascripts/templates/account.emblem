@@ -39,7 +39,7 @@ form submit='updateDetails'
       else
         input.ui.btn.primary type='submit' disabled={updatingDetails} value='Save'
 
-if App.user.phoneAuthed
+if showGitHub
   .card-header.bordered
     h2 Integrations
 
