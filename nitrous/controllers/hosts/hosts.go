@@ -345,22 +345,11 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	canStop, err := freetier.StopHostAllowed(db, env.User)
-	if err != nil {
-		return err
-	}
-	if !canStop {
-		return errRestartingNotAllowed
-	}
-
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
 	}
 
-	if err := h.Ping(db); err != nil {
-		return err
-	}
 	cns, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
 		return err

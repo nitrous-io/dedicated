@@ -160,8 +160,6 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 		return ErrPhoneAuthRequired
 	}
 
-	// Include terminated hosts so free users cannot terminate and recreate
-	// to get past limits.
 	// Exclude orphaned hosts so free users who have issues creating can create
 	// another.
 	var count int
