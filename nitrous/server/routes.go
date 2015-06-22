@@ -141,6 +141,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/collaborators":    r("containercollabs.Index", containercollabs.Index),
 				"/billing/invoices":                   r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":              r("billing.CurrentUsage", billing.CurrentUsage),
+				"/subscriptions":                      r("subscriptions.Index", subscriptions.Index),
 				"/admin/announcements/global":         r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":            r("announcements.ShowAll", announcements.ShowAll),
 				"/admin/amazon/healthcheck":           r("amazon.Healthcheck", amazon.Healthcheck),
@@ -151,7 +152,6 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
-				"/subscriptions":                      r("subscriptions.Index", subscriptions.Index),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
@@ -204,6 +204,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":     r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
+				"/subscriptions/{id}/cancel":  r("subscriptions.Cancel", subscriptions.Cancel),
 				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},

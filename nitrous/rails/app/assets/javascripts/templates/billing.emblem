@@ -50,7 +50,7 @@ if App.subscriptions
             td
               = simpledate subscription.currentPeriodEnd
             td
-              a href="#" Cancel
+              button.ui.btn click='showCancelSubscription subscription' Cancel
 
 if App.billingUsage
   unless App.billingProfile.exempt
@@ -155,3 +155,12 @@ if App.billingUsage
             td.charge
               | $
               = currency invoice.totalChargeDollars
+
+#cancel-subscription-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Cancel subscription
+    .card-body
+      p Are you sure?
+    .card-footer
+      button.ui.btn click='cancelSubscription subscription' Cancel Subscription
+      button.ui.btn click='hideCancelSubscription' Back
