@@ -1340,5 +1340,13 @@ func init() {
 				ALTER TABLE plans ADD COLUMN type plan_type NOT NULL DEFAULT 'usage-based';
 			`,
 		},
+		{
+			Version: "1322",
+			Up: `
+				ALTER TABLE plans ADD COLUMN base_plan_id bigint REFERENCES plans(id) DEFAULT NULL;
+				ALTER TABLE plans ADD COLUMN description character varying DEFAULT '' NOT NULL;
+				ALTER TABLE plans ADD COLUMN hidden bool DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }
