@@ -106,7 +106,7 @@ var _ = Describe("controllers/plans", func() {
 				{Slug: "start", Price: 500},
 				{Slug: "shift", Price: 1000},
 				{Slug: "turbo", Price: 1500},
-				{Slug: "hidden", Price: 2000, Disabled: true},
+				{Slug: "obsolete", Price: 2000, Disabled: true},
 			}
 
 			BeforeEach(func() {
