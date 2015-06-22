@@ -3,9 +3,12 @@ package serializers
 import "github.com/nitrous-io/dedicated/nitrous/models/plan"
 
 type Plan struct {
-	ID           int64  `json:"id"`
+	ID         int64 `json:"id"`
+	BasePlanID int64 `json:"base_plan_id,omitempty"`
+
 	Slug         string `json:"slug"`
 	Name         string `json:"name"`
+	Description  string `json:"description"`
 	Type         string `json:"type"`
 	Price        int64  `json:"price"`
 	BasePrice    int64  `json:"base_price"`
@@ -15,6 +18,8 @@ type Plan struct {
 	Storage      string `json:"storage"`
 	MostPopular  bool   `json:"most_popular"`
 	Subscription bool   `json:"subscription"`
+
+	Hidden bool `json:"hidden"`
 
 	MaxContainers   int64 `json:"max_containers"`
 	MaxSnapshots    int64 `json:"max_snapshots"`
@@ -29,10 +34,11 @@ func SerializePlan(p *plan.Plan) *Plan {
 	if p == nil {
 		return nil
 	}
-	return &Plan{
+	serialized := &Plan{
 		ID:              p.ID,
 		Slug:            p.Slug,
 		Name:            p.Name,
+		Description:     p.Description,
 		Type:            p.Type,
 		Price:           p.Price,
 		BasePrice:       p.BasePrice,
@@ -42,6 +48,7 @@ func SerializePlan(p *plan.Plan) *Plan {
 		Storage:         p.Storage,
 		MostPopular:     p.MostPopular,
 		Subscription:    p.StripePlanID.Valid,
+		Hidden:          p.Hidden,
 		MaxContainers:   p.MaxContainers,
 		MaxSnapshots:    p.MaxSnapshots,
 		CleanPreview:    p.CleanPreview,
@@ -50,6 +57,10 @@ func SerializePlan(p *plan.Plan) *Plan {
 		CustomDomain:    p.CustomDomain,
 		CustomTemplates: p.CustomTemplates,
 	}
+	if p.BasePlanID.Valid {
+		serialized.BasePlanID = p.BasePlanID.Int64
+	}
+	return serialized
 }
 
 func SerializePlans(pls []*plan.Plan) []*Plan {

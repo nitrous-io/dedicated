@@ -3,8 +3,11 @@ attr = SM.attr
 
 App.Plan = klass = App.Model.extend
   id: attr('number', serialize: false)
+  basePlanId: attr('number', as: 'base_plan_id', serialize: false)
+
   slug: attr()
   name: attr()
+  description: attr()
   type: attr()
   price: attr('number')
   basePrice: attr('number', as: 'base_price')
@@ -15,11 +18,13 @@ App.Plan = klass = App.Model.extend
   mostPopular: attr('boolean', as: 'most_popular')
   subscription: attr('boolean')
 
+  hidden: attr('boolean')
+
   maxContainers: attr('number', as: 'max_containers')
   maxSnapshots: attr('number', as: 'max_snapshots')
   cleanPreview: attr('boolean', as: 'clean_preview')
   desktopApp: attr('boolean', as: 'desktop_app')
-  ssh: attr('boolean', as: 'ssh')
+  ssh: attr('boolean')
   customDomain: attr('boolean', as: 'custom_domain')
   customTemplates: attr('boolean', as: 'custom_templates')
 
@@ -27,6 +32,11 @@ App.Plan = klass = App.Model.extend
     if slug = @get 'slug'
       "plan-#{slug}"
   ).property 'slug'
+
+  basePlan: (->
+    if basePlanId = @get('basePlanId')
+      App.get('plans').findBy('id', basePlanId)
+  ).property 'basePlanId', 'App.plans.@each'
 
   displayName: (->
     name = @get 'name'
