@@ -142,31 +142,24 @@
           padding: 0
           list-style: none
 
-          span
-            transition: color .3s
-            color: $n2oGray700
-
           tr
             td
+              transition: color .3s
+              color: $n2oGray700
               padding-bottom: 8px
+              text-align: center
 
-              &[colspan='2']
-                text-align: center
+              span
+                transition: color .3s
+                color: $n2oGray300
+
+              i.fa.fa-check
+                margin-right: 6px
+                color: $green500
 
             &:last-of-type
               td
                 padding-bottom: 0
-
-          td
-            &:first-of-type
-              text-align: right
-
-            &:last-of-type
-              text-align: left
-
-              &:before
-                content: ' '
-                white-space: pre
 
         .ribbon
           position: absolute
@@ -195,9 +188,11 @@
             background: $lightBlue800
             color: #FFF
 
-          .specs
-            span
+          table.specs
+            td
               color: $n2oGray300
+              span
+                color: $n2oGray100
 
           .ribbon
             p
