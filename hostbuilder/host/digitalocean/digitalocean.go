@@ -134,7 +134,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	info := h.dropletToInfo()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
 	return info, nil
 }
 
@@ -301,24 +301,36 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 
 	id, err := h.id()
 	if err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, err := h.Info(); err == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+		}
 		return nil, err
 	}
 
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, err := h.Info(); err == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+		}
 		return nil, err
 	}
 
 	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, err := h.Info(); err == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+		}
 		return nil, err
 	}
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err

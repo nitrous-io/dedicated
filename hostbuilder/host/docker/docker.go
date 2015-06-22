@@ -97,7 +97,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container", queue.Create)
 		return nil, err
 	}
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c, queue.Create)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c, queue.Create, "")
 	return c, nil
 }
 
@@ -234,17 +234,27 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
 		case *dockerclient.ContainerNotRunning:
-			host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, "Containers are not running", queue.Stop)
-			return h.Info()
+			info, err := h.Info()
+			if err == nil {
+				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, "Containers are not running")
+			} else {
+				logrus.Errorf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+			}
+			return info, err
 		default:
-			host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
-			return nil, err
+			info, err := h.Info()
+			if err == nil {
+				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			} else {
+				logrus.Errorf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+			}
+			return info, err
 		}
 	}
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err
