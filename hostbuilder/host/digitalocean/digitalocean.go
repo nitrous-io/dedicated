@@ -301,29 +301,29 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 
 	id, err := h.id()
 	if err != nil {
-		if info, err := h.Info(); err == nil {
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
 			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
-		if info, err := h.Info(); err == nil {
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
 			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
-		if info, err := h.Info(); err == nil {
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
 			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Errorf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, err)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
 		}
 		return nil, err
 	}

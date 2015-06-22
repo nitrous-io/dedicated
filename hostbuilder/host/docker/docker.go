@@ -234,19 +234,19 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
 		case *dockerclient.ContainerNotRunning:
-			info, err := h.Info()
-			if err == nil {
+			info, hostInfoErr := h.Info()
+			if hostInfoErr == nil {
 				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, "Containers are not running")
 			} else {
-				logrus.Errorf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
 			}
 			return info, err
 		default:
-			info, err := h.Info()
-			if err == nil {
+			info, hostInfoErr := h.Info()
+			if hostInfoErr == nil {
 				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
 			} else {
-				logrus.Errorf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
 			}
 			return info, err
 		}
