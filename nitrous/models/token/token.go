@@ -46,6 +46,29 @@ type Token struct {
 	LastSeenAt *time.Time     `db:"last_seen_at"`
 }
 
+// Allow all 3 existing scopes to have basic access to user account.
+// This includes host/container access and read profile settings.
+func (t *Token) BasicAccessAllowed() bool {
+	switch t.Scope {
+	case ScopeFull, ScopeThirdParty, ScopeAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Only actual user is allowed to change profile settings.
+// This includes change email, password, and billing settings.
+func (t *Token) ProfileSettingsAllowed() bool {
+	return t.Scope == ScopeFull
+}
+
+// Only allow actual user to grant new authorization token
+// to third party.
+func (t *Token) AuthorizationGrantAllowed() bool {
+	return t.Scope == ScopeFull
+}
+
 func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
 	t := &Token{}
 	err := d.Get(t, "SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC", userID)

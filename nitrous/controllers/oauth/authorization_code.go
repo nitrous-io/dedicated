@@ -124,7 +124,7 @@ func PostAuthorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	}
 
 	// TODO: only certain tokens should be able to authorize new clients
-	if t.Scope != token.ScopeFull {
+	if !t.AuthorizationGrantAllowed() {
 		redirect(env, w, *ru, map[string]string{
 			"error":             "access_denied",
 			"error_description": "The access token used does not permit authorization of new clients",

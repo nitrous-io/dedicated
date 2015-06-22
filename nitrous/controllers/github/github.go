@@ -40,6 +40,9 @@ var (
 
 	ErrTokenEmpty    = errors.New("token is empty")
 	ErrTokenNotValid = errors.New("token not valid")
+
+	errAuthorizeForbidden = httperror.New(http.StatusForbidden, "authorize_forbidden",
+		"your are not granted sufficient permission to request for GitHub authorization")
 )
 
 type OAuthState struct {
@@ -76,6 +79,10 @@ var FetchGithubUser = func(code string) (string, string, error) {
 // /api/v0/github/authorize
 // Authorize returns GitHub authorization url that front-end needs to redirect to
 func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !env.Token.ProfileSettingsAllowed() {
+		return errAuthorizeForbidden
+	}
+
 	// FIXME: allow this API to be called only if user is not yet
 	// linked with a GitHub account
 
