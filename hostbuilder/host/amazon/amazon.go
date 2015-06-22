@@ -206,7 +206,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
 	}
 	info, err := h.Info()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create)
+	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
 	return info, err
 }
 
@@ -604,12 +604,20 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 
@@ -620,13 +628,19 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		host.PublishMessage(qp, event.HostStopFailed, h.uuid, queueInfo, err.Error(), queue.Stop)
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		}
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop)
+		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+	} else {
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, err)
 	}
 
 	return info, err

@@ -602,5 +602,33 @@ var _ = Describe("HostQueueHandler", func() {
 				}
 			})
 		})
+
+		Context("When fails to stop host and host info is nil", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Host:        nil,
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "stop",
+					Event:        string(event.HostStopFailed),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("should return error", func() {
+				err := handler(message)
+				Expect(err).NotTo(BeNil())
+			})
+		})
 	})
 })
