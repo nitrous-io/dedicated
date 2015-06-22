@@ -6,16 +6,11 @@ import (
 )
 
 func Basic(t *token.Token, u *user.User) bool {
-	switch t.Scope {
-	case token.ScopeFull, token.ScopeThirdParty, token.ScopeAdmin:
-		return true
-	default:
-		return false
-	}
+	return t.ExistScopes([]string{token.ScopeFull, token.ScopeThirdParty, token.ScopeAdmin})
 }
 
 func Full(t *token.Token, u *user.User) bool {
-	return t.Scope == token.ScopeFull
+	return t.HasScope(token.ScopeFull)
 }
 
 func Admin(t *token.Token, u *user.User) bool {
@@ -34,6 +29,10 @@ func PayInvoice(t *token.Token, u *user.User) bool {
 
 func ProfileSettings(t *token.Token, u *user.User) bool {
 	return Full(t, u)
+}
+
+func Login(t *token.Token, u *user.User) bool {
+	return u.CanLogin() || t.HasScope(token.ScopeAdmin)
 }
 
 func AuthorizeGitHub(t *token.Token, u *user.User) bool {

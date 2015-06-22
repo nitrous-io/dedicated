@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mergemap"
@@ -143,7 +144,7 @@ func Authenticate(tok string, env *Env, w http.ResponseWriter, r *http.Request) 
 		logrus.Errorf("Unable to touch token %d, err: %v", t.ID, err)
 	}
 
-	if t.Scope != token.ScopeAdmin && !u.CanLogin() {
+	if !permission.Login(t, u) {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="nitrous", error="confirmation_lapsed"`)
 		return mh.Error(httperror.New(http.StatusBadRequest, "confirmation_lapsed", "confirmation token has lapsed"), label)
 	}
@@ -201,7 +202,7 @@ func Track(event string, mw Middleware) Middleware {
 		}
 
 		// Do not track if token holder is admin switching to user
-		if env.Token != nil && env.Token.Scope == token.ScopeAdmin {
+		if env.Token != nil && env.Token.HasScope(token.ScopeAdmin) {
 			return nil
 		}
 
