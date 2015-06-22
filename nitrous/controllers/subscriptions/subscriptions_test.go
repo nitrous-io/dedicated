@@ -3,11 +3,13 @@ package subscriptions_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -62,11 +64,11 @@ var _ = Describe("controllers/subscriptions", func() {
 		if db != nil {
 			db.Close()
 		}
-
 	})
+
 	Describe("GET /api/v0/subscriptions", func() {
 		var (
-			s1 *subscription.Subscription
+			s *subscription.Subscription
 		)
 
 		doRequest := func() *httptest.ResponseRecorder {
@@ -90,14 +92,16 @@ var _ = Describe("controllers/subscriptions", func() {
 			p.Insert(db)
 
 			// Insert subscriptions
-			bp1, err := u.BillingProfile(db)
-			s1 = &subscription.Subscription{
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
 				PlanID:           p.ID,
-				BillingProfileID: bp1.ID,
+				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
 			}
-			err = test.WrapInTransaction(db, s1.Insert)
+			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
 		})
 
@@ -114,14 +118,66 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			err := json.NewDecoder(res.Body).Decode(&subscriptions)
 			Expect(err).To(BeNil())
-			s := subscriptions.Subscriptions
-			Expect(s).To(HaveLen(1))
-			Expect(s[0].ID).To(Equal(s1.ID))
-			Expect(s[0].PlanID).To(Equal(s1.PlanID))
-			Expect(s[0].State).To(Equal(s1.State))
-			Expect(s[0].BillingProfileID).To(Equal(s1.BillingProfileID))
-			Expect(s[0].CreatedAt).NotTo(BeNil())
-			Expect(s[0].UpdatedAt).NotTo(BeNil())
+			subs := subscriptions.Subscriptions
+			Expect(subs).To(HaveLen(1))
+			Expect(subs[0].ID).To(Equal(s.ID))
+			Expect(subs[0].PlanID).To(Equal(s.PlanID))
+			Expect(subs[0].State).To(Equal(s.State))
+			Expect(subs[0].BillingProfileID).To(Equal(s.BillingProfileID))
+			Expect(subs[0].CreatedAt).NotTo(BeNil())
+			Expect(subs[0].UpdatedAt).NotTo(BeNil())
+		})
+	})
+
+	Describe("PUT /api/v0/subscriptions/{id}/cancel", func() {
+		var (
+			s *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			// Insert plan
+			p := &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(subscriptionID int64) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/subscriptions/%d/cancel", subscriptionID)
+			req, err := test.NewAuthedRequest(t, "PUT", url, nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("should request to cancel the subscription", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			res := doRequest(s.ID)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
 		})
 	})
 })

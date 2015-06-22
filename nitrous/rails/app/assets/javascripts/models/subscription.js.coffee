@@ -18,6 +18,17 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
       App.get('plans').findBy('id', planId)
   ).property 'planId', 'App.plans.@each'
 
+  cancel: ->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'PUT',
+        url: "/api/v0/subscriptions/#{@get 'id'}/cancel",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+      ).done((retData, status, jqxhr) =>
+        resolve(retData)
+      ).fail (jqxhr) =>
+        reject(jqxhr)
+
 klass.reopenClass
   url: '/subscriptions'
   primaryKey: 'id'
