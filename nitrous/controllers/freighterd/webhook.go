@@ -85,8 +85,7 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return errNotFound
 		}
 
-		h.State = host.StateRunning
-		if err := h.Update(env.DB); err != nil {
+		if err := h.UpdateState(env.DB, host.StateRunning); err != nil {
 			return err
 		}
 
