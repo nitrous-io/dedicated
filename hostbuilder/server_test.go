@@ -472,6 +472,20 @@ var _ = Describe("hostbuilder", func() {
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 	})
+
+	Describe("Debug", func() {
+		Describe("GET /debug/pprof/.*", func() {
+			It("returns with 200", func() {
+				methods := []string{"goroutine", "profile", "heap"}
+				for _, method := range methods {
+					fmt.Println(method)
+					resp, err := http.Get(fmt.Sprintf("%s/debug/pprof/%s?seconds=1", ts.URL, method))
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(200))
+				}
+			})
+		})
+	})
 })
 
 type closer interface {

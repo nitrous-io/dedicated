@@ -593,6 +593,8 @@ func New(configData []byte) (*Server, error) {
 
 	server := &Server{Config: config}
 	server.CreateRouter()
+	// Add routes for debug
+	server.AddDebugRoutes(server.Router)
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
 		logrus.Warn("missing librato config. Metrics logging is disabled")
