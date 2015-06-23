@@ -133,16 +133,25 @@ func main() {
 	svr.KillTimeout = kt
 
 	// Setup queue consumer
-	envvars.CheckRedis()
-	go queue.StartConsumer(
-		envvars.RedisHost,
-		envvars.RedisPort,
-		envvars.RedisDB,
-		HostQueueName,
-		svr.HostQueueHandler(),
-		svr.QueueStopCh,
-		envvars.QueueHandlerTimeout,
-	)
+	if envvars.QueueType == "rabbitmq" {
+		go queue.StartAmqpConsumer(
+			envvars.RabbitMQAddr,
+			HostQueueName,
+			svr.HostQueueHandler(),
+			svr.QueueStopCh,
+		)
+	} else {
+		envvars.CheckRedis()
+		go queue.StartConsumer(
+			envvars.RedisHost,
+			envvars.RedisPort,
+			envvars.RedisDB,
+			HostQueueName,
+			svr.HostQueueHandler(),
+			svr.QueueStopCh,
+			envvars.QueueHandlerTimeout,
+		)
+	}
 
 	pid := os.Getpid()
 	host := "0.0.0.0"

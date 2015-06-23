@@ -72,6 +72,9 @@ var (
 
 	SecretToken = os.Getenv("SECRET_TOKEN")
 
+	QueueType    = os.Getenv("QUEUE_TYPE")
+	RabbitMQAddr = os.Getenv("RABBITMQ_ADDR")
+
 	RedisHost = os.Getenv("REDIS_HOST")
 	RedisPort = os.Getenv("REDIS_PORT")
 	RedisDB   = parseInt64(os.Getenv("REDIS_DB"))
