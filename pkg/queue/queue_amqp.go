@@ -229,11 +229,13 @@ func (d *amqpDelivery) Fail() {
 
 // RedisConsumer represents a consumer to a redis queue.
 type AmqpConsumer struct {
-	addr    string
-	name    string // queue-name
-	dlex    string // dead-letter exchange name
-	dlq     string // dead-letter queue name
-	handler queueHandler
+	addr string
+	name string // queue-name
+	dlex string // dead-letter exchange name
+	dlq  string // dead-letter queue name
+
+	handler        queueHandler
+	handlerTimeout time.Duration
 
 	mu       sync.RWMutex
 	conn     *amqp.Connection
@@ -335,6 +337,7 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 		}
 	}()
 
+	done := make(chan struct{})
 	for {
 		select {
 		case c := <-stop: // when we want to stop the consumer
@@ -346,15 +349,26 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 			return nil
 		case d := <-msgCh: // when there's new message
 			m := d.msg
-			err := qc.handler(m)
-			if err != nil {
-				logrus.Errorf("uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
-				d.Fail()
-			} else {
-				err := d.Ack(ackWait)
+			logrus.Infof("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, qc.name)
+			go func() {
+				err := qc.handler(m)
 				if err != nil {
-					logrus.Errorf("uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
+					logrus.Errorf("uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
+					d.Fail()
+				} else {
+					err := d.Ack(ackWait)
+					if err != nil {
+						logrus.Errorf("uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
+					}
 				}
+				done <- struct{}{}
+			}()
+			select {
+			case <-done:
+				logrus.Debugf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, qc.name)
+			case <-time.After(qc.handlerTimeout):
+				logrus.Errorf("uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, qc.name)
+				d.Fail()
 			}
 			msgCh <- d
 		}
@@ -363,7 +377,7 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 	return nil
 }
 
-func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct{}) error {
+func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct{}, handlerTimeout time.Duration) error {
 	for {
 		select {
 		case c := <-stop:
@@ -371,7 +385,7 @@ func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct
 			stop <- c
 			return nil
 		default:
-			qc, err := CreateAmqpConsumer(addr, name, handler)
+			qc, err := CreateAmqpConsumer(addr, name, handler, handlerTimeout)
 			if err == nil {
 				return qc.Start(stop)
 			}
@@ -382,12 +396,14 @@ func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct
 	}
 }
 
-func CreateAmqpConsumer(addr, name string, handler queueHandler) (Consumer, error) {
+func CreateAmqpConsumer(addr, name string, handler queueHandler, handlerTimeout time.Duration) (Consumer, error) {
 	qc := &AmqpConsumer{
 		addr: addr,
 		name: name,
 		dlex: name + "-dlex",
 		dlq:  name + "-dlq",
+		// maximum duration of a handler
+		handlerTimeout: handlerTimeout,
 	}
 	if err := qc.reconnect(); err != nil {
 		return nil, err

@@ -139,6 +139,7 @@ func main() {
 			HostQueueName,
 			svr.HostQueueHandler(),
 			svr.QueueStopCh,
+			envvars.QueueHandlerTimeout,
 		)
 	} else {
 		envvars.CheckRedis()

@@ -28,7 +28,7 @@ func init() {
 			redisClient.Set("amqp-handler", "amqp1")
 			return nil
 		}
-		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop)
+		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, time.Second)
 		logrus.Fatalf("amqp1 failed to start %v", err)
 	})
 
@@ -42,7 +42,7 @@ func init() {
 			redisClient.Set("amqp-handler", "amqp2")
 			return nil
 		}
-		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop)
+		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, time.Second)
 		logrus.Fatalf("amqp2 failed to start %v", err)
 	})
 
@@ -59,8 +59,26 @@ func init() {
 			}
 			return fmt.Errorf("Error!!!")
 		}
-		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop)
+		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, time.Second)
 		logrus.Fatalf("amqp2 failed to start %v", err)
+	})
+
+	reexec.Register("amqp-queue-timeout", func() {
+		stop := make(chan struct{})
+		h := func(m *queue.Message) error {
+			if m.UUID == "success" {
+				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+				if err != nil {
+					return err
+				}
+				redisClient.Set("test", m.UUID)
+			} else {
+				time.Sleep(5 * time.Second)
+			}
+			return nil
+		}
+		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, 100*time.Millisecond)
+		logrus.Fatalf("amqp-queue-timeout failed to start %v", err)
 	})
 
 	reexec.Register("handle-amqp-stop", func() {
@@ -79,7 +97,7 @@ func init() {
 			return nil
 		}
 
-		go queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop)
+		go queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, time.Second)
 
 		time.Sleep(500 * time.Millisecond)
 
@@ -184,7 +202,9 @@ var _ = Describe("pkg/queue/amqp", func() {
 				ResourceID:   "1",
 			})
 
-			qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test", noopHandler)
+			qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test",
+				noopHandler, time.Second)
+
 			Expect(err).To(BeNil())
 			defer qc.(*queue.AmqpConsumer).Close()
 
@@ -223,7 +243,8 @@ var _ = Describe("pkg/queue/amqp", func() {
 				})
 				Expect(err).To(BeNil())
 
-				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test", noopHandler)
+				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test",
+					noopHandler, time.Second)
 				Expect(err).To(BeNil())
 				defer qc.(*queue.AmqpConsumer).Close()
 
@@ -246,7 +267,8 @@ var _ = Describe("pkg/queue/amqp", func() {
 				})
 				Expect(err).To(BeNil())
 
-				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test", noopHandler)
+				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test",
+					noopHandler, time.Second)
 				Expect(err).To(BeNil())
 				defer qc.(*queue.AmqpConsumer).Close()
 
@@ -279,7 +301,8 @@ var _ = Describe("pkg/queue/amqp", func() {
 				Expect(err).To(BeNil())
 				Expect(qp.GetFailedLength()).To(Equal(int64(0)))
 
-				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test", noopHandler)
+				qc, err := queue.CreateAmqpConsumer(test.RabbitMQAddr, "test",
+					noopHandler, time.Second)
 				Expect(err).To(BeNil())
 				defer qc.(*queue.AmqpConsumer).Close()
 
@@ -428,6 +451,32 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Eventually(func() int64 {
 				return qp.GetFailedLength()
 			}, 10*time.Second).Should(Equal(int64(1)))
+		})
+
+		It("submits a timed out message to failed queue and start consuming next message", func() {
+			var err error
+			consumer := reexec.Command("amqp-queue-timeout")
+			Expect(consumer.Start()).To(BeNil())
+			defer consumer.Process.Kill()
+
+			qp, err = queue.NewAmqpQueue(test.RabbitMQAddr, "test")
+			Expect(err).To(BeNil())
+			Expect(qp.GetFailedLength()).To(Equal(int64(0)))
+
+			err = qp.Publish(&queue.Message{UUID: "failure"})
+			Expect(err).To(BeNil())
+			Eventually(func() int64 {
+				return qp.GetFailedLength()
+			}, 5*time.Second, 100*time.Millisecond).Should(Equal(int64(1)))
+
+			// It still process next message
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			Expect(err).To(BeNil())
+			err = qp.Publish(&queue.Message{UUID: "success"})
+			Expect(err).To(BeNil())
+			Eventually(func() string {
+				return redisClient.Get("test").Val()
+			}, 5*time.Second, 100*time.Millisecond).Should(Equal("success"))
 		})
 	})
 })
