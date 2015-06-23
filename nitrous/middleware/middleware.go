@@ -200,6 +200,11 @@ func Track(event string, mw Middleware) Middleware {
 			return err
 		}
 
+		// Do not track if token holder is admin switching to user
+		if env.Token != nil && env.Token.Scope == token.ScopeAdmin {
+			return nil
+		}
+
 		// via Mixpanel HTTP API reference:
 		// 'If $ip is set to "0", Mixpanel will ignore IP information.'
 		env.AddEventData(map[string]interface{}{"$ip": "0"})

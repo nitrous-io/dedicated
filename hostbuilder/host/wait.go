@@ -4,9 +4,12 @@ import (
 	"crypto/tls"
 	"net/http"
 	"time"
-
-	"github.com/nitrous-io/nitrous-common/httpclient"
 )
+
+var transport = http.Transport{
+	DisableKeepAlives: true,
+	TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+}
 
 // WaitForServer takes a url and tries to retrieve a 200 response from it up
 // to len(attempts) times, waiting attempts[n-1] duration after attempt n.
@@ -17,17 +20,23 @@ func WaitForServer(url string, clientTimeout time.Duration, attempts []time.Dura
 		return true
 	}
 
-	client := httpclient.New("")
-	tr := &http.Transport{
-		DisableKeepAlives: true,
-		TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+	client := &http.Client{
+		Transport: &transport,
+		Timeout:   clientTimeout,
 	}
-	client.Client.Transport = tr
-	client.Client.Timeout = clientTimeout
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false
+	}
+
 	for i, duration := range attempts {
-		resp, err := client.Get(url, nil)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			return true
+		resp, err := client.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
 		}
 		if i < len(attempts)-1 {
 			time.Sleep(duration)
