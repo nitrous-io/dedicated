@@ -31,6 +31,10 @@ func ProfileSettings(t *token.Token, u *user.User) bool {
 	return Full(t, u)
 }
 
+func DeleteUser(t *token.Token, u *user.User) bool {
+	return Full(t, u)
+}
+
 func Login(t *token.Token, u *user.User) bool {
 	return u.CanLogin() || t.HasScope(token.ScopeAdmin)
 }
