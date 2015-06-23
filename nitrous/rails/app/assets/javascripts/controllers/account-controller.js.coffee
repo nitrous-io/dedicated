@@ -119,7 +119,7 @@ App.AccountController = Em.ObjectController.extend
       @set 'deleting', true
       App.get("user").delete().then =>
         @set('deleting', false)
-        App.set('token', null)
+        App.clearToken()
         Em.run.next ->
           location.href = "/"
       , (jqxhr) =>
