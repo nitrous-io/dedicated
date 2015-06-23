@@ -127,13 +127,17 @@ var _ = Describe("controllers/containers", func() {
 			allowCollab = false
 
 			h := func(w http.ResponseWriter, r *http.Request) {
+				opts := []containers.WithContainerAndHostOpt{}
+				if allowCollab == true {
+					opts = append(opts, containers.AllowCollab)
+				}
 				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
 					Expect(h).NotTo(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 					handlerCalled = true
 					return nil
-				}, allowCollab, false)
+				}, opts...)
 				err := mw(env, w, r)
 				if err != nil {
 					svr.HandleError(w, r, err)
