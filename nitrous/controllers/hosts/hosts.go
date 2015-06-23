@@ -45,6 +45,8 @@ var (
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
@@ -458,6 +460,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
+	if h.State != host.StateRunning {
+		return errHostRespecInvalidState
+	}
+
 	rs, err := respec.Find(db, h.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -540,6 +546,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostUpdateInvalidState
+	}
+
 	if err := updateSoftware(h, env); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
 			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
@@ -571,9 +581,12 @@ func updateSoftware(h *host.Host, env *middleware.Env) error {
 		return err
 	}
 
+	// FIXME: Update the state before sending request to freighter to
+	// ensure there is no other concurrent operations going on.
 	if err := h.UpdateState(env.DB, host.StateUpdating); err != nil {
 		return err
 	}
+
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 
 	return nil

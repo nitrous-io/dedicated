@@ -865,6 +865,10 @@ var _ = Describe("models/host", func() {
 			err = h2.UpdateState(db, host.StateStopping)
 			Expect(err).To(Equal(host.ErrUpdateFailed))
 			Expect(h2.State).To(Equal(host.StateRunning))
+
+			h3, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+			Expect(h3.State).To(Equal(host.StateStopping))
 		})
 	})
 
