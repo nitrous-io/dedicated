@@ -316,27 +316,54 @@ var _ = Describe("middleware", func() {
 				}
 			}
 			handler.HandleFunc("/action", h).Methods("GET")
+		})
 
+		doRequest := func() {
 			req, err := NewRequest("GET", "/action", nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
-		})
+		}
 
 		It("sets the TrackEventName in the environment", func() {
+			doRequest()
 			Expect(env.TrackEventName).To(Equal("Action Called"))
 		})
 
+		It("tracks the event", func() {
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.Events[u.ID]).To(BeEmpty())
+
+			doRequest()
+
+			Expect(t.Events[u.ID]).To(HaveLen(1))
+		})
+
+		It("does not track if the user is an admin acting on behalf of another user", func() {
+			env.Token = &token.Token{
+				UserID: u.ID,
+				Token:  "admin-token",
+				Scope:  token.ScopeAdmin,
+			}
+
+			doRequest()
+			t := env.Tracker.(*FakeTracker)
+			Expect(t.Events[u.ID]).To(BeEmpty())
+		})
+
 		It("adds $ip to event data", func() {
+			doRequest()
 			t := env.Tracker.(*FakeTracker)
 			Expect(t.TrackEventProperties[u.ID][0]["$ip"]).To(Equal("0"))
 		})
 
 		It("adds billing_state to event data", func() {
+			doRequest()
 			t := env.Tracker.(*FakeTracker)
 			Expect(t.TrackEventProperties[u.ID][0]["billing_state"]).To(Equal("no_card"))
 		})
 
 		It("Responds with 200 OK", func() {
+			doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 	})
