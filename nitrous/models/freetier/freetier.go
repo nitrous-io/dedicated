@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -15,8 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
-
-const IdleHostTimeout = 3000 * 60 * time.Second
 
 var (
 	ErrFreePlanNotAllowed = errors.New("paying user is not allowed to create a free tier workspace")
@@ -211,11 +208,13 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 
 func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 	hosts := []*host.Host{}
-	cutoff := time.Now().Add(-IdleHostTimeout)
 	err := d.Select(&hosts, `SELECT * FROM hosts
-		WHERE auto_shutdown = $1 AND state = $2 AND last_pinged_at < $3 AND terminated_at IS NULL
+		WHERE auto_shutdown = $1
+			AND state = $2
+			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			AND terminated_at IS NULL
 		ORDER BY last_pinged_at ASC
-	`, true, host.StateRunning, cutoff)
+	`, true, host.StateRunning)
 	if err != nil {
 		return nil, err
 	}

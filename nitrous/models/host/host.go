@@ -104,6 +104,7 @@ type Host struct {
 	// Tracks the last time at which ping webhook was called by freighter
 	LastPingedAt pq.NullTime `db:"last_pinged_at"`
 	AutoShutdown bool        `db:"auto_shutdown"`
+	IdleTimeout  int64       `db:"idle_timeout"`
 
 	Secret string `db:"secret"`
 

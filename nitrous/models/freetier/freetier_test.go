@@ -400,7 +400,7 @@ var _ = Describe("models/freetier", func() {
 
 		BeforeEach(func() {
 			t1 = time.Now()
-			t2 = t1.Add(-freetier.IdleHostTimeout)
+			t2 = t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
 			t3 = t2.Add(1 * time.Minute)
 			t4 = t2.Add(-1 * time.Minute)
 

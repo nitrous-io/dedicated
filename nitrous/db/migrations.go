@@ -1370,5 +1370,11 @@ func init() {
 		// 		ALTER TABLE users DROP COLUMN refresh_period;
 		// 	`,
 		// },
+		{
+			Version: "1323",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 900 NOT NULL;
+			`,
+		},
 	}
 }
