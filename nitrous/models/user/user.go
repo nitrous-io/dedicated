@@ -93,6 +93,9 @@ type User struct {
 	BannedAt   pq.NullTime   `db:"banned_at"`
 	BannedByID sql.NullInt64 `db:"banned_by_id"`
 
+	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // FIXME: DEPRECATED
+	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // FIXME: DEPRECATED
+
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
 }

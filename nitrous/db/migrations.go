@@ -1363,12 +1363,12 @@ func init() {
 				ALTER TABLE plans ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
 			`,
 		},
-		{
-			Version: "1332",
-			Up: `
-				ALTER TABLE users DROP COLUMN max_running_time;
-				ALTER TABLE users DROP COLUMN refresh_period;
-			`,
-		},
+		// {
+		// 	Version: "1332",
+		// 	Up: `
+		// 		ALTER TABLE users DROP COLUMN max_running_time;
+		// 		ALTER TABLE users DROP COLUMN refresh_period;
+		// 	`,
+		// },
 	}
 }
