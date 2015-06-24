@@ -161,7 +161,19 @@ func (s *Server) tcpListener(addr string) (net.Listener, error) {
 
 func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	if s.conf.NotifyURL == "" {
+		logrus.Warn("No notify_url in config")
 		return nil
+	}
+	u, err := url.Parse(s.conf.NotifyURL)
+	if err != nil {
+		return err
+	}
+
+	if e, ok := data["event"]; ok && e == "ping" {
+		// pings use nolog url param so that nitrousd won't log
+		p := &url.Values{}
+		p.Set("nolog", "1")
+		u.RawQuery = p.Encode()
 	}
 
 	verifier := msgverifier.New(s.secret)
@@ -173,7 +185,7 @@ func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	params := &url.Values{}
 	params.Set("msg", msg)
 
-	req, err := http.NewRequest("POST", s.conf.NotifyURL, strings.NewReader(params.Encode()))
+	req, err := http.NewRequest("POST", u.String(), strings.NewReader(params.Encode()))
 	if err != nil {
 		return err
 	}
