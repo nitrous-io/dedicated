@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/stripe/stripe-go"
@@ -37,6 +38,8 @@ var (
 
 	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
 	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
+
+	errPayInvoiceForbidden = httperror.New(http.StatusForbidden, "pay_invoice_forbidden", "You do not have permission to pay invoices")
 )
 
 func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -214,6 +217,10 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 }
 
 func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if !permission.PayInvoice(env.Token, env.User) {
+		return errPayInvoiceForbidden
+	}
+
 	// we use a transaction purely to acquire a lock on the same user paying other invoices
 	// it is rolled back whenever this func finishes up
 	txLock, err := env.DB.Beginx()

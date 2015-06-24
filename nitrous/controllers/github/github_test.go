@@ -178,6 +178,14 @@ var _ = Describe("controllers/github", func() {
 			return res
 		}
 
+		It("should not allow authorize if token scope is not full", func() {
+			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+
 		It("returns valid json response", func() {
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))

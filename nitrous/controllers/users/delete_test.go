@@ -335,6 +335,14 @@ var _ = Describe("controllers/users", func() {
 				Expect(pc.PropsSet["deleted_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 			})
 
+			It("should disallow delete if token holder is not full scope", func() {
+				_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+			})
+
 			It("should erase the billing profile details", func() {
 				_, err := db.Exec(`UPDATE
 					 billing_profiles SET state = $1,

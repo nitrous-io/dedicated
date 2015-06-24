@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -42,6 +43,7 @@ var (
 	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number has been banned")
 
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
+	errUpdateForbidden = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -177,6 +179,10 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	u := env.User
 
+	if !permission.ProfileSettings(env.Token, u) {
+		return errUpdateForbidden
+	}
+
 	email, password, name := r.PostFormValue("email"), r.PostFormValue("password"), r.PostFormValue("name")
 
 	if email == "" && password == "" && name == "" {
@@ -251,6 +257,10 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 func UpdatePhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	u := env.User
+
+	if !permission.ProfileSettings(env.Token, u) {
+		return errUpdateForbidden
+	}
 
 	phone := sanitizePhone(r.PostFormValue("phone"))
 	phoneCountryCode := r.PostFormValue("phone_country_code")

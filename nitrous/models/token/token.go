@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -16,6 +17,8 @@ const (
 )
 
 const (
+	ScopeSeparator = " "
+
 	// Default password login can have full access to user's account
 	ScopeFull = "full"
 
@@ -44,6 +47,42 @@ type Token struct {
 	LastIP     sql.NullString `db:"last_ip"`
 	CreatedAt  *time.Time     `db:"created_at"`
 	LastSeenAt *time.Time     `db:"last_seen_at"`
+}
+
+func (t *Token) Scopes() []string {
+	return strings.Split(t.Scope, ScopeSeparator)
+}
+
+func (t *Token) HasScope(targetScope string) bool {
+	for _, scope := range t.Scopes() {
+		if scope == targetScope {
+			return true
+		}
+	}
+	return false
+}
+
+// token contains all of the target scopes
+func (t *Token) HasAllScopes(targetScopes []string) bool {
+	for _, targetScope := range targetScopes {
+		if !t.HasScope(targetScope) {
+			return false
+		}
+	}
+	return true
+}
+
+// token contains at least one of the target scopes
+func (t *Token) HasAtLeastScope(targetScopes []string) bool {
+	for _, scope := range t.Scopes() {
+		for _, targetScope := range targetScopes {
+			if scope == targetScope {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func FindByUser(d db.QueryReceiver, userID int64) (*Token, error) {
