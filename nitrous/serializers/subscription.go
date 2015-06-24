@@ -15,12 +15,15 @@ type Subscription struct {
 
 	CurrentPeriodStart *time.Time `json:"current_period_start"`
 	CurrentPeriodEnd   *time.Time `json:"current_period_end"`
+	CancelPending      bool       `json:"cancel_pending"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+
+	HostSlug string `json:"host_slug,omitempty"`
 }
 
-func SerializeSubscription(s *subscription.Subscription) *Subscription {
+func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscription {
 	serialized := &Subscription{
 		ID:               s.ID,
 		PlanID:           s.PlanID,
@@ -28,6 +31,8 @@ func SerializeSubscription(s *subscription.Subscription) *Subscription {
 		BillingProfileID: s.BillingProfileID,
 		CreatedAt:        s.CreatedAt,
 		UpdatedAt:        s.UpdatedAt,
+		HostSlug:         s.HostSlug.String,
+		CancelPending:    s.CancelPending,
 	}
 
 	if s.CurrentPeriodStart.Valid {
