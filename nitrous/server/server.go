@@ -184,15 +184,10 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
-func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
-	route = strings.Join(nsStack, "") + route
-	h := func(w http.ResponseWriter, r *http.Request) {
-		remoteAddr := middleware.GetRemoteAddr(r)
+func (s *Server) middlewareToHandler(mw middleware.Middleware) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := uuid.Make()
-		// allow for consumption by `RespondJSON`
-		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
-		mh.Meter("requests.nitrous").Mark(1)
-		logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+		remoteAddr := middleware.GetRemoteAddr(r)
 		env := &middleware.Env{
 			Root:        s.root,
 			DB:          s.db,
@@ -202,23 +197,63 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			RemoteAddr:  remoteAddr,
 			UUID:        uuidStr,
 		}
+
+		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
+		mh.Meter("requests.nitrous").Mark(1)
+
 		if err := mw(env, w, r); err != nil {
 			s.HandleError(w, r, err)
-			return
-		}
-		routeIsJSON := env.Status != 0 && env.Data != nil
-		if respondMode == routeWritesResponse {
-			return
-		}
-		if respondMode == routeStrictJSON && !routeIsJSON {
-			s.HandleError(w, r, errors.New("Status and/or Data not set"))
-			return
-		}
-		if routeIsJSON {
-			s.RespondEncodeJSON(w, r, env.Status, env.Data)
 		}
 	}
-	s.router.HandleFunc(route, h).Methods(methods...)
+}
+
+func (s *Server) loggerMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		logrus.Infof("uuid=%s ip=%s Request: %v %v", env.UUID, env.RemoteAddr, r.Method, r.URL.String())
+		return mw(env, w, r)
+	}
+}
+
+func (s *Server) strictJsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if err := mw(env, w, r); err != nil {
+			return err
+		}
+
+		if env.Status == 0 || env.Data == nil {
+			return errors.New("Status and/or Data not set")
+		}
+		s.RespondEncodeJSON(w, r, env.Status, env.Data)
+		return nil
+	}
+}
+
+func (s *Server) jsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if err := mw(env, w, r); err != nil {
+			return err
+		}
+
+		if env.Status != 0 && env.Data != nil {
+			s.RespondEncodeJSON(w, r, env.Status, env.Data)
+		}
+		return nil
+	}
+}
+
+func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
+	switch respondMode {
+	case routeJSON:
+		mw = s.jsonMiddleware(mw)
+	case routeStrictJSON:
+		mw = s.strictJsonMiddleware(mw)
+	case routeWritesResponse:
+		// noop
+	}
+	mw = s.loggerMiddleware(mw)
+
+	route = strings.Join(nsStack, "") + route
+	s.router.HandleFunc(route, s.middlewareToHandler(mw)).Methods(methods...)
 }
 
 func (s *Server) static(prefix string, dir string) {
