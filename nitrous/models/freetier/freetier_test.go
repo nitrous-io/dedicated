@@ -507,6 +507,9 @@ var _ = Describe("models/freetier", func() {
 			Expect(err).To(BeNil())
 			Expect(res).To(HaveLen(2))
 			Expect([]int64{res[0].ID, res[1].ID}).To(Equal([]int64{h8.ID, h4.ID}))
+
+			// sanity-check that SQL query populates Provider field (required by hostcontrol)
+			Expect(res[0].Provider).To(Equal("docker"))
 		})
 
 		Context("when db query fails with error", func() {

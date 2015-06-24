@@ -208,7 +208,9 @@ func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error
 
 func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 	hosts := []*host.Host{}
-	err := d.Select(&hosts, `SELECT * FROM hosts
+	err := d.Select(&hosts, `SELECT hosts.*, pts.provider, pts.config
+		FROM hosts
+		INNER JOIN provider_templates AS pts on hosts.provider_template_id = pts.id
 		WHERE auto_shutdown = $1
 			AND state = $2
 			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
