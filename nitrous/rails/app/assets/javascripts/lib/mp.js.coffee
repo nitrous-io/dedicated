@@ -7,6 +7,7 @@ window.Mp =
 
   initialized: false
   identified: false
+  switchedFromAdmin: false
 
   init: (token) ->
     return false unless window.mixpanel?
@@ -20,12 +21,16 @@ window.Mp =
 
   identify: ->
     return false unless @initialized
+    return false if @switchedFromAdmin
     return true if @identified
 
     user = App?.get('user')
 
     # do not track if user is switched from admin
-    adminToken = App?.get('adminToken')
+    # fetch directly from local storage to get it consistently
+    adminToken = window.localStorage.getItem('adminToken')
+    if adminToken
+      @switchedFromAdmin = true
 
     if !user || adminToken
       @identified = false
@@ -65,6 +70,7 @@ window.Mp =
 
   track: (eventName, properties = {}) ->
     return false unless @initialized && eventName?
+    return false if @switchedFromAdmin
 
     p =
       os_name:          @UserAgent.os.name
