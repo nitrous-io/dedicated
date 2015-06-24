@@ -982,6 +982,16 @@ func (c *Client) ExportContainer(opts ExportContainerOptions) error {
 	})
 }
 
+// ReloadContainer reload a container from disk
+func (c *Client) ReloadContainer(id string) error {
+	path := fmt.Sprintf("/containers/%s/reload", id)
+	_, status, err := c.do("POST", path, doOptions{})
+	if status == http.StatusNotFound {
+		return &NoSuchContainer{ID: id}
+	}
+	return err
+}
+
 // NoSuchContainer is the error returned when a given container does not exist.
 type NoSuchContainer struct {
 	ID  string
