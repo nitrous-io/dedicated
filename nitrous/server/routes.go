@@ -204,7 +204,6 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":     r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
-				"/subscriptions/{id}/cancel":  r("subscriptions.Cancel", subscriptions.Cancel),
 				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
@@ -217,9 +216,10 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
-				"/logout":               r("oauth.Logout", oauth.Logout),
-				"/user":                 r("users.Delete", users.Delete, EventUserDeleted),
-				"/admin/users/{id}/ban": r("admin.BanUser", admin.BanUser),
+				"/subscriptions/{id}/cancel":              r("subscriptions.Cancel", subscriptions.Cancel),
+				"/logout":                                 r("oauth.Logout", oauth.Logout),
+				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
+				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
 			},
 		}
 

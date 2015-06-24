@@ -129,14 +129,15 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 
-	Describe("PUT /api/v0/subscriptions/{id}/cancel", func() {
+	Describe("DELETE /api/v0/subscriptions/{id}/cancel", func() {
 		var (
 			s *subscription.Subscription
+			p *plan.Plan
 		)
 
 		BeforeEach(func() {
 			// Insert plan
-			p := &plan.Plan{
+			p = &plan.Plan{
 				Slug:          "plan-a",
 				Name:          "cozy-workplace",
 				MaxContainers: 16,
@@ -162,7 +163,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 		doRequest := func(subscriptionID int64) *httptest.ResponseRecorder {
 			url := fmt.Sprintf("/api/v0/subscriptions/%d/cancel", subscriptionID)
-			req, err := test.NewAuthedRequest(t, "PUT", url, nil)
+			req, err := test.NewAuthedRequest(t, "DELETE", url, nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -178,6 +179,37 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			Expect(fsub.CancelCalled).To(BeTrue())
 			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
+		})
+
+		It("should return not found if the subscription does not belong to the user", func() {
+			u2 := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			bp, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"2", true},
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			res := doRequest(s2.ID)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+			Expect(fsub.CancelSubscription).To(BeNil())
 		})
 	})
 })

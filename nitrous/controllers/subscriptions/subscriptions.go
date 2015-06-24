@@ -45,7 +45,10 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	sub := &subscription.Subscription{}
-	err = env.DB.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", id)
+	err = env.DB.Get(sub, `SELECT subscriptions.* FROM subscriptions
+		INNER JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
+		WHERE subscriptions.id = $1 AND billing_profiles.user_id = $2;`,
+		id, env.User.ID)
 	if err != nil {
 		return err
 	}
