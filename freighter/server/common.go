@@ -75,8 +75,10 @@ func (s *Server) respond(w http.ResponseWriter, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	w.Write(data)
-	uuid := w.Header().Get(NitrousUUIDHeader)
-	logrus.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
+
+	if uuid := w.Header().Get(NitrousUUIDHeader); uuid != "nolog" {
+		logrus.Infof("uuid=%s Response: %v %v", uuid, status, string(data))
+	}
 }
 
 func (s *Server) respondEncodeJSON(w http.ResponseWriter, status int, data map[string]interface{}) {
