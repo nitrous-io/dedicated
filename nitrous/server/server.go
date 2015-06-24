@@ -187,12 +187,17 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
+		mh.Meter("requests.nitrous").Mark(1)
 		remoteAddr := middleware.GetRemoteAddr(r)
 		uuidStr := uuid.Make()
 		// allow for consumption by `RespondJSON`
 		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
-		mh.Meter("requests.nitrous").Mark(1)
-		logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+		// freighter ping responses do not get logged
+		if strings.HasSuffix(r.URL.Path, "freighterd_hook") && r.URL.Query().Get("nolog") == "1" {
+			w.Header().Set(constants.NitrousUUIDHeader, "nolog")
+		} else {
+			logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+		}
 		env := &middleware.Env{
 			Root:        s.root,
 			DB:          s.db,
@@ -274,7 +279,9 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 			str = fmt.Sprintf("TRUNC (from: %d) %s...", len(str), str[:maxLoggedResponseLen])
 		}
 	}
-	logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
+	if uuid != "nolog" {
+		logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
+	}
 }
 
 func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
