@@ -207,6 +207,18 @@ func (s *Server) middlewareToHandler(mw middleware.Middleware) http.HandlerFunc 
 	}
 }
 
+func routeToMiddleware(r routeData) middleware.Middleware {
+	mw := middleware.Call("nitrous."+r.label, r.mw)
+	if r.track != "" {
+		mw = middleware.Track(r.track, mw)
+	}
+	return mw
+}
+
+func authMiddleware(label string, mw middleware.Middleware) middleware.Middleware {
+	return middleware.Auth(middleware.VerifyUserBilling(label, mw))
+}
+
 func loggerMiddleware(mw middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		logrus.Infof("uuid=%s ip=%s Request: %v %v", env.UUID, env.RemoteAddr, r.Method, r.URL.String())

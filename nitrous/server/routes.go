@@ -52,18 +52,6 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 	return routeData{mw: mw, track: track, label: label}
 }
 
-func routeToMiddleware(r routeData) mw.Middleware {
-	middleware := mw.Call("nitrous."+r.label, r.mw)
-	if r.track != "" {
-		middleware = mw.Track(r.track, middleware)
-	}
-	return middleware
-}
-
-func authMiddleware(label string, middleware mw.Middleware) mw.Middleware {
-	return mw.Auth(mw.VerifyUserBilling(label, middleware))
-}
-
 // drawRouteData draw the route with `route`.
 // if `auth` is set then we setup the auth middleware for it
 // if `track` for a route is set then we setup the track middleware for it
