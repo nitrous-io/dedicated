@@ -134,7 +134,7 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0")
 	pprof.Index(w, r)
 	return nil
@@ -147,13 +147,13 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	env.Data = map[string]interface{}{
 		"num_topics":    psInfo.Topics,
 		"num_consumers": psInfo.Consumers,
-		"num_fds":       s.getNumFds(),
+		"num_fds":       getNumFds(),
 		"num_goroutine": runtime.NumGoroutine(),
 	}
 	return nil
 }
 
-func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// default trace 100KiB of stack traces
 	bufferSize := 102400
 
@@ -174,7 +174,7 @@ func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	return nil
 }
 
-func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
+func sleepHandler(w http.ResponseWriter, r *http.Request) {
 	var duration int
 	if d := r.FormValue("duration"); d != "" {
 		duration, _ = strconv.Atoi(d)
@@ -202,19 +202,19 @@ func (s *Server) middlewareToHandler(mw middleware.Middleware) http.HandlerFunc 
 		mh.Meter("requests.nitrous").Mark(1)
 
 		if err := mw(env, w, r); err != nil {
-			s.HandleError(w, r, err)
+			HandleError(w, r, err)
 		}
 	}
 }
 
-func (s *Server) loggerMiddleware(mw middleware.Middleware) middleware.Middleware {
+func loggerMiddleware(mw middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		logrus.Infof("uuid=%s ip=%s Request: %v %v", env.UUID, env.RemoteAddr, r.Method, r.URL.String())
 		return mw(env, w, r)
 	}
 }
 
-func (s *Server) strictJsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+func strictJsonMiddleware(mw middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err := mw(env, w, r); err != nil {
 			return err
@@ -223,37 +223,41 @@ func (s *Server) strictJsonMiddleware(mw middleware.Middleware) middleware.Middl
 		if env.Status == 0 || env.Data == nil {
 			return errors.New("Status and/or Data not set")
 		}
-		s.RespondEncodeJSON(w, r, env.Status, env.Data)
+		RespondEncodeJSON(w, r, env.Status, env.Data)
 		return nil
 	}
 }
 
-func (s *Server) jsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+func jsonMiddleware(mw middleware.Middleware) middleware.Middleware {
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err := mw(env, w, r); err != nil {
 			return err
 		}
 
 		if env.Status != 0 && env.Data != nil {
-			s.RespondEncodeJSON(w, r, env.Status, env.Data)
+			RespondEncodeJSON(w, r, env.Status, env.Data)
 		}
 		return nil
 	}
 }
 
+func (s *Server) mwRoute(route string, mw middleware.Middleware, methods ...string) {
+	route = strings.Join(nsStack, "") + route
+	s.router.HandleFunc(route, s.middlewareToHandler(mw)).Methods(methods...)
+}
+
 func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
 	switch respondMode {
 	case routeJSON:
-		mw = s.jsonMiddleware(mw)
+		mw = jsonMiddleware(mw)
 	case routeStrictJSON:
-		mw = s.strictJsonMiddleware(mw)
+		mw = strictJsonMiddleware(mw)
 	case routeWritesResponse:
 		// noop
 	}
-	mw = s.loggerMiddleware(mw)
+	mw = loggerMiddleware(mw)
 
-	route = strings.Join(nsStack, "") + route
-	s.router.HandleFunc(route, s.middlewareToHandler(mw)).Methods(methods...)
+	s.mwRoute(route, mw, methods...)
 }
 
 func (s *Server) static(prefix string, dir string) {
@@ -270,7 +274,7 @@ func (s *Server) static(prefix string, dir string) {
 		}
 		_, err := os.Stat(path.Join(s.root, dir, rpath))
 		if os.IsNotExist(err) {
-			s.RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
+			RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
 			return
 		}
 		logrus.Infof("Static asset: %v", r.URL.Path)
@@ -281,20 +285,20 @@ func (s *Server) static(prefix string, dir string) {
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
-func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
+func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		uuid := w.Header().Get(constants.NitrousUUIDHeader)
-		e = s.serverError(err, uuid).(*httperror.Error)
+		e = serverError(err, uuid).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {
 		j = []byte(`{"error":"internal_server_error"}`)
 	}
-	s.RespondJSON(w, r, e.Code, j)
+	RespondJSON(w, r, e.Code, j)
 }
 
-func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
+func RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
@@ -312,19 +316,19 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 	logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
 }
 
-func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
+func RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.HandleError(w, r, err)
+		HandleError(w, r, err)
 		return
 	}
-	s.RespondJSON(w, r, status, j)
+	RespondJSON(w, r, status, j)
 }
 
 // This is called when the error is not a *httperror.Error*, i.e. there's
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
-func (s *Server) serverError(err error, uuid string) error {
+func serverError(err error, uuid string) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
@@ -332,7 +336,7 @@ func (s *Server) serverError(err error, uuid string) error {
 	return e
 }
 
-func (s *Server) getNumFds() int {
+func getNumFds() int {
 	pid := os.Getpid()
 	fds, err := ioutil.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
 	if err != nil {

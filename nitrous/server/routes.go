@@ -78,7 +78,7 @@ func (s *Server) drawRoutes() {
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), "GET")
 
 	if envvars.Debug == "true" {
-		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
+		s.router.HandleFunc("/sleep", sleepHandler).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {
@@ -243,8 +243,8 @@ func (s *Server) drawRoutes() {
 
 		trustRoutes := map[string]map[string]routeData{
 			"GET": {
-				"/debug/stack":           r("s.pprofHandler", s.stackHandler),
-				"/debug/pprof/{path:.*}": r("s.pprofHandler", s.pprofHandler),
+				"/debug/stack":           r("stackHandler", stackHandler),
+				"/debug/pprof/{path:.*}": r("pprofHandler", pprofHandler),
 			},
 		}
 
