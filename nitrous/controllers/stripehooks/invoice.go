@@ -1,6 +1,8 @@
 package stripehooks
 
 import (
+	"fmt"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -16,49 +18,61 @@ import (
 )
 
 var (
-	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice)            = handlePaymentSucceeded
-	HandlePaymentFailedFn    func(*middleware.Env, *invoice.Invoice, int, bool) = handlePaymentFailed
+	HandlePaymentSucceededFn func(*middleware.Env, *invoice.Invoice) error = handlePaymentSucceeded
 )
 
-func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) {
+func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
 	inv, err := invoice.FindByStripeID(env.DB, stripeID)
 	if err != nil {
-		logrus.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
-		return
+		return fmt.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
 	}
 	if inv == nil {
-		logrus.Errorf("Could not find invoice matching Stripe event: %+v", e)
-		return
+		return fmt.Errorf("Could not find invoice matching Stripe event: %+v", e)
 	}
 
 	// webhook data is found to be outdated, query the invoice for *live* info
 	strInv, err := stripeinvoice.Get(stripeID, nil)
 	if err != nil {
-		logrus.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
-		return
+		return fmt.Errorf("Error requesting Stripe for invoice %s, err: %+v", stripeID, err)
 	}
 
 	if strInv.Paid {
-		HandlePaymentSucceededFn(env, inv)
+		if err := HandlePaymentSucceededFn(env, inv); err != nil {
+			return err
+		}
 	} else {
-		HandlePaymentFailedFn(env, inv, int(strInv.Attempts), strInv.NextAttempt == 0)
+		i, err := subProvider.HandleSubscriptionInvoiceFailed(env.DB, stripeID)
+		if err != nil {
+			return fmt.Errorf("Error invoking HandleSubscriptionInvoiceFailed for Stripe invoice %s, err: %v", stripeID, err)
+		} else if i != nil {
+			inv = i
+		}
 	}
+
 	u, err := user.FindByID(env.DB, inv.UserID)
 	if err != nil {
-		logrus.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
-		return
+		return fmt.Errorf("Error looking up user %d for invoice %d, err: %+v", inv.UserID, inv.ID, err)
 	}
-	sInv, err := serializeInvoice(env.DB, inv)
-	if err != nil {
-		logrus.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
-		return
-	}
-	env.Events.Publish(
-		controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
-			"invoice": sInv,
-		}),
-		u.Topic(),
-	)
+
+	go func() {
+		if !strInv.Paid {
+			eventName := fmt.Sprintf("Customer Card Declined %d", inv.Attempts)
+			env.Tracker.TrackEvent(eventName, u, nil)
+		}
+
+		sInv, err := serializeInvoice(env.DB, inv)
+		if err != nil {
+			logrus.Errorf("Error serializing invoice %d for user %d, err: %+v", inv.UserID, inv.ID, err)
+			return
+		}
+		env.Events.Publish(
+			controllers.NewEvent(controllers.EventInvoiceUpdated, map[string]interface{}{
+				"invoice": sInv,
+			}),
+			u.Topic(),
+		)
+	}()
+	return nil
 }
 
 func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.Invoice, error) {
@@ -105,14 +119,6 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 	return sInv, nil
 }
 
-func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) {
-	if err := inv.PaymentSucceeded(env.DB); err != nil {
-		logrus.Errorf("Error marking invoice %d as succeeded, err: %v", inv.ID, err)
-	}
-}
-
-func handlePaymentFailed(env *middleware.Env, inv *invoice.Invoice, attemptCount int, attemptsExhausted bool) {
-	if err := inv.PaymentFailed(env.DB, attemptCount, attemptsExhausted); err != nil {
-		logrus.Errorf("Error marking invoice %d as failed, err: %v", inv.ID, err)
-	}
+func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) error {
+	return inv.PaymentSucceeded(env.DB)
 }

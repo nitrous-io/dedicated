@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 )
 
@@ -25,7 +26,10 @@ const (
 	EventHostUpdated
 )
 
-var HostbuilderClient = provisioner.HostbuilderClient
+var (
+	HostbuilderClient = provisioner.HostbuilderClient
+	errHostLocked     = httperror.New(http.StatusConflict, "workspace_locked", "workspace is locked by another request")
+)
 
 func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
 	origState := h.State
@@ -79,21 +83,7 @@ func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventF
 }
 
 func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string) error {
-	h.State = host.StateStopping
-
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
+	if err := RecordNewState(db, h, host.StateStopping, initiatorID); err != nil {
 		return err
 	}
 
@@ -104,53 +94,16 @@ func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, 
 	return nil
 }
 
-// Rollback to previous state, log any errors while rolling back, but
-// return original hostbuilderclient error.
 func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState string) error {
-	h.State = origState
-	tx, err := db.Beginx()
+	err := RecordNewState(db, h, origState, initiatorID)
 	if err != nil {
-		return err
+		logrus.Errorf("hosts.Stop: Unable to restore host state: %v", err)
 	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		logrus.Errorf("hosts.Stop: Unable to reset host state: %v", err)
-		return err
-	}
-
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
-		tx.Rollback()
-		logrus.Errorf("hosts.Stop: Unable to record transition: %v", err)
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		logrus.Errorf("hosts.Stop: Failed to commit transaction: %v", err)
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
-	h.State = host.StateStopped
-
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := h.Update(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateStopping, *h.UpdatedAt, initiatorID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return RecordNewState(db, h, host.StateStopped, initiatorID)
 }
 
 func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
@@ -186,4 +139,18 @@ func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64
 	}
 
 	return nil
+}
+
+func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID int64) error {
+	return db.WithTransaction(func(tx *sqlx.Tx) error {
+		origState := h.State
+		if err := h.UpdateState(tx, newState); err != nil {
+			if err == host.ErrUpdateFailed {
+				return errHostLocked
+			}
+			return err
+		}
+
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID)
+	})
 }

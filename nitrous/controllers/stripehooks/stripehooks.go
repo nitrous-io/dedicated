@@ -2,6 +2,7 @@ package stripehooks
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/Sirupsen/logrus"
@@ -15,7 +16,7 @@ type IncomingStripeWebHook struct {
 	Type    string `json:"type"`
 }
 
-type EventHandlerFn func(env *middleware.Env, e *stripe.Event, stripeID string)
+type EventHandlerFn func(env *middleware.Env, e *stripe.Event, stripeID string) error
 
 var (
 	evtHandlers = map[string]EventHandlerFn{
@@ -32,9 +33,9 @@ func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	if err := json.NewDecoder(r.Body).Decode(&evt); err != nil {
 		return err
 	}
-	go func() {
-		handleStripeWebhook(env, evt)
-	}()
+	if err := handleStripeWebhook(env, evt); err != nil {
+		return err
+	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
@@ -42,29 +43,27 @@ func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) {
+func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) error {
 	// verify the event is legit
 	logrus.Debugf("Incoming event: %s", evt.Type)
 	f, ok := evtHandlers[evt.Type]
 	if !ok {
-		return
+		return nil
 	}
 	e, err := event.Get(evt.EventID)
 	if err != nil {
-		logrus.Errorf("Stripe hook event lookup failed, err: %v", err)
+		return fmt.Errorf("Stripe hook event lookup failed, err: %v", err)
 	}
 
 	if e.Data == nil {
-		logrus.Errorf("Stripe hook event is missing Data: %+v", e)
-		return
+		return fmt.Errorf("Stripe hook event is missing Data: %+v", e)
 	}
 
 	stripeID, ok := e.Data.Obj["id"].(string)
 	if !ok {
-		logrus.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
-		return
+		return fmt.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
 	}
 
-	logrus.Info("Processing Stripe event: %+v", e)
-	f(env, e, stripeID)
+	logrus.Infof("Processing Stripe event: %+v", e)
+	return f(env, e, stripeID)
 }

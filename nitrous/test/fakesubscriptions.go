@@ -3,6 +3,7 @@ package test
 import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -31,6 +32,11 @@ type FakeSubscriptionProvider struct {
 	HandleSubscriptionInvoiceCreatedCalled    bool
 	HandleSubscriptionInvoiceCreatedInvoiceID string
 	HandleSubscriptionInvoiceCreatedError     error
+
+	HandleSubscriptionInvoiceFailedCalled    bool
+	HandleSubscriptionInvoiceFailedInvoiceID string
+	HandleSubscriptionInvoiceFailedError     error
+	HandleSubscriptionInvoiceFailedReturn    *invoice.Invoice
 }
 
 func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
@@ -63,4 +69,10 @@ func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Databa
 	s.HandleSubscriptionInvoiceCreatedCalled = true
 	s.HandleSubscriptionInvoiceCreatedInvoiceID = invID
 	return s.HandleSubscriptionInvoiceCreatedError
+}
+
+func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {
+	s.HandleSubscriptionInvoiceFailedCalled = true
+	s.HandleSubscriptionInvoiceFailedInvoiceID = invID
+	return s.HandleSubscriptionInvoiceFailedReturn, s.HandleSubscriptionInvoiceFailedError
 }

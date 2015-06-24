@@ -685,5 +685,16 @@ var _ = Describe("controllers/billing", func() {
 			})
 		})
 
+		It("should not allowed to pay if token is not full scope", func() {
+			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Responses = []string{
+				`{"object": "invoice", "id": "ID1", "paid": true}`,
+			}
+			fakeStripe.Errors = []*stripe.Error{}
+			res := doRequest(in.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
 	})
 })

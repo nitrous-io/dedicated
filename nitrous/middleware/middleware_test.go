@@ -73,6 +73,7 @@ var _ = Describe("middleware", func() {
 			t := &token.Token{
 				UserID: u.ID,
 				Token:  "foobar",
+				Scope:  token.ScopeFull,
 			}
 			err = t.Insert(db)
 			Expect(err).To(BeNil())
@@ -221,6 +222,7 @@ var _ = Describe("middleware", func() {
 					t := &token.Token{
 						UserID: u.ID,
 						Token:  "provisioner-token",
+						Scope:  token.ScopeFull,
 					}
 					err = t.Insert(db)
 					Expect(err).To(BeNil())

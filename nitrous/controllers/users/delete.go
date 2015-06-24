@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/card"
@@ -23,9 +24,14 @@ var (
 	hostsNotTerminatedErr   = httperror.New(http.StatusBadRequest, "hosts_not_terminated", "you must terminate your workspaces before deleting your account")
 	outstandingInvoicesErr  = httperror.New(http.StatusBadRequest, "outstanding_invoices", "your invoices must be paid before deleting your account")
 	outstandingUsageErr     = httperror.New(http.StatusBadRequest, "outstanding_usage", "you have outstanding usage for the month, please delete your account after your invoice has been issued")
+	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "You do not have permission to delete the user account")
 )
 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {
+	if !permission.DeleteUser(env.Token, env.User) {
+		return deleteForbiddenErr
+	}
+
 	tx, err := env.DB.Beginx()
 
 	defer func() {

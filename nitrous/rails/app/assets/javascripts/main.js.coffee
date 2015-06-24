@@ -132,22 +132,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
       "Nitrous"
   ).observes 'title'
 
-  didChangeToken: (->
-    if token = @get('token')
-      window.localStorage.setItem('token', token)
-    else
-      # clear admin token if App.token is unset
-      App.set('adminToken', null)
-      window.localStorage.removeItem('token')
-  ).observes 'token'
-
-  didChangeAdminToken: (->
-    if token = @get('adminToken')
-      window.localStorage.setItem('adminToken', token)
-    else
-      window.localStorage.removeItem('adminToken')
-  ).observes 'adminToken'
-
   activateStripe: (->
     if settings = @get('settings')
       if settings.stripe_key != '' && settings.stripe_key != 'disable'
@@ -299,26 +283,51 @@ window.Nitrous = Em.Application.extend Em.Evented,
     if(adminToken = @get('adminToken'))
       # Logout admin in parallel while
       # logging out switched user
-      @set('adminToken', null)
+      @clearAdminToken()
 
       # Fire and forget
       @logoutRequest(adminToken)
 
     @logoutRequest(@get('token'))
     .always =>
-      @set('token', null)
+      @clearToken()
       window.mixpanel?.cookie?.clear?()
       Mp.track Mp.EventUserLoggedOut
 
   switchBackAdmin: ->
     userToken = @get('token')
     adminToken = @get('adminToken')
-    @set('adminToken', null)
+
+    # clear mixpanel cookie
+    window.mixpanel?.cookie?.clear?()
+
+    # invalidate App.user since we are different user now
+    @set('user', null)
+    @clearAdminToken()
 
     @logoutRequest(userToken).then =>
-      @set('token', adminToken)
+      @setToken(adminToken)
       Em.run.next ->
         location.href = "/"
+
+  setToken: (token) ->
+    @set('token', token)
+    window.localStorage.setItem('token', token)
+
+  clearToken: ->
+    @set('token', null)
+    window.localStorage.removeItem('token')
+
+    if @get('adminToken')
+      @clearAdminToken()
+
+  setAdminToken: (token) ->
+    @set('adminToken', token)
+    window.localStorage.setItem('adminToken', token)
+
+  clearAdminToken: ->
+    @set('adminToken', null)
+    window.localStorage.removeItem('adminToken')
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')

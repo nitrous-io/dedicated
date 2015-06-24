@@ -161,7 +161,19 @@ func (s *Server) tcpListener(addr string) (net.Listener, error) {
 
 func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	if s.conf.NotifyURL == "" {
+		logrus.Warn("No notify_url in config")
 		return nil
+	}
+	u, err := url.Parse(s.conf.NotifyURL)
+	if err != nil {
+		return err
+	}
+
+	if e, ok := data["event"]; ok && e == "ping" {
+		// pings use nolog url param so that nitrousd won't log
+		p := &url.Values{}
+		p.Set("nolog", "1")
+		u.RawQuery = p.Encode()
 	}
 
 	verifier := msgverifier.New(s.secret)
@@ -173,7 +185,7 @@ func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	params := &url.Values{}
 	params.Set("msg", msg)
 
-	req, err := http.NewRequest("POST", s.conf.NotifyURL, strings.NewReader(params.Encode()))
+	req, err := http.NewRequest("POST", u.String(), strings.NewReader(params.Encode()))
 	if err != nil {
 		return err
 	}
@@ -206,11 +218,16 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 			uuidStr = uuid.Make()
 			r.Header.Set(NitrousUUIDHeader, uuidStr)
 		}
+
 		// so that is available in s.respond()
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
-		logrus.Infof("uuid=%s Request: %v %v", uuidStr, r.Method, r.URL.String())
+		if noLogs := r.URL.String() == "/ping"; noLogs {
+			w.Header().Set(NitrousUUIDHeader, "nolog")
+		} else {
+			logrus.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())
+			defer logrus.Infof("uuid=%s Request: done\n", uuidStr)
+		}
 		handlerFunc(w, r)
-		logrus.Infof("uuid=%s Request: done", uuidStr)
 	}
 }
 

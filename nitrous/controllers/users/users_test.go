@@ -436,21 +436,32 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("when valid fields are given", func() {
+			var params *url.Values
+
 			BeforeEach(func() {
-				params := &url.Values{}
+				params = &url.Values{}
 				params.Set("password", "abcdef")
 				params.Set("email", "tupdate@example.com")
 				params.Set("name", "Token Update")
-				doRequest(params)
 			})
 
 			It("updates fields", func() {
+				doRequest(params)
+
 				Expect(res.Code).To(Equal(http.StatusOK))
 				updated, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(bcrypt.Verify(updated.EncryptedPassword, "abcdef")).To(BeTrue())
 				Expect(updated.Name).To(Equal("Token Update"))
 				Expect(*updated.UpdatedAt).To(BeTemporally(">", *u.UpdatedAt))
+			})
+
+			It("should not allow update if token scope is not full", func() {
+				_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(params)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
 			})
 		})
 
@@ -640,6 +651,18 @@ var _ = Describe("controllers/users", func() {
 			Expect(j.User.Phone).To(Equal("88884444"))
 			Expect(j.User.PhoneCountryCode).To(Equal("65"))
 			Expect(j.User.PhoneAuthed).To(BeFalse())
+		})
+
+		It("should not allow update phone if token scope is not full", func() {
+			_, err := db.Exec(`UPDATE tokens SET scope = 'third_party' WHERE id = $1;`, t.ID)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("phone", "(888)8-44-44")
+			params.Set("phone_country_code", "65")
+			doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 		})
 
 		It("creates a verification record for the user's phone", func() {

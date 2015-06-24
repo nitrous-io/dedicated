@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
+	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
@@ -37,6 +38,8 @@ var (
 	errInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "invalid state parameter")
 	errStateExpired     = httperror.New(http.StatusBadRequest, "auth_timeout", "GitHub authorization timeout")
 	errStateMismatch    = httperror.New(http.StatusBadRequest, "state_mismatch", "state provided does not match cookie state")
+
+	errAuthorizeForbidden = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
 
 	ErrTokenEmpty    = errors.New("token is empty")
 	ErrTokenNotValid = errors.New("token not valid")
@@ -74,10 +77,12 @@ var FetchGithubUser = func(code string) (string, string, error) {
 }
 
 // /api/v0/github/authorize
-// Authorize returns GitHub authorization url that front-end needs to redirect to
+// Authorize returns GitHub authorization url that front-end needs to redirect to.
+// FIXME: allow this API to be called only if user is not yet linked with a GitHub account
 func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	// FIXME: allow this API to be called only if user is not yet
-	// linked with a GitHub account
+	if !permission.AuthorizeGitHub(env.Token, env.User) {
+		return errAuthorizeForbidden
+	}
 
 	state, err := setOrReuseState(w, r, env.User.ID)
 	if err != nil {
