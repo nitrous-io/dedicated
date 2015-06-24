@@ -31,7 +31,7 @@ if App.billingProfile.hasCard
 
 if App.subscriptions
   .card-header.bordered
-    h2 Subscriptions
+    h2 Current Subscriptions
   .card-body
     table.ui.table
       thead
