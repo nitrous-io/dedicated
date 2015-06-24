@@ -133,7 +133,7 @@ App.Host = klass = App.Model.extend
   ).property 'updateAvailable'
 
   hasError: (->
-    return false if @get('isUpdating')
+    return false unless @get('isRunning')
     @get('connectivityError')
   ).property 'connectivityError', 'isUpdating'
 
