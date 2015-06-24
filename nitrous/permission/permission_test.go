@@ -80,8 +80,8 @@ var _ = Describe("permission", func() {
 			{permission.Login, expiredUser, fullToken, false},
 		}
 
-		for _, test := range testTable {
-			Expect(test.permFunc(test.t, test.u)).To(Equal(test.expected))
+		for i, test := range testTable {
+			Expect(test.permFunc(test.t, test.u)).To(Equal(test.expected), "permission test case #%d fail: %+v", i, test)
 		}
 	})
 })

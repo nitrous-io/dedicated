@@ -6,7 +6,7 @@ import (
 )
 
 func Basic(t *token.Token, u *user.User) bool {
-	return t.ExistScopes([]string{token.ScopeFull, token.ScopeThirdParty, token.ScopeAdmin})
+	return t.HasAtLeastScope([]string{token.ScopeFull, token.ScopeThirdParty, token.ScopeAdmin})
 }
 
 func Full(t *token.Token, u *user.User) bool {

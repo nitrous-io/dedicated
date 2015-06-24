@@ -301,7 +301,7 @@ var _ = Describe("models/token", func() {
 })
 
 // plain token tests
-var _ = Describe("models/token", func() {
+var _ = Describe("plain token behavior", func() {
 	var t *token.Token
 
 	BeforeEach(func() {
@@ -319,8 +319,8 @@ var _ = Describe("models/token", func() {
 			Expect(t.HasAllScopes([]string{"full"})).To(BeTrue())
 			Expect(t.HasAllScopes([]string{"full", "admin"})).To(BeFalse())
 
-			Expect(t.ExistScopes([]string{"full", "admin"})).To(BeTrue())
-			Expect(t.ExistScopes([]string{"third_party", "admin"})).To(BeFalse())
+			Expect(t.HasAtLeastScope([]string{"full", "admin"})).To(BeTrue())
+			Expect(t.HasAtLeastScope([]string{"third_party", "admin"})).To(BeFalse())
 		})
 
 		It("should work for multiple scope", func() {
@@ -335,8 +335,8 @@ var _ = Describe("models/token", func() {
 			Expect(t.HasAllScopes([]string{"container", "profile"})).To(BeTrue())
 			Expect(t.HasAllScopes([]string{"profile", "admin"})).To(BeFalse())
 
-			Expect(t.ExistScopes([]string{"third_party", "full"})).To(BeTrue())
-			Expect(t.ExistScopes([]string{"admin", "collab"})).To(BeFalse())
+			Expect(t.HasAtLeastScope([]string{"third_party", "full"})).To(BeTrue())
+			Expect(t.HasAtLeastScope([]string{"admin", "collab"})).To(BeFalse())
 		})
 	})
 

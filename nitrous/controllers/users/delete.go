@@ -24,7 +24,7 @@ var (
 	hostsNotTerminatedErr   = httperror.New(http.StatusBadRequest, "hosts_not_terminated", "you must terminate your workspaces before deleting your account")
 	outstandingInvoicesErr  = httperror.New(http.StatusBadRequest, "outstanding_invoices", "your invoices must be paid before deleting your account")
 	outstandingUsageErr     = httperror.New(http.StatusBadRequest, "outstanding_usage", "you have outstanding usage for the month, please delete your account after your invoice has been issued")
-	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "you are not allowed to delete the user account")
+	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "You do not have permission to delete the user account")
 )
 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {

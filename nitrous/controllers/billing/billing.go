@@ -39,7 +39,7 @@ var (
 	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
 	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
 
-	errPayInvoiceForbidden = httperror.New(http.StatusForbidden, "pay_invoice_forbidden", "You do not have permission to pay invoice")
+	errPayInvoiceForbidden = httperror.New(http.StatusForbidden, "pay_invoice_forbidden", "You do not have permission to pay invoices")
 )
 
 func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

@@ -72,8 +72,8 @@ func (t *Token) HasAllScopes(targetScopes []string) bool {
 	return true
 }
 
-// token contains at least on of the target scopes
-func (t *Token) ExistScopes(targetScopes []string) bool {
+// token contains at least one of the target scopes
+func (t *Token) HasAtLeastScope(targetScopes []string) bool {
 	for _, scope := range t.Scopes() {
 		for _, targetScope := range targetScopes {
 			if scope == targetScope {
