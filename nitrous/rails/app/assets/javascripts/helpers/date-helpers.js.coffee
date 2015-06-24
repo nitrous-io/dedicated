@@ -1,3 +1,18 @@
+monthNames = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+
 Em.Handlebars.helper 'ago', (date) ->
   if date instanceof Date
     $.timeago(date)
@@ -9,6 +24,12 @@ Em.Handlebars.helper 'utc', (date) ->
 Em.Handlebars.helper 'simpledate', (date) ->
   if date instanceof Date
     date.toDateString()
+
+Em.Handlebars.helper 'daymonth', (date) ->
+  if date instanceof Date
+    mnt = date.getMonth()
+    mName = monthNames[mnt]
+    "#{date.getDate()} #{mName}"
 
 Em.Handlebars.helper 'basicdatetime', (date) ->
   unless date instanceof Date

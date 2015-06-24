@@ -12,11 +12,18 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   currentPeriodEnd: attr('date', as: 'current_period_end')
   createdAt: attr('date', as: 'created_at')
   updatedAt: attr('date', as: 'updated_at')
+  hostSlug: attr('string', as: 'host_slug')
+  cancelPending: attr('boolean', as: 'cancel_pending')
 
   plan: (->
     if planId = @get('planId')
       App.get('plans').findBy('id', planId)
   ).property 'planId', 'App.plans.@each'
+
+  totalPriceInDollars: (->
+    return unless @get 'plan'
+    @get('plan.price') / 100.0
+  ).property 'plan'
 
   cancel: ->
     new Em.RSVP.Promise (resolve, reject) =>

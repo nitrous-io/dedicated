@@ -1,6 +1,14 @@
 #= require jquery.payment
 
 App.BillingController = Em.ObjectController.extend
+  totalSubscriptionCharge: (->
+    return unless App.get('subscriptions.content.length')
+    sum = App.get('subscriptions.content').reduce (val, sub)->
+      val + (sub.get('plan.price') || 0)
+    , 0
+    sum / 100.0
+  ).property 'App.subscriptions.@each'
+
   actions:
     changeCard: ->
       @transitionTo 'add-card'

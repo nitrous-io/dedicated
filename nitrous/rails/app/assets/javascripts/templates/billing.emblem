@@ -29,30 +29,56 @@ if App.billingProfile.hasCard
       .right
         button.ui.btn click='changeCard' Change Card
 
-if App.subscriptions
+if view.showSubscriptions
   .card-header.bordered
-    h2 Subscriptions
+    h2
+      if view.multipleSubscriptions
+        | Subscriptions
+      else
+        | Subscription
   .card-body
-    table.ui.table
-      thead
-        tr
-          th Plan
-          th Start
-          th End
-          th
-      tbody
-        = each subscription in App.subscriptions
-          tr
-            td
-              = subscription.plan.displayName
-            td
-              = simpledate subscription.currentPeriodStart
-            td
-              = simpledate subscription.currentPeriodEnd
-            td
-              button.ui.btn click='showCancelSubscription subscription' Cancel
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each subscription in App.subscriptions
+            tr
+              td
+                if subscription.hostSlug
+                  ' Workspace
+                  = subscription.hostSlug
+                  |  (
+                  = subscription.plan.name
+                  | )
+                else
+                  = subscription.plan.name
+              td class={subscription.cancelPending:cancel-pending}
+                if subscription.cancelPending
+                  ' Cancels on
+                else
+                  ' Renews on
+                = daymonth subscription.currentPeriodEnd
+              td.charge
+                | $
+                = currency subscription.totalPriceInDollars
 
-if App.billingUsage
+        if view.multipleSubscriptions
+          tr
+            td.gap
+
+          tr
+            td colspan="2"
+              | Total Subscriptions
+            td.charge
+              = App.subscriptions.length
+
+          tr.total-charge
+            td colspan="2"
+              | Total Charged
+            td.charge
+              | $
+              = currency totalSubscriptionCharge
+
+if App.billingUsage.groupedItems.length
   unless App.billingProfile.exempt
     .card-header.bordered
       h2 Current Usage
@@ -89,7 +115,7 @@ if App.billingUsage
 
 
 #invoices-list.card-header.bordered
-  h2 Invoices
+  h2 Billing History
 
 .card-body
   unless App.invoices.content
