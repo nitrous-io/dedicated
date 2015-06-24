@@ -27,6 +27,9 @@ var (
 
 func init() {
 	defaultConf = path.Join("etc", "freighterd", "config.json")
+
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 }
 
 func main() {
