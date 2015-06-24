@@ -11,8 +11,6 @@ App.Pinger = klass = Em.Object.extend
       freighterdUrl = container.get 'freighterdUrl'
       @set 'url', "#{protocol}//#{freighterdUrl}/ping"
 
-    return # disable for now until tender bug is fixed
-
     @ping()
     window.setInterval(=>
       @ping()
