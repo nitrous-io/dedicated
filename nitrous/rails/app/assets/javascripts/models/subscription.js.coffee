@@ -28,7 +28,7 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   cancel: ->
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
-        type: 'PUT',
+        type: 'DELETE',
         url: "/api/v0/subscriptions/#{@get 'id'}/cancel",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
       ).done((retData, status, jqxhr) =>

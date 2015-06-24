@@ -29,6 +29,14 @@
       i.fa.fa-warning
       '
       | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
+  else
+    if subscription.cancelPending
+      .notice-text.error
+        i.fa.fa-warning
+        '
+        ' The subscription for this host has been cancelled, your host will be terminated on
+        = simpledate subscription.currentPeriodEnd
+        | .
 
   if topAnnouncement
     .notice-text.multi-line
@@ -149,10 +157,14 @@
       else
         if isStopped
           .left
-            button.ui.btn click='showTerminateDialog target="view"' Terminate...
-          .right
             if App.billingProfile.free
               button.ui.btn click='upgradePaid' Upgrade
+
+            if subscriptionId
+              button.ui.btn click='showTerminateDialog target="view"' disabled=subscription.cancelPending Cancel Subscription
+            else
+              button.ui.btn click='showTerminateDialog target="view"' Terminate...
+          .right
             button.ui.btn.primary click='start' Start
         else
           .left
@@ -168,18 +180,32 @@
         ' absolutely
       | sure?
     .card-body
-      p
-        ' This action
-        strong
-          ' CANNOT
-        | be undone!
-      p
-        ' This will permanently delete the workspace
-        strong
-          | &ldquo;
-          = displayName
-          ' &rdquo;
-        | and all containers, images, volumes, and archives within the workspace.
+      if subscriptionId
+        p
+          ' Your workspace
+          strong
+            | &ldquo;
+            = displayName
+            ' &rdquo;
+          | will be deleted at the end of this billing cycle
+          if subscription
+            '  on
+            strong
+              = simpledate subscription.currentPeriodEnd
+          | .
+      else
+        p
+          ' This action
+          strong
+            ' CANNOT
+          | be undone!
+        p
+          ' This will permanently delete the workspace
+          strong
+            | &ldquo;
+            = displayName
+            ' &rdquo;
+          | and all containers, images, volumes, and archives within the workspace.
       p
         ' Please type in the slug of the workspace
         strong

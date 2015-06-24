@@ -1,6 +1,7 @@
 #= require jquery.payment
 
 App.BillingController = Em.ObjectController.extend
+  subscription: null
   totalSubscriptionCharge: (->
     return unless App.get('subscriptions.content.length')
     sum = App.get('subscriptions.content').reduce (val, sub)->
@@ -29,8 +30,8 @@ App.BillingController = Em.ObjectController.extend
 
     cancelSubscription: (subscription) ->
       ui.hideModal('#cancel-subscription-modal-dialog')
+      return unless subscription
       subscription.cancel().then ->
-        App.snackbar.post('Cancelled subscription successfully.')
-        App.refreshSubscriptions()
+        App.snackbar.post('Subscription cancelled successfully.')
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, 'Failed to cancel subscription.')

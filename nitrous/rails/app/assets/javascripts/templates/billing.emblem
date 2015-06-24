@@ -57,6 +57,9 @@ if view.showSubscriptions
                 else
                   ' Renews on
                 = daymonth subscription.currentPeriodEnd
+              if view.multipleSubscriptions
+                td.actions
+                  button.ui.btn.danger click='showCancelSubscription subscription' Cancel
               td.charge
                 | $
                 = currency subscription.totalPriceInDollars
@@ -66,17 +69,22 @@ if view.showSubscriptions
             td.gap
 
           tr
-            td colspan="2"
+            td colspan="3"
               | Total Subscriptions
             td.charge
               = App.subscriptions.length
 
           tr.total-charge
-            td colspan="2"
+            td colspan="3"
               | Total Charged
             td.charge
               | $
               = currency totalSubscriptionCharge
+
+  unless view.multipleSubscriptions
+    .card-footer.bordered
+        .right
+          button.ui.btn.danger click='showCancelSubscription App.subscriptions.firstObject' Cancel Subscription
 
 if App.billingUsage.groupedItems.length
   unless App.billingProfile.exempt
@@ -186,7 +194,30 @@ if App.billingUsage.groupedItems.length
   .ui.card
     h2.card-header Cancel subscription
     .card-body
-      p Are you sure?
+      p
+        ' Are you sure you want to cancel the subscription for
+        if subscription.hostSlug
+          ' the workspace
+          = subscription.hostSlug
+          |  (
+          = subscription.plan.name
+          | )
+        else
+          ' the plan
+          = subscription.plan.name
+        | ?
+      p
+        ' Your subscription will end on
+        = simpledate subscription.currentPeriodEnd
+        |  after which your
+        if subscription.hostSlug
+          '  host,
+          = subscription.hostSlug
+          | ,
+        else
+          |  hosts
+        |  will be terminated.
     .card-footer
-      button.ui.btn click='cancelSubscription subscription' Cancel Subscription
-      button.ui.btn click='hideCancelSubscription' Back
+      .right
+        button.ui.btn click='hideCancelSubscription' Back
+        button.ui.btn.danger.terminate-btn click='cancelSubscription subscription' disabled=view.terminateSlugConfirmationInvalid Cancel Subscription

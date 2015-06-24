@@ -122,6 +122,15 @@ App.EventMessageHandler = App.EventsSocket.extend
       else
         App.refreshInvoices()
 
+    @on 'subscription.updated', (data) ->
+      if (data.subscription && sub = App.get('subscriptions').findBy('id', data.subscription.id))
+        sub.load(data.subscription)
+      else
+        App.refreshSubscriptions()
+
+    @on 'subscription.deleted', (data) ->
+      App.refreshSubscriptions()
+
 findAllContainers = ->
   App.get('containers')
 

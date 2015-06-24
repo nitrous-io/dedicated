@@ -100,6 +100,11 @@ App.Host = klass = App.Model.extend
       App.get('plans').findBy('id', planId)
   ).property 'planId', 'App.plans.@each'
 
+  subscription: (->
+    if subscriptionId = @get('subscriptionId')
+      App.get('subscriptions').findBy('id', subscriptionId)
+  ).property 'subscriptionId', 'App.subscriptions.@each'
+
   freighterdUrl: (->
     hostname = @get 'proxyHostname'
     port = @get 'freighterdPort'
