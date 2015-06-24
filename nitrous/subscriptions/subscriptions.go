@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
@@ -35,12 +36,14 @@ type Provider interface {
 	HandleSubscriptionUpdated(d *db.Database, subID string) error
 	HandleSubscriptionDeleted(d *db.Database, subID string) error
 	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error
+	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
 }
 
 type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
 
 type SubscriptionProvider struct {
 	HostStopFunc hostStopFunc
+	Mailer       mailer.Mailer
 }
 
 var (
@@ -48,6 +51,12 @@ var (
 	ErrInvalidBillingState   = errors.New("Invalid billing state")
 	ErrPlanNotFree           = errors.New("Plan not free but billing state in Free")
 	ErrInvoiceAlreadyCreated = errors.New("Invoice already exists")
+
+	ErrInvoiceLackingSubscription = errors.New("Invoice not attached to Subscription")
+	ErrInvoiceAlreadyPaid         = errors.New("Invoice has already been paid")
+
+	ErrCardExpired  = errors.New("Your Card has expired. Please try again with a recent card.")
+	ErrCardDeclined = errors.New("Your Card was declined. Try contacting the bank directly for assistance.")
 )
 
 type updatedAvailableCredits struct {
@@ -58,6 +67,7 @@ type updatedAvailableCredits struct {
 func NewProvider() *SubscriptionProvider {
 	s := &SubscriptionProvider{}
 	s.HostStopFunc = hostcontrol.Stop
+	s.Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
 	return s
 }
 
@@ -107,7 +117,19 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		})
 		if err != nil {
 			strSub = nil
-			logrus.Errorf("Stripe subscription: %+v", strSub)
+			logrus.Errorf("Stripe subscription: %+v, err: %+v", strSub, err)
+
+			sErr, ok := err.(*stripe.Error)
+			if !ok {
+				return sErr
+			}
+
+			if sErr.Code == stripe.ExpiredCard {
+				return ErrCardExpired
+			} else if sErr.Code == stripe.CardDeclined {
+				return ErrCardDeclined
+			}
+
 			return err
 		}
 
@@ -232,29 +254,7 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 		return err
 	}
 
-	hosts := []*host.Host{}
-	err = d.Select(&hosts, `SELECT
-		hosts.*, pt.provider, pt.config
-		FROM hosts
-		INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-		INNER JOIN subscriptions ON subscriptions.id = hosts.subscription_id WHERE subscriptions.id = $1`, sub.ID)
-	if err != nil {
-		return err
-	}
-
-	for _, host := range hosts {
-		var initiatorID int64
-		err = d.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
-		if err != nil {
-			return err
-		}
-
-		headers := http.Header{}
-		headers.Set(constants.NitrousUUIDHeader, "subscription_terminated")
-
-		return s.HostStopFunc(d, host, headers, nil, initiatorID)
-	}
-	return nil
+	return s.stopHosts(d, sub)
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error {
@@ -313,10 +313,14 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 						desc = "Subscription"
 					}
 				}
+				stripeID := invItem.ID
+				if invItem.Type == stripeinvoice.TypeSubscription {
+					stripeID = fmt.Sprintf("%s-%s", sInv.ID, invItem.ID)
+				}
 				item := invoiceitem.InvoiceItem{
 					InvoiceID:         inv.ID,
 					ItemType:          invoiceitem.ItemTypeSubscription,
-					StripeID:          sql.NullString{invItem.ID, true},
+					StripeID:          sql.NullString{stripeID, true},
 					TotalStripeCharge: sql.NullInt64{invItem.Amount, true},
 					Description:       sql.NullString{desc, true},
 				}
@@ -325,6 +329,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 					item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
 				}
 				if err := item.Insert(tx); err != nil {
+					logrus.Errorf("Unable to create invoice item id %s, err: %v", inv.ID, err)
 					return err
 				}
 			}
@@ -368,6 +373,157 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 
 		return nil
 	})
+}
+
+func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {
+	var (
+		sub  *subscription.Subscription
+		inv  *invoice.Invoice
+		bp   *billingprofile.BillingProfile
+		sInv *stripe.Invoice
+
+		final bool
+	)
+	err := d.WithTransaction(func(tx *sqlx.Tx) error {
+		inv = &invoice.Invoice{}
+		err := tx.Get(inv, "SELECT * FROM invoices WHERE stripe_id = $1 FOR UPDATE", invID)
+		if err != nil {
+			return err
+		}
+
+		if inv.State == invoice.StatePaid {
+			return fmt.Errorf("Invoice %d has already been paid", inv.ID)
+		}
+
+		sInv, err = stripeinvoice.Get(invID, nil)
+		if err != nil {
+			return err
+		}
+
+		if sInv.Paid {
+			return fmt.Errorf("Stripe invoice %s has already been paid", sInv.ID)
+		}
+
+		// as part of a transition state we are going to allow non subscription
+		// invoices through this method
+		bp = &billingprofile.BillingProfile{}
+		if inv.SubscriptionID.Valid {
+			sub, err = subscription.Find(d, inv.SubscriptionID.Int64)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE id = $1 FOR UPDATE", sub.BillingProfileID)
+			if err != nil {
+				return err
+			}
+		} else {
+			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1 FOR UPDATE", inv.UserID)
+			if err != nil {
+				return err
+			}
+		}
+
+		if bp == nil {
+			return fmt.Errorf("Unable to locate BillingProfile for invoice %d", inv.ID)
+		}
+
+		if bp.State == billingprofile.StateExempt {
+			return fmt.Errorf("Billing profile %d should not be failing in exempt state", bp.ID)
+		}
+
+		// update state of BillingProfile
+		final = sInv.NextAttempt == 0
+		if final {
+			bp.State = billingprofile.StateDelinquent
+		} else {
+			bp.State = billingprofile.StatePaymentDue
+		}
+
+		nstmt, err := tx.PrepareNamed(`UPDATE billing_profiles
+    SET state = :state, updated_at = now()
+    WHERE id = :id
+    RETURNING *;`)
+		if err != nil {
+			return err
+		}
+
+		if err := nstmt.QueryRowx(bp).StructScan(bp); err != nil {
+			return err
+		}
+
+		// update invoice
+		logrus.Warnf("Failed invoice %d: Next attempt at %d", inv.ID, sInv.NextAttempt)
+		inv.State = invoice.StateUnpaid
+		if final {
+			inv.State = invoice.StateFailed
+		}
+		t := time.Now()
+		if inv.FirstAttemptAt == nil || inv.FirstAttemptAt.IsZero() {
+			inv.FirstAttemptAt = &t
+		}
+		inv.LastAttemptAt = &t
+		inv.Attempts = int(sInv.Attempts)
+		nstmt, err = tx.PrepareNamed(`UPDATE invoices
+	    SET state = :state, first_attempt_at = :first_attempt_at, last_attempt_at = :last_attempt_at,
+	    attempts = :attempts, updated_at = now()
+	    WHERE id = :id
+	    RETURNING *;`)
+		if err != nil {
+			return err
+		}
+
+		return nstmt.QueryRowx(inv).StructScan(inv)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if sub != nil && (sInv.Attempts > 1 || sInv.Closed) {
+		if err := s.stopHosts(d, sub); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := s.sendFailureEmail(d, int64(sInv.Attempts), final, inv, bp); err != nil {
+		return nil, err
+	}
+
+	return inv, nil
+}
+
+func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subscription) error {
+	hosts := []*host.Host{}
+	err := d.Select(&hosts, `SELECT
+		hosts.*, pt.provider, pt.config
+		FROM hosts
+		INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+		INNER JOIN subscriptions ON subscriptions.id = hosts.subscription_id WHERE subscriptions.id = $1 AND terminated_at IS NULL;`, sub.ID)
+	if err != nil {
+		return err
+	}
+
+	headers := http.Header{}
+	headers.Set(constants.NitrousUUIDHeader, fmt.Sprintf("subscription_terminated_%d", sub.ID))
+	for _, h := range hosts {
+		var initiatorID int64
+		err = d.QueryRow(`SELECT id FROM users WHERE username = $1`, envvars.ProvisionerUser).Scan(&initiatorID)
+		if err != nil {
+			return err
+		}
+
+		if h.State == host.StateStopped {
+			logrus.Infof("Host %d for subscription %d is already stopped", h.ID, sub.ID)
+			continue
+		}
+
+		if err := s.HostStopFunc(d, h, headers, nil, initiatorID); err != nil {
+			logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
+		}
+	}
+
+	return nil
 }
 
 func updateAvailableCredits(tx *sqlx.Tx, userID int64, invID sql.NullInt64, subID sql.NullInt64, amount int64) (*updatedAvailableCredits, error) {
