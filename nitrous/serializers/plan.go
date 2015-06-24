@@ -14,6 +14,7 @@ type Plan struct {
 	Memory        string `json:"memory"`
 	Storage       string `json:"storage"`
 	MostPopular   bool   `json:"most_popular"`
+	Subscription  bool   `json:"subscription"`
 }
 
 func SerializePlan(p *plan.Plan) *Plan {
@@ -32,6 +33,7 @@ func SerializePlan(p *plan.Plan) *Plan {
 		Memory:        p.Memory,
 		Storage:       p.Storage,
 		MostPopular:   p.MostPopular,
+		Subscription:  p.StripePlanID.Valid,
 	}
 }
 
