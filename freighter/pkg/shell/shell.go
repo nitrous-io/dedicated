@@ -160,7 +160,7 @@ func (s *Shell) Open() error {
 	if err != nil {
 		return err
 	}
-	s.execID = exec.Id
+	s.execID = exec.ID
 	return nil
 }
 

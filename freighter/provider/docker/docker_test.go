@@ -509,21 +509,21 @@ var _ = Describe("provider/docker", func() {
 
 				Context("when the container is running", func() {
 					It("restarts the container", func() {
-						out, err := exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", id).CombinedOutput()
+						startedAt1, err := exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
-						prevStartTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(out)))
-						Expect(err).To(BeNil())
+
 						info, err := prov.Restart(id)
 						Expect(err).To(BeNil())
 						expectContainerInfoToHaveBeenReturned(info)
 
-						out, err = exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
+						out, err := exec.Command("docker", "inspect", "-f", "{{.State.Running}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
 						Expect(out).To(ContainSubstring("true"))
-						out, err = exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", id).CombinedOutput()
+
+						// check that the started at time changed when container restarts
+						startedAt2, err := exec.Command("docker", "inspect", "-f", "{{.State.StartedAt}}", id).CombinedOutput()
 						Expect(err).To(BeNil())
-						newStartTime, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(out)))
-						Expect(prevStartTime.Before(newStartTime)).To(BeTrue())
+						Expect(startedAt2).ToNot(Equal(startedAt1))
 					})
 				})
 
@@ -874,14 +874,7 @@ var _ = Describe("provider/docker", func() {
 
 				Expect(i1.Name).To(Equal("basic"))
 				Expect(i1.Tag).To(Equal("n1"))
-
 				Expect(i1.ActualSize).To(Equal(imageSize(i1.ID)))
-
-				timeStr := doInspect(i1.ID, "{{.Created}}")
-				expectingTime, err := time.Parse(time.RFC3339, timeStr)
-				Expect(err).To(BeNil())
-				expectingUTime := expectingTime.Unix()
-				Expect(i1.CreatedAt).To(Equal(expectingUTime))
 			})
 		})
 

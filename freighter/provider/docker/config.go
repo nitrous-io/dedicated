@@ -35,7 +35,7 @@ func serializePortBindings(bindingsMap PortBindingsMap) []string {
 		if portBindings != nil {
 			for _, binding := range portBindings {
 				access := "private"
-				if binding.HostIp == "0.0.0.0" {
+				if binding.HostIP == "0.0.0.0" {
 					access = "public"
 				}
 
@@ -70,7 +70,7 @@ func normalizedConfigPortBindings(container *dockerclient.Container, gateway str
 			configPortBindings[port] = []dockerclient.PortBinding{
 				{
 					HostPort: "",
-					HostIp:   hostIp,
+					HostIP:   hostIp,
 				},
 			}
 		}
