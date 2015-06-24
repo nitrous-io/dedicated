@@ -45,6 +45,8 @@ var (
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and regions combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
@@ -262,13 +264,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	origState := h.State
-	h.State = host.StateStarting
-	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.Update(tx); err != nil {
-			return err
-		}
-		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
-	}); err != nil {
+	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -283,17 +279,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		h.State = origState
-		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-			if err := h.Update(tx); err != nil {
-				logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
-			}
-			if err := hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID); err != nil {
-				logrus.Errorf("hosts.Start: Unable to record transition: %v", err)
-			}
-			return nil
-		}); err != nil {
-			logrus.Errorf("hosts.Start: Failed to commit transaction: %v", err)
+		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+			logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -320,8 +307,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		logrus.Infof("hosts.Start: host already up to date")
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	case nil:
-		h.State = host.StateUpdating
-		if err := h.Update(db); err != nil {
+		if err := h.UpdateState(db, host.StateUpdating); err != nil {
 			return err
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
@@ -407,13 +393,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	h.State = host.StateRestarting
-	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.Update(tx); err != nil {
-			return err
-		}
-		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, env.User.ID)
-	}); err != nil {
+	if err := hostcontrol.RecordNewState(db, h, host.StateRestarting, env.User.ID); err != nil {
 		return err
 	}
 
@@ -428,17 +408,8 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		h.State = origState
-		if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-			if err := h.Update(tx); err != nil {
-				logrus.Errorf("hosts.Restart: Unable to reset host state: %v", err)
-			}
-			if err := hosttransition.Record(tx, h, host.StateRestarting, *h.UpdatedAt, env.User.ID); err != nil {
-				logrus.Errorf("hosts.Restart: Unable to record transition: %v", err)
-			}
-			return nil
-		}); err != nil {
-			logrus.Errorf("hosts.Restart: Failed to commit transaction: %v", err)
+		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+			logrus.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
 		PublishHostEvent(env, controllers.EventHostUpdated, h)
@@ -466,8 +437,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		logrus.Infof("hosts.Restart: host already up to date")
 		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	case nil:
-		h.State = host.StateUpdating
-		if err := h.Update(db); err != nil {
+		if err := h.UpdateState(db, host.StateUpdating); err != nil {
 			return err
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
@@ -490,6 +460,10 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
+	if h.State != host.StateRunning {
+		return errHostRespecInvalidState
+	}
+
 	rs, err := respec.Find(db, h.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -503,8 +477,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	h.State = host.StateRespeccing
-	if err := h.Update(db); err != nil {
+	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
 		return err
 	}
 
@@ -532,10 +505,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	go func() {
 		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
-			h.State = host.StateRespecFailed
-			if err := h.Update(db); err != nil {
+			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
 				logrus.Errorf("error updating host after respec failed: %v", err)
 			}
+
 			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
 				logrus.Errorf("error updating respec state to failed: %v", err)
 			}
@@ -573,6 +546,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 }
 
 func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if h.State != host.StateRunning {
+		return errHostUpdateInvalidState
+	}
+
 	if err := updateSoftware(h, env); err != nil {
 		if err == freighterclient.ErrAlreadyUpgraded {
 			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
@@ -604,10 +581,12 @@ func updateSoftware(h *host.Host, env *middleware.Env) error {
 		return err
 	}
 
-	h.State = host.StateUpdating
-	if err := h.Update(env.DB); err != nil {
+	// FIXME: Update the state before sending request to freighter to
+	// ensure there is no other concurrent operations going on.
+	if err := h.UpdateState(env.DB, host.StateUpdating); err != nil {
 		return err
 	}
+
 	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 
 	return nil
