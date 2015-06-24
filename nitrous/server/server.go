@@ -134,7 +134,7 @@ func (s *Server) namespace(ns string, f func()) {
 	nsStack = nsStack[:len(nsStack)-1]
 }
 
-func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func pprofHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v0")
 	pprof.Index(w, r)
 	return nil
@@ -147,13 +147,13 @@ func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	env.Data = map[string]interface{}{
 		"num_topics":    psInfo.Topics,
 		"num_consumers": psInfo.Consumers,
-		"num_fds":       s.getNumFds(),
+		"num_fds":       getNumFds(),
 		"num_goroutine": runtime.NumGoroutine(),
 	}
 	return nil
 }
 
-func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func stackHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// default trace 100KiB of stack traces
 	bufferSize := 102400
 
@@ -174,7 +174,7 @@ func (s *Server) stackHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	return nil
 }
 
-func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
+func sleepHandler(w http.ResponseWriter, r *http.Request) {
 	var duration int
 	if d := r.FormValue("duration"); d != "" {
 		duration, _ = strconv.Atoi(d)
@@ -184,15 +184,10 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
-func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
-	route = strings.Join(nsStack, "") + route
-	h := func(w http.ResponseWriter, r *http.Request) {
-		remoteAddr := middleware.GetRemoteAddr(r)
+func (s *Server) middlewareToHandler(mw middleware.Middleware) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := uuid.Make()
-		// allow for consumption by `RespondJSON`
-		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
-		mh.Meter("requests.nitrous").Mark(1)
-		logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+		remoteAddr := middleware.GetRemoteAddr(r)
 		env := &middleware.Env{
 			Root:        s.root,
 			DB:          s.db,
@@ -202,23 +197,79 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			RemoteAddr:  remoteAddr,
 			UUID:        uuidStr,
 		}
+
+		w.Header().Set(constants.NitrousUUIDHeader, uuidStr)
+		mh.Meter("requests.nitrous").Mark(1)
+
 		if err := mw(env, w, r); err != nil {
-			s.HandleError(w, r, err)
-			return
-		}
-		routeIsJSON := env.Status != 0 && env.Data != nil
-		if respondMode == routeWritesResponse {
-			return
-		}
-		if respondMode == routeStrictJSON && !routeIsJSON {
-			s.HandleError(w, r, errors.New("Status and/or Data not set"))
-			return
-		}
-		if routeIsJSON {
-			s.RespondEncodeJSON(w, r, env.Status, env.Data)
+			HandleError(w, r, err)
 		}
 	}
-	s.router.HandleFunc(route, h).Methods(methods...)
+}
+
+func routeToMiddleware(r routeData) middleware.Middleware {
+	mw := middleware.Call("nitrous."+r.label, r.mw)
+	if r.track != "" {
+		mw = middleware.Track(r.track, mw)
+	}
+	return mw
+}
+
+func authMiddleware(label string, mw middleware.Middleware) middleware.Middleware {
+	return middleware.Auth(middleware.VerifyUserBilling(label, mw))
+}
+
+func loggerMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		logrus.Infof("uuid=%s ip=%s Request: %v %v", env.UUID, env.RemoteAddr, r.Method, r.URL.String())
+		return mw(env, w, r)
+	}
+}
+
+func strictJsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if err := mw(env, w, r); err != nil {
+			return err
+		}
+
+		if env.Status == 0 || env.Data == nil {
+			return errors.New("Status and/or Data not set")
+		}
+		RespondEncodeJSON(w, r, env.Status, env.Data)
+		return nil
+	}
+}
+
+func jsonMiddleware(mw middleware.Middleware) middleware.Middleware {
+	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+		if err := mw(env, w, r); err != nil {
+			return err
+		}
+
+		if env.Status != 0 && env.Data != nil {
+			RespondEncodeJSON(w, r, env.Status, env.Data)
+		}
+		return nil
+	}
+}
+
+func (s *Server) mwRoute(route string, mw middleware.Middleware, methods ...string) {
+	route = strings.Join(nsStack, "") + route
+	s.router.HandleFunc(route, s.middlewareToHandler(mw)).Methods(methods...)
+}
+
+func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
+	switch respondMode {
+	case routeJSON:
+		mw = jsonMiddleware(mw)
+	case routeStrictJSON:
+		mw = strictJsonMiddleware(mw)
+	case routeWritesResponse:
+		// noop
+	}
+	mw = loggerMiddleware(mw)
+
+	s.mwRoute(route, mw, methods...)
 }
 
 func (s *Server) static(prefix string, dir string) {
@@ -235,7 +286,7 @@ func (s *Server) static(prefix string, dir string) {
 		}
 		_, err := os.Stat(path.Join(s.root, dir, rpath))
 		if os.IsNotExist(err) {
-			s.RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
+			RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
 			return
 		}
 		logrus.Infof("Static asset: %v", r.URL.Path)
@@ -246,20 +297,20 @@ func (s *Server) static(prefix string, dir string) {
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
-func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
+func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		uuid := w.Header().Get(constants.NitrousUUIDHeader)
-		e = s.serverError(err, uuid).(*httperror.Error)
+		e = serverError(err, uuid).(*httperror.Error)
 	}
 	j, err := e.JSON()
 	if err != nil {
 		j = []byte(`{"error":"internal_server_error"}`)
 	}
-	s.RespondJSON(w, r, e.Code, j)
+	RespondJSON(w, r, e.Code, j)
 }
 
-func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
+func RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
@@ -277,19 +328,19 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 	logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
 }
 
-func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
+func RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
 	j, err := json.Marshal(data)
 	if err != nil {
-		s.HandleError(w, r, err)
+		HandleError(w, r, err)
 		return
 	}
-	s.RespondJSON(w, r, status, j)
+	RespondJSON(w, r, status, j)
 }
 
 // This is called when the error is not a *httperror.Error*, i.e. there's
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
-func (s *Server) serverError(err error, uuid string) error {
+func serverError(err error, uuid string) error {
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
@@ -297,7 +348,7 @@ func (s *Server) serverError(err error, uuid string) error {
 	return e
 }
 
-func (s *Server) getNumFds() int {
+func getNumFds() int {
 	pid := os.Getpid()
 	fds, err := ioutil.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
 	if err != nil {

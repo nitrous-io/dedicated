@@ -26,6 +26,10 @@ type message struct {
 var errNotFound = httperror.New(http.StatusNotFound, "not_found", "not found")
 
 func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if r.FormValue("nolog") == "" {
+		logrus.Infof("uuid=%s ip=%s Request: %v %v", env.UUID, env.RemoteAddr, r.Method, r.URL.String())
+	}
+
 	hostSlug := mux.Vars(r)["slug"]
 	h, err := host.FindByIdentifier(env.DB, hostSlug)
 	if err != nil {

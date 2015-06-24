@@ -57,20 +57,12 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 // if `track` for a route is set then we setup the track middleware for it
 func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
 	for path, r := range routes {
-		s.route(path, routeStrictJSON, chainMiddleware(auth, r), method)
+		mw := routeToMiddleware(r)
+		if auth {
+			mw = authMiddleware(r.label, mw)
+		}
+		s.route(path, routeStrictJSON, mw, method)
 	}
-}
-
-func chainMiddleware(auth bool, r routeData) mw.Middleware {
-	final := mw.Call("nitrous."+r.label, r.mw)
-	if r.track != "" {
-		final = mw.Track(r.track, final)
-	}
-	if auth {
-		final = mw.VerifyUserBilling(r.label, final)
-		final = mw.Auth(final)
-	}
-	return final
 }
 
 func (s *Server) drawRoutes() {
@@ -78,12 +70,18 @@ func (s *Server) drawRoutes() {
 	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), "GET")
 
 	if envvars.Debug == "true" {
-		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
+		s.router.HandleFunc("/sleep", sleepHandler).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {
 		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
-		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
+		s.route("/oauth/authorize", routeJSON, routeToMiddleware(r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
+
+		// route with no logging
+		s.mwRoute("/hosts/{slug}/freighterd_hook",
+			strictJsonMiddleware(routeToMiddleware(
+				r("freighterd.Webhook", freighterd.Webhook))),
+			"POST")
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
@@ -95,15 +93,14 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
 			},
 			"POST": {
-				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
-				"/users/email_signup":           r("users.EmailCapture", users.EmailCapture),
-				"/users":                        r("users.Create", users.Create),
-				"/user/confirm":                 r("users.Confirm", users.Confirm),
-				"/user/resend_confirm":          r("users.ResendConfirmation", users.ResendConfirmation),
-				"/send_reset_password_token":    r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
-				"/reset_password":               r("passwords.ResetPassword", passwords.ResetPassword),
-				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
-				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
+				"/oauth/token":               r("oauth.IssueToken", oauth.IssueToken),
+				"/users/email_signup":        r("users.EmailCapture", users.EmailCapture),
+				"/users":                     r("users.Create", users.Create),
+				"/user/confirm":              r("users.Confirm", users.Confirm),
+				"/user/resend_confirm":       r("users.ResendConfirmation", users.ResendConfirmation),
+				"/send_reset_password_token": r("passwords.SendResetPasswordToken", passwords.SendResetPasswordToken),
+				"/reset_password":            r("passwords.ResetPassword", passwords.ResetPassword),
+				"/stripe_hook":               r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
 			},
 		}
 
@@ -243,8 +240,8 @@ func (s *Server) drawRoutes() {
 
 		trustRoutes := map[string]map[string]routeData{
 			"GET": {
-				"/debug/stack":           r("s.pprofHandler", s.stackHandler),
-				"/debug/pprof/{path:.*}": r("s.pprofHandler", s.pprofHandler),
+				"/debug/stack":           r("stackHandler", stackHandler),
+				"/debug/pprof/{path:.*}": r("pprofHandler", pprofHandler),
 			},
 		}
 

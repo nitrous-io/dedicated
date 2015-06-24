@@ -199,7 +199,7 @@ func (s *Server) Router() *mux.Router {
 	return s.router
 }
 
-func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
+func (s *Server) makeUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := r.Header.Get(NitrousUUIDHeader)
 		if uuidStr == "" {
@@ -208,10 +208,24 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 		}
 		// so that is available in s.respond()
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
-		logrus.Infof("uuid=%s Request: %v %v", uuidStr, r.Method, r.URL.String())
+
 		handlerFunc(w, r)
-		logrus.Infof("uuid=%s Request: done", uuidStr)
 	}
+}
+
+func (s *Server) makeLoggerHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uuidStr := r.Header.Get(NitrousUUIDHeader)
+		url := r.URL.String()
+
+		logrus.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, url)
+		handlerFunc(w, r)
+		logrus.Infof("uuid=%s Request: done\n", uuidStr)
+	}
+}
+
+func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return s.makeUUIDHandler(s.makeLoggerHandler(handlerFunc))
 }
 
 func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...string) {
@@ -236,6 +250,10 @@ func (s *Server) secretRoute(route string, handler http.HandlerFunc, methods ...
 // no authentication at all, or handled within the route itself)
 func (s *Server) route(route string, handler http.HandlerFunc, methods ...string) {
 	s.router.HandleFunc(route, s.makeLogUUIDHandler(handler)).Methods(methods...)
+}
+
+func (s *Server) noLogRoute(route string, handler http.HandlerFunc, methods ...string) {
+	s.router.HandleFunc(route, s.makeUUIDHandler(handler)).Methods(methods...)
 }
 
 // given:
