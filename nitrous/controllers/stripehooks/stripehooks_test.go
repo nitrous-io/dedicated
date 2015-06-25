@@ -223,7 +223,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				Expect(evs).To(Equal([]string{"Customer Card Declined 2"}))
 			})
 
-			It("should publish a EventInvoiceUpdated to the user", func(done Done) {
+			It("should publish a EventInvoiceUpdated to the user", func() {
 				hs1, err := test.CreateHostStack(db, &test.HostStack{
 					H: &host.Host{
 						Slug:        "my-host-1",
@@ -256,27 +256,16 @@ var _ = Describe("controllers/stripehooks", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var e *controllers.Event
-				timeout := time.After(1000 * time.Millisecond)
-				for {
-					if e != nil && e.Name == controllers.EventInvoiceUpdated {
-						break
-					}
-					select {
-					case ev := <-ch:
-						e = ev.(*controllers.Event)
-					case <-timeout:
-						Fail("expected EventInvoiceUpdated but timed out")
-					}
-				}
+				evt, err := test.WaitForEvent(ch, controllers.EventInvoiceUpdated, 50*time.Millisecond)
+				Expect(err).To(BeNil())
 
-				evtData, _ := e.Data.(map[string]interface{})
+				evtData, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
 				inv, ok := evtData["invoice"].(*serializers.Invoice)
 				Expect(ok).To(BeTrue())
 				Expect(inv.ID).To(Equal(inv.ID))
 				Expect(inv.Items[0].ID).To(Equal(itm1.ID))
 				Expect(inv.Items[0].Description).To(ContainSubstring(h1.Slug))
-				close(done)
 			})
 
 			Describe("with subscriptions", func() {
