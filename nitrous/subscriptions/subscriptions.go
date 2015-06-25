@@ -33,9 +33,9 @@ type Provider interface {
 	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error)
 	Cancel(d *db.Database, sub *subscription.Subscription) (err error)
 
-	HandleSubscriptionUpdated(d *db.Database, subID string) error
-	HandleSubscriptionDeleted(d *db.Database, subID string) error
-	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error
+	HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error)
+	HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error)
+	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error)
 	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
 }
 
@@ -186,9 +186,11 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 	)
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) error {
-	return d.WithTransaction(func(tx *sqlx.Tx) error {
-		sub, err := findForUpdateByStripeID(tx, subID)
+func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error) {
+	var sub *subscription.Subscription
+	err := d.WithTransaction(func(tx *sqlx.Tx) error {
+		var err error
+		sub, err = findForUpdateByStripeID(tx, subID)
 		if err != nil {
 			return err
 		}
@@ -226,9 +228,15 @@ func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID s
 		}
 		return nstmt.QueryRowx(sub).StructScan(sub)
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return sub, nil
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) error {
+func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error) {
 	var sub *subscription.Subscription
 	err := d.WithTransaction(func(tx *sqlx.Tx) error {
 		var err error
@@ -251,24 +259,29 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return s.stopHosts(d, sub)
+	if err := s.stopHosts(d, sub); err != nil {
+		return nil, err
+	}
+
+	return sub, nil
 }
 
-func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error {
+func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
 	_, err := invoice.FindByStripeID(d, invID)
 	if err != sql.ErrNoRows {
-		return ErrInvoiceAlreadyCreated
+		return nil, ErrInvoiceAlreadyCreated
 	}
 
 	sInv, err := stripeinvoice.Get(invID, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return d.WithTransaction(func(tx *sqlx.Tx) error {
+	var inv *invoice.Invoice
+	err = d.WithTransaction(func(tx *sqlx.Tx) error {
 		sub, err := findForUpdateByStripeID(tx, sInv.Sub)
 		if err != nil {
 			return err
@@ -280,7 +293,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 
 		pStart := time.Unix(sInv.Start, 0)
 		pEnd := time.Unix(sInv.End, 0)
-		inv := &invoice.Invoice{
+		inv = &invoice.Invoice{
 			SubscriptionID: sql.NullInt64{sub.ID, true},
 			TotalCharge:    sInv.Total,
 			PeriodStart:    &pStart,
@@ -373,6 +386,12 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return inv, nil
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {

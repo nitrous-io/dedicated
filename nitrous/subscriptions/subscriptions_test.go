@@ -412,8 +412,9 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if it could not locate the subscription", func() {
-			err := subProvider.HandleSubscriptionUpdated(db, "not-exist")
+			sub, err := subProvider.HandleSubscriptionUpdated(db, "not-exist")
 			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(sub).To(BeNil())
 		})
 
 		It("should return an error if it could not communicate with Stripe", func() {
@@ -428,8 +429,9 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
+			sub, err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
+			Expect(sub).To(BeNil())
 		})
 
 		It("should update the state and period dates", func() {
@@ -444,7 +446,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
+			sub, err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -455,6 +457,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418422, 0)))
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010429, 0)))
 			Expect(s.CancelPending).To(BeFalse())
+			Expect(sub).To(Equal(s))
 		})
 
 		It("should null out the period start & end if it is null", func() {
@@ -469,7 +472,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
+			sub, err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -480,6 +483,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.CurrentPeriodStart.Valid).To(BeFalse())
 			Expect(s.CurrentPeriodEnd.Valid).To(BeFalse())
 			Expect(s.CancelPending).To(BeFalse())
+			Expect(sub).To(Equal(s))
 		})
 
 		It("should set the CancelPending if a Cancel is expected", func() {
@@ -495,7 +499,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
-			err := subProvider.HandleSubscriptionUpdated(db, "abc1")
+			sub, err := subProvider.HandleSubscriptionUpdated(db, "abc1")
 			Expect(err).To(BeNil())
 
 			s, err := findByID(db, sub.ID)
@@ -507,6 +511,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
 			Expect(s.CancelPending).To(BeTrue())
 			Expect(s.CancelledAt.Valid).To(BeFalse())
+			Expect(sub).To(Equal(s))
 		})
 	})
 
@@ -526,12 +531,13 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if it could not locate the subscription", func() {
-			err := subProvider.HandleSubscriptionDeleted(db, "not-exist")
+			sub, err := subProvider.HandleSubscriptionDeleted(db, "not-exist")
 			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(sub).To(BeNil())
 		})
 
 		It("should update the state of the subscription", func() {
-			err := subProvider.HandleSubscriptionDeleted(db, "abc1")
+			s, err := subProvider.HandleSubscriptionDeleted(db, "abc1")
 			Expect(err).To(BeNil())
 
 			sub := &subscription.Subscription{}
@@ -540,6 +546,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub.CancelPending).To(BeFalse())
 			Expect(sub.CancelledAt.Time).To(BeTemporally("~", time.Now(), time.Second))
 			Expect(sub.State).To(Equal(subscription.StateDeleted))
+			Expect(sub).To(Equal(s))
 		})
 
 		It("should terminate the host assigned to the subscription", func() {
@@ -567,7 +574,7 @@ var _ = Describe("subscriptions", func() {
 				return e
 			}
 
-			err = subProvider.HandleSubscriptionDeleted(db, "abc1")
+			s, err := subProvider.HandleSubscriptionDeleted(db, "abc1")
 			Expect(err).To(BeNil())
 			Expect(termCalled).To(BeTrue())
 
@@ -577,6 +584,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub.CancelPending).To(BeFalse())
 			Expect(sub.CancelledAt.Time).To(BeTemporally("~", time.Now(), time.Second))
 			Expect(sub.State).To(Equal(subscription.StateDeleted))
+			Expect(sub).To(Equal(s))
 		})
 	})
 
@@ -599,8 +607,9 @@ var _ = Describe("subscriptions", func() {
 			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end, stripe_id) VALUES ($1, 'paid', now(), now(), 'inv1')", u.ID)
 			Expect(err).To(BeNil())
 
-			err = subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			inv, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(Equal(subscriptions.ErrInvoiceAlreadyCreated))
+			Expect(inv).To(BeNil())
 		})
 
 		It("should return an error if it cannot fetch the invoice", func() {
@@ -611,8 +620,9 @@ var _ = Describe("subscriptions", func() {
 				  "object": "invoice",
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			inv, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(Equal(fakeStripe.Errors[0]))
+			Expect(inv).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			r1 := fakeStripe.ReceivedRequests[0]
@@ -667,7 +677,7 @@ var _ = Describe("subscriptions", func() {
           }
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -680,6 +690,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(inv.UserID).To(Equal(u.ID))
 			Expect(inv.SubscriptionID.Int64).To(Equal(sub.ID))
 			Expect(inv.TotalCharge).To(Equal(int64(1499)))
+			Expect(inv).To(Equal(i))
 
 			items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 			Expect(err).To(BeNil())
@@ -738,11 +749,12 @@ var _ = Describe("subscriptions", func() {
           }
 				}`,
 			}
-			err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			inv, err := invoice.FindByStripeID(db, "inv1")
 			Expect(err).To(BeNil())
+			Expect(inv).To(Equal(i))
 
 			items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 			Expect(err).To(BeNil())
@@ -800,7 +812,7 @@ var _ = Describe("subscriptions", func() {
           "amount": -100
         }`,
 			}
-			err = subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
@@ -813,6 +825,7 @@ var _ = Describe("subscriptions", func() {
 			inv, err := invoice.FindByStripeID(db, "inv1")
 			Expect(err).To(BeNil())
 			Expect(inv.TotalCharge).To(Equal(int64(1399)))
+			Expect(inv).To(Equal(i))
 
 			items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 			Expect(err).To(BeNil())
