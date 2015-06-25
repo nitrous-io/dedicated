@@ -351,13 +351,13 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 }
 
 func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	config := &freighterclient.ContainerConfig{}
 	hv, err := hostVolumes(env.DB, h)
 	if err != nil {
 		return err
 	}
 	r.ParseForm()
-	config, err := prepareConfig(r.PostForm, hv)
-	if err != nil {
+	if err := prepareConfig(config, r.PostForm, hv); err != nil {
 		return err
 	}
 
@@ -637,21 +637,21 @@ func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventN
 	}
 }
 
-func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freighterclient.ContainerConfig, error) {
-	c := &freighterclient.ContainerConfig{}
-	c.Env = readParam(form, "env[]")
+// prepareConfig accepts a ContainerConfig and modifies it with user-specified settings
+func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
+	c.Env = append(c.Env, readParam(form, "env[]")...)
 	vols := readParam(form, "volume[]")
 	for _, v := range volumeSlugs(vols) {
 		if _, ok := hv[v]; !ok {
-			return nil, errVolumeNotFound
+			return errVolumeNotFound
 		}
 	}
 	c.Mounts = vols
-	c.PortBindings = readParam(form, "port[]")
+	c.PortBindings = append(c.PortBindings, readParam(form, "port[]")...)
 	if cmd := form.Get("cmd"); cmd != "" {
 		args, err := shellwords.Parse(cmd)
 		if err != nil {
-			return nil, errInvalidCommand
+			return errInvalidCommand
 		}
 		c.Cmd = args
 	}
@@ -661,7 +661,7 @@ func prepareConfig(form url.Values, hv map[string]*volume.Volume) (*freightercli
 	if pub, err := strconv.ParseBool(form.Get("publish_all")); err == nil {
 		c.PublishAll = &pub
 	}
-	return c, nil
+	return nil
 }
 
 func readParam(form url.Values, name string) []string {
