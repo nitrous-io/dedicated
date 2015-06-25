@@ -43,7 +43,7 @@ App.ConfirmEmailController = Em.Controller.extend
       cache: false
       contentType: false
     )).then (json) =>
-      App.set 'token', json.access_token
+      App.setToken(json.access_token)
       @set 'confirming', false
       App.snackbar.post 'Your email has been confirmed'
       Mp.track Mp.EventUserConfirmedEmail

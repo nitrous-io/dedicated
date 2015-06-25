@@ -2,7 +2,7 @@ App.ForgotPasswordRoute = Em.Route.extend
   activate: ->
     App.set 'title', 'Forgot Password'
     App.set 'user', null
-    App.set 'token', null
+    App.clearToken()
 
   renderTemplate: ->
     @_super()

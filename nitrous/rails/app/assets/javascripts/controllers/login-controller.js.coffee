@@ -16,7 +16,7 @@ App.LoginController = Em.Controller.extend
     @set 'loggingIn', true
     @set 'error', null
     App.authenticate(login, password).then((token) =>
-      App.set 'token', token
+      App.setToken(token)
       Mp.track Mp.EventUserLoggedIn
       @transitionToRoute 'home.index'
     , (err) =>
