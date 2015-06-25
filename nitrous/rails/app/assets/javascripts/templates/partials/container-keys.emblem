@@ -30,7 +30,7 @@
                       i.spinner
                       | Adding to GitHub...
                   else
-                    button.ui.btn click='addToGithub key' disabled={saving} Add to GitHub
+                    button.ui.btn click='addToGitHub key' disabled={saving} Add to GitHub
 
       else
         p.hint-text
