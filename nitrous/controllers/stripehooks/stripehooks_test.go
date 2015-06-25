@@ -334,21 +334,10 @@ var _ = Describe("controllers/stripehooks", func() {
 					Expect(fsub.HandleSubscriptionUpdatedCalled).To(BeTrue())
 					Expect(fsub.HandleSubscriptionUpdatedSubID).To(Equal("sub_1"))
 
-					var e *controllers.Event
-					timeout := time.After(1000 * time.Millisecond)
-					for {
-						if e != nil && e.Name == controllers.EventSubscriptionUpdated {
-							break
-						}
-						select {
-						case ev := <-ch:
-							e = ev.(*controllers.Event)
-						case <-timeout:
-							Fail("expected EventSubscriptionUpdated but timed out")
-						}
-					}
+					evt, err := test.WaitForEvent(ch, controllers.EventSubscriptionUpdated, 250*time.Millisecond)
+					Expect(err).To(BeNil())
 
-					evtData, _ := e.Data.(map[string]interface{})
+					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["subscription"].(*serializers.Subscription)
 					Expect(ok).To(BeTrue())
 					Expect(s.ID).To(Equal(sub.ID))
@@ -383,21 +372,10 @@ var _ = Describe("controllers/stripehooks", func() {
 					Expect(fsub.HandleSubscriptionUpdatedCalled).To(BeTrue())
 					Expect(fsub.HandleSubscriptionUpdatedSubID).To(Equal("sub_1"))
 
-					var e *controllers.Event
-					timeout := time.After(1000 * time.Millisecond)
-					for {
-						if e != nil && e.Name == controllers.EventSubscriptionUpdated {
-							break
-						}
-						select {
-						case ev := <-ch:
-							e = ev.(*controllers.Event)
-						case <-timeout:
-							Fail("expected EventSubscriptionUpdated but timed out")
-						}
-					}
+					evt, err := test.WaitForEvent(ch, controllers.EventSubscriptionUpdated, 250*time.Millisecond)
+					Expect(err).To(BeNil())
 
-					evtData, _ := e.Data.(map[string]interface{})
+					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["subscription"].(*serializers.Subscription)
 					Expect(ok).To(BeTrue())
 					Expect(s.ID).To(Equal(sub.ID))
