@@ -18,7 +18,7 @@ App.ContainerKeysController = Lib.RecordListController.extend
     add: ->
       @transitionToRoute 'container.keys-new'
 
-    addToGithub: ->
+    addToGitHub: ->
       @set 'saving', true
       @get('model').ajax('POST', 'container_keys/github').then(->
         App.snackbar.post("Key was successfully added to GitHub.")
