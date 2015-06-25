@@ -257,8 +257,7 @@ var _ = Describe("CreateContainer", func() {
 				"privileged": true,
 				"publish_all": false,
 				"ports": ["public::2341", "public::8931"],
-				"env": ["SHELL=powershell"],
-				"volumes": ["shared:/tmp/shared", "database:/var/lib/pg"]
+				"env": ["SHELL=powershell"]
 			}`,
 			Type: template.TypeStack,
 		}
@@ -272,8 +271,8 @@ var _ = Describe("CreateContainer", func() {
 		Expect(mockClient.CreateCalled).To(Equal(1))
 		Expect(mockClient.ReceivedImage).To(Equal("rails:4.2"))
 		Expect(mockClient.ReceivedConfig.Image).To(Equal("rails:4.2"))
-		Expect(mockClient.ReceivedConfig.PortBindings).To(Equal([]string{"3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211", "public::2341", "public::8931"}))
-		Expect(mockClient.ReceivedConfig.Env).To(Equal([]string{"LANG=C", "NODE=nope", "SHELL=powershell"}))
+		Expect(mockClient.ReceivedConfig.PortBindings).To(ConsistOf([]string{"3000:8080", "0.0.0.0::4552", "0.0.0.0:8081:11211", "public::2341", "public::8931"}))
+		Expect(mockClient.ReceivedConfig.Env).To(ConsistOf([]string{"LANG=C", "NODE=nope", "SHELL=powershell"}))
 		Expect(*mockClient.ReceivedConfig.PublishAll).To(BeFalse())
 		Expect(*mockClient.ReceivedConfig.Privileged).To(BeTrue())
 
@@ -283,6 +282,32 @@ var _ = Describe("CreateContainer", func() {
 		c := cntrs[0]
 
 		expectSerializedContainer(res.Container, c)
+	})
+
+	It("should override template config with user-requested settings", func() {
+		t1 := &template.Template{
+			Slug:        "my-template",
+			Name:        sql.NullString{"Ruby on Rails", true},
+			Description: sql.NullString{"A Rails stack template", true},
+			Image:       "rails:4.2",
+			Config: `{
+				"privileged": true,
+				"publish_all": false
+			}`,
+			Type: template.TypeStack,
+		}
+		err := t1.Insert(db)
+		Expect(err).To(BeNil())
+
+		params.Set("template", "my-template")
+		params.Set("privileged", "false")
+		params.Set("publish_all", "true")
+		_, err = containers.CreateContainer(h, params, env)
+		Expect(err).To(BeNil())
+
+		Expect(mockClient.CreateCalled).To(Equal(1))
+		Expect(*mockClient.ReceivedConfig.PublishAll).To(BeTrue())
+		Expect(*mockClient.ReceivedConfig.Privileged).To(BeFalse())
 	})
 
 	Context("when the Freighter client returns an error", func() {

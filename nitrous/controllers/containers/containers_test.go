@@ -3040,9 +3040,10 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		getConfs := func() *freighterclient.ContainerConfig {
-			fcc, err := containers.PrepareConfig(form, hv)
+			config := &freighterclient.ContainerConfig{}
+			err := containers.PrepareConfig(config, form, hv)
 			Expect(err).To(BeNil())
-			return fcc
+			return config
 		}
 
 		It("is empty when nothing relevant is provided", func() {
@@ -3075,9 +3076,9 @@ var _ = Describe("controllers/containers", func() {
 
 			It("returns error if host volume requested is absent", func() {
 				delete(hv, "backups")
-				fcc, err := containers.PrepareConfig(form, hv)
+				config := &freighterclient.ContainerConfig{}
+				err := containers.PrepareConfig(config, form, hv)
 				Expect(err).To(Equal(containers.ErrVolumeNotFound))
-				Expect(fcc).To(BeNil())
 			})
 		})
 
@@ -3136,13 +3137,14 @@ var _ = Describe("controllers/containers", func() {
 				c := c2
 				It(fmt.Sprintf("handles input: %s", c.input), func() {
 					form.Add("cmd", c.input)
-					fcc, err := containers.PrepareConfig(form, hv)
+					config := &freighterclient.ContainerConfig{}
+					err := containers.PrepareConfig(config, form, hv)
 					if c.errMsg != "" {
 						Expect(err).NotTo(BeNil())
 						Expect(err.Error()).To(ContainSubstring(c.errMsg))
 					} else {
 						Expect(err).To(BeNil())
-						Expect(fcc.Cmd).To(Equal(c.expected))
+						Expect(config.Cmd).To(Equal(c.expected))
 					}
 				})
 			}
