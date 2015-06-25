@@ -12,6 +12,7 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   attempted: attr('boolean', as: 'attempted')
   totalCredit: attr('number', as: 'total_credit')
   creditAvailable: attr('number', as: 'available_credit')
+  subscription: attr('boolean')
 
   hasCredit: Ember.computed.gt('totalCredit', 0)
 
@@ -69,6 +70,11 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     return false if @get('successfulCharge') || @get('deferred')
     @get('failed') || @get('attempted')
   ).property 'failed', 'successfulCharge', 'attempted'
+
+  showSubscriptionEndHeading: (->
+    return false unless @get 'subscription'
+    App.get('subscriptions.length') <= 1
+  ).property 'App.subscriptions.@each', 'subscription'
 
   pay: ->
     new Em.RSVP.Promise (resolve, reject) =>

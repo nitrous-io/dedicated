@@ -135,9 +135,12 @@ if App.billingUsage.groupedItems.length
       .invoice-item
         .heading
           h4
-            = simpledate invoice.periodStart
-            '  -
-            = simpledate invoice.periodEnd
+            if invoice.showSubscriptionEndHeading
+              = monthyear invoice.periodEnd
+            else
+              = simpledate invoice.periodStart
+              '  -
+              = simpledate invoice.periodEnd
           if invoice.showInvoiceState
             .payment-status class={invoice.unpaid:unpaid}
               if invoice.awaitingUpdate

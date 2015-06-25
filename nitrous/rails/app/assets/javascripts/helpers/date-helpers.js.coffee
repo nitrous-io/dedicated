@@ -31,6 +31,12 @@ Em.Handlebars.helper 'daymonth', (date) ->
     mName = monthNames[mnt]
     "#{date.getDate()} #{mName}"
 
+Em.Handlebars.helper 'monthyear', (date) ->
+  if date instanceof Date
+    mnt = date.getMonth()
+    mName = monthNames[mnt]
+    "#{mName} #{date.getFullYear()}"
+
 Em.Handlebars.helper 'basicdatetime', (date) ->
   unless date instanceof Date
     return
