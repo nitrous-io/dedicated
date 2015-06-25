@@ -132,6 +132,14 @@ window.Nitrous = Em.Application.extend Em.Evented,
       "Nitrous"
   ).observes 'title'
 
+  didChangeToken: (->
+    token = @get('token')
+    storedToken = window.localStorage.getItem('token')
+    if token != storedToken
+      console.warn('[DEPRECATION] App.token should not be set directly. Use App.setToken() instead.')
+      window.localStorage.setItem('token', token)
+  ).observes 'token'
+
   activateStripe: (->
     if settings = @get('settings')
       if settings.stripe_key != '' && settings.stripe_key != 'disable'
@@ -311,23 +319,23 @@ window.Nitrous = Em.Application.extend Em.Evented,
         location.href = "/"
 
   setToken: (token) ->
-    @set('token', token)
     window.localStorage.setItem('token', token)
+    @set('token', token)
 
   clearToken: ->
-    @set('token', null)
     window.localStorage.removeItem('token')
+    @set('token', null)
 
     if @get('adminToken')
       @clearAdminToken()
 
   setAdminToken: (token) ->
-    @set('adminToken', token)
     window.localStorage.setItem('adminToken', token)
+    @set('adminToken', token)
 
   clearAdminToken: ->
-    @set('adminToken', null)
     window.localStorage.removeItem('adminToken')
+    @set('adminToken', null)
 
 window.App = Nitrous.create
   token: window.localStorage.getItem('token')
