@@ -4,24 +4,32 @@
       = name
     .price
       if totalPriceInDollars
-        .monthly
-          ' Up to $
-          strong
-            = totalPriceInDollars
-          '
-          ' /mo.
-          sup ?
-        .hourly
-          strong
-            = hourlyPriceInCents
-          ' ¢ /hr.
-          br
-          small
-            ' + $
+        if subscription
+          .subscription
+            ' $
             strong
-              = basePriceInDollars
+              = totalPriceInDollars
             '
-            ' /mo. for storage
+            ' /mo.
+        else
+          .monthly
+            ' Up to $
+            strong
+              = totalPriceInDollars
+            '
+            ' /mo.
+            sup ?
+          .hourly
+            strong
+              = hourlyPriceInCents
+            ' ¢ /hr.
+            br
+            small
+              ' + $
+              strong
+                = basePriceInDollars
+              '
+              ' /mo. for storage
       else
         .free
           strong
