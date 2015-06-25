@@ -27,4 +27,4 @@ App.RESTAdapter = SM.RESTAdapter.extend
     ajax
 
   logout: ->
-    App.set 'token', null
+    App.clearToken()

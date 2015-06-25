@@ -7,7 +7,7 @@ App.LoginRoute = Em.Route.extend
   activate: ->
     App.set 'title', 'Log In'
     App.set 'user', null
-    App.set 'token', null
+    App.clearToken()
 
   renderTemplate: ->
     @_super()

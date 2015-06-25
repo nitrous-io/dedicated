@@ -81,15 +81,6 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, errNameRequired
 	}
 
-	hv, err := hostVolumes(tx, h)
-	if err != nil {
-		return nil, err
-	}
-	config, err := prepareConfig(options, hv)
-	if err != nil {
-		return nil, err
-	}
-
 	var containerSequence int
 	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
 	if err != nil {
@@ -97,7 +88,6 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, err
 	}
 	slug := slugbuilder.BuildWithNumber(name, containerSequence)
-
 	cn := &container.Container{
 		UserID: env.User.ID,
 		HostID: h.ID,
@@ -105,7 +95,8 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		Name:   sql.NullString{name, true},
 		Image:  imageSlug,
 	}
-
+	// populate config with template-predefined settings
+	config := &freighterclient.ContainerConfig{}
 	if templateSlug != "" {
 		tmpl, err := template.Find(env.DB, templateSlug)
 		if err != nil {
@@ -130,6 +121,14 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		}
 		pubAll := cfg.PublishAll
 		config.PublishAll = &pubAll
+	}
+	// populate config with user-predefined settings, override template settings if necessary
+	hv, err := hostVolumes(tx, h)
+	if err != nil {
+		return nil, err
+	}
+	if err := prepareConfig(config, options, hv); err != nil {
+		return nil, err
 	}
 
 	if err := cn.Validate(); err != nil {
