@@ -32,6 +32,14 @@ import (
 
 const transitionLockTime = 1 * time.Minute
 
+type WithContainerAndHostOpt int
+
+// WithContainerAndHost options
+const (
+	AllowCollab WithContainerAndHostOpt = iota
+	TouchHost
+)
+
 var (
 	ignoredImageNames = regexp.MustCompile(`-reconfig-\d{19}\z`) // reconfig names include Unix epoch (nano) stamp
 	bindForMessage    = regexp.MustCompile(`Bind\s+for\s+0.0.0.0:(\d+)`)
@@ -58,15 +66,15 @@ var (
 )
 
 var (
-	Create  = middleware.HostViaForm("host", requiresRunningHost(create))
-	Commit  = WithContainerAndHost(commit, false)
-	Config  = WithContainerAndHost(config, true)
-	Show    = WithContainerAndHost(show, true)
-	Start   = WithContainerAndHost(start, true)
-	Stop    = WithContainerAndHost(stop, true)
-	Restart = WithContainerAndHost(restart, true)
-	Destroy = WithContainerAndHost(destroy, false)
-	Token   = WithContainerAndHost(token, true)
+	Create  = middleware.HostViaForm("host", middleware.TouchHost(requiresRunningHost(create)))
+	Commit  = WithContainerAndHost(commit, TouchHost)
+	Config  = WithContainerAndHost(config, AllowCollab, TouchHost)
+	Show    = WithContainerAndHost(show, AllowCollab)
+	Start   = WithContainerAndHost(start, AllowCollab, TouchHost)
+	Stop    = WithContainerAndHost(stop, AllowCollab, TouchHost)
+	Restart = WithContainerAndHost(restart, AllowCollab, TouchHost)
+	Destroy = WithContainerAndHost(destroy, TouchHost)
+	Token   = WithContainerAndHost(token, AllowCollab)
 )
 
 var (
@@ -196,11 +204,12 @@ func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*f
 	return liveContainers, nil
 }
 
-func create(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func create(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err := r.ParseForm()
 	if err != nil {
 		return err
 	}
+
 	res, err := PerformCreateFn(h, r.Form, env)
 	if err != nil {
 		return err
@@ -357,6 +366,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 	r.ParseForm()
+
 	if err := prepareConfig(config, r.PostForm, hv); err != nil {
 		return err
 	}
@@ -498,7 +508,16 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return nil
 }
 
-func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Middleware {
+func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) middleware.Middleware {
+	allowCollab, touchHost := false, false
+	for _, opt := range opts {
+		switch opt {
+		case AllowCollab:
+			allowCollab = true
+		case TouchHost:
+			touchHost = true
+		}
+	}
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		db := env.DB
 		slug := mux.Vars(r)["slug"]
@@ -520,6 +539,9 @@ func WithContainerAndHost(fn containerHandler, allowCollab bool) middleware.Midd
 				return errHostNotFound
 			}
 			return err
+		}
+		if touchHost {
+			h.Touch(db)
 		}
 		return fn(cn, h, env, w, r)
 	}
@@ -547,8 +569,7 @@ func withSharedContainerAndHost(fn containerHandler, env *middleware.Env, w http
 	return fn(cn, h, env, w, r)
 }
 
-type runningHost *host.Host
-type hostFn func(h runningHost, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
+type hostFn func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 // requiresRunningHost is a wrapper which guarantees the action is called for a running host
 func requiresRunningHost(fn hostFn) func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

@@ -472,6 +472,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 	h.Free = opts.Plan.IsFree()
+	h.AutoShutdown = opts.Plan.AutoShutdown
 	h.Preprovisioned = false
 	if err = h.UpdateWithPrice(p.db); err != nil {
 		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
@@ -660,8 +661,8 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		return nil, err
 	}
 
-	_, err = p.db.Exec(`UPDATE hosts SET hourly_price=$1, free = $2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
-		opts.Plan.HourlyPrice(), opts.Plan.IsFree(), h.ID, opts.Plan.ID)
+	_, err = p.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, auto_shutdown=$3, updated_at=now() WHERE id=$4 AND plan_id=$5 RETURNING *;`,
+		opts.Plan.HourlyPrice(), opts.Plan.IsFree(), opts.Plan.AutoShutdown, h.ID, opts.Plan.ID)
 	if err != nil {
 		logrus.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
 		return nil, err

@@ -473,11 +473,6 @@ var _ = Describe("models/user", func() {
 				Expect(bp.CreatedAt).NotTo(BeNil())
 				Expect(bp.UpdatedAt).NotTo(BeNil())
 			})
-
-			It("sets the default max_running_time & refresh_period", func() {
-				Expect(u.MaxRunningTime).To(Equal(sql.NullInt64{14400, true}))
-				Expect(u.RefreshPeriod).To(Equal(sql.NullInt64{86400, true}))
-			})
 		})
 
 		Context("when some error occurrs during the transaction", func() {

@@ -1348,5 +1348,33 @@ func init() {
 				ALTER TABLE plans ADD COLUMN hidden bool DEFAULT false NOT NULL;
 			`,
 		},
+		{
+			Version: "1330",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+				CREATE INDEX index_hosts_on_auto_shutdown ON hosts USING btree (auto_shutdown);
+				CREATE INDEX index_hosts_on_auto_shutdown_state_and_last_pinged_at
+				  ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
+			`,
+		},
+		{
+			Version: "1331",
+			Up: `
+				ALTER TABLE plans ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+			`,
+		},
+		// {
+		// 	Version: "1332",
+		// 	Up: `
+		// 		ALTER TABLE users DROP COLUMN max_running_time;
+		// 		ALTER TABLE users DROP COLUMN refresh_period;
+		// 	`,
+		// },
+		{
+			Version: "1323",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 1800 NOT NULL;
+			`,
+		},
 	}
 }

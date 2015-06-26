@@ -22,7 +22,6 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/announcement"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -102,9 +101,6 @@ var _ = Describe("controllers/hosts", func() {
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
 		Expect(u.ID).NotTo(BeZero())
-
-		_, err = db.Exec(`UPDATE users SET max_running_time = NULL, refresh_period = NULL WHERE id = $1;`, u.ID)
-		Expect(err).To(BeNil())
 
 		t = &token.Token{
 			UserID: u.ID,
@@ -236,26 +232,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(j.Hosts[1].State).To(Equal(host.StateRunning))
 				Expect(j.Hosts[1].Hostname).To(Equal(hostname("bar")))
 				Expect(j.Hosts[1].CreatedAt).NotTo(BeNil())
-			})
-
-			It("should include time remaining for the user", func() {
-				_, err := db.Exec(`UPDATE users SET max_running_time = 7200, refresh_period = 84600 WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE hosts SET last_running_at = now() WHERE id = $1;`, hs2.H.ID)
-				Expect(err).To(BeNil())
-
-				doRequest()
-
-				Expect(res.Code).To(Equal(http.StatusOK))
-				var j struct {
-					Hosts []*serializers.Host `json:"hosts"`
-				}
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				Expect(j.Hosts[0].TimeRemaining).To(BeNil())
-				Expect(j.Hosts[1].TimeRemaining).NotTo(BeNil())
 			})
 		})
 
@@ -1577,19 +1553,6 @@ var _ = Describe("controllers/hosts", func() {
 			tok = t
 		})
 
-		It("should not allow the host to be stopped if the user is in the free tier", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, nil)
-
-			Expect(res.Code).To(Equal(http.StatusForbidden))
-
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(Equal("users in the free tier cannot stop a host"))
-		})
-
 		It("should send the UUID headers", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
@@ -1840,19 +1803,6 @@ var _ = Describe("controllers/hosts", func() {
 				U: u,
 			})
 			Expect(err).To(BeNil())
-		})
-
-		It("should not allow the host to be restarted if the user is in the free tier", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2", billingprofile.StateFree, u.ID)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, t.Token, nil)
-
-			Expect(res.Code).To(Equal(http.StatusForbidden))
-
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(Equal("users in the free tier cannot restart a host"))
 		})
 
 		It("should send the UUID headers", func() {
@@ -2789,6 +2739,13 @@ var _ = Describe("controllers/hosts", func() {
 			test.UnstubFreighterFn()
 		})
 
+		It("updates last_pinged_at", func() {
+			doRequest()
+			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+		})
+
 		It("responds with HTTP 202 Accepted and publishes a host software updating event", func() {
 			ch := svr.Events.Subscribe(u.Topic())
 			defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -2832,6 +2789,9 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 			Expect(j.Host.ID).To(Equal(hs.H.ID))
 
+			h, err := queryHost(db, hs.H.ID)
+			Expect(err).To(BeNil())
+
 			select {
 			case <-time.After(50 * time.Millisecond):
 				Fail("Timed out waiting for host software updated event")
@@ -2839,7 +2799,7 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(msg).To(Equal(&controllers.Event{
 					Name: controllers.EventHostSoftwareUpdated,
 					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(hs.H),
+						"host": serializers.SerializeHost(h),
 					},
 				}))
 			}

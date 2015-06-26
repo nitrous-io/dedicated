@@ -68,9 +68,9 @@ func main() {
 	ticker := time.NewTicker(checkInterval)
 	for _ = range ticker.C {
 		timeStart := time.Now()
-		hosts, err := freetier.ExpiredHosts(dbConn)
+		hosts, err := freetier.IdleFreeHosts(dbConn)
 		if err != nil {
-			logrus.Fatalf("freetier.ExpiredHosts() failed with '%s'", err)
+			logrus.Fatalf("freetier.IdleFreeHosts() failed with '%s'", err)
 		}
 
 		for _, hst := range hosts {

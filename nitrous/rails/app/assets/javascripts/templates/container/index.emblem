@@ -111,12 +111,12 @@
         unless isNitrousImage
           button.ui.btn click='openLogs' Logs
           button.ui.btn click='openAttach' Attach
-      a.ui.btn.primary href=ideURL disabled=openingIDE click='openIDE'
+      a.ui.btn.primary.raised.pulsate href=ideURL disabled=openingIDE click='openIDE'
         if openingIDE
           i.spinner
           | Opening IDE...
         else
-          | IDE
+          | Open IDE
   else
     if isStopped
       .left

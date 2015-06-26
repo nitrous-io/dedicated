@@ -66,7 +66,7 @@
         a href='#'
           img.gravatar src={App.user.gravatar}
           = App.user.username
-          if App.usage
+          if App.billingProfile.free
             .free free
           .ui.dropdown-triangle
         ul.dropdown-menu.right
@@ -75,25 +75,6 @@
           li
             link-to 'billing' | Billing
           li.separator
-          if App.usage
-            li
-              span.usage
-                if App.usage.expired
-                  span
-                    i.fa.fa-exclamation-circle
-                    | Daily usage exceeded
-                  if App.usage.refreshIn
-                    span
-                      = durationInWords App.usage.refreshIn
-                      |  until reset
-                else
-                  span.left Usage left:
-                  span.right
-                    = durationInWords App.usage.remaining
-                  .progress-bar
-                    .progress-bar-inner style=App.usage.progressBarStyle
-
-            li.separator
           li
             a href='#' click='sendFeedback target="view"'
               | Send Feedback

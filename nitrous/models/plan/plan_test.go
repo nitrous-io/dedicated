@@ -306,6 +306,7 @@ var _ = Describe("models/plan", func() {
 				MostPopular:   true,
 				Disabled:      false,
 				Hidden:        true,
+				AutoShutdown:  true,
 			}
 			Expect(p.Insert(db)).To(BeNil())
 		})
@@ -327,6 +328,7 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.MostPopular).To(BeTrue())
 			Expect(p2.Disabled).To(BeFalse())
 			Expect(p2.Hidden).To(BeTrue())
+			Expect(p2.AutoShutdown).To(BeTrue())
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})

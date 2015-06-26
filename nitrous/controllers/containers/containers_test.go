@@ -127,13 +127,17 @@ var _ = Describe("controllers/containers", func() {
 			allowCollab = false
 
 			h := func(w http.ResponseWriter, r *http.Request) {
+				opts := []containers.WithContainerAndHostOpt{}
+				if allowCollab == true {
+					opts = append(opts, containers.AllowCollab)
+				}
 				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
 					Expect(h).NotTo(BeNil())
 					Expect(h.State).To(Equal(host.StateRunning))
 					handlerCalled = true
 					return nil
-				}, allowCollab)
+				}, opts...)
 				err := mw(env, w, r)
 				if err != nil {
 					svr.HandleError(w, r, err)
@@ -1185,22 +1189,7 @@ var _ = Describe("controllers/containers", func() {
 
 			receivedHost = nil
 			receivedOptions = url.Values{}
-		})
 
-		doRequest := func(token, host string, params *url.Values) {
-			if params == nil {
-				params = &url.Values{}
-			}
-			params.Set("host", host)
-			req, err := NewFormRequest("POST", "/api/v0/containers", params)
-			Expect(err).To(BeNil())
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			handler.ServeHTTP(res, req)
-		}
-
-		BeforeEach(func() {
 			previousCreateFn = containers.PerformCreateFn
 			containers.PerformCreateFn = func(h *host.Host, options url.Values, env *middleware.Env) (*containers.CreateResult, error) {
 				receivedHost = h
@@ -1217,6 +1206,19 @@ var _ = Describe("controllers/containers", func() {
 			receivedHost = nil
 			receivedOptions = nil
 		})
+
+		doRequest := func(token, host string, params *url.Values) {
+			if params == nil {
+				params = &url.Values{}
+			}
+			params.Set("host", host)
+			req, err := NewFormRequest("POST", "/api/v0/containers", params)
+			Expect(err).To(BeNil())
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			handler.ServeHTTP(res, req)
+		}
 
 		It("should return an error if the call to Create fails", func() {
 			createError = errors.New("Unable to make TCP connection")
@@ -1243,25 +1245,29 @@ var _ = Describe("controllers/containers", func() {
 			VerifyDelinquentUserResponse(res)
 		})
 
-		It("should return a serialized form of the Container", func() {
-			createResult = &containers.CreateResult{
-				Container: &serializers.Container{
-					ID:    232,
-					CID:   "x23",
-					State: "starting",
-					Image: "img1",
-				},
-			}
+		Context("when container is successfully created", func() {
+			BeforeEach(func() {
+				createResult = &containers.CreateResult{
+					Container: &serializers.Container{
+						ID:    232,
+						CID:   "x23",
+						State: "starting",
+						Image: "img1",
+					},
+				}
+				doRequest("valid-token", "foo", params)
+			})
 
-			doRequest("valid-token", "foo", params)
-			Expect(res.Code).To(Equal(http.StatusCreated))
+			It("should return a serialized form of the Container", func() {
+				Expect(res.Code).To(Equal(http.StatusCreated))
 
-			var des struct {
-				Container *serializers.Container
-			}
-			err := json.NewDecoder(res.Body).Decode(&des)
-			Expect(err).To(BeNil())
-			Expect(*des.Container).To(Equal(*createResult.Container))
+				var des struct {
+					Container *serializers.Container
+				}
+				err := json.NewDecoder(res.Body).Decode(&des)
+				Expect(err).To(BeNil())
+				Expect(*des.Container).To(Equal(*createResult.Container))
+			})
 		})
 
 		It("should return a error information if provided", func() {
