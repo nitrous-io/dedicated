@@ -22,7 +22,6 @@ App.Host = klass = App.Model.extend
   liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
   updateAvailable: attr(as: 'update_available', serialize: false)
-  timeRemaining: attr('number', as: 'time_remaining', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
   subscriptionId: attr('number', as: 'subscription_id', serialize: false)
 
@@ -150,11 +149,6 @@ App.Host = klass = App.Model.extend
     return @get('containers').every (con)->
       con.get('isStopped') || con.get('isTerminated')
   ).property 'containers.@each.state'
-
-  setExpiresAt: (->
-    return unless (tr = @get('timeRemaining')) != null
-    @set 'expiresAt', (new Date((new Date).getTime() + (tr * 1000)))
-  ).observes 'timeRemaining'
 
   prefetchResources: ->
     @get 'images'

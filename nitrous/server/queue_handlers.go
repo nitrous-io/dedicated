@@ -215,7 +215,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 
 		s.Events.Publish(
 			controllers.NewEvent(controllers.EventHostStopped, map[string]*serializers.Host{
-				"host": serializers.SerializeHostWithUser(h, u),
+				"host": serializers.SerializeHost(h),
 			}),
 			u.Topic(),
 		)
@@ -239,7 +239,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 
 		s.Events.Publish(
 			controllers.NewEvent(controllers.EventHostUpdated, map[string]*serializers.Host{
-				"host": serializers.SerializeHostWithUser(h, u),
+				"host": serializers.SerializeHost(h),
 			}),
 			u.Topic(),
 		)

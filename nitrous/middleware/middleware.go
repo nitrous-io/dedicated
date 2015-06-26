@@ -389,6 +389,13 @@ func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Mid
 	}
 }
 
+func TouchHost(fn hostHandlerFn) hostHandlerFn {
+	return func(h *host.Host, env *Env, w http.ResponseWriter, r *http.Request) error {
+		h.Touch(env.DB)
+		return fn(h, env, w, r)
+	}
+}
+
 // Call is a helper that execute the middleware and also records its metrics.
 func Call(label string, mw Middleware) Middleware {
 	rlabel := "requests." + label

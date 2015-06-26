@@ -70,6 +70,28 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("Touch()", func() {
+		It("updates last_pinged_at", func() {
+			h := hs.H
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).NotTo(BeNumerically("<=", 1*time.Second))
+
+			err := h.Touch(db)
+			Expect(err).To(BeNil())
+
+			h, err = host.FindByIdentifier(db, strconv.FormatInt(h.ID, 10))
+			Expect(err).To(BeNil())
+			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+		})
+
+		Context("when some error occurs", func() {
+			It("returns the error", func() {
+				db.Close()
+				err := hs.H.Touch(db)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindAllByProvider()", func() {
 		var (
 			fv = "1.0.69-deadbeef-88"
@@ -660,6 +682,7 @@ var _ = Describe("models/host", func() {
 	Describe("Insert()", func() {
 		var (
 			h *host.Host
+			t time.Time
 			u *user.User
 		)
 
@@ -667,6 +690,9 @@ var _ = Describe("models/host", func() {
 			var err error
 			fv := "1.0.69-deadbeef-88"
 			dv := "1.4.1-nitrous"
+
+			t = time.Now()
+
 			u = &user.User{
 				Username: "foo",
 				Email:    "foo@example.com",
@@ -683,6 +709,8 @@ var _ = Describe("models/host", func() {
 				ProviderTemplateID: hs.PT.ID,
 				HourlyPrice:        int64(634),
 				Free:               true,
+				LastPingedAt:       pq.NullTime{t, true},
+				AutoShutdown:       true,
 				FreighterdVersion:  fv,
 				DockerVersion:      dv,
 			}
@@ -703,6 +731,8 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 			Expect(hosts[0].CreatedAt).NotTo(BeNil())
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
+			Expect(hosts[0].LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
+			Expect(hosts[0].AutoShutdown).To(BeTrue())
 			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
 			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 		})
@@ -755,6 +785,8 @@ var _ = Describe("models/host", func() {
 				Free:               false,
 				TerminatedAt:       nil,
 				Preprovisioned:     false,
+				LastPingedAt:       pq.NullTime{Valid: false},
+				AutoShutdown:       false,
 			}
 			err = h.Insert(db)
 			Expect(err).To(BeNil())
@@ -776,6 +808,7 @@ var _ = Describe("models/host", func() {
 			h.HourlyPrice = 0
 			h.Free = true
 			h.LastPingedAt = pq.NullTime{t, true}
+			h.AutoShutdown = true
 			err := h.Update(db)
 			Expect(err).To(BeNil())
 
@@ -797,6 +830,7 @@ var _ = Describe("models/host", func() {
 			Expect(h2.DockerVersion).To(Equal("1.5.0"))
 			Expect(h2.LastPingedAt.Valid).To(BeTrue())
 			Expect(h2.LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
+			Expect(h2.AutoShutdown).To(BeTrue())
 
 			// Unchanged fields.
 			Expect(h2.UserID).To(Equal(hs.U.ID))

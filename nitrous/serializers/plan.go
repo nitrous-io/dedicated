@@ -3,38 +3,66 @@ package serializers
 import "github.com/nitrous-io/dedicated/nitrous/models/plan"
 
 type Plan struct {
-	ID            int64  `json:"id"`
-	Slug          string `json:"slug"`
-	Name          string `json:"name"`
-	MaxContainers int64  `json:"max_containers"`
-	Price         int64  `json:"price"`
-	BasePrice     int64  `json:"base_price"`
-	HourlyPrice   int64  `json:"hourly_price"`
-	CPU           string `json:"cpu"`
-	Memory        string `json:"memory"`
-	Storage       string `json:"storage"`
-	MostPopular   bool   `json:"most_popular"`
-	Subscription  bool   `json:"subscription"`
+	ID         int64 `json:"id"`
+	BasePlanID int64 `json:"base_plan_id,omitempty"`
+
+	Slug         string `json:"slug"`
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	Type         string `json:"type"`
+	Price        int64  `json:"price"`
+	BasePrice    int64  `json:"base_price"`
+	HourlyPrice  int64  `json:"hourly_price"`
+	CPU          string `json:"cpu"`
+	Memory       string `json:"memory"`
+	Storage      string `json:"storage"`
+	MostPopular  bool   `json:"most_popular"`
+	Subscription bool   `json:"subscription"`
+
+	Hidden bool `json:"hidden"`
+
+	AutoShutdown    bool  `json:"auto_shutdown"`
+	MaxContainers   int64 `json:"max_containers"`
+	MaxSnapshots    int64 `json:"max_snapshots"`
+	CleanPreview    bool  `json:"clean_preview"`
+	DesktopApp      bool  `json:"desktop_app"`
+	SSH             bool  `json:"ssh"`
+	CustomDomain    bool  `json:"custom_domain"`
+	CustomTemplates bool  `json:"custom_templates"`
 }
 
 func SerializePlan(p *plan.Plan) *Plan {
 	if p == nil {
 		return nil
 	}
-	return &Plan{
-		ID:            p.ID,
-		Slug:          p.Slug,
-		Name:          p.Name,
-		MaxContainers: p.MaxContainers,
-		Price:         p.Price,
-		BasePrice:     p.BasePrice,
-		HourlyPrice:   p.HourlyPrice(),
-		CPU:           p.CPU,
-		Memory:        p.Memory,
-		Storage:       p.Storage,
-		MostPopular:   p.MostPopular,
-		Subscription:  p.StripePlanID.Valid,
+	serialized := &Plan{
+		ID:              p.ID,
+		Slug:            p.Slug,
+		Name:            p.Name,
+		Description:     p.Description,
+		Type:            p.Type,
+		Price:           p.Price,
+		BasePrice:       p.BasePrice,
+		HourlyPrice:     p.HourlyPrice(),
+		CPU:             p.CPU,
+		Memory:          p.Memory,
+		Storage:         p.Storage,
+		MostPopular:     p.MostPopular,
+		Subscription:    p.StripePlanID.Valid,
+		Hidden:          p.Hidden,
+		AutoShutdown:    p.AutoShutdown,
+		MaxContainers:   p.MaxContainers,
+		MaxSnapshots:    p.MaxSnapshots,
+		CleanPreview:    p.CleanPreview,
+		DesktopApp:      p.DesktopApp,
+		SSH:             p.SSH,
+		CustomDomain:    p.CustomDomain,
+		CustomTemplates: p.CustomTemplates,
 	}
+	if p.BasePlanID.Valid {
+		serialized.BasePlanID = p.BasePlanID.Int64
+	}
+	return serialized
 }
 
 func SerializePlans(pls []*plan.Plan) []*Plan {

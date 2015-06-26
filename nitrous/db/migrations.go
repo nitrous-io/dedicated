@@ -1322,5 +1322,59 @@ func init() {
 				ALTER TABLE users ALTER COLUMN max_running_time SET DEFAULT 14400;
 			`,
 		},
+		{
+			Version: "1320",
+			Up: `
+				ALTER TABLE plans ADD COLUMN max_snapshots bigint DEFAULT 0;
+				ALTER TABLE plans ADD COLUMN clean_preview bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN desktop_app bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN ssh bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN custom_domain bool DEFAULT false NOT NULL;
+				ALTER TABLE plans ADD COLUMN custom_templates bool DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "1321",
+			Up: `
+				CREATE TYPE plan_type AS ENUM ('usage-based', 'prepaid');
+				ALTER TABLE plans ADD COLUMN type plan_type NOT NULL DEFAULT 'usage-based';
+			`,
+		},
+		{
+			Version: "1322",
+			Up: `
+				ALTER TABLE plans ADD COLUMN base_plan_id bigint REFERENCES plans(id) DEFAULT NULL;
+				ALTER TABLE plans ADD COLUMN description character varying DEFAULT '' NOT NULL;
+				ALTER TABLE plans ADD COLUMN hidden bool DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "1330",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+				CREATE INDEX index_hosts_on_auto_shutdown ON hosts USING btree (auto_shutdown);
+				CREATE INDEX index_hosts_on_auto_shutdown_state_and_last_pinged_at
+				  ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
+			`,
+		},
+		{
+			Version: "1331",
+			Up: `
+				ALTER TABLE plans ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
+			`,
+		},
+		// {
+		// 	Version: "1332",
+		// 	Up: `
+		// 		ALTER TABLE users DROP COLUMN max_running_time;
+		// 		ALTER TABLE users DROP COLUMN refresh_period;
+		// 	`,
+		// },
+		{
+			Version: "1323",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 1800 NOT NULL;
+			`,
+		},
 	}
 }

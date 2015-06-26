@@ -292,12 +292,9 @@ var _ = Describe("models/plan", func() {
 	})
 
 	Describe("Insert()", func() {
-		var (
-			p *plan.Plan
-		)
+		var p *plan.Plan
 
 		BeforeEach(func() {
-			var err error
 			p = &plan.Plan{
 				Slug:          "512mb",
 				Name:          "Nano",
@@ -307,9 +304,11 @@ var _ = Describe("models/plan", func() {
 				Memory:        "512 MB",
 				Storage:       "20 GB",
 				MostPopular:   true,
+				Disabled:      false,
+				Hidden:        true,
+				AutoShutdown:  true,
 			}
-			err = p.Insert(db)
-			Expect(err).To(BeNil())
+			Expect(p.Insert(db)).To(BeNil())
 		})
 
 		It("persists the plan in the database", func() {
@@ -317,6 +316,8 @@ var _ = Describe("models/plan", func() {
 			Expect(err).To(BeNil())
 			Expect(p2).NotTo(BeNil())
 			Expect(p2.ID).NotTo(BeZero())
+			Expect(p2.BasePlanID.Valid).To(BeFalse())
+			Expect(p2.PaidPlanID.Valid).To(BeFalse())
 			Expect(p2.Slug).To(Equal("512mb"))
 			Expect(p2.Name).To(Equal("Nano"))
 			Expect(p2.MaxContainers).To(Equal(int64(2)))
@@ -325,6 +326,9 @@ var _ = Describe("models/plan", func() {
 			Expect(p2.Memory).To(Equal("512 MB"))
 			Expect(p2.Storage).To(Equal("20 GB"))
 			Expect(p2.MostPopular).To(BeTrue())
+			Expect(p2.Disabled).To(BeFalse())
+			Expect(p2.Hidden).To(BeTrue())
+			Expect(p2.AutoShutdown).To(BeTrue())
 			Expect(p2.CreatedAt).NotTo(BeNil())
 			Expect(p2.UpdatedAt).NotTo(BeNil())
 		})
