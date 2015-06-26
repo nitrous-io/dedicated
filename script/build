@@ -37,20 +37,25 @@ get_version() {
 #
 # This also writes version info to $BUILD/$app-VERSION
 build() {
-  app=$1
-  binary="$(basename "$app")"
-  rm -f "$BUILD_DIR/$app"
+  pkgs=""
+  for app in $@; do
+    pkgs+=" github.com/nitrous-io/dedicated/$app"
+    rm -f "$BUILD_DIR/$app"
+  done
+
   # install only the binary
   # this prevents go from looking at test-only directory
-  godep go build \
-    -o "$BUILD_DIR/$binary" \
+  GOBIN=$BUILD_DIR godep go install \
     -ldflags "$LDFLAGS" \
-    github.com/nitrous-io/dedicated/$app
+    $pkgs
 
-  # this file is useful for release to know the current version
-  echo $VERSION > $BUILD_DIR/${binary}-VERSION
-  # this file is useful for chef version attribute overrides
-  echo "{ \"$binary\": { \"version\": \"$VERSION\" } }" > $BUILD_DIR/${binary}-VERSION.json
+  for app in $@; do
+    binary="$(basename "$app")"
+    # this file is useful for release to know the current version
+    echo $VERSION > $BUILD_DIR/${binary}-VERSION
+    # this file is useful for chef version attribute overrides
+    echo "{ \"$binary\": { \"version\": \"$VERSION\" } }" > $BUILD_DIR/${binary}-VERSION.json
+  done
 }
 
 build_assets() {
@@ -165,22 +170,22 @@ build_nitrous() {
     -X main.nitroVersion $(get_version nitro) \
     -X main.freighterVersion $(get_version freighter) \
     "
-  build "nitrous/nitrousd"
+  build "nitrous/nitrousd" \
+    "nitrous/cmd/dbseed" \
+    "nitrous/cmd/hssh" \
+    "nitrous/cmd/adminuserseed" \
+    "nitrous/cmd/createinvitecodes" \
+    "nitrous/cmd/populatehosttransitions" \
+    "nitrous/cmd/biller" \
+    "nitrous/cmd/hostusage" \
+    "nitrous/cmd/removeexpiredtokens" \
+    "nitrous/cmd/engagement" \
+    "nitrous/cmd/migrate" \
+    "nitrous/cmd/hostshutdown" \
+    "nitrous/cmd/freehostusage" \
+    "nitrous/cmd/populatemxprofiles" \
+    "nitrous/cmd/healthcheck"
   )
-  (build "nitrous/cmd/dbseed")
-  (build "nitrous/cmd/hssh")
-  (build "nitrous/cmd/adminuserseed")
-  (build "nitrous/cmd/createinvitecodes")
-  (build "nitrous/cmd/populatehosttransitions")
-  (build "nitrous/cmd/biller")
-  (build "nitrous/cmd/hostusage")
-  (build "nitrous/cmd/removeexpiredtokens")
-  (build "nitrous/cmd/engagement")
-  (build "nitrous/cmd/migrate")
-  (build "nitrous/cmd/hostshutdown")
-  (build "nitrous/cmd/freehostusage")
-  (build "nitrous/cmd/populatemxprofiles")
-  (build "nitrous/cmd/healthcheck")
   (build_assets)
 }
 
