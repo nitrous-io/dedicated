@@ -264,7 +264,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID); err != nil {
+	if err := hostcontrol.RecordNewState(db, h, host.StateStarting, env.User.ID, false); err != nil {
 		return err
 	}
 
@@ -279,7 +279,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID, true); err != nil {
 			logrus.Errorf("hosts.Start: Unable to reset host state: %v", err)
 		}
 
@@ -307,7 +307,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		logrus.Infof("hosts.Start: host already up to date")
 		PublishHostEvent(env, controllers.EventHostStarted, h)
 	case nil:
-		if err := h.UpdateState(db, host.StateUpdating); err != nil {
+		if err := h.UpdateState(db, host.StateUpdating, true); err != nil {
 			return err
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
@@ -357,7 +357,7 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	err = hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID)
+	err = hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID, force)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	}
 
 	origState := h.State
-	if err := hostcontrol.RecordNewState(db, h, host.StateRestarting, env.User.ID); err != nil {
+	if err := hostcontrol.RecordNewState(db, h, host.StateRestarting, env.User.ID, force); err != nil {
 		return err
 	}
 
@@ -408,7 +408,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 
 		// Rollback to previous state, log any errors while rolling back, but
 		// return original hostbuilderclient error.
-		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID); err != nil {
+		if err := hostcontrol.RecordNewState(db, h, origState, env.User.ID, true); err != nil {
 			logrus.Errorf("hosts.Restart: Unable to restore host state: %v", err)
 		}
 
@@ -437,7 +437,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		logrus.Infof("hosts.Restart: host already up to date")
 		PublishHostEvent(env, controllers.EventHostRestarted, h)
 	case nil:
-		if err := h.UpdateState(db, host.StateUpdating); err != nil {
+		if err := h.UpdateState(db, host.StateUpdating, true); err != nil {
 			return err
 		}
 		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
@@ -477,7 +477,13 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
+	origState := h.State
+	if err := h.UpdateState(db, host.StateRespeccing, false); err != nil {
+		if err == host.ErrUpdateFailed {
+			logrus.Errorf("Error updating host state from %s to %s - original state in memory does not match db.", origState, host.StateRespeccing)
+			return hostcontrol.ErrHostLocked
+		}
+
 		return err
 	}
 
@@ -505,7 +511,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	go func() {
 		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
-			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
+			if err := h.UpdateState(db, host.StateRespecFailed, true); err != nil {
 				logrus.Errorf("error updating host after respec failed: %v", err)
 			}
 
@@ -583,7 +589,7 @@ func updateSoftware(h *host.Host, env *middleware.Env) error {
 
 	// FIXME: Update the state before sending request to freighter to
 	// ensure there is no other concurrent operations going on.
-	if err := h.UpdateState(env.DB, host.StateUpdating); err != nil {
+	if err := h.UpdateState(env.DB, host.StateUpdating, true); err != nil {
 		return err
 	}
 

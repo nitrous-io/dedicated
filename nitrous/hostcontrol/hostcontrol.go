@@ -28,12 +28,12 @@ const (
 
 var (
 	HostbuilderClient = provisioner.HostbuilderClient
-	errHostLocked     = httperror.New(http.StatusConflict, "workspace_locked", "workspace is locked by another request")
+	ErrHostLocked     = httperror.New(http.StatusConflict, "workspace_locked", "workspace is locked by another request")
 )
 
-func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
+func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64, forced bool) error {
 	origState := h.State
-	err := beforeStop(db, h, ev, initiatorID, origState)
+	err := beforeStop(db, h, ev, initiatorID, origState, forced)
 	if err != nil {
 		return err
 	}
@@ -66,9 +66,9 @@ func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, init
 	return nil
 }
 
-func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64) error {
+func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, initiatorID int64, forcedUpdate bool) error {
 	origState := h.State
-	err := beforeStop(db, h, ev, initiatorID, origState)
+	err := beforeStop(db, h, ev, initiatorID, origState, forcedUpdate)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,8 @@ func StopWithQueue(db *db.Database, h *host.Host, headers http.Header, ev EventF
 	return nil
 }
 
-func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string) error {
-	if err := RecordNewState(db, h, host.StateStopping, initiatorID); err != nil {
+func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, origState string, forcedUpdate bool) error {
+	if err := RecordNewState(db, h, host.StateStopping, initiatorID, forcedUpdate); err != nil {
 		return err
 	}
 
@@ -95,7 +95,7 @@ func beforeStop(db *db.Database, h *host.Host, ev EventFunc, initiatorID int64, 
 }
 
 func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState string) error {
-	err := RecordNewState(db, h, origState, initiatorID)
+	err := RecordNewState(db, h, origState, initiatorID, true)
 	if err != nil {
 		logrus.Errorf("hosts.Stop: Unable to restore host state: %v", err)
 	}
@@ -103,7 +103,7 @@ func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState st
 }
 
 func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
-	return RecordNewState(db, h, host.StateStopped, initiatorID)
+	return RecordNewState(db, h, host.StateStopped, initiatorID, true)
 }
 
 func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
@@ -141,10 +141,10 @@ func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64
 	return nil
 }
 
-func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID int64) error {
+func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID int64, forcedUpdate bool) error {
 	return db.WithTransaction(func(tx *sqlx.Tx) error {
 		origState := h.State
-		if err := h.UpdateState(tx, newState); err != nil {
+		if err := h.UpdateState(tx, newState, forcedUpdate); err != nil {
 			if err == host.ErrUpdateFailed {
 				logrus.Errorf("Error updating host state from %s to %s - original state in memory does not match db.", origState, newState)
 
@@ -153,7 +153,7 @@ func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID 
 					logrus.Errorf("original state in db: %s", h2.State)
 				}
 
-				return errHostLocked
+				return ErrHostLocked
 			}
 			return err
 		}

@@ -39,7 +39,7 @@ type Provider interface {
 	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
 }
 
-type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
+type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64, forcedUpdate bool) error
 
 type SubscriptionProvider struct {
 	HostStopFunc hostStopFunc
@@ -518,7 +518,7 @@ func (s *SubscriptionProvider) stopHosts(d *db.Database, sub *subscription.Subsc
 			continue
 		}
 
-		if err := s.HostStopFunc(d, h, headers, nil, initiatorID); err != nil {
+		if err := s.HostStopFunc(d, h, headers, nil, initiatorID, true); err != nil {
 			logrus.Errorf("Unable to stop host %d for subscription %d, err: %v", h.ID, sub.ID, err)
 		}
 	}

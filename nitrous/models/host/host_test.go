@@ -857,12 +857,12 @@ var _ = Describe("models/host", func() {
 
 			Expect(h1.State).To(Equal(host.StateRunning))
 
-			err = h1.UpdateState(db, host.StateStopping)
+			err = h1.UpdateState(db, host.StateStopping, false)
 			Expect(err).To(BeNil())
 			Expect(h1.State).To(Equal(host.StateStopping))
 
 			Expect(h2.State).To(Equal(host.StateRunning))
-			err = h2.UpdateState(db, host.StateStopping)
+			err = h2.UpdateState(db, host.StateStopping, false)
 			Expect(err).To(Equal(host.ErrUpdateFailed))
 			Expect(h2.State).To(Equal(host.StateRunning))
 

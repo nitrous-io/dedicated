@@ -346,7 +346,11 @@ func (h *Host) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(h).StructScan(h)
 }
 
-func (h *Host) UpdateState(d db.QueryReceiver, newState string) error {
+func (h *Host) UpdateState(d db.QueryReceiver, newState string, forcedUpdate bool) error {
+	if forcedUpdate {
+		return h.UpdateColumn(d, "state", newState)
+	}
+
 	err := d.QueryRowx(`UPDATE hosts
 		SET state=$1, updated_at=now() WHERE id = $2 AND state=$3
 		RETURNING *;`, newState, h.ID, h.State).StructScan(h)
