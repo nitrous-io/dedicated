@@ -15,12 +15,7 @@
           .notice-text.error
             i.fa.fa-warning
             '
-            | Free workspaces are currently unavailable for
-            '
-            if view.country
-              = view.country
-            else
-              | your country
+            | Free workspaces are not yet available for your region
 
         .ui.input-group
           label.field-label for='hosts-new-name'
