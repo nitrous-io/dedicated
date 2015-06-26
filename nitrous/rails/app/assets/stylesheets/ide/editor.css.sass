@@ -123,13 +123,9 @@
         animation: none
         opacity: 1
 
-    &.ot-cursor-top
-      .ot-cursor-name
-        margin-top: 19px
-
     .ot-cursor-name
       position: absolute
-      margin-top: -17px
+      margin-top: -14px
       margin-left: -2px
       padding: 0 4px
       border-radius: 2px
@@ -154,6 +150,10 @@
       animation: ot-cursor-head-fade-in .3s forwards
       animation-delay: 3s
 
+    &.ot-cursor-top
+      .ot-cursor-name, .ot-cursor-head
+        margin-top: -2px
+
   .code-editor
     display: flex
     flex-grow: 1
@@ -163,6 +163,7 @@
     display: flex
     flex-grow: 1
     flex-direction: column
+    line-height: 1.5
 
   .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler
     background-color: $n2oGray700

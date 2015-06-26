@@ -16,6 +16,7 @@
       li.ui.dropdown
         a href='#'
           i.fa.fa-plus
+          .ui.dropdown-triangle
         ul.dropdown-menu
           if App.disableNewContainer
             li.disabled
