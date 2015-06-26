@@ -59,7 +59,7 @@ window.ui =
       $modal.addClass('hide')
       $modal.removeClass('flex')
       cb?()
-    , 301)
+    , 151)
 
 $ ->
   ui.handleDropdowns()
