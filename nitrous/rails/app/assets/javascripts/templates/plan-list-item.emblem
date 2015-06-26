@@ -42,14 +42,24 @@
           '
           = plural maxContainers 'Container' 'Containers'
       tr
-        if maxSnapshots
-          td
-            ' Up to
-            span = maxSnapshots
-            '
-            = plural maxSnapshots 'Snapshot' 'Snapshots'
-        else
-          td No Snapshots
+        td
+          span = memory
+          '
+          | Memory
+      tr
+        td
+          span = storage
+          '
+          | Storage
+      /tr
+        /if maxSnapshots
+          /td
+            /' Up to
+            /span = maxSnapshots
+            /'
+            /= plural maxSnapshots 'Snapshot' 'Snapshots'
+        /else
+          /td No Snapshots
       if ssh
         tr
           td SSH Access
