@@ -146,6 +146,13 @@ func RecordNewState(db *db.Database, h *host.Host, newState string, initiatorID 
 		origState := h.State
 		if err := h.UpdateState(tx, newState); err != nil {
 			if err == host.ErrUpdateFailed {
+				logrus.Errorf("Error updating host state from %s to %s - original state in memory does not match db.", origState, newState)
+
+				h2, e2 := host.FindByIdentifier(db, h.Slug)
+				if e2 == nil {
+					logrus.Errorf("original state in db: %s", h2.State)
+				}
+
 				return errHostLocked
 			}
 			return err
