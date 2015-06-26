@@ -870,6 +870,29 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 			Expect(h3.State).To(Equal(host.StateStopping))
 		})
+
+		It("should force update even if original state does not match latest state in database", func() {
+			h1, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+
+			Expect(h1.State).To(Equal(host.StateRunning))
+
+			err = h1.UpdateState(db, host.StateUpdating, false)
+			Expect(err).To(BeNil())
+			Expect(h1.State).To(Equal(host.StateUpdating))
+
+			Expect(h2.State).To(Equal(host.StateRunning))
+			err = h2.UpdateState(db, host.StateStopping, true)
+			Expect(err).To(BeNil())
+			Expect(h2.State).To(Equal(host.StateStopping))
+
+			h3, err := host.FindByIdentifier(db, "foo")
+			Expect(err).To(BeNil())
+			Expect(h3.State).To(Equal(host.StateStopping))
+		})
 	})
 
 	Describe("UpdateColumn()", func() {
