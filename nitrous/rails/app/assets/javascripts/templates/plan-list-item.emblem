@@ -37,28 +37,41 @@
     table.specs
       tr
         td
-          span
-            ' Up to
-          = maxContainers
+          ' Up to
+          span = maxContainers
+          '
+          = plural maxContainers 'Container' 'Containers'
+      tr
         td
-          span Containers
+          span = memory
+          '
+          | Memory
+      tr
+        td
+          span = storage
+          '
+          | Storage
       /tr
-        /td
-          /= cpu
-          /'
-          /| Core
-        /td
-          /span Processor
-      tr
-        td
-          = memory
-        td
-          span Memory
-      tr
-        td
-          = storage
-        td
-          span Storage
+        /if maxSnapshots
+          /td
+            /' Up to
+            /span = maxSnapshots
+            /'
+            /= plural maxSnapshots 'Snapshot' 'Snapshots'
+        /else
+          /td No Snapshots
+      if ssh
+        tr
+          td SSH Access
+      if desktopApp
+        tr
+          td Desktop App
+      if customDomains
+        tr
+          td Custom Domains
+      if customTemplates
+        tr
+          td Custom Templates
 
   if plan.mostPopular
     .ribbon

@@ -198,23 +198,22 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("no matching plan found for the given size"))
+		Expect(errDesc).To(Equal("no matching plan found"))
 	})
 
-	It("responds with plan not found when a matching plan is disabled", func() {
-		// add a disabled plan
-		p := &plan.Plan{Slug: "3gb", Name: "3gb", MaxContainers: 1, Price: 500, Disabled: true}
-		err := p.Insert(db)
-		Expect(err).To(BeNil())
+	It("responds with plan not found when the requested plan is disabled", func() {
+		planSlug := "3gb"
+		p := &plan.Plan{Disabled: true, Slug: planSlug, Name: "3gb", MaxContainers: 1, Price: 500}
+		Expect(p.Insert(db)).To(BeNil())
 
-		params.Set("size", "3gb")
+		params.Set("size", planSlug)
 		res := doRequest(params)
 
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("no matching plan found for the given size"))
+		Expect(errDesc).To(Equal("no matching plan found"))
 	})
 
 	It("responds with region disabled when a disabled region is specified", func() {
@@ -255,7 +254,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("no matching templates found for the given plan and regions combination"))
+		Expect(errDesc).To(Equal("no matching templates found for the given plan and region combination"))
 	})
 
 	It("sends the host configs as json params", func() {
@@ -682,6 +681,20 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(hosts[0].RegionID).ToNot(Equal(hs.R.ID), "failed to override supplied region")
 			Expect(hosts[0].PlanID).To(Equal(stack.P.ID), "failed to override supplied plan")
 			Expect(hosts[0].PlanID).ToNot(Equal(hs.P.ID), "failed to override supplied plan")
+		})
+
+		It("allows a hidden plan", func() {
+			planSlug := "1gb-always-on"
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				P: &plan.Plan{Hidden: true, Slug: planSlug, Price: 500},
+				R: hs.R,
+			})
+			Expect(err).To(BeNil())
+
+			params.Set("size", planSlug)
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 
 		Context("when the host plan requires subscription", func() {

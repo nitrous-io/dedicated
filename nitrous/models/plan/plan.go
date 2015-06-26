@@ -8,22 +8,47 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
+const (
+	TypeUsageBased = "usage-based"
+	TypePrepaid    = "prepaid"
+)
+
 type Plan struct {
-	ID            int64          `db:"id"`
-	Name          string         `db:"name"`
-	Slug          string         `db:"slug"`
-	MaxContainers int64          `db:"max_containers"`
-	Price         int64          `db:"price"`
-	BasePrice     int64          `db:"base_price"`
-	CPU           string         `db:"cpu"`
-	Memory        string         `db:"memory"`
-	Storage       string         `db:"storage"`
-	Disabled      bool           `db:"disabled"`
-	MostPopular   bool           `db:"most_popular"`
-	PaidPlanID    sql.NullInt64  `db:"paid_plan_id"`
-	StripePlanID  sql.NullString `db:"stripe_plan_id"`
-	CreatedAt     *time.Time     `db:"created_at"`
-	UpdatedAt     *time.Time     `db:"updated_at"`
+	ID         int64         `db:"id"`
+	BasePlanID sql.NullInt64 `db:"base_plan_id"`
+	PaidPlanID sql.NullInt64 `db:"paid_plan_id"`
+
+	Name         string         `db:"name"`
+	Description  string         `db:"description"`
+	Slug         string         `db:"slug"`
+	Type         string         `db:"type"`
+	Price        int64          `db:"price"`
+	BasePrice    int64          `db:"base_price"`
+	CPU          string         `db:"cpu"`
+	Memory       string         `db:"memory"`
+	Storage      string         `db:"storage"`
+	MostPopular  bool           `db:"most_popular"`
+	StripePlanID sql.NullString `db:"stripe_plan_id"`
+	CreatedAt    *time.Time     `db:"created_at"`
+	UpdatedAt    *time.Time     `db:"updated_at"`
+
+	// Disabled plans cannot be used and are left in the db for historical or
+	// foreign key referential integrity purposes.
+	Disabled bool `db:"disabled"`
+
+	// Hidden plans are not displayed (but can be used, unless disabled).
+	Hidden bool `db:"hidden"`
+
+	// Features of a plan below. As a rule, any boolean features should default
+	// to false (i.e. disabled), so choose names accordingly.
+
+	MaxContainers   int64 `db:"max_containers"`
+	MaxSnapshots    int64 `db:"max_snapshots"`
+	CleanPreview    bool  `db:"clean_preview"`
+	DesktopApp      bool  `db:"desktop_app"`
+	SSH             bool  `db:"ssh"`
+	CustomDomain    bool  `db:"custom_domain"`
+	CustomTemplates bool  `db:"custom_templates"`
 }
 
 type PlanPricing struct {
@@ -118,8 +143,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, paid_plan_id, stripe_plan_id)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :most_popular, :paid_plan_id, :stripe_plan_id)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

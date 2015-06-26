@@ -28,7 +28,7 @@ var (
 	providerToSeed string
 
 	amazonFreeConfig = `{
-		"source_ami": "ami-8b6450bb",
+		"source_ami": "ami-d51027e5",
 		"instance_type": "t2.micro",
 		"region_id": "us-west-2",
 		"storage_size": "8",
@@ -38,7 +38,7 @@ var (
 	}`
 
 	amazonPaidConfig = `{
-		"source_ami": "ami-8b6450bb",
+		"source_ami": "ami-d51027e5",
 		"instance_type": "t2.micro",
 		"region_id": "us-west-2",
 		"storage_size": "8",
@@ -51,10 +51,13 @@ var (
 	// FIXME: replace this with proper configuration once the AMIs/security
 	// groups for all supported regions are in place
 	amazonRegionConfig = map[string]string{
-		"free": amazonFreeConfig,
-		"1gb":  amazonPaidConfig,
-		"2gb":  amazonPaidConfig,
-		"4gb":  amazonPaidConfig,
+		"student":                amazonFreeConfig,
+		"beginner":               amazonFreeConfig,
+		"hobbyist":               amazonFreeConfig,
+		"professional":           amazonFreeConfig,
+		"beginner-always-on":     amazonPaidConfig,
+		"hobbyist-always-on":     amazonPaidConfig,
+		"professional-always-on": amazonPaidConfig,
 	}
 
 	// Point every region to use us-west-2 in dev
@@ -166,20 +169,45 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 
-	shiftPlan := &plan.Plan{Slug: "1gb", Name: "Shift", MaxContainers: 2, Price: 2500, CPU: "1", Memory: "1 GB", Storage: "20 GB"}
-	if err := shiftPlan.Insert(d); err != nil {
+	beginner := &plan.Plan{Slug: "beginner", Name: "Beginner", MaxContainers: 1, Price: 995, CPU: "1", Memory: "1 GB", Storage: "10 GB"}
+	if err := beginner.Insert(d); err != nil {
+		return err
+	}
+	beginnerAlwaysOn := &plan.Plan{Slug: "beginner-always-on", Name: "Beginner, always on", MaxContainers: 1, Price: 2495, CPU: "1", Memory: "1 GB", Storage: "10 GB", CleanPreview: true, BasePlanID: sql.NullInt64{beginner.ID, true}}
+	if err := beginnerAlwaysOn.Insert(d); err != nil {
+		return err
+	}
+
+	studentPlan := &plan.Plan{Slug: "student", Name: "Student", MaxContainers: 1, Price: 0, CPU: "1", Memory: "1 GB", Storage: "8 GB", PaidPlanID: sql.NullInt64{Valid: true, Int64: beginner.ID}}
+	if err := studentPlan.Insert(d); err != nil {
 		return err
 	}
 
 	plans := []*plan.Plan{
-		{Slug: "free", Name: "Free", MaxContainers: 2, Price: 0, CPU: "1", Memory: "1 GB", Storage: "20 GB", PaidPlanID: sql.NullInt64{Valid: true, Int64: shiftPlan.ID}},
-		{Slug: "2gb", Name: "Turbo", MaxContainers: 5, Price: 4500, CPU: "2", Memory: "2 GB", Storage: "30 GB", MostPopular: true},
-		{Slug: "4gb", Name: "Nitro", MaxContainers: 10, Price: 8000, CPU: "2", Memory: "4 GB", Storage: "50 GB"},
+		{Slug: "hobbyist", Name: "Hobbyist", MaxContainers: 3, Price: 2495, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true, CleanPreview: true, SSH: true, DesktopApp: true},
+		{Slug: "professional", Name: "Professional", MaxContainers: 10, Price: 5995, CPU: "2", Memory: "4 GB", Storage: "50 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true},
 	}
 	for _, p := range plans {
 		if err := p.Insert(d); err != nil {
 			return err
 		}
+
+		// Insert an "always on" version of each plan.
+		p2 := &plan.Plan{
+			BasePlanID:    sql.NullInt64{p.ID, true},
+			Slug:          fmt.Sprintf("%s-always-on", p.Slug),
+			Name:          fmt.Sprintf("%s, always on", p.Name),
+			Price:         p.Price + 1500,
+			MaxContainers: p.MaxContainers,
+			CPU:           p.CPU,
+			Memory:        p.Memory,
+			Storage:       p.Storage,
+			Hidden:        true,
+		}
+		if err := p2.Insert(d); err != nil {
+			return err
+		}
+
 		logrus.Infof("Added plan %+v", p)
 	}
 
@@ -187,24 +215,22 @@ func plans(d db.QueryReceiver) error {
 }
 
 func providertemplates(d db.QueryReceiver) error {
-	c := -1
+	var count int
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE provider = $1", "provider_templates")
-	err := d.QueryRowx(query, providerToSeed).Scan(&c)
-	if err != nil {
+	if err := d.QueryRowx(query, providerToSeed).Scan(&count); err != nil {
 		return err
 	}
-	if c > 0 {
-		logrus.Infof("%d %s found for provider %s, skipping %s seeds", c, "provider_templates", providerToSeed, "provider_templates")
+	if count > 0 {
+		logrus.Infof("%d provider_templates found for provider %s, skipping provider_templates seeds", count, providerToSeed)
 		return nil
 	}
+
 	plans := []plan.Plan{}
-	err = d.Select(&plans, "SELECT * FROM plans")
-	if err != nil {
+	if err := d.Select(&plans, "SELECT * FROM plans"); err != nil {
 		return err
 	}
 	regions := []region.Region{}
-	err = d.Select(&regions, "SELECT * FROM regions")
-	if err != nil {
+	if err := d.Select(&regions, "SELECT * FROM regions"); err != nil {
 		return err
 	}
 	for _, p := range plans {
@@ -256,8 +282,8 @@ func providertemplates(d db.QueryReceiver) error {
 					},
 				}
 			}
-			err := pt.Insert(d)
-			if err != nil {
+
+			if err := pt.Insert(d); err != nil {
 				return err
 			}
 		}
