@@ -239,12 +239,35 @@
     flex-grow: 1
     display: none
     background: $n2oGray1000
-    justify-content: center
-    align-items: center
     overflow: auto
+    cursor: pointer
+    align-items: flex-start
+    justify-content: flex-start
 
     &.active
       display: flex
+
+    .image
+      display: flex
+      width: 100%
+      flex-grow: 1
+
+      img
+        display: block
+        flex-grow: 1
+        opacity: 0
+        width: 100%
+
+    &.zoomed
+      .image
+        display: block
+        background-image: none !important
+        flex-grow: 0
+
+        img
+          flex-grow: 0
+          opacity: 1
+          width: auto
 
   .ide-iframe-view
     flex-direction: column
