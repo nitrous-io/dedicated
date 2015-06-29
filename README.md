@@ -2,7 +2,6 @@
 
 Contain components of the nitrous-dedicated platform.
 - nitrous: the webapp
-- nitro: the CLI
 - hostbuilder: building the actual hosts
 - freighter: part that lives in the host
 - compass: the DNS
@@ -31,7 +30,7 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 5. Select Quay.io button for the registry URL and key in your credentials for your Quay.io account. Connect.
 
   ![screen shot 2015-03-30 at 11 37 48 am](https://cloud.githubusercontent.com/assets/4488777/6891049/947aa1cc-d6e8-11e4-9020-f81c7d680fbd.png)
-  
+
 6. You should see this:
 
   ![screen shot 2015-03-30 at 11 45 05 am](https://cloud.githubusercontent.com/assets/4488777/6891123/84b30e18-d6e9-11e4-95ab-163a5e75f367.png)
@@ -40,7 +39,7 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 
   ![screen shot 2015-03-30 at 11 46 40 am](https://cloud.githubusercontent.com/assets/4488777/6891126/994b7810-d6e9-11e4-9b04-7677954d8b8b.png)
 
-8. Specify the following image repository: 
+8. Specify the following image repository:
 
   ![screen shot 2015-03-30 at 11 48 06 am](https://cloud.githubusercontent.com/assets/4488777/6891134/b025d152-d6e9-11e4-8ba7-43a838109449.png)
 
@@ -58,16 +57,16 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 
 ```
 - make: build binaries and assets
-- make nitro/nitrous/freighter/hostbuilder: build independent binaries
+- make nitrous/freighter/hostbuilder: build independent binaries
 - make test: test all apps
-- make APP=(nitro/nitrous/freighter/hostbuilder) test: test individual app
+- make APP=(nitrous/freighter/hostbuilder) test: test individual app
 - make image: make the image used for build and test
 - make ci-test: test all apps in CI mode. (i.e. run tests inside a docker container)
-- make APP=(nitro/nitrous/freighter/hostbuilder) ci-test: test individual app
+- make APP=(nitrous/freighter/hostbuilder) ci-test: test individual app
 - make ci-build: build all apps in CI mode.
-- make APP=(nitro/nitrous/freighter/hostbuilder) ci-build: build individual app
+- make APP=(nitrous/freighter/hostbuilder) ci-build: build individual app
 - make release: release all apps
-- make APP=(nitro/nitrous/freighter/hostbuilder) release: release individial app
+- make APP=(nitrous/freighter/hostbuilder) release: release individial app
 - make createdb/dropdb: prepare the DB. Useful in development
 ```
 
