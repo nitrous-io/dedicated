@@ -124,7 +124,7 @@ func main() {
 
 func pullImage(image string) error {
 	logrus.Printf("Pulling %s...", image)
-	err := exec.Command("docker", "run", "-rm", image, "true").Run()
+	err := exec.Command("docker", "run", "--rm", image, "true").Run()
 	if err != nil {
 		return err
 	}

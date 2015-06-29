@@ -67,6 +67,10 @@ var _ = Describe("server/debug", func() {
 
 			res = doRequest("/api/v0/debug/pprof/heap")
 			Expect(res.Code).To(Equal(200))
+
+			params.Set("seconds", "1")
+			res = doRequest("/api/v0/debug/profile")
+			Expect(res.Code).To(Equal(200))
 		})
 
 		It("should show 404 if no trust key provided", func() {
@@ -77,6 +81,10 @@ var _ = Describe("server/debug", func() {
 			Expect(res.Code).To(Equal(404))
 
 			res = doRequest("/api/v0/debug/pprof/heap")
+			Expect(res.Code).To(Equal(404))
+
+			params.Set("seconds", "1")
+			res = doRequest("/api/v0/debug/profile")
 			Expect(res.Code).To(Equal(404))
 		})
 
@@ -89,6 +97,10 @@ var _ = Describe("server/debug", func() {
 			Expect(res.Code).To(Equal(404))
 
 			res = doRequest("/api/v0/debug/pprof/heap")
+			Expect(res.Code).To(Equal(404))
+
+			params.Set("seconds", "1")
+			res = doRequest("/api/v0/debug/profile")
 			Expect(res.Code).To(Equal(404))
 		})
 	})
