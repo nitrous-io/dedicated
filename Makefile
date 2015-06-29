@@ -10,7 +10,7 @@ SUITE=
 all: binary
 
 binary:
-	@./script/build all
+	@ENV=$(ENV) ./script/build all
 .PHONY: binary
 
 nitro:
@@ -26,8 +26,12 @@ hostbuilder:
 .PHONY: hostbuilder
 
 nitrous:
-	@./script/build nitrous
+	./script/build nitrous
 .PHONY: nitrous
+
+nitrous-dev:
+	ENV=development ./script/build nitrous
+.PHONY: nitrous-dev
 
 compass:
 	@./script/build compass
@@ -55,15 +59,16 @@ ci-build: image
 	@./script/build $(APP) true
 .PHONY: ci-build
 
+run-dev: ENV := development
 run-dev: binary
-	@godep go run ./script/dev.go
+	godep go run ./script/dev.go
 .PHONY: run-dev
 
 run-nitrous: nitrous
 	@forego start -f nitrous/Procfile
 .PHONY: run-nitrous
 
-run-nitrous-dev: nitrous
+run-nitrous-dev: nitrous-dev
 	@forego start -f nitrous/Procfile.dev -e nitrous/.env
 .PHONY: run-nitrous-dev
 
