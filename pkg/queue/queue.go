@@ -288,6 +288,7 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string, handler queueHandler, stop chan struct{}, queueHandlerTimeout time.Duration) error {
 	var qc Consumer
 	var err error
+	queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
 
 	for {
 		select {
@@ -296,7 +297,6 @@ func StartConsumer(redisHost, redisPort string, redisDB int64, queueName string,
 			stop <- c
 			return nil
 		default:
-			queue := redismq.CreateQueue(redisHost, redisPort, "", int64(redisDB), queueName)
 			qc, err = CreateConsumer(queue, queueName, handler, queueHandlerTimeout)
 			if err == nil {
 				return qc.Start(stop)
