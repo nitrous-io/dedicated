@@ -100,4 +100,7 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
 
 	s.secretRoute("/upgrade", s.wrapError(s.upgradeServer), "POST")
+
+	// profiler
+	s.route("/debug/pprof/{path:.*}", s.pprof, "GET")
 }

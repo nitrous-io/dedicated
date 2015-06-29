@@ -2399,4 +2399,18 @@ var _ = Describe("server", func() {
 			Expect(q2).NotTo(Receive(nil))
 		})
 	})
+
+	Describe("GET /debug/pprof/{path:.*}", func() {
+		It("responds with 200 ok", func() {
+			profileTypes := []string{"heap", "goroutine", "block"}
+
+			for _, profileType := range profileTypes {
+				url := fmt.Sprintf("/debug/pprof/%s", profileType)
+				req, err := http.NewRequest("GET", url, nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+				Expect(res.Code).To(Equal(http.StatusOK))
+			}
+		})
+	})
 })
