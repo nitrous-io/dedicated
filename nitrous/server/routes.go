@@ -245,6 +245,7 @@ func (s *Server) drawRoutes() {
 			"GET": {
 				"/debug/stack":           r("s.pprofHandler", s.stackHandler),
 				"/debug/pprof/{path:.*}": r("s.pprofHandler", s.pprofHandler),
+				"/debug/profile":         r("s.profileHandler", s.profileHandler),
 			},
 		}
 

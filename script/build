@@ -186,7 +186,9 @@ build_nitrous() {
     "nitrous/cmd/populatemxprofiles" \
     "nitrous/cmd/healthcheck"
   )
-  (build_assets)
+  if [ "$ENV" != "development" ]; then
+    (build_assets)
+  fi
 }
 
 if [ "$IN_DOCKER" == "true" ]; then
