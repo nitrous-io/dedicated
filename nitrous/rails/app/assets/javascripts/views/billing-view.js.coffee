@@ -13,3 +13,13 @@ App.BillingView = Em.View.extend
   didClickShowInvoices: ->
     $("body").scrollTop($("#invoices-list").offset().top)
 
+  showSubscriptions: (->
+    return true if App.get('subscriptions.length') > 0
+    return true if App.get('billingUsage.groupedItems.length') == 0
+    false
+  ).property 'App.subscriptions.length', 'App.billingUsage.groupedItems.length'
+
+  multipleSubscriptions: (->
+    App.get('subscriptions.length') > 1
+  ).property 'App.subscriptions.length'
+

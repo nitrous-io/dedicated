@@ -40,6 +40,11 @@ type Subscription struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+type SubscriptionWithHostSlug struct {
+	*Subscription
+	HostSlug sql.NullString `db:"host_slug"`
+}
+
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
 		(plan_id, billing_profile_id, state, stripe_id)
@@ -58,4 +63,16 @@ func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
 		return nil, err
 	}
 	return sub, nil
+}
+
+func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWithHostSlug, error) {
+	subscriptions := []*SubscriptionWithHostSlug{}
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
+			JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+			LEFT JOIN hosts ON hosts.subscription_id = s.id
+			WHERE bp.user_id = $1 AND s.cancelled_at IS NULL ORDER BY s.created_at ASC;`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return subscriptions, nil
 }

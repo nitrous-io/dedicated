@@ -29,7 +29,64 @@ if App.billingProfile.hasCard
       .right
         button.ui.btn click='changeCard' Change Card
 
-if App.billingUsage
+if view.showSubscriptions
+  .card-header.bordered
+    h2
+      if view.multipleSubscriptions
+        | Subscriptions
+      else
+        | Subscription
+  .card-body
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each subscription in App.subscriptions
+            tr
+              td
+                if subscription.hostSlug
+                  ' Workspace
+                  = subscription.hostSlug
+                  |  (
+                  = subscription.plan.name
+                  | )
+                else
+                  = subscription.plan.name
+              td class={subscription.cancelPending:cancel-pending}
+                if subscription.cancelPending
+                  ' Cancels on
+                else
+                  ' Renews on
+                = daymonth subscription.currentPeriodEnd
+              if view.multipleSubscriptions
+                td.actions
+                  button.ui.btn.danger click='showCancelSubscription subscription' Cancel
+              td.charge
+                | $
+                = currency subscription.totalPriceInDollars
+
+        if view.multipleSubscriptions
+          tr
+            td.gap
+
+          tr
+            td colspan="3"
+              | Total Subscriptions
+            td.charge
+              = App.subscriptions.length
+
+          tr.total-charge
+            td colspan="3"
+              | Total Charged
+            td.charge
+              | $
+              = currency totalSubscriptionCharge
+
+  unless view.multipleSubscriptions
+    .card-footer.bordered
+        .right
+          button.ui.btn.danger click='showCancelSubscription App.subscriptions.firstObject' Cancel Subscription
+
+if App.billingUsage.groupedItems.length
   unless App.billingProfile.exempt
     .card-header.bordered
       h2 Current Usage
@@ -66,7 +123,7 @@ if App.billingUsage
 
 
 #invoices-list.card-header.bordered
-  h2 Invoices
+  h2 Billing History
 
 .card-body
   unless App.invoices.content
@@ -78,9 +135,12 @@ if App.billingUsage
       .invoice-item
         .heading
           h4
-            = simpledate invoice.periodStart
-            '  -
-            = simpledate invoice.periodEnd
+            if invoice.showSubscriptionEndHeading
+              = monthyear invoice.periodEnd
+            else
+              = simpledate invoice.periodStart
+              '  -
+              = simpledate invoice.periodEnd
           if invoice.showInvoiceState
             .payment-status class={invoice.unpaid:unpaid}
               if invoice.awaitingUpdate
@@ -108,7 +168,7 @@ if App.billingUsage
             = each group in invoice.groupedItems
               = each item in group.items
                 App.InvoiceItemView item=item
-                
+
           tr.divider
             td
               | Total usage this period
@@ -132,3 +192,35 @@ if App.billingUsage
             td.charge
               | $
               = currency invoice.totalChargeDollars
+
+#cancel-subscription-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Cancel subscription
+    .card-body
+      p
+        ' Are you sure you want to cancel the subscription for
+        if subscription.hostSlug
+          ' the workspace
+          = subscription.hostSlug
+          |  (
+          = subscription.plan.name
+          | )
+        else
+          ' the plan
+          = subscription.plan.name
+        | ?
+      p
+        ' Your subscription will end on
+        = simpledate subscription.currentPeriodEnd
+        |  after which your
+        if subscription.hostSlug
+          '  host,
+          = subscription.hostSlug
+          | ,
+        else
+          |  hosts
+        |  will be terminated.
+    .card-footer
+      .right
+        button.ui.btn click='hideCancelSubscription' Back
+        button.ui.btn.danger.terminate-btn click='cancelSubscription subscription' disabled=view.terminateSlugConfirmationInvalid Cancel Subscription

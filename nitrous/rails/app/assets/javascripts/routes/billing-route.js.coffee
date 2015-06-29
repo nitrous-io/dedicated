@@ -3,12 +3,13 @@
 App.BillingRoute = App.AuthedRoute.extend
   beforeModel: ->
     @_super.apply this, arguments
-    
+
     if App.get('billingProfile.isNoCardState') || App.get('billingProfile.free')
       @transitionTo 'add-card'
 
     App.refreshUsage()
     App.refreshInvoices()
+    App.refreshSubscriptions()
 
   activate: ->
     App.set 'title', 'Billing'

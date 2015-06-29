@@ -21,7 +21,7 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
         state = null
       @performAction('DELETE', null, state).then (data)->
         if data.subscription
-          App.snackbar.post("Your plan for “#{name}” will be cancelled at NOMERGE DATE.")
+          App.snackbar.post("Subscription for workspace “#{name}” was successfully cancelled.")
           return
         App.snackbar.post("Your workspace “#{name}” was successfully terminated.")
 

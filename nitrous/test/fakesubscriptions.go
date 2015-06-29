@@ -24,14 +24,17 @@ type FakeSubscriptionProvider struct {
 	HandleSubscriptionUpdatedCalled bool
 	HandleSubscriptionUpdatedSubID  string
 	HandleSubscriptionUpdatedError  error
+	HandleSubscriptionUpdatedReturn *subscription.Subscription
 
 	HandleSubscriptionDeletedCalled bool
 	HandleSubscriptionDeletedSubID  string
 	HandleSubscriptionDeletedError  error
+	HandleSubscriptionDeletedReturn *subscription.Subscription
 
 	HandleSubscriptionInvoiceCreatedCalled    bool
 	HandleSubscriptionInvoiceCreatedInvoiceID string
 	HandleSubscriptionInvoiceCreatedError     error
+	HandleSubscriptionInvoiceCreatedReturn    *invoice.Invoice
 
 	HandleSubscriptionInvoiceFailedCalled    bool
 	HandleSubscriptionInvoiceFailedInvoiceID string
@@ -53,22 +56,22 @@ func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subs
 	return s.CancelError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) error {
+func (s *FakeSubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error) {
 	s.HandleSubscriptionUpdatedCalled = true
 	s.HandleSubscriptionUpdatedSubID = subID
-	return s.HandleSubscriptionUpdatedError
+	return s.HandleSubscriptionUpdatedReturn, s.HandleSubscriptionUpdatedError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) error {
+func (s *FakeSubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error) {
 	s.HandleSubscriptionDeletedCalled = true
 	s.HandleSubscriptionDeletedSubID = subID
-	return s.HandleSubscriptionDeletedError
+	return s.HandleSubscriptionDeletedReturn, s.HandleSubscriptionDeletedError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error {
+func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
 	s.HandleSubscriptionInvoiceCreatedCalled = true
 	s.HandleSubscriptionInvoiceCreatedInvoiceID = invID
-	return s.HandleSubscriptionInvoiceCreatedError
+	return s.HandleSubscriptionInvoiceCreatedReturn, s.HandleSubscriptionInvoiceCreatedError
 }
 
 func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {

@@ -54,6 +54,7 @@ var (
 		"billingprofiles.Activate":   1,
 		"billingprofiles.Update":     1,
 		"billingprofiles.Show":       1,
+		"subscriptions.Index":        1,
 		"oauth.Logout":               1,
 		"feedback.Send":              1,
 	}

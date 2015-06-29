@@ -281,6 +281,7 @@ App.on 'fetchUser', (user) ->
   App.refreshUsage()
   App.refreshBillingProfile()
   App.refreshInvoices()
+  App.refreshSubscriptions()
   App.loadSettings()
 
   # make sure that we only set eventsSocket once
@@ -316,6 +317,11 @@ App.refreshInvoices = ->
   invoices = App.Invoice.fetch().value
   App.set('invoices', invoices)
   invoices
+
+App.refreshSubscriptions = ->
+  subscriptions = App.Subscription.fetch().value
+  App.set 'subscriptions', subscriptions
+  subscriptions
 
 App.loadPlans = ->
   App.set 'eligiblePlans', App.Plan.fetch({ eligible: true }).value

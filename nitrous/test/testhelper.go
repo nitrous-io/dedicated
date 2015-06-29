@@ -18,12 +18,14 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	nuser "github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/onsi/gomega"
 	bc "golang.org/x/crypto/bcrypt"
@@ -272,4 +274,29 @@ func (rt *FakeRoundTripper) Reset() {
 func (rt *FakeRoundTripper) CancelRequest(req *http.Request) {
 	// No-op. Satisfy http.Transport.CancelRequest() that's needed when
 	// setting timeout on a http.Client.
+}
+
+// listens on msgCh, waits for event with Name `name`, and returns it.  Returns
+// error on given timeout.  Where msgCh is typically looks like `msgCh :=
+// svr.Events.Subscribe(pubsub.Topic("some topic"))`
+func WaitForEvent(msgCh chan pubsub.Message, name controllers.EventName, timeout time.Duration) (*controllers.Event, error) {
+	evtCh := make(chan *controllers.Event)
+	go func() {
+		var evt *controllers.Event
+		for msg := range msgCh { // Ignore events we don't care about.
+			evt = msg.(*controllers.Event)
+			if evt.Name == name {
+				evtCh <- evt
+				break
+			}
+		}
+	}()
+
+	select {
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("Timeout waiting for event name %s (%s)", name, timeout)
+	case evt := <-evtCh:
+		Expect(evt.Name).To(Equal(name))
+		return evt, nil
+	}
 }

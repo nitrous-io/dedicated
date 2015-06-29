@@ -52,6 +52,8 @@ const (
 	EventVolumeCreated              EventName = "volume.created"
 	EventVolumeDestroyed            EventName = "volume.destroyed"
 	EventInvoiceUpdated             EventName = "invoice.updated"
+	EventSubscriptionUpdated        EventName = "subscription.updated"
+	EventSubscriptionDeleted        EventName = "subscription.deleted"
 	EventCollaboratorAdded          EventName = "collaborator.added"
 	EventCollaboratorRemoved        EventName = "collaborator.removed"
 )
