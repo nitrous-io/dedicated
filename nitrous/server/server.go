@@ -140,6 +140,11 @@ func (s *Server) pprofHandler(env *middleware.Env, w http.ResponseWriter, r *htt
 	return nil
 }
 
+func (s *Server) profileHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	pprof.Profile(w, r)
+	return nil
+}
+
 // debugHandler prints out debug information in json format.
 func (s *Server) debugHandler(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	psInfo := s.Events.Info()
