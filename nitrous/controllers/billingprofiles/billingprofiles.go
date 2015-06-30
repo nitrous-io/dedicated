@@ -2,6 +2,7 @@ package billingprofiles
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -58,14 +59,25 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	existing, err := billingprofile.Find(db, u.ID)
+	bp, err := billingprofile.Find(db, u.ID)
 	if err != nil {
 		return err
 	}
 
-	bp, err := u.ActivateBillingProfile(db, cardToken)
-	if err != nil {
-		return handleBillingError(err)
+	previousState := bp.State
+	previousPendingActivation := bp.PendingActivation
+
+	if bp.StripeID.Valid {
+		err = bp.UpdateCard(db, cardToken)
+		if err != nil {
+			fmt.Printf("Err: %+v\n", err)
+			return handleBillingError(err)
+		}
+	} else {
+		bp, err = u.ActivateBillingProfile(db, cardToken)
+		if err != nil {
+			return handleBillingError(err)
+		}
 	}
 
 	// we have had a lot of stolen credit cards used from specific countries.
@@ -85,7 +97,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 
 	// determine if this user gets a credit
 	var credited int64
-	if existing.PendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
+	if previousPendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
@@ -99,15 +111,15 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		logrus.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 
-	if (existing.State == billingprofile.StateFree || existing.State == billingprofile.StateNoCard) &&
+	if (previousState == billingprofile.StateFree || previousState == billingprofile.StateNoCard) &&
 		bp.State == billingprofile.StatePaid {
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
-			"upgraded_to_paid_from": existing.State,
+			"upgraded_to_paid_from": previousState,
 		})
 		env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 			"upgraded_to_paid_at": time.Now(),
 		})
-		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": existing.State})
+		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": previousState})
 	}
 
 	ser := serializers.SerializeBillingProfile(bp)

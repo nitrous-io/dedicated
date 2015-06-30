@@ -588,7 +588,6 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
 func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingprofile.BillingProfile, error) {
 	params := &stripe.CustomerParams{
-		Token: token,
 		Email: u.Email,
 		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
 		Params: stripe.Params{
@@ -598,36 +597,48 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 			},
 		},
 	}
+	if token != "" {
+		params.Token = token
+	}
 	c, err := customer.New(params)
 	if err != nil {
 		return nil, billingprofile.HandleStripeError(err)
 	}
 
-	// update the profile with details returned from Stripe
-	crd := c.Cards.Values[0]
-
-	var banned bool
-	err = d.Get(&banned, `SELECT COUNT(*) > 0
-		FROM billing_profiles
-		INNER JOIN users ON users.id = billing_profiles.user_id
-		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	existing, err := u.BillingProfile(d)
 	if err != nil {
 		return nil, err
-	}
-	if banned {
-		return nil, ErrCardBanned
 	}
 
 	b := &billingprofile.BillingProfile{
 		UserID:            u.ID,
 		StripeID:          sql.NullString{c.ID, true},
-		State:             billingprofile.StatePaid,
-		LastFour:          sql.NullString{crd.LastFour, true},
-		CardType:          sql.NullString{string(crd.Brand), true},
-		ExpMonth:          sql.NullInt64{int64(crd.Month), true},
-		ExpYear:           sql.NullInt64{int64(crd.Year), true},
-		StripeFingerprint: sql.NullString{crd.Fingerprint, true},
 		PendingActivation: false,
+		State:             existing.State,
+	}
+
+	if c.Cards != nil && len(c.Cards.Values) >= 1 {
+		// update the profile with details returned from Stripe
+		crd := c.Cards.Values[0]
+
+		var banned bool
+		err = d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+		if err != nil {
+			return nil, err
+		}
+		if banned {
+			return nil, ErrCardBanned
+		}
+
+		b.LastFour = sql.NullString{crd.LastFour, true}
+		b.CardType = sql.NullString{string(crd.Brand), true}
+		b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
+		b.ExpYear = sql.NullInt64{int64(crd.Year), true}
+		b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
+		b.State = billingprofile.StatePaid
 	}
 
 	tx, err := d.Beginx()

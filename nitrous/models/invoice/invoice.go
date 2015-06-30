@@ -148,14 +148,14 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	_, err = tx.Exec(`UPDATE billing_profiles
 		SET state = $1
 		WHERE user_id = $2
+		AND state NOT IN ($3, $4)
 		AND NOT EXISTS (
 			SELECT id FROM invoices
 				WHERE user_id = $2
-				AND state != $3
-				AND state != $4
+				AND state NOT IN ($5, $6)
 				AND total_charge > 0 -- invoices that are fully covered by credits have a 0 total_charge
 			FOR UPDATE)`,
-		billingprofile.StatePaid, i.UserID, StateNotPayable, StatePaid)
+		billingprofile.StatePaid, i.UserID, billingprofile.StateFree, billingprofile.StateExempt, StateNotPayable, StatePaid)
 	if err != nil {
 		tx.Rollback()
 		return err
