@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/jmoiron/sqlx"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -16,9 +18,19 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 )
+
+type SubscriptionCreateError struct {
+	Err string
+}
+
+func (e SubscriptionCreateError) Error() string {
+	return e.Err
+}
 
 // progress event to be compatible with the progress writer
 type progress struct {
@@ -66,10 +78,32 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			return nil
 		}
 
-		err = s.activateHost(m.UUID, h, queueInfo.Host)
+		err = s.activateHost(m.UUID, u, h, queueInfo.Host)
 		if err != nil {
-			return err
+			switch e := err.(type) {
+			case SubscriptionCreateError:
+				if err := s.db.WithTransaction(func(tx *sqlx.Tx) error {
+					hdrs := http.Header{}
+					hdrs.Set(constants.NitrousUUIDHeader, m.UUID)
+					return hostcontrol.Terminate(tx, h, hdrs, u.ID)
+				}); err != nil {
+					logrus.Errorf("Unable to terminate host %d: %v", h.ID, err)
+				} else {
+					s.Events.Publish(
+						controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+							"host":  serializers.SerializeHost(h),
+							"error": e.Error(),
+						}),
+						u.Topic(),
+					)
+				}
+
+				return err
+			default:
+				return err
+			}
 		}
+
 		// underlying host data may have changed, ensure we send refreshed copy
 		h, err = host.Find(db, u, queueInfo.Slug)
 		if err != nil {
@@ -119,7 +153,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 	return nil
 }
 
-func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) error {
+func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo *hh.Info) error {
 	logrus.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
@@ -147,6 +181,17 @@ func (s *Server) activateHost(uuid string, h *host.Host, hostInfo *hh.Info) erro
 	p, err := plan.FindByID(s.db, h.PlanID)
 	if err != nil {
 		logrus.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
+	}
+
+	if p.IsSubscription() {
+		_, err := s.SubscriptionProvider.Subscribe(s.db, h, p, u)
+		if err != nil {
+			logrus.Errorf("uuid=%s queueProvisionTracer: Subscribe err: %+v h: %+v", uuid, err, h)
+			if err == subscriptions.ErrCardExpired || err == subscriptions.ErrCardDeclined {
+				return SubscriptionCreateError{Err: err.Error()}
+			}
+			return SubscriptionCreateError{Err: "Failed to create subscription, please try again."}
+		}
 	}
 
 	_, err = s.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,

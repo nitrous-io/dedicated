@@ -3,7 +3,9 @@ package server_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/nitrous-io/dedicated/event"
@@ -12,11 +14,15 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	redistest "github.com/nitrous-io/dedicated/test"
@@ -237,6 +243,135 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
 				Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
 				Expect(updatedHost.Free).To(BeFalse())
+			})
+
+			Context("when the host plan requires subscription", func() {
+				var (
+					fsub *test.FakeSubscriptionProvider
+					rt   *test.FakeRoundTripper
+				)
+
+				BeforeEach(func() {
+					fsub = &test.FakeSubscriptionProvider{}
+					svr.SubscriptionProvider = fsub
+
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					rt = &test.FakeRoundTripper{
+						Message: `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`,
+						Status:  http.StatusOK,
+					}
+					hb.Client.Client.Transport = rt
+					hostcontrol.HostbuilderClient = hb
+				})
+
+				It("terminates the host if the subscribe fails", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
+					Expect(err).To(BeNil())
+
+					fsub.SubscribeError = errors.New("I failed")
+
+					err = handler(message)
+					Expect(err).To(MatchError("Failed to create subscription, please try again."))
+					Expect(rt.Requests).To(HaveLen(1))
+
+					Expect(fsub.SubscribeCalled).To(BeTrue())
+					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+					Expect(err).To(BeNil())
+					evtData, _ := evt.Data.(map[string]interface{})
+					s, ok := evtData["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(s).To(Equal("Failed to create subscription, please try again."))
+
+					hosts, _ := host.FindAllByUser(db, u.ID)
+					Expect(hosts).To(HaveLen(0))
+				})
+
+				It("terminates the host if the card is declined", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
+					Expect(err).To(BeNil())
+
+					fsub.SubscribeError = subscriptions.ErrCardDeclined
+
+					err = handler(message)
+					Expect(err).To(MatchError(subscriptions.ErrCardDeclined.Error()))
+					Expect(rt.Requests).To(HaveLen(1))
+
+					Expect(fsub.SubscribeCalled).To(BeTrue())
+					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+					Expect(err).To(BeNil())
+					evtData, _ := evt.Data.(map[string]interface{})
+					s, ok := evtData["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(s).To(Equal(subscriptions.ErrCardDeclined.Error()))
+
+					hosts, _ := host.FindAllByUser(db, u.ID)
+					Expect(hosts).To(HaveLen(0))
+				})
+
+				It("terminates the host if the card is explired", func() {
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
+					Expect(err).To(BeNil())
+
+					fsub.SubscribeError = subscriptions.ErrCardExpired
+
+					err = handler(message)
+					Expect(err).To(MatchError(subscriptions.ErrCardExpired.Error()))
+					Expect(rt.Requests).To(HaveLen(1))
+
+					Expect(fsub.SubscribeCalled).To(BeTrue())
+					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+					Expect(err).To(BeNil())
+					evtData, _ := evt.Data.(map[string]interface{})
+					s, ok := evtData["error"].(string)
+					Expect(ok).To(BeTrue())
+					Expect(s).To(Equal(subscriptions.ErrCardExpired.Error()))
+
+					hosts, _ := host.FindAllByUser(db, u.ID)
+					Expect(hosts).To(HaveLen(0))
+				})
+
+				It("continues creating if the subscribe succeeds", func() {
+					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
+					Expect(err).To(BeNil())
+
+					fsub.SubscribeError = nil
+					fsub.SubscribeReturn = &subscription.Subscription{}
+
+					err = handler(message)
+					Expect(err).To(BeNil())
+					Expect(rt.Requests).To(HaveLen(0))
+
+					Expect(fsub.SubscribeCalled).To(BeTrue())
+					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+					hosts, err := host.FindAllByUser(db, u.ID)
+					Expect(err).To(BeNil())
+					Expect(hosts).To(HaveLen(1))
+					Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+				})
 			})
 		})
 
