@@ -15,6 +15,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -130,149 +132,256 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeFalse())
 		})
 
-		It("should not handle invoices that are not found in the database and return an error", func() {
-			fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded", "data": {"object": {"id": "invalid-invoice-id"}}}`}
+		Describe("with invoices", func() {
 
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			It("should not handle invoices that are not found in the database and return an error", func() {
+				fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded", "data": {"object": {"id": "invalid-invoice-id"}}}`}
 
-			Expect(succeedFnCalled).To(BeFalse())
-		})
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
-		It("should handle the payment as succeeded if invoice is paid", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": true}`,
-			}
-
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(succeedFnCalled).To(BeTrue())
-			Expect(receivedSucceedInvoice).To(Equal(inv))
-		})
-
-		It("should return an error if succeed function returns an error", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": true}`,
-			}
-
-			succeedFnErr = errors.New("Woops!")
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-			Expect(succeedFnCalled).To(BeTrue())
-			Expect(receivedSucceedInvoice).To(Equal(inv))
-		})
-
-		It("should call HandleSubscriptionInvoiceFailed if the invoice failed", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
-			}
-
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
-			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
-		})
-
-		It("should return an error if the HandleSubscriptionInvoiceFailed return an error", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
-			}
-
-			fsub.HandleSubscriptionInvoiceFailedError = errors.New("Woops!")
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-
-			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
-			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
-		})
-
-		It("should log to mixpanel if the invoice failed", func() {
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
-			}
-
-			inv.Attempts = 2
-			fsub.HandleSubscriptionInvoiceFailedReturn = inv
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
-			Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
-
-			var (
-				evs []string
-				ok  bool
-			)
-			Eventually(func() bool {
-				evs, ok = ft.Events[u.ID]
-				return ok
-			}).Should(BeTrue())
-
-			Expect(evs).To(Equal([]string{"Customer Card Declined 2"}))
-		})
-
-		It("should publish a EventInvoiceUpdated to the user", func(done Done) {
-			hs1, err := test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{
-					Slug:        "my-host-1",
-					HourlyPrice: 2000,
-				},
-				U: u,
+				Expect(succeedFnCalled).To(BeFalse())
 			})
-			Expect(err).To(BeNil())
-			h1 := hs1.H
-			itm1 := invoiceitem.InvoiceItem{
-				InvoiceID:   inv.ID,
-				HostID:      sql.NullInt64{h1.ID, true},
-				Hours:       sql.NullInt64{24, true},
-				HourlyPrice: sql.NullInt64{2000, true},
-				ItemType:    invoiceitem.ItemTypeCompute,
-				PlanMemory:  sql.NullString{"2 GB", true},
-			}
-			Expect(itm1.Insert(db)).To(BeNil())
 
-			fakeStripe.Responses = []string{
-				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
-				`{"object": "invoice", "id": "Sv", "paid": true}`,
-			}
-
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			succeedFnCalled = false
-			res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
-
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var e *controllers.Event
-			timeout := time.After(1000 * time.Millisecond)
-			for {
-				if e != nil && e.Name == controllers.EventInvoiceUpdated {
-					break
+			It("should handle the payment as succeeded if invoice is paid", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": true}`,
 				}
-				select {
-				case ev := <-ch:
-					e = ev.(*controllers.Event)
-				case <-timeout:
-					Fail("expected EventInvoiceUpdated but timed out")
-				}
-			}
 
-			evtData, _ := e.Data.(map[string]interface{})
-			inv, ok := evtData["invoice"].(*serializers.Invoice)
-			Expect(ok).To(BeTrue())
-			Expect(inv.ID).To(Equal(inv.ID))
-			Expect(inv.Items[0].ID).To(Equal(itm1.ID))
-			Expect(inv.Items[0].Description).To(ContainSubstring(h1.Slug))
-			close(done)
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(succeedFnCalled).To(BeTrue())
+				Expect(receivedSucceedInvoice).To(Equal(inv))
+			})
+
+			It("should return an error if succeed function returns an error", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": true}`,
+				}
+
+				succeedFnErr = errors.New("Woops!")
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				Expect(succeedFnCalled).To(BeTrue())
+				Expect(receivedSucceedInvoice).To(Equal(inv))
+			})
+
+			It("should call HandleSubscriptionInvoiceFailed if the invoice failed", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+				}
+
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+				Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+			})
+
+			It("should return an error if the HandleSubscriptionInvoiceFailed return an error", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+				}
+
+				fsub.HandleSubscriptionInvoiceFailedError = errors.New("Woops!")
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+				Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+			})
+
+			It("should log to mixpanel if the invoice failed", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_failed", "data": {"object": {"id": "Xcccs", "attempt_count": 2, "next_payment_attempt": 123455}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": false, "attempt_count": 2, "next_payment_attempt": 192075622}`,
+				}
+
+				inv.Attempts = 2
+				fsub.HandleSubscriptionInvoiceFailedReturn = inv
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_failed"}`)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeTrue())
+				Expect(fsub.HandleSubscriptionInvoiceFailedInvoiceID).To(Equal("Xcccs"))
+
+				var (
+					evs []string
+					ok  bool
+				)
+				Eventually(func() bool {
+					evs, ok = ft.Events[u.ID]
+					return ok
+				}).Should(BeTrue())
+
+				Expect(evs).To(Equal([]string{"Customer Card Declined 2"}))
+			})
+
+			It("should publish a EventInvoiceUpdated to the user", func() {
+				hs1, err := test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						Slug:        "my-host-1",
+						HourlyPrice: 2000,
+					},
+					U: u,
+				})
+				Expect(err).To(BeNil())
+				h1 := hs1.H
+				itm1 := invoiceitem.InvoiceItem{
+					InvoiceID:   inv.ID,
+					HostID:      sql.NullInt64{h1.ID, true},
+					Hours:       sql.NullInt64{24, true},
+					HourlyPrice: sql.NullInt64{2000, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
+					PlanMemory:  sql.NullString{"2 GB", true},
+				}
+				Expect(itm1.Insert(db)).To(BeNil())
+
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "invoice.payment_succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+					`{"object": "invoice", "id": "Sv", "paid": true}`,
+				}
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				succeedFnCalled = false
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "invoice.payment_succeeded"}`)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				evt, err := test.WaitForEvent(ch, controllers.EventInvoiceUpdated, 50*time.Millisecond)
+				Expect(err).To(BeNil())
+
+				evtData, ok := evt.Data.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				inv, ok := evtData["invoice"].(*serializers.Invoice)
+				Expect(ok).To(BeTrue())
+				Expect(inv.ID).To(Equal(inv.ID))
+				Expect(inv.Items[0].ID).To(Equal(itm1.ID))
+				Expect(inv.Items[0].Description).To(ContainSubstring(h1.Slug))
+			})
+
+			Describe("with subscriptions", func() {
+				var (
+					pl  *plan.Plan
+					sub *subscription.Subscription
+				)
+
+				BeforeEach(func() {
+					pl = &plan.Plan{
+						Slug:          "hs1Plan",
+						Name:          "hs1Plan",
+						MaxContainers: 1,
+						Price:         1499,
+						StripePlanID:  sql.NullString{"stripe-plan-id", true},
+					}
+					Expect(pl.Insert(db)).To(BeNil())
+
+					bp, err := u.BillingProfile(db)
+					Expect(err).To(BeNil())
+
+					sub = &subscription.Subscription{
+						StripeID:         sql.NullString{"abc1", true},
+						PlanID:           pl.ID,
+						BillingProfileID: bp.ID,
+					}
+					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+				})
+
+				It("should return an error if HandleSubscriptionUpdated failed", func() {
+					fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated", "data": {"object": {"id": "sub_1"}}}`}
+
+					fsub.HandleSubscriptionUpdatedError = errors.New("Woops")
+
+					res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated"}`)
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+					Expect(fsub.HandleSubscriptionUpdatedCalled).To(BeTrue())
+					Expect(fsub.HandleSubscriptionUpdatedSubID).To(Equal("sub_1"))
+				})
+
+				It("should return an error if HandleSubscriptionDeleted failed", func() {
+					fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.deleted", "data": {"object": {"id": "sub_1"}}}`}
+
+					fsub.HandleSubscriptionDeletedError = errors.New("Woops")
+
+					res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.deleted"}`)
+					Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+					Expect(fsub.HandleSubscriptionDeletedCalled).To(BeTrue())
+					Expect(fsub.HandleSubscriptionDeletedSubID).To(Equal("sub_1"))
+				})
+
+				It("should publish an event if the function succeeds", func() {
+					fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated", "data": {"object": {"id": "sub_1"}}}`}
+
+					fsub.HandleSubscriptionUpdatedError = nil
+					fsub.HandleSubscriptionUpdatedReturn = sub
+
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated"}`)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					Expect(fsub.HandleSubscriptionUpdatedCalled).To(BeTrue())
+					Expect(fsub.HandleSubscriptionUpdatedSubID).To(Equal("sub_1"))
+
+					evt, err := test.WaitForEvent(ch, controllers.EventSubscriptionUpdated, 250*time.Millisecond)
+					Expect(err).To(BeNil())
+
+					evtData, _ := evt.Data.(map[string]interface{})
+					s, ok := evtData["subscription"].(*serializers.Subscription)
+					Expect(ok).To(BeTrue())
+					Expect(s.ID).To(Equal(sub.ID))
+					Expect(s.HostSlug).To(BeEmpty())
+				})
+
+				It("should publish the host slug if available", func() {
+					hs, err := test.CreateHostStack(db, &test.HostStack{
+						H: &host.Host{
+							Slug:        "my-host-1",
+							HourlyPrice: 2000,
+						},
+						P: pl,
+						U: u,
+					})
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
+					Expect(err).To(BeNil())
+
+					fakeStripe.Responses = []string{`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated", "data": {"object": {"id": "sub_1"}}}`}
+
+					fsub.HandleSubscriptionUpdatedError = nil
+					fsub.HandleSubscriptionUpdatedReturn = sub
+
+					ch := svr.Events.Subscribe(u.Topic())
+					defer svr.Events.Unsubscribe(ch, u.Topic())
+
+					res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "customer.subscription.updated"}`)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					Expect(fsub.HandleSubscriptionUpdatedCalled).To(BeTrue())
+					Expect(fsub.HandleSubscriptionUpdatedSubID).To(Equal("sub_1"))
+
+					evt, err := test.WaitForEvent(ch, controllers.EventSubscriptionUpdated, 250*time.Millisecond)
+					Expect(err).To(BeNil())
+
+					evtData, _ := evt.Data.(map[string]interface{})
+					s, ok := evtData["subscription"].(*serializers.Subscription)
+					Expect(ok).To(BeTrue())
+					Expect(s.ID).To(Equal(sub.ID))
+					Expect(s.HostSlug).To(Equal("my-host-1"))
+				})
+			})
 		})
 	})
 

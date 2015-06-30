@@ -131,7 +131,12 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
 	defer cancel()
 
+	hctx := host.NewContext(ctx, h, h, nil)
 	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+
 		if h.keypair != nil {
 			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
 			h.Printf("keyID=%s Removing key...", h.keypair.name)
@@ -144,7 +149,6 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		}
 	}()
 
-	hctx := host.NewContext(ctx, h, h, nil)
 	steps := []host.Step{
 		{
 			Description: "Creating key",
@@ -159,6 +163,19 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			Func:        createInstance,
 			Timeout:     5 * time.Minute,
 		},
+		/*
+			  From @dqminh
+				to prevent ec2 from assigning network interfaces to a not running instance
+				(i.e., maybe the API reported a false positive ? ), we actually wait for SSH to
+				be ready right after finishing creating the instance.
+
+				This waits for SSH to be accessible using the instance's dynamic public IP
+				instead of the elasic IP. If the instance is accessible, it should be in
+				running state.
+
+				After assigning the elastic IP, ssh check should be really quick, so it's safe
+				to double-check it.
+		*/
 		{
 			Func:    host.WaitForSSH,
 			Timeout: 5 * time.Minute,

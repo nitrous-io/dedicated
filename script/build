@@ -5,7 +5,6 @@ export APP=${1:?"app name is required"}
 # by default, we allow build to build without docker
 export IN_DOCKER=${2}
 
-NITRO_API_URL=${NITRO_API_URL:='http://127.0.0.1:3333'}
 BUILD_DIR=$(pwd)/build
 GIT_DIR=$(pwd)/.git
 mkdir -p "$BUILD_DIR"
@@ -75,35 +74,6 @@ build_assets() {
   )
 }
 
-# as nitro needs to be cross-compiled, it deserves a special function
-# we will only allow cross-compiled to be run in docker environment.
-#
-# this also accepts $LDFLAGS env, which we can use to pass the
-# binary's version information
-xbuild_nitro() {
-  app=nitro
-
-  if [ "$BUILD_IN_DOCKER" != "true" ]; then
-    die "cross compile nitro needs to be run inside docker environment"
-  fi
-
-  ARCHS="linux/amd64 darwin/amd64"
-
-  for arch in $ARCHS; do
-    build=$BUILD_DIR/$arch
-    rm -rf $build
-    mkdir -p $build
-
-    arch=$arch gox \
-      -osarch="${arch}" \
-      -ldflags="${LDFLAGS}" \
-      -output="${build}/{{.Dir}}" github.com/nitrous-io/dedicated/$app
-
-    # this file is useful for release to know the current version
-    echo $VERSION > $build/nitro-VERSION
-  done
-}
-
 # shortcut for building various applications
 build_freighter() {
   (
@@ -111,31 +81,6 @@ build_freighter() {
   LDFLAGS="-X main.version $VERSION"
   build "freighter/freighterd"
   )
-}
-
-build_nitro() {
-  (
-  VERSION=$(get_version nitro)
-  LDFLAGS="\
-    -X main.version ${VERSION} \
-    -X main.nitrousVersion $(get_version nitrous) \
-    -X main.freighterVersion $(get_version freighter) \
-    -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
-    "
-  build "nitro"
-  )
-  if [ "$BUILD_IN_DOCKER" == "true" ]; then
-    (
-    VERSION=$(get_version nitro)
-    LDFLAGS="\
-      -X main.version ${VERSION} \
-      -X main.nitrousdVersion $(get_version nitrous) \
-      -X main.freighterdVersion $(get_version freighter) \
-      -X github.com/nitrous-io/dedicated/nitro/command.DefaultAPIURL ${NITRO_API_URL} \
-      "
-    xbuild_nitro
-    )
-  fi
 }
 
 build_hostbuilder() {
@@ -167,7 +112,6 @@ build_nitrous() {
   VERSION=$(get_version nitrous)
   LDFLAGS="\
     -X main.version ${VERSION} \
-    -X main.nitroVersion $(get_version nitro) \
     -X main.freighterVersion $(get_version freighter) \
     "
   build "nitrous/nitrousd" \
@@ -214,13 +158,10 @@ if [ "$IN_DOCKER" == "true" ]; then
 else
   if [ "$APP" == "all" ]; then
     build_freighter
-    # build_nitro
     build_hostbuilder
     build_compass
     build_tender
     build_nitrous
-  elif [ "$APP" == "nitro" ]; then
-    build_nitro
   elif [ "$APP" == "freighter" ]; then
     build_freighter
   elif [ "$APP" == "hostbuilder" ]; then

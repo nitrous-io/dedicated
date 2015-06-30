@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
@@ -140,6 +141,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/collaborators":    r("containercollabs.Index", containercollabs.Index),
 				"/billing/invoices":                   r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":              r("billing.CurrentUsage", billing.CurrentUsage),
+				"/subscriptions":                      r("subscriptions.Index", subscriptions.Index),
 				"/admin/announcements/global":         r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":            r("announcements.ShowAll", announcements.ShowAll),
 				"/admin/amazon/healthcheck":           r("amazon.Healthcheck", amazon.Healthcheck),
@@ -214,9 +216,10 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
-				"/logout":               r("oauth.Logout", oauth.Logout),
-				"/user":                 r("users.Delete", users.Delete, EventUserDeleted),
-				"/admin/users/{id}/ban": r("admin.BanUser", admin.BanUser),
+				"/subscriptions/{id}/cancel":              r("subscriptions.Cancel", subscriptions.Cancel),
+				"/logout":                                 r("oauth.Logout", oauth.Logout),
+				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
+				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
 			},
 		}
 

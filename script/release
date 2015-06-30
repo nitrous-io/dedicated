@@ -95,40 +95,6 @@ bundle_binary() {
   )
 }
 
-# nitro will be distribute as tgz together with the md5/sha256 hash
-bundle_nitro() {
-  ARCHS="linux/amd64 darwin/amd64"
-
-  for arch in $ARCHS; do
-    build=/root/app/$arch
-    VERSION=$(cat $build/nitro-VERSION)
-    os=$(dirname $arch)
-    t=$(basename $arch)
-    pkg=nitro-${VERSION}-${os}-${t}.tar.gz
-    latestpkg=nitro-latest-${os}-${t}.tar.gz
-    md5=nitro-${VERSION}.md5
-    sha256=nitro-${VERSION}.sha256
-
-    (
-    cd $build
-    tar zvcf $pkg nitro
-
-    hash_files $pkg nitro
-
-    upload_public_s3 $pkg $pkg
-    upload_public_s3 nitro.md5 nitro-${VERSION}.md5
-    upload_public_s3 nitro.sha256 nitro-${VERSION}.sha256
-
-    upload_public_s3 $pkg $latestpkg
-    upload_public_s3 nitro.md5 nitro-latest.md5
-    upload_public_s3 nitro.sha256 nitro-latest.sha256
-
-    # copy back the pkg to build root for convenience
-    cp $pkg /root/app/$pkg
-    )
-  done
-}
-
 bundle_freighter() {
   FILES=/root/debian/freighter/files
   PKGDIR=/root/app/freighter_deb
@@ -263,14 +229,11 @@ if [ "$IN_DOCKER" == "true" ]; then
   fi
 else
   if [ "$RELEASE" == "all" ]; then
-    (bundle_nitro)
     (bundle_freighter)
     (bundle_binary hostbuilder)
     (bundle_binary tender)
     (bundle_binary compass)
     (bundle_binary nitrousd dbseed createinvitecodes populatehosttransitions populatemxprofiles hostusage biller removeexpiredtokens engagement migrate hostshutdown freehostusage healthcheck public templates)
-  elif [ "$RELEASE" == "nitro" ]; then
-    (bundle_nitro)
   elif [ "$RELEASE" == "freighter" ]; then
     (bundle_freighter)
   elif [ "$RELEASE" == "hostbuilder" ]; then

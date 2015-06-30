@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -163,6 +164,53 @@ var _ = Describe("models/freetier", func() {
 				Expect(r.HostID).To(Equal(h.ID))
 				Expect(r.ProviderTemplateID).To(Equal(paidPT.ID))
 				Expect(r.State).To(Equal(respec.StatePending))
+			})
+
+			Context("when new plan is a subscription plan", func() {
+				var fsub *test.FakeSubscriptionProvider
+
+				BeforeEach(func() {
+					fsub = &test.FakeSubscriptionProvider{}
+					freetier.SetSubscriptionProvider(fsub)
+
+					// Set Stripe plan ID so that paid plan becomes a subscription plan.
+					stripePlanID := "stripe-paid-1"
+					_, err := db.Exec(`UPDATE plans SET stripe_plan_id=$1 WHERE id=$2;`, stripePlanID, paidPlan.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("subscribes the user to the plan", func() {
+					err := freetier.UpgradeFreeUserHosts(db, u)
+					Expect(err).To(BeNil())
+
+					Expect(fsub.SubscribeCalled).To(BeTrue())
+					Expect(fsub.SubscribeHost.ID).To(Equal(h.ID))
+					Expect(fsub.SubscribePlan.ID).To(Equal(paidPlan.ID))
+					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+				})
+
+				It("upgrades the user's subscription to the plan when the host has an existing subscription", func() {
+					bp, err := u.BillingProfile(db)
+					Expect(err).To(BeNil())
+
+					// Create existing subscription for host.
+					sub := &subscription.Subscription{
+						StripeID:         sql.NullString{"stripe-free-1", true},
+						PlanID:           freePlan.ID,
+						BillingProfileID: bp.ID,
+					}
+					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h.ID)
+					Expect(err).To(BeNil())
+
+					err = freetier.UpgradeFreeUserHosts(db, u)
+					Expect(err).To(BeNil())
+
+					Expect(fsub.UpgradeCalled).To(BeTrue())
+					Expect(fsub.UpgradeSubscription.ID).To(Equal(sub.ID))
+					Expect(fsub.UpgradePlan.ID).To(Equal(paidPlan.ID))
+					Expect(fsub.UpgradeUser.ID).To(Equal(u.ID))
+				})
 			})
 		})
 

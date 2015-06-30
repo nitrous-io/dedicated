@@ -15,7 +15,7 @@ user = uri.user || 'nitrous'
 
 forwarded_ports = [7000]
 forwarded_ports.concat (32768..32800).to_a
-forward = forwarded_ports.map { |o| "-L #{o}/localhost/#{o}" }.join ' '
+forward = forwarded_ports.map { |o| "-L #{o}:localhost:#{o}" }.join ' '
 
 cmd = """ssh \
 -N -v \

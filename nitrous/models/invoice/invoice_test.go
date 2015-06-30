@@ -329,6 +329,32 @@ var _ = Describe("models/invoice", func() {
 			Expect(b.State).To(Equal(billingprofile.StatePaid))
 		})
 
+		It("should not mark the billingprofile as state Paid if no other unpaid invoices remain but the BP is free", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateFree, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StateFree))
+		})
+
+		It("should not mark the billingprofile as state Paid if no other unpaid invoices remain but the BP is exempt", func() {
+			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateExempt, u.ID)
+			Expect(err).To(BeNil())
+
+			err = i.PaymentSucceeded(db)
+			Expect(err).To(BeNil())
+
+			b := &billingprofile.BillingProfile{}
+			err = db.QueryRowx("SELECT * FROM billing_profiles WHERE user_id = $1", u.ID).StructScan(b)
+			Expect(err).To(BeNil())
+			Expect(b.State).To(Equal(billingprofile.StateExempt))
+		})
+
 		It("should not mark the billingprofile as state Paid if there are other unpaid invoices remaining", func() {
 			start := time.Now()
 			end := start.Add(2 * time.Hour)

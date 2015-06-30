@@ -21,17 +21,26 @@ type FakeSubscriptionProvider struct {
 	CancelSubscription *subscription.Subscription
 	CancelError        error
 
+	UpgradeCalled       bool
+	UpgradeSubscription *subscription.Subscription
+	UpgradePlan         *plan.Plan
+	UpgradeUser         *user.User
+	UpgradeError        error
+
 	HandleSubscriptionUpdatedCalled bool
 	HandleSubscriptionUpdatedSubID  string
 	HandleSubscriptionUpdatedError  error
+	HandleSubscriptionUpdatedReturn *subscription.Subscription
 
 	HandleSubscriptionDeletedCalled bool
 	HandleSubscriptionDeletedSubID  string
 	HandleSubscriptionDeletedError  error
+	HandleSubscriptionDeletedReturn *subscription.Subscription
 
 	HandleSubscriptionInvoiceCreatedCalled    bool
 	HandleSubscriptionInvoiceCreatedInvoiceID string
 	HandleSubscriptionInvoiceCreatedError     error
+	HandleSubscriptionInvoiceCreatedReturn    *invoice.Invoice
 
 	HandleSubscriptionInvoiceFailedCalled    bool
 	HandleSubscriptionInvoiceFailedInvoiceID string
@@ -47,28 +56,36 @@ func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *pl
 	return s.SubscribeReturn, s.SubscribeError
 }
 
-func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) (err error) {
+func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) error {
 	s.CancelCalled = true
 	s.CancelSubscription = sub
 	return s.CancelError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) error {
+func (s *FakeSubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
+	s.UpgradeCalled = true
+	s.UpgradeSubscription = sub
+	s.UpgradePlan = p
+	s.UpgradeUser = u
+	return s.UpgradeError
+}
+
+func (s *FakeSubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error) {
 	s.HandleSubscriptionUpdatedCalled = true
 	s.HandleSubscriptionUpdatedSubID = subID
-	return s.HandleSubscriptionUpdatedError
+	return s.HandleSubscriptionUpdatedReturn, s.HandleSubscriptionUpdatedError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) error {
+func (s *FakeSubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error) {
 	s.HandleSubscriptionDeletedCalled = true
 	s.HandleSubscriptionDeletedSubID = subID
-	return s.HandleSubscriptionDeletedError
+	return s.HandleSubscriptionDeletedReturn, s.HandleSubscriptionDeletedError
 }
 
-func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) error {
+func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
 	s.HandleSubscriptionInvoiceCreatedCalled = true
 	s.HandleSubscriptionInvoiceCreatedInvoiceID = invID
-	return s.HandleSubscriptionInvoiceCreatedError
+	return s.HandleSubscriptionInvoiceCreatedReturn, s.HandleSubscriptionInvoiceCreatedError
 }
 
 func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error) {

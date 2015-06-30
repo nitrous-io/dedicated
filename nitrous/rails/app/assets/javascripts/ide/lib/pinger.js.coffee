@@ -32,4 +32,4 @@ App.Pinger = klass = Em.Object.extend
       @set 'latency', -1
 
 klass.reopenClass
-  pingInterval: 10000 # millisecond
+  pingInterval: 60000 # millisecond

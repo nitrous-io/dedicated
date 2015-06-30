@@ -200,6 +200,9 @@ var _ = Describe("models/billingprofile", func() {
 				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
 
+				bp, err = billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
+
 				Expect(bp.StripeID.String).To(Equal("sc_01"))
 				Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
 				Expect(bp.LastFour.String).To(Equal("4242"))
@@ -207,6 +210,32 @@ var _ = Describe("models/billingprofile", func() {
 				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(bp.ExpYear.Int64).To(Equal(int64(2018)))
 				Expect(bp.PendingActivation).To(BeFalse())
+			})
+
+			It("sets the state if the card was previously no card", func() {
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				bp.State = billingprofile.StateNoCard
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(BeNil())
+
+				bp, err = billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
+
+				Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			})
+
+			It("sets the state if the card was previously free", func() {
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				bp.State = billingprofile.StateFree
+				err := bp.UpdateCard(db, "token")
+				Expect(err).To(BeNil())
+
+				bp, err = billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
+
+				Expect(bp.State).To(Equal(billingprofile.StatePaid))
 			})
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
@@ -244,6 +273,9 @@ var _ = Describe("models/billingprofile", func() {
 
 				err := bp.UpdateCard(db, "token")
 				Expect(err).NotTo(BeNil())
+
+				bp, err = billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
 
 				// should not change existing values
 				Expect(bp.StripeID.String).To(Equal("sc_01"))

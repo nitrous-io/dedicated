@@ -26,7 +26,6 @@ const HostQueueName = "v1.host"
 var (
 	version           string // current version of nitrousd
 	freighterdVersion string // freighterd version that works with current nitrousd
-	nitroVersion      string // nitro version that works with current nitrousd
 )
 
 // default to debug level logging

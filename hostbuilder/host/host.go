@@ -134,6 +134,8 @@ type Executor interface {
 	// CombinedOutput executes the command on the remote server and returns its
 	// combined standard stdout/stderr
 	CombinedOutput(cmd string) ([]byte, error)
+	// Close existing connection
+	Close()
 }
 
 type NewHost func(defaultConfig map[string]string, config string) (Host, error)
