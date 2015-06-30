@@ -229,7 +229,6 @@ if [ "$IN_DOCKER" == "true" ]; then
   fi
 else
   if [ "$RELEASE" == "all" ]; then
-    (bundle_nitro)
     (bundle_freighter)
     (bundle_binary hostbuilder)
     (bundle_binary tender)
