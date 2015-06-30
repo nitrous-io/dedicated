@@ -160,7 +160,7 @@
             if App.billingProfile.free
               button.ui.btn click='upgradePaid' Upgrade
 
-            if subscriptionId
+            if canCancelSubscription
               button.ui.btn click='showTerminateDialog target="view"' disabled=subscription.cancelPending Cancel Subscription
             else
               button.ui.btn click='showTerminateDialog target="view"' Terminate...
@@ -180,7 +180,7 @@
         ' absolutely
       | sure?
     .card-body
-      if subscriptionId
+      if canCancelSubscription
         p
           ' Your workspace
           strong

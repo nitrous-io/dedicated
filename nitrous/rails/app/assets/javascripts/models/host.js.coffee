@@ -24,6 +24,7 @@ App.Host = klass = App.Model.extend
   updateAvailable: attr(as: 'update_available', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
   subscriptionId: attr('number', as: 'subscription_id', serialize: false)
+  free: attr('boolean', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
@@ -154,6 +155,11 @@ App.Host = klass = App.Model.extend
     return @get('containers').every (con)->
       con.get('isStopped') || con.get('isTerminated')
   ).property 'containers.@each.state'
+
+  canCancelSubscription: (->
+    return false unless @get 'subscriptionId'
+    !@get('free')
+  ).property 'subscriptionId'
 
   prefetchResources: ->
     @get 'images'
