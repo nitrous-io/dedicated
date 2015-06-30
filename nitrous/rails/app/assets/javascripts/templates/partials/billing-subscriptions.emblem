@@ -14,9 +14,9 @@
               if subscription.hostSlug
                 ' Workspace
                 = subscription.hostSlug
-                |  (
+                span.dash
+                  '  &#8212;
                 = subscription.plan.name
-                | )
               else
                 = subscription.plan.name
             td class={subscription.cancelPending:cancel-pending}
