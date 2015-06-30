@@ -82,6 +82,13 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		return
 	}
 
+	if !bp.StripeID.Valid {
+		bp, err = u.ActivateBillingProfile(d, "")
+		if err != nil {
+			return
+		}
+	}
+
 	if !bp.EligibleForSubscription() {
 		err = ErrInvalidBillingState
 		return

@@ -1404,6 +1404,20 @@ var _ = Describe("models/user", func() {
 			}))
 		})
 
+		It("should send a request if a token is not provided", func() {
+			u.ActivateBillingProfile(db, "")
+
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
+				"method":             "POST",
+				"path":               "/customers",
+				"card":               "",
+				"email":              u.Email,
+				"desc":               "Name: quxboy, Username: qux",
+				"metadata[username]": "qux",
+				"metadata[name]":     "quxboy",
+			}))
+		})
+
 		Context("when Stripe returns the created customer", func() {
 			It("updates and persists the record", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
@@ -1418,6 +1432,29 @@ var _ = Describe("models/user", func() {
 				Expect(b.CardType.String).To(Equal("Visa"))
 				Expect(b.ExpMonth.Int64).To(Equal(int64(10)))
 				Expect(b.ExpYear.Int64).To(Equal(int64(2018)))
+				Expect(b.PendingActivation).To(BeFalse())
+			})
+
+			It("should create a record without a card", func() {
+				resp := `{
+					"id": "sc_01",
+					"email": "user@example.com",
+					"cards": null,
+					"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
+				}`
+				fakeStripe.Responses = []string{resp}
+
+				b, err := u.ActivateBillingProfile(db, "token")
+				Expect(err).To(BeNil())
+
+				Expect(b.ID).NotTo(BeNil())
+				Expect(b.UserID).To(Equal(u.ID))
+				Expect(b.StripeID.String).To(Equal("sc_01"))
+				Expect(b.LastFour.String).To(BeEmpty())
+				Expect(b.CardType.String).To(BeEmpty())
+				Expect(b.ExpMonth.Int64).To(BeZero())
+				Expect(b.ExpYear.Int64).To(BeZero())
+				Expect(b.State).To(Equal("no_card"))
 				Expect(b.PendingActivation).To(BeFalse())
 			})
 
