@@ -30,8 +30,9 @@ import (
 )
 
 type Provider interface {
-	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error)
-	Cancel(d *db.Database, sub *subscription.Subscription) (err error)
+	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (*subscription.Subscription, error)
+	Cancel(d *db.Database, sub *subscription.Subscription) error
+	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 
 	HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error)
 	HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error)
@@ -123,18 +124,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		})
 		if err != nil {
+			logrus.Errorf("Failed to create Stripe subscription: %+v, err: %+v", strSub, err)
 			strSub = nil
-			logrus.Errorf("Stripe subscription: %+v, err: %+v", strSub, err)
 
-			sErr, ok := err.(*stripe.Error)
-			if !ok {
-				return sErr
-			}
-
-			if sErr.Code == stripe.ExpiredCard {
-				return ErrCardExpired
-			} else if sErr.Code == stripe.CardDeclined {
-				return ErrCardDeclined
+			if sErr, ok := err.(*stripe.Error); ok {
+				if sErr.Code == stripe.ExpiredCard {
+					return ErrCardExpired
+				} else if sErr.Code == stripe.CardDeclined {
+					return ErrCardDeclined
+				}
 			}
 
 			return err
@@ -145,10 +143,10 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		sub.CurrentPeriodStart = pq.NullTime{time.Unix(strSub.PeriodStart, 0), true}
 		sub.CurrentPeriodEnd = pq.NullTime{time.Unix(strSub.PeriodEnd, 0), true}
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
-    SET state = :state, stripe_id = :stripe_id,
-    current_period_start = :current_period_start, current_period_end = :current_period_end, updated_at = now()
-    WHERE id = :id
-    RETURNING *;`)
+			SET state = :state, stripe_id = :stripe_id,
+			current_period_start = :current_period_start, current_period_end = :current_period_end, updated_at = now()
+			WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
@@ -179,7 +177,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 	return
 }
 
-func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) (err error) {
+func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) error {
 	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
 	if err != nil {
 		return err
@@ -198,6 +196,32 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 		sub.StripeID.String,
 		&stripe.SubParams{Customer: bp.StripeID.String, EndCancel: endCancel},
 	)
+}
+
+func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return err
+	}
+	if !bp.EligibleForSubscription() {
+		return ErrInvalidBillingState
+	}
+
+	stripeSub, err := stripesub.Update(sub.StripeID.String, &stripe.SubParams{
+		Customer: bp.StripeID.String,
+		Plan:     p.StripePlanID.String,
+	})
+	if err != nil {
+		logrus.Errorf("Failed to upgrade Stripe subscription for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+		return err
+	}
+
+	sub.State = string(stripeSub.Status)
+	sub.PlanID = p.ID
+	sub.CurrentPeriodStart = pq.NullTime{time.Unix(stripeSub.PeriodStart, 0), true}
+	sub.CurrentPeriodEnd = pq.NullTime{time.Unix(stripeSub.PeriodEnd, 0), true}
+
+	return sub.Update(d)
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error) {
@@ -233,10 +257,11 @@ func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID s
 		sub.CancelPending = strSub.Canceled > 0
 
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
-    SET state = :state, current_period_start = :current_period_start, current_period_end = :current_period_end,
-    cancel_pending = :cancel_pending, updated_at = now()
-    WHERE id = :id
-    RETURNING *;`)
+			SET state = :state, current_period_start = :current_period_start,
+			current_period_end = :current_period_end,
+			cancel_pending = :cancel_pending, updated_at = now()
+			WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
@@ -264,8 +289,8 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 		sub.CancelPending = false
 
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
-    SET state = :state, cancelled_at = :cancelled_at, cancel_pending = :cancel_pending, updated_at = now() WHERE id = :id
-    RETURNING *;`)
+			SET state = :state, cancelled_at = :cancelled_at, cancel_pending = :cancel_pending, updated_at = now() WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
@@ -474,9 +499,9 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 		}
 
 		nstmt, err := tx.PrepareNamed(`UPDATE billing_profiles
-    SET state = :state, updated_at = now()
-    WHERE id = :id
-    RETURNING *;`)
+			SET state = :state, updated_at = now()
+			WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
@@ -498,10 +523,10 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 		inv.LastAttemptAt = &t
 		inv.Attempts = int(sInv.Attempts)
 		nstmt, err = tx.PrepareNamed(`UPDATE invoices
-	    SET state = :state, first_attempt_at = :first_attempt_at, last_attempt_at = :last_attempt_at,
-	    attempts = :attempts, updated_at = now()
-	    WHERE id = :id
-	    RETURNING *;`)
+			SET state = :state, first_attempt_at = :first_attempt_at, last_attempt_at = :last_attempt_at,
+			attempts = :attempts, updated_at = now()
+			WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
