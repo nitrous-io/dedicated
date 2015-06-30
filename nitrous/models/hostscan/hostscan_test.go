@@ -196,7 +196,7 @@ var _ = Describe("models/hostscan", func() {
 						`, u.ID)
 				Expect(err).To(BeNil())
 
-				err = freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+				err = freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 			})
 

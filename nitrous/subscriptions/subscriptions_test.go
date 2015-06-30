@@ -433,7 +433,7 @@ var _ = Describe("subscriptions", func() {
 		})
 	})
 
-	Describe("Upgrade()", func() {
+	Describe("1()", func() {
 		var (
 			sub     *subscription.Subscription
 			newPlan *plan.Plan
@@ -478,12 +478,12 @@ var _ = Describe("subscriptions", func() {
 			bp.State = billingprofile.StateDelinquent
 			Expect(bp.Update(db)).To(BeNil())
 
-			err = subProvider.Upgrade(db, sub, newPlan, u, "dummy-card-token")
+			err = subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
 		})
 
 		It("submits a request to Stripe to update subscription", func() {
-			err := subProvider.Upgrade(db, sub, newPlan, u, "dummy-card-token")
+			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
@@ -491,11 +491,10 @@ var _ = Describe("subscriptions", func() {
 			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
 			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
 			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
-			Expect(r["card"]).To(Equal("dummy-card-token"))
 		})
 
 		It("updates the subscription in the database", func() {
-			err := subProvider.Upgrade(db, sub, newPlan, u, "dummy-card-token")
+			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
 
 			s, err := findByHostID(db, hs.H.ID)

@@ -35,7 +35,7 @@ func init() {
 }
 
 // Upgrade user's free host to paid plan.
-func UpgradeFreeUserHosts(d *db.Database, u *user.User, cardToken string) error {
+func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	hosts, err := host.FindAllByUser(d, u.ID)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User, cardToken string) error 
 				return err
 			}
 		case nil:
-			if err := subProvider.Upgrade(d, sub, newPlan, u, cardToken); err != nil {
+			if err := subProvider.Upgrade(d, sub, newPlan, u); err != nil {
 				return err
 			}
 		default:

@@ -25,7 +25,6 @@ type FakeSubscriptionProvider struct {
 	UpgradeSubscription *subscription.Subscription
 	UpgradePlan         *plan.Plan
 	UpgradeUser         *user.User
-	UpgradeCardToken    string
 	UpgradeError        error
 
 	HandleSubscriptionUpdatedCalled bool
@@ -63,12 +62,11 @@ func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subs
 	return s.CancelError
 }
 
-func (s *FakeSubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User, cardToken string) error {
+func (s *FakeSubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
 	s.UpgradeCalled = true
 	s.UpgradeSubscription = sub
 	s.UpgradePlan = p
 	s.UpgradeUser = u
-	s.UpgradeCardToken = cardToken
 	return s.UpgradeError
 }
 

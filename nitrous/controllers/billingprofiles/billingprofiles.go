@@ -107,7 +107,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		}
 	}
 
-	if err := freetier.UpgradeFreeUserHosts(db, u, cardToken); err != nil {
+	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
 		logrus.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 

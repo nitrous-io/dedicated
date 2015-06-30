@@ -32,7 +32,7 @@ import (
 type Provider interface {
 	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
-	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User, cardToken string) error
+	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 
 	HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error)
 	HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error)
@@ -198,7 +198,7 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 	)
 }
 
-func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User, cardToken string) error {
+func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
 	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return err
@@ -210,7 +210,6 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 	stripeSub, err := stripesub.Update(sub.StripeID.String, &stripe.SubParams{
 		Customer: bp.StripeID.String,
 		Plan:     p.StripePlanID.String,
-		Token:    cardToken,
 	})
 	if err != nil {
 		logrus.Errorf("Failed to upgrade Stripe subscription for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)

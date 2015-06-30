@@ -126,7 +126,7 @@ var _ = Describe("models/freetier", func() {
 				_, err := db.Exec(`UPDATE plans SET paid_plan_id = NULL WHERE id=$1;`, h.PlanID)
 				Expect(err).To(BeNil())
 
-				err = freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+				err = freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(Equal(freetier.ErrUpgradeNotAvailable))
 
 				h2, err := host.FindByIdentifier(db, h.Slug)
@@ -140,7 +140,7 @@ var _ = Describe("models/freetier", func() {
 			})
 
 			It("should upgrade the host properties", func() {
-				err := freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+				err := freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 
 				h2, err := host.FindByIdentifier(db, h.Slug)
@@ -155,7 +155,7 @@ var _ = Describe("models/freetier", func() {
 			})
 
 			It("creates a pending respec for the host", func() {
-				err := freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+				err := freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 
 				r, err := respec.Find(db, h.ID)
@@ -180,7 +180,7 @@ var _ = Describe("models/freetier", func() {
 				})
 
 				It("subscribes the user to the plan", func() {
-					err := freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+					err := freetier.UpgradeFreeUserHosts(db, u)
 					Expect(err).To(BeNil())
 
 					Expect(fsub.SubscribeCalled).To(BeTrue())
@@ -203,14 +203,13 @@ var _ = Describe("models/freetier", func() {
 					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h.ID)
 					Expect(err).To(BeNil())
 
-					err = freetier.UpgradeFreeUserHosts(db, u, "dummy-card-token")
+					err = freetier.UpgradeFreeUserHosts(db, u)
 					Expect(err).To(BeNil())
 
 					Expect(fsub.UpgradeCalled).To(BeTrue())
 					Expect(fsub.UpgradeSubscription.ID).To(Equal(sub.ID))
 					Expect(fsub.UpgradePlan.ID).To(Equal(paidPlan.ID))
 					Expect(fsub.UpgradeUser.ID).To(Equal(u.ID))
-					Expect(fsub.UpgradeCardToken).To(Equal("dummy-card-token"))
 				})
 			})
 		})
