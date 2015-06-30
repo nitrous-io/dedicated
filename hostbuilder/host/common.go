@@ -37,6 +37,9 @@ func WaitForSSH(ctx *HostContext) error {
 		return mh.Error(err, label)
 	}
 	l.Printf("SSH ready")
+	if ctx.Executor != nil {
+		ctx.Executor.Close()
+	}
 	ctx.Executor = sshConn
 	return nil
 }

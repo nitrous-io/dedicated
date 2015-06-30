@@ -45,6 +45,12 @@ func (c *Conn) CombinedOutput(cmd string) ([]byte, error) {
 	return session.CombinedOutput(cmd)
 }
 
+func (c *Conn) Close() {
+	if c.Client != nil {
+		c.Client.Close()
+	}
+}
+
 func (c *Conn) newSession() (*ssh.Session, error) {
 	if c.Client == nil {
 		return nil, errors.New("client not available")
@@ -55,9 +61,7 @@ func (c *Conn) newSession() (*ssh.Session, error) {
 // connect to the ssh server.
 // if there are existing client, try to close it and reopen a new one
 func (c *Conn) connect() error {
-	if c.Client != nil {
-		c.Client.Close()
-	}
+	c.Close()
 	c.Client = nil
 	client, err := ssh.Dial("tcp", c.Address, c.Config)
 	if err != nil {

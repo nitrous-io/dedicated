@@ -29,6 +29,7 @@ type dumbExecutor struct {
 	nextOutput   []byte
 	nextError    error
 	nextDuration time.Duration
+	isClosed     bool
 }
 
 func (e *dumbExecutor) CombinedOutput(cmd string) ([]byte, error) {
@@ -41,6 +42,9 @@ func (e *dumbExecutor) Execute(cmd string) error {
 	e.cmds = append(e.cmds, cmd)
 	time.Sleep(e.nextDuration)
 	return e.nextError
+}
+
+func (e *dumbExecutor) Close() {
 }
 
 func (e *dumbExecutor) Upload(path string, input io.Reader) error {
