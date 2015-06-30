@@ -96,7 +96,7 @@
           span.empty &ndash;
 
     tr
-      th Size
+      th Plan
       td
         = plan.name
       th
