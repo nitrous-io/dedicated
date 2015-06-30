@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,7 +26,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -692,54 +690,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			res := doRequest(params)
 
 			Expect(res.Code).To(Equal(http.StatusOK))
-		})
-
-		Context("when the host plan requires subscription", func() {
-			var (
-				fsub *test.FakeSubscriptionProvider
-			)
-
-			BeforeEach(func() {
-				fsub = &test.FakeSubscriptionProvider{}
-				hosts.SetSubscriptionProvider(fsub)
-			})
-
-			It("terminates the host if the subscribe fails", func() {
-				_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-				Expect(err).To(BeNil())
-
-				fsub.SubscribeError = errors.New("I failed")
-
-				doRequest(params)
-
-				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("rails-host"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal("large"))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
-
-				hosts, _ := host.FindAllByUser(db, u.ID)
-				Expect(hosts).To(HaveLen(0))
-			})
-
-			It("continues provisioning if the subscribe succeeds", func() {
-				_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-				Expect(err).To(BeNil())
-
-				fsub.SubscribeError = nil
-				fsub.SubscribeReturn = &subscription.Subscription{}
-
-				doRequest(params)
-
-				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("rails-host"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal("large"))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
-
-				hosts, err := host.FindAllByUser(db, u.ID)
-				Expect(err).To(BeNil())
-				Expect(hosts).To(HaveLen(1))
-				Expect(hosts[0].Slug).To(HavePrefix("rails-host"))
-			})
 		})
 	})
 
