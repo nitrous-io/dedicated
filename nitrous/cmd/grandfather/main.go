@@ -47,8 +47,7 @@ var hostsToUpgrade = `
 	JOIN billing_profiles bps on bps.user_id = users.id
 	WHERE hosts.terminated_at IS NULL
 		AND plans.type = 'usage-based'
-		AND plans.auto_shutdown = false -- proxy for non-free plan
-		AND bps.state IN ('paid', 'payment_due')
+		AND bps.state IN ('paid', 'payment_due', 'free')
 `
 
 func hostsToSubscribe(d db.QueryReceiver) ([]*host.Host, error) {
@@ -132,6 +131,13 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 		return
 	}
 
+	if !bp.StripeID.Valid {
+		bp, err = u.ActivateBillingProfile(d, "")
+		if err != nil {
+			return
+		}
+	}
+
 	if !bp.EligibleForSubscription() {
 		err = subscriptions.ErrInvalidBillingState
 		return
@@ -151,9 +157,11 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 			return err
 		}
 
-		strItem, err = creditStripeInvoice(tx, bp, p.Price, sub.ID, p.StripePlanID.String, nil)
-		if err != nil {
-			return err
+		if !(bp.State == billingprofile.StateExempt || bp.State == billingprofile.StateFree) {
+			strItem, err = creditStripeInvoice(tx, bp, p.Price, sub.ID, p.StripePlanID.String, nil)
+			if err != nil {
+				return err
+			}
 		}
 
 		planID := p.StripePlanID.String
@@ -161,11 +169,16 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 			planID = planID + "-exempt"
 		}
 
-		strSub, err = stripesub.New(&stripe.SubParams{
+		sParams := &stripe.SubParams{
 			Customer: bp.StripeID.String,
 			Plan:     planID,
-			TrialEnd: 1438387199, // this is the result of `date -d '2015-07-31 23:59:59' -u +%s`
-		})
+		}
+
+		if bp.State != billingprofile.StateFree {
+			sParams.TrialEnd = 1438387199 // this is the result of `date -d '2015-07-31 23:59:59' -u +%s`
+		}
+
+		strSub, err = stripesub.New(sParams)
 		if err != nil {
 			strSub = nil
 			logrus.Errorf("Stripe subscription: %+v, err: %+v", strSub, err)
