@@ -686,15 +686,15 @@ nav
         top: -84px
         left: 50%
         margin-left: -485px
+  
 
-
-
+    
   .full-visual, .full-visual img
     background: transparent
-
+  
   .full-visual
     overflow: hidden
-
+    
   .full-visual img
     height: 100%
     display: block
@@ -862,7 +862,7 @@ article
     padding: 60px 0 30px 0
     font-size: 20px
     line-height: 34px
-
+  
   &.featurette p.small
     width: 580px
     display: block
@@ -1266,7 +1266,7 @@ h4 + .box-wrapper
   text-align: center
   box-shadow: 0 2px 20px rgba(0,0,0,.2)
   border-radius: 3px
-
+  
 
   &, img
     background: #1C2227
@@ -1867,6 +1867,7 @@ h4 + .box-wrapper
 
     .plan-price
       position: relative
+      opacity: 0
       transition: opacity .1s
       height: 80px
       margin-top: 10px
@@ -1878,6 +1879,11 @@ h4 + .box-wrapper
         top: 0
         left: 0
         width: 100%
+        opacity: 0
+        transition: opacity .2s
+
+        &.show
+          opacity: 1
 
       sup
         display: inline
@@ -2917,14 +2923,14 @@ input[type="range"]
   width: 90%
   margin: 0 auto
 
-
+  
 // GreenHouse
 #grnhse_app
   margin: 0 auto
   #grnhse_iframe
     width: 100%
     margin: 0 auto
-
+  
 
 // Dark theme
 .dark
@@ -2956,7 +2962,7 @@ input[type="range"]
   #features .page-hero
     background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
     background-size: cover
-
+  
   #jobs .page-hero
     background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
     background-size: cover

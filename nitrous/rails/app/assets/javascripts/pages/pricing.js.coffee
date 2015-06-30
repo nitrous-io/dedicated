@@ -10,7 +10,7 @@ pages.Pricing =
     # --------------------------------
     standardPlan = 'standard'
     basicPlan = 'basic'
-    plusPlan = 'plus'
+    proPlan = 'pro'
     freePlan = 'free'
 
     $('.selectable').click (event) ->
@@ -41,6 +41,7 @@ pages.Pricing =
 
     setActivePricing = (pricing) ->
       $("[data-slug=#{pricing}]").click()
+      # $('input[type="range"]').val(0)
       setActiveDetails(pricing)
       false
 
@@ -54,8 +55,8 @@ pages.Pricing =
           basicPlan
         when "#standard"
           standardPlan
-        when "#plus"
-          plusPlan
+        when "#pro"
+          proPlan
         else
           standardPlan
 
@@ -64,15 +65,54 @@ pages.Pricing =
     $(window).on 'hashchange', ->
       onHashChange(location.hash)
 
+    # monthly/hourly toggler
+    pricingHourly = false
+
+    updatePricing = ->
+      $t = $('.pricing-toggle')
+      if pricingHourly
+        $t.addClass('hourly')
+        $('.plan-price .hourly').addClass('show')
+        $('.plan-price .monthly').removeClass('show')
+      else
+        $t.removeClass('hourly')
+        $('.plan-price .hourly').removeClass('show')
+        $('.plan-price .monthly').addClass('show')
+
+    $('.pricing-toggle .toggle-btn').click ->
+      pricingHourly = !pricingHourly
+      updatePricing()
+
+    $('.pricing-toggle label.monthly').click ->
+      pricingHourly = false
+      updatePricing()
+
+    $('.pricing-toggle label.hourly').click ->
+      pricingHourly = true
+      updatePricing()
+
+    updatePricing()
+
+    $('.plan-price').hover ->
+      $(this).find('.hourly').addClass('show')
+      $(this).find('.monthly').removeClass('show')
+    , ->
+      $(this).find('.monthly').addClass('show')
+      $(this).find('.hourly').removeClass('show')
+
     # fetch plans
     plans = []
 
     updateNumbers = ->
       for plan, i in plans
         basePrice = plan.base_price / 100
-        monthlyPrice = (plan.base_price + plan.price) / 100
+        monthlyPrice = (plan.base_price + plan.price ) / 100
+        hourlyPrice = plan.hourly_price / 1000
         $plan = $(".pricing-block li.selectable[data-index=#{i}]")
         $plan.find('.plan-price .monthly .price').text(monthlyPrice.toFixed(2))
+        $plan.find('.plan-price .hourly .price').text(hourlyPrice.toFixed(3))
+        $plan.find('.plan-price .hourly .base-price').text(basePrice.toFixed(2))
+        $plan.find('.plan-price').css(opacity: 1)
 
     $.getJSON('/api/v0/plans').then (data) ->
       return unless data.plans
