@@ -1,10 +1,5 @@
 App.HomeIndexController = Em.Controller.extend
   actions:
-    handleFreeTier: ->
-      App.FreeQueue.load().then =>
-        return unless App.get("freeQueue")
-        @transitionToRoute "free-tier", queryParams: { skip: true }
-
     handleNoHost: ->
       if App.get('user.firstTime')
         App.set 'onboardingReady', true

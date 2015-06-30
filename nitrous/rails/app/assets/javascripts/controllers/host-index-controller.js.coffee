@@ -17,10 +17,11 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
     terminate: ->
       name = @get('model.displayName')
       state = 'terminating'
-      if @get('model.subscriptionId')
+      if @get('model.canCancelSubscription')
         state = null
-      @performAction('DELETE', null, state).then (data)->
+      @performAction('DELETE', null, state).then (data)=>
         if data.subscription
+          @set 'model.subscription.cancelPending', true
           App.snackbar.post("Subscription for workspace “#{name}” was successfully cancelled.")
           return
         App.snackbar.post("Your workspace “#{name}” was successfully terminated.")

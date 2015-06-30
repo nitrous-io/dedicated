@@ -49,6 +49,7 @@ var _ = Describe("host serializer", func() {
 			LiveFreighterdVersion: "2.3-freighterd",
 			UpdateAvailable:       host.UpdateAvailableHard,
 			PendingRespec:         true,
+			Free:                  true,
 		}
 	})
 
@@ -82,7 +83,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -118,7 +120,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -155,7 +158,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -188,7 +192,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -223,7 +228,8 @@ var _ = Describe("host serializer", func() {
 				"update_available": "hard",
 				"max_containers": 3,
 				"pending_respec": true,
-				"subscription_id": 23
+				"subscription_id": 23,
+				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -269,7 +275,8 @@ var _ = Describe("host serializer", func() {
 				"live_freighterd_version": "2.3-freighterd",
 				"update_available": "hard",
 				"max_containers": 3,
-				"pending_respec": true
+				"pending_respec": true,
+				"free": true
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})

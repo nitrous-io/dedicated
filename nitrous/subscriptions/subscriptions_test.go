@@ -384,6 +384,7 @@ var _ = Describe("subscriptions", func() {
 			sub := &subscription.Subscription{
 				BillingProfileID: bp.ID,
 				StripeID:         sql.NullString{"sub1", true},
+				PlanID:           pl.ID,
 			}
 
 			err = subProvider.Cancel(db, sub)
@@ -394,6 +395,37 @@ var _ = Describe("subscriptions", func() {
 			Expect(r1["method"]).To(Equal("DELETE"))
 			Expect(r1["path"]).To(Equal("/customers/stripe-1/subscriptions/sub1"))
 			Expect(r1["at_period_end"]).To(Equal("true"))
+		})
+
+		It("should cancel immediately if the plan is free", func() {
+			_, err := db.Exec("UPDATE plans SET price = 0, base_price = 0 WHERE id = $1;", pl.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
+			fakeStripe.Responses = []string{
+				`{
+          "cancelled": true,
+				  "id": "sub1"
+				}`,
+			}
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				BillingProfileID: bp.ID,
+				StripeID:         sql.NullString{"sub1", true},
+				PlanID:           pl.ID,
+			}
+
+			err = subProvider.Cancel(db, sub)
+			Expect(err).To(Equal(fakeStripe.Errors[0]))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("DELETE"))
+			Expect(r1["path"]).To(Equal("/customers/stripe-1/subscriptions/sub1"))
+			Expect(r1["at_period_end"]).To(BeEmpty())
 		})
 	})
 
