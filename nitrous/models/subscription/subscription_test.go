@@ -3,7 +3,9 @@ package subscription_test
 import (
 	"database/sql"
 	"testing"
+	"time"
 
+	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -77,6 +79,70 @@ var _ = Describe("models/subscription", func() {
 			sub := &subscription.Subscription{}
 			Expect(db.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", s.ID)).To(BeNil())
 			Expect(sub).To(Equal(s))
+		})
+	})
+
+	Describe("Update", func() {
+		var sub *subscription.Subscription
+
+		BeforeEach(func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_1", true},
+			}
+			err = test.WrapInTransaction(db, sub.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates the host in the database", func() {
+			p := &plan.Plan{
+				Slug:          "p2",
+				Name:          "p2",
+				MaxContainers: 2,
+				Price:         2599,
+				StripePlanID:  sql.NullString{"stripe-plan-2", true},
+			}
+			Expect(p.Insert(db)).To(BeNil())
+
+			sub.State = "updated"
+			sub.PlanID = p.ID
+			sub.StripeID = sql.NullString{"sub_2", true}
+			periodStart := time.Date(2013, time.November, 1, 1, 0, 0, 0, time.UTC)
+			periodEnd := time.Date(2013, time.November, 2, 1, 0, 0, 0, time.UTC)
+			sub.CurrentPeriodStart = pq.NullTime{periodStart, true}
+			sub.CurrentPeriodEnd = pq.NullTime{periodEnd, true}
+
+			err := sub.Update(db)
+			Expect(err).To(BeNil())
+
+			sub2, err := subscription.Find(db, sub.ID)
+			Expect(err).To(BeNil())
+
+			// Updated fields.
+			Expect(sub2.State).To(Equal("updated"))
+			Expect(sub2.PlanID).To(Equal(p.ID))
+			Expect(sub2.StripeID.String).To(Equal("sub_2"))
+			Expect(sub2.CurrentPeriodStart.Time).To(BeTemporally("==", periodStart))
+			Expect(sub2.CurrentPeriodEnd.Time).To(BeTemporally("==", periodEnd))
+
+			// Unchanged fields.
+			Expect(sub2.BillingProfileID).To(Equal(sub.BillingProfileID))
+			Expect(sub2.CancelPending).To(Equal(sub.CancelPending))
+			Expect(sub2.CancelledAt.Time).To(Equal(sub.CancelledAt.Time))
+		})
+
+		It("updates UpdateAt", func() {
+			origUpdatedAt := sub.UpdatedAt
+
+			err := sub.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(*sub.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
 		})
 	})
 

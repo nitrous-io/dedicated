@@ -56,6 +56,18 @@ func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	return nstmt.QueryRow(s).StructScan(s)
 }
 
+func (s *Subscription) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE subscriptions
+		SET (state, plan_id, stripe_id, current_period_start, current_period_end, updated_at)
+		= (:state, :plan_id, :stripe_id, :current_period_start, :current_period_end, now())
+		WHERE id = :id
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(s).StructScan(s)
+}
+
 func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
 	sub := &Subscription{}
 	err := d.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", id)
