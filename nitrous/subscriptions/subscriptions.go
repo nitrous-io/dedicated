@@ -180,9 +180,16 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 
 	logrus.Infof("Subscription %d has been requested to be cancelled", sub.ID)
 
+	pl, err := plan.FindByID(d, sub.PlanID)
+	if err != nil {
+		return err
+	}
+
+	endCancel := !pl.IsFree()
+
 	return stripesub.Cancel(
 		sub.StripeID.String,
-		&stripe.SubParams{Customer: bp.StripeID.String, EndCancel: true},
+		&stripe.SubParams{Customer: bp.StripeID.String, EndCancel: endCancel},
 	)
 }
 
