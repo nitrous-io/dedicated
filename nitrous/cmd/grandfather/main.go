@@ -59,6 +59,7 @@ func hostsToSubscribe(d db.QueryReceiver) ([]*host.Host, error) {
 		FROM hosts
 		JOIN plans ON hosts.plan_id = plans.id
 		WHERE plans.type = 'prepaid'
+			AND hosts.state != 'born'
 			AND hosts.subscription_id IS NULL
 			AND hosts.terminated_at IS NULL
 		ORDER BY id
