@@ -223,6 +223,30 @@ var _ = Describe("controllers/billingprofiles", func() {
 			ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
 		})
 
+		Context("when the customer has an existing StripeID", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET stripe_id = 'cust_1' WHERE user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
+
+			It("should update the existing customer object", func() {
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				p := &url.Values{}
+				p.Set("card_token", "cc_token")
+				res := doRequest(p)
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal("/customers/cust_1"))
+			})
+		})
+
 		Context("when credit card is valid but CIDR is blocked", func() {
 			var oldDoRequest func(*url.Values) *httptest.ResponseRecorder
 

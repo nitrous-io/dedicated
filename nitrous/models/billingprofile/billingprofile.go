@@ -136,6 +136,10 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 		return ErrCardBanned
 	}
 
+	if b.State == StateNoCard || b.State == StateFree {
+		b.State = StatePaid
+	}
+
 	b.StripeID = sql.NullString{c.ID, true}
 	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
 	b.LastFour = sql.NullString{crd.LastFour, true}
