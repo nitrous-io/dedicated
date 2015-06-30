@@ -13,10 +13,6 @@ binary:
 	@ENV=$(ENV) ./script/build all
 .PHONY: binary
 
-nitro:
-	@./script/build nitro
-.PHONY: nitro
-
 freighter:
 	@./script/build freighter
 .PHONY: freighter
