@@ -123,18 +123,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		})
 		if err != nil {
+			logrus.Errorf("Failed to create Stripe subscription: %+v, err: %+v", strSub, err)
 			strSub = nil
-			logrus.Errorf("Stripe subscription: %+v, err: %+v", strSub, err)
 
-			sErr, ok := err.(*stripe.Error)
-			if !ok {
-				return sErr
-			}
-
-			if sErr.Code == stripe.ExpiredCard {
-				return ErrCardExpired
-			} else if sErr.Code == stripe.CardDeclined {
-				return ErrCardDeclined
+			if sErr, ok := err.(*stripe.Error); ok {
+				if sErr.Code == stripe.ExpiredCard {
+					return ErrCardExpired
+				} else if sErr.Code == stripe.CardDeclined {
+					return ErrCardDeclined
+				}
 			}
 
 			return err
