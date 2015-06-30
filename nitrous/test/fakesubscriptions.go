@@ -21,6 +21,13 @@ type FakeSubscriptionProvider struct {
 	CancelSubscription *subscription.Subscription
 	CancelError        error
 
+	UpgradeCalled       bool
+	UpgradeSubscription *subscription.Subscription
+	UpgradePlan         *plan.Plan
+	UpgradeUser         *user.User
+	UpgradeCardToken    string
+	UpgradeError        error
+
 	HandleSubscriptionUpdatedCalled bool
 	HandleSubscriptionUpdatedSubID  string
 	HandleSubscriptionUpdatedError  error
@@ -50,10 +57,19 @@ func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *pl
 	return s.SubscribeReturn, s.SubscribeError
 }
 
-func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) (err error) {
+func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) error {
 	s.CancelCalled = true
 	s.CancelSubscription = sub
 	return s.CancelError
+}
+
+func (s *FakeSubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User, cardToken string) error {
+	s.UpgradeCalled = true
+	s.UpgradeSubscription = sub
+	s.UpgradePlan = p
+	s.UpgradeUser = u
+	s.UpgradeCardToken = cardToken
+	return s.UpgradeError
 }
 
 func (s *FakeSubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error) {

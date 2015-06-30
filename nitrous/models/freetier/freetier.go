@@ -12,7 +12,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 )
 
 var (
@@ -26,33 +28,33 @@ var (
 	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
 
-// Upgrade all hosts to paid for free-tier user
-// just upgraded to paid tier
-func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
+var subProvider subscriptions.Provider
+
+func init() {
+	subProvider = subscriptions.NewProvider()
+}
+
+// Upgrade user's free host to paid plan.
+func UpgradeFreeUserHosts(d *db.Database, u *user.User, cardToken string) error {
 	hosts, err := host.FindAllByUser(d, u.ID)
 	if err != nil {
 		return err
 	}
 
-	// Free tier user should only have one host
-	// after upgrading, but putting this in a loop anyway
-	for _, h := range hosts {
-		if h.Free {
-			p, err := plan.FindByID(d, h.PlanID)
-			if err != nil {
-				return err
-			}
-
-			if err := upgradeHostToPaid(d, h, p); err != nil {
-				return err
-			}
+	var h *host.Host
+	for _, v := range hosts {
+		if v.Free {
+			h = v
 		}
 	}
+	if h == nil {
+		return fmt.Errorf("user %s does not have a free host", u.Username)
+	}
 
-	return nil
-}
-
-func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) error {
+	currentPlan, err := plan.FindByID(d, h.PlanID)
+	if err != nil {
+		return err
+	}
 	if !currentPlan.PaidPlanID.Valid {
 		return ErrUpgradeNotAvailable
 	}
@@ -70,13 +72,30 @@ func upgradeHostToPaid(d *db.Database, h *host.Host, currentPlan *plan.Plan) err
 		return err
 	}
 
-	// Find the new provider template.
 	newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, currentPT.Provider)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return fmt.Errorf("provider template for region %d / plan %d / provider %s does not exist", h.RegionID, newPlan.ID, currentPT.Provider)
 		}
 		return err
+	}
+
+	if newPlan.IsSubscription() {
+		// Subscribe to new plan if host doesn't have an existing subscription.
+		// Otherwise, we upgrade the subscription.
+		sub, err := subscription.Find(d, h.SubscriptionID.Int64)
+		switch err {
+		case sql.ErrNoRows:
+			if _, err := subProvider.Subscribe(d, h, newPlan, u); err != nil {
+				return err
+			}
+		case nil:
+			if err := subProvider.Upgrade(d, sub, newPlan, u, cardToken); err != nil {
+				return err
+			}
+		default:
+			return err
+		}
 	}
 
 	h.PlanID = newPlan.ID
