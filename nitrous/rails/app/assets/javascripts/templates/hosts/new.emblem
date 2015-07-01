@@ -81,13 +81,6 @@
                   '  Credit
                 '
                 | available.
-            else
-              if App.billingUsage.estimatedCharge
-                p.note-text
-                  ' Your current estimated billing charge is
-                  span
-                    | $
-                    = currency App.billingUsage.estimatedCharge
 
 
         p.note-text.see-terms
