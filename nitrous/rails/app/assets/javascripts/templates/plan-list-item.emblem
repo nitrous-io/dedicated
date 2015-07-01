@@ -2,6 +2,8 @@
   with view.content
     .name
       = name
+    .desc
+      = description
     .price
       if totalPriceInDollars
         if subscription
