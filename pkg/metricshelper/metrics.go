@@ -13,21 +13,21 @@ import (
 
 // Timer returns a timer associate with name (which can be initialized before)
 func Timer(name string) metrics.Timer {
-	t := metrics.GetOrRegister(name, metrics.NewTimer()).(metrics.Timer)
+	t := metrics.GetOrRegisterTimer(name, nil).(metrics.Timer)
 	return t
 }
 
 // Timer returns a timer (which can be initialized before), that we can use to
 // measure duration of an action
 func Counter(name string) metrics.Counter {
-	c := metrics.GetOrRegister(name, metrics.NewCounter()).(metrics.Counter)
+	c := metrics.GetOrRegisterCounter(name, nil).(metrics.Counter)
 	return c
 }
 
 // Meter returns a meter that we can use to measure the rate of actions (for
 // example number of requests per minute etc...)
 func Meter(name string) metrics.Meter {
-	m := metrics.GetOrRegister(name, metrics.NewMeter()).(metrics.Meter)
+	m := metrics.GetOrRegisterMeter(name, nil).(metrics.Meter)
 	return m
 }
 

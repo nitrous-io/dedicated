@@ -242,7 +242,7 @@
 		},
 		{
 			"ImportPath": "github.com/rcrowley/go-metrics",
-			"Rev": "dee209f2455f101a5e4e593dea94872d2c62d85d"
+			"Rev": "a5cfc242a56ba7fa70b785f678d6214837bf93b9"
 		},
 		{
 			"ImportPath": "github.com/sendgrid/sendgrid-go",
