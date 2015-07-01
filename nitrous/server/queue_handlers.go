@@ -73,9 +73,9 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 		if err != nil {
 			return err
 		}
+
 		if h.State == host.StateRunning {
 			logrus.Printf("uuid=%s host running but received created event %+v", m.UUID, queueInfo)
-			return nil
 		}
 
 		err = s.activateHost(m.UUID, u, h, queueInfo.Host)
