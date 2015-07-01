@@ -213,9 +213,8 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		if err != nil {
 			return err
 		}
-		err = subProvider.Cancel(env.DB, sub)
-		if err != nil {
-			return nil
+		if err := subProvider.Cancel(env.DB, sub); err != nil {
+			return err
 		}
 		if !h.Free {
 			serializeHost(env, h)
