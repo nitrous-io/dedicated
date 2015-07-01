@@ -165,14 +165,9 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 			}
 		}
 
-		planID := p.StripePlanID.String
-		if bp.State == billingprofile.StateExempt {
-			planID = planID + "-exempt"
-		}
-
 		sParams := &stripe.SubParams{
 			Customer: bp.StripeID.String,
-			Plan:     planID,
+			Plan:     p.StripePlanID.String,
 		}
 
 		if bp.State != billingprofile.StateFree {
