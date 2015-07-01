@@ -219,7 +219,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.Free).To(BeFalse())
 			})
 
-			It("does not update when the host is running", func() {
+			It("updates even if the host is running", func() {
 				h.State = host.StateRunning
 				h.IPAddress = sql.NullString{"4.5.6.7", true}
 				h.ProviderIdentifier = sql.NullString{"host-3456", true}
@@ -236,12 +236,12 @@ var _ = Describe("HostQueueHandler", func() {
 				updatedHost, err := host.Find(db, u, h.Slug)
 				Expect(err).To(BeNil())
 
-				Expect(updatedHost.IPAddress.String).To(Equal("4.5.6.7"))
-				Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-3456"))
-				Expect(updatedHost.RegionIdentifier.String).To(Equal("here"))
-				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(12345)))
+				Expect(updatedHost.IPAddress.String).To(Equal("1.2.3.4"))
+				Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-1234"))
+				Expect(updatedHost.RegionIdentifier.String).To(Equal("somewhere"))
+				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
-				Expect(updatedHost.HourlyPrice).To(Equal(int64(1000000)))
+				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
 				Expect(updatedHost.Free).To(BeFalse())
 			})
 
