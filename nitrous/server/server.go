@@ -28,6 +28,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
@@ -66,6 +67,8 @@ type Server struct {
 	// Note, this is in addition to the StopTimeout.
 	KillTimeout time.Duration
 
+	SubscriptionProvider subscriptions.Provider
+
 	router *mux.Router
 	root   string
 	db     *db.Database
@@ -74,15 +77,16 @@ type Server struct {
 func NewServer(root string, db *db.Database, conf *provisioner.Config) *Server {
 	events := pubsub.New(128)
 	svr := &Server{
-		Events:      events,
-		Provisioner: provisioner.NewProvisioner(db, events, conf),
-		Tracker:     analytics.NewMixpanelTracker(envvars.MixpanelToken),
-		QueueStopCh: make(chan struct{}),
-		StopTimeout: defaultStopTimeout,
-		KillTimeout: defaultKillTimeout,
-		root:        root,
-		db:          db,
-		router:      mux.NewRouter(),
+		Events:               events,
+		Provisioner:          provisioner.NewProvisioner(db, events, conf),
+		Tracker:              analytics.NewMixpanelTracker(envvars.MixpanelToken),
+		QueueStopCh:          make(chan struct{}),
+		StopTimeout:          defaultStopTimeout,
+		KillTimeout:          defaultKillTimeout,
+		SubscriptionProvider: subscriptions.NewProvider(),
+		root:                 root,
+		db:                   db,
+		router:               mux.NewRouter(),
 	}
 	svr.drawRoutes()
 	return svr
