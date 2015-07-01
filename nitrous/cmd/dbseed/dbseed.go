@@ -437,138 +437,23 @@ func newTemplate(name, slug, image string, cfgJSON []byte, tempType, desc string
 
 // Template descriptions
 const (
-	goDesc = `Go: an open source programming language that makes it easy to build simple, reliable, and efficient software
-
-•  Go 1.4
-•  Ubuntu 14.04`
-
-	phpApacheDesc = `PHP (LAMP): a popular general-purpose scripting language that is especially suited to web development
-
-•  PHP 5.5
-•  Composer 1.0
-•  MySQL 5.5
-•  Apache 2.4
-•  Ubuntu 14.04`
-
-	phpNginxDesc = `PHP (LEMP): a popular general-purpose scripting language that is especially suited to web development
-
-•  PHP 5.5
-•  Composer 1.0
-•  MySQL 5.5
-•  Nginx 1.6
-•  Ubuntu 14.04`
-
-	html5Desc = `HTML5: static HTML5 development with Nginx
-
-•  Nginx 1.6
-•  Ubuntu 14.04`
-
-	nodejsDesc = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
-
-•  Node.js 0.10
-•  NPM 2.3
-•  NVM 0.23
-•  Ubuntu 14.04`
-
-	iojsDesc = `io.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications
-
-•  io.js 1.2
-•  NPM 2.3
-•  NVM 0.23
-•  Ubuntu 14.04`
-
-	pythonDesc = `Python: a programming language that lets you work quickly and integrate systems more effectively
-
-•  Virtualenv 1.11
-•  Python 3.4
-•  Python 2.7
-•  Ubuntu 14.04`
-
-	rubyDesc = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.
-
-•  Ruby 2.2.0, 2.1.5 (default), 2.0.0, 1.9.3
-•  Bundler 1.7.12
-•  Ubuntu 14.04`
-
-	dockerDesc = `A development environment with Docker set up.
-
-•  Docker 1.4
-•  Ubuntu 14.04`
-
-	railsDesc = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity
-
-•  Rails 4.2
-•  Ruby 2.1.5
-•  PostgreSQL 9.3
-•  Ubuntu 14.04`
-
-	wordpressDesc = `Wordpress: a free and open-source blogging tool and a content management system
-
-•  Wordpress 4.1
-•  PHP 5.5
-•  Composer 1.0
-•  MySQL 5.5
-•  Apache 2.4
-•  Ubuntu 14.04`
-
-	discourseDesc = `Discourse: an open source Internet forum software application
-
-•  Discourse 1.1.3
-•  Ruby 2.1.5
-•  PostgreSQL 9.3
-•  Redis 2.8
-•  PhantomJS 1.9
-•  Ubuntu 14.04`
-
-	gcloudDesc = `Google Cloud SDK: tools and libraries that enable you to easily create and manage resources on Google Cloud Platform
-
-•  App Engine SDK for Go
-•  App Engine SDK for Java
-•  App Engine SDK for Python and PHP
-•  Big Query Command Line Tool
-•  Cloud DNS Admin Command Line Interface
-•  Cloud SQL Admin Command Line Interface
-•  Cloud Storage Command Line Tool
-•  Compute Engine Command Line Tool
-•  Ubuntu 14.04`
-
-	laravelDesc = `Laravel: a free, open source PHP web application framework
-
-•  Laravel 4.2
-•  PHP 5.5
-•  Composer 1.0
-•  MySQL 5.5
-•  Redis 2.8
-•  Ubuntu 14.04`
-
-	meanDesc = `MEAN: an opinionated full-stack JavaScript framework
-
-•  MEAN 0.4
-•  Node.js 0.10
-•  MongoDB 2.6
-•  Ubuntu 14.04`
-
-	meteorDesc = `Meteor: build web and mobile apps in pure JavaScript
-
-•  Meteor 1.0.1
-•  Ubuntu 14.04`
-
-	djangoDesc = `Django: the web framework for perfectionists with deadlines
-
-•  Django 1.7
-•  Python 3.4
-•  IPython 2.3
-•  Gunicorn 19.1
-•  Ubuntu 14.04`
-
-	aspnetDesc = `ASP.NET: a free web framework for building great Web sites and Web applications
-
-•  ASP.NET 5
-•  Mono 3.12
-•  KRE 1.0
-•  Ubuntu 14.04`
-
-	vanillaDesc = `A minimalist development environment
-
-This template contains Ubuntu 14.04 with useful developer tools preinstalled.`
+	goDesc        = `Go: an open source programming language that makes it easy to build simple, reliable, and efficient software.`
+	phpApacheDesc = `PHP with Apache (LAMP): a popular general-purpose scripting language that is especially suited to web development.`
+	phpNginxDesc  = `PHP with Nginx (LEMP): a popular general-purpose scripting language that is especially suited to web development.`
+	html5Desc     = `HTML5: a static HTML5 website development environment with Nginx.`
+	nodejsDesc    = `Node.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications.`
+	iojsDesc      = `io.js: a platform built on Chrome's JavaScript runtime for easily building fast, scalable network applications.`
+	pythonDesc    = `Python: a programming language that lets you work quickly and integrate systems more effectively.`
+	rubyDesc      = `Ruby: a dynamic, open source programming language with a focus on simplicity and productivity.`
+	dockerDesc    = `A development environment with Docker set up.`
+	railsDesc     = `Ruby on Rails: an open-source framework optimized for programmer happiness and sustainable productivity.`
+	wordpressDesc = `Wordpress: a free and open-source blogging tool and a content management system.`
+	discourseDesc = `Discourse: an open source Internet forum software application.`
+	gcloudDesc    = `Google Cloud SDK: tools and libraries that enable you to easily create and manage resources on Google Cloud Platform.`
+	laravelDesc   = `Laravel: a free, open source PHP web application framework.`
+	meanDesc      = `MEAN: an opinionated full-stack JavaScript framework.`
+	meteorDesc    = `Meteor: a complete platform for building web and mobile apps in pure JavaScript.`
+	djangoDesc    = `Django: a Python web framework for perfectionists with deadlines.`
+	aspnetDesc    = `ASP.NET: a free web framework for building great Web sites and Web applications.`
+	vanillaDesc   = `Ubuntu: A minimalist development environment.`
 )

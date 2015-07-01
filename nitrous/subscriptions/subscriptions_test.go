@@ -713,12 +713,21 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should return an error if an invoice already exists", func() {
-			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end, stripe_id) VALUES ($1, 'paid', now(), now(), 'inv1')", u.ID)
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end, stripe_id, subscription_id) VALUES ($1, 'paid', now(), now(), 'inv1', $2)", u.ID, sub.ID)
 			Expect(err).To(BeNil())
 
 			inv, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(Equal(subscriptions.ErrInvoiceAlreadyCreated))
 			Expect(inv).To(BeNil())
+		})
+
+		It("should not return an error if an invoice already exists but has no subscription", func() {
+			_, err := db.Exec("INSERT INTO invoices (user_id, state, period_start, period_end, stripe_id) VALUES ($1, 'paid', now(), now(), 'inv1')", u.ID)
+			Expect(err).To(BeNil())
+
+			inv, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			Expect(err).To(BeNil())
+			Expect(inv).NotTo(BeNil())
 		})
 
 		It("should return an error if it cannot fetch the invoice", func() {
