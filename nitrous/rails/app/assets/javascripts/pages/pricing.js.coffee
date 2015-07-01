@@ -72,7 +72,7 @@ pages.Pricing =
         monthlyPrice = (plan.base_price + plan.price) / 100
         priceToDisplay = if monthlyPrice == Math.floor(monthlyPrice) then Math.floor(monthlyPrice) else monthlyPrice.toFixed(2)
 
-        $plan = $(".pricing-block li.selectable[data-index=#{i}]")
+        $plan = $(".pricing-block li.selectable[data-slug=#{plan.slug}]")
         $plan.find('.plan-price .monthly .price').text(priceToDisplay)
 
     $.getJSON('/api/v0/plans').then (data) ->
