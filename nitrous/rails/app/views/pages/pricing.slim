@@ -255,25 +255,28 @@
       .columns
         .item
           h4 How am I billed?
-          p Each workspace is billed immediately upon creation, and your billing cycle will begin on this date. Your next charge will be on the same or nearest date the following month.
+          p Each workspace is billed per hour up to its monthly cap. Place the mouse cursor over the monthly price to see the hourly cost.
         .item
           h4 Do I have to pay the full cost of the workspace every time I create a new one?
-          p Yes. You are billed for a full month on the day a workspace is created.
+          p No &mdash; you only need to pay for the hours used. Creating a basic workspace just to test something out for a couple of hours should only cost you a few cents.
         .item
           h4 Am I charged when I enter a credit card?
-          p Your credit card will be charged for the first month once you have created a workspace.
+          p No &mdash; when you enter a card, we only run an authorization charge ($0 or $1 depending on the bank). This authorization is refunded back to your card by your bank in no more than 30 days. Your card will only be charged for any usage on the first of each month.
         .item
           h4 When is my credit card billed?
-          p We will charge your credit card on the day which you create a new workspace. The next charge will be on the same or nearest date the following month.
+          p We will charge your credit card on the first day of the month at midnight UTC for the prior month's usage. We will email you with an invoice and a detailed summary of your usage and charges.
         .item
-          h4 What are containers, and how do they relate to workspaces?
-          p A workspace is a dedicated virtual machine that runs multiple containers. Each container is an isolated development environment. All containers within the workspace will share the workspace's resources.
-        .item
-          h4 Can I create multiple workspaces?
-          p Yes. Multiple workspaces can be added to a single account. The billing cycle for each workspace begins when it was created, and you will be charged separately if workspaces are created on different days of the month.
+          h4 Why was my first bill cheaper than the other ones?
+          p We perform pro-rata hourly calculations at the end of the month. This means if you create a new workspace during the middle of the month, you will be invoiced for ~50% of the monthly price at the start of the next month.
         .item
           h4 Am I charged while my workspace is in a stopped state?
-          p Yes. The monthly plans offered are a flat rate, so your monthly billing will not vary based off of usage.
+          p Yes &mdash; but only for storage. Place the mouse cursor over the monthly price to see the storage cost.
+        .item
+          h4 How do I choose between monthly and hourly billing?
+          p There is no difference between monthly and hourly billing. All workspaces are billed hourly, up until a monthly cap. We have estimated that each month has about 672 hours (28 days). If you use your workspace for less than 672 hours during the month, you will be billed for each hour that you used it. If you use your workspace for more than 672 hours that month, you will be billed at the monthly cost, which is no greater than 672 hours.
+        .item
+          h4 Is there a threshold billing amount?
+          p We will only bill your card once your account balance hits or exceeds $1.00.
         .item
           h4 What forms of payment do you accept?
           p We accept Visa, MasterCard, American Express, and Discover cards.

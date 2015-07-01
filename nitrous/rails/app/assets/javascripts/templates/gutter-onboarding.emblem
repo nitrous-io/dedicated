@@ -37,7 +37,9 @@ if view.showSelectPlan
       h2
         | Select a plan
       p
-        | Choose a plan that fits your use case.  If you want more features, you can always upgrade in the future.
+        | Workspaces are billed on an hourly basis up to a monthly cap. The plans included here assume that you keep your workspace powered on during the month.
+      p.tip
+        | Pay less by stopping your workspace when you don’t use it.
       = partial 'partials/onboarding-card-footer'
 
 if view.showCardholdersName
