@@ -309,8 +309,12 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
-	_, err := invoice.FindByStripeID(d, invID)
+	existingInv, err := invoice.FindByStripeID(d, invID)
 	if err != sql.ErrNoRows {
+		if err == nil && !existingInv.SubscriptionID.Valid {
+			logrus.Warnf("HandleSubscriptionInvoiceCreated on invoice without subscription: %s", invID)
+			return existingInv, nil
+		}
 		return nil, ErrInvoiceAlreadyCreated
 	}
 
