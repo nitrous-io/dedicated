@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -167,6 +168,7 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 
 		planID := p.StripePlanID.String
 		if bp.State == billingprofile.StateExempt {
+			planID = strings.TrimSuffix(planID, "-legacy")
 			planID = planID + "-exempt"
 		}
 
