@@ -385,7 +385,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 					item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
 				}
 				if err := item.Insert(tx); err != nil {
-					logrus.Errorf("Unable to create invoice item id %s, err: %v", inv.ID, err)
+					logrus.Errorf("Unable to create invoice item id %d, invoice item: %+v, err: %+v", inv.ID, invItem, err)
 					return err
 				}
 			}
