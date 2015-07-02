@@ -1,6 +1,7 @@
 package stripehooks
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/Sirupsen/logrus"
@@ -24,10 +25,14 @@ var (
 func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
 	inv, err := invoice.FindByStripeID(env.DB, stripeID)
 	if err != nil {
-		return fmt.Errorf("Error when locating invoice %s, err: %v", stripeID, err)
-	}
-	if inv == nil {
-		return fmt.Errorf("Could not find invoice matching Stripe event: %+v", e)
+		invoiceInfo := ""
+		if err == sql.ErrNoRows {
+			strInv, err := stripeinvoice.Get(stripeID, nil)
+			if err == nil {
+				invoiceInfo = fmt.Sprintf("stripe invoice: %+v", strInv)
+			}
+		}
+		return fmt.Errorf("Error when locating invoice %s, err: %v, event: %+v, %s", stripeID, err, e, invoiceInfo)
 	}
 
 	// webhook data is found to be outdated, query the invoice for *live* info

@@ -45,11 +45,17 @@ func ReceiveHook(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 
 func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) error {
 	// verify the event is legit
-	logrus.Debugf("Incoming event: %s", evt.Type)
+	logrus.Debugf("uuid=%s Incoming event: %s", env.UUID, evt.Type)
+
 	f, ok := evtHandlers[evt.Type]
 	if !ok {
+		e, err := event.Get(evt.EventID)
+		if err == nil {
+			logrus.Infof("uuid=%s unexpected events: %s, data: %+v", env.UUID, evt.Type, e)
+		}
 		return nil
 	}
+
 	e, err := event.Get(evt.EventID)
 	if err != nil {
 		return fmt.Errorf("Stripe hook event lookup failed, err: %v", err)
@@ -64,6 +70,6 @@ func handleStripeWebhook(env *middleware.Env, evt IncomingStripeWebHook) error {
 		return fmt.Errorf("Stripe failed to provide id: %+v", e.Data.Obj)
 	}
 
-	logrus.Infof("Processing Stripe event: %+v", e)
+	logrus.Infof("uuid=%s Processing Stripe event: %+v", env.UUID, e)
 	return f(env, e, stripeID)
 }
