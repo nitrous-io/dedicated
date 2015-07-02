@@ -53,7 +53,7 @@ var _ = Describe("provider/docker config", func() {
 		addBinding := func(ports map[dockerclient.Port][]dockerclient.PortBinding, hostIP, hostPort, containerPort string) {
 			cport := dockerclient.Port(containerPort)
 			ports[cport] = append(ports[cport], dockerclient.PortBinding{
-				HostIp:   hostIP,
+				HostIP:   hostIP,
 				HostPort: hostPort,
 			})
 		}
@@ -381,7 +381,7 @@ var _ = Describe("provider/docker config", func() {
 					Expect(pbs).To(HaveLen(1))
 					Expect(pbs[0]).To(Equal(
 						dockerclient.PortBinding{
-							HostIp: pb.hostIP, HostPort: pb.hostPort}))
+							HostIP: pb.hostIP, HostPort: pb.hostPort}))
 				}
 			})
 		})

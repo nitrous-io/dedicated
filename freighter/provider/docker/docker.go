@@ -747,7 +747,9 @@ func (p *DockerProvider) Export(id string, output io.Writer) error {
 }
 
 func (p *DockerProvider) ListImages() ([]*provider.ImageInfo, error) {
-	dockerImages, err := p.client.ListImages(false)
+	dockerImages, err := p.client.ListImages(dockerclient.ListImagesOptions{
+		All: false,
+	})
 	if err != nil {
 		return nil, err
 	}
