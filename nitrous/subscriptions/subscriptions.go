@@ -310,12 +310,19 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
 	existingInv, err := invoice.FindByStripeID(d, invID)
-	if err != sql.ErrNoRows {
-		if err == nil && !existingInv.SubscriptionID.Valid {
-			logrus.Warnf("HandleSubscriptionInvoiceCreated on invoice without subscription: %s", invID)
+	switch err {
+	case nil:
+		if !existingInv.SubscriptionID.Valid {
+			logrus.Warnf("HandleSubscriptionInvoiceCreated on invoice without subscription: %#v", existingInv)
 			return existingInv, nil
 		}
 		return nil, ErrInvoiceAlreadyCreated
+	case sql.ErrNoRows:
+		// No existing invoice - continue.
+		logrus.Infof("HandleSubscriptionInvoiceCreated handling invoice created, Stripe ID %s", invID)
+	default:
+		logrus.Warnf("HandleSubscriptionInvoiceCreated error finding invoice by Stripe ID %s, err: %v", invID, err)
+		return nil, err
 	}
 
 	sInv, err := stripeinvoice.Get(invID, nil)
@@ -324,113 +331,235 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 	}
 
 	var inv *invoice.Invoice
-	err = d.WithTransaction(func(tx *sqlx.Tx) error {
-		sub, err := findForUpdateByStripeID(tx, sInv.Sub)
-		if err != nil {
-			return err
-		}
-		bp, err := billingprofile.FindByID(tx, sub.BillingProfileID)
-		if err != nil {
-			return err
-		}
-
-		pStart := time.Unix(sInv.Start, 0)
-		pEnd := time.Unix(sInv.End, 0)
-		inv = &invoice.Invoice{
-			SubscriptionID: sql.NullInt64{sub.ID, true},
-			TotalCharge:    sInv.Amount,
-			PeriodStart:    &pStart,
-			PeriodEnd:      &pEnd,
-			Attempts:       int(sInv.Attempts),
-			StripeID:       sql.NullString{sInv.ID, true},
-			UserID:         bp.UserID,
-		}
-		if sInv.Paid {
-			if bp.IsFreeTier() || bp.IsExempt() {
-				inv.State = invoice.StateNotPayable
-			} else {
-				inv.State = invoice.StatePaid
-			}
-		} else {
-			inv.State = invoice.StateUnpaid
-		}
-
-		if err := inv.Insert(tx); err != nil {
-			return err
-		}
-
-		if invoiceLines := sInv.Lines; invoiceLines != nil {
-			for _, invItem := range invoiceLines.Values {
-				desc := invItem.Desc
-				if desc == "" {
-					if invItem.Plan != nil {
-						desc = fmt.Sprintf("Subscription to %s ($%.2f/%s)", invItem.Plan.Name, float64(invItem.Plan.Amount)/100.0, string(invItem.Plan.Interval))
-					} else {
-						desc = "Subscription"
-					}
-				}
-				stripeID := invItem.ID
-				if invItem.Type == stripeinvoice.TypeSubscription {
-					stripeID = fmt.Sprintf("%s-%s", sInv.ID, invItem.ID)
-				}
-				item := invoiceitem.InvoiceItem{
-					InvoiceID:         inv.ID,
-					ItemType:          invoiceitem.ItemTypeSubscription,
-					StripeID:          sql.NullString{stripeID, true},
-					TotalStripeCharge: sql.NullInt64{invItem.Amount, true},
-					Description:       sql.NullString{desc, true},
-				}
-				if item.TotalStripeCharge.Int64 < 0 {
-					item.ItemType = invoiceitem.ItemTypeCredit
-					item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
-				}
-				if err := item.Insert(tx); err != nil {
-					logrus.Errorf("Unable to create invoice item id %d, invoice item: %+v, err: %+v", inv.ID, invItem, err)
-					return err
-				}
-			}
-		}
-
-		// Stripe tells us before charging a subscription by creating an invoice
-		// this gives us an opportunity to credit the user before the charges go through
-		// this should not abort the transaction but log a major error
-		if !sInv.Paid {
-			var stripePlanID string
-			err = d.Get(&stripePlanID, "SELECT stripe_plan_id FROM plans WHERE id = $1", sub.PlanID)
-			if err != nil {
-				return err
-			}
-			crItem, err := creditStripeInvoice(tx, bp, inv.TotalCharge, sub.ID, stripePlanID, inv)
-			if err != nil {
-				return err
-			}
-			if crItem != nil {
-				item := invoiceitem.InvoiceItem{
-					InvoiceID:         inv.ID,
-					ItemType:          invoiceitem.ItemTypeCredit,
-					StripeID:          sql.NullString{crItem.ID, true},
-					TotalStripeCharge: sql.NullInt64{crItem.Amount, true},
-					Credit:            sql.NullInt64{crItem.Amount * -1, true},
-				}
-				if err := item.Insert(tx); err != nil {
-					if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
-						logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
-					}
-					return err
-				} else {
-					// update the invoice total
-					inv.TotalCharge += crItem.Amount
-					if err := inv.Update(tx); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	})
-
+	tx, err := d.Beginx()
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	sub, err := findForUpdateByStripeID(tx, sInv.Sub)
+	if err != nil {
+		return nil, err
+	}
+	bp, err := billingprofile.FindByID(tx, sub.BillingProfileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// SPECIAL CASE: When we switched from usage-based plans to prepaid
+	// subscriptions on 1 July 2015, some users had deferred invoice items
+	// because they owed us < $1. When we grandfathered them into a
+	// subscription plan, Stripe paid the subscription of $0 (because of
+	// the 1-month free trial we gave them) AND any outstanding invoice
+	// items (i.e. the deferred invoice items).
+	// So yeah crap - now we have to handle this special case by:
+	// 1. If the invoice items Stripe sent us has both a subscription and
+	//    invoice items that already exist in the database, we check whether
+	//    the associated invoice record for the invoice items has
+	//    state="deferred".
+	// 2. If invoice is deferred (and there should be only 1 invoice), we
+	//    update it to paid.
+	// 3. If anything is unexpected, e.g. the invoice items don't all belong
+	//    to a single deferred invoice, we log verbosely.
+	containsSubscription := false
+	invoiceItemIDs := []string{}
+	if sInv.Lines != nil {
+		for _, invItem := range sInv.Lines.Values {
+			switch invItem.Type {
+			case stripeinvoice.TypeInvoiceItem:
+				if invItem.Amount < 0 {
+					// Ignore credit items because they will not exist in the database.
+					logrus.Info("HandleSubscriptionInvoiceCreated ignoring credit invoice item: %#v", invItem)
+					continue
+				}
+				invoiceItemIDs = append(invoiceItemIDs, invItem.ID)
+			case stripeinvoice.TypeSubscription:
+				containsSubscription = true
+			}
+		}
+	}
+	if containsSubscription && len(invoiceItemIDs) > 0 {
+		logrus.Infof("HandleSubscriptionInvoiceCreated handling Stripe invoice with both subscription and invoiceitems, Stripe invoice: %#v", sInv)
+
+		invItems := []*invoiceitem.InvoiceItem{}
+		for _, stripeID := range invoiceItemIDs {
+			invItem := &invoiceitem.InvoiceItem{}
+			err := tx.QueryRowx("SELECT * FROM invoice_items WHERE stripe_id = $1;", stripeID).StructScan(invItem)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice lines with subscription but invoiceitem %q doesn't exist in database, Stripe invoice: %#v", stripeID, sInv)
+				}
+				return nil, err
+			}
+			invItems = append(invItems, invItem)
+		}
+
+		// All the invoice items should belong to the same invoice.
+		invoiceID := invItems[0].InvoiceID
+		for _, invItem := range invItems {
+			if invItem.InvoiceID != invoiceID {
+				logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice with invoiceitems that belong to > 1 invoice, Stripe invoice: %#v", sInv)
+				return nil, fmt.Errorf("unexpected data for Stripe invoice %s", sInv.ID)
+			}
+		}
+
+		// Invoice should be deferred.
+		inv, err := invoice.Find(tx, invoiceID)
+		if err != nil {
+			logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice lines with subscription but invoice ID %d doesn't exist in database, Stripe invoice: %#v", invoiceID, sInv)
+			return nil, err
+		}
+		if inv.State != invoice.StateDeferred {
+			logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice with invoiceitems that belong to an invoice that is not deferred, Stripe invoice: %#v", sInv)
+			return nil, fmt.Errorf("unexpected invoice state for Stripe invoice %s", sInv.ID)
+		}
+
+		if !sInv.Paid {
+			return nil, fmt.Errorf("Unexpected unpaid Stripe invoice %s", sInv.ID)
+		}
+
+		// Update existing invoice.
+		inv.State = invoice.StatePaid
+		inv.TotalCharge = sInv.Amount
+		inv.StripeID = sql.NullString{sInv.ID, true}
+		inv.SubscriptionID = sql.NullInt64{sub.ID, true}
+		if err := inv.Update(tx); err != nil {
+			logrus.Errorf("HandleSubscriptionInvoiceCreated failed to update invoice record to paid, Stripe invoice: %#v", sInv)
+			return nil, err
+		}
+
+		// Create invoice for just the subscription invoice
+		for _, invItem := range sInv.Lines.Values {
+			if invItem.Type != stripeinvoice.TypeSubscription {
+				continue
+			}
+
+			desc := invItem.Desc
+			// Set a helpful description if it's empty.
+			if desc == "" {
+				if invItem.Plan != nil {
+					desc = fmt.Sprintf("Subscription to %s ($%.2f/%s)", invItem.Plan.Name, float64(invItem.Plan.Amount)/100.0, string(invItem.Plan.Interval))
+				} else {
+					desc = "Subscription"
+				}
+			}
+
+			stripeID := fmt.Sprintf("%s-%s", sInv.ID, invItem.ID)
+			item := &invoiceitem.InvoiceItem{
+				InvoiceID:         inv.ID,
+				ItemType:          invoiceitem.ItemTypeSubscription,
+				StripeID:          sql.NullString{stripeID, true},
+				TotalStripeCharge: sql.NullInt64{invItem.Amount, true},
+				Description:       sql.NullString{desc, true},
+			}
+			if err := item.Insert(tx); err != nil {
+				logrus.Errorf("Unable to create subscription invoice item: %+v, err: %v", invItem, err)
+				return nil, err
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+
+		return inv, nil
+	}
+	// END of special case.
+
+	pStart := time.Unix(sInv.Start, 0)
+	pEnd := time.Unix(sInv.End, 0)
+	inv = &invoice.Invoice{
+		SubscriptionID: sql.NullInt64{sub.ID, true},
+		TotalCharge:    sInv.Amount,
+		PeriodStart:    &pStart,
+		PeriodEnd:      &pEnd,
+		Attempts:       int(sInv.Attempts),
+		StripeID:       sql.NullString{sInv.ID, true},
+		UserID:         bp.UserID,
+	}
+	if sInv.Paid {
+		if bp.IsFreeTier() || bp.IsExempt() {
+			inv.State = invoice.StateNotPayable
+		} else {
+			inv.State = invoice.StatePaid
+		}
+	} else {
+		inv.State = invoice.StateUnpaid
+	}
+	if err := inv.Insert(tx); err != nil {
+		return nil, err
+	}
+
+	if sInv.Lines != nil {
+		for _, invItem := range sInv.Lines.Values {
+			desc := invItem.Desc
+			// Set a helpful description if it's empty.
+			if desc == "" {
+				if invItem.Plan != nil {
+					desc = fmt.Sprintf("Subscription to %s ($%.2f/%s)", invItem.Plan.Name, float64(invItem.Plan.Amount)/100.0, string(invItem.Plan.Interval))
+				} else {
+					desc = "Subscription"
+				}
+			}
+			stripeID := invItem.ID
+			if invItem.Type == stripeinvoice.TypeSubscription {
+				stripeID = fmt.Sprintf("%s-%s", sInv.ID, invItem.ID)
+			}
+			item := invoiceitem.InvoiceItem{
+				InvoiceID:         inv.ID,
+				ItemType:          invoiceitem.ItemTypeSubscription,
+				StripeID:          sql.NullString{stripeID, true},
+				TotalStripeCharge: sql.NullInt64{invItem.Amount, true},
+				Description:       sql.NullString{desc, true},
+			}
+			if item.TotalStripeCharge.Int64 < 0 {
+				item.ItemType = invoiceitem.ItemTypeCredit
+				item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
+			}
+			if err := item.Insert(tx); err != nil {
+				logrus.Errorf("Unable to create invoice item id %d, invoice item: %+v, err: %+v", inv.ID, invItem, err)
+				return nil, err
+			}
+		}
+	}
+
+	// Stripe tells us before charging a subscription by creating an invoice
+	// this gives us an opportunity to credit the user before the charges go through
+	// this should not abort the transaction but log a major error
+	if !sInv.Paid {
+		var stripePlanID string
+		err = d.Get(&stripePlanID, "SELECT stripe_plan_id FROM plans WHERE id = $1", sub.PlanID)
+		if err != nil {
+			return nil, err
+		}
+		crItem, err := creditStripeInvoice(tx, bp, inv.TotalCharge, sub.ID, stripePlanID, inv)
+		if err != nil {
+			return nil, err
+		}
+		if crItem != nil {
+			item := invoiceitem.InvoiceItem{
+				InvoiceID:         inv.ID,
+				ItemType:          invoiceitem.ItemTypeCredit,
+				StripeID:          sql.NullString{crItem.ID, true},
+				TotalStripeCharge: sql.NullInt64{crItem.Amount, true},
+				Credit:            sql.NullInt64{crItem.Amount * -1, true},
+			}
+			if err := item.Insert(tx); err != nil {
+				if err := stripeinvoiceitem.Del(crItem.ID); err != nil {
+					logrus.Errorf("Unable to delete Stripe invoiceitem %s, err: %v", crItem.ID, err)
+				}
+				return nil, err
+			} else {
+				// update the invoice total
+				inv.TotalCharge += crItem.Amount
+				if err := inv.Update(tx); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 
