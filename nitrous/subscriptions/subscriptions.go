@@ -338,7 +338,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 		pEnd := time.Unix(sInv.End, 0)
 		inv = &invoice.Invoice{
 			SubscriptionID: sql.NullInt64{sub.ID, true},
-			TotalCharge:    sInv.Total,
+			TotalCharge:    sInv.Amount,
 			PeriodStart:    &pStart,
 			PeriodEnd:      &pEnd,
 			Attempts:       int(sInv.Attempts),
