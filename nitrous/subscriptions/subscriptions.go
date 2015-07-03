@@ -338,7 +338,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 		pEnd := time.Unix(sInv.End, 0)
 		inv = &invoice.Invoice{
 			SubscriptionID: sql.NullInt64{sub.ID, true},
-			TotalCharge:    sInv.Total,
+			TotalCharge:    sInv.Amount,
 			PeriodStart:    &pStart,
 			PeriodEnd:      &pEnd,
 			Attempts:       int(sInv.Attempts),
@@ -385,7 +385,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 					item.Credit = sql.NullInt64{item.TotalStripeCharge.Int64 * -1, true}
 				}
 				if err := item.Insert(tx); err != nil {
-					logrus.Errorf("Unable to create invoice item id %s, err: %v", inv.ID, err)
+					logrus.Errorf("Unable to create invoice item id %d, invoice item: %+v, err: %+v", inv.ID, invItem, err)
 					return err
 				}
 			}
