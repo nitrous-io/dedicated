@@ -7,6 +7,7 @@ export IN_DOCKER=${2}
 
 BUILD_DIR=$(pwd)/build
 GIT_DIR=$(pwd)/.git
+RAILS_TMP=$(pwd)/nitrous/rails/tmp
 mkdir -p "$BUILD_DIR"
 
 die() {
@@ -137,12 +138,17 @@ build_nitrous() {
 
 if [ "$IN_DOCKER" == "true" ]; then
   tmp=$(mktemp -d /tmp/dedicated-build-XXXXX)
+
+  # Ensure tmp folder is created as we want to speed up assets pipeline.
+  [[ ! -d $RAILS_TMP ]] && mkdir -p $RAILS_TMP
+
   # we want to mount GIT_DIR so that the docker container has read access to
   # git data
   docker run \
     --privileged=true \
     --volume $BUILD_DIR:/opt/src/github.com/nitrous-io/dedicated/build \
     --volume $GIT_DIR:/opt/src/github.com/nitrous-io/dedicated/.git:ro \
+    --volume $RAILS_TMP:/opt/src/github.com/nitrous-io/dedicated/nitrous/rails/tmp \
     --rm \
     -e BUILD_IN_DOCKER=true \
     -e BUILD_NUMBER=$BUILD_NUMBER \
