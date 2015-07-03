@@ -102,6 +102,27 @@ func PlanPricingHostMap(d db.QueryReceiver, userID int64) (map[int64]PlanPricing
 	return mapping, nil
 }
 
+func PlanPricingHostMapWithSubscription(d db.QueryReceiver, userID int64) (map[int64]PlanPricing, error) {
+	type planHost struct {
+		HostID        int64 `db:"host_id"`
+		PlanPrice     int64 `db:"plan_price"`
+		PlanBasePrice int64 `db:"base_plan_price"`
+	}
+	pHs := []*planHost{}
+	if err := d.Select(&pHs, `SELECT
+		hosts.id AS host_id, plans.price AS plan_price, plans.base_price AS base_plan_price
+		FROM hosts INNER JOIN plans ON hosts.plan_id = plans.id
+		WHERE hosts.user_id = $1;`, userID); err != nil {
+		return nil, err
+	}
+
+	mapping := make(map[int64]PlanPricing)
+	for _, pH := range pHs {
+		mapping[pH.HostID] = PlanPricing{Price: pH.PlanPrice, BasePrice: pH.PlanBasePrice}
+	}
+	return mapping, nil
+}
+
 func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	plans := []*Plan{}
 	err := d.Select(&plans, `
