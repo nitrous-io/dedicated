@@ -79,6 +79,27 @@ var _ = Describe("models/invoice", func() {
 		})
 	})
 
+	Describe(".Find()", func() {
+		It("returns the invoice with the given id", func() {
+			start := time.Now()
+			end := start.Add(2 * time.Hour)
+			inv := &invoice.Invoice{
+				UserID:      u.ID,
+				TotalCharge: 900,
+				State:       invoice.StatePaid,
+				Attempts:    23,
+				StripeID:    sql.NullString{"Xcccs", true},
+				PeriodStart: &start,
+				PeriodEnd:   &end,
+			}
+			Expect(inv.Insert(db)).To(BeNil())
+
+			inv2, err := invoice.Find(db, inv.ID)
+			Expect(err).To(BeNil())
+			Expect(inv2).To(Equal(inv))
+		})
+	})
+
 	Describe(".FindByStripeID()", func() {
 		It("should fail if the record does not exist", func() {
 			inv, err := invoice.FindByStripeID(db, "Ok23x")

@@ -956,6 +956,137 @@ var _ = Describe("subscriptions", func() {
 			Expect(items[1].TotalStripeCharge.Int64).To(Equal(int64(-100)))
 			Expect(items[1].Credit.Int64).To(Equal(int64(100)))
 		})
+
+		Describe("special case of invoices with both subscription and deferred invoice items", func() {
+			var sub *subscription.Subscription
+
+			BeforeEach(func() {
+				// Create existing subscription, deferred invoice and invoice item.
+				bp, err := u.BillingProfile(db)
+				Expect(err).To(BeNil())
+				sub = &subscription.Subscription{
+					StripeID:         sql.NullString{"sub_1", true},
+					PlanID:           pl.ID,
+					BillingProfileID: bp.ID,
+				}
+				Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+				s := time.Now().Add(-900 * time.Hour)
+				e := s.Add(30 * time.Hour)
+				inv := &invoice.Invoice{
+					UserID:      u.ID,
+					TotalCharge: int64(99),
+					State:       invoice.StateDeferred,
+					PeriodStart: &s,
+					PeriodEnd:   &e,
+					// StripeID should be empty.
+				}
+				Expect(inv.Insert(db)).To(BeNil())
+				invItem := &invoiceitem.InvoiceItem{
+					InvoiceID:   inv.ID,
+					HostID:      sql.NullInt64{hs.H.ID, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
+					StripeID:    sql.NullString{"stripe-item-2", true},
+					Hours:       sql.NullInt64{1, true},
+					HourlyPrice: sql.NullInt64{1874, true},
+					PlanMemory:  sql.NullString{"2GB", true},
+				}
+				Expect(invItem.Insert(db)).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil}
+				fakeStripe.Responses = []string{
+					`{
+						"id": "inv1",
+						"object": "invoice",
+						"subscription": "sub_1",
+						"total": 1598,
+						"period_start": 1434418419,
+						"period_end": 1437010419,
+						"attempts": 2,
+						"stripe_id": "str-invoice-1",
+						"paid": true,
+						"lines": {
+							"data": [
+								{
+									"id": "sub_1",
+									"object": "line_item",
+									"type": "subscription",
+									"livemode": true,
+									"amount": 1499,
+									"currency": "usd",
+									"proration": false,
+									"period": {
+										"start": 1434418419,
+										"end": 1437010419
+									},
+									"plan": {
+										"interval": "month",
+										"name": "ABC1",
+										"created": 1434516288,
+										"amount": 1499,
+										"currency": "usd",
+										"id": "abc1",
+										"object": "plan",
+										"livemode": false,
+										"interval_count": 1,
+										"trial_period_days": null
+									}
+								},
+								{
+									"id": "stripe-item-2",
+									"object": "line_item",
+									"type": "invoiceitem",
+									"livemode": true,
+									"amount": 99,
+									"currency": "usd",
+									"proration": false,
+									"period": {
+										"start": 1434418419,
+										"end": 1437010419
+									}
+								}
+							],
+							"total_count": 1,
+							"object": "list",
+							"url": "/v1/invoices/inv1/lines"
+						}
+					}`,
+				}
+
+			})
+
+			It("updates the associated invoice to paid and creates an invoice item for the subscription", func() {
+				i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+				Expect(err).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("GET"))
+				Expect(r["path"]).To(Equal("/invoices/inv1"))
+
+				inv, err := invoice.FindByStripeID(db, "inv1")
+				Expect(err).To(BeNil())
+				Expect(inv.State).To(Equal(invoice.StatePaid))
+				Expect(inv.TotalCharge).To(Equal(int64(1499 + 99)))
+				Expect(inv.StripeID.String).To(Equal("inv1"))
+				Expect(inv.SubscriptionID.Int64).To(Equal(sub.ID))
+				Expect(inv).To(Equal(i))
+
+				items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
+				Expect(err).To(BeNil())
+				Expect(items).To(HaveLen(2))
+
+				for _, item := range items {
+					switch item.ItemType {
+					case invoiceitem.ItemTypeCompute:
+						Expect(item.StripeID.String).To(Equal("stripe-item-2"))
+					case invoiceitem.ItemTypeSubscription:
+						Expect(item.StripeID.String).To(Equal("inv1-sub_1"))
+						Expect(item.TotalStripeCharge.Int64).To(Equal(int64(1499)))
+					}
+				}
+			})
+
+		})
 	})
 
 	Describe("HandleSubscriptionInvoiceFailed", func() {
