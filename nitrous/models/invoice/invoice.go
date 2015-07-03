@@ -122,6 +122,11 @@ func (i *Invoice) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(i).StructScan(i)
 }
 
+func (i *Invoice) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM invoices WHERE id = $1`, i.ID)
+	return err
+}
+
 func (i *Invoice) validate() error {
 	if i.State == "" {
 		return ErrEmptyState
