@@ -961,7 +961,7 @@ var _ = Describe("subscriptions", func() {
 			var sub *subscription.Subscription
 
 			BeforeEach(func() {
-				// Create existing subscription, deferred invoice and invoice item.
+				// Create existing subscription, deferred invoices and invoice items.
 				bp, err := u.BillingProfile(db)
 				Expect(err).To(BeNil())
 				sub = &subscription.Subscription{
@@ -972,6 +972,7 @@ var _ = Describe("subscriptions", func() {
 				Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 				s := time.Now().Add(-900 * time.Hour)
 				e := s.Add(30 * time.Hour)
+
 				inv := &invoice.Invoice{
 					UserID:      u.ID,
 					TotalCharge: int64(99),
@@ -986,11 +987,31 @@ var _ = Describe("subscriptions", func() {
 					HostID:      sql.NullInt64{hs.H.ID, true},
 					ItemType:    invoiceitem.ItemTypeCompute,
 					StripeID:    sql.NullString{"stripe-item-2", true},
-					Hours:       sql.NullInt64{1, true},
+					Hours:       sql.NullInt64{2, true},
 					HourlyPrice: sql.NullInt64{1874, true},
 					PlanMemory:  sql.NullString{"2GB", true},
 				}
 				Expect(invItem.Insert(db)).To(BeNil())
+
+				inv2 := &invoice.Invoice{
+					UserID:      u.ID,
+					TotalCharge: int64(50),
+					State:       invoice.StateDeferred,
+					PeriodStart: &s,
+					PeriodEnd:   &e,
+					// StripeID should be empty.
+				}
+				Expect(inv2.Insert(db)).To(BeNil())
+				invItem2 := &invoiceitem.InvoiceItem{
+					InvoiceID:   inv2.ID,
+					HostID:      sql.NullInt64{hs.H.ID, true},
+					ItemType:    invoiceitem.ItemTypeCompute,
+					StripeID:    sql.NullString{"stripe-item-3", true},
+					Hours:       sql.NullInt64{1, true},
+					HourlyPrice: sql.NullInt64{1874, true},
+					PlanMemory:  sql.NullString{"2GB", true},
+				}
+				Expect(invItem2.Insert(db)).To(BeNil())
 
 				fakeStripe.Errors = []*stripe.Error{nil}
 				fakeStripe.Responses = []string{
@@ -998,7 +1019,8 @@ var _ = Describe("subscriptions", func() {
 						"id": "inv1",
 						"object": "invoice",
 						"subscription": "sub_1",
-						"total": 1598,
+						"total": 1648,
+						"amount_due": 1648,
 						"period_start": 1434418419,
 						"period_end": 1437010419,
 						"attempts": 2,
@@ -1043,6 +1065,19 @@ var _ = Describe("subscriptions", func() {
 										"start": 1434418419,
 										"end": 1437010419
 									}
+								},
+								{
+									"id": "stripe-item-3",
+									"object": "line_item",
+									"type": "invoiceitem",
+									"livemode": true,
+									"amount": 50,
+									"currency": "usd",
+									"proration": false,
+									"period": {
+										"start": 1434418419,
+										"end": 1437010419
+									}
 								}
 							],
 							"total_count": 1,
@@ -1054,7 +1089,7 @@ var _ = Describe("subscriptions", func() {
 
 			})
 
-			It("updates the associated invoice to paid and creates an invoice item for the subscription", func() {
+			It("creates a new paid invoice with an invoice item for the subscription, and deletes the deferred invoice and invoice items", func() {
 				i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 				Expect(err).To(BeNil())
 
@@ -1066,26 +1101,27 @@ var _ = Describe("subscriptions", func() {
 				inv, err := invoice.FindByStripeID(db, "inv1")
 				Expect(err).To(BeNil())
 				Expect(inv.State).To(Equal(invoice.StatePaid))
-				Expect(inv.TotalCharge).To(Equal(int64(1499 + 99)))
+				Expect(inv.TotalCharge).To(Equal(int64(1499 + 99 + 50)))
 				Expect(inv.StripeID.String).To(Equal("inv1"))
 				Expect(inv.SubscriptionID.Int64).To(Equal(sub.ID))
 				Expect(inv).To(Equal(i))
 
 				items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 				Expect(err).To(BeNil())
-				Expect(items).To(HaveLen(2))
+				Expect(items).To(HaveLen(3))
 
+				computeItemStripeIDs := []string{}
 				for _, item := range items {
 					switch item.ItemType {
 					case invoiceitem.ItemTypeCompute:
-						Expect(item.StripeID.String).To(Equal("stripe-item-2"))
+						computeItemStripeIDs = append(computeItemStripeIDs, item.StripeID.String)
 					case invoiceitem.ItemTypeSubscription:
 						Expect(item.StripeID.String).To(Equal("inv1-sub_1"))
 						Expect(item.TotalStripeCharge.Int64).To(Equal(int64(1499)))
 					}
 				}
+				Expect(computeItemStripeIDs).To(ConsistOf("stripe-item-2", "stripe-item-3"))
 			})
-
 		})
 	})
 
