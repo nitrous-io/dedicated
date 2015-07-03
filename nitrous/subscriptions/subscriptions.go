@@ -355,12 +355,13 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 	// So yeah crap - now we have to handle this special case by:
 	// 1. If the invoice items Stripe sent us has both a subscription and
 	//    invoice items that already exist in the database, we check whether
-	//    the associated invoice record for the invoice items has
+	//    the associated invoice records for the invoice items have
 	//    state="deferred".
-	// 2. If invoice is deferred (and there should be only 1 invoice), we
-	//    update it to paid.
-	// 3. If anything is unexpected, e.g. the invoice items don't all belong
-	//    to a single deferred invoice, we log verbosely.
+	// 2. If all the invoices are deferred, we associate their invoice items to
+	//    a newly created invoice.
+	// 3. Then we delete the deferred invoices.
+	// 4. If anything is unexpected, e.g. the invoice items don't belong
+	//    to a deferred invoice, we log verbosely.
 	containsSubscription := false
 	invoiceItemIDs := []string{}
 	if sInv.Lines != nil {
@@ -383,52 +384,68 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 
 		invItems := []*invoiceitem.InvoiceItem{}
 		for _, stripeID := range invoiceItemIDs {
-			invItem := &invoiceitem.InvoiceItem{}
-			err := tx.QueryRowx("SELECT * FROM invoice_items WHERE stripe_id = $1;", stripeID).StructScan(invItem)
+			item := &invoiceitem.InvoiceItem{}
+			err := tx.QueryRowx("SELECT * FROM invoice_items WHERE stripe_id = $1;", stripeID).StructScan(item)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice lines with subscription but invoiceitem %q doesn't exist in database, Stripe invoice: %#v", stripeID, sInv)
 				}
 				return nil, err
 			}
-			invItems = append(invItems, invItem)
+			invItems = append(invItems, item)
 		}
 
-		// All the invoice items should belong to the same invoice.
-		invoiceID := invItems[0].InvoiceID
-		for _, invItem := range invItems {
-			if invItem.InvoiceID != invoiceID {
-				logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice with invoiceitems that belong to > 1 invoice, Stripe invoice: %#v", sInv)
+		// All the invoice items should belong to a deferred invoice.
+		invoices := []*invoice.Invoice{}
+		for _, item := range invItems {
+			inv, err := invoice.Find(tx, item.InvoiceID)
+			if err != nil {
+				return nil, err
+			}
+			if inv.State != invoice.StateDeferred {
+				logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice with invoiceitem %#v that belongs to an invoice that is not deferred, Stripe invoice: %#v", item, sInv)
 				return nil, fmt.Errorf("unexpected data for Stripe invoice %s", sInv.ID)
 			}
-		}
-
-		// Invoice should be deferred.
-		inv, err := invoice.Find(tx, invoiceID)
-		if err != nil {
-			logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice lines with subscription but invoice ID %d doesn't exist in database, Stripe invoice: %#v", invoiceID, sInv)
-			return nil, err
-		}
-		if inv.State != invoice.StateDeferred {
-			logrus.Errorf("HandleSubscriptionInvoiceCreated got invoice with invoiceitems that belong to an invoice that is not deferred, Stripe invoice: %#v", sInv)
-			return nil, fmt.Errorf("unexpected invoice state for Stripe invoice %s", sInv.ID)
+			invoices = append(invoices, inv)
 		}
 
 		if !sInv.Paid {
 			return nil, fmt.Errorf("Unexpected unpaid Stripe invoice %s", sInv.ID)
 		}
 
-		// Update existing invoice.
-		inv.State = invoice.StatePaid
-		inv.TotalCharge = sInv.Amount
-		inv.StripeID = sql.NullString{sInv.ID, true}
-		inv.SubscriptionID = sql.NullInt64{sub.ID, true}
-		if err := inv.Update(tx); err != nil {
-			logrus.Errorf("HandleSubscriptionInvoiceCreated failed to update invoice record to paid, Stripe invoice: %#v", sInv)
+		// Create a new invoice.
+		pStart := time.Unix(sInv.Start, 0)
+		pEnd := time.Unix(sInv.End, 0)
+		inv := &invoice.Invoice{
+			SubscriptionID: sql.NullInt64{sub.ID, true},
+			TotalCharge:    sInv.Amount,
+			PeriodStart:    &pStart,
+			PeriodEnd:      &pEnd,
+			Attempts:       int(sInv.Attempts),
+			StripeID:       sql.NullString{sInv.ID, true},
+			UserID:         bp.UserID,
+			State:          invoice.StatePaid,
+		}
+		if err := inv.Insert(tx); err != nil {
 			return nil, err
 		}
 
-		// Create invoice for just the subscription invoice
+		// Point all the deferred invoice items to the new invoice.
+		for _, item := range invItems {
+			item.InvoiceID = inv.ID
+			if err := item.Update(tx); err != nil {
+				return nil, err
+			}
+		}
+
+		// Delete the deferred invoice(s).
+		for _, inv := range invoices {
+			if err := inv.Delete(tx); err != nil {
+				return nil, err
+			}
+		}
+
+		// Create invoice item for just the subscription invoice item.
 		for _, invItem := range sInv.Lines.Values {
 			if invItem.Type != stripeinvoice.TypeSubscription {
 				continue
