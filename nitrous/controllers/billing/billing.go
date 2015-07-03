@@ -151,7 +151,7 @@ func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	pHMap, err := plan.PlanPricingHostMap(env.DB, env.User.ID)
+	pHMap, err := plan.PlanPricingHostMapWithSubscription(env.DB, env.User.ID)
 	if err != nil {
 		return err
 	}

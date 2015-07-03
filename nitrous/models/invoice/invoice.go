@@ -73,13 +73,20 @@ func ForPeriod(d db.QueryReceiver, userID int64, periodStart, periodEnd time.Tim
 	return inv, err
 }
 
-func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
+func Find(d db.QueryReceiver, id int64) (*Invoice, error) {
 	inv := &Invoice{}
-	err := d.Get(inv, `SELECT * FROM invoices WHERE stripe_id = $1`, stripeID)
-	if err != nil {
+	if err := d.Get(inv, `SELECT * FROM invoices where id = $1;`, id); err != nil {
 		return nil, err
 	}
-	return inv, err
+	return inv, nil
+}
+
+func FindByStripeID(d db.QueryReceiver, stripeID string) (*Invoice, error) {
+	inv := &Invoice{}
+	if err := d.Get(inv, `SELECT * FROM invoices WHERE stripe_id = $1`, stripeID); err != nil {
+		return nil, err
+	}
+	return inv, nil
 }
 
 func (i *Invoice) Insert(d db.QueryReceiver) error {
