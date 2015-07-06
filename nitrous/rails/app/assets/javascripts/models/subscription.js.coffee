@@ -22,6 +22,11 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
 
   totalPriceInDollars: (->
     return unless @get 'plan'
+    # We grandfathered hosts that are on legacy plans to be subscription at July 2015 and made it free for first month
+    # This is to show $0.0 for the first month of the subscriptions
+    startDate = @get('currentPeriodStart')
+    isGrandfathered = @get('plan.slug').indexOf('-legacy') >= 0 && startDate.getYear() == 115 && startDate.getMonth() == 6
+    return 0.0 if isGrandfathered
     @get('plan.price') / 100.0
   ).property 'plan'
 
