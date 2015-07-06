@@ -370,7 +370,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 			case stripeinvoice.TypeInvoiceItem:
 				if invItem.Amount < 0 {
 					// Ignore credit items because they will not exist in the database.
-					logrus.Info("HandleSubscriptionInvoiceCreated ignoring credit invoice item: %#v", invItem)
+					logrus.Infof("HandleSubscriptionInvoiceCreated ignoring credit invoice item: %#v", invItem)
 					continue
 				}
 				invoiceItemIDs = append(invoiceItemIDs, invItem.ID)
