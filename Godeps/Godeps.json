@@ -157,7 +157,7 @@
 		},
 		{
 			"ImportPath": "github.com/miekg/dns",
-			"Rev": "812ab5e75584410c0c25e5a15b60d46db0f1f38e"
+			"Rev": "3e549e2f6fd420cdffa528144b925305401bf55c"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/cli",

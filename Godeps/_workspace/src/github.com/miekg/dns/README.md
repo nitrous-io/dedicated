@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/miekg/dns.svg?branch=master)](https://travis-ci.org/miekg/dns)
+
 # Alternative (more granular) approach to a DNS library
 
 > Less is more.
@@ -30,7 +32,13 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * https://github.com/fcambus/rrda
 * https://github.com/kenshinx/godns
 * https://github.com/skynetservices/skydns
-* ... (send pull request if you want to be listed here)
+* https://github.com/DevelopersPL/godnsagent
+* https://github.com/duedil-ltd/discodns
+* https://github.com/StalkR/dns-reverse-proxy
+* https://github.com/tianon/rawdns
+* https://mesosphere.github.io/mesos-dns/
+
+Send pull request if you want to be listed here.
 
 # Features
 
@@ -44,12 +52,13 @@ A not-so-up-to-date-list-that-may-be-actually-current:
 * DNSSEC: signing, validating and key generation for DSA, RSA and ECDSA;
 * EDNS0, NSID;
 * AXFR/IXFR;
-* TSIG;
-* DNS name compression.
+* TSIG, SIG(0);
+* DNS name compression;
+* Depends only on the standard library.
 
 Have fun!
 
-Miek Gieben  -  2010-2012  -  miek@miek.nl
+Miek Gieben  -  2010-2012  -  <miek@miek.nl>
 
 # Building
 
@@ -61,7 +70,7 @@ correctly, the following should work:
 
 ## Examples
 
-A short "how to use the API" is at the beginning of dns.go (this also will show
+A short "how to use the API" is at the beginning of doc.go (this also will show
 when you call `godoc github.com/miekg/dns`).
 
 Example programs can be found in the `github.com/miekg/exdns` repository.
@@ -89,7 +98,8 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * 3225 - DO bit (DNSSEC OK)
 * 340{1,2,3} - NAPTR record
 * 3445 - Limiting the scope of (DNS)KEY
-* 3597 - Unkown RRs
+* 3597 - Unknown RRs
+* 4025 - IPSECKEY
 * 403{3,4,5} - DNSSEC + validation functions
 * 4255 - SSHFP record
 * 4343 - Case insensitivity
@@ -106,13 +116,16 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 * 5936 - AXFR
 * 5966 - TCP implementation recommendations
 * 6605 - ECDSA
+* 6725 - IANA Registry Update
 * 6742 - ILNP DNS
+* 6844 - CAA record
 * 6891 - EDNS0 update
 * 6895 - DNS IANA considerations
+* 6975 - Algorithm Understanding in DNSSEC
 * 7043 - EUI48/EUI64 records
+* 7314 - DNS (EDNS) EXPIRE Option
 * xxxx - URI record (draft)
 * xxxx - EDNS0 DNS Update Lease (draft)
-* xxxx - Algorithm-Signal (draft)
 
 ## Loosely based upon
 
@@ -123,10 +136,8 @@ Example programs can be found in the `github.com/miekg/exdns` repository.
 
 ## TODO
 
-* Support for on-the-fly-signing or check how to do it;
-* Ratelimiting? server side (RRL);
-* Make a srv.Stop() that stops the server;
 * privatekey.Precompute() when signing?
-* Last remaining RRs: APL, ATMA, A6, KEY, SIG and NXT;
-* CAA parsing is broken;
-* Replies with TC bit are not parsed to the end.
+* Last remaining RRs: APL, ATMA, A6 and NXT and IPSECKEY;
+* Missing in parsing: ISDN, UNSPEC, ATMA;
+* NSEC(3) cover/match/closest enclose;
+* Replies with TC bit are not parsed to the end;
