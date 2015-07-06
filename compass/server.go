@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -246,6 +250,18 @@ func NewServer(config *Config) (*Server, error) {
 			time.Millisecond,    // time unit
 		)
 	}
+
+	// Setup SIGUSR1 handler to dump goroutine stacks.
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGUSR1)
+	go func() {
+		for range ch {
+			buf := make([]byte, 102400) // 100KiB
+			nbytes := runtime.Stack(buf, true)
+			buf = buf[:nbytes]
+			logrus.Infof("=== BEGIN goroutine stack dump ===\n%s\n=== END goroutine stack dump ===", buf)
+		}
+	}()
 
 	return server, nil
 }
