@@ -74,8 +74,21 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
 
   actions:
     create: ->
+      # If user already has a valid card on file, show a confirmation dialog
+      # because they will be billed extra for creating a new workspace.
+      if @get('controller.selectedPlan.isPaidPlan') && App.get('billingProfile.hasCard')
+        ui.showModal('#confirm-new-subscription-modal-dialog')
+        return
+
+      @send('createWithConfirmation')
+
+    createWithConfirmation: ->
+      ui.hideModal('#confirm-new-subscription-modal-dialog')
       @get('terminal')?.clear()
       @get('controller').send 'create'
+
+    cancelConfirmation: ->
+      ui.hideModal('#confirm-new-subscription-modal-dialog')
 
     toggleLog: ->
       @toggleProperty 'showLog'

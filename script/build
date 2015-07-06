@@ -117,6 +117,7 @@ build_nitrous() {
     "
   build "nitrous/nitrousd" \
     "nitrous/cmd/dbseed" \
+    "nitrous/cmd/stripeseed" \
     "nitrous/cmd/hssh" \
     "nitrous/cmd/adminuserseed" \
     "nitrous/cmd/createinvitecodes" \

@@ -50,6 +50,7 @@ App.EventMessageHandler = App.EventsSocket.extend
         return unless host = findHost(hostData)
         host.load(hostData)
         host.reload()
+        host.fetchStats()
 
     ['volume.created', 'volume.destroyed'].forEach (evt) =>
       @on evt, (data) ->

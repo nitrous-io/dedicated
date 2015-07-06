@@ -90,18 +90,17 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 	}
 
 	type hst struct {
-		HostID    int64  `db:"host_id"`
 		HostSlug  string `db:"host_slug"`
 		PlanPrice int64  `db:"plan_price"`
 	}
-	hosts := []hst{}
-	err = d.Select(&hosts, "SELECT hosts.id host_id, hosts.slug host_slug, plans.price plan_price FROM hosts INNER JOIN invoice_items ON invoice_items.host_id = hosts.id INNER JOIN plans ON hosts.plan_id = plans.id WHERE invoice_items.invoice_id = $1 ORDER BY hosts.id DESC;", inv.ID)
+	hostWithPlan := &hst{}
+	err = d.Get(hostWithPlan, `SELECT hosts.slug host_slug, plans.price plan_price
+		FROM hosts INNER JOIN invoices ON invoices.subscription_id = hosts.subscription_id
+		INNER JOIN plans ON hosts.plan_id = plans.id
+		WHERE invoices.id = $1 ORDER BY hosts.id DESC;`, inv.ID)
+
 	if err != nil {
 		return nil, err
-	}
-	hMap := make(map[int64]hst)
-	for indx, host := range hosts {
-		hMap[host.HostID] = hosts[indx]
 	}
 
 	for _, item := range items {
@@ -109,15 +108,10 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 			sInv.TotalCredit += item.Credit.Int64
 		} else {
 			ser := serializers.SerializeInvoiceItem(&item)
-			if hst, ok := hMap[ser.HostID]; ok {
-				ser.HostSlug = hst.HostSlug
-				ser.Description = invoiceitem.ItemDescription(&item, &host.Host{Slug: hst.HostSlug})
-				ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: hst.PlanPrice})
-			} else {
-				ser.Description = "Information not available at this time"
-				ser.TotalCharge = item.UncappedTotalCharge()
-				logrus.Errorf("stripehooks: Unable to locate host %d in hMap for user %d", ser.HostID, inv.UserID)
-			}
+			ser.HostSlug = hostWithPlan.HostSlug
+			ser.Description = invoiceitem.ItemDescription(&item, &host.Host{Slug: hostWithPlan.HostSlug})
+			ser.TotalCharge = item.TotalCharge(&plan.Plan{Price: hostWithPlan.PlanPrice})
+
 			sInv.Items = append(sInv.Items, *ser)
 		}
 	}

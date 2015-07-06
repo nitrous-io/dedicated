@@ -51,21 +51,18 @@ var (
 	// FIXME: replace this with proper configuration once the AMIs/security
 	// groups for all supported regions are in place
 	amazonRegionConfig = map[string]string{
-		"student":                amazonFreeConfig,
-		"beginner":               amazonFreeConfig,
-		"hobbyist":               amazonFreeConfig,
-		"professional":           amazonFreeConfig,
-		"beginner-always-on":     amazonPaidConfig,
-		"hobbyist-always-on":     amazonPaidConfig,
-		"professional-always-on": amazonPaidConfig,
+		"free":     amazonFreeConfig,
+		"basic":    amazonPaidConfig,
+		"standard": amazonPaidConfig,
+		"plus":     amazonPaidConfig,
 	}
 
 	// Point every region to use us-west-2 in dev
 	amazonConfig = map[string]map[string]string{
-		"sfo": amazonRegionConfig,
-		"nyc": amazonRegionConfig,
-		"ams": amazonRegionConfig,
-		"sgp": amazonRegionConfig,
+		"usw1":  amazonRegionConfig,
+		"use1":  amazonRegionConfig,
+		"euw1":  amazonRegionConfig,
+		"apse1": amazonRegionConfig,
 	}
 )
 
@@ -149,10 +146,10 @@ func regions(d db.QueryReceiver) error {
 		return err
 	}
 	regions := []region.Region{
-		{Slug: "sfo", Rank: 100, Name: "US West"},
-		{Slug: "nyc", Rank: 200, Name: "US East"},
-		{Slug: "ams", Rank: 300, Name: "Europe"},
-		{Slug: "sgp", Rank: 400, Name: "Asia"},
+		{Slug: "usw1", Rank: 100, Name: "US West"},
+		{Slug: "use1", Rank: 200, Name: "US East"},
+		{Slug: "euw1", Rank: 300, Name: "Europe"},
+		{Slug: "apse1", Rank: 400, Name: "Asia"},
 	}
 	for _, r := range regions {
 		if err := r.Insert(d); err != nil {
@@ -169,45 +166,25 @@ func plans(d db.QueryReceiver) error {
 		return err
 	}
 
-	beginner := &plan.Plan{Slug: "beginner", Name: "Beginner", MaxContainers: 1, Price: 995, CPU: "1", Memory: "1 GB", Storage: "10 GB"}
-	if err := beginner.Insert(d); err != nil {
-		return err
-	}
-	beginnerAlwaysOn := &plan.Plan{Slug: "beginner-always-on", Name: "Beginner, always on", MaxContainers: 1, Price: 2495, CPU: "1", Memory: "1 GB", Storage: "10 GB", CleanPreview: true, BasePlanID: sql.NullInt64{beginner.ID, true}}
-	if err := beginnerAlwaysOn.Insert(d); err != nil {
+	basic := &plan.Plan{Slug: "basic", Name: "Basic", StripePlanID: sql.NullString{"basic", true}, Type: plan.TypePrepaid, MaxContainers: 1, Price: 900, CPU: "1", Memory: "1 GB", Storage: "10 GB"}
+	if err := basic.Insert(d); err != nil {
 		return err
 	}
 
-	studentPlan := &plan.Plan{Slug: "student", Name: "Student", MaxContainers: 1, Price: 0, CPU: "1", Memory: "1 GB", Storage: "8 GB", PaidPlanID: sql.NullInt64{Valid: true, Int64: beginner.ID}}
-	if err := studentPlan.Insert(d); err != nil {
+	free := &plan.Plan{Slug: "free", Name: "Starter", StripePlanID: sql.NullString{"free", true}, Type: plan.TypePrepaid, MaxContainers: 1, Price: 0, CPU: "1", Memory: "1 GB", Storage: "5GB"}
+	free.PaidPlanID = sql.NullInt64{basic.ID, true}
+	if err := free.Insert(d); err != nil {
 		return err
 	}
 
 	plans := []*plan.Plan{
-		{Slug: "hobbyist", Name: "Hobbyist", MaxContainers: 3, Price: 2495, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true, CleanPreview: true, SSH: true, DesktopApp: true},
-		{Slug: "professional", Name: "Professional", MaxContainers: 10, Price: 5995, CPU: "2", Memory: "4 GB", Storage: "50 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true},
+		{Slug: "standard", Name: "Standard", StripePlanID: sql.NullString{"standard", true}, Type: plan.TypePrepaid, MaxContainers: 3, Price: 2900, CPU: "1", Memory: "2 GB", Storage: "25 GB", MostPopular: true, CleanPreview: true, SSH: true, DesktopApp: true},
+		{Slug: "plus", Name: "Plus", StripePlanID: sql.NullString{"plus", true}, Type: plan.TypePrepaid, MaxContainers: 10, Price: 7900, CPU: "2", Memory: "4 GB", Storage: "50 GB", CleanPreview: true, SSH: true, DesktopApp: true, CustomTemplates: true},
 	}
 	for _, p := range plans {
 		if err := p.Insert(d); err != nil {
 			return err
 		}
-
-		// Insert an "always on" version of each plan.
-		p2 := &plan.Plan{
-			BasePlanID:    sql.NullInt64{p.ID, true},
-			Slug:          fmt.Sprintf("%s-always-on", p.Slug),
-			Name:          fmt.Sprintf("%s, always on", p.Name),
-			Price:         p.Price + 1500,
-			MaxContainers: p.MaxContainers,
-			CPU:           p.CPU,
-			Memory:        p.Memory,
-			Storage:       p.Storage,
-			Hidden:        true,
-		}
-		if err := p2.Insert(d); err != nil {
-			return err
-		}
-
 		logrus.Infof("Added plan %+v", p)
 	}
 

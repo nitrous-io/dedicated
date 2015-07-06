@@ -233,6 +233,30 @@ var _ = Describe("controllers/stripehooks", func() {
 				})
 				Expect(err).To(BeNil())
 				h1 := hs1.H
+
+				// Insert a subscription
+				bp, err := u.BillingProfile(db)
+				Expect(err).To(BeNil())
+
+				s := &subscription.Subscription{
+					PlanID:           h1.PlanID,
+					BillingProfileID: bp.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"1", true},
+				}
+				err = test.WrapInTransaction(db, s.Insert)
+				Expect(err).To(BeNil())
+
+				// Update invoice's subscription_id
+				inv.SubscriptionID = sql.NullInt64{s.ID, true}
+				err = inv.Update(db)
+				Expect(err).To(BeNil())
+
+				// Update host's subscription_id
+				err = h1.UpdateColumn(db, "subscription_id", sql.NullInt64{s.ID, true})
+				Expect(err).To(BeNil())
+
+				// Insert an invoice item
 				itm1 := invoiceitem.InvoiceItem{
 					InvoiceID:   inv.ID,
 					HostID:      sql.NullInt64{h1.ID, true},
@@ -387,7 +411,7 @@ var _ = Describe("controllers/stripehooks", func() {
 
 	Describe("SerializeInvoices()", func() {
 		var (
-			h1, h2           *host.Host
+			h1               *host.Host
 			itm1, itm2, itm3 *invoiceitem.InvoiceItem
 		)
 
@@ -401,17 +425,30 @@ var _ = Describe("controllers/stripehooks", func() {
 			})
 			Expect(err).To(BeNil())
 			h1 = hs1.H
-			t := time.Now()
-			hs2, err := test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{
-					Slug:         "my-host-2",
-					HourlyPrice:  2000,
-					TerminatedAt: &t,
-				},
-				U: u,
-			})
+
+			// Insert a subscription
+			bp, err := u.BillingProfile(db)
 			Expect(err).To(BeNil())
-			h2 = hs2.H
+
+			s1 := &subscription.Subscription{
+				PlanID:           h1.PlanID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+			}
+			err = test.WrapInTransaction(db, s1.Insert)
+			Expect(err).To(BeNil())
+
+			// Update invoice's subscription_id
+			inv.SubscriptionID = sql.NullInt64{s1.ID, true}
+			err = inv.Update(db)
+			Expect(err).To(BeNil())
+
+			// Update host's subscription_id
+			err = h1.UpdateColumn(db, "subscription_id", sql.NullInt64{s1.ID, true})
+			Expect(err).To(BeNil())
+
+			// Insert invoice items
 			itm1 = &invoiceitem.InvoiceItem{
 				InvoiceID:   inv.ID,
 				HostID:      sql.NullInt64{h1.ID, true},
@@ -421,15 +458,17 @@ var _ = Describe("controllers/stripehooks", func() {
 				PlanMemory:  sql.NullString{"2 GB", true},
 			}
 			Expect(itm1.Insert(db)).To(BeNil())
+
 			itm2 = &invoiceitem.InvoiceItem{
 				InvoiceID: inv.ID,
 				Credit:    sql.NullInt64{200, true},
 				ItemType:  invoiceitem.ItemTypeCredit,
 			}
 			Expect(itm2.Insert(db)).To(BeNil())
+
 			itm3 = &invoiceitem.InvoiceItem{
 				InvoiceID:   inv.ID,
-				HostID:      sql.NullInt64{h2.ID, true},
+				HostID:      sql.NullInt64{h1.ID, true},
 				Hours:       sql.NullInt64{20, true},
 				HourlyPrice: sql.NullInt64{1000, true},
 				Terminated:  true,
@@ -452,7 +491,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(sInv.Items[0].Terminated).To(BeTrue())
 			Expect(sInv.Items[1].Terminated).To(BeFalse())
 
-			Expect(sInv.Items[0].Description).To(Equal(invoiceitem.ItemDescription(itm3, h2)))
+			Expect(sInv.Items[0].Description).To(Equal(invoiceitem.ItemDescription(itm3, h1)))
 			Expect(sInv.Items[1].Description).To(Equal(invoiceitem.ItemDescription(itm1, h1)))
 		})
 	})
