@@ -43,6 +43,9 @@ type Server struct {
 	mux        *dns.ServeMux
 	wg         *sync.WaitGroup
 	navigators map[string]n.Navigator
+
+	dnsServers []*dns.Server
+	mu         sync.Mutex
 }
 
 func (s *Server) ListenAndServe() error {
@@ -56,10 +59,22 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
-// TODO: ideally we want this to
-// - clean up the goroutine
-// - exit the ListenAndServe routine
 func (s *Server) Stop() {
+	var wg sync.WaitGroup
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, svr := range s.dnsServers {
+		wg.Add(1)
+		go func(svr *dns.Server) {
+			logrus.Infof("shutting down DNS server %+v", svr)
+			if err := svr.Shutdown(); err != nil {
+				logrus.Warnf("error shutting down DNS server, err: %v", err)
+			}
+			wg.Done()
+		}(svr)
+	}
+	wg.Wait()
 }
 
 func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -123,12 +138,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 func (s *Server) createServer(net, addr string) {
 	defer s.wg.Done()
 
-	server := &dns.Server{
+	svr := &dns.Server{
 		Net:     net,
 		Addr:    addr,
 		Handler: s.mux,
 	}
-	if err := server.ListenAndServe(); err != nil {
+
+	s.mu.Lock()
+	s.dnsServers = append(s.dnsServers, svr)
+	s.mu.Unlock()
+
+	if err := svr.ListenAndServe(); err != nil {
 		logrus.Fatal(err)
 	}
 }
