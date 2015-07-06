@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/nitrous-io/nitrous-docker/vendor/src/github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/plan"
 )
