@@ -105,12 +105,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		logrus.Printf("Answering NS query with %#v", m)
 		return
 	case dns.TypeA, dns.TypeAAAA:
-		start := time.Now()
 		navigator, ok := s.navigatorForA(q)
 		if !ok {
 			s.setNxdomain(q, m)
 			return
 		}
+
+		start := time.Now()
+		defer func() {
+			logrus.Infof("Navigator %s: answer took %v", navigator.Name(), time.Now().Sub(start))
+		}()
+
 		label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
 		res, err := navigator.Lookup(q.Name)
 		if err != nil {
@@ -135,6 +140,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				r.Header().Ttl = uint32(defaultDomainTTL)
 			}
 		}
+
 		return
 	}
 }
