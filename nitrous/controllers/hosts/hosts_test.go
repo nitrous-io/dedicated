@@ -87,7 +87,7 @@ var _ = Describe("controllers/hosts", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		svr.Tracker = ft
 		handler = svr.Router()
 		res = httptest.NewRecorder()

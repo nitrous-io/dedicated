@@ -38,7 +38,7 @@ var _ = Describe("controllers/passwords", func() {
 		var err error
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		handler = svr.Router()
 
 		origMailer = user.Mailer

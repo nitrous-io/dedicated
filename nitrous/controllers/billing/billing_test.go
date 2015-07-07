@@ -44,7 +44,7 @@ var _ = Describe("controllers/billing", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 
 		u = &user.User{
 			Username: "tokenuser",

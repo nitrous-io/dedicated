@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/deferpanic/deferclient/deferstats"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
@@ -116,9 +117,15 @@ func main() {
 		logrus.Fatal("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
 	}
 
-	conf := &provisioner.Config{Username: pu, Interval: pi}
+	// Setting Defer Panic
+	var deferstatsClient *deferstats.Client
+	if envvars.DeferPanicToken != "" {
+		deferstatsClient = deferstats.NewClient(envvars.DeferPanicToken)
+		go deferstatsClient.CaptureStats()
+	}
 
-	svr := server.NewServer(envvars.RootDir, dbConn, conf)
+	conf := &provisioner.Config{Username: pu, Interval: pi}
+	svr := server.NewServer(envvars.RootDir, dbConn, conf, deferstatsClient)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)
 	if err != nil {
