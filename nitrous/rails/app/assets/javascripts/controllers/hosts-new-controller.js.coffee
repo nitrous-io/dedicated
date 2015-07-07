@@ -40,7 +40,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     @setProperties
       name: null
       sortedPlans: sortedPlans
-      selectedPlan: plans?.findBy('isPaidPlan')
       selectedRegion: App.get('regions.firstObject')
       error: null
       invalidField: null
@@ -51,6 +50,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       nameFieldEdited: false
       countryDict: null
       freePlanNotAllowed: false
+
+    @set('selectedPlan', @get('paidPlans.firstObject'))
 
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
