@@ -303,15 +303,6 @@ CONNECT:
 	}
 	qc.delivery = delivery
 	logrus.Printf("amqp: consumer connected to queue %s/%s", qc.addr, qc.name)
-	// start a separate goroutine to monitor current connection
-	go func() {
-		for err := range qc.conn.NotifyClose(make(chan *amqp.Error)) {
-			if err != nil {
-				logrus.Errorf("amqp: consumer closed %s", err)
-				qc.reconnect()
-			}
-		}
-	}()
 	return nil
 }
 
@@ -378,22 +369,13 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 }
 
 func StartAmqpConsumer(addr, name string, handler queueHandler, stop chan struct{}, handlerTimeout time.Duration) error {
-	for {
-		select {
-		case c := <-stop:
-			logrus.Printf("shutting down before initialize queue consumer: %s", name)
-			stop <- c
-			return nil
-		default:
-			qc, err := CreateAmqpConsumer(addr, name, handler, handlerTimeout)
-			if err == nil {
-				return qc.Start(stop)
-			}
-
-			logrus.Errorf("amqp: failed to create consumer, err: %v", err)
-			panic(err)
-		}
+	qc, err := CreateAmqpConsumer(addr, name, handler, handlerTimeout)
+	if err == nil {
+		return qc.Start(stop)
 	}
+
+	logrus.Errorf("amqp: failed to create consumer, err: %v", err)
+	panic(err)
 }
 
 func CreateAmqpConsumer(addr, name string, handler queueHandler, handlerTimeout time.Duration) (Consumer, error) {
@@ -409,6 +391,17 @@ func CreateAmqpConsumer(addr, name string, handler queueHandler, handlerTimeout 
 		return nil, err
 	}
 	qc.handler = handler
+
+	// start a separate goroutine to monitor current connection
+	go func() {
+		for err := range qc.conn.NotifyClose(make(chan *amqp.Error)) {
+			if err != nil {
+				logrus.Errorf("amqp: consumer closed %s", err)
+				qc.reconnect()
+			}
+		}
+	}()
+
 	return qc, nil
 }
 
