@@ -254,8 +254,8 @@
 		},
 		{
 			"ImportPath": "github.com/stripe/stripe-go",
-			"Comment": "v1.0.3",
-			"Rev": "fdd4865a8a8eb649d9cb5b1370e3a12e7f75b5de"
+			"Comment": "v3.1.0",
+			"Rev": "fdb42cffdfb93c097566219f43cb9ca5a9403178"
 		},
 		{
 			"ImportPath": "github.com/subosito/figo",

@@ -82,6 +82,16 @@ func TestRefundNew(t *testing.T) {
 	if target.AmountRefunded != refundParams.Amount {
 		t.Errorf("Refunded amount %v does not match expected amount %v\n", target.AmountRefunded, refundParams.Amount)
 	}
+
+	// refund with reason
+	res, err = charge.New(chargeParams)
+	New(&stripe.RefundParams{Charge: res.ID, Reason: RefundFraudulent})
+	target, _ = charge.Get(res.ID, nil)
+
+	if target.FraudDetails.UserReport != "fraudulent" {
+		t.Errorf("Expected a fraudulent UserReport for charge refunded with reason=fraudulent",
+			target.FraudDetails.UserReport)
+	}
 }
 
 func TestRefundGet(t *testing.T) {
@@ -126,12 +136,8 @@ func TestRefundList(t *testing.T) {
 	}
 
 	i := List(&stripe.RefundListParams{Charge: ch.ID})
-	for !i.Stop() {
-		target, err := i.Next()
-
-		if err != nil {
-			t.Error(err)
-		}
+	for i.Next() {
+		target := i.Refund()
 
 		if target.Amount != 200 {
 			t.Errorf("Amount %v does not match expected value\n", target.Amount)
@@ -144,5 +150,8 @@ func TestRefundList(t *testing.T) {
 		if i.Meta() == nil {
 			t.Error("No metadata returned")
 		}
+	}
+	if err := i.Err(); err != nil {
+		t.Error(err)
 	}
 }
