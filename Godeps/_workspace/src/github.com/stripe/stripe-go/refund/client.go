@@ -9,6 +9,12 @@ import (
 	stripe "github.com/stripe/stripe-go"
 )
 
+const (
+	RefundFraudulent          stripe.RefundReason = "fraudulent"
+	RefundDuplicate           stripe.RefundReason = "duplicate"
+	RefundRequestedByCustomer stripe.RefundReason = "requested_by_customer"
+)
+
 // Client is used to invoke /refunds APIs.
 type Client struct {
 	B   stripe.Backend
@@ -32,6 +38,10 @@ func (c Client) New(params *stripe.RefundParams) (*stripe.Refund, error) {
 		body.Add("refund_application_fee", strconv.FormatBool(params.Fee))
 	}
 
+	if len(params.Reason) > 0 {
+		body.Add("reason", string(params.Reason))
+	}
+
 	params.AppendTo(body)
 
 	refund := &stripe.Refund{}
@@ -47,8 +57,11 @@ func Get(id string, params *stripe.RefundParams) (*stripe.Refund, error) {
 }
 
 func (c Client) Get(id string, params *stripe.RefundParams) (*stripe.Refund, error) {
-	body := &url.Values{}
+	if params == nil {
+		return nil, fmt.Errorf("params cannot be nil, and params.Charge must be set")
+	}
 
+	body := &url.Values{}
 	params.AppendTo(body)
 
 	refund := &stripe.Refund{}
@@ -100,29 +113,17 @@ func (c Client) List(params *stripe.RefundListParams) *Iter {
 	})}
 }
 
-// Iter is a iterator for list responses.
+// Iter is an iterator for lists of Refunds.
+// The embedded Iter carries methods with it;
+// see its documentation for details.
 type Iter struct {
-	Iter *stripe.Iter
+	*stripe.Iter
 }
 
-// Next returns the next value in the list.
-func (i *Iter) Next() (*stripe.Refund, error) {
-	r, err := i.Iter.Next()
-	if err != nil {
-		return nil, err
-	}
-
-	return r.(*stripe.Refund), err
-}
-
-// Stop returns true if there are no more iterations to be performed.
-func (i *Iter) Stop() bool {
-	return i.Iter.Stop()
-}
-
-// Meta returns the list metadata.
-func (i *Iter) Meta() *stripe.ListMeta {
-	return i.Iter.Meta()
+// Refund returns the most recent Refund
+// visited by a call to Next.
+func (i *Iter) Refund() *stripe.Refund {
+	return i.Current().(*stripe.Refund)
 }
 
 func getC() Client {

@@ -2,8 +2,10 @@
 package stripe
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,10 +18,15 @@ import (
 const defaultURL = "https://api.stripe.com/v1"
 
 // apiversion is the currently supported API version
-const apiversion = "2014-09-08"
+const apiversion = "2014-12-08"
 
 // clientversion is the binding version
-const clientversion = "1.0.3"
+const clientversion = "3.1.0"
+
+// Default timeout on the http.Client used by the bindings.
+// This is chosen to be consistent with the other Stripe language bindings and
+// to coordinate with other timeouts configured in the Stripe infrastructure.
+const defaultHTTPTimeout = 80 * time.Second
 
 // Backend is an interface for making calls against a Stripe service.
 // This interface exists to enable mocking for during testing if needed.
@@ -63,7 +70,7 @@ func SetDebug(value bool) {
 // GetBackend returns the currently used backend in the binding.
 func GetBackend() Backend {
 	if backend == nil {
-		backend = NewInternalBackend(http.DefaultClient, "")
+		backend = NewInternalBackend(&http.Client{Timeout: defaultHTTPTimeout}, "")
 	}
 
 	return backend
@@ -75,28 +82,59 @@ func SetBackend(b Backend) {
 }
 
 // Call is the Backend.Call implementation for invoking Stripe APIs.
-func (s *InternalBackend) Call(method, path, key string, body *url.Values, v interface{}) error {
+func (s *InternalBackend) Call(method, path, key string, form *url.Values, v interface{}) error {
+	req, err := s.NewRequest(method, path, key, form)
+	if err != nil {
+		return err
+	}
+
+	if err := s.Do(req, v); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// NewRequest is used by Call to generate an http.Request. It handles encoding
+// parameters and attaching the Authorization header.
+func (s *InternalBackend) NewRequest(method, path, key string, form *url.Values) (*http.Request, error) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 
 	path = s.url + path
 
-	if body != nil && len(*body) > 0 {
-		path += "?" + body.Encode()
+	var body io.Reader
+	if form != nil && len(*form) > 0 {
+		data := form.Encode()
+		if strings.ToUpper(method) == "GET" {
+			path += "?" + data
+		} else {
+			body = bytes.NewBufferString(data)
+		}
 	}
 
-	req, err := http.NewRequest(method, path, nil)
+	req, err := http.NewRequest(method, path, body)
 	if err != nil {
 		log.Printf("Cannot create Stripe request: %v\n", err)
-		return err
+		return nil, err
 	}
 
 	req.SetBasicAuth(key, "")
 	req.Header.Add("Stripe-Version", apiversion)
 	req.Header.Add("User-Agent", "Stripe/v1 GoBindings/"+clientversion)
+	if body != nil {
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	}
 
-	log.Printf("Requesting %v %q\n", method, path)
+	return req, nil
+}
+
+// Do is used by Call to execute an API request and parse the response. It uses
+// the backend's HTTP client to execute the request and unmarshals the response
+// into v. It also handles unmarshaling errors returned by the API.
+func (s *InternalBackend) Do(req *http.Request, v interface{}) error {
+	log.Printf("Requesting %v %q\n", req.Method, req.URL.Path)
 	start := time.Now()
 
 	res, err := s.httpClient.Do(req)

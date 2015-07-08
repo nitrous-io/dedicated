@@ -43,12 +43,12 @@ func Get(id string, params *stripe.FeeRefundParams) (*stripe.FeeRefund, error) {
 }
 
 func (c Client) Get(id string, params *stripe.FeeRefundParams) (*stripe.FeeRefund, error) {
-	var body *url.Values
-
-	if params != nil {
-		body = &url.Values{}
-		params.AppendTo(body)
+	if params == nil {
+		return nil, fmt.Errorf("params cannot be nil, and params.Fee must be set")
 	}
+
+	body := &url.Values{}
+	params.AppendTo(body)
 
 	refund := &stripe.FeeRefund{}
 	err := c.B.Call("GET", fmt.Sprintf("/application_fees/%v/refunds/%v", params.Fee, id), c.Key, body, refund)
@@ -99,29 +99,17 @@ func (c Client) List(params *stripe.FeeRefundListParams) *Iter {
 	})}
 }
 
-// Iter is a iterator for list responses.
+// Iter is an iterator for lists of FeeRefunds.
+// The embedded Iter carries methods with it;
+// see its documentation for details.
 type Iter struct {
-	Iter *stripe.Iter
+	*stripe.Iter
 }
 
-// Next returns the next value in the list.
-func (i *Iter) Next() (*stripe.FeeRefund, error) {
-	f, err := i.Iter.Next()
-	if err != nil {
-		return nil, err
-	}
-
-	return f.(*stripe.FeeRefund), err
-}
-
-// Stop returns true if there are no more iterations to be performed.
-func (i *Iter) Stop() bool {
-	return i.Iter.Stop()
-}
-
-// Meta returns the list metadata.
-func (i *Iter) Meta() *stripe.ListMeta {
-	return i.Iter.Meta()
+// FeeRefund returns the most recent FeeRefund
+// visited by a call to Next.
+func (i *Iter) FeeRefund() *stripe.FeeRefund {
+	return i.Current().(*stripe.FeeRefund)
 }
 
 func getC() Client {

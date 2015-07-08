@@ -1,3 +1,20 @@
+3.1.0 2014-12-16
+	Add Charge.FraudDetails
+
+3.0.1 2014-12-15
+	Add timeout value to HTTP requests
+
+3.0.0 2014-12-05
+	Add Dispute.EvidenceDetails
+	Remove Dispute.DueDate
+	Change Dispute.Evidence from string to struct
+
+2.0.0 2014-11-26
+	Change List interface to .Next() and .Resource()
+	Better error messages for Get() methods
+	EventData.Raw contains the raw event message
+	SubParams.QuantityZero can be used for free subscriptions
+
 1.0.3 2014-10-22
 	Add AddMeta method
 
