@@ -742,7 +742,7 @@ func (h *Host) List() ([]*host.Info, error) {
 			regionInfos := []*host.Info{}
 			conn := ec2.New(h.auth, region)
 			params := make(map[string]string)
-			params["MaxResults"] = "100"
+			params["MaxResults"] = "200"
 
 			firstTime := true
 			nextToken := ""
