@@ -72,6 +72,7 @@ var _ = Describe("models/freetier", func() {
 				Slug:          "paid plan",
 				Price:         100,
 				MaxContainers: 2,
+				AutoShutdown:  false,
 			}
 			Expect(paidPlan.Insert(db)).To(BeNil())
 
@@ -80,6 +81,7 @@ var _ = Describe("models/freetier", func() {
 				Price:         0,
 				MaxContainers: 1,
 				PaidPlanID:    sql.NullInt64{Valid: true, Int64: paidPlan.ID},
+				AutoShutdown:  true,
 			}
 			Expect(freePlan.Insert(db)).To(BeNil())
 		})
@@ -97,6 +99,7 @@ var _ = Describe("models/freetier", func() {
 					HourlyPrice:   0,
 					Free:          true,
 					MaxContainers: sql.NullInt64{1, true},
+					AutoShutdown:  true,
 				}
 
 				hs, err := test.CreateHostStack(db, &test.HostStack{
@@ -140,6 +143,7 @@ var _ = Describe("models/freetier", func() {
 			})
 
 			It("should upgrade the host properties", func() {
+				Expect(h.AutoShutdown).To(BeTrue())
 				err := freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
 
@@ -152,6 +156,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.Free).To(BeFalse())
 				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{2, true}))
 				Expect(h2.UpgradedAt.Valid).To(BeTrue())
+				Expect(h2.AutoShutdown).To(BeFalse())
 			})
 
 			It("creates a pending respec for the host", func() {

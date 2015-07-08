@@ -102,6 +102,7 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	h.Size = sql.NullString{Valid: true, String: newPlan.Slug}
 	h.HourlyPrice = newPlan.HourlyPrice()
 	h.Free = newPlan.IsFree()
+	h.AutoShutdown = newPlan.AutoShutdown
 	h.MaxContainers = sql.NullInt64{Valid: true, Int64: newPlan.MaxContainers}
 	h.LastRunningAt = pq.NullTime{Valid: false}
 
@@ -112,8 +113,10 @@ func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
 	defer tx.Rollback()
 
 	nstmt, err := tx.PrepareNamed(`UPDATE hosts
-		SET (plan_id, size, hourly_price, free, max_containers, last_running_at, upgraded_at)
-		= (:plan_id, :size, :hourly_price, :free, :max_containers, :last_running_at, now())
+		SET (plan_id, size, hourly_price, free, max_containers, last_running_at,
+			upgraded_at, auto_shutdown)
+		= (:plan_id, :size, :hourly_price, :free, :max_containers, :last_running_at,
+		now(), :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
