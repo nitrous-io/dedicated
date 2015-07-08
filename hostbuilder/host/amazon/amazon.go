@@ -739,6 +739,13 @@ func (h *Host) List() ([]*host.Info, error) {
 		wg.Add(1)
 		go func(region aws.Region) {
 			defer wg.Done()
+
+			// per-region librato metrics
+			// h.MetricsLabel cannot be used since it assumes region is populated
+			// and List() call is region-agnostic
+			label := fmt.Sprintf("%s.amazon.%s", "list", region.Name)
+			defer mh.UpdateSince(label, time.Now())
+
 			regionInfos := []*host.Info{}
 			conn := ec2.New(h.auth, region)
 			params := make(map[string]string)
