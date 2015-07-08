@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -730,71 +731,82 @@ func (h *Host) List() ([]*host.Info, error) {
 	var (
 		infos   = []*host.Info{}
 		errmsgs []string
+		mutex   = &sync.Mutex{} // protects infos and errmsgs
+		wg      sync.WaitGroup
 	)
 
 	for _, region := range KnownRegions {
-		conn := ec2.New(h.auth, region)
-		params := make(map[string]string)
-		params["MaxResults"] = "100"
+		wg.Add(1)
+		go func(region aws.Region) {
+			defer wg.Done()
+			conn := ec2.New(h.auth, region)
+			params := make(map[string]string)
+			params["MaxResults"] = "100"
 
-		firstTime := true
-		nextToken := ""
+			firstTime := true
+			nextToken := ""
 
-		for firstTime || nextToken != "" {
-			if nextToken != "" {
-				params["NextToken"] = nextToken
-			}
+			for firstTime || nextToken != "" {
+				if nextToken != "" {
+					params["NextToken"] = nextToken
+				}
 
-			instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
+				instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
 
-			if err != nil {
-				errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
-				h.Printf(errmsg)
-				errmsgs = append(errmsgs, errmsg)
-				break
-			}
+				if err != nil {
+					errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
+					h.Printf(errmsg)
+					mutex.Lock()
+					errmsgs = append(errmsgs, errmsg)
+					mutex.Unlock()
+					break
+				}
 
-			nextToken = instancesResp.NextToken
-			firstTime = false
+				nextToken = instancesResp.NextToken
+				firstTime = false
 
-			for _, reservation := range instancesResp.Reservations {
-				for _, instance := range reservation.Instances {
-					checkInstance := false
-					// Tags is array of Tag. There is no way to check tag by key
-					for _, tag := range instance.Tags {
-						if tag.Key == "dedicated" && tag.Value == h.env {
-							checkInstance = true
-							break
+				for _, reservation := range instancesResp.Reservations {
+					for _, instance := range reservation.Instances {
+						checkInstance := false
+						// Tags is array of Tag. There is no way to check tag by key
+						for _, tag := range instance.Tags {
+							if tag.Key == "dedicated" && tag.Value == h.env {
+								checkInstance = true
+								break
+							}
 						}
-					}
 
-					if !checkInstance {
-						continue
-					}
-
-					info := &host.Info{
-						Provider:       h.DriverName(),
-						ID:             instance.InstanceId,
-						IPAddress:      instance.PublicIpAddress,
-						FreighterdPort: host.DefaultPort,
-						State:          getState(&instance),
-						Region:         region.Name,
-						LaunchTime:     &instance.LaunchTime,
-					}
-
-					// Get EC2 instance name
-					for _, tag := range instance.Tags {
-						if tag.Key == "Name" {
-							info.Name = tag.Value
-							break
+						if !checkInstance {
+							continue
 						}
-					}
 
-					infos = append(infos, info)
+						info := &host.Info{
+							Provider:       h.DriverName(),
+							ID:             instance.InstanceId,
+							IPAddress:      instance.PublicIpAddress,
+							FreighterdPort: host.DefaultPort,
+							State:          getState(&instance),
+							Region:         region.Name,
+							LaunchTime:     &instance.LaunchTime,
+						}
+
+						// Get EC2 instance name
+						for _, tag := range instance.Tags {
+							if tag.Key == "Name" {
+								info.Name = tag.Value
+								break
+							}
+						}
+
+						mutex.Lock()
+						infos = append(infos, info)
+						mutex.Unlock()
+					}
 				}
 			}
-		}
+		}(region)
 	}
+	wg.Wait()
 
 	var err error
 	if len(errmsgs) > 0 {
