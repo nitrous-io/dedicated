@@ -739,6 +739,7 @@ func (h *Host) List() ([]*host.Info, error) {
 		wg.Add(1)
 		go func(region aws.Region) {
 			defer wg.Done()
+			regionInfos := []*host.Info{}
 			conn := ec2.New(h.auth, region)
 			params := make(map[string]string)
 			params["MaxResults"] = "100"
@@ -798,12 +799,13 @@ func (h *Host) List() ([]*host.Info, error) {
 							}
 						}
 
-						mutex.Lock()
-						infos = append(infos, info)
-						mutex.Unlock()
+						regionInfos = append(regionInfos, info)
 					}
 				}
 			}
+			mutex.Lock()
+			infos = append(infos, regionInfos...)
+			mutex.Unlock()
 		}(region)
 	}
 	wg.Wait()
