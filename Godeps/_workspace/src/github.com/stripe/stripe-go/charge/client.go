@@ -10,6 +10,11 @@ import (
 	stripe "github.com/stripe/stripe-go"
 )
 
+const (
+	ReportFraudulent stripe.FraudReport = "fraudulent"
+	ReportSafe       stripe.FraudReport = "safe"
+)
+
 // Client is used to invoke /charges APIs.
 type Client struct {
 	B   stripe.Backend
@@ -106,6 +111,10 @@ func (c Client) Update(id string, params *stripe.ChargeParams) (*stripe.Charge, 
 			body.Add("description", params.Desc)
 		}
 
+		if len(params.Fraud) > 0 {
+			body.Add("fraud_details[user_report]", string(params.Fraud))
+		}
+
 		params.AppendTo(body)
 	}
 
@@ -192,29 +201,39 @@ func (c Client) List(params *stripe.ChargeListParams) *Iter {
 	})}
 }
 
-// Iter is a iterator for list responses.
+// MarkFraudulent reports the charge as fraudulent.
+func MarkFraudulent(id string) (*stripe.Charge, error) {
+	return getC().MarkFraudulent(id)
+}
+
+func (c Client) MarkFraudulent(id string) (*stripe.Charge, error) {
+	return c.Update(
+		id,
+		&stripe.ChargeParams{Fraud: ReportFraudulent})
+}
+
+// MarkSafe reports the charge as not-fraudulent.
+func MarkSafe(id string) (*stripe.Charge, error) {
+	return getC().MarkSafe(id)
+}
+
+func (c Client) MarkSafe(id string) (*stripe.Charge, error) {
+	return c.Update(
+		id,
+		&stripe.ChargeParams{Fraud: ReportSafe})
+}
+
+// Iter is an iterator for lists of Charges.
+// The embedded Iter carries methods with it;
+// see its documentation for details.
 type Iter struct {
-	Iter *stripe.Iter
+	*stripe.Iter
 }
 
-// Next returns the next value in the list.
-func (i *Iter) Next() (*stripe.Charge, error) {
-	c, err := i.Iter.Next()
-	if err != nil {
-		return nil, err
-	}
-
-	return c.(*stripe.Charge), err
-}
-
-// Stop returns true if there are no more iterations to be performed.
-func (i *Iter) Stop() bool {
-	return i.Iter.Stop()
-}
-
-// Meta returns the list metadata.
-func (i *Iter) Meta() *stripe.ListMeta {
-	return i.Iter.Meta()
+// Charge returns the most recent Charge
+// visited by a call to Next.
+func (i *Iter) Charge() *stripe.Charge {
+	return i.Current().(*stripe.Charge)
 }
 
 func getC() Client {

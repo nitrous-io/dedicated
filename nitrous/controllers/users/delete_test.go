@@ -375,7 +375,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(bp.StripeFingerprint).To(Equal(sql.NullString{"print", true}))
 			})
 
-			It("should send a delete request to Stripe", func() {
+			It("should send a delete card request to Stripe", func() {
 				_, err := db.Exec(`UPDATE
 					billing_profiles SET state = $1,
 					last_four = 3443,
@@ -407,7 +407,38 @@ var _ = Describe("controllers/users", func() {
 				}))
 			})
 
-			It("should abort the transaction if the Stripe comm fails", func() {
+			It("does not try to delete the users cards in Stripe if Stripe says the user has no cards", func() {
+				fakeStripe.Responses = []string{`
+					{
+						"object": "list",
+						"total_count": 0,
+						"has_more": false,
+						"data": []
+					}
+				`}
+
+				_, err := db.Exec(`UPDATE
+					billing_profiles SET state = $1,
+					last_four = 3443,
+					stripe_id = 'St17',
+					stripe_fingerprint = 'print',
+					card_type = 'visa',
+					exp_month = 9,
+					exp_year = 2018,
+					pending_activation = FALSE,
+					max_hours = 1902
+					WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				Expect(fakeStripe.ReceivedRequests[0]["method"]).To(Equal("GET"))
+				Expect(fakeStripe.ReceivedRequests[0]["path"]).To(Equal("/customers/St17/cards"))
+			})
+
+			It("should abort the transaction if the Stripe API request fails", func() {
 				_, err := db.Exec(`UPDATE
 					billing_profiles SET state = $1,
 					last_four = 3443,

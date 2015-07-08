@@ -69,9 +69,15 @@ err := resource.Del(id)
 
 // List
 i := resource.List(stripe.ResourceListParams)
-for !i.Stop() {
-  resource, err := i.Next()
+for i.Next() {
+  resource := i.Resource()
 }
+
+if err := i.Err(); err != nil {
+  // handle
+}
+
+
 ```
 
 ### With a Client
@@ -107,8 +113,12 @@ err := sc.Resources.Del(id)
 
 // List
 i := sc.Resources.List(stripe.ResourceListParams)
-for !i.Stop() {
-  resource, err := i.Next()
+for i.Next() {
+  resource := i.Resource()
+}
+
+if err := i.Err(); err != nil {
+  // handle
 }
 ```
 
@@ -126,6 +136,17 @@ import (
 
 stripe := &client.API{}
 stripe.Init("access_token", nil)
+```
+
+### Google AppEngine
+
+If you're running the client in a Google AppEngine environment, you
+will need to create your own backend since the `http.DefaultClient` is
+not available:
+
+```go
+gb := stripe.NewInternalBackend(urlfetch.Client(appengine.NewContext(req)), "")
+stripe.SetBackend(gb)
 ```
 
 ## Documentation
@@ -170,8 +191,8 @@ for !i.Stop() {
 
 ```go
 i := event.List(nil)
-for !i.Stop() {
-  e, err := i.Next()
+for i.Next() {
+  e := i.Event()
 
   // access event data via e.GetObjValue("resource_name_based_on_type", "resource_property_name")
   // alternatively you can access values via e.Data.Obj["resource_name_based_on_type"].(map[string]interface{})["resource_property_name"]
@@ -180,6 +201,8 @@ for !i.Stop() {
   // alternatively you can access values via e.Data.Prev["resource_name_based_on_type"].(map[string]interface{})["resource_property_name"]
 }
 ```
+
+Alternatively, you can use the `even.Data.Raw` property to unmarshal to the appropriate struct.
 
 ## Development
 

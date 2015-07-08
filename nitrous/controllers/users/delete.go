@@ -27,23 +27,18 @@ var (
 	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "You do not have permission to delete the user account")
 )
 
-func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err error) {
+func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if !permission.DeleteUser(env.Token, env.User) {
 		return deleteForbiddenErr
 	}
 
 	tx, err := env.DB.Beginx()
-
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			return
-		}
-		tx.Commit()
-	}()
-
-	err = canDeleteUser(tx, env.User)
 	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := canDeleteUser(tx, env.User); err != nil {
 		return err
 	}
 
@@ -51,10 +46,8 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 	if err != nil {
 		return err
 	}
-
 	if !locked {
-		err = hostCreateInProgressErr
-		return err
+		return hostCreateInProgressErr
 	}
 
 	queries := []string{
@@ -65,8 +58,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 	}
 
 	for _, query := range queries {
-		_, err = tx.Exec(query, env.User.ID)
-		if err != nil {
+		if _, err := tx.Exec(query, env.User.ID); err != nil {
 			return err
 		}
 	}
@@ -90,20 +82,24 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err er
 	}
 
 	if bp.StripeID.Valid {
-		params := &stripe.CardListParams{Customer: bp.StripeID.String}
-		i := card.List(params)
-		for !i.Stop() {
-			var c *stripe.Card
-			c, err = i.Next()
-			if err != nil {
-				return err
+		iter := card.List(&stripe.CardListParams{Customer: bp.StripeID.String})
+		for iter.Next() {
+			c := iter.Card()
+			if c == nil {
+				break
 			}
 
-			err = card.Del(c.ID, &stripe.CardParams{Customer: bp.StripeID.String})
-			if err != nil {
+			if err := card.Del(c.ID, &stripe.CardParams{Customer: bp.StripeID.String}); err != nil {
 				return err
 			}
 		}
+		if err := iter.Err(); err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
 	}
 
 	env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
