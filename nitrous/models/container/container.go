@@ -1,6 +1,7 @@
 package container
 
 import (
+	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -139,6 +140,18 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	containers := []*Container{}
 	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, hostID)
+	if err != nil {
+		return nil, err
+	}
+	return containers, nil
+}
+
+func FindAllByHostIDs(d db.QueryReceiver, hostIDs []int64) ([]*Container, error) {
+	containers := []*Container{}
+	concattedIDs := concatIDs(hostIDs)
+
+	sql := fmt.Sprintf("SELECT * FROM containers WHERE host_id IN (%s) AND terminated_at IS NULL;", concattedIDs)
+	err := d.Select(&containers, sql)
 	if err != nil {
 		return nil, err
 	}
@@ -284,4 +297,19 @@ func (c *Container) Unlock(d db.QueryReceiver) error {
 
 func (c *Container) PreviewHostname() string {
 	return fmt.Sprintf("%s.%s", c.Slug, envvars.PreviewHostname)
+}
+
+func concatIDs(ids []int64) string {
+	var idsBuf bytes.Buffer
+	sizeOfIDs := len(ids)
+
+	for index, id := range ids {
+		if index < sizeOfIDs-1 {
+			idsBuf.WriteString(fmt.Sprintf("'%d',", id))
+		} else {
+			idsBuf.WriteString(fmt.Sprintf("'%d'", id))
+		}
+	}
+
+	return idsBuf.String()
 }

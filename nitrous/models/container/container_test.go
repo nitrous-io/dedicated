@@ -1007,4 +1007,100 @@ var _ = Describe("models/container", func() {
 			Expect(c.PreviewHostname()).To(Equal("hello.n2otest.com"))
 		})
 	})
+
+	Describe("FindAllByHostIDs()", func() {
+		var (
+			h2 *host.Host
+			c2 *container.Container
+		)
+
+		BeforeEach(func() {
+			h2 = &host.Host{
+				UserID:             u.ID,
+				Slug:               "my-host-2",
+				RegionID:           r.ID,
+				PlanID:             p.ID,
+				ProviderTemplateID: pt.ID,
+			}
+			err := h2.Insert(db)
+			Expect(err).To(BeNil())
+
+			c2 = &container.Container{
+				CID:    "abcabc",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "my-2nd-container",
+			}
+			err = c2.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when the given host has container records", func() {
+			It("returns the container records", func() {
+				var hostIDs []int64
+				hostIDs = append(hostIDs, h.ID)
+				hostIDs = append(hostIDs, h2.ID)
+				containers, err := container.FindAllByHostIDs(db, hostIDs)
+				Expect(err).To(BeNil())
+				Expect(containers).To(HaveLen(2))
+
+				Expect(containers[0].CID).To(Equal("deadbeef"))
+				Expect(containers[1].CID).To(Equal("abcabc"))
+			})
+
+			Context("when some containers have been terminated", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE containers SET terminated_at = now() WHERE cid = $1;`, "deadbeef")
+					Expect(err).To(BeNil())
+				})
+
+				It("does not return those containers", func() {
+					var hostIDs []int64
+					hostIDs = append(hostIDs, h.ID)
+					hostIDs = append(hostIDs, h2.ID)
+					containers, err := container.FindAllByHostIDs(db, hostIDs)
+					Expect(err).To(BeNil())
+					Expect(containers).To(HaveLen(1))
+
+					Expect(containers[0].CID).To(Equal("abcabc"))
+				})
+			})
+		})
+
+		Context("when the given host does not have any container records", func() {
+			var h3 *host.Host
+
+			BeforeEach(func() {
+				var err error
+				h3 = &host.Host{
+					UserID:             u.ID,
+					Slug:               "my-host-3",
+					RegionID:           r.ID,
+					PlanID:             p.ID,
+					ProviderTemplateID: pt.ID,
+				}
+				err = h3.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns an empty slice", func() {
+				var hostIDs []int64
+				hostIDs = append(hostIDs, h3.ID)
+				containers, err := container.FindAllByHostIDs(db, hostIDs)
+				Expect(err).To(BeNil())
+				Expect(containers).To(HaveLen(0))
+			})
+		})
+
+		Context("when the given host does not exist", func() {
+			It("returns an empty slice", func() {
+				var hostIDs []int64
+				hostIDs = append(hostIDs, 100000)
+				containers, err := container.FindAllByHostIDs(db, hostIDs)
+				Expect(err).To(BeNil())
+				Expect(containers).To(HaveLen(0))
+			})
+		})
+	})
 })

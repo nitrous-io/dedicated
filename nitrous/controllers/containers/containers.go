@@ -108,13 +108,19 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	containerHostMap := make(map[int64][]*container.Container)
+	var hostIDs []int64
 	for _, host := range hosts {
-		containers, err := container.FindAllByHostID(db, host.ID)
-		if err != nil {
-			logrus.Errorf("unable to find all containers: %v, for host %s", err, host.Slug)
-			continue
-		}
-		containerHostMap[host.ID] = containers
+		hostIDs = append(hostIDs, host.ID)
+	}
+
+	containers, err := container.FindAllByHostIDs(db, hostIDs)
+	if err != nil {
+		logrus.Errorf("unable to find all containers: %v", err)
+		return err
+	}
+
+	for _, container := range containers {
+		containerHostMap[container.HostID] = append(containerHostMap[container.HostID], container)
 	}
 
 	env.Data = map[string]interface{}{}
