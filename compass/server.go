@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -43,6 +47,9 @@ type Server struct {
 	mux        *dns.ServeMux
 	wg         *sync.WaitGroup
 	navigators map[string]n.Navigator
+
+	dnsServers []*dns.Server
+	mu         sync.Mutex
 }
 
 func (s *Server) ListenAndServe() error {
@@ -56,10 +63,22 @@ func (s *Server) ListenAndServe() error {
 	return nil
 }
 
-// TODO: ideally we want this to
-// - clean up the goroutine
-// - exit the ListenAndServe routine
 func (s *Server) Stop() {
+	var wg sync.WaitGroup
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, svr := range s.dnsServers {
+		wg.Add(1)
+		go func(svr *dns.Server) {
+			logrus.Infof("shutting down DNS server %+v", svr)
+			if err := svr.Shutdown(); err != nil {
+				logrus.Warnf("error shutting down DNS server, err: %v", err)
+			}
+			wg.Done()
+		}(svr)
+	}
+	wg.Wait()
 }
 
 func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
@@ -86,12 +105,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		logrus.Printf("Answering NS query with %#v", m)
 		return
 	case dns.TypeA, dns.TypeAAAA:
-		start := time.Now()
 		navigator, ok := s.navigatorForA(q)
 		if !ok {
 			s.setNxdomain(q, m)
 			return
 		}
+
+		start := time.Now()
+		defer func() {
+			logrus.Infof("Navigator %s: answer took %v", navigator.Name(), time.Now().Sub(start))
+		}()
+
 		label := fmt.Sprintf("compass.%s.lookup", navigator.Name())
 		res, err := navigator.Lookup(q.Name)
 		if err != nil {
@@ -116,6 +140,7 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 				r.Header().Ttl = uint32(defaultDomainTTL)
 			}
 		}
+
 		return
 	}
 }
@@ -123,12 +148,17 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 func (s *Server) createServer(net, addr string) {
 	defer s.wg.Done()
 
-	server := &dns.Server{
+	svr := &dns.Server{
 		Net:     net,
 		Addr:    addr,
 		Handler: s.mux,
 	}
-	if err := server.ListenAndServe(); err != nil {
+
+	s.mu.Lock()
+	s.dnsServers = append(s.dnsServers, svr)
+	s.mu.Unlock()
+
+	if err := svr.ListenAndServe(); err != nil {
 		logrus.Fatal(err)
 	}
 }
@@ -226,6 +256,18 @@ func NewServer(config *Config) (*Server, error) {
 			time.Millisecond,    // time unit
 		)
 	}
+
+	// Setup SIGUSR1 handler to dump goroutine stacks.
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGUSR1)
+	go func() {
+		for range ch {
+			buf := make([]byte, 102400) // 100KiB
+			nbytes := runtime.Stack(buf, true)
+			buf = buf[:nbytes]
+			logrus.Infof("=== BEGIN goroutine stack dump ===\n%s\n=== END goroutine stack dump ===", buf)
+		}
+	}()
 
 	return server, nil
 }

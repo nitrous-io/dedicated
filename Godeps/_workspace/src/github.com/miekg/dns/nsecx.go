@@ -1,7 +1,3 @@
-// Copyright 2011 Miek Gieben. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package dns
 
 import (
@@ -15,7 +11,8 @@ type saltWireFmt struct {
 	Salt string `dns:"size-hex"`
 }
 
-// HashName hashes a string (label) according to RFC 5155. It returns the hashed string.
+// HashName hashes a string (label) according to RFC 5155. It returns the hashed string in
+// uppercase.
 func HashName(label string, ha uint8, iter uint16, salt string) string {
 	saltwire := new(saltWireFmt)
 	saltwire.Salt = salt
@@ -50,9 +47,11 @@ func HashName(label string, ha uint8, iter uint16, salt string) string {
 		io.WriteString(s, string(nsec3))
 		nsec3 = s.Sum(nil)
 	}
-	return unpackBase32(nsec3)
+	return toBase32(nsec3)
 }
 
+// Denialer is an interface that should be implemented by types that are used to denial
+// answers in DNSSEC.
 type Denialer interface {
 	// Cover will check if the (unhashed) name is being covered by this NSEC or NSEC3.
 	Cover(name string) bool

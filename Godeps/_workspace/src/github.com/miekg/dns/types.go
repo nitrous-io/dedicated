@@ -1,8 +1,3 @@
-// Copyright 2009 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-// Extensions of the original work are copyright (c) 2011 Miek Gieben
-
 package dns
 
 import (
@@ -15,9 +10,12 @@ import (
 )
 
 type (
-	Type  uint16 // Type is a DNS type.
-	Class uint16 // Class is a DNS class.
-	Name  string // Name is a DNS domain name.
+	// Type is a DNS type.
+	Type uint16
+	// Class is a DNS class.
+	Class uint16
+	// Name is a DNS domain name.
+	Name string
 )
 
 // Packet formats
@@ -25,6 +23,7 @@ type (
 // Wire constants and supported types.
 const (
 	// valid RR_Header.Rrtype and Question.qtype
+
 	TypeNone       uint16 = 0
 	TypeA          uint16 = 1
 	TypeNS         uint16 = 2
@@ -80,6 +79,8 @@ const (
 	TypeRKEY       uint16 = 57
 	TypeTALINK     uint16 = 58
 	TypeCDS        uint16 = 59
+	TypeCDNSKEY    uint16 = 60
+	TypeOPENPGPKEY uint16 = 61
 	TypeSPF        uint16 = 99
 	TypeUINFO      uint16 = 100
 	TypeUID        uint16 = 101
@@ -94,7 +95,9 @@ const (
 
 	TypeTKEY uint16 = 249
 	TypeTSIG uint16 = 250
+
 	// valid Question.Qtype only
+
 	TypeIXFR  uint16 = 251
 	TypeAXFR  uint16 = 252
 	TypeMAILB uint16 = 253
@@ -108,6 +111,7 @@ const (
 	TypeReserved uint16 = 65535
 
 	// valid Question.Qclass
+
 	ClassINET   = 1
 	ClassCSNET  = 2
 	ClassCHAOS  = 3
@@ -116,6 +120,7 @@ const (
 	ClassANY    = 255
 
 	// Msg.rcode
+
 	RcodeSuccess        = 0
 	RcodeFormatError    = 1
 	RcodeServerFailure  = 2
@@ -136,11 +141,11 @@ const (
 	RcodeBadAlg         = 21
 	RcodeBadTrunc       = 22 // TSIG
 
-	// Opcode
+	// Opcode, there is no 3
+
 	OpcodeQuery  = 0
 	OpcodeIQuery = 1
 	OpcodeStatus = 2
-	// There is no 3
 	OpcodeNotify = 4
 	OpcodeUpdate = 5
 )
@@ -153,6 +158,8 @@ type Header struct {
 }
 
 const (
+	headerSize = 12
+
 	// Header.Bits
 	_QR = 1 << 15 // query/response (response=1)
 	_AA = 1 << 10 // authoritative
@@ -163,10 +170,46 @@ const (
 	_AD = 1 << 5  // authticated data
 	_CD = 1 << 4  // checking disabled
 
-	_LOC_EQUATOR = 1 << 31 // RFC 1876, Section 2.
+	LOC_EQUATOR       = 1 << 31 // RFC 1876, Section 2.
+	LOC_PRIMEMERIDIAN = 1 << 31 // RFC 1876, Section 2.
+
+	LOC_HOURS   = 60 * 1000
+	LOC_DEGREES = 60 * LOC_HOURS
+
+	LOC_ALTITUDEBASE = 100000
 )
 
-// DNS queries.
+// RFC 4398, Section 2.1
+const (
+	CertPKIX = 1 + iota
+	CertSPKI
+	CertPGP
+	CertIPIX
+	CertISPKI
+	CertIPGP
+	CertACPKIX
+	CertIACPKIX
+	CertURI = 253
+	CertOID = 254
+)
+
+var CertTypeToString = map[uint16]string{
+	CertPKIX:    "PKIX",
+	CertSPKI:    "SPKI",
+	CertPGP:     "PGP",
+	CertIPIX:    "IPIX",
+	CertISPKI:   "ISPKI",
+	CertIPGP:    "IPGP",
+	CertACPKIX:  "ACPKIX",
+	CertIACPKIX: "IACPKIX",
+	CertURI:     "URI",
+	CertOID:     "OID",
+}
+
+var StringToCertType = reverseInt16(CertTypeToString)
+
+// Question holds a DNS question. There can be multiple questions in the
+// question section of a message. Usually there is just one.
 type Question struct {
 	Name   string `dns:"cdomain-name"` // "cdomain-name" specifies encoding (and may be compressed)
 	Qtype  uint16
@@ -214,8 +257,10 @@ type HINFO struct {
 
 func (rr *HINFO) Header() *RR_Header { return &rr.Hdr }
 func (rr *HINFO) copy() RR           { return &HINFO{*rr.Hdr.copyHeader(), rr.Cpu, rr.Os} }
-func (rr *HINFO) String() string     { return rr.Hdr.String() + rr.Cpu + " " + rr.Os }
-func (rr *HINFO) len() int           { return rr.Hdr.len() + len(rr.Cpu) + len(rr.Os) }
+func (rr *HINFO) String() string {
+	return rr.Hdr.String() + sprintTxt([]string{rr.Cpu, rr.Os})
+}
+func (rr *HINFO) len() int { return rr.Hdr.len() + len(rr.Cpu) + len(rr.Os) }
 
 type MB struct {
 	Hdr RR_Header
@@ -280,7 +325,7 @@ func (rr *MF) copy() RR           { return &MF{*rr.Hdr.copyHeader(), rr.Mf} }
 func (rr *MF) len() int           { return rr.Hdr.len() + len(rr.Mf) + 1 }
 
 func (rr *MF) String() string {
-	return rr.Hdr.String() + " " + sprintName(rr.Mf)
+	return rr.Hdr.String() + sprintName(rr.Mf)
 }
 
 type MD struct {
@@ -293,7 +338,7 @@ func (rr *MD) copy() RR           { return &MD{*rr.Hdr.copyHeader(), rr.Md} }
 func (rr *MD) len() int           { return rr.Hdr.len() + len(rr.Md) + 1 }
 
 func (rr *MD) String() string {
-	return rr.Hdr.String() + " " + sprintName(rr.Md)
+	return rr.Hdr.String() + sprintName(rr.Md)
 }
 
 type MX struct {
@@ -458,6 +503,34 @@ func sprintName(s string) string {
 	return string(dst)
 }
 
+func sprintCAAValue(s string) string {
+	src := []byte(s)
+	dst := make([]byte, 0, len(src))
+	dst = append(dst, '"')
+	for i := 0; i < len(src); {
+		if i+1 < len(src) && src[i] == '\\' && src[i+1] == '.' {
+			dst = append(dst, src[i:i+2]...)
+			i += 2
+		} else {
+			b, n := nextByte(src, i)
+			if n == 0 {
+				i++ // dangling back slash
+			} else if b == '.' {
+				dst = append(dst, b)
+			} else {
+				if b < ' ' || b > '~' {
+					dst = appendByte(dst, b)
+				} else {
+					dst = append(dst, b)
+				}
+			}
+			i += n
+		}
+	}
+	dst = append(dst, '"')
+	return string(dst)
+}
+
 func sprintTxt(txt []string) string {
 	var out []byte
 	for i, s := range txt {
@@ -481,27 +554,41 @@ func sprintTxt(txt []string) string {
 }
 
 func appendDomainNameByte(s []byte, b byte) []byte {
-	if b == '.' || b == '(' || b == ')' || b == ';' || b == ' ' || b == '\'' || b == '@' {
+	switch b {
+	case '.', ' ', '\'', '@', ';', '(', ')': // additional chars to escape
 		return append(s, '\\', b)
 	}
 	return appendTXTStringByte(s, b)
 }
 
 func appendTXTStringByte(s []byte, b byte) []byte {
-	if b == '"' {
-		return append(s, `\"`...)
-	} else if b == '\\' {
-		return append(s, `\\`...)
-	} else if b == '\t' {
-		return append(s, `\t`...)
-	} else if b == '\r' {
-		return append(s, `\r`...)
-	} else if b == '\n' {
-		return append(s, `\n`...)
-	} else if b < ' ' || b > '~' {
-		return append(s, fmt.Sprintf("\\%03d", b)...)
+	switch b {
+	case '\t':
+		return append(s, '\\', 't')
+	case '\r':
+		return append(s, '\\', 'r')
+	case '\n':
+		return append(s, '\\', 'n')
+	case '"', '\\':
+		return append(s, '\\', b)
+	}
+	if b < ' ' || b > '~' {
+		return appendByte(s, b)
 	}
 	return append(s, b)
+}
+
+func appendByte(s []byte, b byte) []byte {
+	var buf [3]byte
+	bufs := strconv.AppendInt(buf[:0], int64(b), 10)
+	s = append(s, '\\')
+	for i := 0; i < 3-len(bufs); i++ {
+		s = append(s, '0')
+	}
+	for _, r := range bufs {
+		s = append(s, r)
+	}
+	return s
 }
 
 func nextByte(b []byte, offset int) (byte, int) {
@@ -630,9 +717,19 @@ func (rr *CERT) copy() RR {
 }
 
 func (rr *CERT) String() string {
-	return rr.Hdr.String() + strconv.Itoa(int(rr.Type)) +
+	var (
+		ok                  bool
+		certtype, algorithm string
+	)
+	if certtype, ok = CertTypeToString[rr.Type]; !ok {
+		certtype = strconv.Itoa(int(rr.Type))
+	}
+	if algorithm, ok = AlgorithmToString[rr.Algorithm]; !ok {
+		algorithm = strconv.Itoa(int(rr.Algorithm))
+	}
+	return rr.Hdr.String() + certtype +
 		" " + strconv.Itoa(int(rr.KeyTag)) +
-		" " + strconv.Itoa(int(rr.Algorithm)) +
+		" " + algorithm +
 		" " + rr.Certificate
 }
 
@@ -734,49 +831,75 @@ func (rr *LOC) copy() RR {
 	return &LOC{*rr.Hdr.copyHeader(), rr.Version, rr.Size, rr.HorizPre, rr.VertPre, rr.Latitude, rr.Longitude, rr.Altitude}
 }
 
+// cmToM takes a cm value expressed in RFC1876 SIZE mantissa/exponent
+// format and returns a string in m (two decimals for the cm)
+func cmToM(m, e uint8) string {
+	if e < 2 {
+		if e == 1 {
+			m *= 10
+		}
+
+		return fmt.Sprintf("0.%02d", m)
+	}
+
+	s := fmt.Sprintf("%d", m)
+	for e > 2 {
+		s += "0"
+		e--
+	}
+	return s
+}
+
+// String returns a string version of a LOC
 func (rr *LOC) String() string {
 	s := rr.Hdr.String()
-	// Copied from ldns
-	// Latitude
-	lat := rr.Latitude
-	north := "N"
-	if lat > _LOC_EQUATOR {
-		lat = lat - _LOC_EQUATOR
-	} else {
-		north = "S"
-		lat = _LOC_EQUATOR - lat
-	}
-	h := lat / (1000 * 60 * 60)
-	lat = lat % (1000 * 60 * 60)
-	m := lat / (1000 * 60)
-	lat = lat % (1000 * 60)
-	s += fmt.Sprintf("%02d %02d %0.3f %s ", h, m, (float32(lat) / 1000), north)
-	// Longitude
-	lon := rr.Longitude
-	east := "E"
-	if lon > _LOC_EQUATOR {
-		lon = lon - _LOC_EQUATOR
-	} else {
-		east = "W"
-		lon = _LOC_EQUATOR - lon
-	}
-	h = lon / (1000 * 60 * 60)
-	lon = lon % (1000 * 60 * 60)
-	m = lon / (1000 * 60)
-	lon = lon % (1000 * 60)
-	s += fmt.Sprintf("%02d %02d %0.3f %s ", h, m, (float32(lon) / 1000), east)
 
-	s1 := rr.Altitude / 100.00
-	s1 -= 100000
-	if rr.Altitude%100 == 0 {
-		s += fmt.Sprintf("%.2fm ", float32(s1))
+	lat := rr.Latitude
+	ns := "N"
+	if lat > LOC_EQUATOR {
+		lat = lat - LOC_EQUATOR
 	} else {
-		s += fmt.Sprintf("%.0fm ", float32(s1))
+		ns = "S"
+		lat = LOC_EQUATOR - lat
 	}
-	s += cmToString((rr.Size&0xf0)>>4, rr.Size&0x0f) + "m "
-	s += cmToString((rr.HorizPre&0xf0)>>4, rr.HorizPre&0x0f) + "m "
-	s += cmToString((rr.VertPre&0xf0)>>4, rr.VertPre&0x0f) + "m"
+	h := lat / LOC_DEGREES
+	lat = lat % LOC_DEGREES
+	m := lat / LOC_HOURS
+	lat = lat % LOC_HOURS
+	s += fmt.Sprintf("%02d %02d %0.3f %s ", h, m, (float64(lat) / 1000), ns)
+
+	lon := rr.Longitude
+	ew := "E"
+	if lon > LOC_PRIMEMERIDIAN {
+		lon = lon - LOC_PRIMEMERIDIAN
+	} else {
+		ew = "W"
+		lon = LOC_PRIMEMERIDIAN - lon
+	}
+	h = lon / LOC_DEGREES
+	lon = lon % LOC_DEGREES
+	m = lon / LOC_HOURS
+	lon = lon % LOC_HOURS
+	s += fmt.Sprintf("%02d %02d %0.3f %s ", h, m, (float64(lon) / 1000), ew)
+
+	var alt = float64(rr.Altitude) / 100
+	alt -= LOC_ALTITUDEBASE
+	if rr.Altitude%100 != 0 {
+		s += fmt.Sprintf("%.2fm ", alt)
+	} else {
+		s += fmt.Sprintf("%.0fm ", alt)
+	}
+
+	s += cmToM((rr.Size&0xf0)>>4, rr.Size&0x0f) + "m "
+	s += cmToM((rr.HorizPre&0xf0)>>4, rr.HorizPre&0x0f) + "m "
+	s += cmToM((rr.VertPre&0xf0)>>4, rr.VertPre&0x0f) + "m"
+
 	return s
+}
+
+// SIG is identical to RRSIG and nowadays only used for SIG(0), RFC2931.
+type SIG struct {
+	RRSIG
 }
 
 type RRSIG struct {
@@ -850,6 +973,14 @@ func (rr *NSEC) len() int {
 	return l
 }
 
+type DLV struct {
+	DS
+}
+
+type CDS struct {
+	DS
+}
+
 type DS struct {
 	Hdr        RR_Header
 	KeyTag     uint16
@@ -865,48 +996,6 @@ func (rr *DS) copy() RR {
 }
 
 func (rr *DS) String() string {
-	return rr.Hdr.String() + strconv.Itoa(int(rr.KeyTag)) +
-		" " + strconv.Itoa(int(rr.Algorithm)) +
-		" " + strconv.Itoa(int(rr.DigestType)) +
-		" " + strings.ToUpper(rr.Digest)
-}
-
-type CDS struct {
-	Hdr        RR_Header
-	KeyTag     uint16
-	Algorithm  uint8
-	DigestType uint8
-	Digest     string `dns:"hex"`
-}
-
-func (rr *CDS) Header() *RR_Header { return &rr.Hdr }
-func (rr *CDS) len() int           { return rr.Hdr.len() + 4 + len(rr.Digest)/2 }
-func (rr *CDS) copy() RR {
-	return &CDS{*rr.Hdr.copyHeader(), rr.KeyTag, rr.Algorithm, rr.DigestType, rr.Digest}
-}
-
-func (rr *CDS) String() string {
-	return rr.Hdr.String() + strconv.Itoa(int(rr.KeyTag)) +
-		" " + strconv.Itoa(int(rr.Algorithm)) +
-		" " + strconv.Itoa(int(rr.DigestType)) +
-		" " + strings.ToUpper(rr.Digest)
-}
-
-type DLV struct {
-	Hdr        RR_Header
-	KeyTag     uint16
-	Algorithm  uint8
-	DigestType uint8
-	Digest     string `dns:"hex"`
-}
-
-func (rr *DLV) Header() *RR_Header { return &rr.Hdr }
-func (rr *DLV) len() int           { return rr.Hdr.len() + 4 + len(rr.Digest)/2 }
-func (rr *DLV) copy() RR {
-	return &DLV{*rr.Hdr.copyHeader(), rr.KeyTag, rr.Algorithm, rr.DigestType, rr.Digest}
-}
-
-func (rr *DLV) String() string {
 	return rr.Hdr.String() + strconv.Itoa(int(rr.KeyTag)) +
 		" " + strconv.Itoa(int(rr.Algorithm)) +
 		" " + strconv.Itoa(int(rr.DigestType)) +
@@ -961,7 +1050,7 @@ func (rr *TALINK) len() int           { return rr.Hdr.len() + len(rr.PreviousNam
 
 func (rr *TALINK) String() string {
 	return rr.Hdr.String() +
-		" " + sprintName(rr.PreviousName) + " " + sprintName(rr.NextName)
+		sprintName(rr.PreviousName) + " " + sprintName(rr.NextName)
 }
 
 type SSHFP struct {
@@ -984,30 +1073,67 @@ func (rr *SSHFP) String() string {
 }
 
 type IPSECKEY struct {
-	Hdr         RR_Header
-	Precedence  uint8
+	Hdr        RR_Header
+	Precedence uint8
+	// GatewayType: 1: A record, 2: AAAA record, 3: domainname.
+	// 0 is use for no type and GatewayName should be "." then.
 	GatewayType uint8
 	Algorithm   uint8
-	Gateway     string `dns:"ipseckey"`
+	// Gateway can be an A record, AAAA record or a domain name.
+	GatewayA    net.IP `dns:"a"`
+	GatewayAAAA net.IP `dns:"aaaa"`
+	GatewayName string `dns:"domain-name"`
 	PublicKey   string `dns:"base64"`
 }
 
 func (rr *IPSECKEY) Header() *RR_Header { return &rr.Hdr }
 func (rr *IPSECKEY) copy() RR {
-	return &IPSECKEY{*rr.Hdr.copyHeader(), rr.Precedence, rr.GatewayType, rr.Algorithm, rr.Gateway, rr.PublicKey}
+	return &IPSECKEY{*rr.Hdr.copyHeader(), rr.Precedence, rr.GatewayType, rr.Algorithm, rr.GatewayA, rr.GatewayAAAA, rr.GatewayName, rr.PublicKey}
 }
 
 func (rr *IPSECKEY) String() string {
-	return rr.Hdr.String() + strconv.Itoa(int(rr.Precedence)) +
+	s := rr.Hdr.String() + strconv.Itoa(int(rr.Precedence)) +
 		" " + strconv.Itoa(int(rr.GatewayType)) +
-		" " + strconv.Itoa(int(rr.Algorithm)) +
-		" " + rr.Gateway +
-		" " + rr.PublicKey
+		" " + strconv.Itoa(int(rr.Algorithm))
+	switch rr.GatewayType {
+	case 0:
+		fallthrough
+	case 3:
+		s += " " + rr.GatewayName
+	case 1:
+		s += " " + rr.GatewayA.String()
+	case 2:
+		s += " " + rr.GatewayAAAA.String()
+	default:
+		s += " ."
+	}
+	s += " " + rr.PublicKey
+	return s
 }
 
 func (rr *IPSECKEY) len() int {
-	return rr.Hdr.len() + 3 + len(rr.Gateway) + 1 +
-		base64.StdEncoding.DecodedLen(len(rr.PublicKey))
+	l := rr.Hdr.len() + 3 + 1
+	switch rr.GatewayType {
+	default:
+		fallthrough
+	case 0:
+		fallthrough
+	case 3:
+		l += len(rr.GatewayName)
+	case 1:
+		l += 4
+	case 2:
+		l += 16
+	}
+	return l + base64.StdEncoding.DecodedLen(len(rr.PublicKey))
+}
+
+type KEY struct {
+	DNSKEY
+}
+
+type CDNSKEY struct {
+	DNSKEY
 }
 
 type DNSKEY struct {
@@ -1055,14 +1181,13 @@ func (rr *RKEY) String() string {
 }
 
 type NSAP struct {
-	Hdr    RR_Header
-	Length uint8
-	Nsap   string
+	Hdr  RR_Header
+	Nsap string
 }
 
 func (rr *NSAP) Header() *RR_Header { return &rr.Hdr }
-func (rr *NSAP) copy() RR           { return &NSAP{*rr.Hdr.copyHeader(), rr.Length, rr.Nsap} }
-func (rr *NSAP) String() string     { return rr.Hdr.String() + strconv.Itoa(int(rr.Length)) + " " + rr.Nsap }
+func (rr *NSAP) copy() RR           { return &NSAP{*rr.Hdr.copyHeader(), rr.Nsap} }
+func (rr *NSAP) String() string     { return rr.Hdr.String() + "0x" + rr.Nsap }
 func (rr *NSAP) len() int           { return rr.Hdr.len() + 1 + len(rr.Nsap) + 1 }
 
 type NSAPPTR struct {
@@ -1183,8 +1308,20 @@ func (rr *RFC3597) copy() RR           { return &RFC3597{*rr.Hdr.copyHeader(), r
 func (rr *RFC3597) len() int           { return rr.Hdr.len() + len(rr.Rdata)/2 + 2 }
 
 func (rr *RFC3597) String() string {
-	s := rr.Hdr.String()
+	// Let's call it a hack
+	s := rfc3597Header(rr.Hdr)
+
 	s += "\\# " + strconv.Itoa(len(rr.Rdata)/2) + " " + rr.Rdata
+	return s
+}
+
+func rfc3597Header(h RR_Header) string {
+	var s string
+
+	s += sprintName(h.Name) + "\t"
+	s += strconv.FormatInt(int64(h.Ttl), 10) + "\t"
+	s += "CLASS" + strconv.Itoa(int(h.Class)) + "\t"
+	s += "TYPE" + strconv.Itoa(int(h.Rrtype)) + "\t"
 	return s
 }
 
@@ -1242,7 +1379,7 @@ func (rr *TLSA) copy() RR {
 
 func (rr *TLSA) String() string {
 	return rr.Hdr.String() +
-		" " + strconv.Itoa(int(rr.Usage)) +
+		strconv.Itoa(int(rr.Usage)) +
 		" " + strconv.Itoa(int(rr.Selector)) +
 		" " + strconv.Itoa(int(rr.MatchingType)) +
 		" " + rr.Certificate
@@ -1267,7 +1404,7 @@ func (rr *HIP) copy() RR {
 
 func (rr *HIP) String() string {
 	s := rr.Hdr.String() +
-		" " + strconv.Itoa(int(rr.PublicKeyAlgorithm)) +
+		strconv.Itoa(int(rr.PublicKeyAlgorithm)) +
 		" " + rr.Hit +
 		" " + rr.PublicKey
 	for _, d := range rr.RendezvousServers {
@@ -1329,6 +1466,7 @@ func (rr *WKS) String() (s string) {
 	if rr.Address != nil {
 		s += rr.Address.String()
 	}
+	// TODO(miek): missing protocol here, see /etc/protocols
 	for i := 0; i < len(rr.BitMap); i++ {
 		// should lookup the port
 		s += " " + strconv.Itoa(int(rr.BitMap[i]))
@@ -1422,8 +1560,6 @@ func (rr *EUI64) copy() RR           { return &EUI64{*rr.Hdr.copyHeader(), rr.Ad
 func (rr *EUI64) String() string     { return rr.Hdr.String() + euiToString(rr.Address, 64) }
 func (rr *EUI64) len() int           { return rr.Hdr.len() + 8 }
 
-// Support in incomplete - just handle it as unknown record
-/*
 type CAA struct {
 	Hdr   RR_Header
 	Flag  uint8
@@ -1433,14 +1569,10 @@ type CAA struct {
 
 func (rr *CAA) Header() *RR_Header { return &rr.Hdr }
 func (rr *CAA) copy() RR           { return &CAA{*rr.Hdr.copyHeader(), rr.Flag, rr.Tag, rr.Value} }
-func (rr *CAA) len() int           { return rr.Hdr.len() + 1 + len(rr.Tag) + 1 + len(rr.Value) }
-
+func (rr *CAA) len() int           { return rr.Hdr.len() + 1 + len(rr.Tag) + len(rr.Value)/2 }
 func (rr *CAA) String() string {
-	s := rr.Hdr.String() + strconv.FormatInt(int64(rr.Flag), 10) + " " + rr.Tag
-	s += strconv.QuoteToASCII(rr.Value)
-	return s
+	return rr.Hdr.String() + strconv.Itoa(int(rr.Flag)) + " " + rr.Tag + " " + sprintCAAValue(rr.Value)
 }
-*/
 
 type UID struct {
 	Hdr RR_Header
@@ -1492,6 +1624,18 @@ func (rr *NIMLOC) copy() RR           { return &NIMLOC{*rr.Hdr.copyHeader(), rr.
 func (rr *NIMLOC) String() string     { return rr.Hdr.String() + strings.ToUpper(rr.Locator) }
 func (rr *NIMLOC) len() int           { return rr.Hdr.len() + len(rr.Locator)/2 }
 
+type OPENPGPKEY struct {
+	Hdr       RR_Header
+	PublicKey string `dns:"base64"`
+}
+
+func (rr *OPENPGPKEY) Header() *RR_Header { return &rr.Hdr }
+func (rr *OPENPGPKEY) copy() RR           { return &OPENPGPKEY{*rr.Hdr.copyHeader(), rr.PublicKey} }
+func (rr *OPENPGPKEY) String() string     { return rr.Hdr.String() + rr.PublicKey }
+func (rr *OPENPGPKEY) len() int {
+	return rr.Hdr.len() + base64.StdEncoding.DecodedLen(len(rr.PublicKey))
+}
+
 // TimeToString translates the RRSIG's incep. and expir. times to the
 // string representation used when printing the record.
 // It takes serial arithmetic (RFC 1982) into account.
@@ -1528,23 +1672,6 @@ func saltToString(s string) string {
 	return strings.ToUpper(s)
 }
 
-func cmToString(mantissa, exponent uint8) string {
-	switch exponent {
-	case 0, 1:
-		if exponent == 1 {
-			mantissa *= 10
-		}
-		return fmt.Sprintf("%.02f", float32(mantissa))
-	default:
-		s := fmt.Sprintf("%d", mantissa)
-		for i := uint8(0); i < exponent-2; i++ {
-			s += "0"
-		}
-		return s
-	}
-	panic("dns: not reached")
-}
-
 func euiToString(eui uint64, bits int) (hex string) {
 	switch bits {
 	case 64:
@@ -1566,18 +1693,19 @@ func copyIP(ip net.IP) net.IP {
 	return p
 }
 
-// Map of constructors for each RR wire type.
-var rr_mk = map[uint16]func() RR{
-	TypeA:     func() RR { return new(A) },
-	TypeAAAA:  func() RR { return new(AAAA) },
-	TypeAFSDB: func() RR { return new(AFSDB) },
-	//	TypeCAA:        func() RR { return new(CAA) },
+// Map of constructors for each RR type.
+var typeToRR = map[uint16]func() RR{
+	TypeA:          func() RR { return new(A) },
+	TypeAAAA:       func() RR { return new(AAAA) },
+	TypeAFSDB:      func() RR { return new(AFSDB) },
+	TypeCAA:        func() RR { return new(CAA) },
 	TypeCDS:        func() RR { return new(CDS) },
 	TypeCERT:       func() RR { return new(CERT) },
 	TypeCNAME:      func() RR { return new(CNAME) },
 	TypeDHCID:      func() RR { return new(DHCID) },
 	TypeDLV:        func() RR { return new(DLV) },
 	TypeDNAME:      func() RR { return new(DNAME) },
+	TypeKEY:        func() RR { return new(KEY) },
 	TypeDNSKEY:     func() RR { return new(DNSKEY) },
 	TypeDS:         func() RR { return new(DS) },
 	TypeEUI48:      func() RR { return new(EUI48) },
@@ -1587,6 +1715,7 @@ var rr_mk = map[uint16]func() RR{
 	TypeEID:        func() RR { return new(EID) },
 	TypeHINFO:      func() RR { return new(HINFO) },
 	TypeHIP:        func() RR { return new(HIP) },
+	TypeIPSECKEY:   func() RR { return new(IPSECKEY) },
 	TypeKX:         func() RR { return new(KX) },
 	TypeL32:        func() RR { return new(L32) },
 	TypeL64:        func() RR { return new(L64) },
@@ -1609,11 +1738,13 @@ var rr_mk = map[uint16]func() RR{
 	TypeNSEC3:      func() RR { return new(NSEC3) },
 	TypeNSEC3PARAM: func() RR { return new(NSEC3PARAM) },
 	TypeNSEC:       func() RR { return new(NSEC) },
+	TypeOPENPGPKEY: func() RR { return new(OPENPGPKEY) },
 	TypeOPT:        func() RR { return new(OPT) },
 	TypePTR:        func() RR { return new(PTR) },
 	TypeRKEY:       func() RR { return new(RKEY) },
 	TypeRP:         func() RR { return new(RP) },
 	TypePX:         func() RR { return new(PX) },
+	TypeSIG:        func() RR { return new(SIG) },
 	TypeRRSIG:      func() RR { return new(RRSIG) },
 	TypeRT:         func() RR { return new(RT) },
 	TypeSOA:        func() RR { return new(SOA) },

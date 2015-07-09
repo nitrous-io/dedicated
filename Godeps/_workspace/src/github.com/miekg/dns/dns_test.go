@@ -1,7 +1,3 @@
-// Copyright 2011 Miek Gieben. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package dns
 
 import (
@@ -21,13 +17,11 @@ func TestPackUnpack(t *testing.T) {
 	out.Answer[0] = key
 	msg, err := out.Pack()
 	if err != nil {
-		t.Log("Failed to pack msg with DNSKEY")
-		t.Fail()
+		t.Error("failed to pack msg with DNSKEY")
 	}
 	in := new(Msg)
 	if in.Unpack(msg) != nil {
-		t.Log("Failed to unpack msg with DNSKEY")
-		t.Fail()
+		t.Error("failed to unpack msg with DNSKEY")
 	}
 
 	sig := new(RRSIG)
@@ -39,13 +33,11 @@ func TestPackUnpack(t *testing.T) {
 	out.Answer[0] = sig
 	msg, err = out.Pack()
 	if err != nil {
-		t.Log("Failed to pack msg with RRSIG")
-		t.Fail()
+		t.Error("failed to pack msg with RRSIG")
 	}
 
 	if in.Unpack(msg) != nil {
-		t.Log("Failed to unpack msg with RRSIG")
-		t.Fail()
+		t.Error("failed to unpack msg with RRSIG")
 	}
 }
 
@@ -66,8 +58,7 @@ func TestPackUnpack2(t *testing.T) {
 	m.Answer[0] = rr
 	_, err := m.Pack()
 	if err != nil {
-		t.Log("Packing failed: " + err.Error())
-		t.Fail()
+		t.Error("Packing failed: ", err)
 		return
 	}
 }
@@ -94,16 +85,14 @@ func TestPackUnpack3(t *testing.T) {
 	m.Answer[0] = rr
 	b, err := m.Pack()
 	if err != nil {
-		t.Log("Packing failed: " + err.Error())
-		t.Fail()
+		t.Error("packing failed: ", err)
 		return
 	}
 
 	var unpackMsg Msg
 	err = unpackMsg.Unpack(b)
 	if err != nil {
-		t.Log("UnPacking failed")
-		t.Fail()
+		t.Error("unpacking failed")
 		return
 	}
 }
@@ -115,10 +104,9 @@ func TestBailiwick(t *testing.T) {
 	}
 	for parent, child := range yes {
 		if !IsSubDomain(parent, child) {
-			t.Logf("%s should be child of %s\n", child, parent)
-			t.Logf("comparelabels %d", CompareDomainName(parent, child))
-			t.Logf("lenlabels %d %d", CountLabel(parent), CountLabel(child))
-			t.Fail()
+			t.Errorf("%s should be child of %s", child, parent)
+			t.Errorf("comparelabels %d", CompareDomainName(parent, child))
+			t.Errorf("lenlabels %d %d", CountLabel(parent), CountLabel(child))
 		}
 	}
 	no := map[string]string{
@@ -130,10 +118,9 @@ func TestBailiwick(t *testing.T) {
 	}
 	for parent, child := range no {
 		if IsSubDomain(parent, child) {
-			t.Logf("%s should not be child of %s\n", child, parent)
-			t.Logf("comparelabels %d", CompareDomainName(parent, child))
-			t.Logf("lenlabels %d %d", CountLabel(parent), CountLabel(child))
-			t.Fail()
+			t.Errorf("%s should not be child of %s", child, parent)
+			t.Errorf("comparelabels %d", CompareDomainName(parent, child))
+			t.Errorf("lenlabels %d %d", CountLabel(parent), CountLabel(child))
 		}
 	}
 }
@@ -146,13 +133,11 @@ func TestPack(t *testing.T) {
 	for _, r := range rr {
 		m.Answer[0], err = NewRR(r)
 		if err != nil {
-			t.Logf("Failed to create RR: %s\n", err.Error())
-			t.Fail()
+			t.Errorf("failed to create RR: %v", err)
 			continue
 		}
 		if _, err := m.Pack(); err != nil {
-			t.Logf("Packing failed: %s\n", err.Error())
-			t.Fail()
+			t.Errorf("packing failed: %v", err)
 		}
 	}
 	x := new(Msg)
@@ -164,20 +149,17 @@ func TestPack(t *testing.T) {
 	// This crashes due to the fact the a.ntpns.org isn't a FQDN
 	// How to recover() from a remove panic()?
 	if _, err := x.Pack(); err == nil {
-		t.Log("Packing should fail")
-		t.Fail()
+		t.Error("packing should fail")
 	}
 	x.Answer = make([]RR, 1)
 	x.Answer[0], err = NewRR(rr[0])
 	if _, err := x.Pack(); err == nil {
-		t.Log("Packing should fail")
-		t.Fail()
+		t.Error("packing should fail")
 	}
 	x.Question = make([]Question, 1)
 	x.Question[0] = Question{";sd#eddddséâèµâââ¥âxzztsestxssweewwsssstx@s@Zåµe@cn.pool.ntp.org.", TypeA, ClassINET}
 	if _, err := x.Pack(); err == nil {
-		t.Log("Packing should fail")
-		t.Fail()
+		t.Error("packing should fail")
 	}
 }
 
@@ -190,11 +172,10 @@ func TestPackNAPTR(t *testing.T) {
 		rr, _ := NewRR(n)
 		msg := make([]byte, rr.len())
 		if off, err := PackRR(rr, msg, 0, nil, false); err != nil {
-			t.Logf("Packing failed: %s", err.Error())
-			t.Logf("Length %d, need more than %d\n", rr.len(), off)
-			t.Fail()
+			t.Errorf("packing failed: %v", err)
+			t.Errorf("length %d, need more than %d", rr.len(), off)
 		} else {
-			t.Logf("Buf size needed: %d\n", off)
+			t.Logf("buf size needed: %d", off)
 		}
 	}
 }
@@ -205,7 +186,7 @@ func TestCompressLength(t *testing.T) {
 	ul := m.Len()
 	m.Compress = true
 	if ul != m.Len() {
-		t.Fatalf("Should be equal")
+		t.Fatalf("should be equal")
 	}
 }
 
@@ -233,12 +214,10 @@ func TestMsgCompressLength(t *testing.T) {
 		buf, err := msg.Pack()
 		if err != nil {
 			t.Error(err)
-			t.Fail()
 		}
 		if predicted < len(buf) {
-			t.Errorf("Predicted compressed length is wrong: predicted %s (len=%d) %d, actual %d\n",
+			t.Errorf("predicted compressed length is wrong: predicted %s (len=%d) %d, actual %d",
 				msg.Question[0].Name, len(msg.Answer), predicted, len(buf))
-			t.Fail()
 		}
 	}
 }
@@ -265,12 +244,10 @@ func TestMsgLength(t *testing.T) {
 		buf, err := msg.Pack()
 		if err != nil {
 			t.Error(err)
-			t.Fail()
 		}
 		if predicted < len(buf) {
-			t.Errorf("Predicted length is wrong: predicted %s (len=%d), actual %d\n",
+			t.Errorf("predicted length is wrong: predicted %s (len=%d), actual %d",
 				msg.Question[0].Name, predicted, len(buf))
-			t.Fail()
 		}
 	}
 }
@@ -314,6 +291,22 @@ func TestMsgLength2(t *testing.T) {
 			t.Errorf("msg.Len(uncompressed)=%d actual=%d for test %d", lenUnComp, pacUnComp, i)
 		}
 	}
+}
+
+func TestMsgLengthCompressionMalformed(t *testing.T) {
+	// SOA with empty hostmaster, which is illegal
+	soa := &SOA{Hdr: RR_Header{Name: ".", Rrtype: TypeSOA, Class: ClassINET, Ttl: 12345},
+		Ns:      ".",
+		Mbox:    "",
+		Serial:  0,
+		Refresh: 28800,
+		Retry:   7200,
+		Expire:  604800,
+		Minttl:  60}
+	m := new(Msg)
+	m.Compress = true
+	m.Ns = []RR{soa}
+	m.Len() // Should not crash.
 }
 
 func BenchmarkMsgLength(b *testing.B) {
@@ -388,10 +381,10 @@ func BenchmarkMsgUnpack(b *testing.B) {
 	name1 := "12345678901234567890123456789012345.12345678.123."
 	rrMx, _ := NewRR(name1 + " 3600 IN MX 10 " + name1)
 	msg := makeMsg(name1, []RR{rrMx, rrMx}, nil, nil)
-	msg_buf, _ := msg.Pack()
+	msgBuf, _ := msg.Pack()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = msg.Unpack(msg_buf)
+		_ = msg.Unpack(msgBuf)
 	}
 }
 
@@ -414,27 +407,33 @@ func BenchmarkUnpackDomainName(b *testing.B) {
 	}
 }
 
+func BenchmarkUnpackDomainNameUnprintable(b *testing.B) {
+	name1 := "\x02\x02\x02\x025\x02\x02\x02\x02.12345678.123."
+	buf := make([]byte, len(name1)+1)
+	_, _ = PackDomainName(name1, buf, 0, nil, false)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _, _ = UnpackDomainName(buf, 0)
+	}
+}
+
 func TestToRFC3597(t *testing.T) {
 	a, _ := NewRR("miek.nl. IN A 10.0.1.1")
 	x := new(RFC3597)
 	x.ToRFC3597(a)
-	if x.String() != `miek.nl.	3600	IN	A	\# 4 0a000101` {
-		t.Fail()
+	if x.String() != `miek.nl.	3600	CLASS1	TYPE1	\# 4 0a000101` {
+		t.Error("string mismatch")
 	}
 }
 
 func TestNoRdataPack(t *testing.T) {
 	data := make([]byte, 1024)
-	for typ, fn := range rr_mk {
-		if typ == TypeCAA {
-			continue // TODO(miek): known omission
-		}
+	for typ, fn := range typeToRR {
 		r := fn()
 		*r.Header() = RR_Header{Name: "miek.nl.", Rrtype: typ, Class: ClassINET, Ttl: 3600}
-		_, e := PackRR(r, data, 0, nil, false)
-		if e != nil {
-			t.Logf("Failed to pack RR with zero rdata: %s: %s\n", TypeToString[typ], e.Error())
-			t.Fail()
+		_, err := PackRR(r, data, 0, nil, false)
+		if err != nil {
+			t.Errorf("failed to pack RR with zero rdata: %s: %v", TypeToString[typ], err)
 		}
 	}
 }
@@ -442,7 +441,7 @@ func TestNoRdataPack(t *testing.T) {
 // TODO(miek): fix dns buffer too small errors this throws
 func TestNoRdataUnpack(t *testing.T) {
 	data := make([]byte, 1024)
-	for typ, fn := range rr_mk {
+	for typ, fn := range typeToRR {
 		if typ == TypeSOA || typ == TypeTSIG || typ == TypeWKS {
 			// SOA, TSIG will not be seen (like this) in dyn. updates?
 			// WKS is an bug, but...deprecated record.
@@ -450,17 +449,17 @@ func TestNoRdataUnpack(t *testing.T) {
 		}
 		r := fn()
 		*r.Header() = RR_Header{Name: "miek.nl.", Rrtype: typ, Class: ClassINET, Ttl: 3600}
-		off, e := PackRR(r, data, 0, nil, false)
-		if e != nil {
-			// Should always works, TestNoDataPack should have catched this
+		off, err := PackRR(r, data, 0, nil, false)
+		if err != nil {
+			// Should always works, TestNoDataPack should have caught this
+			t.Errorf("failed to pack RR: %v", err)
 			continue
 		}
-		rr, _, e := UnpackRR(data[:off], 0)
-		if e != nil {
-			t.Logf("Failed to unpack RR with zero rdata: %s: %s\n", TypeToString[typ], e.Error())
-			t.Fail()
+		rr, _, err := UnpackRR(data[:off], 0)
+		if err != nil {
+			t.Errorf("failed to unpack RR with zero rdata: %s: %v", TypeToString[typ], err)
 		}
-		t.Logf("%s\n", rr)
+		t.Log(rr)
 	}
 }
 
@@ -472,10 +471,108 @@ func TestRdataOverflow(t *testing.T) {
 	rr.Rdata = hex.EncodeToString(make([]byte, 0xFFFF))
 	buf := make([]byte, 0xFFFF*2)
 	if _, err := PackRR(rr, buf, 0, nil, false); err != nil {
-		t.Fatalf("Maximum size rrdata pack failed: %v", err)
+		t.Fatalf("maximum size rrdata pack failed: %v", err)
 	}
 	rr.Rdata += "00"
 	if _, err := PackRR(rr, buf, 0, nil, false); err != ErrRdata {
-		t.Fatalf("Oversize rrdata pack didn't return ErrRdata - instead: %v", err)
+		t.Fatalf("oversize rrdata pack didn't return ErrRdata - instead: %v", err)
+	}
+}
+
+func TestCopy(t *testing.T) {
+	rr, _ := NewRR("miek.nl. 2311 IN A 127.0.0.1") // Weird TTL to avoid catching TTL
+	rr1 := Copy(rr)
+	if rr.String() != rr1.String() {
+		t.Fatalf("Copy() failed %s != %s", rr.String(), rr1.String())
+	}
+}
+
+func TestMsgCopy(t *testing.T) {
+	m := new(Msg)
+	m.SetQuestion("miek.nl.", TypeA)
+	rr, _ := NewRR("miek.nl. 2311 IN A 127.0.0.1")
+	m.Answer = []RR{rr}
+	rr, _ = NewRR("miek.nl. 2311 IN NS 127.0.0.1")
+	m.Ns = []RR{rr}
+
+	m1 := m.Copy()
+	if m.String() != m1.String() {
+		t.Fatalf("Msg.Copy() failed %s != %s", m.String(), m1.String())
+	}
+
+	m1.Answer[0], _ = NewRR("somethingelse.nl. 2311 IN A 127.0.0.1")
+	if m.String() == m1.String() {
+		t.Fatalf("Msg.Copy() failed; change to copy changed template %s", m.String())
+	}
+
+	rr, _ = NewRR("miek.nl. 2311 IN A 127.0.0.2")
+	m1.Answer = append(m1.Answer, rr)
+	if m1.Ns[0].String() == m1.Answer[1].String() {
+		t.Fatalf("Msg.Copy() failed; append changed underlying array %s", m1.Ns[0].String())
+	}
+}
+
+func BenchmarkCopy(b *testing.B) {
+	b.ReportAllocs()
+	m := new(Msg)
+	m.SetQuestion("miek.nl.", TypeA)
+	rr, _ := NewRR("miek.nl. 2311 IN A 127.0.0.1")
+	m.Answer = []RR{rr}
+	rr, _ = NewRR("miek.nl. 2311 IN NS 127.0.0.1")
+	m.Ns = []RR{rr}
+	rr, _ = NewRR("miek.nl. 2311 IN A 127.0.0.1")
+	m.Extra = []RR{rr}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Copy()
+	}
+}
+
+func TestPackIPSECKEY(t *testing.T) {
+	tests := []string{
+		"38.2.0.192.in-addr.arpa. 7200 IN     IPSECKEY ( 10 1 2 192.0.2.38 AQNRU3mG7TVTO2BkR47usntb102uFJtugbo6BSGvgqt4AQ== )",
+		"38.2.0.192.in-addr.arpa. 7200 IN     IPSECKEY ( 10 0 2 .  AQNRU3mG7TVTO2BkR47usntb102uFJtugbo6BSGvgqt4AQ== )",
+		"38.2.0.192.in-addr.arpa. 7200 IN     IPSECKEY ( 10 1 2 192.0.2.3 AQNRU3mG7TVTO2BkR47usntb102uFJtugbo6BSGvgqt4AQ== )",
+		"38.1.0.192.in-addr.arpa. 7200 IN     IPSECKEY ( 10 3 2 mygateway.example.com.  AQNRU3mG7TVTO2BkR47usntb102uFJtugbo6BSGvgqt4AQ== )",
+		"0.d.4.0.3.0.e.f.f.f.3.f.0.1.2.0 7200 IN     IPSECKEY ( 10 2 2 2001:0DB8:0:8002::2000:1 AQNRU3mG7TVTO2BkR47usntb102uFJtugbo6BSGvgqt4AQ== )",
+	}
+	buf := make([]byte, 1024)
+	for _, t1 := range tests {
+		rr, _ := NewRR(t1)
+		off, err := PackRR(rr, buf, 0, nil, false)
+		if err != nil {
+			t.Errorf("failed to pack IPSECKEY %v: %s", err, t1)
+			continue
+		}
+
+		rr, _, err = UnpackRR(buf[:off], 0)
+		if err != nil {
+			t.Errorf("failed to unpack IPSECKEY %v: %s", err, t1)
+		}
+		t.Log(rr)
+	}
+}
+
+func TestMsgPackBuffer(t *testing.T) {
+	var testMessages = []string{
+		// news.ycombinator.com.in.escapemg.com.	IN	A, response
+		"586285830001000000010000046e6577730b79636f6d62696e61746f7203636f6d02696e086573636170656d6703636f6d0000010001c0210006000100000e10002c036e7332c02103646e730b67726f6f7665736861726bc02d77ed50e600002a3000000e1000093a8000000e10",
+
+		// news.ycombinator.com.in.escapemg.com.	IN	A, question
+		"586201000001000000000000046e6577730b79636f6d62696e61746f7203636f6d02696e086573636170656d6703636f6d0000010001",
+
+		"398781020001000000000000046e6577730b79636f6d62696e61746f7203636f6d0000010001",
+	}
+
+	for i, hexData := range testMessages {
+		// we won't fail the decoding of the hex
+		input, _ := hex.DecodeString(hexData)
+		m := new(Msg)
+		if err := m.Unpack(input); err != nil {
+			t.Errorf("packet %d failed to unpack", i)
+			continue
+		}
+		t.Logf("packet %d %s", i, m.String())
 	}
 }
