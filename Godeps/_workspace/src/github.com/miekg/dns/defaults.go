@@ -1,20 +1,16 @@
-// Copyright 2011 Miek Gieben. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package dns
 
 import (
+	"errors"
 	"net"
 	"strconv"
 )
 
 const hexDigit = "0123456789abcdef"
 
-// Everything is assumed in the ClassINET class. If
-// you need other classes you are on your own.
+// Everything is assumed in ClassINET.
 
-// SetReply creates a reply packet from a request message.
+// SetReply creates a reply message from a request message.
 func (dns *Msg) SetReply(request *Msg) *Msg {
 	dns.Id = request.Id
 	dns.RecursionDesired = request.RecursionDesired // Copy rd bit
@@ -28,7 +24,9 @@ func (dns *Msg) SetReply(request *Msg) *Msg {
 	return dns
 }
 
-// SetQuestion creates a question packet.
+// SetQuestion creates a question message, it sets the Question
+// section, generates an Id and sets the RecursionDesired (RD)
+// bit to true.
 func (dns *Msg) SetQuestion(z string, t uint16) *Msg {
 	dns.Id = Id()
 	dns.RecursionDesired = true
@@ -37,7 +35,9 @@ func (dns *Msg) SetQuestion(z string, t uint16) *Msg {
 	return dns
 }
 
-// SetNotify creates a notify packet.
+// SetNotify creates a notify message, it sets the Question
+// section, generates an Id and sets the Authoritative (AA)
+// bit to true.
 func (dns *Msg) SetNotify(z string) *Msg {
 	dns.Opcode = OpcodeNotify
 	dns.Authoritative = true
@@ -47,14 +47,14 @@ func (dns *Msg) SetNotify(z string) *Msg {
 	return dns
 }
 
-// SetRcode creates an error packet suitable for the request.
+// SetRcode creates an error message suitable for the request.
 func (dns *Msg) SetRcode(request *Msg, rcode int) *Msg {
 	dns.SetReply(request)
 	dns.Rcode = rcode
 	return dns
 }
 
-// SetRcodeFormatError creates a packet with FormError set.
+// SetRcodeFormatError creates a message with FormError set.
 func (dns *Msg) SetRcodeFormatError(request *Msg) *Msg {
 	dns.Rcode = RcodeFormatError
 	dns.Opcode = OpcodeQuery
@@ -64,7 +64,7 @@ func (dns *Msg) SetRcodeFormatError(request *Msg) *Msg {
 	return dns
 }
 
-// SetUpdate makes the message a dynamic update packet. It
+// SetUpdate makes the message a dynamic update message. It
 // sets the ZONE section to: z, TypeSOA, ClassINET.
 func (dns *Msg) SetUpdate(z string) *Msg {
 	dns.Id = Id()
@@ -76,20 +76,22 @@ func (dns *Msg) SetUpdate(z string) *Msg {
 	return dns
 }
 
-// SetIxfr creates dns.Msg for requesting an IXFR.
-func (dns *Msg) SetIxfr(z string, serial uint32) *Msg {
+// SetIxfr creates message for requesting an IXFR.
+func (dns *Msg) SetIxfr(z string, serial uint32, ns, mbox string) *Msg {
 	dns.Id = Id()
 	dns.Question = make([]Question, 1)
 	dns.Ns = make([]RR, 1)
 	s := new(SOA)
 	s.Hdr = RR_Header{z, TypeSOA, ClassINET, defaultTtl, 0}
 	s.Serial = serial
+	s.Ns = ns
+	s.Mbox = mbox
 	dns.Question[0] = Question{z, TypeIXFR, ClassINET}
 	dns.Ns[0] = s
 	return dns
 }
 
-// SetAxfr creates dns.Msg for requesting an AXFR.
+// SetAxfr creates message for requesting an AXFR.
 func (dns *Msg) SetAxfr(z string) *Msg {
 	dns.Id = Id()
 	dns.Question = make([]Question, 1)
@@ -165,6 +167,18 @@ func IsSubDomain(parent, child string) bool {
 	return CompareDomainName(parent, child) == CountLabel(parent)
 }
 
+// IsMsg sanity checks buf and returns an error if it isn't a valid DNS packet.
+// The checking is performed on the binary payload.
+func IsMsg(buf []byte) error {
+	// Header
+	if len(buf) < 12 {
+		return errors.New("dns: bad message header")
+	}
+	// Header: Opcode
+	// TODO(miek): more checks here, e.g. check all header bits.
+	return nil
+}
+
 // IsFqdn checks if a domain name is fully qualified.
 func IsFqdn(s string) bool {
 	l := len(s)
@@ -174,7 +188,7 @@ func IsFqdn(s string) bool {
 	return s[l-1] == '.'
 }
 
-// Fqdns return the fully qualified domain name from s.
+// Fqdn return the fully qualified domain name from s.
 // If s is already fully qualified, it behaves as the identity function.
 func Fqdn(s string) string {
 	if IsFqdn(s) {

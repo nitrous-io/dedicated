@@ -1,32 +1,3 @@
-// Copyright 2011 Miek Gieben. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// EDNS0
-//
-// EDNS0 is an extension mechanism for the DNS defined in RFC 2671 and updated
-// by RFC 6891. It defines an new RR type, the OPT RR, which is then completely
-// abused.
-// Basic use pattern for creating an (empty) OPT RR:
-//
-//	o := new(dns.OPT)
-//	o.Hdr.Name = "." // MUST be the root zone, per definition.
-//	o.Hdr.Rrtype = dns.TypeOPT
-//
-// The rdata of an OPT RR consists out of a slice of EDNS0 interfaces. Currently
-// only a few have been standardized: EDNS0_NSID (RFC 5001) and EDNS0_SUBNET (RFC 6891). Note that
-// these options may be combined in an OPT RR.
-// Basic use pattern for a server to check if (and which) options are set:
-//
-//	// o is a dns.OPT
-//	for _, s := range o.Option {
-//		switch e := s.(type) {
-//		case *dns.EDNS0_NSID:
-//			// do stuff with e.Nsid
-//		case *dns.EDNS0_SUBNET:
-//			// access e.Family, e.Address, etc.
-//		}
-//	}
 package dns
 
 import (
@@ -38,17 +9,22 @@ import (
 
 // EDNS0 Option codes.
 const (
-	EDNS0LLQ         = 0x1    // long lived queries: http://tools.ietf.org/html/draft-sekar-dns-llq-01
-	EDNS0UL          = 0x2    // update lease draft: http://files.dns-sd.org/draft-sekar-dns-ul.txt
-	EDNS0NSID        = 0x3    // nsid (RFC5001)
-	EDNS0DAU         = 0x5    // DNSSEC Algorithm Understood
-	EDNS0DHU         = 0x6    // DS Hash Understood
-	EDNS0N3U         = 0x7    // NSEC3 Hash Understood
-	EDNS0SUBNET      = 0x8    // client-subnet (RFC6891)
-	EDNS0SUBNETDRAFT = 0x50fa // client-subnet draft: http://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-01
-	_DO              = 1 << 7 // dnssec ok
+	EDNS0LLQ         = 0x1     // long lived queries: http://tools.ietf.org/html/draft-sekar-dns-llq-01
+	EDNS0UL          = 0x2     // update lease draft: http://files.dns-sd.org/draft-sekar-dns-ul.txt
+	EDNS0NSID        = 0x3     // nsid (RFC5001)
+	EDNS0DAU         = 0x5     // DNSSEC Algorithm Understood
+	EDNS0DHU         = 0x6     // DS Hash Understood
+	EDNS0N3U         = 0x7     // NSEC3 Hash Understood
+	EDNS0SUBNET      = 0x8     // client-subnet (RFC6891)
+	EDNS0EXPIRE      = 0x9     // EDNS0 expire
+	EDNS0SUBNETDRAFT = 0x50fa  // Don't use! Use EDNS0SUBNET
+	EDNS0LOCALSTART  = 0xFDE9  // Beginning of range reserved for local/experimental use (RFC6891)
+	EDNS0LOCALEND    = 0xFFFE  // End of range reserved for local/experimental use (RFC6891)
+	_DO              = 1 << 15 // dnssec ok
 )
 
+// OPT is the EDNS0 RR appended to messages to convey extra (meta) information.
+// See RFC 6891.
 type OPT struct {
 	Hdr    RR_Header
 	Option []EDNS0 `dns:"opt"`
@@ -94,6 +70,8 @@ func (rr *OPT) String() string {
 			s += "\n; DS HASH UNDERSTOOD: " + o.String()
 		case *EDNS0_N3U:
 			s += "\n; NSEC3 HASH UNDERSTOOD: " + o.String()
+		case *EDNS0_LOCAL:
+			s += "\n; LOCAL OPT: " + o.String()
 		}
 	}
 	return s
@@ -102,8 +80,9 @@ func (rr *OPT) String() string {
 func (rr *OPT) len() int {
 	l := rr.Hdr.len()
 	for i := 0; i < len(rr.Option); i++ {
+		l += 4 // Account for 2-byte option code and 2-byte option length.
 		lo, _ := rr.Option[i].pack()
-		l += 2 + len(lo)
+		l += len(lo)
 	}
 	return l
 }
@@ -112,16 +91,26 @@ func (rr *OPT) copy() RR {
 	return &OPT{*rr.Hdr.copyHeader(), rr.Option}
 }
 
-// return the old value -> delete SetVersion
+// return the old value -> delete SetVersion?
 
 // Version returns the EDNS version used. Only zero is defined.
 func (rr *OPT) Version() uint8 {
-	return uint8(rr.Hdr.Ttl & 0x00FF00FFFF)
+	return uint8((rr.Hdr.Ttl & 0x00FF0000) >> 16)
 }
 
 // SetVersion sets the version of EDNS. This is usually zero.
 func (rr *OPT) SetVersion(v uint8) {
-	rr.Hdr.Ttl = rr.Hdr.Ttl&0xFF00FFFF | uint32(v)
+	rr.Hdr.Ttl = rr.Hdr.Ttl&0xFF00FFFF | (uint32(v) << 16)
+}
+
+// ExtendedRcode returns the EDNS extended RCODE field (the upper 8 bits of the TTL).
+func (rr *OPT) ExtendedRcode() uint8 {
+	return uint8((rr.Hdr.Ttl & 0xFF000000) >> 24)
+}
+
+// SetExtendedRcode sets the EDNS extended RCODE field.
+func (rr *OPT) SetExtendedRcode(v uint8) {
+	rr.Hdr.Ttl = rr.Hdr.Ttl&0x00FFFFFF | (uint32(v) << 24)
 }
 
 // UDPSize returns the UDP buffer size.
@@ -136,17 +125,12 @@ func (rr *OPT) SetUDPSize(size uint16) {
 
 // Do returns the value of the DO (DNSSEC OK) bit.
 func (rr *OPT) Do() bool {
-	return byte(rr.Hdr.Ttl>>8)&_DO == _DO
+	return rr.Hdr.Ttl&_DO == _DO
 }
 
 // SetDo sets the DO (DNSSEC OK) bit.
 func (rr *OPT) SetDo() {
-	b1 := byte(rr.Hdr.Ttl >> 24)
-	b2 := byte(rr.Hdr.Ttl >> 16)
-	b3 := byte(rr.Hdr.Ttl >> 8)
-	b4 := byte(rr.Hdr.Ttl)
-	b3 |= _DO // Set it
-	rr.Hdr.Ttl = uint32(b1)<<24 | uint32(b2)<<16 | uint32(b3)<<8 | uint32(b4)
+	rr.Hdr.Ttl |= _DO
 }
 
 // EDNS0 defines an EDNS0 Option. An OPT RR can have multiple options appended to
@@ -173,6 +157,7 @@ type EDNS0 interface {
 //	o.Hdr.Rrtype = dns.TypeOPT
 //	e := new(dns.EDNS0_NSID)
 //	e.Code = dns.EDNS0NSID
+//	e.Nsid = "AA"
 //	o.Option = append(o.Option, e)
 type EDNS0_NSID struct {
 	Code uint16 // Always EDNS0NSID
@@ -283,7 +268,7 @@ func (e *EDNS0_SUBNET) unpack(b []byte) error {
 	case 1:
 		addr := make([]byte, 4)
 		for i := 0; i < int(e.SourceNetmask/8); i++ {
-			if 4+i > len(b) {
+			if i >= len(addr) || 4+i >= len(b) {
 				return ErrBuf
 			}
 			addr[i] = b[4+i]
@@ -292,7 +277,7 @@ func (e *EDNS0_SUBNET) unpack(b []byte) error {
 	case 2:
 		addr := make([]byte, 16)
 		for i := 0; i < int(e.SourceNetmask/8); i++ {
-			if 4+i > len(b) {
+			if i >= len(addr) || 4+i >= len(b) {
 				return ErrBuf
 			}
 			addr[i] = b[4+i]
@@ -333,6 +318,9 @@ type EDNS0_UL struct {
 	Lease uint32
 }
 
+func (e *EDNS0_UL) Option() uint16 { return EDNS0UL }
+func (e *EDNS0_UL) String() string { return strconv.FormatUint(uint64(e.Lease), 10) }
+
 // Copied: http://golang.org/src/pkg/net/dnsmsg.go
 func (e *EDNS0_UL) pack() ([]byte, error) {
 	b := make([]byte, 4)
@@ -343,7 +331,6 @@ func (e *EDNS0_UL) pack() ([]byte, error) {
 	return b, nil
 }
 
-func (e *EDNS0_UL) Option() uint16 { return EDNS0UL }
 func (e *EDNS0_UL) unpack(b []byte) error {
 	if len(b) < 4 {
 		return ErrBuf
@@ -351,7 +338,6 @@ func (e *EDNS0_UL) unpack(b []byte) error {
 	e.Lease = uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
 	return nil
 }
-func (e *EDNS0_UL) String() string { return strconv.FormatUint(uint64(e.Lease), 10) }
 
 // Long Lived Queries: http://tools.ietf.org/html/draft-sekar-dns-llq-01
 // Implemented for completeness, as the EDNS0 type code is assigned.
@@ -468,4 +454,70 @@ func (e *EDNS0_N3U) String() string {
 		}
 	}
 	return s
+}
+
+type EDNS0_EXPIRE struct {
+	Code   uint16 // Always EDNS0EXPIRE
+	Expire uint32
+}
+
+func (e *EDNS0_EXPIRE) Option() uint16 { return EDNS0EXPIRE }
+func (e *EDNS0_EXPIRE) String() string { return strconv.FormatUint(uint64(e.Expire), 10) }
+
+func (e *EDNS0_EXPIRE) pack() ([]byte, error) {
+	b := make([]byte, 4)
+	b[0] = byte(e.Expire >> 24)
+	b[1] = byte(e.Expire >> 16)
+	b[2] = byte(e.Expire >> 8)
+	b[3] = byte(e.Expire)
+	return b, nil
+}
+
+func (e *EDNS0_EXPIRE) unpack(b []byte) error {
+	if len(b) < 4 {
+		return ErrBuf
+	}
+	e.Expire = uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	return nil
+}
+
+// The local EDNS0 option is used for local/experimental purposes.  The option
+// code is recommended to be within the range [EDNS0LOCALSTART, EDNS0LOCALEND]
+// (RFC6891), although any unassigned code can actually be used.  The content of
+// the option is made available in Data, unaltered.
+// Basic use pattern for creating a local option:
+//
+//	o := new(dns.OPT)
+//	o.Hdr.Name = "."
+//	o.Hdr.Rrtype = dns.TypeOPT
+//	e := new(dns.EDNS0_LOCAL)
+//	e.Code = dns.EDNS0LOCALSTART
+//	e.Data = []byte{72, 82, 74}
+//	o.Option = append(o.Option, e)
+type EDNS0_LOCAL struct {
+	Code uint16
+	Data []byte
+}
+
+func (e *EDNS0_LOCAL) Option() uint16 { return e.Code }
+func (e *EDNS0_LOCAL) String() string {
+	return strconv.FormatInt(int64(e.Code), 10) + ":0x" + hex.EncodeToString(e.Data)
+}
+
+func (e *EDNS0_LOCAL) pack() ([]byte, error) {
+	b := make([]byte, len(e.Data))
+	copied := copy(b, e.Data)
+	if copied != len(e.Data) {
+		return nil, ErrBuf
+	}
+	return b, nil
+}
+
+func (e *EDNS0_LOCAL) unpack(b []byte) error {
+	e.Data = make([]byte, len(b))
+	copied := copy(e.Data, b)
+	if copied != len(b) {
+		return ErrBuf
+	}
+	return nil
 }

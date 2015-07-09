@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/compass"
@@ -19,7 +21,7 @@ func main() {
 	flConfigPath := flag.String("c", "config.json", "config path")
 	flag.Parse()
 	if *flVersion {
-		fmt.Printf("Compass: revision %s\n", version)
+		fmt.Printf("compass: revision %s\n", version)
 		os.Exit(0)
 		return
 	}
@@ -36,10 +38,18 @@ func main() {
 	if err != nil {
 		fatal("Failed to start compass server:", err)
 	}
+
+	ch := make(chan os.Signal, 10)
+	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
+
 	logrus.Println("compass: Name serving since 1978")
-	if err := s.ListenAndServe(); err != nil {
-		fatal("compass exited with error:", err)
-	}
+	go s.ListenAndServe()
+
+	sig := <-ch
+	signal.Stop(ch)
+	logrus.Infof("compass: signal received: %s", sig)
+	s.Stop()
+	logrus.Info("compass: exited")
 }
 
 func fatal(a ...interface{}) {
