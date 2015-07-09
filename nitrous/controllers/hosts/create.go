@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -237,26 +236,7 @@ func postProvision(env *middleware.Env, h *host.Host) error {
 	if err := createSharedVolume(env, env.DB, h); err != nil {
 		return err
 	}
-	if err := recordTransition(env, h); err != nil {
-		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
-	}
 	return nil
-}
-
-func recordTransition(env *middleware.Env, h *host.Host) error {
-	timing := h.AssignedAt
-	if timing == nil {
-		timing = h.CreatedAt
-	}
-	tx, err := env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
 }
 
 func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err error) {

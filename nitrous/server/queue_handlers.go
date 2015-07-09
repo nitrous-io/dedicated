@@ -3,12 +3,14 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -16,12 +18,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	"github.com/nitrous-io/dedicated/pkg/queue"
+	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
 
 type SubscriptionCreateError struct {
@@ -197,9 +203,91 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	_, err = s.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
 		p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
 	if err != nil {
-		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", err, h)
+		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", uuid, err, h)
 		return err
 	}
+	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
+
+	// Post Provisioing from hosts
+	/*
+		if err := s.createSharedVolume(uuid, u, h); err != nil {
+			s.publishProvisionFailure(u, h, err)
+			return err
+		}
+	*/
+	if err := s.recordTransition(u, h); err != nil {
+		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
+		s.publishProvisionFailure(u, h, err)
+	}
+	return nil
+}
+
+func (s *Server) recordTransition(u *user.User, h *host.Host) error {
+	timing := h.AssignedAt
+	if timing == nil {
+		timing = h.CreatedAt
+	}
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return err
+	}
+	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, err error) {
+	if e, ok := err.(*provisioner.HostbuilderError); ok {
+		logrus.Errorf("hostbuilder error provisioning host: %v", e)
+		// Change error into something we can display to end users.
+		err = errors.New("failed to create workspace")
+	}
+
+	s.Events.Publish(
+		controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+			"host":  serializers.SerializeHost(h),
+			"error": err.Error(),
+		}),
+		u.Topic(),
+	)
+}
+
+func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) error {
+	cl, err := controllers.NewFreighterClient(s.db, h, uuid)
+	if err != nil {
+		return err
+	}
+
+	vol := &volume.Volume{
+		HostID: h.ID,
+		Slug:   "shared",
+		Name:   "Shared Volume",
+		System: true,
+	}
+
+	if err := vol.Insert(s.db); err != nil {
+		return err
+	}
+
+	if _, err := cl.CreateVolume(vol.Slug); err != nil {
+		if e := vol.Delete(s.db); e != nil {
+			logrus.Errorf("uuid=%s Unable to delete volume %d that failed on freighter: %v", uuid, vol.ID, e)
+		}
+		if e, ok := err.(*freighterclient.InvalidParamError); ok {
+			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
+		}
+		return err
+	}
+
+	s.Events.Publish(
+		controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
+			"volume": serializers.SerializeVolume(vol),
+		}),
+		u.Topic(),
+	)
+
 	return nil
 }
 

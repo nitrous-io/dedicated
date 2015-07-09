@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -17,9 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 
@@ -105,15 +102,11 @@ var _ = Describe("provisioner", func() {
 			}
 			prov := provisioner.NewProvisioner(db, nil, cfg)
 
+			// Actual provisioning part will be done in queue handler.
+			// This it just to make sure that it does not occur any errors.
 			err = prov.Start()
 			Expect(err).To(BeNil())
 			defer prov.Stop()
-
-			Eventually(func() int {
-				count, err := host.CountPreprovisioned(db, hs.R, hs.P)
-				Expect(err).To(BeNil())
-				return count
-			}, 5*time.Second, 500*time.Millisecond).Should(Equal(1))
 		})
 
 		It("assigns hosts instead of preprovisioning if they are available with no bypass", func() {
@@ -361,128 +354,6 @@ var _ = Describe("provisioner", func() {
 			Eventually(func() bool {
 				return prov.IsRunning()
 			}).Should(BeTrue())
-		})
-	})
-
-	Describe("assigning a pre-provisioned host to user", func() {
-		It("updates the host in Hostbuilder and the host record with info from Hostbuilder", func() {
-			// Replace provisioner's hostbuilder client with a fake version.
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
-				Message: `
-				{"stream":"starting: creating host"}
-				{"stream":"finished: creating host"}
-				{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
-				Status: http.StatusOK,
-			}
-			hb.Client.Client.Transport = rt
-			provisioner.HostbuilderClient = hb
-
-			// Setup provisioner so that we have a pre-provisioned host.
-			hs, err := test.CreateHostStack(db, &test.HostStack{
-				PT: &providertemplate.ProviderTemplate{PreprovisionMax: 1, Provider: "dummy"},
-			})
-			Expect(err).To(BeNil())
-			cfg := &provisioner.Config{
-				Username: provisionerUser.Username,
-				Interval: 10 * time.Millisecond,
-			}
-			prov := provisioner.NewProvisioner(db, nil, cfg)
-			err = prov.Start()
-			Expect(err).To(BeNil())
-
-			// Wait for host to be pre-provisioned.
-			provisioned := make(chan struct{})
-			errCh := make(chan error)
-			go func() {
-				ticker := time.NewTicker(10 * time.Millisecond)
-				for _ = range ticker.C {
-					count, err := host.CountPreprovisioned(db, hs.R, hs.P)
-					if err != nil {
-						errCh <- err
-						return
-					}
-					if count > 0 {
-						provisioned <- struct{}{}
-						return
-					}
-				}
-			}()
-
-			select {
-			case <-provisioned:
-				break
-			case err := <-errCh:
-				Fail(fmt.Sprintf("Error waiting for host to be pre-provisioned: %v", err))
-			case <-time.After(5 * time.Second):
-				Fail("Timed out waiting for host to be pre-provisioned")
-			}
-
-			u := &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			err = test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-			t := &token.Token{
-				UserID: u.ID,
-				Token:  "valid-token",
-			}
-			err = t.Insert(db)
-			Expect(err).To(BeNil())
-
-			_, err = db.Exec(`UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1;`, u.ID)
-			Expect(err).To(BeNil())
-
-			// Fake update response from Hostbuilder.
-			rt = &test.FakeRoundTripper{
-				Message: `
-					{"stream":"starting: updating host"}
-					{"stream":"finished: updating host"}
-					{"id":"abcd1234", "ip_address":"1.2.3.4", "provider":"dummy", "freighterd_port":65333}`,
-				Status: http.StatusOK,
-			}
-			hb.Client.Client.Transport = rt
-
-			preprovisionedHost, err := host.FindPreprovisioned(db, hs.R, hs.P)
-			Expect(err).To(BeNil())
-
-			// Actually provision the host so that it tries to assign the
-			// pre-provisioned host to the user.
-			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
-				OutputStream: GinkgoWriter,
-				Slug:         "new-slug",
-				Name:         "new-name",
-				User:         u,
-				Region:       hs.R,
-				Plan:         hs.P,
-				Template:     hs.PT,
-				UUID:         "ABC",
-			})
-			Expect(err).To(BeNil())
-
-			// assert generated host
-			h, err := host.Find(db, u, "new-slug")
-			Expect(err).To(BeNil())
-			Expect(h.Name.String).To(Equal("new-name"))
-			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
-			Expect(h.IPAddress.String).To(Equal("1.2.3.4"))
-			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
-			// The user's host should be the same as the pre-provisioned host.
-			Expect(h.ID).To(Equal(preprovisionedHost.ID))
-
-			// assert post config data
-			Expect(len(rt.Requests) >= 1).To(BeTrue(), "failed to update the host")
-			req := rt.Requests[0]
-			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("ABC"))
-
-			var hcfg hostbuilderclient.Config
-			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
-			Expect(hcfg["host_id"]).To(Equal(float64(h.ID)))
-			Expect(hcfg["name"]).To(Equal("new-slug"))
-			Expect(hcfg["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
-			Expect(hcfg["apt_password"]).To(Equal(h.Secret))
 		})
 	})
 

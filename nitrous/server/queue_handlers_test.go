@@ -245,6 +245,22 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.Free).To(BeFalse())
 			})
 
+			It("logs transitions for the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hosts[0].ID, host.StateRunning, host.StateBorn).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+
 			Context("when the host plan requires subscription", func() {
 				var (
 					fsub *test.FakeSubscriptionProvider
