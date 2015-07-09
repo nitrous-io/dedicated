@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -108,6 +109,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	containerHostMap := make(map[int64][]*container.Container)
+	certHostMap := make(map[int64]*cert.Cert)
 	var hostIDs []int64
 	for _, host := range hosts {
 		hostIDs = append(hostIDs, host.ID)
@@ -123,21 +125,34 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		containerHostMap[container.HostID] = append(containerHostMap[container.HostID], container)
 	}
 
+	certs, err := cert.FindAllByHostIDs(db, hostIDs)
+	if err != nil {
+		logrus.Errorf("unable to find all certs: %v", err)
+		return err
+	}
+
+	for _, crt := range certs {
+		certHostMap[crt.HostID] = crt
+	}
+
 	env.Data = map[string]interface{}{}
-	serContainers := listContainers(env, w, r, hosts, containerHostMap, false)
+	serContainers := listContainers(env, w, r, hosts, containerHostMap, certHostMap, false)
 	env.Status = http.StatusOK
 	env.Data["containers"] = serContainers
 	return nil
 }
 
-func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request, hosts []*host.Host, containerHostMap map[int64][]*container.Container, onlySaved bool) []*serializers.Container {
-	db := env.DB
-
+func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request, hosts []*host.Host, containerHostMap map[int64][]*container.Container, certHostMap map[int64]*cert.Cert, onlySaved bool) []*serializers.Container {
 	containersResp := []*serializers.Container{}
 	errorMessages := []string{}
 
 	for _, h := range hosts {
-		liveContainers, freighterErr := freighterList(db, h, env)
+		crt, ok := certHostMap[h.ID]
+		if !ok {
+			errorMessages = append(errorMessages, fmt.Sprintf("Unable to get cert for %s", h.Slug))
+		}
+
+		liveContainers, freighterErr := freighterList(crt, h, env)
 
 		savedContainers, ok := containerHostMap[h.ID]
 		if !ok {
@@ -198,11 +213,12 @@ type listresult struct {
 	err        error
 }
 
-func freighterList(db db.QueryReceiver, h *host.Host, env *middleware.Env) ([]*freighterclient.Container, error) {
-	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
+func freighterList(crt *cert.Cert, h *host.Host, env *middleware.Env) ([]*freighterclient.Container, error) {
+	cl, err := controllers.NewFreighterClientWithCert(crt, h, env.UUID)
 	if err != nil {
 		return nil, err
 	}
+
 	liveContainers, err := cl.List()
 	if err != nil {
 		return nil, err
