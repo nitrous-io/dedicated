@@ -105,7 +105,7 @@ var _ = Describe("controllers/feedback", func() {
 
 				Expect(fakeMailer.SendMailCalled).To(BeTrue())
 				Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
-				Expect(fakeMailer.Tos).To(Equal([]string{`"Nitrous Feedback" <feedback@nitrous.io>`}))
+				Expect(fakeMailer.Tos).To(Equal([]string{`"Nitrous Feedback" <support@nitrous.io>`}))
 				Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
 				Expect(fakeMailer.Bccs).To(BeNil())
 				Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))
