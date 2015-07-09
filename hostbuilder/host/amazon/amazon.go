@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -730,71 +731,91 @@ func (h *Host) List() ([]*host.Info, error) {
 	var (
 		infos   = []*host.Info{}
 		errmsgs []string
+		mutex   = &sync.Mutex{} // protects infos and errmsgs
+		wg      sync.WaitGroup
 	)
 
 	for _, region := range KnownRegions {
-		conn := ec2.New(h.auth, region)
-		params := make(map[string]string)
-		params["MaxResults"] = "100"
+		wg.Add(1)
+		go func(region aws.Region) {
+			defer wg.Done()
 
-		firstTime := true
-		nextToken := ""
+			// per-region librato metrics
+			// h.MetricsLabel cannot be used since it assumes region is populated
+			// and List() call is region-agnostic
+			label := fmt.Sprintf("%s.amazon.%s", "list", region.Name)
+			defer mh.UpdateSince(label, time.Now())
 
-		for firstTime || nextToken != "" {
-			if nextToken != "" {
-				params["NextToken"] = nextToken
-			}
+			regionInfos := []*host.Info{}
+			conn := ec2.New(h.auth, region)
+			params := make(map[string]string)
+			params["MaxResults"] = "200"
 
-			instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
+			firstTime := true
+			nextToken := ""
 
-			if err != nil {
-				errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
-				h.Printf(errmsg)
-				errmsgs = append(errmsgs, errmsg)
-				break
-			}
+			for firstTime || nextToken != "" {
+				if nextToken != "" {
+					params["NextToken"] = nextToken
+				}
 
-			nextToken = instancesResp.NextToken
-			firstTime = false
+				instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
 
-			for _, reservation := range instancesResp.Reservations {
-				for _, instance := range reservation.Instances {
-					checkInstance := false
-					// Tags is array of Tag. There is no way to check tag by key
-					for _, tag := range instance.Tags {
-						if tag.Key == "dedicated" && tag.Value == h.env {
-							checkInstance = true
-							break
+				if err != nil {
+					errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
+					h.Printf(errmsg)
+					mutex.Lock()
+					errmsgs = append(errmsgs, errmsg)
+					mutex.Unlock()
+					break
+				}
+
+				nextToken = instancesResp.NextToken
+				firstTime = false
+
+				for _, reservation := range instancesResp.Reservations {
+					for _, instance := range reservation.Instances {
+						checkInstance := false
+						// Tags is array of Tag. There is no way to check tag by key
+						for _, tag := range instance.Tags {
+							if tag.Key == "dedicated" && tag.Value == h.env {
+								checkInstance = true
+								break
+							}
 						}
-					}
 
-					if !checkInstance {
-						continue
-					}
-
-					info := &host.Info{
-						Provider:       h.DriverName(),
-						ID:             instance.InstanceId,
-						IPAddress:      instance.PublicIpAddress,
-						FreighterdPort: host.DefaultPort,
-						State:          getState(&instance),
-						Region:         region.Name,
-						LaunchTime:     &instance.LaunchTime,
-					}
-
-					// Get EC2 instance name
-					for _, tag := range instance.Tags {
-						if tag.Key == "Name" {
-							info.Name = tag.Value
-							break
+						if !checkInstance {
+							continue
 						}
-					}
 
-					infos = append(infos, info)
+						info := &host.Info{
+							Provider:       h.DriverName(),
+							ID:             instance.InstanceId,
+							IPAddress:      instance.PublicIpAddress,
+							FreighterdPort: host.DefaultPort,
+							State:          getState(&instance),
+							Region:         region.Name,
+							LaunchTime:     &instance.LaunchTime,
+						}
+
+						// Get EC2 instance name
+						for _, tag := range instance.Tags {
+							if tag.Key == "Name" {
+								info.Name = tag.Value
+								break
+							}
+						}
+
+						regionInfos = append(regionInfos, info)
+					}
 				}
 			}
-		}
+			mutex.Lock()
+			infos = append(infos, regionInfos...)
+			mutex.Unlock()
+		}(region)
 	}
+	wg.Wait()
 
 	var err error
 	if len(errmsgs) > 0 {
