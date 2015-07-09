@@ -16,7 +16,7 @@ const (
 
 	Obtain csv with the following command:
 
-	\copy (SELECT id, slug, ip_address, region_identifier FROM hosts WHERE static_ip = true AND state = 'stopped' AND terminated_at is null AND plan_id IN (7, 8, 9)) TO '/tmp/free-detach.csv' CSV HEADER;
+	\copy (SELECT id, slug, ip_address, provider_identifier, region_identifier FROM hosts WHERE static_ip = true AND state = 'stopped' AND terminated_at is null AND plan_id IN (7, 8, 9)) TO '/tmp/free-detach.csv' CSV HEADER;
 
 	We only release EIP of stopped free hosts so that the IP address doesn't change while the host is in use.
 `
@@ -41,7 +41,7 @@ func parseCSV(path string) ([][]string, error) {
 	}
 	defer f.Close()
 	r := csv.NewReader(f)
-	r.FieldsPerRecord = 4
+	r.FieldsPerRecord = 5
 	if _, err := r.Read(); err != nil { // headers
 		return nil, err
 	}
@@ -93,6 +93,10 @@ func release(fields logrus.Fields) (int, error) {
 	if !ok {
 		return 0, fmt.Errorf("region is not a string: %+v", fields)
 	}
+	instanceID, ok := fields["instance_id"].(string)
+	if !ok {
+		return 0, fmt.Errorf("instanceID is not a string: %+v", fields)
+	}
 
 	amap, ok := Addresses[region]
 	if !ok {
@@ -103,6 +107,11 @@ func release(fields logrus.Fields) (int, error) {
 	if !ok {
 		logrus.WithFields(fields).Warnf("Associated address not found")
 		return 0, nil
+	}
+
+	// Sanity check: make sure EIP is associated with the instance the DB says it is
+	if ec2addr.InstanceId != instanceID {
+		return 0, fmt.Errorf("Address associated with different instance: %s", ec2addr.InstanceId)
 	}
 
 	logrus.WithFields(fields).Infof("Disassociating %s from instance %s", ec2addr.AssociationId, ec2addr.InstanceId)
@@ -146,12 +155,13 @@ func main() {
 	actioned := 0 // number of addresses released
 
 	for _, row := range rows {
-		hostID, slug, addr, region := row[0], row[1], row[2], row[3]
+		hostID, slug, addr, instanceID, region := row[0], row[1], row[2], row[3], row[4]
 		fields := logrus.Fields{
-			"host_id": hostID,
-			"slug":    slug,
-			"addr":    addr,
-			"region":  region,
+			"host_id":     hostID,
+			"instance_id": instanceID,
+			"slug":        slug,
+			"addr":        addr,
+			"region":      region,
 		}
 		logrus.WithFields(fields).Info("Processing")
 		if _, ok := Regions[region]; ok {
