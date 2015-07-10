@@ -3,7 +3,6 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
-	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	"github.com/nitrous-io/dedicated/pkg/queue"
@@ -97,17 +95,12 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 				}); err != nil {
 					logrus.Errorf("Unable to terminate host %d: %v", h.ID, err)
 				} else {
-					s.Events.Publish(
-						controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-							"host":  serializers.SerializeHost(h),
-							"error": e.Error(),
-						}),
-						u.Topic(),
-					)
+					s.publishProvisionFailure(u, h, e.Error())
 				}
 
 				return err
 			default:
+				s.publishProvisionFailure(u, h, err.Error())
 				return err
 			}
 		}
@@ -148,13 +141,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", m.UUID, err, h)
 			return err
 		}
-		s.Events.Publish(
-			controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-				"host":  serializers.SerializeHost(h),
-				"error": queueInfo.Message,
-			}),
-			u.Topic(),
-		)
+		s.publishProvisionFailure(u, h, queueInfo.Message)
 	default:
 		logrus.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
@@ -211,14 +198,13 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
 
 	if err := s.createSharedVolume(uuid, u, h); err != nil {
-		s.publishProvisionFailure(u, h, err)
 		return err
 	}
 
 	if err := s.recordTransition(u, h); err != nil {
-		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
-		s.publishProvisionFailure(u, h, err)
+		return err
 	}
+
 	return nil
 }
 
@@ -238,17 +224,11 @@ func (s *Server) recordTransition(u *user.User, h *host.Host) error {
 	return tx.Commit()
 }
 
-func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, err error) {
-	if e, ok := err.(*provisioner.HostbuilderError); ok {
-		logrus.Errorf("hostbuilder error provisioning host: %v", e)
-		// Change error into something we can display to end users.
-		err = errors.New("failed to create workspace")
-	}
-
+func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, message string) {
 	s.Events.Publish(
 		controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
 			"host":  serializers.SerializeHost(h),
-			"error": err.Error(),
+			"error": message,
 		}),
 		u.Topic(),
 	)
@@ -276,6 +256,7 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 	retryCnt := 5
 	for retryCnt >= 0 {
 		if _, err := cl.CreateVolume(vol.Slug); err != nil {
+			// Only retry when it is connection error
 			if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
 				retryCnt--
 				time.Sleep(500 * time.Millisecond)
@@ -302,19 +283,7 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 		}
 	}
 
-	return fmt.Errorf("uuid=%s failed to connect to fregither", uuid)
-}
-
-func (s *Server) updateHostDetails(h *host.Host) error {
-	nstmt, err := s.db.PrepareNamed(`UPDATE hosts
-		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
-		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
-		WHERE id = :id
-		RETURNING *;`)
-	if err != nil {
-		return err
-	}
-	return nstmt.QueryRowx(h).StructScan(h)
+	return fmt.Errorf("uuid=%s failed to connect to fregither to create shared volume", uuid)
 }
 
 func (s *Server) handleStopMessage(m *queue.Message) error {
