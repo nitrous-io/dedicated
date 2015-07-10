@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
@@ -208,7 +210,6 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	}
 	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
 
-	// Post Provisioing from hosts
 	if err := s.createSharedVolume(uuid, u, h); err != nil {
 		s.publishProvisionFailure(u, h, err)
 		return err
@@ -270,24 +271,38 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 		return err
 	}
 
-	if _, err := cl.CreateVolume(vol.Slug); err != nil {
-		if e := vol.Delete(s.db); e != nil {
-			logrus.Errorf("uuid=%s Unable to delete volume %d that failed on freighter: %v", uuid, vol.ID, e)
+	// Freighter could be unavailable due to restarting or temporal network issue.
+	// To solve it, it retries 5 times until we get a connection to it
+	retryCnt := 5
+	for retryCnt >= 0 {
+		if _, err := cl.CreateVolume(vol.Slug); err != nil {
+			if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
+				retryCnt--
+				time.Sleep(500 * time.Millisecond)
+				logrus.Infof("uuid=%s retrying to connect to freighter to create a volume", uuid)
+				continue
+			}
+
+			if e := vol.Delete(s.db); e != nil {
+				logrus.Errorf("uuid=%s Unable to delete volume %d that failed on freighter: %v", uuid, vol.ID, e)
+			}
+			if e, ok := err.(*freighterclient.InvalidParamError); ok {
+				return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
+			}
+
+			return err
+		} else {
+			s.Events.Publish(
+				controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
+					"volume": serializers.SerializeVolume(vol),
+				}),
+				u.Topic(),
+			)
+			return nil
 		}
-		if e, ok := err.(*freighterclient.InvalidParamError); ok {
-			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-		}
-		return err
 	}
 
-	s.Events.Publish(
-		controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
-			"volume": serializers.SerializeVolume(vol),
-		}),
-		u.Topic(),
-	)
-
-	return nil
+	return fmt.Errorf("uuid=%s failed to connect to fregither", uuid)
 }
 
 func (s *Server) updateHostDetails(h *host.Host) error {
