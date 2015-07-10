@@ -17,4 +17,5 @@ type QueryReceiver interface {
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
 	Select(dest interface{}, query string, args ...interface{}) error
 	Get(dest interface{}, query string, args ...interface{}) error
+	Rebind(query string) string
 }

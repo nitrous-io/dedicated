@@ -8,6 +8,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -49,13 +50,26 @@ func Shared(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// to fetch for serialization purposes
 	hostMap := make(map[int64]*HostWithUser)
 	hostsOnly := make([]*host.Host, len(hosts))
+	var hostIDs []int64
 	for i, _ := range hosts {
 		hostsOnly[i] = &(hosts[i].Host)
 		hostMap[hosts[i].ID] = hosts[i]
+		hostIDs = append(hostIDs, hosts[i].ID)
+	}
+
+	// Get certs at once from hosts
+	certHostMap := make(map[int64]*cert.Cert)
+	certs, err := cert.FindAllByHostIDs(db, hostIDs)
+	if err != nil {
+		return err
+	}
+
+	for _, crt := range certs {
+		certHostMap[crt.HostID] = crt
 	}
 
 	env.Data = map[string]interface{}{}
-	serContainers := listContainers(env, w, r, hostsOnly, containerHostMap, true)
+	serContainers := listContainers(env, w, r, hostsOnly, containerHostMap, certHostMap, true)
 
 	// extended the initial serialized container with partial host information
 	serContainerUsers := make([]*serializers.SharedContainer, len(serContainers))

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -23,9 +24,16 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("models/cert", func() {
+	var db *db.Database
+
+	BeforeEach(func() {
+		var err error
+		db, err = TestDatabase("nitrous_test")
+		Expect(err).To(BeNil())
+	})
+
 	Describe(".Insert", func() {
 		It("creates certificates for a host", func() {
-			db, _ := TestDatabase("nitrous_test")
 			cert1 := mkcert()
 
 			tx, _ := db.Beginx()
@@ -42,9 +50,28 @@ var _ = Describe("models/cert", func() {
 
 	Describe(".Find", func() {
 		It("fails to get non-existing cert", func() {
-			db, _ := TestDatabase("nitrous_test")
 			_, err := cert.Find(db, 1)
 			Expect(err).NotTo(BeNil(), "should fail to find invalid cert")
+		})
+	})
+
+	Describe(".FindAllByHostIDs", func() {
+		It("fails to get non-existing cert", func() {
+			cert1 := mkcert()
+			cert2 := mkcert()
+
+			tx, _ := db.Beginx()
+			err := cert1.Insert(tx, 1)
+			Expect(err).To(BeNil())
+			err = cert2.Insert(tx, 2)
+			Expect(err).To(BeNil())
+			tx.Commit()
+
+			hostIDs := []int64{1, 2}
+			certs, err := cert.FindAllByHostIDs(db, hostIDs)
+			Expect(err).To(BeNil())
+			Expect(cert1).To(Equal(certs[0]))
+			Expect(cert2).To(Equal(certs[1]))
 		})
 	})
 

@@ -139,8 +139,8 @@
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
-			"Comment": "sqlx-v1.0-67-g69738bd",
-			"Rev": "69738bd209812c5a381786011aff17944a384554"
+			"Comment": "sqlx-v1.1-18-g56b62f2",
+			"Rev": "56b62f29e9936b8fc0db14ed01297f88ba518333"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",

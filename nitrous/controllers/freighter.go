@@ -63,3 +63,32 @@ var NewFreighterClient = func(db db.QueryReceiver, h *host.Host, uuid string) (*
 		Cert:   crt,
 	}, nil
 }
+
+// NewFreighterClientWithCert returns a client that is able to communicate with a
+// freighter server using HTTPS
+var NewFreighterClientWithCert = func(crt *cert.Cert, h *host.Host, uuid string) (*FreighterClient, error) {
+	if h.IPAddress.String == "" {
+		return nil, ErrHostIPUnknown
+	}
+	if h.State != host.StateRunning {
+		return nil, ErrHostNotRunning
+	}
+	caInfo, err := certauth.NewCAInfo(envvars.CACertPath, "")
+	if err != nil {
+		return nil, err
+	}
+	hst := fc.NewHost(
+		h.IPAddress.String,
+		int(h.FreighterdPort.Int64),
+		h.Hostname(),
+		caInfo.CertPEM,
+	)
+	cl, err := fc.NewClient(hst, h.Secret, uuid)
+	if err != nil {
+		return nil, err
+	}
+	return &FreighterClient{
+		Client: cl,
+		Cert:   crt,
+	}, nil
+}
