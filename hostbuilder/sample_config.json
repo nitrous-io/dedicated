@@ -22,6 +22,8 @@
       "docker_location": "/usr/bin/docker"
     }
   },
+  "queue_type": "rabbitmq",
+  "rabbitmq_addr": "amqp://localhost:5672",
   "redis": {
     "host": "localhost",
     "port": "6379",

@@ -138,6 +138,9 @@ type config struct {
 	// start the server in debug mode
 	Debug bool `json:"debug"`
 
+	QueueType    string `json:"queue_type"`
+	RabbitMQAddr string `json:"rabbitmq_addr"`
+
 	// redis setting
 	RedisConfig RedisConfig `json:"redis"`
 
@@ -640,6 +643,14 @@ func pingHost(info *host.Info, w io.Writer) error {
 }
 
 func (s *Server) initQueue() error {
+	if s.Config.QueueType == "rabbitmq" {
+		qp, err := queue.NewAmqpQueue(s.Config.RabbitMQAddr, "v1.host")
+		if err != nil {
+			return err
+		}
+		s.Queue = qp
+		return nil
+	}
 	rc := s.Config.RedisConfig
 	if rc.Host == "" || rc.Port == "" {
 		return fmt.Errorf("Redis config is not valid: %+v", rc)
