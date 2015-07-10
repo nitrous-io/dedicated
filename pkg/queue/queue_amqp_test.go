@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -127,16 +126,11 @@ var _ = Describe("pkg/queue/amqp", func() {
 	var qp queue.Publisher
 
 	BeforeEach(func() {
-		output, err := exec.Command("service", "rabbitmq-server", "start").CombinedOutput()
-		Expect(err).To(BeNil(), "failed to start rabbitmq %s", string(output))
-		if !strings.Contains(string(output), "already running") {
-			time.Sleep(100 * time.Millisecond)
-		}
-
+		var err error
 		// reset rabbitmq state
-		Expect(exec.Command("rabbitmqctl", "stop_app").Run()).To(BeNil())
-		Expect(exec.Command("rabbitmqctl", "reset").Run()).To(BeNil())
-		Expect(exec.Command("rabbitmqctl", "start_app").Run()).To(BeNil())
+		//Expect(exec.Command("rabbitmqadmin", "-f", "tsv", "-q", "list", "queues", "name", "|", "while", "read", "queue;", "do", "rabbitmqadmin", "-q", "delete", "queue", "name=${queue};", "done").Run()).To(BeNil())
+		exec.Command("rabbitmqadmin", "delete", "queue", "name=test").Run()
+		exec.Command("rabbitmqadmin", "delete", "queue", "name=test-dlq").Run()
 
 		qp, err = queue.NewAmqpQueue(test.RabbitMQAddr, "test")
 		Expect(err).To(BeNil())

@@ -53,16 +53,36 @@ func RunWhileRestartingRabbitMq(fn func()) error {
 
 func runWhileRestartService(service string, checkFn func() error, fn func()) error {
 	// stop redis before publish and then restart when it's retrying
-	output, err := exec.Command("service", service, "stop").CombinedOutput()
+	var err error
+	var output []byte
+
+	switch service {
+	case "rabbitmq-server":
+		output, err = exec.Command("rabbitmqctl", "stop_app").CombinedOutput()
+	case "redis_6379":
+		output, err = exec.Command("service", "redis_6379", "stop").CombinedOutput()
+	default:
+		return fmt.Errorf("Expected service: %s", service)
+	}
+
 	if err != nil {
 		logrus.Println("failed to stop", service, string(output))
 		return err
 	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		exec.Command("service", service, "start").Run()
+		switch service {
+		case "rabbitmq-server":
+			exec.Command("rabbitmqctl", "start_app").Run()
+		case "redis_6379":
+			exec.Command("service", service, "start").Run()
+		default:
+			return
+		}
+
 		for i := 0; i < 5; i++ {
 			if err := checkFn(); err != nil {
 				logrus.Printf("failed to connect to %s: %+v", service, err)
