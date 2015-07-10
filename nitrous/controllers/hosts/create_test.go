@@ -28,7 +28,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -443,43 +442,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(config["freighterd_version"]).To(Equal(hosts[0].FreighterdVersion))
 		})
 
-		It("creates a shared volume and publishes a volume created event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			doRequest(params)
-
-			hosts, err := host.FindAllByUser(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-			vol, err := volume.Find(db, hosts[0].ID, "shared")
-			Expect(err).To(BeNil())
-			Expect(vol).NotTo(BeNil())
-			Expect(vol.System).To(BeTrue())
-
-			evtCh := make(chan *controllers.Event)
-			go func() {
-				var evt *controllers.Event
-				for msg := range ch { // Ignore events we don't care about.
-					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventVolumeCreated {
-						evtCh <- evt
-						break
-					}
-				}
-			}()
-
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timeout while getting shared volume created event")
-			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventVolumeCreated))
-				evtData, ok := evt.Data.(map[string]*serializers.Volume)
-				Expect(ok).To(BeTrue())
-				Expect(evtData["volume"]).To(Equal(serializers.SerializeVolume(vol)))
-			}
-		})
-
 		It("responds with the progress data and created host", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -531,7 +493,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			msgs := []pubsub.Message{}
 			finished := make(chan struct{})
 			go func() {
-				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch, <-ch)
+				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch)
 				close(finished)
 			}()
 
@@ -560,9 +522,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						)},
 				}), "unexpected event, wanted EventHostCreating")
 
-				// msg 3 will be a shared volume event
-
-				Expect(msgs[4]).To(Equal(&controllers.Event{
+				Expect(msgs[3]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: map[string]*serializers.Host{
 						"host": serializers.SerializeHost(h),
@@ -757,7 +717,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
 				go func() {
-					msgs = append(msgs, <-ch, <-ch, <-ch)
+					msgs = append(msgs, <-ch, <-ch)
 					close(finished)
 				}()
 
@@ -779,9 +739,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						},
 					}), "unexpected event, wanted EventHostCreating")
 
-					// msg 1 is a shared volume event
-
-					Expect(msgs[2]).To(Equal(&controllers.Event{
+					Expect(msgs[1]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreated,
 						Data: map[string]*serializers.Host{
 							"host": serializers.SerializeHost(h),

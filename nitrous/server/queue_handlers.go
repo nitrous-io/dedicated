@@ -209,12 +209,11 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
 
 	// Post Provisioing from hosts
-	/*
-		if err := s.createSharedVolume(uuid, u, h); err != nil {
-			s.publishProvisionFailure(u, h, err)
-			return err
-		}
-	*/
+	if err := s.createSharedVolume(uuid, u, h); err != nil {
+		s.publishProvisionFailure(u, h, err)
+		return err
+	}
+
 	if err := s.recordTransition(u, h); err != nil {
 		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
 		s.publishProvisionFailure(u, h, err)
