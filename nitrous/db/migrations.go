@@ -1376,5 +1376,11 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 1800 NOT NULL;
 			`,
 		},
+		{
+			Version: "1324",
+			Up: `
+				ALTER TABLE hosts ALTER COLUMN idle_timeout SET DEFAULT 900;
+			`,
+		},
 	}
 }
