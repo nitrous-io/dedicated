@@ -16,6 +16,10 @@ import (
 // will be injected with the build process
 var version string
 
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
+}
+
 func main() {
 	flVersion := flag.Bool("v", false, "current version")
 	flConfigPath := flag.String("c", "config.json", "config path")
