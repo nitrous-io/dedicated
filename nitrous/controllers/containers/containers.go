@@ -155,12 +155,12 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 	for _, h := range hosts {
 		wg.Add(1)
 		go func(h *host.Host) {
+			defer wg.Done()
 			crt, ok := certHostMap[h.ID]
 			if !ok {
 				errorMessagesMu.Lock()
 				errorMessages = append(errorMessages, fmt.Sprintf("Unable to get cert for %s", h.Slug))
 				errorMessagesMu.Unlock()
-				wg.Done()
 				return
 			}
 
@@ -192,7 +192,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 						errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for host %s", h.Slug))
 					}
 					errorMessagesMu.Unlock()
-					wg.Done()
 					return
 				}
 			}
@@ -219,7 +218,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				containersResp = append(containersResp, serializers.SerializeContainer(cn))
 				containersRespMu.Unlock()
 			}
-			wg.Done()
 		}(h)
 	}
 	wg.Wait()
