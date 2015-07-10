@@ -1,10 +1,8 @@
 package cert
 
 import (
-	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
-	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -53,9 +51,13 @@ func Find(db db.QueryReceiver, hostID int64) (*Cert, error) {
 func FindAllByHostIDs(db db.QueryReceiver, hostIDs []int64) ([]*Cert, error) {
 	crts := []*Cert{}
 
-	concattedIDs := concatIDs(hostIDs)
-	q := fmt.Sprintf("SELECT * FROM certs WHERE host_id IN (%s) AND terminated_at IS NULL", concattedIDs)
-	err := db.Select(&crts, q)
+	q, args, err := sqlx.In("SELECT * FROM certs WHERE host_id IN(?) AND terminated_at IS NULL;", hostIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	q = db.Rebind(q)
+	err = db.Select(&crts, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -85,19 +87,4 @@ func Generate(hostname string,
 		ServerCert: string(srvCrt),
 		ServerKey:  string(srvKey),
 	}, nil
-}
-
-func concatIDs(ids []int64) string {
-	var idsBuf bytes.Buffer
-	sizeOfIDs := len(ids)
-
-	for index, id := range ids {
-		if index < sizeOfIDs-1 {
-			idsBuf.WriteString(fmt.Sprintf("'%d',", id))
-		} else {
-			idsBuf.WriteString(fmt.Sprintf("'%d'", id))
-		}
-	}
-
-	return idsBuf.String()
 }

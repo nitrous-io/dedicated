@@ -1,7 +1,6 @@
 package container
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -148,10 +148,14 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 
 func FindAllByHostIDs(d db.QueryReceiver, hostIDs []int64) ([]*Container, error) {
 	containers := []*Container{}
-	concattedIDs := concatIDs(hostIDs)
 
-	sql := fmt.Sprintf("SELECT * FROM containers WHERE host_id IN (%s) AND terminated_at IS NULL;", concattedIDs)
-	err := d.Select(&containers, sql)
+	sql, args, err := sqlx.In("SELECT * FROM containers WHERE host_id IN (?) AND terminated_at IS NULL;", hostIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	sql = d.Rebind(sql)
+	err = d.Select(&containers, sql, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -297,19 +301,4 @@ func (c *Container) Unlock(d db.QueryReceiver) error {
 
 func (c *Container) PreviewHostname() string {
 	return fmt.Sprintf("%s.%s", c.Slug, envvars.PreviewHostname)
-}
-
-func concatIDs(ids []int64) string {
-	var idsBuf bytes.Buffer
-	sizeOfIDs := len(ids)
-
-	for index, id := range ids {
-		if index < sizeOfIDs-1 {
-			idsBuf.WriteString(fmt.Sprintf("'%d',", id))
-		} else {
-			idsBuf.WriteString(fmt.Sprintf("'%d'", id))
-		}
-	}
-
-	return idsBuf.String()
 }
