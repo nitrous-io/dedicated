@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/aws"
@@ -81,53 +82,58 @@ func populateAddresses() error {
 }
 
 // cribbed from hostbuilder/host/amazon/elasticip.go#releaseAddress
-// returns (int, error); 0 if not released, 1 if released
+// returns host id if released, otherwise empty string
 // absence of error does not imply one EIP released -- for example
 // if the address was not found, we just give a warning
-func release(fields logrus.Fields) (int, error) {
+func release(fields logrus.Fields) (string, error) {
+	hostID, ok := fields["host_id"].(string)
+	if !ok {
+		return "", fmt.Errorf("host_id is not a string: %+v", fields)
+	}
+
 	addr, ok := fields["addr"].(string)
 	if !ok {
-		return 0, fmt.Errorf("addr is not a string: %+v", fields)
+		return "", fmt.Errorf("addr is not a string: %+v", fields)
 	}
 	region, ok := fields["region"].(string)
 	if !ok {
-		return 0, fmt.Errorf("region is not a string: %+v", fields)
+		return "", fmt.Errorf("region is not a string: %+v", fields)
 	}
 	instanceID, ok := fields["instance_id"].(string)
 	if !ok {
-		return 0, fmt.Errorf("instanceID is not a string: %+v", fields)
+		return "", fmt.Errorf("instanceID is not a string: %+v", fields)
 	}
 
 	amap, ok := Addresses[region]
 	if !ok {
-		return 0, fmt.Errorf("region not in address map: %s", region)
+		return "", fmt.Errorf("region not in address map: %s", region)
 	}
 
 	ec2addr, ok := amap[addr]
 	if !ok {
 		logrus.WithFields(fields).Warnf("Associated address not found")
-		return 0, nil
+		return hostID, nil
 	}
 
 	// Sanity check: make sure EIP is associated with the instance the DB says it is
 	if ec2addr.InstanceId != instanceID {
-		return 0, fmt.Errorf("Address associated with different instance: %s", ec2addr.InstanceId)
+		return "", fmt.Errorf("Address associated with different instance: %s", ec2addr.InstanceId)
 	}
 
 	logrus.WithFields(fields).Infof("Disassociating %s from instance %s", ec2addr.AssociationId, ec2addr.InstanceId)
 	if !dryrun {
 		if _, err := Regions[region].DisassociateAddress(ec2addr.AssociationId); err != nil {
-			return 0, err
+			return "", err
 		}
 	}
 
 	logrus.WithFields(fields).Infof("Releasing %s", ec2addr.AllocationId)
 	if !dryrun {
 		if _, err := Regions[region].ReleaseAddress(ec2addr.AllocationId); err != nil {
-			return 0, err
+			return "", err
 		}
 	}
-	return 1, nil
+	return hostID, nil
 }
 
 func main() {
@@ -152,7 +158,7 @@ func main() {
 		logrus.Fatalf("Error populating addresses: %s", err)
 	}
 
-	actioned := 0 // number of addresses released
+	actioned := []string{} // host IDs released
 
 	for _, row := range rows {
 		hostID, slug, addr, instanceID, region := row[0], row[1], row[2], row[3], row[4]
@@ -165,17 +171,16 @@ func main() {
 		}
 		logrus.WithFields(fields).Info("Processing")
 		if _, ok := Regions[region]; ok {
-			count, err := release(fields)
-			actioned += count
+			hid, err := release(fields)
 			if err != nil {
-				// TODO: after happy with code, change to continue looping upon
-				// error; i.e. Errorf instead of Fatalf
-				logrus.WithFields(fields).Fatalf("Error releasing: %v", err)
+				logrus.WithFields(fields).Errorf("Error releasing: %v", err)
 				continue
 			}
+			actioned = append(actioned, hid)
 		} else {
 			logrus.Warnf("Region %s not found", region)
 		}
 	}
-	logrus.Infof("%d addresses released out of %d", actioned, len(rows))
+	logrus.Infof("%d addresses released out of %d", len(actioned), len(rows))
+	logrus.Infof("Host ids: %s", strings.Join(actioned, ", "))
 }
