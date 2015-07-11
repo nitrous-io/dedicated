@@ -29,6 +29,8 @@ import (
 	stripesub "github.com/stripe/stripe-go/sub"
 )
 
+const minTimeBeforeFinalAttempt = (5 * 24) * time.Hour
+
 type Provider interface {
 	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
@@ -642,6 +644,9 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 
 		// update state of BillingProfile
 		final = sInv.NextAttempt == 0
+		if final && time.Now().Sub(*inv.CreatedAt) <= minTimeBeforeFinalAttempt {
+			return fmt.Errorf("Received an invoice failed event with next_attempt=0 for invoice ID %d which is < %v old", inv.ID, minTimeBeforeFinalAttempt)
+		}
 		if final {
 			bp.State = billingprofile.StateDelinquent
 		} else {
