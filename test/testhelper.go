@@ -51,6 +51,11 @@ func RunWhileRestartingRabbitMq(fn func()) error {
 	}, fn)
 }
 
+func RestartRabbitMq() {
+	exec.Command("rabbitmqctl", "stop_app").Run()
+	exec.Command("rabbitmqctl", "start_app").Run()
+}
+
 func runWhileRestartService(service string, checkFn func() error, fn func()) error {
 	// stop redis before publish and then restart when it's retrying
 	var err error

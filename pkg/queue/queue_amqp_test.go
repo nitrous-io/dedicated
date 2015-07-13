@@ -2,6 +2,7 @@ package queue_test
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -331,8 +332,15 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(consumer.Start()).To(BeNil())
 			defer consumer.Process.Kill()
 
-			Expect(exec.Command("rabbitmqctl", "stop_app").Run()).To(BeNil())
-			Expect(exec.Command("rabbitmqctl", "start_app").Run()).To(BeNil())
+			test.RestartRabbitMq()
+			//Wait until server is up
+			for i := 0; i < 5; i++ {
+				if _, err := net.Dial("tcp", fmt.Sprintf("%s:%s", "localhost", "5672")); err != nil {
+					time.Sleep(10 * time.Millisecond)
+				} else {
+					break
+				}
+			}
 
 			err := qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
