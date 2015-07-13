@@ -186,7 +186,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
   disableNewContainer: (->
-    return false if @get('hosts.length') == 0
+    return false if !@get('hosts') || @get('hosts.length') == 0
 
     @get('hosts').every (host)->
       host.get('state') != 'running'
