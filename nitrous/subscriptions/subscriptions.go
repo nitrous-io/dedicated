@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/coupon"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
@@ -122,10 +123,17 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			planID = planID + "-exempt"
 		}
 
-		strSub, err = stripesub.New(&stripe.SubParams{
+		params := &stripe.SubParams{
 			Customer: bp.StripeID.String,
 			Plan:     planID,
-		})
+		}
+
+		cp, err := coupon.Find(tx, u.ID)
+		if err == nil {
+			params.Coupon = cp.Code
+		}
+
+		strSub, err = stripesub.New(params)
 		if err != nil {
 			logrus.Errorf("Failed to create Stripe subscription: %+v, err: %+v", strSub, err)
 			strSub = nil
@@ -139,6 +147,13 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			}
 
 			return err
+		}
+
+		// If we used a coupon, mark it as used.
+		if cp != nil {
+			if err := cp.MarkAsUsed(tx); err != nil {
+				return err
+			}
 		}
 
 		sub.State = string(strSub.Status)
