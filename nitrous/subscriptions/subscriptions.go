@@ -132,7 +132,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		if !p.IsFree() {
 			cp, err = coupon.Find(tx, u.ID)
 			if err == nil {
-				params.Coupon = cp.Code
+				params.Coupon = cp.CodeForStripe()
 			}
 		}
 

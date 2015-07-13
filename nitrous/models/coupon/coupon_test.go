@@ -2,6 +2,7 @@ package coupon_test
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -135,6 +136,27 @@ var _ = Describe("models/coupon", func() {
 			Expect(err).To(BeNil())
 			Expect(cp.UsedAt.Valid).To(BeTrue())
 			Expect(cp.UsedAt.Time).ToNot(BeZero())
+		})
+	})
+
+	Describe("CodeForStripe()", func() {
+		It("returns Lite migration coupon if it matches rule", func() {
+			for prefix, stripeCode := range coupon.Mappings {
+				cp := &coupon.Coupon{Code: fmt.Sprintf("%s.someuser.25ad", prefix)}
+				Expect(cp.CodeForStripe()).To(Equal(stripeCode))
+			}
+		})
+
+		It("returns coupon code if it does not match rule", func() {
+			for prefix, _ := range coupon.Mappings {
+				cp := &coupon.Coupon{Code: fmt.Sprintf("%s.someuser.notcorrect", prefix)}
+				Expect(cp.CodeForStripe()).To(Equal(cp.Code))
+			}
+		})
+
+		It("returns coupon code if doesn't match mapping", func() {
+			cp := &coupon.Coupon{Code: "test"}
+			Expect(cp.CodeForStripe()).To(Equal(cp.Code))
 		})
 	})
 })
