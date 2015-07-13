@@ -11,7 +11,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -27,7 +26,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	"github.com/nitrous-io/dedicated/pkg/queue"
-	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
 )
 
 type SubscriptionCreateError struct {
@@ -149,6 +147,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 }
 
 func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo *hh.Info) error {
+	db := s.db
 	logrus.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
@@ -159,7 +158,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
 	h.State = host.StateRunning
 
-	nstmt, err := s.db.PrepareNamed(`UPDATE hosts
+	nstmt, err := db.PrepareNamed(`UPDATE hosts
 		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
 		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
 		WHERE id = :id
@@ -173,13 +172,13 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		return err
 	}
 
-	p, err := plan.FindByID(s.db, h.PlanID)
+	p, err := plan.FindByID(db, h.PlanID)
 	if err != nil {
 		logrus.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
 	if p.IsSubscription() {
-		_, err := s.SubscriptionProvider.Subscribe(s.db, h, p, u)
+		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u)
 		if err != nil {
 			logrus.Errorf("uuid=%s queueProvisionTracer: Subscribe err: %+v h: %+v", uuid, err, h)
 			if err == subscriptions.ErrCardExpired || err == subscriptions.ErrCardDeclined {
@@ -189,7 +188,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		}
 	}
 
-	_, err = s.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
+	_, err = db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
 		p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
 	if err != nil {
 		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", uuid, err, h)
@@ -213,25 +212,17 @@ func (s *Server) recordTransition(u *user.User, h *host.Host) error {
 	if timing == nil {
 		timing = h.CreatedAt
 	}
+
 	tx, err := s.db.Beginx()
 	if err != nil {
 		return err
 	}
+
 	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
 		tx.Rollback()
 		return err
 	}
 	return tx.Commit()
-}
-
-func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, message string) {
-	s.Events.Publish(
-		controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-			"host":  serializers.SerializeHost(h),
-			"error": message,
-		}),
-		u.Topic(),
-	)
 }
 
 func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) error {
@@ -247,7 +238,12 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 		System: true,
 	}
 
-	if err := vol.Insert(s.db); err != nil {
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	if err := vol.Insert(tx); err != nil {
 		return err
 	}
 
@@ -264,13 +260,7 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 				continue
 			}
 
-			if e := vol.Delete(s.db); e != nil {
-				logrus.Errorf("uuid=%s Unable to delete volume %d that failed on freighter: %v", uuid, vol.ID, e)
-			}
-			if e, ok := err.(*freighterclient.InvalidParamError); ok {
-				return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-			}
-
+			tx.Rollback()
 			return err
 		} else {
 			s.Events.Publish(
@@ -279,11 +269,21 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 				}),
 				u.Topic(),
 			)
-			return nil
+			return tx.Commit()
 		}
 	}
 
-	return fmt.Errorf("uuid=%s failed to connect to fregither to create shared volume", uuid)
+	return fmt.Errorf("failed to connect to fregither to create shared volume")
+}
+
+func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, message string) {
+	s.Events.Publish(
+		controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+			"host":  serializers.SerializeHost(h),
+			"error": message,
+		}),
+		u.Topic(),
+	)
 }
 
 func (s *Server) handleStopMessage(m *queue.Message) error {
