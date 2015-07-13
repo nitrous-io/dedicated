@@ -408,6 +408,43 @@ var _ = Describe("subscriptions", func() {
 			Expect(cp2.UsedAt.Valid).To(BeTrue())
 			Expect(cp2.UsedAt.Time).ToNot(BeZero())
 		})
+
+		It("does not send coupon to Stripe for free plans", func() {
+			pl.Price = 0
+
+			cp := &coupon.Coupon{
+				UserID: u.ID,
+				Code:   "test-code",
+			}
+			Expect(cp.Insert(db)).To(BeNil())
+
+			fakeStripe.Responses = []string{
+				`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+			}
+
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
+			Expect(err).To(BeNil())
+			Expect(s).ToNot(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r := fakeStripe.ReceivedRequests[0]
+			Expect(r["method"]).To(Equal("POST"))
+			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+			_, ok := r["coupon"]
+			Expect(ok).To(BeFalse())
+
+			// Coupon should be unused.
+			cp2, err := coupon.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(cp2.UsedAt.Valid).To(BeFalse())
+			Expect(cp2.UsedAt.Time).To(BeZero())
+		})
 	})
 
 	Describe("Cancel()", func() {

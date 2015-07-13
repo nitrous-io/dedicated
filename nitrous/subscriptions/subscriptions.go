@@ -128,9 +128,12 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
-		cp, err := coupon.Find(tx, u.ID)
-		if err == nil {
-			params.Coupon = cp.Code
+		var cp *coupon.Coupon
+		if !p.IsFree() {
+			cp, err = coupon.Find(tx, u.ID)
+			if err == nil {
+				params.Coupon = cp.Code
+			}
 		}
 
 		strSub, err = stripesub.New(params)
