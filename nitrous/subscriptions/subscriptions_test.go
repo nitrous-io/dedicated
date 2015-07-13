@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -467,7 +468,8 @@ var _ = Describe("subscriptions", func() {
 					"id": "abc1",
 					"status": "active",
 					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
+					"current_period_end": 1437010419,
+					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
 
@@ -622,6 +624,45 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
 		})
+
+		It("should update the subscription's host with new plan details", func() {
+			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1,  plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			pl2 := &plan.Plan{
+				Slug:          "newStripePlan",
+				Name:          "newStripePlan",
+				MaxContainers: 19,
+				AutoShutdown:  false,
+				Price:         1499,
+				StripePlanID:  sql.NullString{"newPlan", true},
+			}
+			Expect(pl2.Insert(db)).To(BeNil())
+
+			pt2 := &providertemplate.ProviderTemplate{
+				Name:     "newPlan",
+				Disabled: false,
+				PlanID:   pl2.ID,
+				RegionID: hs.PT.RegionID,
+				Provider: hs.PT.Provider,
+			}
+			Expect(pt2.Insert(db)).To(BeNil())
+
+			err = subProvider.Upgrade(db, sub, pl2, u)
+			Expect(err).To(BeNil())
+
+			s, err := findByID(db, sub.ID)
+			Expect(err).To(BeNil())
+			Expect(s.PlanID).To(Equal(pl2.ID))
+
+			h, err := host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+			Expect(h.PlanID).To(Equal(pl2.ID))
+			Expect(h.MaxContainers.Int64).To(Equal(int64(19)))
+			Expect(h.AutoShutdown).To(BeFalse())
+			Expect(h.Size.String).To(Equal("newStripePlan"))
+			Expect(h.Free).To(BeFalse())
+		})
 	})
 
 	Describe("HandleSubscriptionUpdated()", func() {
@@ -669,7 +710,8 @@ var _ = Describe("subscriptions", func() {
 					"id": "abc1",
 					"status": "updating",
 					"current_period_start": 1434418422,
-					"current_period_end": 1437010429
+					"current_period_end": 1437010429,
+					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
 
@@ -695,7 +737,8 @@ var _ = Describe("subscriptions", func() {
 					"id": "abc1",
 					"status": "updating",
 					"current_period_start": null,
-					"current_period_end": null
+					"current_period_end": null,
+					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
 
@@ -722,7 +765,8 @@ var _ = Describe("subscriptions", func() {
 					"status": "active",
 					"current_period_start": 1434418419,
 					"current_period_end": 1437010419,
-					"canceled_at": 1437010422
+					"canceled_at": 1437010422,
+					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
 

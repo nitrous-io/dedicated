@@ -19,6 +19,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -251,7 +253,76 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 	sub.CurrentPeriodStart = pq.NullTime{time.Unix(stripeSub.PeriodStart, 0), true}
 	sub.CurrentPeriodEnd = pq.NullTime{time.Unix(stripeSub.PeriodEnd, 0), true}
 
-	return sub.Update(d)
+	if err := sub.Update(d); err != nil {
+		return err
+	}
+
+	if err := s.upgradeHosts(d, sub); err != nil {
+		logrus.Errorf("Error upgrading hosts for subscription %d, err: %v", sub.ID, err)
+	}
+
+	return nil
+}
+
+func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Subscription) error {
+	hosts := []*host.Host{}
+	err := d.Select(&hosts, `SELECT
+		hosts.*, pt.provider, pt.config
+    FROM hosts
+    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+    WHERE subscription_id = $1 AND terminated_at IS NULL;`, sub.ID)
+	if err != nil {
+		return err
+	}
+
+	if len(hosts) == 0 {
+		return nil
+	}
+
+	newPlan, err := plan.FindByID(d, sub.PlanID)
+	if err != nil {
+		return err
+	}
+
+	for _, h := range hosts {
+		_, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
+				continue
+			}
+			logrus.Errorf("upgradeHosts host=%d: Error locating new provider template for region %d / plan %d / provider %s, err: %v", h.ID, h.RegionID, newPlan.ID, h.Provider, err)
+			continue
+		}
+		err = d.WithTransaction(func(tx *sqlx.Tx) error {
+			h.PlanID = newPlan.ID
+			h.Size = sql.NullString{Valid: true, String: newPlan.Slug}
+			h.Free = newPlan.IsFree()
+			h.AutoShutdown = newPlan.AutoShutdown
+			h.MaxContainers = sql.NullInt64{Valid: true, Int64: newPlan.MaxContainers}
+
+			nstmt, err := tx.PrepareNamed(`UPDATE hosts
+				SET (plan_id, size, free, max_containers, upgraded_at, auto_shutdown)
+				= (:plan_id, :size, :free, :max_containers, now(), :auto_shutdown)
+				WHERE id = :id
+				RETURNING *;`)
+			if err != nil {
+				return err
+			}
+			if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			logrus.Errorf("upgradeHosts host=%d: Error completing plan change, err: %v", h.ID, err)
+			continue
+		}
+	}
+
+	return nil
 }
 
 func creditStripeInvoice(tx *sqlx.Tx, bp *billingprofile.BillingProfile, amount, subID int64, stripePlanID string, inv *invoice.Invoice) (*stripe.InvoiceItem, error) {
