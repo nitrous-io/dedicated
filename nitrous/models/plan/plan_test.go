@@ -143,6 +143,33 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
+	Describe("FindByStripePlanID()", func() {
+		var id int64
+
+		BeforeEach(func() {
+			err := db.QueryRow(`SELECT id FROM plans WHERE slug = $1;`, "1gb").Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+		})
+
+		Context("when a plan record with a given id exists", func() {
+			It("returns the plan record", func() {
+				p, err := plan.FindByStripePlanID(db, "Sxcvv67SDx")
+				Expect(err).To(BeNil())
+				Expect(p).NotTo(BeNil())
+				Expect(p.ID).To(Equal(id))
+			})
+		})
+
+		Context("when a plan record with a given id does not exist", func() {
+			It("returns error", func() {
+				p, err := plan.FindByStripePlanID(db, "nothingToSeeHere")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(p).To(BeNil())
+			})
+		})
+	})
+
 	Describe("PlanPricingHostMap()", func() {
 		var (
 			u        *user.User
