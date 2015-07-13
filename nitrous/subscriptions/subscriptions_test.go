@@ -389,6 +389,13 @@ var _ = Describe("subscriptions", func() {
 				}`,
 			}
 
+			subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
+				if code == cp.Code {
+					return &stripe.Coupon{}, nil
+				}
+				return nil, fmt.Errorf("Wrong code")
+			})
+
 			s, err := subProvider.Subscribe(db, hs.H, pl, u)
 			Expect(err).To(BeNil())
 			Expect(s).ToNot(BeNil())
@@ -407,6 +414,42 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(BeNil())
 			Expect(cp2.UsedAt.Valid).To(BeTrue())
 			Expect(cp2.UsedAt.Time).ToNot(BeZero())
+		})
+
+		It("does not send invalid coupon to Stripe nor mark it as used", func() {
+			cp := &coupon.Coupon{
+				UserID: u.ID,
+				Code:   "invalid-code",
+			}
+			Expect(cp.Insert(db)).To(BeNil())
+
+			fakeStripe.Responses = []string{
+				`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+			}
+
+			subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
+				return nil, fmt.Errorf("Nope, try again")
+			})
+
+			s, err := subProvider.Subscribe(db, hs.H, pl, u)
+			Expect(err).To(BeNil())
+			Expect(s).ToNot(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r := fakeStripe.ReceivedRequests[0]
+			Expect(r["coupon"]).To(BeEmpty())
+
+			// Coupon should not be used.
+			cp2 := &coupon.Coupon{}
+			err = db.Get(cp2, `SELECT * FROM coupons WHERE id = $1;`, cp.ID)
+			Expect(err).To(BeNil())
+			Expect(cp2.UsedAt.Valid).To(BeFalse())
 		})
 
 		It("does not send coupon to Stripe for free plans", func() {
@@ -1247,6 +1290,7 @@ var _ = Describe("subscriptions", func() {
 
 		AfterEach(func() {
 			envvars.WebHostname = hstName
+			subscriptions.SetCouponGetFn(subscriptions.DefaultCouponGetFn)
 		})
 
 		It("should return an error if the invoice cannot be fetched", func() {

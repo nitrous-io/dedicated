@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	stripe "github.com/stripe/stripe-go"
+	stripecoupon "github.com/stripe/stripe-go/coupon"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
 	stripesub "github.com/stripe/stripe-go/sub"
@@ -43,6 +44,8 @@ type Provider interface {
 	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
 }
 
+type couponGetFunc func(string, *stripe.CouponParams) (*stripe.Coupon, error)
+
 type hostStopFunc func(db *db.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error
 
 type SubscriptionProvider struct {
@@ -51,6 +54,8 @@ type SubscriptionProvider struct {
 }
 
 var (
+	couponGetFn couponGetFunc
+
 	ErrNotSubscribablePlan   = errors.New("Plan does not support subscriptions")
 	ErrInvalidBillingState   = errors.New("Invalid billing state")
 	ErrPlanNotFree           = errors.New("Plan not free but billing state in Free")
@@ -66,6 +71,10 @@ var (
 type updatedAvailableCredits struct {
 	Consumed  int64
 	Available int64
+}
+
+func init() {
+	couponGetFn = stripecoupon.Get
 }
 
 func NewProvider() *SubscriptionProvider {
@@ -132,7 +141,13 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		if !p.IsFree() {
 			cp, err = coupon.Find(tx, u.ID)
 			if err == nil {
-				params.Coupon = cp.CodeForStripe()
+				code := cp.CodeForStripe()
+				if _, err := couponGetFn(code, nil); err != nil {
+					// log and ignore attempt to use invalid coupon
+					logrus.Warnf("Attempted to use invalid coupon (username, code): (%s, %s)", u.Username, code)
+				} else {
+					params.Coupon = code
+				}
 			}
 		}
 
@@ -153,7 +168,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		}
 
 		// If we used a coupon, mark it as used.
-		if cp != nil {
+		if cp != nil && params.Coupon != "" {
 			if err := cp.MarkAsUsed(tx); err != nil {
 				return err
 			}
