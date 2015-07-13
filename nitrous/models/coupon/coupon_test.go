@@ -102,6 +102,22 @@ var _ = Describe("models/coupon", func() {
 			Expect(cp.CreatedAt.Time).ToNot(BeZero())
 			Expect(cp.UpdatedAt.Time).ToNot(BeZero())
 		})
+
+		It("returns ErrCouponExists if user already has an existing coupon", func() {
+			cp1 := &coupon.Coupon{
+				UserID: u.ID,
+				Code:   "test-code=1",
+			}
+			err := cp1.Insert(db)
+			Expect(err).To(BeNil())
+
+			cp2 := &coupon.Coupon{
+				UserID: u.ID,
+				Code:   "test-code-2",
+			}
+			err = cp2.Insert(db)
+			Expect(err).To(Equal(coupon.ErrCouponExists))
+		})
 	})
 
 	Describe("MarkAsUsed()", func() {

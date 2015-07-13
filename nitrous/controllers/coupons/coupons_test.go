@@ -66,11 +66,6 @@ var _ = Describe("controllers/coupons", func() {
 			return res
 		}
 
-		It("responds with HTTP 400 Bad Request when code param is not provided", func() {
-			res := doRequest(nil)
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
-		})
-
 		It("creates a coupon for the user", func() {
 			params := &url.Values{}
 			params.Set("code", "50-OFF")
@@ -83,6 +78,28 @@ var _ = Describe("controllers/coupons", func() {
 
 			Expect(cp.UserID).To(Equal(u.ID))
 			Expect(cp.Code).To(Equal("50-OFF"))
+		})
+
+		It("responds with HTTP 400 Bad Request when code param is not provided", func() {
+			res := doRequest(nil)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("responds with HTTP 409 Conflict when user has an existing coupon", func() {
+			cp := &coupon.Coupon{
+				UserID: u.ID,
+				Code:   "existing-coupon",
+			}
+			Expect(cp.Insert(db)).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("code", "50-OFF")
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusConflict))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("coupon_already_exists"))
+			Expect(errDesc).To(Equal("you already have an existing coupon"))
 		})
 	})
 })

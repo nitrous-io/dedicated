@@ -1,6 +1,8 @@
 package coupon
 
 import (
+	"errors"
+
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
@@ -13,6 +15,8 @@ type Coupon struct {
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
 }
+
+var ErrCouponExists = errors.New("user already has an existing coupon")
 
 func Find(d db.QueryReceiver, userID int64) (*Coupon, error) {
 	cp := &Coupon{}
@@ -31,7 +35,13 @@ func (c *Coupon) Insert(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(c).StructScan(c)
+	if err := nstmt.QueryRowx(c).StructScan(c); err != nil {
+		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" && e.Constraint == "index_coupons_on_user_id" {
+			return ErrCouponExists
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *Coupon) MarkAsUsed(d db.QueryReceiver) error {

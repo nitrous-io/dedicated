@@ -19,6 +19,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Code:   code,
 	}
 	if err := cp.Insert(env.DB); err != nil {
+		if err == coupon.ErrCouponExists {
+			return httperror.New(http.StatusConflict, "coupon_already_exists", "you already have an existing coupon")
+		}
 		return err
 	}
 
