@@ -30,6 +30,12 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		if s := body.Get("customer"); s != "" {
 			m["customer"] = s
 		}
+		if s := body.Get("subscription"); s != "" {
+			m["subscription"] = s
+		}
+		if s := body.Get("subscription_plan"); s != "" {
+			m["subscription_plan"] = s
+		}
 		if s := body.Get("plan"); s != "" {
 			m["plan"] = s
 		}
