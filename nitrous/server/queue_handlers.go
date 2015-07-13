@@ -41,6 +41,8 @@ type progress struct {
 	Stream string `json:"stream"`
 }
 
+const freighterRetryCount int = 5
+
 func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	return func(m *queue.Message) error {
 		var err error
@@ -249,14 +251,16 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 
 	// Freighter could be unavailable due to restarting or temporal network issue.
 	// To solve it, it retries 5 times until we get a connection to it
-	retryCnt := 5
-	for retryCnt >= 0 {
+	attempts := 0
+	sleepDuration := 100 * time.Millisecond
+	for attempts < freighterRetryCount {
 		if _, err := cl.CreateVolume(vol.Slug); err != nil {
 			// Only retry when it is connection error
 			if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
-				retryCnt--
-				time.Sleep(500 * time.Millisecond)
-				logrus.Infof("uuid=%s retrying to connect to freighter to create a volume", uuid)
+				logrus.Infof("uuid=%s retrying to connect to freighter to create a volume. Sleeping for %0.2fs", uuid, sleepDuration.Seconds())
+				attempts++
+				time.Sleep(sleepDuration)
+				sleepDuration *= 2
 				continue
 			}
 
