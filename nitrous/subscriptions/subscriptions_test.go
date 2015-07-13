@@ -551,7 +551,7 @@ var _ = Describe("subscriptions", func() {
 		})
 	})
 
-	Describe("1()", func() {
+	Describe("Upgrade()", func() {
 		var (
 			sub     *subscription.Subscription
 			newPlan *plan.Plan
