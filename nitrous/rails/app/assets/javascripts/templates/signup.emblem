@@ -6,17 +6,26 @@
 
   form submit='signup'
     .card-body
-      if promoCodeInfo
-        .free-credit class={promoCodeInfo.content:show}
+      if App.pendingCoupon
+        .free-credit class='show'
           .notice-text
-            h5 Limited Time Promotion
             p
-              ' Sign up and receive
-              span
-                ' $
-                = currency promoCodeInfo.content
+              ' You can claim your
+              span = App.pendingCoupon
               '
-              | credit
+              | coupon after this step.
+      else
+        if promoCodeInfo
+          .free-credit class={promoCodeInfo.content:show}
+            .notice-text
+              h5 Limited Time Promotion
+              p
+                ' Sign up and receive
+                span
+                  ' $
+                  = currency promoCodeInfo.content
+                '
+                | credit
 
       .ui.input-group
         label.field-label for='signup-username'
