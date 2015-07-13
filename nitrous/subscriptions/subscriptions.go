@@ -101,13 +101,14 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 	var strSub *stripe.Sub
 
 	err = d.WithTransaction(func(tx *sqlx.Tx) error {
+		var err error
+
 		sub = &subscription.Subscription{
 			PlanID:           p.ID,
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
 		}
-		err = sub.Insert(tx)
-		if err != nil {
+		if err := sub.Insert(tx); err != nil {
 			return err
 		}
 
@@ -152,8 +153,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		if err != nil {
 			return err
 		}
-		err = nstmt.QueryRow(sub).StructScan(sub)
-		if err != nil {
+		if err := nstmt.QueryRow(sub).StructScan(sub); err != nil {
 			return err
 		}
 
