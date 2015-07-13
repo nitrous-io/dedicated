@@ -452,4 +452,24 @@ var _ = Describe("models/plan", func() {
 			Expect(p.HourlyPrice()).To(Equal(int64(11905)))
 		})
 	})
+
+	Describe("CanUpgradeToPlan()", func() {
+		It("should be false if the target plan has a lesser price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 200}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
+		It("should be true if the target plan has a higher price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 2900}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeTrue())
+		})
+
+		It("should be false if the target plan has the same price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 2500}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+	})
 })
