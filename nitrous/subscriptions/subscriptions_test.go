@@ -602,6 +602,13 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
 		})
 
+		It("returns an error if plan cannot be upgraded to", func() {
+			newPlan.Price = 0
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))
+		})
+
 		It("submits a request to Stripe to update subscription", func() {
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
@@ -611,6 +618,21 @@ var _ = Describe("subscriptions", func() {
 			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
 			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
 			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
+		})
+
+		It("should handle exempt plan subscriptions", func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StateExempt
+
+			err = subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r := fakeStripe.ReceivedRequests[0]
+			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
+			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
+			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String + "-exempt"))
 		})
 
 		It("updates the subscription in the database", func() {
@@ -634,7 +656,7 @@ var _ = Describe("subscriptions", func() {
 				Name:          "newStripePlan",
 				MaxContainers: 19,
 				AutoShutdown:  false,
-				Price:         1499,
+				Price:         1899,
 				StripePlanID:  sql.NullString{"newPlan", true},
 			}
 			Expect(pl2.Insert(db)).To(BeNil())

@@ -63,6 +63,8 @@ var (
 
 	ErrCardExpired  = errors.New("Your Card has expired. Please try again with a recent card.")
 	ErrCardDeclined = errors.New("Your Card was declined. Try contacting the bank directly for assistance.")
+
+	ErrCannotUpgrade = errors.New("You cannot upgrade to this plan")
 )
 
 type updatedAvailableCredits struct {
@@ -239,9 +241,23 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 		return ErrInvalidBillingState
 	}
 
+	existingPlan, err := plan.FindByID(d, sub.PlanID)
+	if err != nil {
+		return err
+	}
+
+	if !existingPlan.CanUpgradeToPlan(p) {
+		return ErrCannotUpgrade
+	}
+
+	planID := p.StripePlanID.String
+	if bp.State == billingprofile.StateExempt {
+		planID = planID + "-exempt"
+	}
+
 	stripeSub, err := stripesub.Update(sub.StripeID.String, &stripe.SubParams{
 		Customer: bp.StripeID.String,
-		Plan:     p.StripePlanID.String,
+		Plan:     planID,
 	})
 	if err != nil {
 		logrus.Errorf("Failed to upgrade Stripe subscription for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
@@ -302,8 +318,8 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 			h.MaxContainers = sql.NullInt64{Valid: true, Int64: newPlan.MaxContainers}
 
 			nstmt, err := tx.PrepareNamed(`UPDATE hosts
-				SET (plan_id, size, free, max_containers, upgraded_at, auto_shutdown)
-				= (:plan_id, :size, :free, :max_containers, now(), :auto_shutdown)
+				SET (plan_id, size, free, max_containers, auto_shutdown, upgraded_at, updated_at)
+				= (:plan_id, :size, :free, :max_containers, :auto_shutdown, now(), now())
 				WHERE id = :id
 				RETURNING *;`)
 			if err != nil {
