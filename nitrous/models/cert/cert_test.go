@@ -56,6 +56,13 @@ var _ = Describe("models/cert", func() {
 	})
 
 	Describe(".FindAllByHostIDs", func() {
+		It("should return an empty set when the hostIDs are empty", func() {
+			var hostIDs []int64
+			certs, err := cert.FindAllByHostIDs(db, hostIDs)
+			Expect(err).To(BeNil())
+			Expect(certs).To(HaveLen(0))
+		})
+
 		It("fails to get non-existing cert", func() {
 			cert1 := mkcert()
 			cert2 := mkcert()

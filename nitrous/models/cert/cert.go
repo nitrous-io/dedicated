@@ -51,6 +51,11 @@ func Find(db db.QueryReceiver, hostID int64) (*Cert, error) {
 func FindAllByHostIDs(db db.QueryReceiver, hostIDs []int64) ([]*Cert, error) {
 	crts := []*Cert{}
 
+	// sqlx currently does not like empty slices for In
+	if len(hostIDs) == 0 {
+		return crts, nil
+	}
+
 	q, args, err := sqlx.In("SELECT * FROM certs WHERE host_id IN(?) AND terminated_at IS NULL;", hostIDs)
 	if err != nil {
 		return nil, err

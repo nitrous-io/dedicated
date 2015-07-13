@@ -1037,6 +1037,13 @@ var _ = Describe("models/container", func() {
 		})
 
 		Context("when the given host has container records", func() {
+			It("should return an empty set when the hostIDs are empty", func() {
+				var hostIDs []int64
+				containers, err := container.FindAllByHostIDs(db, hostIDs)
+				Expect(err).To(BeNil())
+				Expect(containers).To(HaveLen(0))
+			})
+
 			It("returns the container records", func() {
 				var hostIDs []int64
 				hostIDs = append(hostIDs, h.ID)
