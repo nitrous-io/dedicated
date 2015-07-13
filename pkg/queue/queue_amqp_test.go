@@ -341,7 +341,7 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
-			}, 10*time.Second).Should(Equal("amqp1"))
+			}, 30*time.Second).Should(Equal("amqp1"))
 		})
 
 		It("finishes current job before stop", func() {
@@ -374,11 +374,11 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-message").Val()
-			}, 10*time.Second).Should(Equal("1234"))
+			}, 30*time.Second).Should(Equal("1234"))
 
 			Eventually(func() error {
 				return q.Wait()
-			}, 10*time.Second).Should(BeNil())
+			}, 30*time.Second).Should(BeNil())
 		})
 
 		It("tries when there is already queue consumer for same name", func() {
@@ -408,7 +408,7 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
-			}, 10*time.Second).Should(Equal("amqp1"))
+			}, 30*time.Second).Should(Equal("amqp1"))
 
 			// start queue2. it should block waiting for the queue to finish
 			Expect(queue2.Start()).To(BeNil(), "queue2 cannot start")
@@ -422,7 +422,7 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
-			}, 10*time.Second).Should(Equal("amqp2"))
+			}, 30*time.Second).Should(Equal("amqp2"))
 		})
 
 		It("submits a failed message to failed queue", func() {
@@ -441,10 +441,10 @@ var _ = Describe("pkg/queue/amqp", func() {
 			// expect to received 1 failure message and 1 success message
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
-			}, 10*time.Second).Should(Equal("handle-failure"))
+			}, 30*time.Second).Should(Equal("handle-failure"))
 			Eventually(func() int64 {
 				return qp.GetFailedLength()
-			}, 10*time.Second).Should(Equal(int64(1)))
+			}, 30*time.Second).Should(Equal(int64(1)))
 		})
 
 		It("submits a timed out message to failed queue and start consuming next message", func() {

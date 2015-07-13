@@ -403,11 +403,11 @@ var _ = Describe("pkg/queue", func() {
 
 			Eventually(func() error {
 				return q.Wait()
-			}, 1*time.Second).Should(BeNil())
+			}, 5*time.Second).Should(BeNil())
 
 			Eventually(func() string {
 				return redisClient.Get("test").Val()
-			}, 1*time.Second).Should(Equal("1234"))
+			}, 5*time.Second).Should(Equal("1234"))
 		})
 
 		It("tries when there is already queue consumer for same name", func() {
