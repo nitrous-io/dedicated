@@ -33,3 +33,11 @@ func (c *Coupon) Insert(d db.QueryReceiver) error {
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
 }
+
+func (c *Coupon) MarkAsUsed(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE coupons SET used_at = now() WHERE id = :id RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(c).StructScan(c)
+}

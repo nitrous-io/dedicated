@@ -103,4 +103,22 @@ var _ = Describe("models/coupon", func() {
 			Expect(cp.UpdatedAt.Time).ToNot(BeZero())
 		})
 	})
+
+	Describe("MarkAsUsed()", func() {
+		It("updates the used_at field", func() {
+			// Insert a coupon.
+			_, err := db.Exec(`INSERT INTO coupons (user_id, code) VALUES ($1, $2);`, u.ID, "test-coupon")
+			Expect(err).To(BeNil())
+
+			cp, err := coupon.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(cp.UsedAt.Valid).To(BeFalse())
+			Expect(cp.UsedAt.Time).To(BeZero())
+
+			err = cp.MarkAsUsed(db)
+			Expect(err).To(BeNil())
+			Expect(cp.UsedAt.Valid).To(BeTrue())
+			Expect(cp.UsedAt.Time).ToNot(BeZero())
+		})
+	})
 })
