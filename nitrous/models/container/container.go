@@ -149,6 +149,11 @@ func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 func FindAllByHostIDs(d db.QueryReceiver, hostIDs []int64) ([]*Container, error) {
 	containers := []*Container{}
 
+	// sqlx currently does not like empty slices for In
+	if len(hostIDs) == 0 {
+		return containers, nil
+	}
+
 	sql, args, err := sqlx.In("SELECT * FROM containers WHERE host_id IN (?) AND terminated_at IS NULL;", hostIDs)
 	if err != nil {
 		return nil, err
