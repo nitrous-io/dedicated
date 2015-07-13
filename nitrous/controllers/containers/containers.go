@@ -430,7 +430,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			if err != nil {
 				return expandFreighterClientError(err)
 			}
-			// reset the temp state, so freigther state will be exposed
+			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
 
