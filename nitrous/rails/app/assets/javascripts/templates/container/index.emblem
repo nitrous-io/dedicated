@@ -82,15 +82,14 @@
         = dateabbr createdAt
 
     if isRunning
-      tr
-        th SSH URL
-        td colspan='3'
-          if sshURL
-            if sshKeysAdded
-              ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
-          else
-            if sshEnabled
-              link-to 'container.keys' | Register your SSH key
+      if sshURL
+        tr
+          th SSH URL
+          td colspan='3'
+              if sshKeysAdded
+                ui-trackable-link href=sshURL text=sshURL track=Mp.EventDashboardUserClickedSSHURL
+              else
+                link-to 'container.keys-new' | Register your SSH key
 
       if previewURL
         tr
