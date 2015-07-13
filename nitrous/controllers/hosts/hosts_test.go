@@ -957,6 +957,9 @@ var _ = Describe("controllers/hosts", func() {
 
 			Expect(fsub.CancelCalled).To(BeTrue())
 			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
+
+			_, err = host.Find(db, hs.U, hs.H.Slug)
+			Expect(err).To(BeNil())
 		})
 
 		It("should request to cancel the subscription & terminate the host if the host is a free subscription", func() {
@@ -1255,6 +1258,39 @@ var _ = Describe("controllers/hosts", func() {
 					anotherUser.ID, hs.H.ID, host.StateTerminated).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
+			})
+
+			Context("the host is part of a subscription", func() {
+				It("termiates the host when user is admin", func() {
+					_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
+					Expect(err).To(BeNil())
+
+					bp, err := u.BillingProfile(db)
+					Expect(err).To(BeNil())
+
+					sub := &subscription.Subscription{
+						StripeID:         sql.NullString{"abc1", true},
+						PlanID:           hs.P.ID,
+						BillingProfileID: bp.ID,
+					}
+					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
+					Expect(err).To(BeNil())
+
+					hb := hostbuilderclient.NewHostbuilder("www.example.com")
+					replaceTransport(hb, &test.FakeRoundTripper{
+						Message: okResponse,
+						Status:  http.StatusOK,
+					})
+					hosts.HostbuilderClient = hb
+
+					doRequest(hs.H.Slug, anotherToken.Token)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					_, err = host.Find(db, hs.U, hs.H.Slug)
+					Expect(err).To(MatchError(sql.ErrNoRows))
+				})
 			})
 		})
 
