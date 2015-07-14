@@ -264,7 +264,8 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 // Respec changes the specs of an existing host its new properties.
 // The following changes are supported:
 //   1. Changing storage size of root volume.
-//   2. TODO Changing instance type.
+//   2. Changing instance type (only between allowable instance types, e.g. we
+//      don't support changing from a VPC-only to non-VPC instance).
 //   3. Allocating/de-allocating an Elastic IP.
 func (h *Host) Respec() (*host.Info, error) {
 	label := h.MetricsLabel("respec")
@@ -275,11 +276,11 @@ func (h *Host) Respec() (*host.Info, error) {
 	}
 
 	// Allocate Elastic IP.
-	// If instance already has an Elastic IP allocated, we skip this step.
 	addresses, err := getAddresses(h.provider, h.instance.InstanceId)
 	if err != nil {
 		return nil, mh.Error(err, label)
 	}
+	// If instance already has an Elastic IP allocated, we skip this step.
 	if len(addresses) == 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), allocateElasticIPTimeout)
 		defer cancel()
@@ -295,44 +296,73 @@ func (h *Host) Respec() (*host.Info, error) {
 		}
 	}
 
+	var changeInstanceType, changeStorageSize bool
+
+	if h.Config.InstanceType != "" && h.Config.InstanceType != h.instance.InstanceType {
+		changeInstanceType = true
+	}
+
+	var (
+		rootVolume     *ec2.Volume
+		configuredSize int64
+	)
 	// If StorageSize is 0, no change required.
-	if h.Config.StorageSize == 0 {
+	if h.Config.StorageSize != 0 {
+		rootDevice := rootDevice(h.instance)
+		if rootDevice == nil {
+			return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
+		}
+
+		resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+		if err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
+		}
+		if len(resp.Volumes) != 1 {
+			return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
+		}
+		rootVolume = &resp.Volumes[0]
+		if rootVolume.VolumeId != rootDevice.VolumeId {
+			// Sanity check - because using the wrong volume is bad m'kay.
+			return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
+		}
+
+		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		if err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+		}
+
+		configuredSize = computeSize(h.Config.StorageSize)
+		if currentSize < configuredSize {
+			changeStorageSize = true
+			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+		}
+	}
+
+	// If no further changes required, we're done.
+	if !changeInstanceType && !changeStorageSize {
 		return h.Info()
 	}
 
-	rootDevice := rootDevice(h.instance)
-	if rootDevice == nil {
-		return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
+	// Otherwise, we stop the instance since any further changes now require
+	// it to be stopped.
+	if err := h.stopInstance(); err != nil {
+		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
 	}
 
-	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
-	if err != nil {
-		return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
-	}
-	if len(resp.Volumes) != 1 {
-		return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
-	}
-	rootVolume := &resp.Volumes[0]
-	if rootVolume.VolumeId != rootDevice.VolumeId {
-		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
+	if changeInstanceType {
+		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
+		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
+			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
+		}
 	}
 
-	currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
-	if err != nil {
-		return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
-	}
-
-	configuredSize := computeSize(h.Config.StorageSize)
-	if currentSize < configuredSize {
-		h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
-
+	if changeStorageSize {
 		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
 			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
 		}
 	}
 
-	return h.Info()
+	return h.Start()
 }
 
 type resizeStep struct {
@@ -355,15 +385,6 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	steps := []resizeStep{
 		{
 			Step: host.Step{
-				Description: "Stopping workspace",
-				Func: func(ctx *host.HostContext) error {
-					h := ctx.Host.(*Host)
-					return h.stopInstance()
-				},
-			},
-		},
-		{
-			Step: host.Step{
 				Description: "Taking snapshot of disk",
 				Func:        snapshotRootVolume,
 			},
@@ -380,16 +401,6 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 			Step: host.Step{
 				Description: "Switching to larger disk",
 				Func:        swapRootVolume,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Starting workspace",
-				Func: func(ctx *host.HostContext) error {
-					h := ctx.Host.(*Host)
-					_, err := h.Start()
-					return err
-				},
 			},
 		},
 		{
@@ -889,9 +900,9 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
-// reloadInstance reload the current instance associated with this Host to the
-// instance specified by `id` params. It can be used to refresh the current
-// instance, or load a new one
+// reloadInstance reloads the current instance associated with this Host to the
+// instance specified by `id` param. It can be used to refresh the current
+// instance, or to load a new one.
 func (h *Host) reloadInstance(id string) error {
 	return getInstance(h.provider, id, h)
 }
