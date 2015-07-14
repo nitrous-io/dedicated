@@ -47,7 +47,7 @@ var _ = Describe("controllers/billingprofiles", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		ft = test.NewFakeTracker()
 		svr.Tracker = ft
 		handler = svr.Router()

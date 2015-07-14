@@ -91,6 +91,9 @@ var (
 
 	// Queue handler timeout
 	QueueHandlerTimeout = parseDurationWithDefault(os.Getenv("QUEUE_HANDLER_TIMEOUT"), 5*time.Minute)
+
+	// Defer Panic Token
+	DeferPanicToken = os.Getenv("DEFER_PANIC_TOKEN")
 )
 
 func init() {

@@ -46,7 +46,7 @@ var _ = Describe("controllers/github", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 		ft = test.NewFakeTracker()
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		svr.Tracker = ft
 
 		u = &user.User{

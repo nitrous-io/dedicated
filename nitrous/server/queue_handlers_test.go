@@ -74,7 +74,7 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		h = hs.H
 
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		handler = svr.HostQueueHandler()
 	})
 
