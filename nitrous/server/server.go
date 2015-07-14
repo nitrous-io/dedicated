@@ -208,6 +208,19 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			fields := logFields(r, map[string]interface{}{
 				"uuid": uuidStr,
 			})
+			if r.Method == "POST" || r.Method == "PUT" {
+				r.ParseForm() // may be called again in controllers, but is idempotent
+				params := make(map[string][]string)
+				for k, vs := range r.PostForm {
+					switch k {
+					case "password", "access_token", "reset_token", "client_secret":
+						params[k] = []string{"<redacted>"}
+					default:
+						params[k] = vs
+					}
+				}
+				fields["params"] = params
+			}
 			logrus.WithFields(fields).Infof("Request")
 		}
 		env := &middleware.Env{
