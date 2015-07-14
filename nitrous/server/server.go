@@ -212,7 +212,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 				"uuid": uuidStr,
 			})
 			if r.Method == "POST" || r.Method == "PUT" {
-				r.ParseForm() // may be called again in controllers, but is idempotent
+				r.ParseMultipartForm(32 << 20) // defaultMaxMemory from net/http; ParseMultipartForm is idempotent
 				params := make(map[string][]string)
 				for k, vs := range r.PostForm {
 					switch k {
