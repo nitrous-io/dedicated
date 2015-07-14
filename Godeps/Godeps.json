@@ -43,6 +43,16 @@
 			"Rev": "4aacc5a471d5027aeebf371f0acf7b38f276a77d"
 		},
 		{
+			"ImportPath": "github.com/deferpanic/deferclient/deferclient",
+			"Comment": "1.11",
+			"Rev": "50b0457815f367d6a7d354b070d1212cebcb9779"
+		},
+		{
+			"ImportPath": "github.com/deferpanic/deferclient/deferstats",
+			"Comment": "1.11",
+			"Rev": "50b0457815f367d6a7d354b070d1212cebcb9779"
+		},
+		{
 			"ImportPath": "github.com/digitalocean/godo",
 			"Comment": "v0.5.0-7-g6ae442f",
 			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
@@ -139,8 +149,8 @@
 		},
 		{
 			"ImportPath": "github.com/jmoiron/sqlx",
-			"Comment": "sqlx-v1.0-67-g69738bd",
-			"Rev": "69738bd209812c5a381786011aff17944a384554"
+			"Comment": "sqlx-v1.1-18-g56b62f2",
+			"Rev": "56b62f29e9936b8fc0db14ed01297f88ba518333"
 		},
 		{
 			"ImportPath": "github.com/kardianos/osext",
@@ -251,6 +261,10 @@
 		{
 			"ImportPath": "github.com/shiena/ansicolor",
 			"Rev": "691ac7d4ac14053de3cbe16e07b79246300db97d"
+		},
+		{
+			"ImportPath": "github.com/streadway/amqp",
+			"Rev": "6a378341a305bfbc252e8a6638f16cf443221997"
 		},
 		{
 			"ImportPath": "github.com/stripe/stripe-go",

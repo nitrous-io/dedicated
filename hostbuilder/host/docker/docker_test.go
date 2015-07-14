@@ -205,7 +205,7 @@ var _ = Describe("host/docker", func() {
 		var h host.Host
 		var info *host.Info
 		var qp queue.Publisher
-		var qc *queue.QueueConsumer
+		var qc queue.Consumer
 		var queueInfo *host.QueueInfo
 
 		var redisClient *redis.Client

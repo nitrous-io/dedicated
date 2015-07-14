@@ -28,7 +28,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -350,14 +349,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.Name.String).To(Equal(params.Get("name")))
 
-			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
-			Expect(h.State).To(Equal(host.StateRunning))
 			Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
 			Expect(h.Size.String).To(Equal(hs.P.Slug))
-			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
-			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
-			Expect(h.HourlyPrice).To(Equal(int64(745))) // monthly price of the plan = $5.00
-			Expect(h.Free).To(BeFalse())
 
 			// and tracks on mixpanel
 			Expect(ft.PropsCalled).To(HaveLen(1))
@@ -390,12 +383,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(slugbuilder.IsValid(h.Slug)).To(BeTrue())
 			Expect(h.Name.String).To(Equal("MyHost"))
 
-			Expect(h.IPAddress.String).To(Equal("0.0.0.0"))
-			Expect(h.State).To(Equal(host.StateRunning))
 			Expect(h.MaxContainers.Int64).To(Equal(hs.P.MaxContainers))
 			Expect(h.Size.String).To(Equal(hs.P.Slug))
-			Expect(h.ProviderIdentifier.String).To(Equal("abcd1234"))
-			Expect(h.FreighterdPort.Int64).To(Equal(int64(65333)))
 		})
 
 		It("creates a keypair associated with that host", func() {
@@ -453,43 +442,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(config["freighterd_version"]).To(Equal(hosts[0].FreighterdVersion))
 		})
 
-		It("creates a shared volume and publishes a volume created event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			doRequest(params)
-
-			hosts, err := host.FindAllByUser(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-			vol, err := volume.Find(db, hosts[0].ID, "shared")
-			Expect(err).To(BeNil())
-			Expect(vol).NotTo(BeNil())
-			Expect(vol.System).To(BeTrue())
-
-			evtCh := make(chan *controllers.Event)
-			go func() {
-				var evt *controllers.Event
-				for msg := range ch { // Ignore events we don't care about.
-					evt = msg.(*controllers.Event)
-					if evt.Name == controllers.EventVolumeCreated {
-						evtCh <- evt
-						break
-					}
-				}
-			}()
-
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timeout while getting shared volume created event")
-			case evt := <-evtCh:
-				Expect(evt.Name).To(Equal(controllers.EventVolumeCreated))
-				evtData, ok := evt.Data.(map[string]*serializers.Volume)
-				Expect(ok).To(BeTrue())
-				Expect(evtData["volume"]).To(Equal(serializers.SerializeVolume(vol)))
-			}
-		})
-
 		It("responds with the progress data and created host", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))
@@ -520,10 +472,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(j.Host.PlanID).To(Equal(hs.P.ID))
 			Expect(j.Host.Slug).To(HavePrefix(params.Get("name")))
 			Expect(slugbuilder.IsValid(j.Host.Slug)).To(BeTrue())
-			Expect(j.Host.IPAddress).To(Equal("0.0.0.0"))
-			Expect(j.Host.FreighterdPort).To(Equal(int64(65333)))
 			Expect(j.Host.Size).To(Equal(hs.P.Slug))
-			Expect(j.Host.State).To(Equal(host.StateRunning))
 			Expect(j.Host.Hostname).To(Equal(hostname(j.Host.Slug))) // can use the host slug here, since it's already tested above
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
 			Expect(j.Host.UpdatedAt).NotTo(BeNil())
@@ -544,7 +493,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			msgs := []pubsub.Message{}
 			finished := make(chan struct{})
 			go func() {
-				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch, <-ch)
+				msgs = append(msgs, <-ch, <-ch, <-ch, <-ch)
 				close(finished)
 			}()
 
@@ -573,31 +522,13 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						)},
 				}), "unexpected event, wanted EventHostCreating")
 
-				// msg 3 will be a shared volume event
-
-				Expect(msgs[4]).To(Equal(&controllers.Event{
+				Expect(msgs[3]).To(Equal(&controllers.Event{
 					Name: controllers.EventHostCreated,
 					Data: map[string]*serializers.Host{
 						"host": serializers.SerializeHost(h),
 					},
 				}), "unexpected event, wanted EventHostCreated")
 			}
-		})
-
-		It("logs transitions for the host", func() {
-			res := doRequest(params)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			hosts, err := host.FindAllByUser(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(hosts).To(HaveLen(1))
-
-			var count int
-			err = db.QueryRowx(
-				"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
-				hosts[0].ID, host.StateRunning, host.StateBorn).Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(1))
 		})
 
 		It("converts the 'name' form value to valid slug", func() {
@@ -776,31 +707,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				hosts.HostbuilderClient = hb
 			})
 
-			It("updates the host record with the info from Hostbuilder", func() {
-				res := doRequest(params)
-				Expect(res.Code).To(Equal(http.StatusAccepted))
-
-				Eventually(func() (string, error) {
-					hosts, err := host.FindAllByUser(db, u.ID)
-					if err != nil {
-						return "", err
-					}
-
-					h := hosts[0]
-					return h.State, nil
-				}).Should(Equal(host.StateRunning))
-
-				Eventually(func() (string, error) {
-					hosts, err := host.FindAllByUser(db, u.ID)
-					if err != nil {
-						return "", err
-					}
-
-					h := hosts[0]
-					return h.ProviderIdentifier.String, nil
-				}).Should(Equal("abcd1234"))
-			})
-
 			It("publishes host events with the created host", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
@@ -811,7 +717,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 				msgs := []pubsub.Message{}
 				finished := make(chan struct{})
 				go func() {
-					msgs = append(msgs, <-ch, <-ch, <-ch)
+					msgs = append(msgs, <-ch, <-ch)
 					close(finished)
 				}()
 
@@ -833,9 +739,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 						},
 					}), "unexpected event, wanted EventHostCreating")
 
-					// msg 1 is a shared volume event
-
-					Expect(msgs[2]).To(Equal(&controllers.Event{
+					Expect(msgs[1]).To(Equal(&controllers.Event{
 						Name: controllers.EventHostCreated,
 						Data: map[string]*serializers.Host{
 							"host": serializers.SerializeHost(h),

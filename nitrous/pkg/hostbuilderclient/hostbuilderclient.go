@@ -22,17 +22,18 @@ type Hostbuilder struct {
 	Client *httpclient.Client
 }
 
+var transport = &http.Transport{
+	DisableKeepAlives: true,
+	Dial: (&net.Dialer{
+		// Max time for dial to complete (not the entire HTTP request).
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).Dial,
+}
+
 func NewHostbuilder(url string) *Hostbuilder {
 	client := httpclient.New("")
-	tr := &http.Transport{
-		DisableKeepAlives: true,
-		Dial: (&net.Dialer{
-			// Max time for dial to complete (not the entire HTTP request).
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-	}
-	client.Client.Transport = tr
+	client.Client.Transport = transport
 	// No HTTP request to hostbuilder should take longer than this.
 	client.Client.Timeout = 10 * time.Minute
 	return &Hostbuilder{URL: url, Client: client}

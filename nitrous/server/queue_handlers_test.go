@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/event"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
 	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -19,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
@@ -35,7 +37,7 @@ var _ = Describe("HostQueueHandler", func() {
 	var (
 		redisClient *redis.Client
 		qp          queue.Publisher
-		qc          *queue.QueueConsumer
+		qc          queue.Consumer
 		db          *db.Database
 		handler     func(m *queue.Message) error
 		h           *host.Host
@@ -74,7 +76,7 @@ var _ = Describe("HostQueueHandler", func() {
 		Expect(err).To(BeNil())
 		h = hs.H
 
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		handler = svr.HostQueueHandler()
 	})
 
@@ -142,9 +144,14 @@ var _ = Describe("HostQueueHandler", func() {
 		})
 
 		Context("a host is created", func() {
-			var message *queue.Message
+			var (
+				message    *queue.Message
+				mockClient *freighterclient.MockClient
+			)
 
 			BeforeEach(func() {
+				mockClient = &freighterclient.MockClient{}
+				test.StubDefaultFreighterFn(mockClient)
 				queueInfo = &hh.QueueInfo{
 					ID:     h.ID,
 					Slug:   h.Slug,
@@ -169,6 +176,10 @@ var _ = Describe("HostQueueHandler", func() {
 					ResourceID:   "host-1234",
 					Payload:      payload,
 				}
+			})
+
+			AfterEach(func() {
+				test.UnstubFreighterFn()
 			})
 
 			It("publishes the event", func() {
@@ -243,6 +254,60 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
 				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
 				Expect(updatedHost.Free).To(BeFalse())
+			})
+
+			It("logs transitions for the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+
+				var count int
+				err = db.QueryRowx(
+					"SELECT COUNT(*) FROM host_transitions WHERE host_id = $1 AND state = $2 AND previous_state = $3",
+					hosts[0].ID, host.StateRunning, host.StateBorn).Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+
+			It("creates a shared volume and publishes a volume created event", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				vol, err := volume.Find(db, hosts[0].ID, "shared")
+				Expect(err).To(BeNil())
+				Expect(vol).NotTo(BeNil())
+				Expect(vol.System).To(BeTrue())
+
+				evtCh := make(chan *controllers.Event)
+				go func() {
+					var evt *controllers.Event
+					for msg := range ch { // Ignore events we don't care about.
+						evt = msg.(*controllers.Event)
+						if evt.Name == controllers.EventVolumeCreated {
+							evtCh <- evt
+							break
+						}
+					}
+				}()
+
+				select {
+				case <-time.After(50 * time.Millisecond):
+					Fail("Timeout while getting shared volume created event")
+				case evt := <-evtCh:
+					Expect(evt.Name).To(Equal(controllers.EventVolumeCreated))
+					evtData, ok := evt.Data.(map[string]*serializers.Volume)
+					Expect(ok).To(BeTrue())
+					Expect(evtData["volume"]).To(Equal(serializers.SerializeVolume(vol)))
+				}
 			})
 
 			Context("when the host plan requires subscription", func() {

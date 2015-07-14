@@ -23,6 +23,10 @@ import (
 
 func init() { logrus.SetLevel(logrus.PanicLevel) }
 
+var noopHandler = func(msg *queue.Message) error {
+	return nil
+}
+
 func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
@@ -212,9 +216,6 @@ var _ = Describe("pkg/queue", func() {
 	Describe("QueueConsumer", func() {
 		var qc queue.Consumer
 		var err error
-		var noopHandler = func(msg *queue.Message) error {
-			return nil
-		}
 
 		BeforeEach(func() {
 			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")

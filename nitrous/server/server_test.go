@@ -34,7 +34,7 @@ var _ = Describe("server/debug", func() {
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 
 		handler = svr.Router()
 		params = &url.Values{}

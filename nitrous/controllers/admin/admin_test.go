@@ -48,7 +48,7 @@ var _ = Describe("controllers/admin", func() {
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr := server.NewServer("", db, nil)
+		svr := server.NewServer("", db, nil, nil)
 		authTokenInputs = test.AuthTokenInputs{Handler: svr.Router()}
 
 		handler = svr.Router()

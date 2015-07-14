@@ -31,7 +31,7 @@ var _ = Describe("controllers/templates", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 	})
 
 	AfterEach(func() {

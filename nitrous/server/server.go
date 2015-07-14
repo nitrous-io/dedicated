@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/deferpanic/deferclient/deferstats"
 	"github.com/facebookgo/httpdown"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -69,12 +70,13 @@ type Server struct {
 
 	SubscriptionProvider subscriptions.Provider
 
-	router *mux.Router
-	root   string
-	db     *db.Database
+	router           *mux.Router
+	root             string
+	db               *db.Database
+	deferstatsClient *deferstats.Client
 }
 
-func NewServer(root string, db *db.Database, conf *provisioner.Config) *Server {
+func NewServer(root string, db *db.Database, conf *provisioner.Config, deferstatsClient *deferstats.Client) *Server {
 	events := pubsub.New(128)
 	svr := &Server{
 		Events:               events,
@@ -87,6 +89,7 @@ func NewServer(root string, db *db.Database, conf *provisioner.Config) *Server {
 		root:                 root,
 		db:                   db,
 		router:               mux.NewRouter(),
+		deferstatsClient:     deferstatsClient,
 	}
 	svr.drawRoutes()
 	return svr
@@ -205,7 +208,23 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 		if strings.HasSuffix(r.URL.Path, "freighterd_hook") && r.URL.Query().Get("nolog") == "1" {
 			w.Header().Set(constants.NitrousUUIDHeader, "nolog")
 		} else {
-			logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+			fields := logFields(r, map[string]interface{}{
+				"uuid": uuidStr,
+			})
+			if r.Method == "POST" || r.Method == "PUT" {
+				r.ParseMultipartForm(32 << 20) // defaultMaxMemory from net/http; ParseMultipartForm is idempotent
+				params := make(map[string][]string)
+				for k, vs := range r.PostForm {
+					switch k {
+					case "password", "access_token", "reset_token", "client_secret":
+						params[k] = []string{"<redacted>"}
+					default:
+						params[k] = vs
+					}
+				}
+				fields["params"] = params
+			}
+			logrus.WithFields(fields).Infof("Request")
 		}
 		env := &middleware.Env{
 			Root:        s.root,
@@ -232,6 +251,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			s.RespondEncodeJSON(w, r, env.Status, env.Data)
 		}
 	}
+
 	s.router.HandleFunc(route, h).Methods(methods...)
 }
 
@@ -266,6 +286,7 @@ func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) 
 		uuid := w.Header().Get(constants.NitrousUUIDHeader)
 		e = s.serverError(err, uuid).(*httperror.Error)
 	}
+
 	j, err := e.JSON()
 	if err != nil {
 		j = []byte(`{"error":"internal_server_error"}`)
@@ -289,7 +310,12 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 		}
 	}
 	if uuid != "nolog" {
-		logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
+		fields := logFields(r, map[string]interface{}{
+			"uuid":   uuid,
+			"status": status,
+			"body":   str,
+		})
+		logrus.WithFields(fields).Infof("Response")
 	}
 }
 
@@ -306,6 +332,13 @@ func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, statu
 // something wrong with the controller. We transform that error into a
 // httperror.Error and log it.
 func (s *Server) serverError(err error, uuid string) error {
+	// Send it to DeferPanic
+	if s.deferstatsClient != nil {
+		if _, ok := err.(*httperror.Error); !ok {
+			s.deferstatsClient.Wrap(err)
+		}
+	}
+
 	errMsg := err.Error()
 	errHash := fmt.Sprintf("%x", sha1.Sum([]byte(errMsg)))
 	e := httperror.New(http.StatusInternalServerError, "internal_server_error", "", errHash)
@@ -364,4 +397,18 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 		}
 	}
 	return nil
+}
+
+// returns logger fields for a request (can be nil to skip request-related fields) and contents of 'extra'
+func logFields(r *http.Request, extra map[string]interface{}) logrus.Fields {
+	fields := logrus.Fields{}
+	if r != nil {
+		fields["ip"] = middleware.GetRemoteAddr(r)
+		fields["method"] = r.Method
+		fields["path"] = r.URL.String()
+	}
+	for k, v := range extra {
+		fields[k] = v
+	}
+	return fields
 }

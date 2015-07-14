@@ -1163,6 +1163,9 @@ var _ = Describe("subscriptions", func() {
 
 			Expect(inv.Insert(db)).To(BeNil())
 
+			// mock invoice was created 6 days earlier (to satisfy subscriptions.minTimeBeforeFinalAttempt)
+			_, err = db.Exec("UPDATE invoices SET created_at = now() - interval '6 days' WHERE id = $1;", inv.ID)
+
 			hstName = envvars.WebHostname
 			envvars.WebHostname = "nitrous.example"
 		})
@@ -1527,6 +1530,57 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring("ending in 2334 to the value of $14.99"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/billing">verify your credit card</a>`))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
+		})
+
+		It("should not allow next_payment_attempt to be 0 if the invoice is too new", func() {
+			t := time.Unix(1434681522, 0)
+			_, err := db.Exec("UPDATE invoices SET created_at = now(), first_attempt_at = $1 WHERE id = $2;", t, inv.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Errors = []*stripe.Error{nil}
+			fakeStripe.Responses = []string{
+				`{
+				  "id": "inv1",
+				  "object": "invoice",
+          "subscription": "abc1",
+          "total": 1499,
+          "period_start": 1434418419,
+          "period_end": 1437010419,
+          "attempt_count": 3,
+          "stripe_id": "str-invoice-1",
+          "paid": false,
+          "lines": {
+            "data": [
+              {
+                "id": "stripe-item-1",
+                "object": "line_item",
+                "type": "subscription",
+                "livemode": true,
+                "amount": 1499,
+                "currency": "usd",
+                "proration": false,
+                "period": {
+                  "start": 1434418419,
+                  "end": 1437010419
+                }
+              }
+            ],
+            "total_count": 1,
+            "object": "list",
+            "url": "/v1/invoices/inv1/lines"
+          }
+				}`,
+			}
+
+			_, err = subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
+			Expect(err).ToNot(BeNil())
+			eMsg := fmt.Sprintf("Received an invoice failed event with next_attempt=0 for invoice ID %d", inv.ID)
+			Expect(err.Error()).To(ContainSubstring(eMsg))
+
+			i, err := invoice.FindByStripeID(db, "inv_ABCD1")
+			Expect(err).To(BeNil())
+
+			Expect(i.State).To(Equal(invoice.StateUnpaid))
 		})
 
 		It("should stop the hosts", func() {

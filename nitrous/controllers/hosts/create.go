@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/volumes"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -20,12 +19,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
@@ -203,18 +200,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if options.Async {
 		go func() {
 			h := <-provisioned
-			if err := postProvision(env, h); err != nil {
-				publishProvisionFailure(h, err)
-				return
-			}
 			PublishHostEvent(env, controllers.EventHostCreated, h)
 		}()
 		env.Status = http.StatusAccepted
 	} else {
-		if err := postProvision(env, h); err != nil {
-			publishProvisionFailure(h, err)
-			return err
-		}
 		PublishHostEvent(env, controllers.EventHostCreated, h)
 		env.Status = http.StatusCreated
 	}
@@ -231,32 +220,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	})
 
 	return nil
-}
-
-func postProvision(env *middleware.Env, h *host.Host) error {
-	if err := createSharedVolume(env, env.DB, h); err != nil {
-		return err
-	}
-	if err := recordTransition(env, h); err != nil {
-		logrus.Errorf("Unable to record transition for host %d: %v", h.ID, err)
-	}
-	return nil
-}
-
-func recordTransition(env *middleware.Env, h *host.Host) error {
-	timing := h.AssignedAt
-	if timing == nil {
-		timing = h.CreatedAt
-	}
-	tx, err := env.DB.Beginx()
-	if err != nil {
-		return err
-	}
-	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, env.User.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
 }
 
 func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err error) {
@@ -349,41 +312,4 @@ func generateCerts(hostname string) (*cert.Cert, error) {
 		return nil, err
 	}
 	return cert.Generate(hostname, caInfo.X509Cert, caInfo.Key)
-}
-
-func createSharedVolume(env *middleware.Env, db *ndb.Database, h *host.Host) error {
-	cl, err := controllers.NewFreighterClient(db, h, env.UUID)
-	if err != nil {
-		return err
-	}
-
-	vol := &volume.Volume{
-		HostID: h.ID,
-		Slug:   "shared",
-		Name:   "Shared Volume",
-		System: true,
-	}
-
-	if err := vol.Insert(db); err != nil {
-		return err
-	}
-
-	if _, err := cl.CreateVolume(vol.Slug); err != nil {
-		if e := vol.Delete(db); e != nil {
-			logrus.Errorf("Unable to delete volume %d that failed on freighter: %v", vol.ID, e)
-		}
-		if e, ok := err.(*freighterclient.InvalidParamError); ok {
-			return httperror.New(http.StatusBadRequest, "validation_failed", e.Msg)
-		}
-		return err
-	}
-
-	env.Events.Publish(
-		controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
-			"volume": serializers.SerializeVolume(vol),
-		}),
-		env.User.Topic(),
-	)
-
-	return nil
 }

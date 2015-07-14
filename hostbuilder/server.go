@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -138,6 +137,9 @@ type config struct {
 	// start the server in debug mode
 	Debug bool `json:"debug"`
 
+	QueueType    string `json:"queue_type"`
+	RabbitMQAddr string `json:"rabbitmq_addr"`
+
 	// redis setting
 	RedisConfig RedisConfig `json:"redis"`
 
@@ -149,8 +151,7 @@ type Server struct {
 	Config *config
 	Router *mux.Router
 
-	initQueueOnce sync.Once
-	Queue         queue.Publisher
+	Queue queue.Publisher
 }
 
 // Return a copy of the original provider config
@@ -196,15 +197,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	label := fmt.Sprintf("create.%s", provider)
 	defer mh.UpdateSince(label, time.Now())
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
-
-	s.initQueueOnce.Do(func() {
-		err = s.initQueue()
-	})
-	if err != nil {
-		logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
-		return mh.Error(err, fmt.Sprintf("create.%s", provider))
-	}
-	logrus.Printf("uuid=%s use queue to create a host", providerConfig["uuid"])
 
 	queueInfo, err := getQueueInfo(r)
 	if err != nil {
@@ -344,26 +336,13 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if r.Form.Get("queue") == "true" {
-		s.initQueueOnce.Do(func() {
-			err = s.initQueue()
-		})
-
-		if err != nil {
-			logrus.Errorf("uuid=%s Failed to initialize queue: %+v", providerConfig["uuid"], err)
-			return mh.Error(err, fmt.Sprintf("create.%s", provider))
-		}
-
-		var queueInfo *host.QueueInfo
-		queueInfo, err = getQueueInfo(r)
-		if err != nil {
-			return mh.Error(err, fmt.Sprintf("create.%s", provider))
-		}
-
-		info, err = h.StopWithQueue(s.Queue, queueInfo)
-	} else {
-		info, err = h.Stop()
+	var queueInfo *host.QueueInfo
+	queueInfo, err = getQueueInfo(r)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("create.%s", provider))
 	}
+
+	info, err = h.StopWithQueue(s.Queue, queueInfo)
 
 	if err != nil {
 		logrus.Errorf("uuid=%s Failed to stop a host: %+v", providerConfig["uuid"], err)
@@ -613,6 +592,12 @@ func New(configData []byte) (*Server, error) {
 		)
 	}
 
+	// Initialize queue client
+	if err := server.initQueue(); err != nil {
+		logrus.Errorf("hostbuilder: Failed to initialize queue: %+v", err)
+		return nil, err
+	}
+
 	return server, nil
 }
 
@@ -640,6 +625,14 @@ func pingHost(info *host.Info, w io.Writer) error {
 }
 
 func (s *Server) initQueue() error {
+	if s.Config.QueueType == "rabbitmq" {
+		qp, err := queue.NewAmqpQueue(s.Config.RabbitMQAddr, "v1.host")
+		if err != nil {
+			return err
+		}
+		s.Queue = qp
+		return nil
+	}
 	rc := s.Config.RedisConfig
 	if rc.Host == "" || rc.Port == "" {
 		return fmt.Errorf("Redis config is not valid: %+v", rc)

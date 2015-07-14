@@ -9,13 +9,15 @@ import (
 )
 
 type freighterClientFn func(db db.QueryReceiver, h *host.Host, uuid string) (*controllers.FreighterClient, error)
+type freighterClientWithCertFn func(cert *cert.Cert, h *host.Host, uuid string) (*controllers.FreighterClient, error)
 
 var actualClient = controllers.NewFreighterClient
+var actualClientWithCert = controllers.NewFreighterClientWithCert
 
 // SetDefaultFreighterFn assumes that we only want to inject the client, and we
 // have a valid host with proper cert.
 func StubDefaultFreighterFn(cl freighterclient.Client) {
-	fn := func(db db.QueryReceiver, h *host.Host, uuid string) (*controllers.FreighterClient, error) {
+	controllers.NewFreighterClient = func(db db.QueryReceiver, h *host.Host, uuid string) (*controllers.FreighterClient, error) {
 		crt, err := cert.Find(db, h.ID)
 		if err != nil {
 			return nil, err
@@ -25,13 +27,16 @@ func StubDefaultFreighterFn(cl freighterclient.Client) {
 			Cert:   crt,
 		}, nil
 	}
-	StubFreighterFn(fn)
-}
 
-func StubFreighterFn(fn freighterClientFn) {
-	controllers.NewFreighterClient = fn
+	controllers.NewFreighterClientWithCert = func(cert *cert.Cert, h *host.Host, uuid string) (*controllers.FreighterClient, error) {
+		return &controllers.FreighterClient{
+			Client: cl,
+			Cert:   crt,
+		}, nil
+	}
 }
 
 func UnstubFreighterFn() {
 	controllers.NewFreighterClient = actualClient
+	controllers.NewFreighterClientWithCert = actualClientWithCert
 }

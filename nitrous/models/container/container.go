@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -139,6 +140,27 @@ func FindByCID(d db.QueryReceiver, cid string) (*Container, error) {
 func FindAllByHostID(d db.QueryReceiver, hostID int64) ([]*Container, error) {
 	containers := []*Container{}
 	err := d.Select(&containers, `SELECT * FROM containers WHERE host_id = $1 AND terminated_at IS NULL;`, hostID)
+	if err != nil {
+		return nil, err
+	}
+	return containers, nil
+}
+
+func FindAllByHostIDs(d db.QueryReceiver, hostIDs []int64) ([]*Container, error) {
+	containers := []*Container{}
+
+	// sqlx currently does not like empty slices for In
+	if len(hostIDs) == 0 {
+		return containers, nil
+	}
+
+	sql, args, err := sqlx.In("SELECT * FROM containers WHERE host_id IN (?) AND terminated_at IS NULL;", hostIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	sql = d.Rebind(sql)
+	err = d.Select(&containers, sql, args...)
 	if err != nil {
 		return nil, err
 	}

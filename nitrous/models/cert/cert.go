@@ -47,6 +47,28 @@ func Find(db db.QueryReceiver, hostID int64) (*Cert, error) {
 	return crt, nil
 }
 
+// Find gets the cert belongs to hosts from database
+func FindAllByHostIDs(db db.QueryReceiver, hostIDs []int64) ([]*Cert, error) {
+	crts := []*Cert{}
+
+	// sqlx currently does not like empty slices for In
+	if len(hostIDs) == 0 {
+		return crts, nil
+	}
+
+	q, args, err := sqlx.In("SELECT * FROM certs WHERE host_id IN(?) AND terminated_at IS NULL;", hostIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	q = db.Rebind(q)
+	err = db.Select(&crts, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	return crts, nil
+}
+
 // Delete terminates the cert belongs to a host in database. We specifically use
 // `*sql.Tx` becase we requires the cert to be deleted in the same transaction
 // as the host

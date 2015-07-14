@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
@@ -16,8 +18,10 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
@@ -36,6 +40,8 @@ func (e SubscriptionCreateError) Error() string {
 type progress struct {
 	Stream string `json:"stream"`
 }
+
+const freighterRetryCount int = 5
 
 func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	return func(m *queue.Message) error {
@@ -89,17 +95,12 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 				}); err != nil {
 					logrus.Errorf("Unable to terminate host %d: %v", h.ID, err)
 				} else {
-					s.Events.Publish(
-						controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-							"host":  serializers.SerializeHost(h),
-							"error": e.Error(),
-						}),
-						u.Topic(),
-					)
+					s.publishProvisionFailure(u, h, e.Error())
 				}
 
 				return err
 			default:
+				s.publishProvisionFailure(u, h, err.Error())
 				return err
 			}
 		}
@@ -140,13 +141,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 			logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v", m.UUID, err, h)
 			return err
 		}
-		s.Events.Publish(
-			controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
-				"host":  serializers.SerializeHost(h),
-				"error": queueInfo.Message,
-			}),
-			u.Topic(),
-		)
+		s.publishProvisionFailure(u, h, queueInfo.Message)
 	default:
 		logrus.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
@@ -154,6 +149,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 }
 
 func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo *hh.Info) error {
+	db := s.db
 	logrus.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
@@ -164,7 +160,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
 	h.State = host.StateRunning
 
-	nstmt, err := s.db.PrepareNamed(`UPDATE hosts
+	nstmt, err := db.PrepareNamed(`UPDATE hosts
 		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
 		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
 		WHERE id = :id
@@ -178,13 +174,13 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		return err
 	}
 
-	p, err := plan.FindByID(s.db, h.PlanID)
+	p, err := plan.FindByID(db, h.PlanID)
 	if err != nil {
 		logrus.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
 	if p.IsSubscription() {
-		_, err := s.SubscriptionProvider.Subscribe(s.db, h, p, u)
+		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u)
 		if err != nil {
 			logrus.Errorf("uuid=%s queueProvisionTracer: Subscribe err: %+v h: %+v", uuid, err, h)
 			if err == subscriptions.ErrCardExpired || err == subscriptions.ErrCardDeclined {
@@ -194,25 +190,96 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		}
 	}
 
-	_, err = s.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
+	_, err = db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, updated_at=now() WHERE id=$3 AND plan_id=$4;`,
 		p.HourlyPrice(), p.IsFree(), h.ID, p.ID)
 	if err != nil {
-		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", err, h)
+		logrus.Debugf("uuid=%s queueProvisionTracer: update err: %+v h: %+v ", uuid, err, h)
 		return err
 	}
+	logrus.Debugf("uuid=%s queueProvisionTracer: updated h: %+v", uuid, h)
+
+	if err := s.createSharedVolume(uuid, u, h); err != nil {
+		return err
+	}
+
+	if err := s.recordTransition(u, h); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (s *Server) updateHostDetails(h *host.Host) error {
-	nstmt, err := s.db.PrepareNamed(`UPDATE hosts
-		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
-		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
-		WHERE id = :id
-		RETURNING *;`)
+func (s *Server) recordTransition(u *user.User, h *host.Host) error {
+	timing := h.AssignedAt
+	if timing == nil {
+		timing = h.CreatedAt
+	}
+
+	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) error {
+	cl, err := controllers.NewFreighterClient(s.db, h, uuid)
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(h).StructScan(h)
+
+	vol := &volume.Volume{
+		HostID: h.ID,
+		Slug:   "shared",
+		Name:   "Shared Volume",
+		System: true,
+	}
+
+	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := vol.Insert(tx); err != nil {
+			return err
+		}
+
+		// Freighter could be unavailable due to restarting or temporal network issue.
+		// To solve it, it retries 5 times until we get a connection to it
+		attempts := 0
+		sleepDuration := 100 * time.Millisecond
+		for attempts < freighterRetryCount {
+			if _, err := cl.CreateVolume(vol.Slug); err != nil {
+				// Only retry when it is connection error
+				if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
+					logrus.Infof("uuid=%s retrying to connect to freighter to create a volume. Sleeping for %0.2fs", uuid, sleepDuration.Seconds())
+					attempts++
+					time.Sleep(sleepDuration)
+					sleepDuration *= 2
+					continue
+				}
+
+				return err
+			} else {
+				s.Events.Publish(
+					controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
+						"volume": serializers.SerializeVolume(vol),
+					}),
+					u.Topic(),
+				)
+				return nil
+			}
+		}
+
+		return fmt.Errorf("failed to connect to fregither to create shared volume")
+	})
+}
+
+func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, message string) {
+	s.Events.Publish(
+		controllers.NewEvent(controllers.EventHostCreateFailed, map[string]interface{}{
+			"host":  serializers.SerializeHost(h),
+			"error": message,
+		}),
+		u.Topic(),
+	)
 }
 
 func (s *Server) handleStopMessage(m *queue.Message) error {

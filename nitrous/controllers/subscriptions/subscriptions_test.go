@@ -40,7 +40,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		svr = server.NewServer("", db, nil)
+		svr = server.NewServer("", db, nil, nil)
 		handler = svr.Router()
 
 		u = &user.User{
