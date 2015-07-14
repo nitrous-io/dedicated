@@ -651,31 +651,13 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		return nil, err
 	}
 
-	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
-	h.State = host.StateRunning
-
-	// only update attributes related to provisioning
-	// we don't want to replace all attributes with any outdated data
-	if err := p.updateProviderDetails(h); err != nil {
-		logrus.Debugf("provisionTracer: updateProviderDetails err: %+v h: %+v ", err, h)
-		return nil, err
-	}
-
-	_, err = p.db.Exec(`UPDATE hosts SET hourly_price=$1, free=$2, auto_shutdown=$3, updated_at=now() WHERE id=$4 AND plan_id=$5 RETURNING *;`,
-		opts.Plan.HourlyPrice(), opts.Plan.IsFree(), opts.Plan.AutoShutdown, h.ID, opts.Plan.ID)
-	if err != nil {
-		logrus.Debugf("provisionTracer: update err: %+v h: %+v ", err, h)
-		return nil, err
-	}
-	logrus.Debugf("provisionTracer: updated h: %+v", h)
-
 	// refresh the host for live DB data
 	// (assign, not return so the value is passed into defer)
 	nH, err := host.FindByIdentifier(p.db, h.Slug)
 	if nH != nil {
 		h = nH
 	}
-	return h, err
+	return h, nil
 }
 
 func (p *Provisioner) configureUser() error {

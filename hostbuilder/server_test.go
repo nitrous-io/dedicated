@@ -125,7 +125,7 @@ var _ = Describe("hostbuilder", func() {
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
 		})
 
-		It("should send messages to queue when queue is true", func() {
+		It("should send messages to queue", func() {
 			h := &dummy.Host{
 				ID:            "123",
 				Name:          "Created",
@@ -141,7 +141,6 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("id", "456")
 			form.Set("slug", "dummy-456")
 			form.Set("requester_id", "789")
-			form.Set("queue", "true")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
@@ -171,7 +170,7 @@ var _ = Describe("hostbuilder", func() {
 			qp.Delete()
 		})
 
-		It("should return error when fails to create a host when queue is true", func() {
+		It("should return error when fails to create a host", func() {
 			h := &dummy.Host{
 				ID:            "123",
 				Name:          "Created",
@@ -187,7 +186,6 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("id", "456")
 			form.Set("slug", "dummy-456")
 			form.Set("requester_id", "789")
-			form.Set("queue", "true")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts"), form)
@@ -307,6 +305,10 @@ var _ = Describe("hostbuilder", func() {
 
 			config, _ := json.Marshal(h)
 			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
+			form.Set("requester_id", "789")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/stop"), form)
@@ -321,7 +323,7 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 		})
 
-		It("should successfully stop the host when queue is true", func() {
+		It("should send messages to queue", func() {
 			h := &dummy.Host{StopSuccess: true}
 			srv, err := setupDummyHost(h)
 			Expect(err).To(BeNil(), "failed to setup a dummy host")
@@ -334,7 +336,6 @@ var _ = Describe("hostbuilder", func() {
 			form.Set("slug", "dummy-456")
 			form.Set("requester_id", "789")
 			form.Set("provider", "dummy")
-			form.Set("queue", "true")
 			form.Set("config", string(config))
 			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/stop"), form)
 			Expect(err).To(BeNil())
