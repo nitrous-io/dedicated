@@ -205,7 +205,10 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 		if strings.HasSuffix(r.URL.Path, "freighterd_hook") && r.URL.Query().Get("nolog") == "1" {
 			w.Header().Set(constants.NitrousUUIDHeader, "nolog")
 		} else {
-			logrus.Infof("uuid=%s ip=%s Request: %v %v", uuidStr, remoteAddr, r.Method, r.URL.String())
+			fields := logFields(r, map[string]interface{}{
+				"uuid": uuidStr,
+			})
+			logrus.WithFields(fields).Infof("Request")
 		}
 		env := &middleware.Env{
 			Root:        s.root,
@@ -289,7 +292,12 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 		}
 	}
 	if uuid != "nolog" {
-		logrus.Infof("uuid=%s Response: %v %v", uuid, status, str)
+		fields := logFields(r, map[string]interface{}{
+			"uuid":   uuid,
+			"status": status,
+			"body":   str,
+		})
+		logrus.WithFields(fields).Infof("Response")
 	}
 }
 
@@ -364,4 +372,18 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 		}
 	}
 	return nil
+}
+
+// returns logger fields for a request (can be nil to skip request-related fields) and contents of 'extra'
+func logFields(r *http.Request, extra map[string]interface{}) logrus.Fields {
+	fields := logrus.Fields{}
+	if r != nil {
+		fields["ip"] = middleware.GetRemoteAddr(r)
+		fields["method"] = r.Method
+		fields["path"] = r.URL.String()
+	}
+	for k, v := range extra {
+		fields[k] = v
+	}
+	return fields
 }
