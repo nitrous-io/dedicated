@@ -223,10 +223,10 @@ var _ = Describe("pkg/queue", func() {
 		var err error
 
 		BeforeEach(func() {
-			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
+			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test-consumer")
+			qc, err = queue.CreateConsumer(redismqQueue, "test-consumer", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-consumer")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 			msg := &queue.Message{
@@ -270,10 +270,10 @@ var _ = Describe("pkg/queue", func() {
 		}
 
 		BeforeEach(func() {
-			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test")
-			qc, err = queue.CreateConsumer(redismqQueue, "test", noopHandler, 5*time.Second)
+			redismqQueue := redismq.CreateQueue(test.RedisHost, test.RedisPort, "", test.RedisTestDb, "test-message")
+			qc, err = queue.CreateConsumer(redismqQueue, "test-message", noopHandler, 5*time.Second)
 			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-message")
 			err = qp.ResetInput()
 			Expect(err).To(BeNil())
 		})
@@ -352,10 +352,13 @@ var _ = Describe("pkg/queue", func() {
 				return nil
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Second)
+			// There is not way to stop this goroutine. https://github.com/adjust/redismq/blob/master/consumer.go#L170
+			// It affects other test to start new consumer because it only allows one consumer
+			// So use different name for each test
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-basic", handler, stopCh, 5*time.Second)
 			time.Sleep(50 * time.Millisecond)
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-basic")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 
@@ -453,9 +456,6 @@ var _ = Describe("pkg/queue", func() {
 			queue1.Process.Kill()
 			time.Sleep(500 * time.Millisecond)
 
-			// Remove previous queue health check immediately not to wait
-			redisClient.FlushDb()
-
 			err = qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 			Eventually(func() string {
@@ -475,10 +475,10 @@ var _ = Describe("pkg/queue", func() {
 				}
 			}
 
-			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test", handler, stopCh, 5*time.Minute)
+			go queue.StartConsumer(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-failed", handler, stopCh, 5*time.Minute)
 			time.Sleep(50 * time.Millisecond)
 
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test")
+			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "test-failed")
 			err := qp.ResetInput()
 			Expect(err).To(BeNil())
 
