@@ -10,13 +10,24 @@ App.EventMessageHandler = App.EventsSocket.extend
       @on evt, (data) ->
         findAllContainers()?.reload()
 
-    ['container.starting', 'container.started','container.stopping', 'container.stopped', 'container.restarting', 'container.restarted',
-     'container.updated', 'container.reconfiguring', 'container.reconfigured', 'container.reconfigure_failed'].forEach (evt) =>
+    ['container.starting', 'container.stopping', 'container.stopped', 'container.restarting',
+     'container.updated', 'container.reconfiguring', 'container.reconfigure_failed'].forEach (evt) =>
       @on evt, (data) ->
         containerData = data.container
         if container = findContainer(containerData)
           container.eventOccurred(evt)
           container.load(containerData)
+          container.loadConfig()
+
+    ['container.started', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
+      @on evt, (data) ->
+        containerData = data.container
+        if container = findContainer(containerData)
+          container.eventOccurred(evt)
+          container.load(containerData)
+          # Reload container data so that we get a full set of data that is
+          # missing from the event, such as the sshURL.
+          container.reload()
           container.loadConfig()
 
     ['hosts.refreshed', 'host.created', 'host.create_failed', 'host.destroyed'].forEach (evt) =>
