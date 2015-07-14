@@ -52,6 +52,6 @@
 
 unless view.multipleSubscriptions
   unless App.subscriptions.firstObject.cancelPending
-  .card-footer.bordered
+    .card-footer.bordered
       .right
         button.ui.btn.danger click='showCancelSubscription App.subscriptions.firstObject' disabled=App.subscriptions.firstObject.cancelPending Cancel Subscription
