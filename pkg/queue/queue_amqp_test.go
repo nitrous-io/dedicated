@@ -15,17 +15,19 @@ import (
 	"github.com/nitrous-io/dedicated/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"gopkg.in/redis.v2"
 )
 
 func init() {
 	reexec.Register("amqp1", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
-			redisClient.Set("amqp-handler", "amqp1")
+
+			redisClient.Set("amqp-handler", "amqp1").Result()
 			return nil
 		}
 		err := queue.StartAmqpConsumer(test.RabbitMQAddr, "test", h, stop, time.Second)
@@ -35,7 +37,7 @@ func init() {
 	reexec.Register("amqp2", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
@@ -49,7 +51,7 @@ func init() {
 	reexec.Register("handle-failure", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
@@ -67,7 +69,7 @@ func init() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
 			if m.UUID == "success" {
-				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 				if err != nil {
 					return err
 				}
@@ -89,7 +91,7 @@ func init() {
 		blocking := make(chan struct{})
 		h := func(m *queue.Message) error {
 			<-blocking
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
@@ -124,14 +126,21 @@ func init() {
 }
 
 var _ = Describe("pkg/queue/amqp", func() {
-	var qp queue.Publisher
+	var (
+		qp          queue.Publisher
+		redisClient *redis.Client
+	)
 
 	BeforeEach(func() {
 		var err error
 		// reset rabbitmq state
 		//Expect(exec.Command("rabbitmqadmin", "-f", "tsv", "-q", "list", "queues", "name", "|", "while", "read", "queue;", "do", "rabbitmqadmin", "-q", "delete", "queue", "name=${queue};", "done").Run()).To(BeNil())
 		exec.Command("rabbitmqadmin", "delete", "queue", "name=test").Run()
+		exec.Command("rabbitmqadmin", "delete", "queue", "name=test-dlex").Run()
 		exec.Command("rabbitmqadmin", "delete", "queue", "name=test-dlq").Run()
+
+		redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
+		Expect(err).To(BeNil())
 
 		qp, err = queue.NewAmqpQueue(test.RabbitMQAddr, "test")
 		Expect(err).To(BeNil())
@@ -318,8 +327,6 @@ var _ = Describe("pkg/queue/amqp", func() {
 			err := qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
 			}, 10*time.Second).Should(Equal("amqp1"))
@@ -334,19 +341,21 @@ var _ = Describe("pkg/queue/amqp", func() {
 
 			test.RestartRabbitMq()
 			//Wait until server is up
+			up := false
 			for i := 0; i < 5; i++ {
 				if _, err := net.Dial("tcp", fmt.Sprintf("%s:%s", "localhost", "5672")); err != nil {
 					time.Sleep(10 * time.Millisecond)
 				} else {
+					up = true
 					break
 				}
 			}
 
-			err := qp.Publish(&queue.Message{UUID: "1234"})
+			Expect(up).To(BeTrue())
+
+			err := qp.PublishRetry(&queue.Message{UUID: "1234"}, 10, 100*time.Millisecond)
 			Expect(err).To(BeNil())
 
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
 			}, 30*time.Second).Should(Equal("amqp1"))
@@ -378,8 +387,6 @@ var _ = Describe("pkg/queue/amqp", func() {
 			q.Process.Signal(syscall.SIGTERM)
 			q.Process.Signal(syscall.SIGHUP)
 
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-message").Val()
 			}, 30*time.Second).Should(Equal("1234"))
@@ -409,10 +416,7 @@ var _ = Describe("pkg/queue/amqp", func() {
 			Expect(queue1.Start()).To(BeNil(), "queue1 cannot start")
 
 			// make sure that queue1 is running and accepting messages
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
-
-			err = qp.Publish(&queue.Message{UUID: "1234"})
+			err := qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
@@ -444,8 +448,6 @@ var _ = Describe("pkg/queue/amqp", func() {
 			err = qp.Publish(&queue.Message{UUID: "success"})
 			Expect(err).To(BeNil())
 
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
 			// expect to received 1 failure message and 1 success message
 			Eventually(func() string {
 				return redisClient.Get("amqp-handler").Val()
@@ -472,8 +474,6 @@ var _ = Describe("pkg/queue/amqp", func() {
 			}, 5*time.Second, 100*time.Millisecond).Should(Equal(int64(1)))
 
 			// It still process next message
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
-			Expect(err).To(BeNil())
 			err = qp.Publish(&queue.Message{UUID: "success"})
 			Expect(err).To(BeNil())
 			Eventually(func() string {

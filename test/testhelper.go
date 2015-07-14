@@ -16,7 +16,7 @@ var RedisHost string = "localhost"
 var RedisPort string = "6379"
 var RabbitMQAddr = "amqp://localhost:5672"
 
-func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Client, error) {
+func PrepareRedis(redisHost string, redisPort string, redisDB int64, reset bool) (*redis.Client, error) {
 	redisClient := redis.NewTCPClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
 		Password: "",
@@ -28,10 +28,12 @@ func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Cli
 		return nil, err
 	}
 
-	err = redisClient.FlushDb().Err()
-	if err != nil {
-		redisClient.Close()
-		return nil, err
+	if reset {
+		err = redisClient.FlushDb().Err()
+		if err != nil {
+			redisClient.Close()
+			return nil, err
+		}
 	}
 
 	return redisClient, nil
@@ -91,7 +93,7 @@ func runWhileRestartService(service string, checkFn func() error, fn func()) err
 		for i := 0; i < 5; i++ {
 			if err := checkFn(); err != nil {
 				logrus.Printf("failed to connect to %s: %+v", service, err)
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 			} else {
 				break
 			}

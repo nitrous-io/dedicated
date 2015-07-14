@@ -55,7 +55,7 @@ var _ = Describe("host/docker", func() {
 		var redisClient *redis.Client
 		BeforeEach(func() {
 			var err error
-			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())
@@ -211,7 +211,7 @@ var _ = Describe("host/docker", func() {
 		var redisClient *redis.Client
 		BeforeEach(func() {
 			var err error
-			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
 			Expect(err).To(BeNil())
 			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
 			Expect(err).To(BeNil())

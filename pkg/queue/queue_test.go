@@ -31,7 +31,7 @@ func init() {
 	reexec.Register("queue1", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
@@ -45,7 +45,7 @@ func init() {
 	reexec.Register("queue2", func() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
 				return err
 			}
@@ -64,11 +64,16 @@ func init() {
 		blocking := make(chan struct{})
 		h := func(m *queue.Message) error {
 			<-blocking
-			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+			redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 			if err != nil {
+				fmt.Printf("Failed to prepare redis: %+v", err)
 				return err
 			}
-			redisClient.Set("test", m.UUID)
+			_, err = redisClient.Set("test", m.UUID).Result()
+			if err != nil {
+				fmt.Printf("Failed to set value(%s) to redis: %+v", m.UUID, err)
+				return err
+			}
 			return nil
 		}
 
@@ -99,7 +104,7 @@ func init() {
 		stop := make(chan struct{})
 		h := func(m *queue.Message) error {
 			if m.UUID == "success" {
-				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+				redisClient, err := test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, false)
 				if err != nil {
 					return err
 				}
@@ -135,7 +140,7 @@ var _ = Describe("pkg/queue", func() {
 			time.Sleep(100 * time.Millisecond)
 		}
 
-		redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb)
+		redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
 		Expect(err).To(BeNil())
 	})
 
@@ -378,6 +383,9 @@ var _ = Describe("pkg/queue", func() {
 			r, w, err := os.Pipe()
 			Expect(err).To(BeNil(), "failed to create pipe")
 			q := reexec.Command("handle-stop")
+			q.Stdout = os.Stdout
+			q.Stderr = os.Stderr
+
 			q.ExtraFiles = []*os.File{w} // send the pipe over as a sync pipe
 			defer func() {
 				r.Close()
@@ -398,6 +406,7 @@ var _ = Describe("pkg/queue", func() {
 			Expect(err).To(BeNil())
 			Expect(n).To(Equal(1), "failed to receive synchronization byte")
 
+			time.Sleep(50 * time.Millisecond)
 			q.Process.Signal(syscall.SIGTERM)
 			q.Process.Signal(syscall.SIGHUP)
 
@@ -413,6 +422,8 @@ var _ = Describe("pkg/queue", func() {
 		It("tries when there is already queue consumer for same name", func() {
 			queue1 := reexec.Command("queue1")
 			queue2 := reexec.Command("queue2")
+			queue1.Stdout = os.Stdout
+			queue1.Stderr = os.Stderr
 			queue2.Stdout = os.Stdout
 			queue2.Stderr = os.Stderr
 			defer func() {
@@ -441,6 +452,9 @@ var _ = Describe("pkg/queue", func() {
 			// stop queue1
 			queue1.Process.Kill()
 			time.Sleep(500 * time.Millisecond)
+
+			// Remove previous queue health check immediately not to wait
+			redisClient.FlushDb()
 
 			err = qp.Publish(&queue.Message{UUID: "1234"})
 			Expect(err).To(BeNil())
