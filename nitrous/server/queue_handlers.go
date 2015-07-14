@@ -215,16 +215,12 @@ func (s *Server) recordTransition(u *user.User, h *host.Host) error {
 		timing = h.CreatedAt
 	}
 
-	tx, err := s.db.Beginx()
-	if err != nil {
-		return err
-	}
-
-	if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
-		tx.Rollback()
-		return err
-	}
-	return tx.Commit()
+	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := hosttransition.Record(tx, h, host.StateBorn, *timing, u.ID); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) error {
@@ -240,44 +236,40 @@ func (s *Server) createSharedVolume(uuid string, u *user.User, h *host.Host) err
 		System: true,
 	}
 
-	tx, err := s.db.Beginx()
-	if err != nil {
-		return err
-	}
-
-	if err := vol.Insert(tx); err != nil {
-		return err
-	}
-
-	// Freighter could be unavailable due to restarting or temporal network issue.
-	// To solve it, it retries 5 times until we get a connection to it
-	attempts := 0
-	sleepDuration := 100 * time.Millisecond
-	for attempts < freighterRetryCount {
-		if _, err := cl.CreateVolume(vol.Slug); err != nil {
-			// Only retry when it is connection error
-			if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
-				logrus.Infof("uuid=%s retrying to connect to freighter to create a volume. Sleeping for %0.2fs", uuid, sleepDuration.Seconds())
-				attempts++
-				time.Sleep(sleepDuration)
-				sleepDuration *= 2
-				continue
-			}
-
-			tx.Rollback()
+	return s.db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := vol.Insert(tx); err != nil {
 			return err
-		} else {
-			s.Events.Publish(
-				controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
-					"volume": serializers.SerializeVolume(vol),
-				}),
-				u.Topic(),
-			)
-			return tx.Commit()
 		}
-	}
 
-	return fmt.Errorf("failed to connect to fregither to create shared volume")
+		// Freighter could be unavailable due to restarting or temporal network issue.
+		// To solve it, it retries 5 times until we get a connection to it
+		attempts := 0
+		sleepDuration := 100 * time.Millisecond
+		for attempts < freighterRetryCount {
+			if _, err := cl.CreateVolume(vol.Slug); err != nil {
+				// Only retry when it is connection error
+				if strings.Contains(err.Error(), "connection reset by peer") || err == io.EOF {
+					logrus.Infof("uuid=%s retrying to connect to freighter to create a volume. Sleeping for %0.2fs", uuid, sleepDuration.Seconds())
+					attempts++
+					time.Sleep(sleepDuration)
+					sleepDuration *= 2
+					continue
+				}
+
+				return err
+			} else {
+				s.Events.Publish(
+					controllers.NewEvent(controllers.EventVolumeCreated, map[string]*serializers.Volume{
+						"volume": serializers.SerializeVolume(vol),
+					}),
+					u.Topic(),
+				)
+				return nil
+			}
+		}
+
+		return fmt.Errorf("failed to connect to fregither to create shared volume")
+	})
 }
 
 func (s *Server) publishProvisionFailure(u *user.User, h *host.Host, message string) {
