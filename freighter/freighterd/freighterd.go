@@ -126,7 +126,7 @@ func main() {
 				logrus.Info("profile_dump_folder is not specified")
 			}
 		default:
-			signal.Stop(signals)
+			signal.Stop(ch)
 			logrus.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
 			svr.Stop()
 			logrus.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
