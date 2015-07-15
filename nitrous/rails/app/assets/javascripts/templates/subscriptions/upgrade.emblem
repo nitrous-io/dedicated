@@ -32,31 +32,53 @@
 #subscription-upgrade-modal-dialog.ui.modal
   .ui.card
     h2.card-header
-      | Begin Upgrade
+      = view.upgradeModalTitle
     .card-body
-      p
-        ' To perform the upgrade you will be immediately charged
-        if prorataCharge
-          | $
-          = prorataCharge
+      if hostsUpgrading.length
+        if manyHostsUpgrading
+          p
+            | Your subscription has been successfully upgraded and the following workspaces are now resizing:
+
+          ul
+            = each host in hostsUpgrading
+              li
+                = host.name
         else
-          | a prorated amount
-        |  and then $
-        = selectedPlan.totalPriceInDollars
-        |  each month.
+          p
+            ' Your subscription has been successfully upgraded and your workspace
+            strong
+              = hostsUpgrading.firstObject.name
+            |  is now resizing.
+        p
+          | You will be notified when the resizing has been completed.
+      else
+        p
+          ' To perform the upgrade you will be immediately charged
+          if prorataCharge
+            | $
+            = prorataCharge
+          else
+            | a prorated amount
+          |  and then $
+          = selectedPlan.totalPriceInDollars
+          |  each month.
 
-      p
-        | Your workspace will be restarted to perform the upgrade, please ensure you have saved your work.
+        p
+          | Your workspace will be restarted to perform the upgrade, please ensure you have saved your work.
 
 
-    .card-footer
-      .right
-        if upgrading
-          button.ui.btn disabled='disabled'
-            i.spinner
-            | Upgrading...
-        else
-          button.ui.btn click='cancelUpgrade target="view"'
-            | Cancel
-          button.ui.btn.primary click='confirmUpgrade target="view"'
-            | Upgrade
+      .card-footer
+        .right
+          if hostsUpgrading.length
+            button.ui.btn.primary click='closeUpgrade target="view"'
+              | Close
+          else
+            if upgrading
+              button.ui.btn disabled='disabled'
+                i.spinner
+                | Upgrading...
+            else
+              button.ui.btn click='cancelUpgrade target="view"'
+                | Cancel
+              button.ui.btn.primary click='confirmUpgrade target="view"'
+                | Upgrade
