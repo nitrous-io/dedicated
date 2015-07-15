@@ -30,12 +30,42 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     @get('plan.price') / 100.0
   ).property 'plan'
 
+  canUpgrade: (->
+    return true unless @get 'plan'
+    App.get('eligiblePlans').any (plan) =>
+      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > @get('plan.price'))
+  ).property 'App.eligiblePlans.@each', 'plan'
+
   cancel: ->
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'DELETE',
         url: "/api/v0/subscriptions/#{@get 'id'}/cancel",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
+      ).done((retData, status, jqxhr) =>
+        resolve(retData)
+      ).fail (jqxhr) =>
+        reject(jqxhr)
+
+  upgrade: (plan_id)->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'POST',
+        url: "/api/v0/subscriptions/#{@get 'id'}/upgrade",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data: { plan_id: plan_id }
+      ).done((retData, status, jqxhr) =>
+        resolve(retData)
+      ).fail (jqxhr) =>
+        reject(jqxhr)
+
+  upgradeEstimate: (plan_id)->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'GET',
+        url: "/api/v0/subscriptions/#{@get 'id'}/upgrade",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data: { plan_id: plan_id }
       ).done((retData, status, jqxhr) =>
         resolve(retData)
       ).fail (jqxhr) =>

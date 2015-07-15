@@ -146,6 +146,69 @@ var _ = Describe("models/subscription", func() {
 		})
 	})
 
+	Describe("FindByUserID", func() {
+		var (
+			s1 *subscription.Subscription
+			s2 *subscription.Subscription
+			s3 *subscription.Subscription
+			u2 *user.User
+		)
+
+		BeforeEach(func() {
+			// Insert subscriptions
+			bp1, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s1 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+			}
+			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
+
+			s2 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"X", true},
+			}
+			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
+
+			u2 = &user.User{
+				Username: "user2",
+				Email:    "user2@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			bp2, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s3 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp2.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"3", true},
+			}
+			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
+		})
+
+		It("should find a subscription belonging to a user", func() {
+			s, err := subscription.FindByUserID(db, s1.ID, u.ID)
+			Expect(err).To(BeNil())
+			Expect(s).To(Equal(s1))
+
+			s, err = subscription.FindByUserID(db, s2.ID, u.ID)
+			Expect(err).To(BeNil())
+			Expect(s).To(Equal(s2))
+		})
+
+		It("should not find a subscription if it doesn't belong to the user", func() {
+			s, err := subscription.FindByUserID(db, s1.ID, u2.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(s).To(BeNil())
+		})
+	})
+
 	Describe("FindAllByUserID", func() {
 		var (
 			s1 *subscription.Subscription
