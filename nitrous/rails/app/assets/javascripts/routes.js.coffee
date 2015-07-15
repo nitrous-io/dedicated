@@ -6,6 +6,7 @@ App.Router.map ->
   @route 'reset-password'
   @route 'confirm-email'
   @route 'pricing'
+  @route 'coupon', path: '/claim'
 
   @resource 'home', path: '/', ->
     @resource 'free-tier', path: '/free-tier'

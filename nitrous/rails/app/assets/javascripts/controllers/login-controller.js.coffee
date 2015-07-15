@@ -18,6 +18,11 @@ App.LoginController = Em.Controller.extend
     App.authenticate(login, password).then((token) =>
       App.setToken(token)
       Mp.track Mp.EventUserLoggedIn
+
+      if coupon = App.get('pendingCoupon')
+        @transitionToRoute 'coupon', queryParams: { code: coupon }
+        return
+
       @transitionToRoute 'home.index'
     , (err) =>
       if err
