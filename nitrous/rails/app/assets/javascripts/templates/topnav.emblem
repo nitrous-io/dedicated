@@ -92,7 +92,7 @@
       li
         a href='/pricing' Pricing
       li
-        a href='http://docs.nitrous.io/' target='_blank' Documentation
+        a href='https://community.nitrous.io/docs' target='_blank' Documentation
       li.primary
         link-to 'signup' | Sign Up
       li.primary

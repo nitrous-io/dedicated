@@ -5,11 +5,11 @@
         | &copy; 2012-2015 Nitrous, Inc.
       ul
         li
-          a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' Terms
+          a href='https://community.nitrous.io/docs/terms-of-use' Terms
         li
-          a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' Privacy
+          a href='https://community.nitrous.io/docs/privacy-policy' Privacy
         li
-          a href='http://docs.nitrous.io/v1.0/docs/security-on-nitrous' Security
+          a href='https://community.nitrous.io/docs/security-on-nitrous' Security
     .right
       ul
         li
@@ -17,6 +17,6 @@
         li
           a href='mailto:support@nitrous.io?subject=Nitrous%20Pro%20Feedback' Support
         li
-          a href='http://blog.nitrous.io/' Blog
+          a href='https://community.nitrous.io/' Community
         li
-          a href='http://docs.nitrous.io/v1.0/blog' Updates
+          a href='https://community.nitrous.io/posts' Blog
