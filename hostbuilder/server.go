@@ -145,6 +145,9 @@ type config struct {
 
 	// whether partial provider List() calls are considered an error
 	AllowPartialList bool `json:"allow_partial_list"`
+
+	// CPU profile dump folder
+	ProfileDumpFolder string `json:"profile_dump_folder"`
 }
 
 type Server struct {
