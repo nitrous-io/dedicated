@@ -46,24 +46,32 @@ test_db() {
   test_app $@
 }
 
-test_queue() {
+test_redis_queue() {
   echo "===> Starting redis dependencies"
   sudo service redis_6379 restart
-  echo "===> Starting rabbitmq dependencies"
-  sudo service rabbitmq-server restart
   test_app $@
 }
 
-test_db_and_queue() {
+test_queue() {
+  echo "===> Starting redis dependencies"
+  sudo service redis_6379 restart
+
+  echo "===> Starting rabbitmq dependencies"
+  sudo service rabbitmq-server restart
+  test_app $@
+
+  # Rabbitmq is quite heavy application
+  # Shutdown after testing to make other tests faster
+  echo "===> Stopping rabbitmq dependencies"
+  sudo service rabbitmq-server stop
+}
+
+test_db_and_redis_queue() {
   echo "===> Starting database dependencies"
   sudo service postgresql restart
 
   echo "===> Starting redis dependencies"
   sudo service redis_6379 restart
-
-  echo "===> Starting rabbitmq dependencies"
-  sudo service rabbitmq-server restart
-
   test_app $@
 }
 
@@ -75,13 +83,13 @@ test_with_docker() {
 
 if [ "$APP" == "all" ]; then
   run test_queue pkg
-  run test_queue hostbuilder
-  run test_db_and_queue nitrous
+  run test_redis_queue hostbuilder
+  run test_db_and_redis_queue nitrous
   run test_with_docker freighter
   run test_db tender
   run test_db compass
 elif [ "$APP" == "hostbuilder" ]; then
-  run test_queue hostbuilder $SUITE
+  run test_redis_queue hostbuilder $SUITE
 elif [ "$APP" == "freighter" ]; then
   run test_with_docker freighter $SUITE
 elif [ "$APP" == "tender" ]; then
@@ -89,9 +97,9 @@ elif [ "$APP" == "tender" ]; then
 elif [ "$APP" == "compass" ]; then
   run test_db compass $SUITE
 elif [ "$APP" == "nitrous" ]; then
-  run test_db_and_queue nitrous $SUITE
+  run test_db_and_redis_queue nitrous $SUITE
 elif [ "$APP" == "pkg" ]; then
-  run test_app pkg $SUITE
+  run test_queue pkg $SUITE
 elif [ "$APP" == "shell" ]; then
   # start necessary service and launch the shell
   echo "===> Starting Docker daemon"
