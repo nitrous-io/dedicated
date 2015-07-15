@@ -206,7 +206,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		It("should return an estimate from Stripe", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
-				`{"object": "invoice", "id": "ABC", "total": 230}`,
+				stripeUpgradeResponse,
 			}
 
 			res := doRequest(s.ID, trgtPlan.ID)
@@ -217,7 +217,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			err := json.NewDecoder(res.Body).Decode(&str)
 			Expect(err).To(BeNil())
-			Expect(str.Total).To(Equal(230))
+			Expect(str.Total).To(Equal(2001))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			r := fakeStripe.ReceivedRequests[0]
@@ -233,7 +233,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
-				`{"object": "invoice", "id": "ABC", "total": 230}`,
+				stripeUpgradeResponse,
 			}
 
 			res := doRequest(s.ID, trgtPlan.ID)
@@ -244,7 +244,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			err = json.NewDecoder(res.Body).Decode(&str)
 			Expect(err).To(BeNil())
-			Expect(str.Total).To(Equal(230))
+			Expect(str.Total).To(Equal(2001))
 
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			r := fakeStripe.ReceivedRequests[0]
@@ -427,3 +427,142 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 })
+
+var stripeUpgradeResponse = `
+{
+  "date": 1439597220,
+  "period_start": 1436918820,
+  "period_end": 1439597220,
+  "lines": {
+    "object": "list",
+    "total_count": 3,
+    "has_more": false,
+    "url": "/v1/invoices/upcoming/lines?customer=cus_6bqrAO65m89tk1\u0026subscription=sub_6br883mCMXa2PN\u0026subscription_plan=nitro\u0026subscription_prorate=true",
+    "data": [
+      {
+        "id": "ii_16Oe36AOjoYioo6eJIEJgEhm",
+        "object": "line_item",
+        "type": "invoiceitem",
+        "livemode": false,
+        "amount": -2499,
+        "currency": "usd",
+        "proration": true,
+        "period": {
+          "start": 1436921220,
+          "end": 1439597220
+        },
+        "subscription": "sub_6br883mCMXa2PN",
+        "quantity": 1,
+        "plan": {
+          "interval": "month",
+          "name": "Turbo",
+          "created": 1436913820,
+          "amount": 4500,
+          "currency": "usd",
+          "id": "turbo",
+          "object": "plan",
+          "livemode": false,
+          "interval_count": 1,
+          "trial_period_days": null,
+          "metadata": {},
+          "statement_descriptor": null
+        },
+        "description": "Unused time on Turbo after 15 Jul 2015",
+        "discountable": false,
+        "metadata": {}
+      },
+      {
+        "id": "ii_16Oe36AOjoYioo6ejrSL0TZw",
+        "object": "line_item",
+        "type": "invoiceitem",
+        "livemode": false,
+        "amount": 4500,
+        "currency": "usd",
+        "proration": true,
+        "period": {
+          "start": 1436921220,
+          "end": 1439597220
+        },
+        "subscription": "sub_6br883mCMXa2PN",
+        "quantity": 1,
+        "plan": {
+          "interval": "month",
+          "name": "Nitro",
+          "created": 1436913755,
+          "amount": 8000,
+          "currency": "usd",
+          "id": "nitro",
+          "object": "plan",
+          "livemode": false,
+          "interval_count": 1,
+          "trial_period_days": null,
+          "metadata": {},
+          "statement_descriptor": null
+        },
+        "description": "Remaining time on Nitro after 15 Jul 2015",
+        "discountable": false,
+        "metadata": {}
+      },
+      {
+        "id": "ii_16OdwhAOjoYioo6e6w4YBPGR",
+        "object": "line_item",
+        "type": "invoiceitem",
+        "livemode": false,
+        "amount": 4500,
+        "currency": "usd",
+        "proration": false,
+        "period": {
+          "start": 1436920823,
+          "end": 1439597220
+        },
+        "subscription": "sub_6br883mCMXa2PN",
+        "quantity": 1,
+        "plan": {
+          "interval": "month",
+          "name": "Shift",
+          "created": 1436918692,
+          "amount": 2500,
+          "currency": "usd",
+          "id": "shift",
+          "object": "plan",
+          "livemode": false,
+          "interval_count": 1,
+          "trial_period_days": null,
+          "metadata": {},
+          "statement_descriptor": null
+        },
+        "description": "Unused time on Shift after 15 Jul 2015",
+        "discountable": false,
+        "metadata": {}
+      }
+    ]
+  },
+  "subtotal": 13496,
+  "total": 13496,
+  "customer": "cus_6bqrAO65m89tk1",
+  "object": "invoice",
+  "attempted": false,
+  "closed": false,
+  "forgiven": false,
+  "paid": false,
+  "livemode": false,
+  "attempt_count": 0,
+  "amount_due": 13496,
+  "currency": "usd",
+  "starting_balance": 0,
+  "ending_balance": null,
+  "next_payment_attempt": 1439600820,
+  "webhooks_delivered_at": null,
+  "charge": null,
+  "discount": null,
+  "application_fee": null,
+  "subscription": "sub_6br883mCMXa2PN",
+  "tax_percent": null,
+  "tax": null,
+  "metadata": {},
+  "statement_descriptor": null,
+  "description": null,
+  "receipt_number": null,
+  "subscription_proration_date": 1436921220
+}
+`

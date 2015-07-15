@@ -79,9 +79,10 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 	// Stripe's InvoiceParams struct prevents sending `subscription_plan` to see prorata estimates
 	// so we build the request ourselves
 	body := &url.Values{
-		"customer":          []string{bp.StripeID.String},
-		"subscription":      []string{s.StripeID.String},
-		"subscription_plan": []string{stripePlanID},
+		"customer":             []string{bp.StripeID.String},
+		"subscription":         []string{s.StripeID.String},
+		"subscription_plan":    []string{stripePlanID},
+		"subscription_prorate": []string{"true"},
 	}
 
 	c := &stripeinvoice.Client{stripe.GetBackend(), stripe.Key}
@@ -92,9 +93,15 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		return err
 	}
 
+	var amount int64
+	for _, l := range i.Lines.Values {
+		if l.Proration {
+			amount += l.Amount
+		}
+	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"total": i.Total,
+		"total": amount,
 	}
 	return nil
 }
