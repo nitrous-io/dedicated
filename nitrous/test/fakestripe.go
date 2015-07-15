@@ -33,6 +33,9 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		if s := body.Get("plan"); s != "" {
 			m["plan"] = s
 		}
+		if s := body.Get("coupon"); s != "" {
+			m["coupon"] = s
+		}
 		if s := body.Get("at_period_end"); s != "" {
 			m["at_period_end"] = s
 		}

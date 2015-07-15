@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
+	rpprof "runtime/pprof"
 	"strconv"
 	"strings"
 	"syscall"
@@ -376,27 +377,56 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 	}()
 
 	signals := make(chan os.Signal, 10)
-	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2)
 
-	select {
-	case err := <-waiterr:
-		if err != nil {
-			return err
-		}
-	case s := <-signals:
-		signal.Stop(signals)
-		logrus.Debugf("signal received: %s", s)
-		if err := hs.Stop(); err != nil {
-			return err
-		}
-		if err := stopCallback(); err != nil {
-			return err
-		}
-		if err := <-waiterr; err != nil {
-			return err
+	for {
+		select {
+		case err := <-waiterr:
+			if err != nil {
+				return err
+			}
+		case s := <-signals:
+			switch s {
+			case syscall.SIGUSR1:
+				profile := rpprof.Lookup("goroutine")
+				logrus.Infof("=== BEGIN goroutine stack dump ====")
+				profile.WriteTo(logrus.StandardLogger().Out, 2)
+				logrus.Infof("=== END goroutine stack dump ===")
+			case syscall.SIGUSR2:
+				if envvars.ProfileDumpFolder != "" {
+					dumpFileName := fmt.Sprintf("%s/nitrousd-%d.prof", envvars.ProfileDumpFolder, time.Now().Unix())
+					f, err := os.Create(dumpFileName)
+					if err == nil {
+						rpprof.StartCPUProfile(f)
+						time.Sleep(10 * time.Second)
+						rpprof.StopCPUProfile()
+						f.Close()
+						logrus.Debugf("dumped CPU profile to %s", dumpFileName)
+					} else {
+						logrus.Infof("Failed cpu profiling: %+v", err)
+					}
+				} else {
+					logrus.Info("PROFILE_DUMP_FOLDER is not specified")
+				}
+			default:
+				signal.Stop(signals)
+				logrus.Debugf("signal received: %s", s)
+
+				if err := hs.Stop(); err != nil {
+					return err
+				}
+
+				if err := stopCallback(); err != nil {
+					return err
+				}
+
+				if err := <-waiterr; err != nil {
+					return err
+				}
+				return nil
+			}
 		}
 	}
-	return nil
 }
 
 // returns logger fields for a request (can be nil to skip request-related fields) and contents of 'extra'

@@ -10,6 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containercollabs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/coupons"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/events"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
@@ -161,6 +162,7 @@ func (s *Server) drawRoutes() {
 				"/user/verify_phone":                       r("users.VerifyPhone", users.VerifyPhone),
 				"/user/profile":                            r("userprofiles.Update", userprofiles.Update),
 				"/user/settings":                           r("usersettings.Update", usersettings.Update),
+				"/coupons":                                 r("coupon.Create", coupons.Create),
 				"/user/dismiss_first_time":                 r("users.DismissFirstTime", users.DismissFirstTime),
 				"/hosts":                                   r("hosts.Create", hosts.Create, EventHostCreated),
 				"/hosts/refresh":                           r("hosts.Refresh", hosts.Refresh),

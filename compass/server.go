@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime"
+	rpprof "runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -262,10 +262,10 @@ func NewServer(config *Config) (*Server, error) {
 	signal.Notify(ch, syscall.SIGUSR1)
 	go func() {
 		for range ch {
-			buf := make([]byte, 102400) // 100KiB
-			nbytes := runtime.Stack(buf, true)
-			buf = buf[:nbytes]
-			logrus.Infof("=== BEGIN goroutine stack dump ===\n%s\n=== END goroutine stack dump ===", buf)
+			profile := rpprof.Lookup("goroutine")
+			logrus.Infof("=== BEGIN goroutine stack dump ====")
+			profile.WriteTo(logrus.StandardLogger().Out, 2)
+			logrus.Infof("=== END goroutine stack dump ===")
 		}
 	}()
 

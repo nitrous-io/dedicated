@@ -103,6 +103,10 @@ App.Editor = klass = Em.Object.extend
     if cm = @get('codeMirror')
       cm.focus() unless @hasFocus()
 
+  blur: ->
+    if cm = @get('codeMirror')
+      cm.getInputField().blur()
+
   selectNext: ->
     if cm = @get 'codeMirror'
       cm.execCommand('selectNextOccurrence')

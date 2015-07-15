@@ -60,6 +60,3 @@ App.OpsSocket = klass = App.EventedSocket.extend
       use_regexp: useRegexp
       file_pattern: filePattern
     @send 'finder', 'search', request, callback
-
-klass.reopenClass
-  heartbeatInterval: 2000

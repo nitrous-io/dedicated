@@ -1,0 +1,22 @@
+= outlet topnav
+
+.ui.card
+  .card-header.bordered
+    h2 Claim a Coupon
+
+  form submit='claim'
+    .card-body
+      .ui.input-group
+        label.field-label for='coupon-code'
+          | Coupon Code
+        = input type='text' id='coupon-code' value=code
+
+    .card-footer
+      .right
+        input.ui.btn.primary.raised.full type='submit' value='Claim' disabled=saving
+
+
+p.note
+  | Note: coupon will be applied towards the next workspace that you subscribe to.
+
+= partial 'partials/footer'

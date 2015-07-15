@@ -9,5 +9,6 @@
   "listen": [
     { "proto": "unix", "address": "/var/run/freighterd.sock" },
     { "proto": "tcp", "address": "0.0.0.0:65333" }
-  ]
+  ],
+  "profile_dump_folder": "/var/log"
 }

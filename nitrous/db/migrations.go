@@ -1349,6 +1349,12 @@ func init() {
 			`,
 		},
 		{
+			Version: "1323",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 1800 NOT NULL;
+			`,
+		},
+		{
 			Version: "1330",
 			Up: `
 				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
@@ -1371,9 +1377,17 @@ func init() {
 		// 	`,
 		// },
 		{
-			Version: "1323",
+			Version: "1340",
 			Up: `
-				ALTER TABLE hosts ADD COLUMN idle_timeout bigint DEFAULT 1800 NOT NULL;
+				CREATE TABLE coupons (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					code character varying(255) NOT NULL, -- ID of coupon in Stripe
+					used_at timestamp without time zone DEFAULT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+				CREATE UNIQUE INDEX index_coupons_on_user_id ON coupons USING btree (user_id);
 			`,
 		},
 		{

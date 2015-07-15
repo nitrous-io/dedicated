@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	rpprof "runtime/pprof"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/freighter"
@@ -96,11 +98,41 @@ func main() {
 	svr.Start()
 
 	ch := make(chan os.Signal)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-	s := <-ch
-	logrus.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
-	svr.Stop()
-	logrus.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+
+	for {
+		s := <-ch
+		logrus.Infof("freighterd (rev: %v, pid: %v) signal received: %s", version, pid, s)
+		switch s {
+		case syscall.SIGUSR1:
+			profile := rpprof.Lookup("goroutine")
+			logrus.Infof("=== BEGIN goroutine stack dump ====")
+			profile.WriteTo(logrus.StandardLogger().Out, 2)
+			logrus.Infof("=== END goroutine stack dump ===")
+		case syscall.SIGUSR2:
+			if conf.ProfileDumpFolder != "" {
+				dumpFileName := fmt.Sprintf("%s/freighter-%d.prof", conf.ProfileDumpFolder, time.Now().Unix())
+				f, err := os.Create(dumpFileName)
+				if err == nil {
+					rpprof.StartCPUProfile(f)
+					time.Sleep(10 * time.Second)
+					rpprof.StopCPUProfile()
+					f.Close()
+					logrus.Debugf("Dumped CPU profile to %s", dumpFileName)
+				} else {
+					logrus.Infof("Failed CPU profiling: %+v", err)
+				}
+			} else {
+				logrus.Info("profile_dump_folder is not specified")
+			}
+		default:
+			signal.Stop(ch)
+			logrus.Infof("freighterd (rev: %v, pid: %v) got signal '%v'. Terminating.", version, pid, s)
+			svr.Stop()
+			logrus.Infof("freighterd (rev: %v, pid: %v) terminated.", version, pid)
+			return
+		}
+	}
 }
 
 func setPid(dataPath string) int {

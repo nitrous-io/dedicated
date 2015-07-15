@@ -8,9 +8,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/nitrous-io/nitrous-common/wsconn"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
 var upgrader = websocket.Upgrader{
@@ -39,7 +39,7 @@ func Stream(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	ch := env.Events.Subscribe(topic)
 	defer env.Events.Unsubscribe(ch, topic)
 
-	conn := wsconn.NewConnection(ws)
+	conn := wsconn.NewConnectionHeartbeat(ws, true)
 	defer conn.Close()
 
 	quit := make(chan struct{})
