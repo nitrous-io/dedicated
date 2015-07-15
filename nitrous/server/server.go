@@ -401,6 +401,7 @@ func ListenAndServe(s *http.Server, hd *httpdown.HTTP, stopCallback func() error
 						time.Sleep(10 * time.Second)
 						rpprof.StopCPUProfile()
 						f.Close()
+						logrus.Debugf("dumped CPU profile to %s", dumpFileName)
 					} else {
 						logrus.Infof("Failed cpu profiling: %+v", err)
 					}
