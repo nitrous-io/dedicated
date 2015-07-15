@@ -72,9 +72,6 @@ App.EventedSocket = Lib.Socket.extend Ember.Evented,
     switch type
       when 'd|'
         @handleMessage(event.data.slice(2))
-      when 'h'
-        @_conn.send('h')
-        return
 
   didClose: ->
     @_super.apply this, arguments
