@@ -185,6 +185,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
 
+  # TODO: Remove me as part of subscriptions go live
+  canUpgradeBinding: Em.Binding.oneWay 'user.admin'
+
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0
 
