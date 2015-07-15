@@ -589,6 +589,17 @@ var _ = Describe("subscriptions", func() {
 					"current_period_start": 1434418419,
 					"current_period_end": 1437010419
 				}`,
+				`{
+					"object": "invoice",
+					"id": "invoice-1",
+					"status": "active",
+					"amount_due": 2099
+				}`,
+				`{
+					"object": "invoice",
+					"id": "invoice-1",
+					"paid": true
+				}`,
 			}
 		})
 
@@ -613,11 +624,18 @@ var _ = Describe("subscriptions", func() {
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
 			r := fakeStripe.ReceivedRequests[0]
 			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
 			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
 			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
+			r2 := fakeStripe.ReceivedRequests[1]
+			Expect(r2["method"]).To(Equal("POST"))
+			Expect(r2["path"]).To(Equal("/invoices"))
+			Expect(r2["customer"]).To(Equal(stripeCustomerID))
+			r3 := fakeStripe.ReceivedRequests[2]
+			Expect(r3["method"]).To(Equal("POST"))
+			Expect(r3["path"]).To(Equal("/invoices/invoice-1/pay"))
 		})
 
 		It("should handle exempt plan subscriptions", func() {
@@ -628,11 +646,53 @@ var _ = Describe("subscriptions", func() {
 			err = subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
 			r := fakeStripe.ReceivedRequests[0]
 			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
 			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
 			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String + "-exempt"))
+		})
+
+		It("should handle if it was unable to pay the invoice", func() {
+			fakeStripe.Errors = []*stripe.Error{nil, nil, test.StripeCardDeclined}
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(Equal(subscriptions.ErrCardDeclined))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+			h, err := findByHostID(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(h.PlanID).ToNot(Equal(newPlan.ID))
+
+			s, err := findByID(db, sub.ID)
+			Expect(err).To(BeNil())
+			Expect(s.PlanID).ToNot(Equal(newPlan.ID))
+		})
+
+		It("should should not pay the invoice if it is under 100 cents", func() {
+			fakeStripe.Responses = []string{
+				`{
+					"object": "subscription",
+					"id": "stripe-sub-1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				`{
+					"object": "invoice",
+					"id": "invoice-1",
+					"status": "active",
+					"amount_due": 20
+				}`,
+				`{
+					"object": "invoice",
+					"id": "invoice-1",
+					"paid": true
+				}`,
+			}
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
 		})
 
 		It("updates the subscription in the database", func() {
@@ -932,53 +992,113 @@ var _ = Describe("subscriptions", func() {
 			Expect(r1["path"]).To(Equal("/invoices/inv1"))
 		})
 
+		It("should not create the invoice if it is purely for proration", func() {
+			fakeStripe.Errors = []*stripe.Error{nil}
+			fakeStripe.Responses = []string{
+				`{
+				"id": "inv1",
+				"object": "invoice",
+				"subscription": null,
+				"total": 1499,
+				"amount_due": 1499,
+				"period_start": 1434418419,
+				"period_end": 1437010419,
+				"attempts": 2,
+				"stripe_id": "str-invoice-1",
+				"paid": true,
+				"lines": {
+				"data": [
+				{
+					"id": "sub_1",
+					"object": "line_item",
+					"type": "subscription",
+					"livemode": true,
+					"amount": 1499,
+					"currency": "usd",
+					"proration": true,
+					"period": {
+						"start": 1434418419,
+						"end": 1437010419
+					},
+					"plan": {
+						"interval": "month",
+						"name": "ABC1",
+						"created": 1434516288,
+						"amount": 1499,
+						"currency": "usd",
+						"id": "abc1",
+						"object": "plan",
+						"livemode": false,
+						"interval_count": 1,
+						"trial_period_days": null
+					}
+				}
+				],
+				"total_count": 1,
+				"object": "list",
+				"url": "/v1/invoices/inv1/lines"
+				}
+			}`,
+			}
+			_, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
+			Expect(err).To(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("GET"))
+			Expect(r1["path"]).To(Equal("/invoices/inv1"))
+
+			_, err = invoice.FindByStripeID(db, "inv1")
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
 		It("should create the invoice with invoice items", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
-				  "id": "inv1",
-				  "object": "invoice",
-          "subscription": "abc1",
-          "total": 1499,
-          "amount_due": 1499,
-          "period_start": 1434418419,
-          "period_end": 1437010419,
-          "attempts": 2,
-          "stripe_id": "str-invoice-1",
-          "paid": true,
-          "lines": {
-            "data": [
-              {
-                "id": "sub_1",
-                "object": "line_item",
-                "type": "subscription",
-                "livemode": true,
-                "amount": 1499,
-                "currency": "usd",
-                "proration": false,
-                "period": {
-                  "start": 1434418419,
-                  "end": 1437010419
-                },
-                "plan": {
-									"interval": "month",
-									"name": "ABC1",
-									"created": 1434516288,
-									"amount": 1499,
-									"currency": "usd",
-									"id": "abc1",
-									"object": "plan",
-									"livemode": false,
-									"interval_count": 1,
-									"trial_period_days": null
-								}
-							}
-            ],
-            "total_count": 1,
-            "object": "list",
-            "url": "/v1/invoices/inv1/lines"
-          }
-				}`,
+				"id": "inv1",
+				"object": "invoice",
+				"subscription": "abc1",
+				"total": 1499,
+				"amount_due": 1499,
+				"period_start": 1434418419,
+				"period_end": 1437010419,
+				"attempts": 2,
+				"stripe_id": "str-invoice-1",
+				"paid": true,
+				"lines": {
+				"data": [
+				{
+					"id": "sub_1",
+					"object": "line_item",
+					"type": "subscription",
+					"livemode": true,
+					"amount": 1499,
+					"currency": "usd",
+					"proration": false,
+					"period": {
+						"start": 1434418419,
+						"end": 1437010419
+					},
+					"plan": {
+						"interval": "month",
+						"name": "ABC1",
+						"created": 1434516288,
+						"amount": 1499,
+						"currency": "usd",
+						"id": "abc1",
+						"object": "plan",
+						"livemode": false,
+						"interval_count": 1,
+						"trial_period_days": null
+					}
+				}
+				],
+				"total_count": 1,
+				"object": "list",
+				"url": "/v1/invoices/inv1/lines"
+				}
+			}`,
 			}
 			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
@@ -1008,48 +1128,48 @@ var _ = Describe("subscriptions", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
-				  "id": "inv1",
-				  "object": "invoice",
-          "subscription": "abc1",
-          "total": 1499,
-          "period_start": 1434418419,
-          "period_end": 1437010419,
-          "attempts": 2,
-          "stripe_id": "str-invoice-1",
-          "paid": true,
-          "lines": {
-            "data": [
-              {
-                "id": "sub_1",
-                "object": "line_item",
-                "type": "subscription",
-                "livemode": true,
-                "amount": 1499,
-                "currency": "usd",
-                "proration": false,
-                "period": {
-                  "start": 1434418419,
-                  "end": 1437010419
-                }
-              },
-              {
-                "id": "stripe-item-2",
-                "object": "line_item",
-                "type": "invoiceitem",
-                "livemode": true,
-                "amount": -499,
-                "currency": "usd",
-                "proration": false,
-                "period": {
-                  "start": 1434418419,
-                  "end": 1437010419
-                }
-              }
-            ],
-            "total_count": 1,
-            "object": "list",
-            "url": "/v1/invoices/inv1/lines"
-          }
+					"id": "inv1",
+					"object": "invoice",
+					"subscription": "abc1",
+					"total": 1499,
+					"period_start": 1434418419,
+					"period_end": 1437010419,
+					"attempts": 2,
+					"stripe_id": "str-invoice-1",
+					"paid": true,
+					"lines": {
+						"data": [
+						{
+							"id": "sub_1",
+							"object": "line_item",
+							"type": "subscription",
+							"livemode": true,
+							"amount": 1499,
+							"currency": "usd",
+							"proration": false,
+							"period": {
+								"start": 1434418419,
+								"end": 1437010419
+							}
+							},
+							{
+								"id": "stripe-item-2",
+								"object": "line_item",
+								"type": "invoiceitem",
+								"livemode": true,
+								"amount": -499,
+								"currency": "usd",
+								"proration": false,
+								"period": {
+								"start": 1434418419,
+								"end": 1437010419
+							}
+						}
+						],
+						"total_count": 1,
+						"object": "list",
+						"url": "/v1/invoices/inv1/lines"
+					}
 				}`,
 			}
 			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
@@ -1079,42 +1199,42 @@ var _ = Describe("subscriptions", func() {
 			fakeStripe.Errors = []*stripe.Error{nil, nil}
 			fakeStripe.Responses = []string{
 				`{
-				  "id": "inv1",
-				  "object": "invoice",
-          "subscription": "abc1",
-          "total": 1499,
-          "amount_due": 1499,
-          "period_start": 1434418419,
-          "period_end": 1437010419,
-          "attempts": 2,
-          "stripe_id": "str-invoice-1",
-          "paid": false,
-          "lines": {
-            "data": [
-              {
-                "id": "stripe-item-1",
-                "object": "line_item",
-                "type": "subscription",
-                "livemode": true,
-                "amount": 1499,
-                "currency": "usd",
-                "proration": false,
-                "period": {
-                  "start": 1434418419,
-                  "end": 1437010419
-                }
-              }
-            ],
-            "total_count": 1,
-            "object": "list",
-            "url": "/v1/invoices/inv1/lines"
-          }
-				}`,
+				"id": "inv1",
+				"object": "invoice",
+				"subscription": "abc1",
+				"total": 1499,
+				"amount_due": 1499,
+				"period_start": 1434418419,
+				"period_end": 1437010419,
+				"attempts": 2,
+				"stripe_id": "str-invoice-1",
+				"paid": false,
+				"lines": {
+					"data": [
+					{
+						"id": "stripe-item-1",
+						"object": "line_item",
+						"type": "subscription",
+						"livemode": true,
+						"amount": 1499,
+						"currency": "usd",
+						"proration": false,
+						"period": {
+							"start": 1434418419,
+							"end": 1437010419
+						}
+					}
+					],
+					"total_count": 1,
+					"object": "list",
+					"url": "/v1/invoices/inv1/lines"
+				}
+			}`,
 				`{
-          "id": "stripe-item-2",
-          "object": "line_item",
-          "amount": -100
-        }`,
+				"id": "stripe-item-2",
+				"object": "line_item",
+				"amount": -100
+			}`,
 			}
 			i, err := subProvider.HandleSubscriptionInvoiceCreated(db, "inv1")
 			Expect(err).To(BeNil())
@@ -1576,36 +1696,36 @@ var _ = Describe("subscriptions", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
-				  "id": "inv1",
-				  "object": "invoice",
-          "subscription": "abc1",
-          "total": 1499,
-          "period_start": 1434418419,
-          "period_end": 1437010419,
-          "next_payment_attempt": 1434699271,
-          "attempt_count": 2,
-          "stripe_id": "str-invoice-1",
-          "paid": false,
-          "lines": {
-            "data": [
-              {
-                "id": "stripe-item-1",
-                "object": "line_item",
-                "type": "subscription",
-                "livemode": true,
-                "amount": 1499,
-                "currency": "usd",
-                "proration": false,
-                "period": {
-                  "start": 1434418419,
-                  "end": 1437010419
-                }
-              }
-            ],
-            "total_count": 1,
-            "object": "list",
-            "url": "/v1/invoices/inv1/lines"
-          }
+					"id": "inv1",
+					"object": "invoice",
+					"subscription": "abc1",
+					"total": 1499,
+					"period_start": 1434418419,
+					"period_end": 1437010419,
+					"next_payment_attempt": 1434699271,
+					"attempt_count": 2,
+					"stripe_id": "str-invoice-1",
+					"paid": false,
+					"lines": {
+					"data": [
+						{
+							"id": "stripe-item-1",
+							"object": "line_item",
+							"type": "subscription",
+							"livemode": true,
+							"amount": 1499,
+							"currency": "usd",
+							"proration": false,
+							"period": {
+								"start": 1434418419,
+								"end": 1437010419
+							}
+						}
+					],
+					"total_count": 1,
+					"object": "list",
+					"url": "/v1/invoices/inv1/lines"
+					}
 				}`,
 			}
 

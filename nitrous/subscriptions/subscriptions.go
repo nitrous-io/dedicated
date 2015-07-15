@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	stripe "github.com/stripe/stripe-go"
 	stripecoupon "github.com/stripe/stripe-go/coupon"
+	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
 	stripesub "github.com/stripe/stripe-go/sub"
 )
@@ -155,15 +156,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			logrus.Errorf("Failed to create Stripe subscription: %+v, err: %+v", strSub, err)
 			strSub = nil
 
-			if sErr, ok := err.(*stripe.Error); ok {
-				if sErr.Code == stripe.ExpiredCard {
-					return ErrCardExpired
-				} else if sErr.Code == stripe.CardDeclined {
-					return ErrCardDeclined
-				}
-			}
-
-			return err
+			return decodeStripeError(err)
 		}
 
 		// If we used a coupon, mark it as used.
@@ -262,6 +255,22 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 	if err != nil {
 		logrus.Errorf("Failed to upgrade Stripe subscription for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
 		return err
+	}
+
+	// create the new invoice to apply the prorata amount
+	i, err := stripeinvoice.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
+	if err != nil {
+		logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+		return decodeStripeError(err)
+	}
+
+	// immediately request the invoice be paid
+	if i.Amount >= 100 {
+		_, err = stripeinvoice.Pay(i.ID, nil)
+		if err != nil {
+			logrus.Errorf("Failed to pay Stripe invoice %s for subscription ID %d to plan %s: %v", i.ID, sub.ID, p.Slug, err)
+			return decodeStripeError(err)
+		}
 	}
 
 	sub.State = string(stripeSub.Status)
@@ -393,4 +402,16 @@ func updateAvailableCredits(tx *sqlx.Tx, userID int64, invID sql.NullInt64, subI
 		Consumed:  deduction,
 		Available: availableCredits,
 	}, nil
+}
+
+func decodeStripeError(err error) error {
+	if sErr, ok := err.(*stripe.Error); ok {
+		if sErr.Code == stripe.ExpiredCard {
+			return ErrCardExpired
+		} else if sErr.Code == stripe.CardDeclined {
+			return ErrCardDeclined
+		}
+	}
+
+	return err
 }

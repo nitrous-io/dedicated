@@ -31,6 +31,10 @@ func handleStripeInvoiceEvent(env *middleware.Env, e *stripe.Event, stripeID str
 			if err == nil {
 				invoiceInfo = fmt.Sprintf("stripe invoice: %+v", strInv)
 			}
+			if containsProration(strInv) {
+				logrus.Infof("handleStripeInvoiceEvent handling Stripe invoice with prorate items, will not commit to DB. Stripe invoice: %#v", strInv)
+				return nil
+			}
 		}
 		return fmt.Errorf("Error when locating invoice %s, err: %v, event: %+v, %s", stripeID, err, e, invoiceInfo)
 	}
@@ -120,4 +124,16 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 
 func handlePaymentSucceeded(env *middleware.Env, inv *invoice.Invoice) error {
 	return inv.PaymentSucceeded(env.DB)
+}
+
+func containsProration(sInv *stripe.Invoice) bool {
+	if sInv.Lines != nil {
+		for _, invItem := range sInv.Lines.Values {
+			if invItem.Proration {
+				return true
+			}
+		}
+	}
+
+	return false
 }

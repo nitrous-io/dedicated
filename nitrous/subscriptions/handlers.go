@@ -138,6 +138,13 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 	}
 	defer tx.Rollback()
 
+	if sInv.Sub == "" {
+		if containsProration(sInv) {
+			logrus.Infof("HandleSubscriptionInvoiceCreated handling Stripe invoice with prorate items, will not commit to DB. Stripe invoice: %#v", sInv)
+			return nil, nil
+		}
+	}
+
 	sub, err := findForUpdateByStripeID(tx, sInv.Sub)
 	if err != nil {
 		return nil, err
@@ -180,6 +187,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 			}
 		}
 	}
+
 	if containsSubscription && len(invoiceItemIDs) > 0 {
 		logrus.Infof("HandleSubscriptionInvoiceCreated handling Stripe invoice with both subscription and invoiceitems, Stripe invoice: %#v", sInv)
 
@@ -545,4 +553,16 @@ func findForUpdateByStripeID(tx *sqlx.Tx, id string) (*subscription.Subscription
 		return nil, err
 	}
 	return sub, nil
+}
+
+func containsProration(sInv *stripe.Invoice) bool {
+	if sInv.Lines != nil {
+		for _, invItem := range sInv.Lines.Values {
+			if invItem.Proration {
+				return true
+			}
+		}
+	}
+
+	return false
 }
