@@ -420,12 +420,13 @@ App.IdeDocumentView = Em.View.extend
   ).observes 'document.active'
 
   focusedDidChange: (->
-    editor = @get 'editor'
-    focused = @get 'document.focused'
-    if editor && focused
+    return unless editor = @get 'editor'
+    if @get 'document.focused'
       Em.run.scheduleOnce 'afterRender', ->
         editor.refresh()
         editor.focus()
+    else
+      editor.blur()
   ).observes 'document.focused'
 
   documentPathDidChange: (->
