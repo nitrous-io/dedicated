@@ -26,7 +26,6 @@ rulerMenu = menu 'Ruler', [
     ).property 'App.router.ideEditorController.rulerColumn'
 
 themesMenu = menu 'Themes', _.map [
-  # NOTE: keep these menu items sorted alphabetically within dark/light categories
   { name: 'solarized dark', label: 'Solarized Dark' }
   { name: 'vibrant-ink', label: 'Vibrant Ink' }
   { name: 'monokai-dark-soda', label: 'Monokai Dark Soda'}
@@ -36,8 +35,6 @@ themesMenu = menu 'Themes', _.map [
   { name: '---' }
   { name: 'solarized light', label: 'Solarized Light' }
   { name: 'github', label: 'GitHub' }
-  # { name: '3024-day', label: '3024 Day' }
-  # { name: 'paraiso-light', label: 'Paraiso Light' }
   { name: 'visual-studio', label: 'Visual Studio'}
   { name: 'base16-light', label: 'Base16 Light' }
   { name: 'base16-eighties-light', label: 'Base16 Eighties Light' }
