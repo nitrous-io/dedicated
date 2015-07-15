@@ -28,4 +28,6 @@ type Config struct {
 	NotifyURL string `json:"notify_url"`
 
 	Listen []HostAddress `json:"listen"`
+
+	ProfileDumpFolder string `json:"profile_dump_folder"` // Folder for CPU profiling
 }
