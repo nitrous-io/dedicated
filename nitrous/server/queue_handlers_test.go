@@ -51,7 +51,7 @@ var _ = Describe("HostQueueHandler", func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
-		redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB)
+		redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
 		Expect(err).To(BeNil())
 		qp = queue.NewQueue(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, "host")
 		Expect(err).To(BeNil())

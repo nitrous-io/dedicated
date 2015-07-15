@@ -1052,8 +1052,10 @@ var _ = Describe("models/container", func() {
 				Expect(err).To(BeNil())
 				Expect(containers).To(HaveLen(2))
 
-				Expect(containers[0].CID).To(Equal("deadbeef"))
-				Expect(containers[1].CID).To(Equal("abcabc"))
+				cids := []string{}
+				cids = append(cids, containers[0].CID)
+				cids = append(cids, containers[1].CID)
+				Expect(cids).To(ConsistOf("deadbeef", "abcabc"))
 			})
 
 			Context("when some containers have been terminated", func() {

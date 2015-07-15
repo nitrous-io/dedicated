@@ -51,7 +51,7 @@ func (p *AmqpPublisher) PublishRetry(m *Message, tries int, retryInterval time.D
 	}
 	forever := tries == -1
 PUBLISH:
-	for forever || tries >= 0 {
+	for forever || tries > 0 {
 		err := p.ch.Publish(
 			"", p.name, // publish to the default exchange with routingKey=name
 			true,  // mandatory=true, there must be a queue that matches this key

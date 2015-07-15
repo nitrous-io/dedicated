@@ -16,7 +16,7 @@ var RedisHost string = "localhost"
 var RedisPort string = "6379"
 var RabbitMQAddr = "amqp://localhost:5672"
 
-func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Client, error) {
+func PrepareRedis(redisHost string, redisPort string, redisDB int64, reset bool) (*redis.Client, error) {
 	redisClient := redis.NewTCPClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", redisHost, redisPort),
 		Password: "",
@@ -28,10 +28,12 @@ func PrepareRedis(redisHost string, redisPort string, redisDB int64) (*redis.Cli
 		return nil, err
 	}
 
-	err = redisClient.FlushDb().Err()
-	if err != nil {
-		redisClient.Close()
-		return nil, err
+	if reset {
+		err = redisClient.FlushDb().Err()
+		if err != nil {
+			redisClient.Close()
+			return nil, err
+		}
 	}
 
 	return redisClient, nil
@@ -51,22 +53,47 @@ func RunWhileRestartingRabbitMq(fn func()) error {
 	}, fn)
 }
 
+func RestartRabbitMq() {
+	exec.Command("rabbitmqctl", "stop_app").Run()
+	exec.Command("rabbitmqctl", "start_app").Run()
+}
+
 func runWhileRestartService(service string, checkFn func() error, fn func()) error {
 	// stop redis before publish and then restart when it's retrying
-	output, err := exec.Command("service", service, "stop").CombinedOutput()
+	var err error
+	var output []byte
+
+	switch service {
+	case "rabbitmq-server":
+		output, err = exec.Command("rabbitmqctl", "stop_app").CombinedOutput()
+	case "redis_6379":
+		output, err = exec.Command("service", "redis_6379", "stop").CombinedOutput()
+	default:
+		return fmt.Errorf("Expected service: %s", service)
+	}
+
 	if err != nil {
 		logrus.Println("failed to stop", service, string(output))
 		return err
 	}
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		exec.Command("service", service, "start").Run()
+		switch service {
+		case "rabbitmq-server":
+			exec.Command("rabbitmqctl", "start_app").Run()
+		case "redis_6379":
+			exec.Command("service", service, "start").Run()
+		default:
+			return
+		}
+
 		for i := 0; i < 5; i++ {
 			if err := checkFn(); err != nil {
 				logrus.Printf("failed to connect to %s: %+v", service, err)
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 			} else {
 				break
 			}
