@@ -98,7 +98,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
@@ -114,7 +114,7 @@ var _ = Describe("hostcontrol", func() {
 			replaceTransport(hb, rt)
 			hostcontrol.HostbuilderClient = hb
 
-			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -141,7 +141,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("updates the host state to stopped", func() {
-				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -153,7 +153,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -183,7 +183,7 @@ var _ = Describe("hostcontrol", func() {
 			})
 
 			It("resets the host to its original state", func() {
-				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).ToNot(BeNil())
 
 				var err error
 				h, err = host.Find(db, u, h.Slug)
@@ -196,7 +196,7 @@ var _ = Describe("hostcontrol", func() {
 			It("logs transitions for the host", func() {
 				origState := h.State
 
-				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).ToNot(BeNil())
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID, false)).ToNot(BeNil())
 
 				var count int
 				err := db.QueryRowx(
@@ -254,7 +254,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("should send the UUID headers", func() {
-			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			req := rt.Requests[0]
 			Expect(req.Header.Get(constants.NitrousUUIDHeader)).To(Equal("hostcontrol"))
@@ -262,7 +262,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("sends the correct payload to hostbuilder", func() {
-			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			payload := &struct {
 				ID        string `json:"id"`
@@ -278,7 +278,7 @@ var _ = Describe("hostcontrol", func() {
 		})
 
 		It("updates the host state to stopping", func() {
-			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			var err error
 			h, err = host.Find(db, u, h.Slug)
@@ -290,7 +290,7 @@ var _ = Describe("hostcontrol", func() {
 		It("logs transitions for the host", func() {
 			origState := h.State
 
-			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+			Expect(hostcontrol.StopWithQueue(db, h, hbHeaders(), evCallback, u.ID, false)).To(BeNil())
 
 			var count int
 			err := db.QueryRowx(

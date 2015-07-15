@@ -116,7 +116,7 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
-	err = hostcontrol.Stop(dbConn, hst, headers, nil, initiatorID)
+	err = hostcontrol.Stop(dbConn, hst, headers, nil, initiatorID, true)
 	if err != nil {
 		logrus.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 		return

@@ -674,7 +674,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64, forced bool) error {
 				Expect(ev).To(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
@@ -1634,7 +1634,7 @@ var _ = Describe("subscriptions", func() {
 
 			e := errors.New("Woops!")
 			termCalled := false
-			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64) error {
+			subProvider.HostStopFunc = func(db *ndb.Database, h *host.Host, headers http.Header, ev hostcontrol.EventFunc, initiatorID int64, forced bool) error {
 				Expect(ev).To(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(headers.Get(constants.NitrousUUIDHeader)).To(Equal(fmt.Sprintf("subscription_terminated_%d", sub.ID)))
