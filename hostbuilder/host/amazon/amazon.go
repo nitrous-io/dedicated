@@ -306,24 +306,13 @@ func (h *Host) Respec() (*host.Info, error) {
 		rootVolume     *ec2.Volume
 		configuredSize int64
 	)
+
 	// If StorageSize is 0, no change required.
 	if h.Config.StorageSize != 0 {
-		rootDevice := rootDevice(h.instance)
-		if rootDevice == nil {
-			return nil, mh.Error(fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId), label)
-		}
-
-		resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+		var err error
+		rootVolume, err = h.getRootVolume()
 		if err != nil {
-			return nil, mh.Error(fmt.Errorf("amazon: failed to get root volume info, err: %v", err), label)
-		}
-		if len(resp.Volumes) != 1 {
-			return nil, mh.Error(fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes), label)
-		}
-		rootVolume = &resp.Volumes[0]
-		if rootVolume.VolumeId != rootDevice.VolumeId {
-			// Sanity check - because using the wrong volume is bad m'kay.
-			return nil, mh.Error(fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume), label)
+			return nil, mh.Error(err, label)
 		}
 
 		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
@@ -363,6 +352,28 @@ func (h *Host) Respec() (*host.Info, error) {
 	}
 
 	return h.Start()
+}
+
+func (h *Host) getRootVolume() (*ec2.Volume, error) {
+	rootDevice := rootDevice(h.instance)
+	if rootDevice == nil {
+		return nil, fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId)
+	}
+
+	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+	if err != nil {
+		return nil, fmt.Errorf("amazon: failed to get root volume info, err: %v", err)
+	}
+	if len(resp.Volumes) != 1 {
+		return nil, fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes)
+	}
+	rootVolume := &resp.Volumes[0]
+	if rootVolume.VolumeId != rootDevice.VolumeId {
+		// Sanity check - because using the wrong volume is bad m'kay.
+		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume)
+	}
+
+	return rootVolume, nil
 }
 
 type resizeStep struct {
