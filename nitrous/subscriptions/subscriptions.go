@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -310,7 +311,7 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 	}
 
 	for _, h := range hosts {
-		_, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
+		newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
@@ -335,6 +336,15 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 				return err
 			}
 			if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
+				return err
+			}
+
+			rs := &respec.Respec{
+				HostID:             h.ID,
+				ProviderTemplateID: newPT.ID,
+				State:              respec.StatePending,
+			}
+			if err := rs.Insert(tx); err != nil {
 				return err
 			}
 

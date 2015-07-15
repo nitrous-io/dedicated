@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -744,6 +745,38 @@ var _ = Describe("subscriptions", func() {
 			Expect(h.AutoShutdown).To(BeFalse())
 			Expect(h.Size.String).To(Equal("newStripePlan"))
 			Expect(h.Free).To(BeFalse())
+		})
+
+		It("should create a respec entry for the host", func() {
+			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1,  plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			pl2 := &plan.Plan{
+				Slug:          "newStripePlan",
+				Name:          "newStripePlan",
+				MaxContainers: 19,
+				AutoShutdown:  false,
+				Price:         1899,
+				StripePlanID:  sql.NullString{"newPlan", true},
+			}
+			Expect(pl2.Insert(db)).To(BeNil())
+
+			pt2 := &providertemplate.ProviderTemplate{
+				Name:     "newPlan",
+				Disabled: false,
+				PlanID:   pl2.ID,
+				RegionID: hs.PT.RegionID,
+				Provider: hs.PT.Provider,
+			}
+			Expect(pt2.Insert(db)).To(BeNil())
+
+			err = subProvider.Upgrade(db, sub, pl2, u)
+			Expect(err).To(BeNil())
+
+			re, err := respec.Find(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(re.State).To(Equal(respec.StatePending))
+			Expect(re.ProviderTemplateID).To(Equal(pt2.ID))
 		})
 	})
 
