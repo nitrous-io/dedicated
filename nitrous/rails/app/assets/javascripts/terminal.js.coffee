@@ -220,8 +220,6 @@ window.NitrousTerminal =
           @term.write(ev.data.slice(2))
       when 'c|'
         @close()
-      when 'h'
-        @conn.send 'h'
 
   didFail: (ev) ->
 

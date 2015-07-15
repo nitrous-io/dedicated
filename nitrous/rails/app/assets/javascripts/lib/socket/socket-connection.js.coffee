@@ -20,7 +20,7 @@ class window.SocketConnection
   binaryMode: false
 
   heartbeatTimer: null
-  heartbeatInterval: 5000
+  heartbeatTimeout: 30000
 
   constructor: (url, protocols) ->
     @url = url
@@ -66,23 +66,32 @@ class window.SocketConnection
           # ev.data
           binaryData:
             value: message
+
+      if ev.data == 'h'
+        @heartbeat()
+        return
       @onmessage(ev)
 
     ws._onopen = =>
       @retries = 0
-      @heartbeatTimer = window.setInterval(=>
-        @send 'h'
-      , @heartbeatInterval)
+      @heartbeat()
 
     ws._onclose = =>
       ws.removeEventListener 'open',  ws._onopen,  false
       ws.removeEventListener 'close', ws._onclose, false
-      window.clearInterval(@heartbeatTimer)
+      window.clearTimeout(@heartbeatTimer)
       @heartbeatTimer = null
       @retry() if @shouldRetry && !ws._noRetry
 
     ws.addEventListener 'open',  ws._onopen,  false
     ws.addEventListener 'close', ws._onclose, false
+
+  heartbeat: ->
+    window.clearTimeout(@heartbeatTimer)
+    @heartbeatTimer = window.setTimeout(=>
+      @close(true)
+    , @heartbeatTimeout)
+    @send 'h'
 
   retry: ->
     delay = if @retries <= 5

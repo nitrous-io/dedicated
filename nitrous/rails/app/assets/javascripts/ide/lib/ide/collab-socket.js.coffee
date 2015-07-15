@@ -30,6 +30,3 @@ App.CollabSocket = klass = App.EventedSocket.extend
 
     if namespace && event
       @trigger("#{event}|#{namespace}", data)
-
-klass.reopenClass
-  heartbeatInterval: 2000
