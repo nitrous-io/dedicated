@@ -17,8 +17,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
-const Usage = `Usage: arbimail <file> <html template> <text template> [--live-run]
+const Usage = `Usage: arbimail <subject> <recipients csv file> <html template> <text template> [--live-run]
   <file> is a 2-column csv file of id,email
+  Subject is template text
   The templates are text files containing Go templates that are sent
   models/user.User structs.
   Use --live-run to actually send e-mails, otherwise it will be a dry run
@@ -28,6 +29,7 @@ var (
 	dbConn *db.Database
 	dryrun = true
 
+	subjTmpl *template.Template
 	htmlTmpl *template.Template
 	textTmpl *template.Template
 	sgMailer mailer.Mailer
@@ -38,7 +40,7 @@ func init() {
 }
 
 func main() {
-	requiredArgs := 3
+	requiredArgs := 4
 	for _, arg := range os.Args {
 		if arg == "--live-run" {
 			dryrun = false
@@ -50,7 +52,7 @@ func main() {
 		logrus.Fatal("Wrong number of arguments")
 	}
 
-	csvPath, htmlPath, textPath := os.Args[1], os.Args[2], os.Args[3]
+	subjectTmplText, csvPath, htmlPath, textPath := os.Args[1], os.Args[2], os.Args[3], os.Args[4]
 
 	envvars.CheckDB()
 	envvars.CheckSendgrid()
@@ -73,6 +75,11 @@ func main() {
 		logrus.Fatalf("Error parsing templates: %s", err)
 	}
 
+	subjTmpl, err = template.New("subject").Parse(subjectTmplText)
+	if err != nil {
+		logrus.Fatalf("Error parsing subject: %s", err)
+	}
+
 	for _, row := range rows {
 		renderAndSend(row[1])
 	}
@@ -90,15 +97,19 @@ func renderAndSend(email string) error {
 	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 	logrus.Debugf("Rendering for user: %s", to)
 
-	htmlBuf, textBuf := bytes.NewBuffer(nil), bytes.NewBuffer(nil)
+	subjBuf, htmlBuf, textBuf := bytes.NewBuffer(nil), bytes.NewBuffer(nil), bytes.NewBuffer(nil)
 	if err := htmlTmpl.Execute(htmlBuf, u); err != nil {
 		return err
 	}
 	if err := textTmpl.Execute(textBuf, u); err != nil {
 		return err
 	}
+	if err := subjTmpl.Execute(subjBuf, u); err != nil {
+		return err
+	}
 
 	if dryrun {
+		fmt.Println("Subject: ", subjBuf.String())
 		fmt.Println("HTML template:")
 		fmt.Println("=== START ===")
 		fmt.Println(htmlBuf.String())
@@ -112,10 +123,10 @@ func renderAndSend(email string) error {
 		return nil
 	}
 
-	subject := "FIXME"
 	from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
 
-	err = sgMailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, textBuf.String(), htmlBuf.String())
+	err = sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
+		subjBuf.String(), textBuf.String(), htmlBuf.String())
 	if err != nil {
 		logrus.Fatalf("Error sending: %s", err)
 		time.Sleep(500 * time.Millisecond)
