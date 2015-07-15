@@ -94,6 +94,9 @@ var (
 
 	// Defer Panic Token
 	DeferPanicToken = os.Getenv("DEFER_PANIC_TOKEN")
+
+	// Folder for cpu profiling
+	ProfileDumpFolder = os.Getenv("PROFILE_DUMP_FOLDER")
 )
 
 func init() {
