@@ -184,43 +184,43 @@
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/cipher",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/flusher",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/hmactoken",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/httpclient",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/isarchive",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/msgverifier",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/must",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/sshkey",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/term",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/wsconn",
-			"Rev": "9623b53a44e0814b16c4561fb1452dbc673ffe13"
+			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/ot.go/ot",
