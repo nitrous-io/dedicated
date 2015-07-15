@@ -696,6 +696,27 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
 		})
 
+		It("create the subscription even where there is no oustanding invoice", func() {
+			fakeStripe.Errors = []*stripe.Error{
+				nil,
+				&stripe.Error{
+					Type: stripe.ErrorType(stripe.InvalidRequest),
+					Msg:  "Nothing to invoice for customer",
+				},
+			}
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+
+			s, err := findByHostID(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(s.PlanID).To(Equal(newPlan.ID))
+			Expect(s.State).To(Equal("active"))
+			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
+			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
+		})
+
 		It("updates the subscription in the database", func() {
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())

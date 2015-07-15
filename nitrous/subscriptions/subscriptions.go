@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -261,12 +262,19 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 	// create the new invoice to apply the prorata amount
 	i, err := stripeinvoice.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 	if err != nil {
-		logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
-		return decodeStripeError(err)
+		// instead of performing another web request we just try to pay any oustanding invoices
+		// and ignore if there was nothing to pay (exempt user, Stripe credit)
+		if strings.Contains(err.Error(), "Nothing to invoice for customer") {
+			i = nil
+			logrus.Warnf("No need to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+		} else {
+			logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+			return decodeStripeError(err)
+		}
 	}
 
 	// immediately request the invoice be paid
-	if i.Amount >= 100 {
+	if i != nil && i.Amount >= 100 {
 		_, err = stripeinvoice.Pay(i.ID, nil)
 		if err != nil {
 			logrus.Errorf("Failed to pay Stripe invoice %s for subscription ID %d to plan %s: %v", i.ID, sub.ID, p.Slug, err)
@@ -344,11 +352,7 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 				ProviderTemplateID: newPT.ID,
 				State:              respec.StatePending,
 			}
-			if err := rs.Insert(tx); err != nil {
-				return err
-			}
-
-			return nil
+			return rs.Insert(tx)
 		})
 
 		if err != nil {
