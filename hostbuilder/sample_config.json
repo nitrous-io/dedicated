@@ -28,5 +28,6 @@
     "host": "localhost",
     "port": "6379",
     "database": 0
-  }
+  },
+  "profile_dump_folder": ""
 }
