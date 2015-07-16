@@ -70,6 +70,7 @@ func main() {
 }
 
 // creates user
+// confirms user
 // populates reset password token
 // FIXME: inserts one-month coupon for user (this is one-off, removing it makes the command generic)
 func createUser(email, username string) error {
@@ -95,6 +96,18 @@ func createUser(email, username string) error {
 		}
 
 		if err := u.SetResetPasswordToken(tx); err != nil {
+			return err
+		}
+
+		// use microseconds as indicator that this user was auto-created
+		// instead of via signing up
+		// To find, use
+		// `SELECT * FROM users WHERE extract(milliseconds from confirmed_at) = 123.456;`
+		if _, err := tx.Exec(`
+			UPDATE users
+				SET confirmed_at = date_trunc('minute', now()) + interval '123456 microseconds'
+				WHERE id = $1
+		`, u.ID); err != nil {
 			return err
 		}
 
