@@ -133,7 +133,7 @@ func (s *FreighterProxyServer) proxy(w http.ResponseWriter, r *http.Request) (er
 		logrus.Warnf("domain: %s but got request for %q that we can't handle", s.domain, r.Host)
 		return err
 	}
-	LogVerbosef("proxying freighter request %+v to %s", r, slug)
+	logrus.Debugf("proxying freighter request %+v to %s", r, slug)
 
 	host, err := hostGet(s.db, slug)
 	if err != nil {
