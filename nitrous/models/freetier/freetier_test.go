@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -61,7 +60,7 @@ var _ = Describe("models/freetier", func() {
 		}
 	})
 
-	Context("with free and paid plans", func() {
+	Describe("CreateHostWithPlanAllowed()", func() {
 		var (
 			paidPlan, freePlan *plan.Plan
 		)
@@ -83,122 +82,6 @@ var _ = Describe("models/freetier", func() {
 				AutoShutdown:  true,
 			}
 			Expect(freePlan.Insert(db)).To(BeNil())
-		})
-
-		Describe("UpgradeFreeUserHosts()", func() {
-			var (
-				h      *host.Host
-				freePT *providertemplate.ProviderTemplate
-				paidPT *providertemplate.ProviderTemplate
-			)
-
-			BeforeEach(func() {
-				h = &host.Host{
-					Slug:          "my-free-host",
-					HourlyPrice:   0,
-					Free:          true,
-					MaxContainers: sql.NullInt64{1, true},
-					AutoShutdown:  true,
-				}
-
-				hs, err := test.CreateHostStack(db, &test.HostStack{
-					H: h,
-					U: u,
-					P: freePlan,
-				})
-				Expect(err).To(BeNil())
-				freePT = hs.PT
-
-				Expect(h.UserID).To(Equal(u.ID))
-				Expect(h.PlanID).To(Equal(freePlan.ID))
-				Expect(h.HourlyPrice).To(Equal(int64(0)))
-				Expect(h.Free).To(BeTrue())
-				Expect(h.MaxContainers).To(Equal(sql.NullInt64{1, true}))
-				Expect(h.UpgradedAt.Valid).To(BeFalse())
-
-				// Setup provider template for paid plan.
-				hs, err = test.CreateHostStack(db, &test.HostStack{
-					P: paidPlan,
-					R: hs.R,
-				})
-				paidPT = hs.PT
-			})
-
-			It("should not allow for an upgrade if there is no equivalent paid plan", func() {
-				_, err := db.Exec(`UPDATE plans SET paid_plan_id = NULL WHERE id=$1;`, h.PlanID)
-				Expect(err).To(BeNil())
-
-				err = freetier.UpgradeFreeUserHosts(db, u)
-				Expect(err).To(Equal(freetier.ErrUpgradeNotAvailable))
-
-				h2, err := host.FindByIdentifier(db, h.Slug)
-				Expect(err).To(BeNil())
-				Expect(h2.UserID).To(Equal(u.ID))
-				Expect(h2.PlanID).To(Equal(freePlan.ID))
-				Expect(h2.HourlyPrice).To(Equal(int64(0)))
-				Expect(h2.Free).To(BeTrue())
-				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{1, true}))
-				Expect(h2.UpgradedAt.Valid).To(BeFalse())
-			})
-
-			It("should null out the last_running_at", func() {
-				Expect(h.AutoShutdown).To(BeTrue())
-				err := freetier.UpgradeFreeUserHosts(db, u)
-				Expect(err).To(BeNil())
-
-				h2, err := host.FindByIdentifier(db, h.Slug)
-				Expect(err).To(BeNil())
-
-				Expect(h2.LastRunningAt.Valid).To(BeFalse())
-			})
-
-			Context("when new plan is a subscription plan", func() {
-				var fsub *test.FakeSubscriptionProvider
-
-				BeforeEach(func() {
-					fsub = &test.FakeSubscriptionProvider{}
-					freetier.SetSubscriptionProvider(fsub)
-
-					// Set Stripe plan ID so that paid plan becomes a subscription plan.
-					stripePlanID := "stripe-paid-1"
-					_, err := db.Exec(`UPDATE plans SET stripe_plan_id=$1 WHERE id=$2;`, stripePlanID, paidPlan.ID)
-					Expect(err).To(BeNil())
-				})
-
-				It("subscribes the user to the plan", func() {
-					err := freetier.UpgradeFreeUserHosts(db, u)
-					Expect(err).To(BeNil())
-
-					Expect(fsub.SubscribeCalled).To(BeTrue())
-					Expect(fsub.SubscribeHost.ID).To(Equal(h.ID))
-					Expect(fsub.SubscribePlan.ID).To(Equal(paidPlan.ID))
-					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
-				})
-
-				It("upgrades the user's subscription to the plan when the host has an existing subscription", func() {
-					bp, err := u.BillingProfile(db)
-					Expect(err).To(BeNil())
-
-					// Create existing subscription for host.
-					sub := &subscription.Subscription{
-						StripeID:         sql.NullString{"stripe-free-1", true},
-						PlanID:           freePlan.ID,
-						BillingProfileID: bp.ID,
-						Slug:             "SLUG",
-					}
-					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
-					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h.ID)
-					Expect(err).To(BeNil())
-
-					err = freetier.UpgradeFreeUserHosts(db, u)
-					Expect(err).To(BeNil())
-
-					Expect(fsub.UpgradeCalled).To(BeTrue())
-					Expect(fsub.UpgradeSubscription.ID).To(Equal(sub.ID))
-					Expect(fsub.UpgradePlan.ID).To(Equal(paidPlan.ID))
-					Expect(fsub.UpgradeUser.ID).To(Equal(u.ID))
-				})
-			})
 		})
 
 		Context("When user is in free tier and phone authenticated", func() {

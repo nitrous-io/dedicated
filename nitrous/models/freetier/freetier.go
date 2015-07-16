@@ -1,20 +1,12 @@
 package freetier
 
 import (
-	"database/sql"
 	"errors"
-	"fmt"
 
-	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/respec"
-	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 )
 
 var (
@@ -25,109 +17,7 @@ var (
 
 	ErrFreeTimeLimitExceeded = errors.New("free tier user has exceeded daily usage quota")
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
-	ErrUpgradeNotAvailable   = errors.New("host has no upgradable paid plan")
 )
-
-var subProvider subscriptions.Provider
-
-func init() {
-	subProvider = subscriptions.NewProvider()
-}
-
-// Upgrade user's free host to paid plan.
-func UpgradeFreeUserHosts(d *db.Database, u *user.User) error {
-	hosts, err := host.FindAllByUser(d, u.ID)
-	if err != nil {
-		return err
-	}
-
-	var h *host.Host
-	for _, v := range hosts {
-		if v.Free {
-			h = v
-		}
-	}
-	if h == nil {
-		return fmt.Errorf("user %s does not have a free host", u.Username)
-	}
-
-	currentPlan, err := plan.FindByID(d, h.PlanID)
-	if err != nil {
-		return err
-	}
-	if !currentPlan.PaidPlanID.Valid {
-		return ErrUpgradeNotAvailable
-	}
-
-	newPlan, err := plan.FindByID(d, currentPlan.PaidPlanID.Int64)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("paid plan ID %d does not exist", currentPlan.PaidPlanID.Int64)
-		}
-		return err
-	}
-
-	currentPT, err := providertemplate.FindByID(d, h.ProviderTemplateID)
-	if err != nil {
-		return err
-	}
-
-	newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, currentPT.Provider)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("provider template for region %d / plan %d / provider %s does not exist", h.RegionID, newPlan.ID, currentPT.Provider)
-		}
-		return err
-	}
-
-	if newPlan.IsSubscription() {
-		// Subscribe to new plan if host doesn't have an existing subscription.
-		// Otherwise, we upgrade the subscription.
-		sub, err := subscription.Find(d, h.SubscriptionID.Int64)
-		switch err {
-		case sql.ErrNoRows:
-			if _, err := subProvider.Subscribe(d, h, newPlan, u); err != nil {
-				return err
-			}
-		case nil:
-			if err := subProvider.Upgrade(d, sub, newPlan, u); err != nil {
-				return err
-			}
-		default:
-			return err
-		}
-	}
-
-	h.LastRunningAt = pq.NullTime{Valid: false}
-
-	tx, err := d.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	nstmt, err := tx.PrepareNamed(`UPDATE hosts
-		SET last_running_at = :last_running_at, updated_at = now()
-		WHERE id = :id
-		RETURNING *;`)
-	if err != nil {
-		return err
-	}
-	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
-		return err
-	}
-
-	rs := &respec.Respec{
-		HostID:             h.ID,
-		ProviderTemplateID: newPT.ID,
-		State:              respec.StatePending,
-	}
-	if err := rs.Insert(tx); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
 
 func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
 	bp, err := u.BillingProfile(d)
