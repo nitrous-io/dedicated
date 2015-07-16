@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	rpprof "runtime/pprof"
 	"strconv"
 	"syscall"
 	"time"
@@ -46,6 +47,8 @@ var (
 
 	flVersion     = flag.Bool("v", false, "Display the version and exit")
 	flVerboseLogs = flag.Bool("verbose", false, "show verbose logging")
+
+	profileDumpFolder string
 )
 
 func init() {
@@ -75,6 +78,8 @@ func init() {
 	containerCAKey = envStr("CONTAINER_CA_KEY")
 	previewStartPort = os.Getenv("PREVIEW_START_PORT")
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
+
+	profileDumpFolder = os.Getenv("PROFILE_DUMP_FOLDER")
 }
 
 func refreshCachesWorker(db *sql.DB) {
@@ -155,6 +160,8 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("tender: failed to load container proxy's SSL certificates: %v", err)
 	}
+
+	go handleSignals()
 
 	go serve443(hostCert, containerCert, freighterProxy, previewProxy)
 	servePreviewProxy(previewProxy)
@@ -240,4 +247,36 @@ func connectDB(databaseURL string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to get a valid db connection %v", err)
 	}
 	return db, nil
+}
+
+func handleSignals() {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGUSR1, syscall.SIGUSR2)
+	for s := range ch {
+		logrus.Infof("tender: signal received: %s", s)
+		switch s {
+		case syscall.SIGUSR1:
+			profile := rpprof.Lookup("goroutine")
+			logrus.Infof("=== BEGIN goroutine stack dump ====")
+			profile.WriteTo(logrus.StandardLogger().Out, 2)
+			logrus.Infof("=== END goroutine stack dump ===")
+		case syscall.SIGUSR2:
+			if profileDumpFolder != "" {
+				dumpFileName := fmt.Sprintf("%s/tender-%d.prof", profileDumpFolder, time.Now().Unix())
+				f, err := os.Create(dumpFileName)
+				if err == nil {
+					logrus.Infof("tender: Dumping CPU profile to %s for 10s", dumpFileName)
+					rpprof.StartCPUProfile(f)
+					time.Sleep(10 * time.Second)
+					rpprof.StopCPUProfile()
+					f.Close()
+					logrus.Infof("tender: Dumped CPU profile to %s", dumpFileName)
+				} else {
+					logrus.Infof("tender: Failed CPU profiling %+v", err)
+				}
+			} else {
+				logrus.Info("tender: PROFILE_DUMP_FOLDER is not specified")
+			}
+		}
+	}
 }
