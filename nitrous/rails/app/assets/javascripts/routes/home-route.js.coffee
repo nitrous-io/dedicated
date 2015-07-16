@@ -28,6 +28,10 @@ App.HomeRoute = App.AuthedRoute.extend
 
     upgradePaid: ->
       params = { upgradingFromFree: true }
+      if subId = App.get('subscriptions.firstObject.id')
+        @transitionTo 'subscriptions.upgrade', subId
+        return
+
       if freeHost = App.get('hosts.firstObject')
         params['hostSlug'] = freeHost.get('slug')
       @transitionTo 'add-card', queryParams: params

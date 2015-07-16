@@ -1,4 +1,5 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
+  queryParams: ['pendingPlanId']
   selectedPlan: null
   prorataCharge: null
 
@@ -6,7 +7,12 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
   hostsUpgrading: null
   manyHostsUpgrading: false
 
+  # when being transferred from successful add-card
+  pendingPlanId: null
+
   paidPlans: (->
+    return [] unless @get 'model.plan'
+
     curPlan = @get('model.plan')
     App.get('eligiblePlans').filter (plan) ->
       plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > curPlan.get('price'))
@@ -37,10 +43,27 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
       hostsUpgrading: null,
       manyHostsUpgrading: false
 
-    @set 'selectedPlan', @get('model.plan')
+    sPlan = null
+    if (pl = @get 'pendingPlanId')
+      sPlan = @get('paidPlans').findBy('id', parseInt(pl))
+
+    @set 'selectedPlan', (sPlan || @get('model.plan'))
+
+    if sPlan
+      Em.run.next ->
+        ui.showModal '#subscription-upgrade-modal-dialog'
+      window.setTimeout(=>
+        @send 'performUpgrade'
+      , 10)
 
   actions:
     performUpgrade: ->
+      if App.get('billingProfile.isFreeOrNoCardState')
+        @transitionToRoute 'add-card', queryParams: { subscriptionId: @get('model.id'), pendingPlanId: @get('selectedPlan.id') }
+        return
+
+      # wipe for accidental restore
+      @set 'pendingPlanId', null
       @set 'upgrading', true
       events = App.get('eventsSocket')
 

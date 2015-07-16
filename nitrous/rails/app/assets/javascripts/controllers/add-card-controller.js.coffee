@@ -1,11 +1,15 @@
 #= require jquery.payment
 
 App.AddCardController = Em.ObjectController.extend
-  queryParams: ['upgradingFromFree', 'hostSlug']
+  queryParams: ['upgradingFromFree', 'hostSlug', 'subscriptionId', 'pendingPlanId']
   # To indicate whether user is upgrading from free tier.
   upgradingFromFree: false
   # Slug of the host that we are upgrading.
   hostSlug: null
+
+  # when upgrading a subscription
+  subscriptionId: null
+  pendingPlanId: null
 
   name: null
   number: null
@@ -17,6 +21,10 @@ App.AddCardController = Em.ObjectController.extend
   expiration: null
   saving: false
   invalidField: null
+
+  pendingPlan: (->
+    App.get('plans').findBy('id', parseInt(@get('pendingPlanId')))
+  ).property 'pendingPlanId'
 
   clear: ->
     @_super.apply this, arguments
@@ -82,6 +90,12 @@ App.AddCardController = Em.ObjectController.extend
           @set 'saving', false
           App.refreshUsage()
           App.refreshBillingProfile()
+
+          if (sub = @get 'subscriptionId') && (pl = @get 'pendingPlanId')
+            @set 'subscriptionId', null
+            @set 'pendingPlanId', null
+            @transitionToRoute 'subscriptions.upgrade', sub, queryParams: { pendingPlanId: pl }
+            return
 
           if wasFreeTier && anyHosts
             if credit = bp.get('amountCreditedDollars')
