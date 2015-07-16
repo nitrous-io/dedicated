@@ -155,14 +155,15 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
 		h.RegionIdentifier = sql.NullString{hostInfo.Region, true}
+		h.ProviderStorageIdentifier = sql.NullString{hostInfo.VolumeID, true}
 	}
 
 	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
 	h.State = host.StateRunning
 
 	nstmt, err := db.PrepareNamed(`UPDATE hosts
-		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, updated_at)
-		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, now())
+		SET (ip_address, provider_identifier, region_identifier, freighterd_port, state, provider_storage_identifier, updated_at)
+		= (:ip_address, :provider_identifier, :region_identifier, :freighterd_port, :state, :provider_storage_identifier, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

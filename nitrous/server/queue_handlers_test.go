@@ -163,6 +163,7 @@ var _ = Describe("HostQueueHandler", func() {
 						Name:           "hostname-1234",
 						IPAddress:      "1.2.3.4",
 						FreighterdPort: 62345,
+						VolumeID:       "volume-1234",
 						State:          state.Running,
 					},
 				}
@@ -227,6 +228,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
 				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
+				Expect(updatedHost.ProviderStorageIdentifier.String).To(Equal("volume-1234"))
 				Expect(updatedHost.Free).To(BeFalse())
 			})
 
