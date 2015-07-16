@@ -60,7 +60,12 @@ App.EventMessageHandler = App.EventsSocket.extend
         hostData = data.host
         return unless host = findHost(hostData)
         host.load(hostData)
-        host.reload()
+        # if a record is loaded directly from a _fetchMultiple it lacks a reload func
+        # unless it has also been _fetchOne on. We use .fetch which will reuse the object
+        if host.reload
+          host.reload()
+        else
+          App.Host.fetch(host.get('slug'))
         host.fetchStats()
 
     ['volume.created', 'volume.destroyed'].forEach (evt) =>
