@@ -22,6 +22,8 @@ App.MenuItem = Em.Object.extend
   name: null
   macKey: null
   pcKey: null
+  chromeMacKey: null
+  chromePcKey: null
   url: null
   target: null
   track: null
@@ -33,11 +35,17 @@ App.MenuItem = Em.Object.extend
   hide: false
 
   key: (->
-    if App.util.IsMac
-      @get 'macKey'
+    if App.get 'chromeApp'
+      if App.util.IsMac
+        @get 'chromeMacKey'
+      else
+        @get 'chromePcKey'
     else
-      @get 'pcKey'
-  ).property 'macKey', 'pcKey'
+      if App.util.IsMac
+        @get 'macKey'
+      else
+        @get 'pcKey'
+  ).property 'App.chromeApp', 'chromeMacKey', 'chromePcKey', 'macKey', 'pcKey'
 
   keyLabel: (->
     isMac = App.util.IsMac

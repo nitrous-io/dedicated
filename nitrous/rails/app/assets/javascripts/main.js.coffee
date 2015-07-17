@@ -15,6 +15,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
       'windows'
     else 'mac'
 
+  chromeApp: false
+
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 

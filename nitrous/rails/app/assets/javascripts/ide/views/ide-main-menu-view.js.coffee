@@ -136,10 +136,14 @@ App.IdeMainMenuView = Em.View.extend
           ui.showModal($('#about-nitrous'))
       ]
       menu 'File', [
-        menuItem 'New', macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n', callback: (controller) ->
-          controller.fileNew()
+        menuItem 'New',
+          macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n'
+          chromeMacKey: ['command+n', 'ctrl+n'], chromePcKey: 'ctrl+n'
+          callback: (controller) ->
+            controller.fileNew()
         menuItem 'Save',
           macKey: ['command+s', 'ctrl+s', 'shift+ctrl+s'], pcKey: ['ctrl+s', 'ctrl+alt+s']
+          chromeMacKey: ['command+s', 'ctrl+s'], chromePcKey: 'ctrl+s'
           disabled: (->
             App.get('router.ideEditorController.hasNoTab') || App.get('router.ideController.opsSocketNotReady')
           ).property 'App.router.ideEditorController.hasNoTab', 'App.router.ideController.opsSocketNotReady'
@@ -147,44 +151,54 @@ App.IdeMainMenuView = Em.View.extend
             controller.fileSave()
         separator
         menuItem 'Refresh Tree',
-          macKey: ['shift+ctrl+r'], pcKey: ['ctrl+alt+r']
+          macKey: 'shift+ctrl+r', pcKey: 'ctrl+alt+r'
+          chromeMacKey: ['shift+command+r', 'shift+ctrl+r'], chromePcKey: 'shift+ctrl+r'
           disabledBinding: Em.Binding.oneWay('App.router.ideSidebarController.opsSocketNotReady')
           callback: (controller) ->
             controller.fileRefreshTree()
         menuItem 'Go to File...',
-          macKey: ['shift+ctrl+p'], pcKey: ['shift+ctrl+p']
+          macKey: 'shift+ctrl+p', pcKey: 'shift+ctrl+p'
+          chromeMacKey: ['command+p', 'ctrl+p'], chromePcKey: 'ctrl+p'
           disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
           callback: (controller) ->
             controller.fileGoToFile()
         separator
         menuItem 'Close',
           macKey: ['shift+ctrl+w', 'ctrl+w'], pcKey: 'ctrl+alt+w'
+          chromeMacKey: ['command+w', 'ctrl+w'], chromePcKey: 'ctrl+w'
           callback: (controller) ->
             controller.fileClose()
       ]
       menu 'Edit', [
         menuItem 'Go to Line...',
-          macKey: ['command+l'], pcKey: ['ctrl+l']
+          macKey: ['command+l', 'ctrl+l'], pcKey: 'ctrl+l'
+          chromeMacKey: ['command+l', 'ctrl+l'], chromePcKey: 'ctrl+l'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
           callback: (controller) ->
             controller.editGoToLine()
         separator
         menuItem 'Fold',
+          macKey: ['option+command+[', 'ctrl+shift+['], pcKey: 'ctrl+shift+['
+          chromeMacKey: ['option+command+[', 'ctrl+shift+['], chromePcKey: 'ctrl+shift+['
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editFoldCode()
         menuItem 'Unfold',
+          macKey: ['option+command+]', 'ctrl+shift+]'], pcKey: 'ctrl+shift+]'
+          chromeMacKey: ['option+command+]', 'ctrl+shift+]'], chromePcKey: 'ctrl+shift+]'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editUnfoldCode()
         separator
         menuItem 'Toggle Comment',
-          macKey: ['command+/'], pcKey: ['ctrl+/']
+          macKey: ['command+/', 'ctrl+/'], pcKey: 'ctrl+/'
+          chromeMacKey: ['command+/', 'ctrl+/'], chromePcKey: 'ctrl+/'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editToggleComment()
         menuItem 'Split Selection into Lines',
-          macKey: ['shift+ctrl+l'], pcKey: ['shift+ctrl+l']
+          macKey: 'shift+ctrl+l', pcKey: 'ctrl+shift+l'
+          chromeMacKey: ['shift+command+l', 'ctrl+shift+l'], chromePcKey: 'ctrl+shift+l'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.editSplitSelectionIntoLines()
@@ -206,47 +220,62 @@ App.IdeMainMenuView = Em.View.extend
       ]
       menu 'Find', [
         menuItem 'Find',
-          macKey: ['command+f'], pcKey: ['ctrl+f']
+          macKey: 'command+f', pcKey: 'ctrl+f'
+          chromeMacKey: ['command+f', 'ctrl+f'], chromePcKey: 'ctrl+f'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.findFind()
         separator
         menuItem 'Find Next',
-          macKey: ['command+g'], pcKey: ['ctrl+g']
+          macKey: 'command+g', pcKey: 'ctrl+g'
+          chromeMacKey: ['command+g', 'ctrl+g'], chromePcKey: ['ctrl+g', 'f3']
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.findFindNext()
-        menuItem 'Select Next',
-          macKey: ['command+d'], pcKey: ['ctrl+d']
-          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
-          callback: (controller) ->
-            controller.findSelectNext()
         menuItem 'Find Previous',
-          macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g']
+          macKey: ['shift+command+g'], pcKey: ['shift+ctrl+g', 'shift+f3']
+          chromeMacKey: ['shift+command+g'], chromePcKey: ['shift+ctrl+g', 'shift+f3']
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.findFindPrevious()
+        menuItem 'Select Next',
+          macKey: 'ctrl+d', pcKey: 'ctrl+d'
+          chromeMacKey: ['command+d', 'ctrl+d'], chromePcKey: 'ctrl+d'
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.findSelectNext()
         separator
         menuItem 'Replace',
-          macKey: ['command+option+f'], pcKey: ['shift+ctrl+h']
+          macKey: 'option+command+f', pcKey: 'shift+ctrl+h'
+          chromeMacKey: ['option+command+f', 'ctrl+h'], chromePcKey: 'ctrl+h'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
           callback: (controller) ->
             controller.findReplace()
         separator
         menuItem 'Find in Files...',
-          macKey: ['shift+command+f'], pcKey: ['shift+ctrl+f']
+          macKey: 'shift+command+f', pcKey: 'ctrl+shift+f'
+          chromeMacKey: 'shift+command+f', chromePcKey: 'ctrl+shift+f'
           disabledBinding: Em.Binding.oneWay('App.router.ideController.opsSocketNotReady')
           disabled: true
           callback: (controller) ->
             controller.findFindInFiles()
       ]
       menu 'View', [
-        menuItem 'Split Editor Pane Vertically', macKey: 'shift+ctrl+\\', pcKey: 'shift+ctrl+\\', callback: (controller) ->
-          controller.viewSplitEditorPaneVertically()
-        menuItem 'Split Editor Pane Horizontally', macKey: 'shift+ctrl+-', pcKey: 'shift+ctrl+-', callback: (controller) ->
-          controller.viewSplitEditorPaneHorizontally()
-        menuItem 'Close Editor Pane', macKey: "shift+ctrl+'", pcKey: "shift+ctrl+'", callback: (controller) ->
-          controller.viewCloseEditorPane()
+        menuItem 'Split Editor Pane Vertically',
+          macKey: 'shift+ctrl+\\', pcKey: 'ctrl+shift+\\'
+          chromeMacKey: 'shift+ctrl+\\', chromePcKey: 'ctrl+shift+\\'
+          callback: (controller) ->
+            controller.viewSplitEditorPaneVertically()
+        menuItem 'Split Editor Pane Horizontally',
+          macKey: 'shift+ctrl+-', pcKey: 'ctrl+shift+-'
+          chromeMacKey: 'shift+ctrl+-', chromePcKey: 'ctrl+shift+-'
+          callback: (controller) ->
+            controller.viewSplitEditorPaneHorizontally()
+        menuItem 'Close Editor Pane',
+          macKey: "shift+ctrl+'", pcKey: "shift+ctrl+'"
+          chromeMacKey: "command+'", chromePcKey: "ctrl+'"
+          callback: (controller) ->
+            controller.viewCloseEditorPane()
         separator
         menuItem 'Ruler', submenu: rulerMenu
         menuItem 'Wrap Long Lines',
@@ -274,13 +303,22 @@ App.IdeMainMenuView = Em.View.extend
       menu 'Window', [
         menuItem 'Editor Theme', submenu: themesMenu
         separator
-        menuItem 'Select Next Tab', macKey: 'shift+ctrl+]', pcKey: 'shift+ctrl+]', callback: (controller) ->
-          controller.windowSelectNextTab()
-        menuItem 'Select Previous Tab', macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+[', callback: (controller) ->
-          controller.windowSelectPreviousTab()
+        menuItem 'Select Next Tab',
+          macKey: 'shift+ctrl+]', pcKey: 'ctrl+shift+]'
+          chromeMacKey: ['ctrl+tab', 'shift+command+]', 'shift+ctrl+]'], chromePcKey: ['ctrl+tab', 'ctrl+shift+]']
+          callback: (controller) ->
+            controller.windowSelectNextTab()
+        menuItem 'Select Previous Tab',
+          macKey: 'shift+ctrl+[', pcKey: 'shift+ctrl+['
+          chromeMacKey: ['shift+ctrl+tab', 'shift+command+[', 'shift+ctrl+['], chromePcKey: ['ctrl+shift+tab', 'ctrl+shift+[']
+          callback: (controller) ->
+            controller.windowSelectPreviousTab()
         separator
-        menuItem 'Focus Console', macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c', callback: (controller) ->
-          controller.windowFocusConsole()
+        menuItem 'Focus Console',
+          macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c'
+          chromeMacKey: ['shift+command+c', 'shift+ctrl+c'], chromePcKey: 'ctrl+shift+c'
+          callback: (controller) ->
+            controller.windowFocusConsole()
         menuItem 'Minimize Console',
           hideBinding: Em.Binding.oneWay('App.consoleMinimized')
           callback: (controller) ->
@@ -291,8 +329,11 @@ App.IdeMainMenuView = Em.View.extend
           ).property('App.consoleMinimized')
           callback: (controller) ->
             controller.windowRestoreConsole()
-        menuItem 'Toggle Full Screen Console', macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f', callback: (controller) ->
-          controller.windowToggleFullScreenConsole()
+        menuItem 'Toggle Full Screen Console',
+          macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f'
+          chromeMacKey: ['shift+command+f', 'shift+ctrl+f'], chromePcKey: 'ctrl+shift+f'
+          callback: (controller) ->
+            controller.windowToggleFullScreenConsole()
         separator
         menuItem 'Hide File Tree',
           hideBinding: Em.Binding.oneWay('App.fileTreeHidden')
