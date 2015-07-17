@@ -12,22 +12,23 @@
       if App.pinger
         li
           App.IdePingerView
-      li.ui.dropdown
-        a href='#'
-          img.gravatar src={App.user.gravatar}
-          = App.user.username
-          .ui.dropdown-triangle
-        ul.dropdown-menu.right
-          li
-            a href=view.dashboardURL
-              | Dashboard
-          li
-            a href='/app/#/account'
-              | Account Settings
-          li.separator
-          li
-            a href='/app/#/logout'
-              | Log Out
+      unless App.chromeApp
+        li.ui.dropdown.account-menu
+          a href='#'
+            img.gravatar src={App.user.gravatar}
+            = App.user.username
+            .ui.dropdown-triangle
+          ul.dropdown-menu.right
+            li
+              a href=view.dashboardURL
+                | Dashboard
+            li
+              a href='/app/#/account'
+                | Account Settings
+            li.separator
+            li
+              a href='/app/#/logout'
+                | Log Out
 
 #about-nitrous.ui.modal
   .ui.card
