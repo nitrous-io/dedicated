@@ -104,20 +104,20 @@ App.IdeMainMenuView = Em.View.extend
       )
     baseItems.push(
       menuItem 'Help Center',
-        url: 'http://docs.nitrous.io/'
+        url: 'https://community.nitrous.io/docs'
         target: '_blank'
       menuItem 'Web IDE Overview',
         url: 'http://docs.nitrous.io/v1.0/docs/web-ide-overview'
         target: '_blank'
-      menuItem 'Frequently Asked Questions',
-        url: 'http://docs.nitrous.io/v1.0/docs/billing--pricing-faq'
+      menuItem 'Nitrous Account Questions',
+        url: 'https://community.nitrous.io/docs/billing-pricing-faq'
         target: '_blank'
       separator
       menuItem 'Blog',
-        url: 'http://blog.nitrous.io/'
+        url: 'https://community.nitrous.io/posts'
         target: '_blank'
       menuItem 'Updates',
-        url: 'http://docs.nitrous.io/v1.0/blog'
+        url: 'https://community.nitrous.io/posts/tagged/changelog'
         target: '_blank'
       separator
       menuItem 'Report an Issue...', callback: (controller) ->
