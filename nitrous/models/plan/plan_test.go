@@ -143,6 +143,33 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
+	Describe("FindByStripePlanID()", func() {
+		var id int64
+
+		BeforeEach(func() {
+			err := db.QueryRow(`SELECT id FROM plans WHERE slug = $1;`, "1gb").Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+		})
+
+		Context("when a plan record with a given id exists", func() {
+			It("returns the plan record", func() {
+				p, err := plan.FindByStripePlanID(db, "Sxcvv67SDx")
+				Expect(err).To(BeNil())
+				Expect(p).NotTo(BeNil())
+				Expect(p.ID).To(Equal(id))
+			})
+		})
+
+		Context("when a plan record with a given id does not exist", func() {
+			It("returns error", func() {
+				p, err := plan.FindByStripePlanID(db, "nothingToSeeHere")
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				Expect(p).To(BeNil())
+			})
+		})
+	})
+
 	Describe("PlanPricingHostMap()", func() {
 		var (
 			u        *user.User
@@ -423,6 +450,26 @@ var _ = Describe("models/plan", func() {
 
 			p = &plan.Plan{Price: 8000}
 			Expect(p.HourlyPrice()).To(Equal(int64(11905)))
+		})
+	})
+
+	Describe("CanUpgradeToPlan()", func() {
+		It("should be false if the target plan has a lesser price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 200}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
+		It("should be true if the target plan has a higher price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 2900}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeTrue())
+		})
+
+		It("should be false if the target plan has the same price", func() {
+			p := &plan.Plan{Price: 2500}
+			p2 := &plan.Plan{Price: 2500}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
 		})
 	})
 })

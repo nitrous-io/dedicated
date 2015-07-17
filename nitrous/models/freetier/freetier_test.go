@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -142,7 +141,7 @@ var _ = Describe("models/freetier", func() {
 				Expect(h2.UpgradedAt.Valid).To(BeFalse())
 			})
 
-			It("should upgrade the host properties", func() {
+			It("should null out the last_running_at", func() {
 				Expect(h.AutoShutdown).To(BeTrue())
 				err := freetier.UpgradeFreeUserHosts(db, u)
 				Expect(err).To(BeNil())
@@ -150,25 +149,7 @@ var _ = Describe("models/freetier", func() {
 				h2, err := host.FindByIdentifier(db, h.Slug)
 				Expect(err).To(BeNil())
 
-				Expect(h2.UserID).To(Equal(u.ID))
-				Expect(h2.PlanID).To(Equal(paidPlan.ID))
-				Expect(h2.HourlyPrice).To(Equal(int64(paidPlan.HourlyPrice())))
-				Expect(h2.Free).To(BeFalse())
-				Expect(h2.MaxContainers).To(Equal(sql.NullInt64{2, true}))
-				Expect(h2.UpgradedAt.Valid).To(BeTrue())
-				Expect(h2.AutoShutdown).To(BeFalse())
-			})
-
-			It("creates a pending respec for the host", func() {
-				err := freetier.UpgradeFreeUserHosts(db, u)
-				Expect(err).To(BeNil())
-
-				r, err := respec.Find(db, h.ID)
-				Expect(err).To(BeNil())
-
-				Expect(r.HostID).To(Equal(h.ID))
-				Expect(r.ProviderTemplateID).To(Equal(paidPT.ID))
-				Expect(r.State).To(Equal(respec.StatePending))
+				Expect(h2.LastRunningAt.Valid).To(BeFalse())
 			})
 
 			Context("when new plan is a subscription plan", func() {

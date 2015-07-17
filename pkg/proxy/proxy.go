@@ -199,10 +199,6 @@ func ProxyWebsocket(addr string, tlsConfig *tls.Config) http.HandlerFunc {
 		clientAddr := clientConn.RemoteAddr()
 		defer clientConn.Close()
 
-		if verboseLog {
-			logrus.Infof("temp: new websocket proxy connection, from client: %s to backend %s\n", clientAddr, addr)
-		}
-
 		sErr, cErr := bidirectionalCopy(serverConn, clientConn)
 		if verboseLog && !isIoError(sErr) && !isIoError(cErr) {
 			logrus.Infof("cleanly shut down connection, client: %s, backend: %s\n", clientAddr, addr)

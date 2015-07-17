@@ -28,6 +28,13 @@
             if view.multipleSubscriptions
               unless subscription.cancelPending
                 td.actions
+                  if App.canUpgrade
+                    if subscription.canUpgrade
+                      button.ui.btn.primary = link-to 'subscriptions.upgrade' subscription.id
+                        | Upgrade
+                    else
+                      button.ui.btn.primary disabled='disabled'
+                        | Upgrade
                   button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
             td.charge
               | $
@@ -54,4 +61,11 @@ unless view.multipleSubscriptions
   unless App.subscriptions.firstObject.cancelPending
     .card-footer.bordered
       .right
+        if App.canUpgrade
+          if App.subscriptions.firstObject.canUpgrade
+            button.ui.btn.primary = link-to 'subscriptions.upgrade' App.subscriptions.firstObject.id
+              | Upgrade Subscription
+          else
+            button.ui.btn.primary disabled='disabled'
+              | Upgrade Subscription
         button.ui.btn.danger click='showCancelSubscription App.subscriptions.firstObject' disabled=App.subscriptions.firstObject.cancelPending Cancel Subscription

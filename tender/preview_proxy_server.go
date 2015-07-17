@@ -175,7 +175,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		}
 	}
 
-	logrus.Infof("proxying preview request %+v to %s", r, slug)
+	logrus.Debugf("proxying preview request %+v to %s", r, slug)
 
 	cn, err := containerGet(s.db, slug)
 	if err != nil {

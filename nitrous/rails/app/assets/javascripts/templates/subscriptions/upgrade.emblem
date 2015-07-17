@@ -1,0 +1,62 @@
+.card-header.bordered
+  | Upgrade your subscription
+
+.card-body
+
+  .notice-text
+    i.fa.fa-info
+    | You will have a chance to review your changes before upgrading.
+
+  .ui.input-group
+    .plan-groups
+      .current
+        label#select-plan.field-label
+          | Current Plan
+        ul.ui.selectable-list.plans
+          App.PlanListItemView content=model.plan selected=selectedPlan
+
+      .paid
+        label#select-plan.field-label
+          | Available Plans
+        ul.ui.selectable-list.plans.paid
+          each plan in paidPlans
+            App.PlanListItemView content=plan selected=selectedPlan
+
+.card-footer.bordered
+  .right
+    button.ui.btn click='cancel' Back
+    button.ui.btn.primary disabled=upgradeSubscriptionDisabled click='showUpgradeDialog target="view"'
+      ' Upgrade to
+      = selectedPlan.name
+
+#subscription-upgrade-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Begin Upgrade
+    .card-body
+      p
+        ' To perform the upgrade you will be immediately charged
+        if prorataCharge
+          | $
+          = prorataCharge
+        else
+          | a prorated amount
+        |  and then $
+        = selectedPlan.totalPriceInDollars
+        |  each month.
+
+      p
+        | Your workspace will be restarted to perform the upgrade, please ensure you have saved your work.
+
+
+    .card-footer
+      .right
+        if upgrading
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Upgrading...
+        else
+          button.ui.btn click='cancelUpgrade target="view"'
+            | Cancel
+          button.ui.btn.primary click='confirmUpgrade target="view"'
+            | Upgrade

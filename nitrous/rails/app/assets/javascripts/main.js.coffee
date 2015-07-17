@@ -15,6 +15,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
       'windows'
     else 'mac'
 
+  chromeApp: false
+
   online: if !Em.isNone(window.navigator.onLine) then window.navigator.onLine else true
   offline: Em.computed.not 'online'
 
@@ -184,6 +186,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
     'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
+
+  # TODO: Remove me as part of subscriptions go live
+  canUpgradeBinding: Em.Binding.oneWay 'user.admin'
 
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0

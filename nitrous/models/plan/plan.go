@@ -65,6 +65,17 @@ func (p *Plan) IsSubscription() bool {
 	return p.StripePlanID.Valid
 }
 
+func (p *Plan) CanUpgradeToPlan(newPlan *Plan) bool {
+	if p == nil {
+		return false
+	}
+	if newPlan == nil {
+		return false
+	}
+
+	return newPlan.Price > p.Price
+}
+
 func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 	plan := &Plan{}
 	if err := d.Get(plan, "SELECT * FROM plans WHERE id = $1", id); err != nil {
@@ -76,6 +87,14 @@ func FindByID(d db.QueryReceiver, id int64) (*Plan, error) {
 func FindBySlug(d db.QueryReceiver, slug string) (*Plan, error) {
 	plan := &Plan{}
 	if err := d.Get(plan, `SELECT * FROM plans WHERE slug = $1 AND disabled = $2`, slug, false); err != nil {
+		return nil, err
+	}
+	return plan, nil
+}
+
+func FindByStripePlanID(d db.QueryReceiver, slug string) (*Plan, error) {
+	plan := &Plan{}
+	if err := d.Get(plan, `SELECT * FROM plans WHERE stripe_plan_id = $1 AND disabled = $2`, slug, false); err != nil {
 		return nil, err
 	}
 	return plan, nil
