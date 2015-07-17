@@ -9,6 +9,8 @@ parentWindow = null if parentWindow == window
 
 isMac = navigator.userAgent.indexOf("Macintosh") != -1
 
+chromeApp = parentWindow?.App?.get('chromeApp') || false
+
 utf8Decoder = new window.TextDecoder('utf8')
 
 utf8Decode = (data) ->
@@ -264,33 +266,47 @@ window.NitrousTerminal =
     parentWindow.App.get('router.ideMainMenuController')?.fileClose()
     false
 
-  # keybinding is shift+ctrl+c / ctrl+alt+c
   matchesFocusEditorKeybinding: (event) ->
-    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 67) ||
-    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 67)
+    (event.keyCode == 67 && (
+      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+c
+      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+c
+      (chromeApp && isMac && event.shiftKey && event.metaKey)  || # mac chrome app: shift+command+c
+      (chromeApp && !isMac && event.ctrlKey && event.shiftKey)    # pc chrome app:  ctrl+shift+c
+    ))
 
-  # keybinding is shift+ctrl+f / ctrl+alt+f
   matchesFullscreenConsoleKeybinding: (event) ->
-    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 70) ||
-    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 70)
+    (event.keyCode == 70 && (
+      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+f
+      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+f
+      (chromeApp && isMac && event.shiftKey && event.metaKey) || # mac chrome app: shift+command+f
+      (chromeApp && !isMac && event.ctrlKey && event.shiftKey)   # pc chrome app:  ctrl+shift+f
+    ))
 
-  # keybinding is shift+ctrl+]
   matchesNextTabKeybinding: (event) ->
-    event.shiftKey && event.ctrlKey && event.keyCode == 221
+    (event.shiftKey && event.ctrlKey && event.keyCode == 221) ||                    # mac/pc: shift+ctrl+]
+    (chromeApp && !event.shiftKey && event.ctrlKey && event.keyCode == 9) ||        # mac/pc chrome app: ctrl+tab
+    (chromeApp && isMac && event.shiftKey && event.metaKey && event.keyCode == 221) # mac chrome app: shift+command+]
 
-  # keybinding is shift+ctrl+[
   matchesPreviousTabKeybinding: (event) ->
-    event.shiftKey && event.ctrlKey && event.keyCode == 219
+    (event.shiftKey && event.ctrlKey && event.keyCode == 219) ||                    # mac/pc: shift+ctrl+[
+    (chromeApp && event.shiftKey && event.ctrlKey && event.keyCode == 9) ||         # mac/pc chrome app: shift+ctrl+tab
+    (chromeApp && isMac && event.shiftKey && event.metaKey && event.keyCode == 219) # mac chrome app: shift+command+[
 
-  # keybinding is shift+ctrl+n / ctrl+alt+n
   matchesNewConsoleScreenKeybinding: (event) ->
-    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 78) ||
-    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 78)
+    (event.keyCode == 78 && (
+      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+n
+      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+n
+      (chromeApp && isMac && event.metaKey)      || # mac chrome app: command+n
+      (chromeApp && !isMac && event.ctrlKey)        # pc chrome app:  ctrl+n
+    ))
 
-  # keybinding is shift+ctrl+w / ctrl+alt+w
   matchesCloseConsoleScreenKeybinding: (event) ->
-    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 87) ||
-    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 87)
+    (event.keyCode == 87 && (
+      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+w
+      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+w
+      (chromeApp && isMac && event.metaKey)      || # mac chrome app: command+w
+      (chromeApp && !isMac && event.ctrlKey)        # pc chrome app:  ctrl+w
+    ))
 
   # keybinding ctrl+tab
   matchesCtrlTabKeybinding: (event) ->
