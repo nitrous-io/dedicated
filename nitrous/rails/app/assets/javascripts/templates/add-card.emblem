@@ -38,13 +38,6 @@ form autocomplete='on' submit='save'
             = pendingPlan.totalPriceInDollars
             | /mo
           | .
-    else
-      if upgradingFromFree
-        .notice-text
-          p
-            i.fa.fa-info-circle
-            '
-            | Upgrading to a paid plan gives you a faster and bigger workspace and allows you to use the desktop app.
 
     .ui.input-group
       label#cardholders-name.field-label for='card-name'

@@ -1,14 +1,13 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
-  queryParams: ['pendingPlanId']
+  queryParams: ['planId']
+  planId: null # when being transferred from successful add-card
+
   selectedPlan: null
   prorataCharge: null
 
   upgrading: false
   hostsUpgrading: null
   manyHostsUpgrading: false
-
-  # when being transferred from successful add-card
-  pendingPlanId: null
 
   paidPlans: (->
     return [] unless @get 'model.plan'
@@ -43,27 +42,29 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
       hostsUpgrading: null,
       manyHostsUpgrading: false
 
-    sPlan = null
-    if (pl = @get 'pendingPlanId')
-      sPlan = @get('paidPlans').findBy('id', parseInt(pl))
+    automateUpgrade = false
+    selectedPlan = @get('model.plan')
+    if (pl = @get 'planId')
+      automateUpgrade = true
+      selectedPlan = @get('paidPlans').findBy('id', parseInt(pl))
 
-    @set 'selectedPlan', (sPlan || @get('model.plan'))
+    @set 'selectedPlan', selectedPlan
 
-    if sPlan
-      Em.run.next ->
+    if automateUpgrade && selectedPlan
+      Em.run.next =>
         ui.showModal '#subscription-upgrade-modal-dialog'
-      window.setTimeout(=>
-        @send 'performUpgrade'
-      , 10)
+        window.setTimeout(=>
+          @send 'performUpgrade'
+        , 10)
 
   actions:
     performUpgrade: ->
       if App.get('billingProfile.isFreeOrNoCardState')
-        @transitionToRoute 'add-card', queryParams: { subscriptionId: @get('model.id'), pendingPlanId: @get('selectedPlan.id') }
+        @transitionToRoute 'add-card', queryParams: { subscriptionSlug: @get('model.slug'), pendingPlanId: @get('selectedPlan.id') }
         return
 
-      # wipe for accidental restore
-      @set 'pendingPlanId', null
+      # wipe to prevent re-navigating to the route restarting an upgrade
+      @set 'planId', null
       @set 'upgrading', true
       events = App.get('eventsSocket')
 
@@ -105,4 +106,3 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
 
     cancel: ->
       @transitionToRoute 'billing'
-

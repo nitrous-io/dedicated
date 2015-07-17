@@ -1,14 +1,9 @@
 #= require jquery.payment
 
 App.AddCardController = Em.ObjectController.extend
-  queryParams: ['upgradingFromFree', 'hostSlug', 'subscriptionId', 'pendingPlanId']
-  # To indicate whether user is upgrading from free tier.
-  upgradingFromFree: false
-  # Slug of the host that we are upgrading.
-  hostSlug: null
-
+  queryParams: ['subscriptionSlug', 'pendingPlanId']
   # when upgrading a subscription
-  subscriptionId: null
+  subscriptionSlug: null
   pendingPlanId: null
 
   name: null
@@ -76,8 +71,6 @@ App.AddCardController = Em.ObjectController.extend
         @set 'saving', true
 
         billingProfile = App.get('billingProfile')
-        wasFreeTier = billingProfile.get('free')
-        anyHosts = App.get('hosts.length') > 0
 
         billingProfile.addCard(
           name: @get('name'),
@@ -91,16 +84,10 @@ App.AddCardController = Em.ObjectController.extend
           App.refreshUsage()
           App.refreshBillingProfile()
 
-          if (sub = @get 'subscriptionId') && (pl = @get 'pendingPlanId')
-            @set 'subscriptionId', null
+          if (sub = @get 'subscriptionSlug') && (pl = @get 'pendingPlanId')
+            @set 'subscriptionSlug', null
             @set 'pendingPlanId', null
-            @transitionToRoute 'subscriptions.upgrade', sub, queryParams: { pendingPlanId: pl }
-            return
-
-          if wasFreeTier && anyHosts
-            if credit = bp.get('amountCreditedDollars')
-              App.set 'upgradeCredited', credit
-            @transitionToRoute 'host.index', @get('hostSlug'), queryParams: { justUpgraded: true }
+            @transitionToRoute 'subscriptions.upgrade', sub, queryParams: { planId: pl }
             return
 
           App.snackbar.post "Credit card added."
