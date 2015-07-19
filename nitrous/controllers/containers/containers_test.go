@@ -1604,6 +1604,34 @@ var _ = Describe("controllers/containers", func() {
 				}
 			})
 
+			It("should not have ssh_url field if user is free tier", func() {
+				var err error
+				_, err = db.Exec(`
+					UPDATE billing_profiles SET state = 'free'
+					WHERE user_id = $1
+					`, u.ID)
+				Expect(err).To(BeNil())
+				mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{
+					PortBindings: []string{"public:2020:22/tcp"},
+					Env: []string{
+						"NITROUS_SSH_ENABLED=true",
+						"NITROUS_USERNAME=nitrous",
+					},
+				}
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Container *serializers.Container `json:"container"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				cn := j.Container
+
+				Expect(cn.SSHURL).To(Equal(""))
+			})
+
 			It("should not have ssh_url field with invalid parameters", func() {
 				testConfigs := []*freighterclient.ContainerConfig{
 					{
