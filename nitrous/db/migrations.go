@@ -1413,7 +1413,7 @@ func init() {
 		{
 			Version: "1350",
 			Up: `
-				ALTER TABLE hosts ADD COLUMN provider_storage_identifier character varying DEFAULT '' NOT NULL;
+				ALTER TABLE hosts ADD COLUMN provider_storage_identifier character varying(255);
 			`,
 		},
 	}

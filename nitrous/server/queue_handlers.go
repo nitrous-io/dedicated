@@ -156,6 +156,10 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
 		h.RegionIdentifier = sql.NullString{hostInfo.Region, true}
 		h.ProviderStorageIdentifier = sql.NullString{hostInfo.VolumeID, true}
+
+		if hostInfo.Provider == "amazon" && hostInfo.VolumeID == "" {
+			return fmt.Errorf("No root volume for host: %+v", hostInfo)
+		}
 	}
 
 	h.FreighterdPort = sql.NullInt64{int64(hostInfo.FreighterdPort), true}
