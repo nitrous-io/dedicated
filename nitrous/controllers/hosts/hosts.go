@@ -472,6 +472,17 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	}
 
 	go func() {
+		started := time.Now()
+		successful := false
+		defer func() {
+			elapsed := time.Since(started)
+			logrus.WithFields(logrus.Fields{
+				"success": successful,
+				"host_id": h.ID,
+				"elapsed": elapsed.Seconds(),
+			}).Infof("Host Respec")
+		}()
+
 		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
 			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
@@ -502,6 +513,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			logrus.Errorf("error updating respec state to completed: %v", err)
 		}
 
+		successful = true
 		PublishHostEvent(env, controllers.EventHostRespecced, h)
 	}()
 

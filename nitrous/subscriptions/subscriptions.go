@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -21,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -260,12 +262,19 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 	// create the new invoice to apply the prorata amount
 	i, err := stripeinvoice.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 	if err != nil {
-		logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
-		return decodeStripeError(err)
+		// instead of performing another web request we just try to pay any oustanding invoices
+		// and ignore if there was nothing to pay (exempt user, Stripe credit)
+		if strings.Contains(err.Error(), "Nothing to invoice for customer") {
+			i = nil
+			logrus.Warnf("No need to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+		} else {
+			logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+			return decodeStripeError(err)
+		}
 	}
 
 	// immediately request the invoice be paid
-	if i.Amount >= 100 {
+	if i != nil && i.Amount >= 100 {
 		_, err = stripeinvoice.Pay(i.ID, nil)
 		if err != nil {
 			logrus.Errorf("Failed to pay Stripe invoice %s for subscription ID %d to plan %s: %v", i.ID, sub.ID, p.Slug, err)
@@ -310,7 +319,7 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 	}
 
 	for _, h := range hosts {
-		_, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
+		newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
@@ -338,7 +347,12 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 				return err
 			}
 
-			return nil
+			rs := &respec.Respec{
+				HostID:             h.ID,
+				ProviderTemplateID: newPT.ID,
+				State:              respec.StatePending,
+			}
+			return rs.Insert(tx)
 		})
 
 		if err != nil {

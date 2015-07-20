@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -695,6 +696,27 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
 		})
 
+		It("create the subscription even where there is no oustanding invoice", func() {
+			fakeStripe.Errors = []*stripe.Error{
+				nil,
+				&stripe.Error{
+					Type: stripe.ErrorType(stripe.InvalidRequest),
+					Msg:  "Nothing to invoice for customer",
+				},
+			}
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+
+			s, err := findByHostID(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(s.PlanID).To(Equal(newPlan.ID))
+			Expect(s.State).To(Equal("active"))
+			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
+			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
+		})
+
 		It("updates the subscription in the database", func() {
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())
@@ -744,6 +766,38 @@ var _ = Describe("subscriptions", func() {
 			Expect(h.AutoShutdown).To(BeFalse())
 			Expect(h.Size.String).To(Equal("newStripePlan"))
 			Expect(h.Free).To(BeFalse())
+		})
+
+		It("should create a respec entry for the host", func() {
+			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1,  plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			pl2 := &plan.Plan{
+				Slug:          "newStripePlan",
+				Name:          "newStripePlan",
+				MaxContainers: 19,
+				AutoShutdown:  false,
+				Price:         1899,
+				StripePlanID:  sql.NullString{"newPlan", true},
+			}
+			Expect(pl2.Insert(db)).To(BeNil())
+
+			pt2 := &providertemplate.ProviderTemplate{
+				Name:     "newPlan",
+				Disabled: false,
+				PlanID:   pl2.ID,
+				RegionID: hs.PT.RegionID,
+				Provider: hs.PT.Provider,
+			}
+			Expect(pt2.Insert(db)).To(BeNil())
+
+			err = subProvider.Upgrade(db, sub, pl2, u)
+			Expect(err).To(BeNil())
+
+			re, err := respec.Find(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(re.State).To(Equal(respec.StatePending))
+			Expect(re.ProviderTemplateID).To(Equal(pt2.ID))
 		})
 	})
 
