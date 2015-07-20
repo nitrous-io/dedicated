@@ -8,7 +8,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func (s *Server) AddDebugRoutes(r *mux.Router) {
+func (s *Server) addDebugRoutes(r *mux.Router) {
 	r.HandleFunc("/debug/pprof/{path:.*}", s.pprof).Methods("GET")
 }
 
