@@ -16,6 +16,7 @@ import (
 const (
 	defaultGracePeriod      = 10 * time.Minute
 	inconsistentGracePeriod = 5 * time.Minute
+	respecGracePeriod       = 15 * time.Minute
 )
 
 var (
@@ -157,6 +158,12 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 	if transition.CreatedAt == nil {
 		return false
 	}
+
+	// allow more time for respeccing
+	if dbHost.State == host.StateRespeccing {
+		return time.Since(*transition.CreatedAt) < respecGracePeriod
+	}
+
 	// db is correctly marked as transitioning to live state but transition
 	// is taking too long
 	return time.Since(*transition.CreatedAt) < inconsistentGracePeriod
