@@ -58,9 +58,9 @@ type Response struct {
 	LaunchTime     *time.Time `json:"launch_time,omitempty"`
 }
 
-type HttpHandler func(w http.ResponseWriter, r *http.Request) error
+type httpHandler func(w http.ResponseWriter, r *http.Request) error
 
-func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
+func makeHttpHandler(handlerFunc httpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := r.Header.Get(NitrousUUIDHeader)
 		if uuidStr == "" {
@@ -452,9 +452,9 @@ func (s *Server) driverFromRequest(r *http.Request, customConfig map[string]stri
 	return host.NewDriver(provider, providerConfig, hostConfig)
 }
 
-func (s *Server) CreateRouter() {
+func (s *Server) createRouter() {
 	r := mux.NewRouter()
-	m := map[string]map[string]HttpHandler{
+	m := map[string]map[string]httpHandler{
 		"GET": {
 			"/hosts": s.listHosts,
 		},
@@ -485,9 +485,8 @@ func (s *Server) CreateRouter() {
 
 func New(config *Config) (*Server, error) {
 	server := &Server{Config: config}
-	server.CreateRouter()
-	// Add routes for debug
-	server.AddDebugRoutes(server.Router)
+	server.createRouter()
+	server.addDebugRoutes(server.Router)
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
 		logrus.Warn("missing librato config. Metrics logging is disabled")
