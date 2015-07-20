@@ -267,28 +267,24 @@ window.NitrousTerminal =
     false
 
   matchesFocusEditorKeybinding: (event) ->
-    (event.keyCode == 67 && (
-      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+c
-      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+c
-      (chromeApp && isMac && event.shiftKey && event.metaKey)  || # mac chrome app: shift+command+c
-      (chromeApp && !isMac && event.ctrlKey && event.shiftKey)    # pc chrome app:  ctrl+shift+c
-    ))
+    (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 67) || # mac: shift+ctrl+c
+    (!isMac && event.ctrlKey && event.altKey && event.keyCode == 67)  || # pc:  ctrl+alt+c
+    (chromeApp && isMac && event.metaKey && event.keyCode == 84)  || # mac chrome app: command+t
+    (chromeApp && !isMac && event.ctrlKey && event.keyCode == 84)    # pc chrome app:  ctrl+t
 
   matchesFullscreenConsoleKeybinding: (event) ->
     (event.keyCode == 70 && (
       (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+f
-      (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+f
-      (chromeApp && isMac && event.shiftKey && event.metaKey) || # mac chrome app: shift+command+f
-      (chromeApp && !isMac && event.ctrlKey && event.shiftKey)   # pc chrome app:  ctrl+shift+f
+      (!isMac && event.ctrlKey && event.altKey)     # pc:  ctrl+alt+f
     ))
 
   matchesNextTabKeybinding: (event) ->
-    (event.shiftKey && event.ctrlKey && event.keyCode == 221) ||                    # mac/pc: shift+ctrl+]
+    (!chromeApp && event.shiftKey && event.ctrlKey && event.keyCode == 221) ||      # mac/pc: shift+ctrl+]
     (chromeApp && !event.shiftKey && event.ctrlKey && event.keyCode == 9) ||        # mac/pc chrome app: ctrl+tab
     (chromeApp && isMac && event.shiftKey && event.metaKey && event.keyCode == 221) # mac chrome app: shift+command+]
 
   matchesPreviousTabKeybinding: (event) ->
-    (event.shiftKey && event.ctrlKey && event.keyCode == 219) ||                    # mac/pc: shift+ctrl+[
+    (!chromeApp && event.shiftKey && event.ctrlKey && event.keyCode == 219) ||      # mac/pc: shift+ctrl+[
     (chromeApp && event.shiftKey && event.ctrlKey && event.keyCode == 9) ||         # mac/pc chrome app: shift+ctrl+tab
     (chromeApp && isMac && event.shiftKey && event.metaKey && event.keyCode == 219) # mac chrome app: shift+command+[
 

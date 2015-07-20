@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
@@ -390,9 +391,17 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	serialized := serializers.SerializeContainer(cn)
 	serialized.Config = serializers.SerializeContainerConfig(config)
 
-	sshURL, err := FindSSHURL(h, config)
-	if err == nil {
-		serialized.SSHURL = sshURL
+	// free users do not get ssh access
+	bp, err := env.User.BillingProfile(env.DB)
+	if err != nil {
+		return err
+	}
+
+	if showSSH := bp.State != billingprofile.StateFree; showSSH {
+		sshURL, err := FindSSHURL(h, config)
+		if err == nil {
+			serialized.SSHURL = sshURL
+		}
 	}
 
 	env.Status = http.StatusOK
