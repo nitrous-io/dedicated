@@ -9,7 +9,7 @@
     table.ui.table.horizontal
       tbody
         = each subscription in App.subscriptions
-          tr
+          tr class={subscription.cancelPending:cancelled}
             td
               if subscription.hostSlug
                 ' Workspace
@@ -25,12 +25,12 @@
               else
                 ' Renews on
               = daymonth subscription.currentPeriodEnd
-            if view.multipleSubscriptions
-              unless subscription.cancelPending
-                td.actions
+            td.actions
+              if view.multipleSubscriptions
+                unless subscription.cancelPending
                   if App.canUpgrade
                     if subscription.canUpgrade
-                      button.ui.btn.primary = link-to 'subscriptions.upgrade' subscription.id
+                      = link-to 'subscriptions.upgrade' subscription.id class='ui btn primary raised'
                         | Upgrade
                     else
                       button.ui.btn.primary disabled='disabled'
