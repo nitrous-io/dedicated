@@ -15,45 +15,27 @@ main = ->
   loginToken = query.token
   redirectUrl = query.redirect_to || '/app'
 
-  obtainAccessToken = ->
-    if !loginToken
-      return redirect '/403'
-    $.ajax(
-      type: 'POST'
-      url: '/api/v0/oauth/token'
-      dataType: 'json'
-      data:
-        grant_type: 'login_token'
-        token: loginToken
-    ).done((data) ->
-      if data.token_type == 'Bearer' && data.access_token
-        # oauth token obtained
-        localStorage.setItem('token', data.access_token)
-        redirect(redirectUrl)
-      else
-        redirect '/403'
-    ).fail ->
-      # failed to obtain new oauth token. redirect to 403
-      redirect '/403'
+  if !loginToken
+    return redirect '/403'
 
-  # first, if oauth token exists in local storage,
-  # check if it is still valid
-  if existingToken = localStorage.getItem('token')
-    $.ajax(
-      type: 'GET'
-      url: '/api/v0/user'
-      dataType: 'json'
-      headers:
-        Authorization: "Bearer #{existingToken}"
-    ).done((data)->
-      # existing oauth token is still valid, just redirect
+  localStorage.removeItem('token')
+  $.ajax(
+    type: 'POST'
+    url: '/api/v0/oauth/token'
+    dataType: 'json'
+    data:
+      grant_type: 'login_token'
+      token: loginToken
+  ).done((data) ->
+    if data.token_type == 'Bearer' && data.access_token
+      # oauth token obtained
+      localStorage.setItem('token', data.access_token)
       redirect(redirectUrl)
-    ).fail ->
-      # existing oauth token is invalid, delete token
-      localStorage.removeItem('token')
-      obtainAccessToken()
-  else
-    obtainAccessToken()
+    else
+      redirect '/403'
+  ).fail ->
+    # failed to obtain new oauth token. redirect to 403
+    redirect '/403'
 
 redirect = (path='') ->
   if path[0] != '/'
