@@ -79,3 +79,7 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
       , (jqxhr) =>
         App.postError(jqxhr.responseJSON, 'Unable to upgrade!')
         @set 'upgrading', false
+
+    cancel: ->
+      @transitionToRoute 'billing'
+
