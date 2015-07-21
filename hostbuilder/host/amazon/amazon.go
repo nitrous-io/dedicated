@@ -39,7 +39,7 @@ const (
 	userDeviceName = "/dev/sdu"
 
 	updateTimeout            = 30 * time.Second
-	resizeRootVolumeTimeout  = 30 * time.Minute
+	resizeVolumeTimeout      = 30 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
 )
 
@@ -79,7 +79,7 @@ type Host struct {
 	createTimeout time.Duration // limit of instance's creation time
 
 	// For respec.
-	rootVolume *ec2.Volume
+	userVolume *ec2.Volume
 	newVolume  *ec2.Volume
 	snapshot   *ec2.Snapshot
 	newSize    int64 // New storage size in GB.
@@ -264,7 +264,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 
 // RespecWithQueue changes the specs of an existing host its new properties.
 // The following changes are supported:
-//   1. Changing storage size of root volume.
+//   1. Changing storage size of user volume.
 //   2. Changing instance type (only between allowable instance types, e.g. we
 //      don't support changing from a VPC-only to non-VPC instance).
 //   3. Allocating/de-allocating an Elastic IP.
@@ -307,22 +307,22 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	var (
-		rootVolume     *ec2.Volume
+		userVolume     *ec2.Volume
 		configuredSize int64
 	)
 
 	// If StorageSize is 0, no change required.
 	if h.Config.StorageSize != 0 {
 		var err error
-		rootVolume, err = h.getRootVolume()
+		userVolume, err = h.getUserVolume()
 		if err != nil {
 			return nil, mh.Error(err, label)
 		}
 
-		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		currentSize, err := strconv.ParseInt(userVolume.Size, 10, 64)
 		if err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", userVolume, err), label)
 		}
 
 		configuredSize = computeSize(h.Config.StorageSize)
@@ -360,9 +360,9 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	if changeStorageSize {
-		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+		if err := h.resizeUserVolume(userVolume, configuredSize); err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to resize user volume, err: %v", err), label)
 		}
 	}
 
@@ -376,26 +376,26 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	return info, err
 }
 
-func (h *Host) getRootVolume() (*ec2.Volume, error) {
-	rootDevice := rootDevice(h.instance)
-	if rootDevice == nil {
-		return nil, fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId)
+func (h *Host) getUserVolume() (*ec2.Volume, error) {
+	userDevice := userDevice(h.instance)
+	if userDevice == nil {
+		return nil, fmt.Errorf("amazon: cannot find user device for instance %s", h.instance.InstanceId)
 	}
 
-	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+	resp, err := h.provider.Volumes([]string{userDevice.VolumeId}, ec2.NewFilter())
 	if err != nil {
-		return nil, fmt.Errorf("amazon: failed to get root volume info, err: %v", err)
+		return nil, fmt.Errorf("amazon: failed to get user volume info, err: %v", err)
 	}
 	if len(resp.Volumes) != 1 {
 		return nil, fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes)
 	}
-	rootVolume := &resp.Volumes[0]
-	if rootVolume.VolumeId != rootDevice.VolumeId {
+	userVolume := &resp.Volumes[0]
+	if userVolume.VolumeId != userDevice.VolumeId {
 		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume)
+		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", userDevice.VolumeId, userVolume)
 	}
 
-	return rootVolume, nil
+	return userVolume, nil
 }
 
 type resizeStep struct {
@@ -403,15 +403,15 @@ type resizeStep struct {
 	restartOnError bool
 }
 
-func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err error) {
+func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), resizeRootVolumeTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeVolumeTimeout)
 	defer cancel()
 
-	h.rootVolume = rootVolume
+	h.userVolume = userVolume
 	h.newSize = newSize
 
 	hctx := host.NewContext(ctx, h, h, nil)
@@ -419,7 +419,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 		{
 			Step: host.Step{
 				Description: "Taking snapshot of disk",
-				Func:        snapshotRootVolume,
+				Func:        snapshotUserVolume,
 			},
 			restartOnError: true,
 		},
@@ -433,7 +433,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 		{
 			Step: host.Step{
 				Description: "Switching to larger disk",
-				Func:        swapRootVolume,
+				Func:        swapUserVolume,
 			},
 		},
 		{
@@ -445,7 +445,7 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	}
 	for _, step := range steps {
 		if err := hctx.Run(step.Step); err != nil {
-			h.Printf("ERROR: failed in resize root volume step %q: %v", step.Description, err)
+			h.Printf("ERROR: failed in resize user volume step %q: %v", step.Description, err)
 
 			// Start the instance back up if necessary.
 			// Note that the time to start the instance is excluded from the
@@ -466,21 +466,21 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	return nil
 }
 
-func snapshotRootVolume(ctx *host.HostContext) error {
+func snapshotUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("snapshot_root_volume")
+	label := h.MetricsLabel("snapshot_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	newSize := h.newSize
 
-	h.Printf("Creating snapshot of root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Creating snapshot of user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
-		h.instance.InstanceId, rootVolume.Size, newSize)
-	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+		h.instance.InstanceId, userVolume.Size, newSize)
+	snapshot, err := createSnapshot(h.provider, userVolume.VolumeId, desc)
 	if err != nil {
-		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
+		return fmt.Errorf("amazon: failed to create snapshot of user volume %+v, err: %v", userVolume, err)
 	}
 
 	h.snapshot = snapshot
@@ -493,7 +493,7 @@ func snapshotRootVolume(ctx *host.HostContext) error {
 		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
 	}
 
-	h.Printf("Created snapshot %s of volume %s", snapshot.Id, rootVolume.VolumeId)
+	h.Printf("Created snapshot %s of volume %s", snapshot.Id, userVolume.VolumeId)
 
 	return nil
 }
@@ -503,12 +503,12 @@ func createNewVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("create_new_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	snapshot := h.snapshot
 	newSize := h.newSize
 
 	h.Printf("Creating volume from snapshot %s", snapshot.Id)
-	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	newVolume, err := createVolume(h.provider, snapshot.Id, userVolume.AvailZone, newSize)
 	if err != nil {
 		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
 	}
@@ -519,24 +519,24 @@ func createNewVolume(ctx *host.HostContext) error {
 	return nil
 }
 
-func swapRootVolume(ctx *host.HostContext) error {
+func swapUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("swap_root_volume")
+	label := h.MetricsLabel("swap_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	newVolume := h.newVolume
 
-	h.Printf("Detaching root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
-		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
+	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return fmt.Errorf("amazon: failed to detach user volume, err: %v", err)
 	} else {
-		rootVolume = vol
+		userVolume = vol
 	}
-	h.Printf("Detached root volume %s from %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	h.Printf("Attaching new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, userDeviceName); err != nil {
 		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
 	} else {
 		newVolume = vol
@@ -551,13 +551,13 @@ func deleteOldVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("delete_old_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 
-	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
-		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	h.Printf("Deleting old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if _, err := h.provider.DeleteVolume(userVolume.VolumeId); err != nil {
+		h.Printf("ERROR: failed to delete old user volume %s for instance %s after respec, err: %v", userVolume.VolumeId, h.instance.InstanceId, err)
 	}
-	h.Printf("Deleted old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Deleted old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	return nil
 }
@@ -1187,9 +1187,9 @@ func computeSize(size int) int64 {
 	return storageSize
 }
 
-func rootDevice(instance *ec2.Instance) *ec2.BlockDevice {
+func userDevice(instance *ec2.Instance) *ec2.BlockDevice {
 	for _, dev := range instance.BlockDevices {
-		if dev.DeviceName == rootDeviceName {
+		if dev.DeviceName == userDeviceName {
 			return &dev
 		}
 	}
