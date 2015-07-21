@@ -2544,6 +2544,14 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
 
+		It("responds with HTTP 400 Bad Request if the host is not in a running or stopped state", func() {
+			_, err := db.Exec("UPDATE hosts SET state = 'stopping' WHERE id = $1", hs.H.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
 		It("responds with HTTP 202 Accepted and respecs the host asynchronously", func() {
 			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusAccepted))
