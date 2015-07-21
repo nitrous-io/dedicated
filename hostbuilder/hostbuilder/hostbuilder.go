@@ -57,6 +57,11 @@ func main() {
 		logrus.Fatalf("hostbuilder: error in config file, err: %v", err)
 	}
 
+	lvl, err := logrus.ParseLevel(config.LogLevel)
+	if err == nil {
+		logrus.SetLevel(lvl)
+	}
+
 	server, err := hostbuilder.New(config)
 	if err != nil {
 		logrus.Fatalf("hostbuilder: failed to create server %v", err)

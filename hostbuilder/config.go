@@ -20,6 +20,8 @@ type Config struct {
 	// start the server in debug mode
 	Debug bool `json:"debug"`
 
+	LogLevel string `json:"log_level"`
+
 	QueueType    string `json:"queue_type"`
 	RabbitMQAddr string `json:"rabbitmq_addr"`
 
