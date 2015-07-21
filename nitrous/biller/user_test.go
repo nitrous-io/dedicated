@@ -212,6 +212,7 @@ var _ = Describe("biller/user", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           hs1.P.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
