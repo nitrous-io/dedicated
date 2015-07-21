@@ -243,6 +243,7 @@ var _ = Describe("controllers/stripehooks", func() {
 					BillingProfileID: bp.ID,
 					State:            "active",
 					StripeID:         sql.NullString{"1", true},
+					Slug:             sql.NullString{"SLUG", true},
 				}
 				err = test.WrapInTransaction(db, s.Insert)
 				Expect(err).To(BeNil())
@@ -315,6 +316,7 @@ var _ = Describe("controllers/stripehooks", func() {
 						StripeID:         sql.NullString{"abc1", true},
 						PlanID:           pl.ID,
 						BillingProfileID: bp.ID,
+						Slug:             sql.NullString{"SLUG", true},
 					}
 					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 				})
@@ -435,6 +437,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s1.Insert)
 			Expect(err).To(BeNil())

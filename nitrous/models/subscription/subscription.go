@@ -19,9 +19,10 @@ const (
 )
 
 type Subscription struct {
-	ID               int64 `db:"id"`
-	PlanID           int64 `db:"plan_id"`
-	BillingProfileID int64 `db:"billing_profile_id"`
+	ID               int64          `db:"id"`
+	PlanID           int64          `db:"plan_id"`
+	BillingProfileID int64          `db:"billing_profile_id"`
+	Slug             sql.NullString `db:"slug"`
 
 	StripeID sql.NullString `db:"stripe_id"`
 	State    string         `db:"state"`
@@ -47,8 +48,8 @@ type SubscriptionWithHostSlug struct {
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
-		(plan_id, billing_profile_id, state, stripe_id)
-    VALUES (:plan_id, :billing_profile_id, :state, :stripe_id)
+		(plan_id, billing_profile_id, state, stripe_id, slug)
+    VALUES (:plan_id, :billing_profile_id, :state, :stripe_id, :slug)
 		RETURNING *;`)
 	if err != nil {
 		return err

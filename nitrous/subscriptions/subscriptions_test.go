@@ -157,6 +157,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.PlanID).To(Equal(pl.ID))
 			Expect(s.StripeID.String).To(Equal("abc1"))
 			Expect(s.State).To(Equal("active"))
+			Expect(s.Slug.String).To(HaveLen(10))
 			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
 			Expect(s.CancelPending).To(BeFalse())
@@ -510,6 +511,7 @@ var _ = Describe("subscriptions", func() {
 				BillingProfileID: bp.ID,
 				StripeID:         sql.NullString{"sub1", true},
 				PlanID:           pl.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 
 			err = subProvider.Cancel(db, sub)
@@ -541,6 +543,7 @@ var _ = Describe("subscriptions", func() {
 				BillingProfileID: bp.ID,
 				StripeID:         sql.NullString{"sub1", true},
 				PlanID:           pl.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 
 			err = subProvider.Cancel(db, sub)
@@ -569,6 +572,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"stripe-sub-1", true},
 				PlanID:           pl.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
@@ -811,6 +815,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           pl.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 		})
@@ -933,6 +938,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           pl.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 		})
@@ -1006,6 +1012,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           pl.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 		})
@@ -1326,6 +1333,7 @@ var _ = Describe("subscriptions", func() {
 					StripeID:         sql.NullString{"sub_1", true},
 					PlanID:           pl.ID,
 					BillingProfileID: bp.ID,
+					Slug:             sql.NullString{"SUB1", true},
 				}
 				Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 				s := time.Now().Add(-900 * time.Hour)
@@ -1504,6 +1512,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           pl.ID,
 				BillingProfileID: bp.ID,
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 

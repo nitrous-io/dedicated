@@ -72,6 +72,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp.ID,
 				State:            subscription.StateCreating,
 				StripeID:         sql.NullString{"sub_1", true},
+				Slug:             sql.NullString{"IAMASLUG90", true},
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -94,6 +95,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"sub_1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, sub.Insert)
 			Expect(err).To(BeNil())
@@ -144,6 +146,16 @@ var _ = Describe("models/subscription", func() {
 
 			Expect(*sub.UpdatedAt).To(BeTemporally(">", *origUpdatedAt))
 		})
+
+		It("does not update Slug", func() {
+			sub.Slug = sql.NullString{"NOSLUG", true}
+			err := sub.Update(db)
+			Expect(err).To(BeNil())
+
+			sub2, err := subscription.Find(db, sub.ID)
+			Expect(err).To(BeNil())
+			Expect(sub2.Slug.String).To(Equal("SLUG"))
+		})
 	})
 
 	Describe("FindByUserID", func() {
@@ -163,6 +175,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp1.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SUB1", true},
 			}
 			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
 
@@ -171,6 +184,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp1.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"X", true},
+				Slug:             sql.NullString{"SUB2", true},
 			}
 			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
 
@@ -188,6 +202,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp2.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"3", true},
+				Slug:             sql.NullString{"SUB3", true},
 			}
 			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
 		})
@@ -230,6 +245,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp1.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SUB1", true},
 			}
 			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
 
@@ -238,6 +254,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp1.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"X", true},
+				Slug:             sql.NullString{"SUB2", true},
 			}
 			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
 
@@ -249,6 +266,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp1.ID,
 				State:            "cancelled",
 				StripeID:         sql.NullString{"2", true},
+				Slug:             sql.NullString{"SUB3", true},
 			}
 			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
 
@@ -261,6 +279,7 @@ var _ = Describe("models/subscription", func() {
 				BillingProfileID: bp2.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"3", true},
+				Slug:             sql.NullString{"SUB4", true},
 			}
 			Expect(test.WrapInTransaction(db, s4.Insert)).To(BeNil())
 		})

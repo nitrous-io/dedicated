@@ -105,6 +105,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -179,6 +180,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -298,6 +300,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -370,6 +373,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -412,6 +416,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"2", true},
+				Slug:             sql.NullString{"SLUG", true},
 			}
 			err = test.WrapInTransaction(db, s2.Insert)
 			Expect(err).To(BeNil())
