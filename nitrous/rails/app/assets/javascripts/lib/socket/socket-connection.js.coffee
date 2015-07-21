@@ -38,6 +38,7 @@ class window.SocketConnection
       @ws = null
       return
 
+    @heartbeat()
     ws = @ws = if @protocols
       new WebSocket(@url, @protocols)
     else
@@ -79,7 +80,7 @@ class window.SocketConnection
     ws._onclose = =>
       ws.removeEventListener 'open',  ws._onopen,  false
       ws.removeEventListener 'close', ws._onclose, false
-      window.clearTimeout(@heartbeatTimer)
+      window.clearInterval(@heartbeatTimer)
       @heartbeatTimer = null
       @retry() if @shouldRetry && !ws._noRetry
 
@@ -87,8 +88,8 @@ class window.SocketConnection
     ws.addEventListener 'close', ws._onclose, false
 
   heartbeat: ->
-    window.clearTimeout(@heartbeatTimer)
-    @heartbeatTimer = window.setTimeout(=>
+    window.clearInterval(@heartbeatTimer)
+    @heartbeatTimer = window.setInterval(=>
       @close(true)
     , @heartbeatTimeout)
     @send 'h'
