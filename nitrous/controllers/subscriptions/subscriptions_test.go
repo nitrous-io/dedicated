@@ -135,7 +135,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 
-	Describe("GET /api/v0/subscriptions/:id/upgrade", func() {
+	Describe("GET /api/v0/subscriptions/:slug/upgrade", func() {
 		var (
 			s          *subscription.Subscription
 			bp         *billingprofile.BillingProfile
@@ -143,8 +143,8 @@ var _ = Describe("controllers/subscriptions", func() {
 			fakeStripe *test.FakeStripe
 		)
 
-		doRequest := func(id int64, planID int64) *httptest.ResponseRecorder {
-			uri := fmt.Sprintf("/api/v0/subscriptions/%d/upgrade", id)
+		doRequest := func(slug string, planID int64) *httptest.ResponseRecorder {
+			uri := fmt.Sprintf("/api/v0/subscriptions/%s/upgrade", slug)
 			params := &url.Values{
 				"plan_id": []string{strconv.FormatInt(planID, 10)},
 			}
@@ -199,7 +199,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 
 		It("should return an error if the plan_id is incorrect", func() {
-			res := doRequest(s.ID, -1)
+			res := doRequest(s.Slug.String, -1)
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 			Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
@@ -211,7 +211,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				stripeUpgradeResponse,
 			}
 
-			res := doRequest(s.ID, trgtPlan.ID)
+			res := doRequest(s.Slug.String, trgtPlan.ID)
 			Expect(res.Code).To(Equal(http.StatusOK))
 			var str struct {
 				Total int `json:"total"`
@@ -238,7 +238,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				stripeUpgradeResponse,
 			}
 
-			res := doRequest(s.ID, trgtPlan.ID)
+			res := doRequest(s.Slug.String, trgtPlan.ID)
 			Expect(res.Code).To(Equal(http.StatusOK))
 			var str struct {
 				Total int `json:"total"`
@@ -257,15 +257,15 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 
-	Describe("POST /api/v0/subscriptions/:id/upgrade", func() {
+	Describe("POST /api/v0/subscriptions/:slug/upgrade", func() {
 		var (
 			s        *subscription.Subscription
 			trgtPlan *plan.Plan
 			fsub     *test.FakeSubscriptionProvider
 		)
 
-		doRequest := func(id int64, planID int64) *httptest.ResponseRecorder {
-			uri := fmt.Sprintf("/api/v0/subscriptions/%d/upgrade", id)
+		doRequest := func(slug string, planID int64) *httptest.ResponseRecorder {
+			uri := fmt.Sprintf("/api/v0/subscriptions/%s/upgrade", slug)
 			params := &url.Values{
 				"plan_id": []string{strconv.FormatInt(planID, 10)},
 			}
@@ -318,7 +318,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 
 		It("should return an error if the plan_id is incorrect", func() {
-			res := doRequest(s.ID, -1)
+			res := doRequest(s.Slug.String, -1)
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 			Expect(fsub.UpgradeCalled).To(BeFalse())
@@ -326,7 +326,7 @@ var _ = Describe("controllers/subscriptions", func() {
 
 		It("should return an error if the plan cannot be upgraded to", func() {
 			fsub.UpgradeError = sub.ErrCannotUpgrade
-			res := doRequest(s.ID, trgtPlan.ID)
+			res := doRequest(s.Slug.String, trgtPlan.ID)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 			Expect(fsub.UpgradeCalled).To(BeTrue())
@@ -336,7 +336,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 
 		It("should perform the upgrade", func() {
-			res := doRequest(s.ID, trgtPlan.ID)
+			res := doRequest(s.Slug.String, trgtPlan.ID)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(fsub.UpgradeCalled).To(BeTrue())
@@ -379,8 +379,8 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(err).To(BeNil())
 		})
 
-		doRequest := func(subscriptionID int64) *httptest.ResponseRecorder {
-			url := fmt.Sprintf("/api/v0/subscriptions/%d/cancel", subscriptionID)
+		doRequest := func(slug string) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/subscriptions/%s/cancel", slug)
 			req, err := test.NewAuthedRequest(t, "DELETE", url, nil)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
@@ -392,7 +392,7 @@ var _ = Describe("controllers/subscriptions", func() {
 			fsub := &test.FakeSubscriptionProvider{}
 			subscriptions.SetSubscriptionProvider(fsub)
 
-			res := doRequest(s.ID)
+			res := doRequest(s.Slug.String)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(fsub.CancelCalled).To(BeTrue())
@@ -416,7 +416,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"2", true},
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             sql.NullString{"SLUG2", true},
 			}
 			err = test.WrapInTransaction(db, s2.Insert)
 			Expect(err).To(BeNil())
@@ -424,7 +424,7 @@ var _ = Describe("controllers/subscriptions", func() {
 			fsub := &test.FakeSubscriptionProvider{}
 			subscriptions.SetSubscriptionProvider(fsub)
 
-			res := doRequest(s2.ID)
+			res := doRequest(s2.Slug.String)
 			Expect(res.Code).To(Equal(http.StatusInternalServerError))
 
 			Expect(fsub.CancelCalled).To(BeFalse())
