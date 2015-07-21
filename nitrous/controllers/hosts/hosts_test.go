@@ -937,7 +937,7 @@ var _ = Describe("controllers/hosts", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           hs.P.ID,
 				BillingProfileID: bp.ID,
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             "SLUG",
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
@@ -974,7 +974,7 @@ var _ = Describe("controllers/hosts", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           hs.P.ID,
 				BillingProfileID: bp.ID,
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             "SLUG",
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
@@ -1274,7 +1274,7 @@ var _ = Describe("controllers/hosts", func() {
 						StripeID:         sql.NullString{"abc1", true},
 						PlanID:           hs.P.ID,
 						BillingProfileID: bp.ID,
-						Slug:             sql.NullString{"SLUG", true},
+						Slug:             "SLUG",
 					}
 					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 

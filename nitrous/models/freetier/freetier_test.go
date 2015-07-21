@@ -184,7 +184,7 @@ var _ = Describe("models/freetier", func() {
 						StripeID:         sql.NullString{"stripe-free-1", true},
 						PlanID:           freePlan.ID,
 						BillingProfileID: bp.ID,
-						Slug:             sql.NullString{"SLUG", true},
+						Slug:             "SLUG",
 					}
 					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", sub.ID, h.ID)

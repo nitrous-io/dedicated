@@ -19,10 +19,10 @@ const (
 )
 
 type Subscription struct {
-	ID               int64          `db:"id"`
-	PlanID           int64          `db:"plan_id"`
-	BillingProfileID int64          `db:"billing_profile_id"`
-	Slug             sql.NullString `db:"slug"`
+	ID               int64  `db:"id"`
+	PlanID           int64  `db:"plan_id"`
+	BillingProfileID int64  `db:"billing_profile_id"`
+	Slug             string `db:"slug"`
 
 	StripeID sql.NullString `db:"stripe_id"`
 	State    string         `db:"state"`

@@ -124,7 +124,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			PlanID:           p.ID,
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
-			Slug:             sql.NullString{slug[:10], true},
+			Slug:             slug[:10],
 		}
 		if err := sub.Insert(tx); err != nil {
 			return err
