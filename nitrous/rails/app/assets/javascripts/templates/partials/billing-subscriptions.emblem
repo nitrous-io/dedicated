@@ -5,59 +5,67 @@
     else
       | Subscription
 .card-body
-  .invoice-item
-    table.ui.table.horizontal
-      tbody
-        = each subscription in App.subscriptions
-          tr class={subscription.cancelPending:cancelled}
-            td
-              if subscription.hostSlug
-                ' Workspace
-                = subscription.hostSlug
-                span.dash
-                  '  &#8212;
-                = subscription.plan.name
-              else
-                = subscription.plan.name
-            td class={subscription.cancelPending:cancel-pending}
-              if subscription.cancelPending
-                ' Cancels on
-              else
-                ' Renews on
-              = daymonth subscription.currentPeriodEnd
-            td.actions
-              if view.multipleSubscriptions
-                unless subscription.cancelPending
-                  if App.canUpgrade
-                    if subscription.canUpgrade
-                      = link-to 'subscriptions.upgrade' subscription.id class='ui btn primary raised'
-                        | Upgrade
-                    else
-                      button.ui.btn.primary disabled='disabled'
-                        | Upgrade
-                  button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
+  if view.hasNoSubscriptions
+    .notice-text
+      i.fa.fa-info
+      '
+      ' You don't have any subscriptions,
+      link-to 'hosts.new'| create one now
+      | .
+  else
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each subscription in App.subscriptions
+            tr class={subscription.cancelPending:cancelled}
+              td
+                if subscription.hostSlug
+                  ' Workspace
+                  = subscription.hostSlug
+                  span.dash
+                    '  &#8212;
+                  = subscription.plan.name
+                else
+                  = subscription.plan.name
+              td class={subscription.cancelPending:cancel-pending}
+                if subscription.cancelPending
+                  ' Cancels on
+                else
+                  ' Renews on
+                = daymonth subscription.currentPeriodEnd
+              td.actions
+                if view.multipleSubscriptions
+                  unless subscription.cancelPending
+                    if App.canUpgrade
+                      if subscription.canUpgrade
+                        = link-to 'subscriptions.upgrade' subscription.id class='ui btn primary raised'
+                          | Upgrade
+                      else
+                        button.ui.btn.primary disabled='disabled'
+                          | Upgrade
+                    button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
+              td.charge
+                | $
+                = currency subscription.totalPriceInDollars
+
+        if view.multipleSubscriptions
+          tr
+            td.gap
+
+          tr
+            td colspan="3"
+              | Total Subscriptions
+            td.charge
+              = App.subscriptions.length
+
+          tr.total-charge
+            td colspan="3"
+              | Total Charged
             td.charge
               | $
-              = currency subscription.totalPriceInDollars
+              = currency totalSubscriptionCharge
 
-      if view.multipleSubscriptions
-        tr
-          td.gap
-
-        tr
-          td colspan="3"
-            | Total Subscriptions
-          td.charge
-            = App.subscriptions.length
-
-        tr.total-charge
-          td colspan="3"
-            | Total Charged
-          td.charge
-            | $
-            = currency totalSubscriptionCharge
-
-unless view.multipleSubscriptions
+if view.hasSingleSubscription
   unless App.subscriptions.firstObject.cancelPending
     .card-footer.bordered
       .right
