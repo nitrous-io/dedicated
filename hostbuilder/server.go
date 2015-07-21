@@ -92,6 +92,7 @@ type Server struct {
 	Router *mux.Router
 
 	Queue queue.Publisher
+	pool  host.Pool
 }
 
 // Return a copy of the original provider config for safe local mutation.
@@ -510,6 +511,16 @@ func New(config *Config) (*Server, error) {
 		logrus.Errorf("hostbuilder: Failed to initialize queue: %+v", err)
 		return nil, err
 	}
+
+	provider := config.Provider
+	providerConfig := server.providerConfig(provider)
+	pool, err := host.NewPool(provider, providerConfig)
+	if err != nil {
+		fmt.Printf("failed to create pool: %+v\n", providerConfig)
+		return nil, err
+	}
+	server.pool = pool
+	go server.pool.Run()
 
 	return server, nil
 }

@@ -248,6 +248,10 @@ func (h *Host) List() ([]*host.Info, error) {
 	return list, nil
 }
 
+func (h *Host) Count(filters map[string][]string) (int, error) {
+	return 0, nil
+}
+
 func (h *Host) dropletToInfo() *host.Info {
 	return &host.Info{
 		Provider:       h.DriverName(),

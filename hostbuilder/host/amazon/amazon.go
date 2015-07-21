@@ -855,6 +855,10 @@ func (h *Host) List() ([]*host.Info, error) {
 	return infos, err
 }
 
+func (h *Host) Count(filters map[string][]string) (int, error) {
+	return 0, nil
+}
+
 func (h *Host) DriverName() string {
 	return "amazon"
 }

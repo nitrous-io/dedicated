@@ -101,6 +101,7 @@ type Host interface {
 	Restart() (*Info, error) // reboot the current host
 	Info() (*Info, error)    // get current info of the host
 	List() ([]*Info, error)
+	Count(map[string][]string) (int, error)
 
 	DriverName() string
 	// Settings returns the current dynamic settings for a host, which

@@ -9,6 +9,8 @@ import (
 type Config struct {
 	Address   string                    `json:"address"`
 	Providers map[string]providerConfig `json:"providers"`
+	Provider  string                    `json:"provider"`
+	MaxHosts  int                       `json:"max_hosts"`
 
 	// librato settings
 	LibratoUser  string `json:"librato_user"`

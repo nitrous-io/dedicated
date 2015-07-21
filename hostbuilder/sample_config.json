@@ -23,6 +23,8 @@
       "docker_location": "/usr/bin/docker"
     }
   },
+  "provider": "docker",
+  "max_hosts": 1,
   "queue_type": "rabbitmq",
   "rabbitmq_addr": "amqp://localhost:5672",
   "redis": {

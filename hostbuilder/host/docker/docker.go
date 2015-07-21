@@ -215,6 +215,14 @@ func (h *Host) List() ([]*host.Info, error) {
 	return ret, nil
 }
 
+func (h *Host) Count(filters map[string][]string) (int, error) {
+	list, err := h.client.ListContainers(dockerclient.ListContainersOptions{All: true, Size: false, Filters: filters})
+	if err != nil {
+		return 0, err
+	}
+	return len(list), nil
+}
+
 func (h *Host) Stop() (*host.Info, error) {
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
