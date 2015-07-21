@@ -38,7 +38,7 @@
                   unless subscription.cancelPending
                     if App.canUpgrade
                       if subscription.canUpgrade
-                        = link-to 'subscriptions.upgrade' subscription.id class='ui btn primary raised'
+                        = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary raised'
                           | Upgrade
                       else
                         button.ui.btn.primary disabled='disabled'
@@ -71,7 +71,7 @@ if view.hasSingleSubscription
       .right
         if App.canUpgrade
           if App.subscriptions.firstObject.canUpgrade
-            = link-to 'subscriptions.upgrade' App.subscriptions.firstObject.id  class='ui btn primary raised'
+            = link-to 'subscriptions.upgrade' App.subscriptions.firstObject.slug  class='ui btn primary raised'
               | Upgrade Subscription
           else
             button.ui.btn.primary disabled='disabled'
