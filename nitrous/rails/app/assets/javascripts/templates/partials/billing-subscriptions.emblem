@@ -71,7 +71,7 @@ if view.hasSingleSubscription
       .right
         if App.canUpgrade
           if App.subscriptions.firstObject.canUpgrade
-            button.ui.btn.primary = link-to 'subscriptions.upgrade' App.subscriptions.firstObject.id
+            = link-to 'subscriptions.upgrade' App.subscriptions.firstObject.id  class='ui btn primary raised'
               | Upgrade Subscription
           else
             button.ui.btn.primary disabled='disabled'
