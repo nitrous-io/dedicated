@@ -270,7 +270,7 @@ window.NitrousTerminal =
     (isMac && event.shiftKey && event.ctrlKey && event.keyCode == 67) || # mac: shift+ctrl+c
     (!isMac && event.ctrlKey && event.altKey && event.keyCode == 67)  || # pc:  ctrl+alt+c
     (chromeApp && isMac && event.metaKey && event.keyCode == 84)  || # mac chrome app: command+t
-    (chromeApp && !isMac && event.ctrlKey && event.keyCode == 84)    # pc chrome app:  ctrl+t
+    (chromeApp && !isMac && event.shiftKey && event.ctrlKey && event.keyCode == 84) # pc chrome app: shift+ctrl+t
 
   matchesFullscreenConsoleKeybinding: (event) ->
     (event.keyCode == 70 && (
@@ -293,7 +293,7 @@ window.NitrousTerminal =
       (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+n
       (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+n
       (chromeApp && isMac && event.metaKey)      || # mac chrome app: command+n
-      (chromeApp && !isMac && event.ctrlKey)        # pc chrome app:  ctrl+n
+      (chromeApp && !isMac && event.shiftKey && event.ctrlKey) # pc chrome app: shift+ctrl+n
     ))
 
   matchesCloseConsoleScreenKeybinding: (event) ->
@@ -301,7 +301,7 @@ window.NitrousTerminal =
       (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+w
       (!isMac && event.ctrlKey && event.altKey)  || # pc:  ctrl+alt+w
       (chromeApp && isMac && event.metaKey)      || # mac chrome app: command+w
-      (chromeApp && !isMac && event.ctrlKey)        # pc chrome app:  ctrl+w
+      (chromeApp && !isMac && event.shiftKey && event.ctrlKey) # pc chrome app: shift+ctrl+w
     ))
 
   # keybinding ctrl+tab
