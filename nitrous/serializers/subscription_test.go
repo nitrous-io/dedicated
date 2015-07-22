@@ -21,6 +21,7 @@ var _ = Describe("subscription serializer", func() {
 	BeforeEach(func() {
 		model = &subscription.SubscriptionWithHostSlug{
 			Subscription: &subscription.Subscription{
+				Slug:               "xcv4xa",
 				ID:                 1,
 				BillingProfileID:   2,
 				PlanID:             3,
@@ -39,7 +40,7 @@ var _ = Describe("subscription serializer", func() {
 			o, err := json.Marshal(b)
 			Expect(err).To(BeNil())
 			Expect(o).To(MatchJSON(`{
-				"id": 1,
+				"slug": "xcv4xa",
 				"billing_profile_id": 2,
 				"plan_id": 3,
 				"state": "activate",
@@ -58,7 +59,7 @@ var _ = Describe("subscription serializer", func() {
 			o, err := json.Marshal(b)
 			Expect(err).To(BeNil())
 			Expect(o).To(MatchJSON(`{
-				"id": 1,
+				"slug": "xcv4xa",
 				"billing_profile_id": 2,
 				"plan_id": 3,
 				"state": "activate",

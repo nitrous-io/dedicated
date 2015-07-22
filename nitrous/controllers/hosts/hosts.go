@@ -429,7 +429,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	if h.State != host.StateRunning {
+	if !(h.State == host.StateRunning || h.State == host.StateStopped) {
 		return errHostRespecInvalidState
 	}
 

@@ -937,7 +937,7 @@ var _ = Describe("controllers/hosts", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           hs.P.ID,
 				BillingProfileID: bp.ID,
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             "SLUG",
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
@@ -974,7 +974,7 @@ var _ = Describe("controllers/hosts", func() {
 				StripeID:         sql.NullString{"abc1", true},
 				PlanID:           hs.P.ID,
 				BillingProfileID: bp.ID,
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             "SLUG",
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
@@ -1274,7 +1274,7 @@ var _ = Describe("controllers/hosts", func() {
 						StripeID:         sql.NullString{"abc1", true},
 						PlanID:           hs.P.ID,
 						BillingProfileID: bp.ID,
-						Slug:             sql.NullString{"SLUG", true},
+						Slug:             "SLUG",
 					}
 					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
@@ -2541,6 +2541,14 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(err).To(BeNil())
 
 			doRequest(hs2.H.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("responds with HTTP 400 Bad Request if the host is not in a running or stopped state", func() {
+			_, err := db.Exec("UPDATE hosts SET state = 'stopping' WHERE id = $1", hs.H.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 		})
 

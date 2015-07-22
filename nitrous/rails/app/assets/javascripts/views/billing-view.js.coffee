@@ -19,6 +19,14 @@ App.BillingView = Em.View.extend
     false
   ).property 'App.subscriptions.length', 'App.billingUsage.groupedItems.length'
 
+  hasSingleSubscription: (->
+    App.get('subscriptions.length') == 1
+  ).property 'App.subscriptions.length'
+
+  hasNoSubscriptions: (->
+    App.get('subscriptions.length') == 0
+  ).property 'App.subscriptions.length'
+
   multipleSubscriptions: (->
     App.get('subscriptions.length') > 1
   ).property 'App.subscriptions.length'

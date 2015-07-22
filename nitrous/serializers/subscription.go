@@ -7,9 +7,9 @@ import (
 )
 
 type Subscription struct {
-	ID               int64 `json:"id"`
-	PlanID           int64 `json:"plan_id"`
-	BillingProfileID int64 `json:"billing_profile_id"`
+	Slug             string `json:"slug"`
+	PlanID           int64  `json:"plan_id"`
+	BillingProfileID int64  `json:"billing_profile_id"`
 
 	State string `json:"state"`
 
@@ -25,7 +25,7 @@ type Subscription struct {
 
 func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscription {
 	serialized := &Subscription{
-		ID:               s.ID,
+		Slug:             s.Slug,
 		PlanID:           s.PlanID,
 		State:            s.State,
 		BillingProfileID: s.BillingProfileID,
