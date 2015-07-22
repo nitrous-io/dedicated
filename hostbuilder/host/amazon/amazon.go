@@ -36,6 +36,7 @@ const (
 	MagneticVolumeType = "standard"
 
 	rootDeviceName = "/dev/sda1"
+	userDeviceName = "/dev/sdu"
 
 	updateTimeout            = 30 * time.Second
 	resizeRootVolumeTimeout  = 30 * time.Minute
@@ -1058,10 +1059,19 @@ func createInstance(ctx *host.HostContext) error {
 		MaxCount:       0,
 		BlockDevices: []ec2.BlockDeviceMapping{
 			{
+				// The root volume is defined in the AMI's block devices as a
+				// snapshot, so we do not need to specify its size.
 				DeviceName:          rootDeviceName,
 				VolumeType:          GeneralVolumeType,
-				VolumeSize:          storageSize,
 				DeleteOnTermination: true,
+			},
+			{
+				// The user volume is also defined in the AMI's block devices
+				// and we override its size to what was requested.
+				DeviceName:          userDeviceName,
+				VolumeSize:          storageSize,
+				VolumeType:          GeneralVolumeType,
+				DeleteOnTermination: false,
 			},
 		},
 		AssociatePublicIpAddress: true,
