@@ -2,7 +2,6 @@ package host
 
 import (
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -24,8 +23,6 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 	ConfigLocation  = "/etc/freighterd/config.json"
-
-	ErrTimeout = errors.New("operation timedout")
 )
 
 // for setting up repository on the host
