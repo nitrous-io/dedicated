@@ -21,8 +21,6 @@ type Coupon struct {
 
 // map of prefixes to Stripe coupon code
 var mappings = map[string]string{
-	"LHD": "lite.50.month",
-	"LQD": "lite.25.month",
 	"LMD": "lite.100.month",
 }
 
