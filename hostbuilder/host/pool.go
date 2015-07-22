@@ -16,29 +16,29 @@ type Pool interface {
 
 type DockerPool struct {
 	MaxHosts int
-	Provider Host
+	Driver   Host
 
 	// FIXME Add channel to cancel run() goroutine.
 }
 
-func NewPool(providerName string, providerConfig map[string]string) (Pool, error) {
-	maxHosts, err := strconv.ParseInt(providerConfig["max_hosts"], 10, 64)
+func NewPool(driverName string, driverOptions map[string]string) (Pool, error) {
+	maxHosts, err := strconv.ParseInt(driverOptions["max_hosts"], 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	provider, err := InitHost(providerName, providerConfig, "{}")
+	driver, err := NewDriver(driverName, driverOptions, "{}")
 	if err != nil {
 		return nil, err
 	}
 
-	switch providerName {
+	switch driverName {
 	case "docker":
-		return &DockerPool{Provider: provider, MaxHosts: int(maxHosts)}, nil
+		return &DockerPool{Driver: driver, MaxHosts: int(maxHosts)}, nil
 		//case "amazon":
 	}
 
-	return nil, fmt.Errorf("unsupported provider %s", provider)
+	return nil, fmt.Errorf("pool: unsupported driver %q", driverName)
 }
 
 func (m *DockerPool) Acquire() (string, error) {
@@ -51,7 +51,7 @@ func (m *DockerPool) Release(id string) error {
 
 func (m *DockerPool) currentNumberOfHosts() (int, error) {
 	// Get list of docker cotnainer that have label free=true
-	return m.Provider.Count(map[string][]string{"label": []string{"free", "true"}})
+	return m.Driver.Count(map[string][]string{"label": []string{"free", "true"}})
 }
 
 func (m *DockerPool) Run() error {
