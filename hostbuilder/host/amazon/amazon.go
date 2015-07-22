@@ -948,25 +948,25 @@ func (h *Host) logFailed() {
 	}
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+func New(driverOptions map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s amazon: invalid config %s", driverOptions["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
-		AccessKey: defaultConfig["access_key"],
-		SecretKey: defaultConfig["secret_key"],
+		AccessKey: driverOptions["access_key"],
+		SecretKey: driverOptions["secret_key"],
 		RawRegion: hostConfig.RegionID,
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
+		logrus.Errorf("uuid=%s amazon: auth failed %v", driverOptions["uuid"], err)
 		return nil, err
 	}
 	// get create timeout
 	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	d, err := time.ParseDuration(driverOptions["create_timeout"])
 	if err == nil {
 		createTimeout = d
 	}
@@ -976,18 +976,18 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		auth:          auth,
 		createTimeout: createTimeout,
-		uuid:          defaultConfig["uuid"], // this is injected by the server per request
-		notifyURL:     defaultConfig["notify_url"],
-		env:           defaultConfig["env"],
+		uuid:          driverOptions["uuid"], // this is injected by the server per request
+		notifyURL:     driverOptions["notify_url"],
+		env:           driverOptions["env"],
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if _, ok := defaultConfig["ignore_region"]; !ok {
+	if _, ok := driverOptions["ignore_region"]; !ok {
 		region, err := accessConfig.Region()
 		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
+			logrus.Errorf("uuid=%s amazon: invalid region %v", driverOptions["uuid"], err)
 			return nil, err
 		}
 		host.provider = ec2.New(auth, region)
@@ -996,7 +996,9 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func init() {
-	host.Hosts["amazon"] = NewHost
+	host.Register("amazon", &host.RegisteredDriver{
+		New: New,
+	})
 }
 
 // createKeypair create a temporary keypair using Amazon API, store the

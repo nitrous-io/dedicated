@@ -109,7 +109,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		It("restarts the droplet and waits until the action is completed", func() {
 			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -134,7 +134,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		It("returns error when the action failed to complete", func() {
 			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, erroredAction))
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -152,7 +152,7 @@ var _ = Describe("host/digitalocean", func() {
 		})
 
 		It("return info about the droplet", func() {
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -174,7 +174,7 @@ var _ = Describe("host/digitalocean", func() {
 			s.AddResponse("POST", "droplets/id/actions", dotest.NewResponse(200, inprogressAction))
 			s.AddResponse("GET", "actions/id", dotest.NewResponse(200, completedAction))
 
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1",
 				"name": "new-name"
 			}`)
@@ -201,7 +201,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		It("fails when droplet is not found", func() {
 			s.AddResponse("GET", "droplets/id", dotest.NotfoundResponse)
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -216,7 +216,7 @@ var _ = Describe("host/digitalocean", func() {
 	Describe("Destroy", func() {
 		It("succeeds when the droplet is not found", func() {
 			s.AddResponse("GET", "droplets/id", dotest.NotfoundResponse)
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -231,7 +231,7 @@ var _ = Describe("host/digitalocean", func() {
 			s.AddResponse("GET", "droplets/id", dotest.NewResponse(200, droplet))
 			s.AddResponse("POST", "droplets/id/actions", dotest.NotfoundResponse)
 
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -244,7 +244,7 @@ var _ = Describe("host/digitalocean", func() {
 
 		It("fails when the API errors out", func() {
 			s.AddResponse("GET", "droplets/id", dotest.NewResponse(500, ""))
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{
 				"id": "1"
 			}`)
 			Expect(err).To(BeNil())
@@ -260,7 +260,7 @@ var _ = Describe("host/digitalocean", func() {
 		It("returns all user created droplets (except tender hosts)", func() {
 			s.AddResponse("GET", "droplets", dotest.NewResponse(200, allDroplets))
 
-			h, err := digitalocean.NewHost(map[string]string{"token": "dummy-token"}, `{}`)
+			h, err := digitalocean.New(map[string]string{"token": "dummy-token"}, `{}`)
 			Expect(err).To(BeNil())
 			doHost := h.(*digitalocean.Host)
 			doHost.Client = c
