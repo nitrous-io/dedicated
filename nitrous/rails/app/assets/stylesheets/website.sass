@@ -249,6 +249,7 @@ nav
   width: $innerWidth
   padding-top: 4px
   z-index: 4
+  -webkit-text-stroke: 0.35px
   //+webkitFix
 
   .left
@@ -687,8 +688,6 @@ nav
         left: 50%
         margin-left: -485px
 
-
-
   .full-visual, .full-visual img
     background: transparent
 
@@ -785,6 +784,11 @@ nav
 
 
 .light, .dark
+  #flatiron
+    .page-hero
+      background: $blueLink image_url('home/flatiron-hero.jpg') center center no-repeat
+      background-size: cover
+  
   #education
     .page-hero
       background: $blueLink image_url('home/education-hero.jpg') center center no-repeat
@@ -810,6 +814,9 @@ nav
       background: #8696A0 image_url('home/vpc-hero.jpg') center center no-repeat
       background-size: cover
 
+      
+.light body
+  background: #FFF
 
 // --------------------------------------
 // Article
@@ -930,6 +937,8 @@ article
     margin-bottom: 30px
 
     span.date
+      width: 100px
+      text-align: right
       display: inline-block
       float: left
 
@@ -1553,7 +1562,6 @@ h4 + .box-wrapper
   font-size: 48px
   display: inline-block
   top: 36px
-
 
 .page-hero .django
   width: 132px

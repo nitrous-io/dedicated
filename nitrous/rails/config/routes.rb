@@ -9,7 +9,8 @@ Rails.application.routes.draw do
   get '/press' => 'pages#press'
   get '/plan_changes' => 'pages#plan_changes'
   get '/whatsnew' => 'pages#whatsnew'
-
+  
+  get '/flatiron' => 'pages#flatiron'
   get '/education' => 'pages#education'
   get '/agencies' => 'pages#agencies'
   get '/enterprises' => 'pages#enterprises'
