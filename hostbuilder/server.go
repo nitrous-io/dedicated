@@ -42,34 +42,6 @@ var (
 	}
 )
 
-// ProgressWriter write the stream data emitted by the host builder as new line
-// separated json messages
-type ProgressWriter struct {
-	writer io.Writer
-}
-
-func NewProgressWriter(w io.Writer) *ProgressWriter {
-	return &ProgressWriter{w}
-}
-
-func (w *ProgressWriter) Write(p []byte) (int, error) {
-	err := w.WriteResponse(&Response{Stream: string(p)})
-	return len(p), err
-}
-
-func (w *ProgressWriter) WriteError(err error) error {
-	return w.WriteResponse(&Response{Error: err.Error()})
-}
-
-func (w *ProgressWriter) WriteResponse(r *Response) error {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(w.writer, "%s\n", string(b))
-	return err
-}
-
 // API response of the server
 type Response struct {
 	StatusCode     int        `json:"-"`
@@ -115,43 +87,8 @@ func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
 	}
 }
 
-type providerConfig map[string]string
-
-type RedisConfig struct {
-	Host string `json:"host"`
-	Port string `json:"port"`
-	DB   int64  `json:"database"`
-}
-
-type config struct {
-	Address   string                    `json:"address"`
-	Providers map[string]providerConfig `json:"providers"`
-
-	// librato settings
-	LibratoUser  string `json:"librato_user"`
-	LibratoToken string `json:"librato_token"`
-
-	// max time to wait for graceful stop, in seconds
-	StopTimeout int `json:"stop_timeout"`
-
-	// start the server in debug mode
-	Debug bool `json:"debug"`
-
-	QueueType    string `json:"queue_type"`
-	RabbitMQAddr string `json:"rabbitmq_addr"`
-
-	// redis setting
-	RedisConfig RedisConfig `json:"redis"`
-
-	// whether partial provider List() calls are considered an error
-	AllowPartialList bool `json:"allow_partial_list"`
-
-	// CPU profile dump folder
-	ProfileDumpFolder string `json:"profile_dump_folder"`
-}
-
 type Server struct {
-	Config *config
+	Config *Config
 	Router *mux.Router
 
 	Queue queue.Publisher
@@ -566,13 +503,7 @@ func (s *Server) CreateRouter() {
 	s.Router = r
 }
 
-func New(configData []byte) (*Server, error) {
-	config := &config{}
-	if err := json.Unmarshal(configData, config); err != nil {
-		logrus.Errorf("hostbuilder: invalid config data %s", string(configData))
-		return nil, err
-	}
-
+func New(config *Config) (*Server, error) {
 	server := &Server{Config: config}
 	server.CreateRouter()
 	// Add routes for debug

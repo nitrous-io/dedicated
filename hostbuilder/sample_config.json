@@ -4,6 +4,7 @@
   "librato_token": "<token-goes-here>",
   "stop_timeout": 900,
   "debug": true,
+  "log_level": "debug",
   "providers": {
     "amazon": {
       "access_key": "",

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,12 +29,6 @@ var (
 	defaultKillTimeout = 60 * time.Second // 1 * time.Minute
 )
 
-type providerConfig map[string]string
-
-type config struct {
-	Providers []map[string]providerConfig `json:"providers"`
-}
-
 func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 }
@@ -44,27 +37,37 @@ func main() {
 	flConfig := flag.String("config", "", "path to the config file")
 	flVersion := flag.Bool("v", false, "current version")
 	flag.Parse()
+
 	if *flVersion {
 		fmt.Printf("hostbuilder version %v\n", version)
 		os.Exit(0)
-		return
 	}
+
 	if len(*flConfig) == 0 {
 		logrus.Fatal("hostbuilder: missing config file")
 	}
-	configData, err := ioutil.ReadFile(*flConfig)
+
+	file, err := os.Open(*flConfig)
 	if err != nil {
-		logrus.Fatal("hostbuilder: failed to read config file")
+		logrus.Fatalf("hostbuilder: failed to open config file, err: %v", err)
+	}
+	defer file.Close()
+	config, err := hostbuilder.NewConfig(file)
+	if err != nil {
+		logrus.Fatalf("hostbuilder: error in config file, err: %v", err)
 	}
 
-	// build the server routes
-	server, err := hostbuilder.New(configData)
+	lvl, err := logrus.ParseLevel(config.LogLevel)
+	if err == nil {
+		logrus.SetLevel(lvl)
+	}
+
+	server, err := hostbuilder.New(config)
 	if err != nil {
 		logrus.Fatalf("hostbuilder: failed to create server %v", err)
 	}
 	http.Handle("/", server.Router)
 
-	// create the http server
 	httpServer := &http.Server{Addr: server.Config.Address, Handler: nil}
 
 	// setup httpdown wrapper so we can gracefully stop

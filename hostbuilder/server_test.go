@@ -46,16 +46,17 @@ var _ = Describe("ProgressWriter", func() {
 var _ = Describe("hostbuilder", func() {
 	var ts *httptest.Server
 	var s *Server
-	var err error
 
 	BeforeEach(func() {
-		config := fmt.Sprintf(`
-		{"dummy":{},
-		 "allow_partial_list": true,
-		 "redis":{"host":"%s","port":"%s","database":%d}
-		}`,
-			test.RedisHost, test.RedisPort, test.RedisTestDb)
-		s, err = New([]byte(config))
+		var err error
+		s, err = New(&Config{
+			RedisConfig: redisConfig{
+				Host: test.RedisHost,
+				Port: test.RedisPort,
+				DB:   test.RedisTestDb,
+			},
+			AllowPartialList: true,
+		})
 		Expect(err).To(BeNil())
 		ts = httptest.NewServer(s.Router)
 
