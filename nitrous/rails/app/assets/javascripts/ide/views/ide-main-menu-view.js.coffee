@@ -135,7 +135,7 @@ App.IdeMainMenuView = Em.View.extend
       menu 'File', [
         menuItem 'New',
           macKey: 'shift+ctrl+n', pcKey: 'ctrl+alt+n'
-          chromeMacKey: ['command+n', 'shift+ctrl+n'], chromePcKey: ['ctrl+n', 'ctrl+alt+n']
+          chromeMacKey: ['command+n', 'shift+ctrl+n'], chromePcKey: ['ctrl+n', 'shift+ctrl+n', 'ctrl+alt+n']
           callback: (controller) ->
             controller.fileNew()
         menuItem 'Save',
@@ -162,7 +162,7 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Close',
           macKey: 'shift+ctrl+w', pcKey: 'ctrl+alt+w'
-          chromeMacKey: ['command+w', 'shift+ctrl+w'], chromePcKey: ['ctrl+w', 'ctrl+alt+w']
+          chromeMacKey: ['command+w', 'shift+ctrl+w'], chromePcKey: ['ctrl+w', 'shift+ctrl+w', 'ctrl+alt+w']
           callback: (controller) ->
             controller.fileClose()
       ]
@@ -311,7 +311,7 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Focus Console',
           macKey: 'shift+ctrl+c', pcKey: 'ctrl+alt+c'
-          chromeMacKey: ['command+t', 'shift+ctrl+c'], chromePcKey: ['ctrl+t', 'ctrl+alt+c']
+          chromeMacKey: ['command+t', 'shift+ctrl+c'], chromePcKey: ['ctrl+t', 'shift+ctrl+t', 'ctrl+alt+c']
           callback: (controller) ->
             controller.windowFocusConsole()
         menuItem 'Minimize Console',
