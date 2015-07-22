@@ -4,7 +4,7 @@
 attr = SM.attr
 
 App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
-  id: attr('number')
+  slug: attr('string')
   planId: attr('number', as: 'plan_id')
   billingProfileId: attr('number', as: 'billing_profile_id')
   state: attr('string', as: 'state')
@@ -40,7 +40,7 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'DELETE',
-        url: "/api/v0/subscriptions/#{@get 'id'}/cancel",
+        url: "/api/v0/subscriptions/#{@get 'slug'}/cancel",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
       ).done((retData, status, jqxhr) =>
         resolve(retData)
@@ -51,7 +51,7 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'POST',
-        url: "/api/v0/subscriptions/#{@get 'id'}/upgrade",
+        url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
         data: { plan_id: plan_id }
       ).done((retData, status, jqxhr) =>
@@ -63,7 +63,7 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'GET',
-        url: "/api/v0/subscriptions/#{@get 'id'}/upgrade",
+        url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
         headers: { Authorization: "Bearer #{App.get 'token'}" },
         data: { plan_id: plan_id }
       ).done((retData, status, jqxhr) =>
@@ -73,6 +73,6 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
 
 klass.reopenClass
   url: '/subscriptions'
-  primaryKey: 'id'
+  primaryKey: 'slug'
   rootKey: 'subscription'
   collectionKey: 'subscriptions'

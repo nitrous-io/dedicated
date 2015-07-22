@@ -3,4 +3,4 @@ App.SubscriptionsRoute = App.AuthedRoute.extend
     @_super.apply this, arguments
 
   model: (params) ->
-    App.get('subscriptions').findBy('id', parseInt(params.subscriptionId))
+    App.get('subscriptions').findBy('slug', params.slug)

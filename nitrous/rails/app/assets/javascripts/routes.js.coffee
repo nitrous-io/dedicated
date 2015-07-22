@@ -14,7 +14,7 @@ App.Router.map ->
     @resource 'containers', path: '/containers', ->
       @route 'new'
 
-    @resource 'subscriptions', path: '/subscriptions/:subscriptionId', ->
+    @resource 'subscriptions', path: '/subscriptions/:slug', ->
       @route 'upgrade'
 
     @resource 'container', path: '/containers/:containerSlug', ->

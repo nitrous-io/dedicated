@@ -243,7 +243,7 @@ var _ = Describe("controllers/stripehooks", func() {
 					BillingProfileID: bp.ID,
 					State:            "active",
 					StripeID:         sql.NullString{"1", true},
-					Slug:             sql.NullString{"SLUG", true},
+					Slug:             "SLUG",
 				}
 				err = test.WrapInTransaction(db, s.Insert)
 				Expect(err).To(BeNil())
@@ -316,7 +316,7 @@ var _ = Describe("controllers/stripehooks", func() {
 						StripeID:         sql.NullString{"abc1", true},
 						PlanID:           pl.ID,
 						BillingProfileID: bp.ID,
-						Slug:             sql.NullString{"SLUG", true},
+						Slug:             "SLUG",
 					}
 					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 				})
@@ -366,7 +366,7 @@ var _ = Describe("controllers/stripehooks", func() {
 					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["subscription"].(*serializers.Subscription)
 					Expect(ok).To(BeTrue())
-					Expect(s.ID).To(Equal(sub.ID))
+					Expect(s.Slug).To(Equal(sub.Slug))
 					Expect(s.HostSlug).To(BeEmpty())
 				})
 
@@ -404,7 +404,7 @@ var _ = Describe("controllers/stripehooks", func() {
 					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["subscription"].(*serializers.Subscription)
 					Expect(ok).To(BeTrue())
-					Expect(s.ID).To(Equal(sub.ID))
+					Expect(s.Slug).To(Equal(sub.Slug))
 					Expect(s.HostSlug).To(Equal("my-host-1"))
 				})
 			})
@@ -437,7 +437,7 @@ var _ = Describe("controllers/stripehooks", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
-				Slug:             sql.NullString{"SLUG", true},
+				Slug:             "SLUG",
 			}
 			err = test.WrapInTransaction(db, s1.Insert)
 			Expect(err).To(BeNil())

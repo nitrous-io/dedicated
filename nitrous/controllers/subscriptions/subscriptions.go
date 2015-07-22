@@ -46,12 +46,9 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-	if err != nil {
-		return err
-	}
+	slug := mux.Vars(r)["slug"]
 
-	s, err := subscription.FindByUserID(env.DB, id, env.User.ID)
+	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
 	if err != nil {
 		return err
 	}
@@ -107,12 +104,9 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 }
 
 func Upgrade(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-	if err != nil {
-		return err
-	}
+	slug := mux.Vars(r)["slug"]
 
-	s, err := subscription.FindByUserID(env.DB, id, env.User.ID)
+	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
 	if err != nil {
 		return err
 	}
@@ -143,12 +137,9 @@ func Upgrade(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 }
 
 func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	id, err := strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
-	if err != nil {
-		return err
-	}
+	slug := mux.Vars(r)["slug"]
 
-	s, err := subscription.FindByUserID(env.DB, id, env.User.ID)
+	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
 	if err != nil {
 		return err
 	}

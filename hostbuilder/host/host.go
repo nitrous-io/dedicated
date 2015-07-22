@@ -76,6 +76,7 @@ type Info struct {
 	FreighterdPort uint16      `json:"freighterd_port"`
 	State          state.State `json:"state"`
 	LaunchTime     *time.Time  `json:"launch_time,omitempty"`
+	VolumeID       string      `json:"volume_id,omitempty"`
 }
 
 // QueueInfo will be written to the queue to be consumed later

@@ -19,10 +19,10 @@ const (
 )
 
 type Subscription struct {
-	ID               int64          `db:"id"`
-	PlanID           int64          `db:"plan_id"`
-	BillingProfileID int64          `db:"billing_profile_id"`
-	Slug             sql.NullString `db:"slug"`
+	ID               int64  `db:"id"`
+	PlanID           int64  `db:"plan_id"`
+	BillingProfileID int64  `db:"billing_profile_id"`
+	Slug             string `db:"slug"`
 
 	StripeID sql.NullString `db:"stripe_id"`
 	State    string         `db:"state"`
@@ -72,6 +72,18 @@ func (s *Subscription) Update(d db.QueryReceiver) error {
 func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
 	sub := &Subscription{}
 	err := d.Get(sub, "SELECT * FROM subscriptions WHERE id = $1;", id)
+	if err != nil {
+		return nil, err
+	}
+	return sub, nil
+}
+
+func FindBySlug(d db.QueryReceiver, slug string, userID int64) (*Subscription, error) {
+	sub := &Subscription{}
+	err := d.Get(sub, `SELECT subscriptions.* FROM subscriptions
+		INNER JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
+		WHERE subscriptions.slug = $1 AND billing_profiles.user_id = $2;`,
+		slug, userID)
 	if err != nil {
 		return nil, err
 	}

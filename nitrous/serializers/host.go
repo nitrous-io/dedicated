@@ -41,8 +41,8 @@ type Host struct {
 
 	PendingRespec bool `json:"pending_respec"`
 
-	SubscriptionID int64 `json:"subscription_id,omitempty"`
-	Free           bool  `json:"free,omitempty"`
+	SubscriptionSlug string `json:"subscription_slug,omitempty"`
+	Free             bool   `json:"free,omitempty"`
 }
 
 func SerializeHost(h *host.Host) *Host {
@@ -75,7 +75,7 @@ func SerializeHost(h *host.Host) *Host {
 		UpdateAvailable:       h.UpdateAvailable,
 		MaxContainers:         h.MaxContainers.Int64,
 		PendingRespec:         h.PendingRespec,
-		SubscriptionID:        h.SubscriptionID.Int64,
+		SubscriptionSlug:      h.SubscriptionSlug.String,
 		Free:                  h.Free,
 	}
 	if h.AssignedAt != nil {
