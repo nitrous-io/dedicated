@@ -2,7 +2,6 @@ package host
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -22,11 +21,6 @@ type DockerPool struct {
 }
 
 func NewPool(driverName string, driverOptions map[string]string) (Pool, error) {
-	maxHosts, err := strconv.ParseInt(driverOptions["max_hosts"], 10, 64)
-	if err != nil {
-		return nil, err
-	}
-
 	driver, err := NewDriver(driverName, driverOptions, "{}")
 	if err != nil {
 		return nil, err
@@ -34,7 +28,7 @@ func NewPool(driverName string, driverOptions map[string]string) (Pool, error) {
 
 	switch driverName {
 	case "docker":
-		return &DockerPool{Driver: driver, MaxHosts: int(maxHosts)}, nil
+		return &DockerPool{Driver: driver, MaxHosts: 1}, nil
 		//case "amazon":
 	}
 
@@ -50,12 +44,11 @@ func (m *DockerPool) Release(id string) error {
 }
 
 func (m *DockerPool) currentNumberOfHosts() (int, error) {
-	// Get list of docker cotnainer that have label free=true
-	return m.Driver.Count(map[string][]string{"label": []string{"free", "true"}})
+	// Count number of Docker containers that have label "free=true".
+	return m.Driver.Count(map[string][]string{"label": []string{"free=true"}})
 }
 
 func (m *DockerPool) Run() error {
-	logrus.Info("run")
 	for {
 		n, err := m.currentNumberOfHosts()
 		if err != nil {

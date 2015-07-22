@@ -5,6 +5,7 @@
   "stop_timeout": 900,
   "debug": true,
   "log_level": "debug",
+  "provider": "docker",
   "providers": {
     "amazon": {
       "access_key": "",
@@ -23,8 +24,6 @@
       "docker_location": "/usr/bin/docker"
     }
   },
-  "provider": "docker",
-  "max_hosts": 1,
   "queue_type": "rabbitmq",
   "rabbitmq_addr": "amqp://localhost:5672",
   "redis": {
