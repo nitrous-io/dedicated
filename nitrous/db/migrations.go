@@ -1404,11 +1404,16 @@ func init() {
 				CREATE UNIQUE INDEX index_subscriptions_on_bp_id_slug ON subscriptions USING btree (billing_profile_id, slug);
 			`,
 		},
-
 		{
 			Version: "1326",
 			Up: `
 				ALTER TABLE subscriptions ALTER COLUMN slug SET NOT NULL;
+			`,
+		},
+		{
+			Version: "1350",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN provider_storage_identifier character varying(255);
 			`,
 		},
 	}

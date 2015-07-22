@@ -163,6 +163,7 @@ var _ = Describe("HostQueueHandler", func() {
 						Name:           "hostname-1234",
 						IPAddress:      "1.2.3.4",
 						FreighterdPort: 62345,
+						VolumeID:       "volume-1234",
 						State:          state.Running,
 					},
 				}
@@ -227,6 +228,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.FreighterdPort.Int64).To(Equal(int64(62345)))
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
 				Expect(updatedHost.HourlyPrice).To(Equal(int64(745)))
+				Expect(updatedHost.ProviderStorageIdentifier.String).To(Equal("volume-1234"))
 				Expect(updatedHost.Free).To(BeFalse())
 			})
 
@@ -436,6 +438,40 @@ var _ = Describe("HostQueueHandler", func() {
 					Expect(err).To(BeNil())
 					Expect(hosts).To(HaveLen(1))
 					Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+				})
+			})
+
+			Context("Provider is amazon", func() {
+				BeforeEach(func() {
+					queueInfo = &hh.QueueInfo{
+						ID:     h.ID,
+						Slug:   h.Slug,
+						UserID: u.ID,
+						Host: &hh.Info{
+							Provider:       "amazon",
+							ID:             "host-1234",
+							Region:         "somewhere",
+							Name:           "hostname-1234",
+							IPAddress:      "1.2.3.4",
+							FreighterdPort: 62345,
+							State:          state.Running,
+						},
+					}
+					payload, err := json.Marshal(queueInfo)
+					Expect(err).To(BeNil())
+					message = &queue.Message{
+						UUID:         "uuid-1234",
+						Action:       "create",
+						Event:        string(event.HostCreated),
+						ResourceName: "host",
+						ResourceID:   "host-1234",
+						Payload:      payload,
+					}
+				})
+
+				It("returns error when volumeID is nil", func() {
+					err := handler(message)
+					Expect(err).ToNot(BeNil())
 				})
 			})
 		})

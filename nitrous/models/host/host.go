@@ -132,6 +132,9 @@ type Host struct {
 	UpdateAvailable       string
 
 	PendingRespec bool
+
+	// Stroage Device ID ( VolumeID for amazon )
+	ProviderStorageIdentifier sql.NullString `db:"provider_storage_identifier"`
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
