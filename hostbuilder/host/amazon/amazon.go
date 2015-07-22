@@ -624,9 +624,9 @@ func (h *Host) Info() (*host.Info, error) {
 		State:          getState(h.instance),
 	}
 
-	rootVolume, err := h.getRootVolume()
+	userVolume, err := h.getUserVolume()
 	if err == nil {
-		info.VolumeID = rootVolume.VolumeId
+		info.VolumeID = userVolume.VolumeId
 	}
 
 	return info, nil
