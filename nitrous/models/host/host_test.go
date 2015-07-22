@@ -13,7 +13,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -30,6 +32,7 @@ var _ = Describe("models/host", func() {
 	var (
 		db *ndb.Database
 		hs *test.HostStack
+		s  *subscription.Subscription
 	)
 
 	BeforeEach(func() {
@@ -48,6 +51,23 @@ var _ = Describe("models/host", func() {
 				},
 			},
 		})
+		Expect(err).To(BeNil())
+
+		// Insert subscriptions
+		bp, err := hs.U.BillingProfile(db)
+		Expect(err).To(BeNil())
+
+		s = &subscription.Subscription{
+			PlanID:           hs.P.ID,
+			BillingProfileID: bp.ID,
+			State:            "active",
+			StripeID:         sql.NullString{"sub_ABC", true},
+			Slug:             "Sub1",
+		}
+		err = test.WrapInTransaction(db, s.Insert)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs.H.ID)
 		Expect(err).To(BeNil())
 	})
 
@@ -110,6 +130,7 @@ var _ = Describe("models/host", func() {
 				Password: "teh interview is osom",
 			}
 			err = test.WrapInTransaction(db, u1.Insert)
+
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO hosts
 				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
@@ -184,11 +205,35 @@ var _ = Describe("models/host", func() {
 			err = test.WrapInTransaction(db, u2.Insert)
 			Expect(err).To(BeNil())
 
+			p := &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u1.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
 			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version)
-				VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv)
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
 			Expect(err).To(BeNil())
 
 			// insert a terminated host
@@ -222,6 +267,7 @@ var _ = Describe("models/host", func() {
 				Expect(hosts[0].ID).NotTo(BeZero())
 				Expect(hosts[0].UserID).To(Equal(u1.ID))
 				Expect(hosts[0].Slug).To(Equal("my-host-1"))
+				Expect(hosts[0].SubscriptionSlug.String).To(Equal("SLUG"))
 			})
 		})
 
@@ -411,6 +457,7 @@ var _ = Describe("models/host", func() {
 				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
 				Expect(h.UserID).To(Equal(hs.U.ID))
+				Expect(h.SubscriptionSlug.String).To(Equal(s.Slug))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))
 				Expect(h.ProviderTemplate.Config.Map["disable_eip"]).To(Equal(sql.NullString{"true", true}))
@@ -443,6 +490,7 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(BeNil())
 				Expect(h).NotTo(BeNil())
 				Expect(h.ID).To(Equal(hs.H.ID))
+				Expect(h.SubscriptionSlug.String).To(Equal(s.Slug))
 				Expect(h.UserID).To(Equal(hs.U.ID))
 				Expect(h.Slug).To(Equal(hs.H.Slug))
 				Expect(h.Provider).To(Equal(hs.PT.Provider))

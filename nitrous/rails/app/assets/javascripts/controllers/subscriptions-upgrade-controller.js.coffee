@@ -45,7 +45,7 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
       events = App.get('eventsSocket')
 
       @get('model').upgrade(@get('selectedPlan.id')).then (data)=>
-        hosts = App.get('hosts')?.filterBy('subscriptionId', @get('model.id'))
+        hosts = App.get('hosts')?.filterBy('subscriptionSlug', @get('model.slug'))
         @set 'hostsUpgrading', hosts
         @set 'manyHostsUpgrading', @get('hosts.length') > 1
 
