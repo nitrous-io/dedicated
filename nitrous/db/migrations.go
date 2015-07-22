@@ -1396,5 +1396,13 @@ func init() {
 				ALTER TABLE hosts ALTER COLUMN idle_timeout SET DEFAULT 900;
 			`,
 		},
+		{
+			Version: "1325",
+			Up: `
+				ALTER TABLE subscriptions ADD COLUMN slug character varying(10) DEFAULT NULL;
+
+				CREATE UNIQUE INDEX index_subscriptions_on_bp_id_slug ON subscriptions USING btree (billing_profile_id, slug);
+			`,
+		},
 	}
 }

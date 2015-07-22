@@ -1,0 +1,20 @@
+Hi {{ .Username }},
+
+Your free workspace on Nitrous Pro has been idle for more than a month.  It has
+been scheduled for termination on July 31 2015 23:59 PDT.
+
+All containers and data on the workspace will be lost.
+
+To avoid the termination, simply start the workspace and use the IDE anytime
+before the July 31 deadline.
+
+Do note that the hourly limit on free workspaces has been removed. You can find
+out more at:
+
+https://community.nitrous.io/posts/nitrous-pro-free-tier-time-limit-is-no-more
+
+If you have any questions, please contact us at support@nitrous.io .
+
+
+Thanks,
+The Nitrous Team

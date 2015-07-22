@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	stripe "github.com/stripe/stripe-go"
 	stripecoupon "github.com/stripe/stripe-go/coupon"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
@@ -115,10 +116,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 	err = d.WithTransaction(func(tx *sqlx.Tx) error {
 		var err error
 
+		slug, err := securerandom.Base64(8)
+		if err != nil {
+			return err
+		}
 		sub = &subscription.Subscription{
 			PlanID:           p.ID,
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
+			Slug:             sql.NullString{slug[:10], true},
 		}
 		if err := sub.Insert(tx); err != nil {
 			return err
