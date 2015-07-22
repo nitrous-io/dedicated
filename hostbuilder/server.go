@@ -93,6 +93,8 @@ type Server struct {
 
 	Queue queue.Publisher
 	pool  host.Pool
+
+	quit chan struct{}
 }
 
 // Return a copy of the original provider config for safe local mutation.
@@ -523,6 +525,10 @@ func New(config *Config) (*Server, error) {
 	go server.pool.Run()
 
 	return server, nil
+}
+
+func (s *Server) Stop() {
+	s.pool.Stop()
 }
 
 func writeResponse(w http.ResponseWriter, resp *Response) {

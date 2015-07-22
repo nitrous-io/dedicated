@@ -11,13 +11,15 @@ type Pool interface {
 	Acquire() (id string, err error)
 	Release(id string) error
 	Run() error
+	Stop()
 }
 
 type DockerPool struct {
-	MaxHosts int
-	Driver   Host
+	MaxHosts      int
+	Driver        Host
+	CheckInterval time.Duration
 
-	// FIXME Add channel to cancel run() goroutine.
+	quit chan struct{}
 }
 
 func NewPool(driverName string, driverOptions map[string]string) (Pool, error) {
@@ -28,43 +30,61 @@ func NewPool(driverName string, driverOptions map[string]string) (Pool, error) {
 
 	switch driverName {
 	case "docker":
-		return &DockerPool{Driver: driver, MaxHosts: 1}, nil
+		return &DockerPool{
+			Driver:        driver,
+			MaxHosts:      1,
+			CheckInterval: 2 * time.Second,
+			quit:          make(chan struct{}),
+		}, nil
 		//case "amazon":
 	}
 
 	return nil, fmt.Errorf("pool: unsupported driver %q", driverName)
 }
 
-func (m *DockerPool) Acquire() (string, error) {
+func (p *DockerPool) Acquire() (string, error) {
 	return "", nil
 }
 
-func (m *DockerPool) Release(id string) error {
+func (p *DockerPool) Release(id string) error {
 	return nil
 }
 
-func (m *DockerPool) currentNumberOfHosts() (int, error) {
+func (p *DockerPool) currentNumberOfHosts() (int, error) {
 	// Count number of Docker containers that have label "free=true".
-	return m.Driver.Count(map[string][]string{"label": []string{"free=true"}})
+	return p.Driver.Count(map[string][]string{"label": []string{"free=true"}})
 }
 
-func (m *DockerPool) Run() error {
+func (p *DockerPool) Run() error {
+	ticker := time.NewTicker(p.CheckInterval)
 	for {
-		n, err := m.currentNumberOfHosts()
-		if err != nil {
-			logrus.Infof("Failed to get count: %+v", err)
-		}
-		switch {
-		case n < m.MaxHosts:
-			logrus.Infof("create more instances in the pool")
+		select {
+		case <-p.quit:
+			logrus.Debugf("DockerPool: quitting")
+			ticker.Stop()
+			close(p.quit)
+			return nil
+		case <-ticker.C:
+			n, err := p.currentNumberOfHosts()
+			if err != nil {
+				logrus.Infof("Failed to get count: %+v", err)
+			}
+			switch {
+			case n < p.MaxHosts:
+				logrus.Infof("create more instances in the pool")
 
-		case n > m.MaxHosts:
-			logrus.Infof("terminate extra hosts in pool")
-		default:
-			logrus.Info("do nothing")
+			case n > p.MaxHosts:
+				logrus.Infof("terminate extra hosts in pool")
+			default:
+				logrus.Info("do nothing")
+			}
 		}
-		time.Sleep(2 * time.Second)
 	}
 
 	return nil
+}
+
+func (p *DockerPool) Stop() {
+	p.quit <- struct{}{}
+	<-p.quit
 }

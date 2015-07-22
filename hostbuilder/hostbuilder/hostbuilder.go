@@ -133,6 +133,9 @@ func main() {
 				}
 			default:
 				signal.Stop(signals)
+
+				server.Stop()
+
 				if err := hs.Stop(); err != nil {
 					logrus.Fatalf("hostbuilder: failed to wait for httpdown to stop %v", err)
 					return
