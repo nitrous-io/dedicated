@@ -184,13 +184,15 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
-	ReceivedNewHostDefaultConfig = defaultConfig
+func New(driverOptions map[string]string, config string) (host.Host, error) {
+	ReceivedNewHostDefaultConfig = driverOptions
 	var host Host
 	json.Unmarshal([]byte(config), &host)
 	return &host, nil
 }
 
 func init() {
-	host.Hosts["dummy"] = NewHost
+	host.Register("dummy", &host.RegisteredDriver{
+		New: New,
+	})
 }

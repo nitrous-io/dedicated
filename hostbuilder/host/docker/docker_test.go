@@ -62,7 +62,7 @@ var _ = Describe("host/docker", func() {
 			qc, err = qp.CreateConsumer()
 			Expect(err).To(BeNil())
 
-			h, err = docker.NewHost(
+			h, err = docker.New(
 				map[string]string{
 					"uuid":                "uuid-111",
 					"endpoint":            server.URL(),
@@ -144,7 +144,7 @@ var _ = Describe("host/docker", func() {
 
 		Context("With docker location", func() {
 			BeforeEach(func() {
-				h, err = docker.NewHost(
+				h, err = docker.New(
 					map[string]string{
 						"endpoint":            server.URL(),
 						"freighterd_location": "/bin/true",
@@ -174,7 +174,7 @@ var _ = Describe("host/docker", func() {
 
 		Context("Without docker location", func() {
 			BeforeEach(func() {
-				h, err = docker.NewHost(
+				h, err = docker.New(
 					map[string]string{
 						"endpoint":            server.URL(),
 						"freighterd_location": "/bin/true",
@@ -218,7 +218,7 @@ var _ = Describe("host/docker", func() {
 			qc, err = qp.CreateConsumer()
 			Expect(err).To(BeNil())
 
-			h, err = docker.NewHost(
+			h, err = docker.New(
 				map[string]string{
 					"id":                  "host-id",
 					"uuid":                "uuid-111",

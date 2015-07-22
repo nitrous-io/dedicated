@@ -370,20 +370,20 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 	return info, nil
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+func New(driverOptions map[string]string, config string) (host.Host, error) {
 	host := &Host{
-		uuid: defaultConfig["uuid"], // this is injected by the server per request
+		uuid: driverOptions["uuid"], // this is injected by the server per request
 	}
 	if err := json.Unmarshal([]byte(config), host); err != nil {
 		return nil, err
 	}
-	// fetch docker client endpoint from defaultConfig
-	endpoint, ok := defaultConfig["endpoint"]
+	// fetch docker client endpoint from driverOptions
+	endpoint, ok := driverOptions["endpoint"]
 	if !ok {
 		endpoint = "unix:///var/run/docker.sock"
 	}
 
-	freighterdLocation, _ := defaultConfig["freighterd_location"]
+	freighterdLocation, _ := driverOptions["freighterd_location"]
 	_, err := exec.LookPath(freighterdLocation)
 	if err != nil {
 		return nil, fmt.Errorf("Error finding freighterd binary at %s: %v", freighterdLocation, err)
@@ -391,7 +391,7 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 
 	host.FreighterdLocation = freighterdLocation
 
-	dockerLocation, _ := defaultConfig["docker_location"]
+	dockerLocation, _ := driverOptions["docker_location"]
 	if dockerLocation != "" {
 		if _, err := exec.LookPath(dockerLocation); err != nil {
 			return nil, fmt.Errorf("Error finding docker binary at %q: %s", dockerLocation, err)
@@ -506,5 +506,7 @@ func getState(container *dockerclient.Container) state.State {
 }
 
 func init() {
-	host.Hosts["docker"] = NewHost
+	host.Register("docker", &host.RegisteredDriver{
+		New: New,
+	})
 }
