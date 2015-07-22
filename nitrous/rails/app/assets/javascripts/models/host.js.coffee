@@ -23,7 +23,7 @@ App.Host = klass = App.Model.extend
   liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
   updateAvailable: attr(as: 'update_available', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
-  subscriptionId: attr('number', as: 'subscription_id', serialize: false)
+  subscriptionSlug: attr('string', as: 'subscription_slug', serialize: false)
   free: attr('boolean', serialize: false)
 
   # only used in create
@@ -102,9 +102,9 @@ App.Host = klass = App.Model.extend
   ).property 'planId', 'App.plans.@each'
 
   subscription: (->
-    if subscriptionId = @get('subscriptionId')
-      App.get('subscriptions').findBy('id', subscriptionId)
-  ).property 'subscriptionId', 'App.subscriptions.@each'
+    if subscriptionSlug = @get('subscriptionSlug')
+      App.get('subscriptions').findBy('slug', subscriptionSlug)
+  ).property 'subscriptionSlug', 'App.subscriptions.@each'
 
   freighterdUrl: (->
     hostname = @get 'proxyHostname'
@@ -157,9 +157,9 @@ App.Host = klass = App.Model.extend
   ).property 'containers.@each.state'
 
   canCancelSubscription: (->
-    return false unless @get 'subscriptionId'
+    return false unless @get 'subscriptionSlug'
     !@get('free')
-  ).property 'subscriptionId'
+  ).property 'subscriptionSlug'
 
   prefetchResources: ->
     @get 'images'

@@ -197,8 +197,8 @@ var _ = Describe("host serializer", func() {
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
-		It("includes SubscriptionID if present", func() {
-			model.SubscriptionID = sql.NullInt64{23, true}
+		It("includes SubscriptionSlug if present", func() {
+			model.SubscriptionSlug = sql.NullString{"ASUB", true}
 			b, err := json.Marshal(serializers.SerializeHost(model))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`{
@@ -228,7 +228,7 @@ var _ = Describe("host serializer", func() {
 				"update_available": "hard",
 				"max_containers": 3,
 				"pending_respec": true,
-				"subscription_id": 23,
+				"subscription_slug": "ASUB",
 				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
