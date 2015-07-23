@@ -7,7 +7,6 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -175,42 +174,6 @@ var _ = Describe("models/hostscan", func() {
 				expectScanStateAtTimeEquals(HostScanPeriod+3*7*24*time.Hour, StateOneWeekNotice)
 				expectScanStateAtTimeEquals(2*HostScanPeriod-3*24*time.Hour, StateTerminating)
 				expectScanStateAtTimeEquals(2*HostScanPeriod+HostScanPeriod-2*24*time.Hour, StateTerminating)
-			})
-		})
-
-		Describe("when free host is upgraded to paid plan", func() {
-			BeforeEach(func() {
-				// host was about to be terminated
-				h.NextScan = pq.NullTime{}
-				h.TerminatingAt = pq.NullTime{h.CreatedAt.Add(HostScanPeriod), true}
-				err := UpdateHostScanState(db, h)
-				Expect(err).To(BeNil())
-
-				// originally can be terminated
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(1))
-
-				_, err = db.Exec(`UPDATE billing_profiles
-						SET state='paid' WHERE user_id=$1;
-						`, u.ID)
-				Expect(err).To(BeNil())
-
-				err = freetier.UpgradeFreeUserHosts(db, u)
-				Expect(err).To(BeNil())
-			})
-
-			It("should not be listed in scannable hosts", func() {
-				scannedHosts, err := FindScannableHosts(db, *h.CreatedAt)
-				Expect(err).To(BeNil())
-
-				Expect(len(scannedHosts)).To(Equal(0))
-			})
-
-			It("should not be listed in terminating hosts", func() {
-				hosts, err := FindTerminatingHosts(db, h.CreatedAt.Add(HostScanPeriod))
-				Expect(err).To(BeNil())
-				Expect(len(hosts)).To(Equal(0))
 			})
 		})
 	})

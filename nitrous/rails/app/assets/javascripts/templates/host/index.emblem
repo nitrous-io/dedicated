@@ -142,7 +142,7 @@
         button.ui.btn click='showRestartDialog target="view"' Restart
         button.ui.btn click='showStopDialog target="view"' Stop
     .right
-      if App.billingProfile.free
+      if free
         button.ui.btn click='upgradePaid' Upgrade
       button.ui.btn.primary class={containers.length::pulsate} click='newContainer' New Container...
 
@@ -250,42 +250,3 @@
       .right
         button.ui.btn click='cancelRestart target="view"' Cancel
         button.ui.btn.danger.restart-btn click='confirmRestart target="view"' Restart Anyway
-
-#upgrade-complete-modal-dialog.ui.modal
-  .ui.card
-    h2.card-header
-      | Do More on Nitrous
-    .card-body
-      | Your upgraded workspace has:
-
-      ul
-        li
-          i.fa.fa-check
-          | No hourly limits
-        li
-          i.fa.fa-check
-          ' Advanced container management &mdash;
-          a href="http://docs.nitrous.io/v1.0/docs/advanced-container-management-options" target="_blank" learn more
-        li
-          i.fa.fa-check
-          ' Access to Nitrous Desktop app &mdash;
-          a href=App.desktopDownloadUrl target="_blank" download now
-        if App.upgradeCredited
-          li
-            i.fa.fa-check
-            | Your $
-            = App.upgradeCredited
-            '
-            | credit has been applied!
-
-      h3 Restart required
-
-      p
-        ' Your workspace needs to be restarted in order to increase its storage.
-
-    .card-footer
-      .right
-        button.ui.btn click='hideUpgradeDialog target="view"'
-          | Later
-        button.ui.btn.primary click='respecNow target="view"'
-          | Restart workspace now

@@ -140,6 +140,9 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         events.off 'host.create_failed', onHostCreateFailed
         events.off 'host.created', onHostCreated
 
+        # force a reload of subscriptions to pick up new subscription resulting from a host create
+        App.get('subscriptions').reload()
+
         # Check if there's a pending container that we should now create.
         if pendingContainerData = App.get('pendingContainerData')
           pendingContainerData.set('selectedHostSlug', host.get('slug'))

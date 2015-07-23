@@ -11,7 +11,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
-	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -105,10 +104,6 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		} else if count <= 1 {
 			credited = awardCredits(db, u)
 		}
-	}
-
-	if err := freetier.UpgradeFreeUserHosts(db, u); err != nil {
-		logrus.Errorf("Error upgrading free-tier hosts of paid user: %v", err)
 	}
 
 	if (previousState == billingprofile.StateFree || previousState == billingprofile.StateNoCard) &&
