@@ -40,13 +40,6 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) Respec() (*host.Info, error) {
-	if !h.RespecSuccess {
-		return nil, errors.New("failed to respec host")
-	}
-	return h.Info()
-}
-
 func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	if !h.RespecSuccess {
 		return nil, errors.New("failed to respec host")
