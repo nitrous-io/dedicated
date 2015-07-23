@@ -18,7 +18,7 @@ namespace :users do
 
   desc "Allow user to create free workspace"
   task :allow_free do
-    u = find_one.all[0]
+    u = find_one {|ds| ds.where(users__deleted_at: nil) }.all[0]
     if u[:phone_authed] && u[:bp_state] == 'free'
       raise "User can already create free workspaces"
     end
@@ -43,7 +43,9 @@ namespace :users do
 
   # returns a dataset that can be further filtered
   # to retrieve the row, do: r = find_one.all[0]
-  def find_one
+  # Supports optional block to filter the result
+  # If the result isn't a single row, returns an error
+  def find_one(&block)
     finders = {
       username:  'USER_USERNAME',
       email:     'USER_EMAIL',
@@ -60,10 +62,12 @@ namespace :users do
     raise "No query values given" if column.nil?
     q = user_query.where(column => value)
 
+    q = block.call(q) if block_given?
+
     raise "no user found" if q.count == 0
     if q.count > 1
       puts "#{q.count} users found"
-      p q.all
+      p q.all if q.count < 10
       raise "Bad result"
     end
     q
