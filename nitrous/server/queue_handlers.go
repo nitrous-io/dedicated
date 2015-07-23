@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -47,11 +48,14 @@ func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	return func(m *queue.Message) error {
 		var err error
 
+		logrus.Debugf("uuid=%s queueHandlerTracer: incoming message: %+v", m.UUID, m)
 		switch {
 		case queue.Create.IsA(m.Action):
 			err = s.handleCreateMessage(m)
 		case queue.Stop.IsA(m.Action):
 			err = s.handleStopMessage(m)
+		case queue.Respec.IsA(m.Action):
+			err = s.handleRespecMessage(m)
 		default:
 			logrus.Debugf("uuid=%s queueHandlerTracer: unexpected message: %+v", m.UUID, m)
 		}
@@ -363,6 +367,93 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 		)
 	default:
 		logrus.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
+	}
+
+	return nil
+}
+
+func (s *Server) handleRespecMessage(m *queue.Message) error {
+	db := s.db
+	var queueInfo hh.QueueInfo
+	err := json.Unmarshal(m.Payload, &queueInfo)
+	if err != nil {
+		return err
+	}
+
+	u, err := user.FindByID(db, queueInfo.UserID)
+	if err != nil {
+		return err
+	}
+
+	h, err := host.Find(db, u, queueInfo.Slug)
+	if err != nil {
+		return err
+	}
+
+	rs, err := respec.FindProcessing(db, h.ID)
+	if err != nil {
+		return err
+	}
+
+	logData := logrus.WithFields(logrus.Fields{
+		"uuid":    m.UUID,
+		"host_id": h.ID,
+	})
+
+	eventName := controllers.EventName(m.Event)
+	switch eventName {
+	case controllers.EventHostRespecced:
+		logData.Debug("respecced host")
+		if queueInfo.Host == nil {
+			return fmt.Errorf("uuid=%s queueTracer: host is nil", m.UUID)
+		}
+
+		info := queueInfo.Host
+		h.ProviderTemplateID = rs.ProviderTemplateID
+		h.State = host.StateRunning
+		h.IPAddress = sql.NullString{info.IPAddress, true}
+		if err := h.UpdateAfterRespec(db); err != nil {
+			logData.Errorf("error updating host after respec completed: %v", err)
+		}
+		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
+			logData.Errorf("error updating respec state to completed: %v", err)
+		}
+
+		s.Events.Publish(
+			controllers.NewEvent(controllers.EventHostRespecced, map[string]interface{}{
+				"host": serializers.SerializeHost(h),
+			}),
+			u.Topic(),
+		)
+	case controllers.EventHostRespeccing:
+		logData.Debug("respeccing host")
+
+		s.Events.Publish(
+			controllers.NewEvent(controllers.EventHostRespeccing, map[string]interface{}{
+				"host": serializers.SerializeHost(h),
+			}),
+			u.Topic(),
+		)
+	case controllers.EventHostRespecFailed:
+		logData.Debugf("respeccing failed due to %s", queueInfo.Message)
+
+		if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
+			logData.Errorf("error updating host after respec failed: %v", err)
+		}
+
+		if err := rs.UpdateState(db, respec.StateFailed); err != nil {
+			logData.Errorf("error updating respec state to failed: %v", err)
+		}
+
+		s.Events.Publish(
+			controllers.NewEvent(controllers.EventHostRespecFailed, map[string]interface{}{
+				"host":  serializers.SerializeHost(h),
+				"error": queueInfo.Message,
+			}),
+			u.Topic(),
+		)
+	default:
+		logData.Debug("unexpected event for respeccing a host: queueInfo(%+v)", queueInfo)
 	}
 
 	return nil
