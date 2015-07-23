@@ -28,9 +28,9 @@ namespace :users do
 
     old_authed, old_bp_state = u[:phone_authed], u[:bp_state]
     DB.transaction do
-      r = DB[:users].where(:id => u[:uid]).update(:phone_authed => true)
+      r = DB[:users].where(id: u[:uid]).update(phone_authed: true)
       rows_expected!(r, 1)
-      r = DB[:billing_profiles].where(:user_id => u[:uid]).update(:state => 'free')
+      r = DB[:billing_profiles].where(user_id: u[:uid]).update(state: 'free')
       rows_expected!(r, 1)
     end
 
@@ -45,9 +45,9 @@ namespace :users do
   # to retrieve the row, do: r = find_one.all[0]
   def find_one
     finders = {
-      :username => 'USER_USERNAME',
-      :email => 'USER_EMAIL',
-      :users__id => 'USER_ID',
+      username:  'USER_USERNAME',
+      email:     'USER_EMAIL',
+      users__id: 'USER_ID',
     }
     column, value, count = nil, nil, 0
     finders.each do |db_column, envvar|
@@ -82,8 +82,8 @@ namespace :users do
       select_more(:billing_profiles__state___bp_state).
       select_more(:subscriptions__state___sub_state).
       select_more(:hosts__state___host_state).
-      left_join(:billing_profiles, :user_id => :id).
-      left_join(:hosts, :user_id => :id).
-      left_join(:subscriptions, :billing_profile_id => :billing_profiles__id)
+      left_join(:billing_profiles, user_id: :id).
+      left_join(:hosts, user_id: :id).
+      left_join(:subscriptions, billing_profile_id: :billing_profiles__id)
   end
 end
