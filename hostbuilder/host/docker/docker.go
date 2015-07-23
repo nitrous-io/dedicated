@@ -81,55 +81,16 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	}
 
 	if container.Name != h.Name {
-		// Update /etc/freighterd/config.json's with new host slug.
-		err := h.updateConfigFile(container, w)
-		if err != nil {
-			fmt.Fprintf(w, "Failed to update container's config file, err: %v\n", err)
-			return nil, err
-		}
-
-		// TODO We can replace this commit -> create -> remove dance with native
-		// Docker rename in 1.5.0.
 		fmt.Fprintf(w, "Renaming container from %q to %q\n", container.Name, h.Name)
-		fmt.Fprintln(w, "Committing container")
-		img, err := h.client.CommitContainer(dockerclient.CommitContainerOptions{
-			Container:  container.ID,
-			Repository: fmt.Sprintf("renamed-%s", container.ID),
-			Tag:        "latest",
-		})
-		if err != nil {
-			fmt.Fprintf(w, "Failed to commit container, err: %v\n", err)
-			return nil, err
-		}
-		fmt.Fprintf(w, "Container committed to image %s\n", img.ID)
-
-		c, err := h.createContainer(img.ID)
-		if err != nil {
-			fmt.Fprintf(w, "Failed to create container from committed image, err: %v\n", err)
-			return nil, err
-		}
-
-		// Remove old container.
-		if err := h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
-			ID:    container.ID,
-			Force: true,
+		if err := h.client.RenameContainer(dockerclient.RenameContainerOptions{
+			ID:   container.ID,
+			Name: h.Name,
 		}); err != nil {
-			// Log and proceed anyway.
-			fmt.Fprintf(w, "Failed to remove old container, err: %v\n", err)
+			fmt.Fprintf(w, "Failed to rename container, err: %v\n", err)
+			return nil, err
 		}
-
-		fmt.Fprintf(w, "Container renamed. New ID: %s, old ID: %s)\n", c.ID, container.ID)
-		return c, nil
 	}
-
-	return &host.Info{
-		Provider:       h.DriverName(),
-		ID:             h.ID,
-		Name:           h.Name,
-		IPAddress:      "127.0.0.1",
-		FreighterdPort: uint16(getFreighterdPort(container)),
-		State:          getState(container),
-	}, nil
+	return h.Info()
 }
 
 func (h *Host) Respec() (*host.Info, error) {
@@ -388,54 +349,17 @@ func (h *Host) start() (*host.Info, error) {
 	if h.DockerLocation != "" {
 		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
 	}
+
 	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
 		Binds:           binds,
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
 	return h.Info()
-}
-
-func (h *Host) updateConfigFile(container *dockerclient.Container, w io.Writer) error {
-	cfg := &configFile{}
-
-	out, err := exec.Command("docker", "exec", container.ID,
-		"/bin/bash", "-c", fmt.Sprintf(`[ -f %s ]`, ConfigLocation)).CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(w, "Failed to determine if config file exists, err: %v, output: %s\n", err, out)
-		cfg = h.configFile()
-	} else {
-		// No error means that the file exists, so we read its contents.
-		out, err := exec.Command("docker", "exec", container.ID, "cat", ConfigLocation).CombinedOutput()
-		if err != nil {
-			fmt.Fprintf(w, "Failed to read config file, err: %v, output: %s\n", err, out)
-			return err
-		}
-		if err := json.Unmarshal(out, cfg); err != nil {
-			fmt.Fprintf(w, "Failed to unmarshal config file, err: %v\n", err)
-			return err
-		}
-		cfg.NotifyURL = h.notifyURL()
-	}
-
-	buf, err := json.Marshal(cfg)
-	if err != nil {
-		fmt.Fprintf(w, "Failed to marshal config file, err: %v\n", err)
-		return err
-	}
-	out, err = exec.Command("docker", "exec", container.ID, "/bin/bash", "-c",
-		fmt.Sprintf("echo -e %q > %s", buf, ConfigLocation)).CombinedOutput()
-	if err != nil {
-		fmt.Fprintf(w, "Failed to write to config file, err: %v, output: %s\n", err, out)
-		return err
-	}
-
-	return nil
 }
 
 func (h *Host) configFile() *configFile {

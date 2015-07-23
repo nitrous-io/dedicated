@@ -2,6 +2,8 @@ package docker_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -217,7 +219,6 @@ var _ = Describe("host/docker", func() {
 
 			h, err = docker.New(
 				map[string]string{
-					"id":                  "host-id",
 					"uuid":                "uuid-111",
 					"endpoint":            server.URL(),
 					"freighterd_location": "/bin/true",
@@ -286,6 +287,47 @@ var _ = Describe("host/docker", func() {
 
 			Expect(queueInfos[1].Message).To(BeZero())
 			Expect(queueInfos[1].Host).NotTo(BeZero())
+		})
+	})
+
+	Describe("Update", func() {
+		var info *host.Info
+
+		BeforeEach(func() {
+			h, err := docker.New(
+				map[string]string{
+					"endpoint":            server.URL(),
+					"freighterd_location": "/bin/true",
+				},
+				`{"name":"original-name","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
+			)
+			Expect(err).To(BeNil())
+			queueInfo = &host.QueueInfo{
+				ID:     123,
+				Slug:   "go-124",
+				UserID: 125,
+			}
+			info, err = h.CreateWithQueue(qp, queueInfo)
+			Expect(err).To(BeNil())
+		})
+
+		It("renames the container if a new name is requested", func() {
+			Expect(info.Name).To(Equal("original-name"))
+
+			h, err := docker.New(
+				map[string]string{
+					"endpoint":            server.URL(),
+					"freighterd_location": "/bin/true",
+				},
+				fmt.Sprintf(`{"id": "%s", "name":"new-name"}`, info.ID),
+			)
+			Expect(err).To(BeNil())
+
+			renamed, err := h.Update(ioutil.Discard)
+			Expect(err).To(BeNil())
+
+			Expect(renamed.ID).To(Equal(info.ID))
+			Expect(renamed.Name).To(Equal("new-name"))
 		})
 	})
 })
