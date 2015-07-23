@@ -9,6 +9,7 @@ const (
 	Stop
 	Restart
 	Terminate
+	Respec
 )
 
 func (e Event) IsA(eventName string) bool {

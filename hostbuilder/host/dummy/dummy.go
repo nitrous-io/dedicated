@@ -47,6 +47,25 @@ func (h *Host) Respec() (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	if !h.RespecSuccess {
+		return nil, errors.New("failed to respec host")
+	}
+
+	msg := &queue.Message{
+		Action:       queue.Create.String(),
+		Event:        string(event.HostRespecced),
+		ResourceName: host.EventResourceName,
+		ResourceID:   h.ID,
+	}
+	err := qp.Publish(msg)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("failed to send a message: %+v", err))
+	}
+
+	return h.Info()
+}
+
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	if !h.CreateSuccess {
 		return nil, errors.New("failed to create host")

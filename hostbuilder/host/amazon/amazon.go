@@ -354,6 +354,120 @@ func (h *Host) Respec() (*host.Info, error) {
 	return h.Start()
 }
 
+// RespecWithQueue changes the specs of an existing host its new properties.
+// The following changes are supported:
+//   1. Changing storage size of root volume.
+//   2. Changing instance type (only between allowable instance types, e.g. we
+//      don't support changing from a VPC-only to non-VPC instance).
+//   3. Allocating/de-allocating an Elastic IP.
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("respec")
+	defer mh.UpdateSince(label, time.Now())
+
+	host.PublishMessage(qp, event.HostRespeccing, h.uuid, queueInfo, "Respeccing host", queue.Respec)
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	// Allocate Elastic IP.
+	addresses, err := getAddresses(h.provider, h.instance.InstanceId)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+	// If instance already has an Elastic IP allocated, we skip this step.
+	if len(addresses) == 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), allocateElasticIPTimeout)
+		defer cancel()
+
+		hctx := host.NewContext(ctx, h, h, nil)
+		err := hctx.Run(host.Step{
+			Description: "Allocating static IP",
+			Func:        allocateElasticIP,
+		})
+		if err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
+			return nil, mh.Error(err, label)
+		}
+	}
+
+	var changeInstanceType, changeStorageSize bool
+
+	if h.Config.InstanceType != "" && h.Config.InstanceType != h.instance.InstanceType {
+		changeInstanceType = true
+	}
+
+	var (
+		rootVolume     *ec2.Volume
+		configuredSize int64
+	)
+
+	// If StorageSize is 0, no change required.
+	if h.Config.StorageSize != 0 {
+		var err error
+		rootVolume, err = h.getRootVolume()
+		if err != nil {
+			return nil, mh.Error(err, label)
+		}
+
+		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		if err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+		}
+
+		configuredSize = computeSize(h.Config.StorageSize)
+		if currentSize < configuredSize {
+			changeStorageSize = true
+			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+		}
+	}
+
+	// If no further changes required, we're done.
+	if !changeInstanceType && !changeStorageSize {
+		info, err := h.Info()
+		if err == nil {
+			host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+		} else {
+			logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
+		}
+
+		return info, err
+	}
+
+	// Otherwise, we stop the instance since any further changes now require
+	// it to be stopped.
+	if err := h.stopInstance(); err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+	}
+
+	if changeInstanceType {
+		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
+		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
+		}
+	}
+
+	if changeStorageSize {
+		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
+		}
+	}
+
+	info, err := h.Start()
+	if err == nil {
+		host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+	} else {
+		logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on starting host: %v", err)
+	}
+
+	return info, err
+}
+
 func (h *Host) getRootVolume() (*ec2.Volume, error) {
 	rootDevice := rootDevice(h.instance)
 	if rootDevice == nil {
@@ -652,20 +766,12 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 
@@ -676,11 +782,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
@@ -945,6 +1047,14 @@ func (h *Host) logFailed() {
 		} else {
 			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
 		}
+	}
+}
+
+func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, ev event.Event, action queue.Event, err error) {
+	if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+		host.PublishHost(qp, ev, h.uuid, queueInfo, info, action, err.Error())
+	} else {
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
 	}
 }
 

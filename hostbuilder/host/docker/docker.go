@@ -97,6 +97,18 @@ func (h *Host) Respec() (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	host.PublishMessage(qp, event.HostRespeccing, h.uuid, queueInfo, "Respeccing host", queue.Respec)
+	inf, err := h.Info()
+	if err != nil {
+		host.PublishMessage(qp, event.HostRespecFailed, h.uuid, queueInfo, err.Error(), queue.Respec)
+		return nil, err
+	}
+
+	host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, inf, queue.Respec, "")
+	return inf, nil
+}
+
 func (h *Host) Destroy() error {
 	return h.client.RemoveContainer(dockerclient.RemoveContainerOptions{
 		ID:    h.ID,

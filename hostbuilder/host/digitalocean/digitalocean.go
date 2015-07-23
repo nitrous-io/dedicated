@@ -163,6 +163,10 @@ func (h *Host) Respec() (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	return h.Info()
+}
+
 func (h *Host) Destroy() error {
 	id, err := h.id()
 	if err != nil {
