@@ -2,7 +2,6 @@ package docker_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -29,38 +28,46 @@ func TestDocker(t *testing.T) {
 }
 
 var _ = Describe("host/docker", func() {
-	var server *dockertest.DockerServer
-	var requests = []*http.Request{}
-	var err error
+	var (
+		server      *dockertest.DockerServer
+		requests    []*http.Request
+		qp          queue.Publisher
+		qc          queue.Consumer
+		queueInfo   *host.QueueInfo
+		redisClient *redis.Client
+	)
 
 	BeforeEach(func() {
+		var err error
+		requests = []*http.Request{}
 		server, err = dockertest.NewServer("127.0.0.1:0", nil, func(r *http.Request) {
 			requests = append(requests, r)
 		})
 		Expect(err).To(BeNil())
+
+		redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
+		Expect(err).To(BeNil())
+		qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
+		Expect(err).To(BeNil())
+		qc, err = qp.CreateConsumer()
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
-		requests = []*http.Request{}
 		server.Stop()
+		if qp != nil {
+			qp.Delete()
+		}
+		if redisClient != nil {
+			redisClient.Close()
+		}
 	})
 
 	Describe("CreateWithQueue", func() {
 		var h host.Host
-		var info *host.Info
-		var qp queue.Publisher
-		var qc queue.Consumer
-		var queueInfo *host.QueueInfo
 
-		var redisClient *redis.Client
 		BeforeEach(func() {
 			var err error
-			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
-			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
-			Expect(err).To(BeNil())
-			qc, err = qp.CreateConsumer()
-			Expect(err).To(BeNil())
 
 			h, err = docker.New(
 				map[string]string{
@@ -78,17 +85,8 @@ var _ = Describe("host/docker", func() {
 			}
 		})
 
-		AfterEach(func() {
-			if qp != nil {
-				qp.Delete()
-			}
-			if redisClient != nil {
-				redisClient.Close()
-			}
-		})
-
 		It("returns host info", func() {
-			info, err = h.CreateWithQueue(qp, queueInfo)
+			info, err := h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
 			Expect(info.Provider).To(Equal("docker"))
@@ -98,7 +96,7 @@ var _ = Describe("host/docker", func() {
 		})
 
 		It("sends messages to the host queue", func() {
-			info, err = h.CreateWithQueue(qp, queueInfo)
+			info, err := h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
 			Expect(qp.GetInputLength()).To(Equal(int64(3)))
@@ -153,7 +151,12 @@ var _ = Describe("host/docker", func() {
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
-				info, err = h.(*docker.Host).Create(ioutil.Discard)
+				queueInfo = &host.QueueInfo{
+					ID:     123,
+					Slug:   "go-124",
+					UserID: 125,
+				}
+				info, err = h.CreateWithQueue(qp, queueInfo)
 				Expect(err).To(BeNil())
 			})
 
@@ -182,7 +185,12 @@ var _ = Describe("host/docker", func() {
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
-				info, err = h.(*docker.Host).Create(ioutil.Discard)
+				queueInfo = &host.QueueInfo{
+					ID:     123,
+					Slug:   "go-124",
+					UserID: 125,
+				}
+				info, err = h.CreateWithQueue(qp, queueInfo)
 				Expect(err).To(BeNil())
 			})
 
@@ -203,20 +211,9 @@ var _ = Describe("host/docker", func() {
 
 	Describe("Stop", func() {
 		var h host.Host
-		var info *host.Info
-		var qp queue.Publisher
-		var qc queue.Consumer
-		var queueInfo *host.QueueInfo
 
-		var redisClient *redis.Client
 		BeforeEach(func() {
 			var err error
-			redisClient, err = test.PrepareRedis(test.RedisHost, test.RedisPort, test.RedisTestDb, true)
-			Expect(err).To(BeNil())
-			qp = queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "host")
-			Expect(err).To(BeNil())
-			qc, err = qp.CreateConsumer()
-			Expect(err).To(BeNil())
 
 			h, err = docker.New(
 				map[string]string{
@@ -235,7 +232,7 @@ var _ = Describe("host/docker", func() {
 				UserID: 125,
 			}
 			// Create a host on dockerclient fakeserver
-			info, err = h.CreateWithQueue(qp, queueInfo)
+			_, err = h.CreateWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 			// Remove 3 message for creation
 			for i := 0; i < 3; i++ {
@@ -245,17 +242,8 @@ var _ = Describe("host/docker", func() {
 			}
 		})
 
-		AfterEach(func() {
-			if qp != nil {
-				qp.Delete()
-			}
-			if redisClient != nil {
-				redisClient.Close()
-			}
-		})
-
 		It("returns host info", func() {
-			info, err = h.StopWithQueue(qp, queueInfo)
+			info, err := h.StopWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 			Expect(info).NotTo(BeNil())
 
@@ -266,7 +254,7 @@ var _ = Describe("host/docker", func() {
 		})
 
 		It("sends messages to the host queue", func() {
-			info, err = h.StopWithQueue(qp, queueInfo)
+			_, err := h.StopWithQueue(qp, queueInfo)
 			Expect(err).To(BeNil())
 
 			Expect(qp.GetInputLength()).To(Equal(int64(2)))

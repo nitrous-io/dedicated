@@ -52,33 +52,6 @@ type Host struct {
 }
 
 // Create creates the docker container which acts as a container host, and write the
-// progress into w
-//
-// FIXME: remove this once we can move all the tests to use CreateWithQueue,
-// preferably with a no-op implementation of queue
-func (h *Host) Create(w io.Writer) (*host.Info, error) {
-	for i, k := range h.PublicKeys {
-		h.PublicKeys[i] = strings.TrimSpace(k)
-	}
-	fmt.Fprintf(w, "Creating host image")
-	imageName, err := h.createImage()
-	if err != nil {
-		fmt.Fprintln(w, "Failed to create host image")
-		return nil, err
-	}
-	fmt.Fprintf(w, "Created host image")
-	fmt.Fprintf(w, "Creating host with image “%s”", imageName)
-
-	c, err := h.createContainer(imageName)
-	if err != nil {
-		fmt.Fprintf(w, "Failed to create host")
-		return nil, err
-	}
-	fmt.Fprintf(w, "Host created")
-	return c, nil
-}
-
-// Create creates the docker container which acts as a container host, and write the
 // progress into queue
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	for i, k := range h.PublicKeys {
