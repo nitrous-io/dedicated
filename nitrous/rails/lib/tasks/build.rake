@@ -19,6 +19,10 @@ namespace :build do
       locations["/public/stacks/#{stack}/index.html"] = { layout: 'layouts/pages', template: 'pages/stack', locals: { params: { stack: stack } } }
     end
 
+    PagesController::ALLOWED_JOBS.each do |job|
+      locations["/public/jobs/#{job}/index.html"] = { layout: 'layouts/pages', template: "pages/jobs/#{job}" }
+    end
+    
     public_htmls = %w(403 404 422 500)
 
     build_dir = ENV['BUILD_DIR']

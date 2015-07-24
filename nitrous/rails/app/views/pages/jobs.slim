@@ -14,10 +14,28 @@
           | We're looking for remarkable people to help us change the way the world codes
 
 
-  article.featurette.centered
-    .container
-      .greenhouse-container
-        #grnhse_app
+  article.square-grid
+
+    a.grid-item.opening.job-eng href='/jobs/platform-engineer'
+      span.icon
+      span.title Platform Engineer
+      span.location San Francisco — Singapore
+
+    a.grid-item.opening.job-eng href='/jobs/software-engineer'
+      span.icon
+      span.title Software Engineer
+      span.location San Francisco — Singapore
+    
+    a.grid-item.opening.job-devrel href='/jobs/developer-evangelist'
+      span.icon
+      span.title Developer Evangelist
+      span.location San Francisco
+
+    a.grid-item.opening.job-support href='/jobs/support-engineer'
+      span.icon
+      span.title Support Engineer
+      span.location San Francisco — Singapore
+
     
   article.life-at.darker
     .container
@@ -36,7 +54,10 @@
           h3.section-title.big-title Perks &amp; benefits
           p
             | On top of competitive salary and equity, Nitrous offers free lunches, Health, Vision and Dental insurance, flexible vacations, team outings, and a referral bonus program
-
+      
+      .centered
+        a class="btn white-outline" href="/company"
+          | Learn more about Nitrous
 
   article.maps
     .map
@@ -51,6 +72,3 @@
       .pin
 
 = render partial: 'layouts/footer', locals: { active: 'jobs' }
-
-- content_for :body_script
-  = javascript_include_tag 'https://app.greenhouse.io/embed/job_board/js?for=nitrous'
