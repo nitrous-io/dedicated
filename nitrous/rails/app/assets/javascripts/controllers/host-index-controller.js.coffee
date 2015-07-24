@@ -33,7 +33,8 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       @transitionToRoute 'containers.new', queryParams: { preselectHost: @get('model.slug') }
 
     upgradePaid: ->
-      @transitionToRoute 'add-card', queryParams: { upgradingFromFree: true, hostSlug: @get('model.slug') }
+      subscriptionSlug = @get('model.subscriptionSlug')
+      @transitionToRoute 'subscriptions.upgrade', subscriptionSlug
 
     update: ->
       host = @get('model')

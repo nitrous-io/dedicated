@@ -1,4 +1,7 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
+  queryParams: ['planId']
+  planId: null # when being transferred from successful add-card
+
   selectedPlan: null
   prorataCharge: null
 
@@ -7,6 +10,8 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
   manyHostsUpgrading: false
 
   paidPlans: (->
+    return [] unless @get 'model.plan'
+
     curPlan = @get('model.plan')
     App.get('eligiblePlans').filter (plan) ->
       plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > curPlan.get('price'))
@@ -37,10 +42,29 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
       hostsUpgrading: null,
       manyHostsUpgrading: false
 
-    @set 'selectedPlan', @get('model.plan')
+    automateUpgrade = false
+    selectedPlan = @get('model.plan')
+    if (pl = @get 'planId')
+      automateUpgrade = true
+      selectedPlan = @get('paidPlans').findBy('id', parseInt(pl))
+
+    @set 'selectedPlan', selectedPlan
+
+    if automateUpgrade && selectedPlan
+      Em.run.next =>
+        ui.showModal '#subscription-upgrade-modal-dialog'
+        window.setTimeout(=>
+          @send 'performUpgrade'
+        , 10)
 
   actions:
     performUpgrade: ->
+      if App.get('billingProfile.isFreeOrNoCardState')
+        @transitionToRoute 'add-card', queryParams: { subscriptionSlug: @get('model.slug'), pendingPlanId: @get('selectedPlan.id') }
+        return
+
+      # wipe to prevent re-navigating to the route restarting an upgrade
+      @set 'planId', null
       @set 'upgrading', true
       events = App.get('eventsSocket')
 
@@ -82,4 +106,3 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
 
     cancel: ->
       @transitionToRoute 'billing'
-
