@@ -3,6 +3,7 @@ App.EditorPane = Em.ArrayProxy.extend
   left: null
   right: null
   parent: null
+  tabWatcher: null
 
   horizontal: false
 
@@ -17,6 +18,10 @@ App.EditorPane = Em.ArrayProxy.extend
   isSplit: (->
     @get('left')? && @get('right')? && !@get('tabs')?
   ).property 'left', 'right', 'tabs'
+
+  tabDidChange: (->
+    TabWatcher.notifyOfChange()
+  ).observes 'tabs.@each'
 
   discard: ->
     @setProperties
@@ -54,6 +59,16 @@ App.EditorPane = Em.ArrayProxy.extend
       left?.findBy(key, value) || right?.findBy(key, value)
     else
       @_super(key, value)
+
+  allTabs: ->
+    col = []
+    if (t = @get 'tabs')
+      col.push.apply col, @get 'tabs'
+    if (l = @get('left')?.allTabs())
+      col.push.apply col, l
+    if (r = @get('right')?.allTabs())
+      col.push.apply col, r
+    col
 
   close: ->
     return if @get('isSplit') || !@get('parent')

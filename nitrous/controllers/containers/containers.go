@@ -398,7 +398,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 
 	var billingError error
 
-	wg.Add(2)
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
@@ -416,6 +416,7 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 			}
 		}
 	}()
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 

@@ -47,7 +47,25 @@ App.IdeSidebarController = Em.ArrayController.extend
         this.openPath @get('rootPath')
         unless App.get('container.metadata.readmeOpened')
           this.openRepoReadme()
+
+        @restoreOpenTabs()
   ).observes 'opsSocket.startedFirstTime'
+
+  restoreOpenTabs: ->
+    if openTabs = App.get('container.userData.openTabs')
+      index = 0
+      for tab in openTabs
+        if tab.readme
+          this.openRepoReadme active: tab.active, index: index
+        else if tab.path
+          pth = App.Path.create absolutePath: tab.path, directory: false
+          this.openPath pth,
+            error: false
+            active: tab.active
+            index: index
+            scrollPosition: tab.scrollPosition
+            selections: tab.selections
+        index++
 
   openRepoDir: ->
     workspacePath = App.Path.create absolutePath: 'workspace', directory: true
@@ -55,20 +73,22 @@ App.IdeSidebarController = Em.ArrayController.extend
     repoPath = App.Path.create absolutePath: "workspace/#{@get('repository.shortName')}", directory: true
     this.openPath repoPath, error: false
 
-  openRepoReadme: ->
+  openRepoReadme: (settings = {}) ->
     App.get('container').setMetadata({readmeOpened: true})
     if (readme_url = App.get('container.env.NITROUS_README_URL'))
       editorController = @get('controllers.ideEditor')
       tab = editorController.createTab(
         content: readme_url
         path: readme_url
+        active: settings.active
+        index: settings.index
         title: 'README'
         readme: true
       , App.Iframe)
     else
       _.each ['README.md', 'README.markdown', 'README'], (readme) =>
         readmePath = App.Path.create absolutePath: "#{@get('homePath.absolutePath')}/#{readme}", directory: false
-        this.openPath readmePath, error: false
+        this.openPath readmePath, error: false, active: settings.active, index: settings.index
 
   # settings options:
   #   done: callback (document)
@@ -94,7 +114,8 @@ App.IdeSidebarController = Em.ArrayController.extend
     else
       editorController = @get('controllers.ideEditor')
       if doc = editorController.findProperty 'path', path
-        editorController.makeTabActive doc
+        unless settings.active == false
+          editorController.makeTabActive doc
         if settings.done
           settings.done(doc)
       else
@@ -169,6 +190,10 @@ App.IdeSidebarController = Em.ArrayController.extend
             tab = editorController.createTab(
               content: @downloadURL(container, path.get('absolutePath'), tokenResp.token)
               path: path
+              active: settings.active
+              index: settings.index
+              selections: settings.selections
+              scrollPosition: settings.scrollPosition
             , App.Image)
             if settings.done
               settings.done(tab)
@@ -183,6 +208,10 @@ App.IdeSidebarController = Em.ArrayController.extend
         content: content
         path: path
         contentType: contentType
+        active: settings.active
+        index: settings.index
+        selections: settings.selections
+        scrollPosition: settings.scrollPosition
       , tabClass)
       if settings.done
         settings.done(tab)

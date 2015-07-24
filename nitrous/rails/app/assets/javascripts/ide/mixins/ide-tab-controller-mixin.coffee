@@ -40,15 +40,19 @@ App.IdeTabControllerMixin = Em.Mixin.create
     @objectAt(index)
   ).property 'activeTabIndex', 'content.length'
 
-  addTab: (tab) ->
+  addTab: (tab, settings = {}) ->
     if content = @get('content')
-      content.pushObject tab
-      this.makeTabActive tab
+      if settings.index && settings.index <= content.get('length')
+        content.insertAt settings.index, tab
+      else
+        content.pushObject tab
+      unless settings.active == false
+        this.makeTabActive tab
 
   createTab: (attrs={}, modelClass=null) ->
     modelClass ||= @get('modelClass')
     tab = modelClass.create attrs
-    this.addTab tab
+    this.addTab tab, active: attrs.active, index: attrs.index
     tab
 
   makeTabActive: (tab) ->
