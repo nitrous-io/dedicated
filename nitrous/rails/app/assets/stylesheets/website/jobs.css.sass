@@ -2,6 +2,55 @@
 
 #jobs
   
+  article.job-listing
+    .container
+      display: flex
+      position: relative
+      
+      .content
+        width: 60%
+        
+      .sidebar
+        width: 26%
+        margin-left: 14%
+        
+        .btn
+          margin-top: 40px
+        
+        .small
+          width: 96%
+          font-size: 12px
+          line-height: 20px
+          margin: 10px 0 0 0
+          text-align: center
+          color: $greyLighter
+      
+      h3
+        font-size: 22px
+      
+      h4
+        text-align: left
+        padding: 20px 0
+      
+      ul
+        list-style: disc
+        list-style-position: inside
+      
+        & + h4
+          padding-top: 30px
+        
+      li
+        margin: 6px 0
+      
+      p
+        font-size: 16px
+        line-height: 26px
+        margin: 10px 0
+
+    .job-description
+      padding: 20px 0
+      
+
   .square-grid
     min-width: 1024px
     padding: 0
@@ -69,28 +118,28 @@
         color: $greyLighter
     
     .icon
-      width: 24px
-      height: 24px
-      margin-bottom: 12px
-      background: url('https://nitrous-tmp.s3.amazonaws.com/job-default.png') center center no-repeat
-      background-size: 24px 18px
+      width: 42px
+      height: 43px
+      margin-bottom: 14px
+      background: image_url('home/jobs-default.png') center center no-repeat
+      background-size: 40px 31px
   
     /* Engineering */
-    &[department_id="2494"] .icon
-      background: url('https://nitrous-tmp.s3.amazonaws.com/jobs-engineering.png') center center no-repeat
-      background-size: 24px 20px
+    &.job-eng .icon
+      background: image_url('home/jobs-engineering.png') center center no-repeat
+      background-size: 42px 35px
 
     /* Marketing */
-    &[department_id="2495"] .icon
-      background: url('https://nitrous-tmp.s3.amazonaws.com/jobs-marketing.png') center center no-repeat
-      background-size: 19px 24px
+    &.job-marketing .icon
+      background: image_url('home/jobs-marketing.png') center center no-repeat
+      background-size: 34px 43px
 
     /* Dev Rel */
-    &[department_id="2497"] .icon
-      background: url('https://nitrous-tmp.s3.amazonaws.com/jobs-devrel.png') center center no-repeat
-      background-size: 17px 24px
+    &.job-devrel .icon
+      background: image_url('home/jobs-devrel.png') center center no-repeat
+      background-size: 30px 43px
 
     /* Support */
-    &[department_id="2496"] .icon
-      background: url('https://nitrous-tmp.s3.amazonaws.com/jobs-support.png') 0 0 no-repeat
-      background-size: 24px 24px
+    &.job-support .icon
+      background: image_url('home/jobs-support.png') 0 0 no-repeat
+      background-size: 38px 39px

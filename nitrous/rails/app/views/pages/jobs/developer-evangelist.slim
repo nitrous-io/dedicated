@@ -1,0 +1,74 @@
+- @title = 'Developer Evangelist · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'jobs'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'jobs' }
+      .hero-copy
+        h2
+          | Developer Evangelist
+        h3
+          | San Francisco
+          
+  article.job-listing
+    .container
+    
+      .content
+        .job-intro
+          h3 We're changing the way the world codes.
+          p 
+            | We are a results and data-driven organization. This allows us to avoid the bureaucracy of typical large companies. We value people who are doers instead of talkers, who obsess over the details, who listen to data yet know when to trust their gut, and who empathize with our users.
+          p
+            | At Nitrous, we're making programming more enjoyable and programmers and teams more productive. As a developer evangelist at Nitrous, you will interact with beginner, amateur and professional programmers to educate them on Nitrous's most powerful features, and listen to them to help us continually improve the platform.
+
+        .job-description
+          p
+            | We are looking for developer evangelists with boundless energy who love traveling, meeting new people, and are obsessed with new technology and changing the way programmers work.
+
+          h4 Responsibilities
+          ul
+            li Giving talks and demos of new Nitrous features at conferences
+            li Writing Call for Papers and Abstracts to submit to developer conferences
+            li Traveling to conferences and representing the company
+            li Writing tutorials about how to use Nitrous with different technologies
+            li Creating "how-to" videos and other introduction videos
+
+          h4 Requirements
+          ul
+            li Excellent written and verbal communication skills
+            li Experience with public speaking, specifically on technical topics
+            li Experience demoing technical products in front of large audiences
+
+          h4 To apply, please provide the following:
+          ul
+            li Github Profile with code you've written
+            li Links to blog and/or videos of talks
+            li Links to community profiles like Twitter, Hacker News, Stack Overflow, Reddit, etc...
+            li Why you want to change development
+            
+      .sidebar
+        h4 Perks
+        ul
+          li Competitive salary &amp; equity
+          li Company-covered lunch
+          li Health, Vision &amp; Dental Insurance
+          li Choice of equipment
+          li Flexible vacation
+          li Fun company events
+          li Referral bonus program
+          li SF-Singapore exchange program
+        
+        a class="btn blue" href="mailto:jobs@nitrous.io?subject=Developer Evangelist @ Nitrous"
+          | Apply for this position
+        
+        p.small
+          | Nitrous does not accept agency resumes.
+          br
+          | Nitrous is an equal opportunity employer.
+
+
+
+= render partial: 'layouts/footer', locals: { active: 'jobs' }

@@ -1,0 +1,79 @@
+- @title = 'Software Engineer · Nitrous'
+- @html_class = 'dark'
+- @body_id = 'jobs'
+
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'jobs' }
+      .hero-copy
+        h2
+          | Software Engineer
+        h3
+          | San Francisco — Singapore
+          
+  article.job-listing
+    .container
+      
+      .content
+        .job-intro
+          h3 We're changing the way the world codes.
+          p 
+            | Nitrous software engineers are responsible for driving the user experience and performance of our web and desktop applications.
+
+        .job-description
+          p
+            | We're looking for motivated, independent thinkers who employ creative, scalable and performant solutions.
+
+          h4 Responsibilities
+          ul
+            li Build new features in Ruby, Node.js, and Ember.js
+            li Benchmark app performance and design scalable and performant systems and APIs 
+
+          h4 Technologies
+          ul
+            li Ruby on Rails, Python, Node.js, Go
+            li Docker
+            li jQuery, Ember.js
+            li PostgreSQL, Redis, Memcache
+            li Websockets
+            li Amazon Web Services
+            li RabbitMQ, AMQP
+            li Git
+          
+          h4 Requirements
+          ul
+            li A passion for cloud computing and optimization
+            li Obsessive attention to detail
+            li Risk taker, not afraid to break things to push the envelope of what's possible
+            li Degree in Computer Science or related technical field
+          
+          h4 To apply, please provide the following:
+          ul
+            li Resume
+            li Github Profile
+            li Links to side/hobby projects that you have built
+
+      .sidebar
+        h4 Perks
+        ul
+          li Competitive salary &amp; equity
+          li Company-covered lunch
+          li Health, Vision &amp; Dental Insurance
+          li Choice of equipment
+          li Flexible vacation
+          li Fun company events
+          li Referral bonus program
+          li SF-Singapore exchange program
+        
+        a class="btn blue" href="mailto:jobs@nitrous.io?subject=Software Engineer @ Nitrous"
+          | Apply for this position
+        
+        p.small
+          | Nitrous does not accept agency resumes.
+          br
+          | Nitrous is an equal opportunity employer.
+          
+
+= render partial: 'layouts/footer', locals: { active: 'jobs' }
