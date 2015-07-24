@@ -1,4 +1,3 @@
-require 'rubygems'
 require 'bundler/setup'
 require 'dotenv'
 require 'sequel'
@@ -43,13 +42,12 @@ host_ids.each_pair do |region_id, instances|
         root_volume_id = instance_info.block_device_mappings[0].ebs.volume_id
         host_id = instances[instance_id]
 
-        host_table = $db[:hosts].where(id: host_id)
+        scope = $db[:hosts].where(id: host_id)
         puts "Update host(#{instance_id})'s volume ID to #{root_volume_id}"
-        hosts.update(provider_storage_identifier: root_volume_id)
+        scope.update(provider_storage_identifier: root_volume_id)
       end
     rescue Aws::EC2::Errors::ServiceError
       puts "Failed to update some hosts"
-      next
     end
   end
 end
