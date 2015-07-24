@@ -32,6 +32,7 @@ type Container struct {
 	SSHURL          string           `json:"ssh_url,omitempty"`
 
 	Metadata map[string]string `json:"metadata"`
+	UserData map[string]string `json:"user_data"`
 
 	CreatedAt    *time.Time `json:"created_at"`
 	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
