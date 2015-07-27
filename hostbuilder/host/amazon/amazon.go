@@ -1036,11 +1036,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("create_host")
-	defer func(start time.Time) {
-		// we are interested in the final context of `h` so label is generated
-		// inside defer block
-		mh.UpdateSince(label, start)
-	}(time.Now())
+	defer mh.UpdateSince(label, time.Now())
 
 	storageSize := computeSize(h.Config.StorageSize)
 
