@@ -32,23 +32,28 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	// we filter healthy hosts so the admin hosts frontend is faster
 	var filtered []*groupedhosts.HostEntry
+	regionFilter, stateFilter, recentFilter := r.FormValue("region"), r.FormValue("state"), r.FormValue("recent")
 
 	eligible := func(he *groupedhosts.HostEntry) bool {
-		if f := r.FormValue("region"); f != "" {
-			if he.DBHost.RegionIdentifier.String != f {
+		if regionFilter != "" {
+			if he.DBHost.RegionIdentifier.String != regionFilter {
 				return false
 			}
 		}
-		if f := r.FormValue("state"); f != "" {
-			if he.DBHost.State != f {
+		if stateFilter != "" {
+			if he.DBHost.State != stateFilter {
 				return false
 			}
 		}
 
 		// the default filter that is always applied is "recently used"
 		// to turn it off, include query param 'recent=false'
-		if f := r.FormValue("recent"); f != "false" {
-			if !he.DBHost.LastPingedAt.Valid {
+		if recentFilter != "false" {
+			// LastPingedAt is not populated in two circumstances:
+			// 1. very old hosts which have not had a freighter upgrade or been started
+			// 2. newly created hosts
+			// We want to include #2 while excluding #1, hence the check against CreatedAt
+			if !he.DBHost.LastPingedAt.Valid && time.Since(*he.DBHost.CreatedAt) > recentlyUsedPeriod {
 				return false
 			}
 			return time.Since(he.DBHost.LastPingedAt.Time) < recentlyUsedPeriod
