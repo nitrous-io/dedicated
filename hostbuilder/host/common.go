@@ -26,6 +26,10 @@ func WaitForSSH(ctx *HostContext) error {
 	timeout := ctx.Done()
 	config := ctx.Host.SSHConfig()
 
+	if config.PrivateKey == nil {
+		return errors.New("host's private key is missing")
+	}
+
 	label := l.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
