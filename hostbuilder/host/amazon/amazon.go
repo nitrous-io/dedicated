@@ -858,17 +858,17 @@ func (h *Host) DriverName() string {
 	return "amazon"
 }
 
-// Printf logs the data together with the host uuid and droplet id if they are
-// avalaible
+// Printf logs a formatted string together with the request uuid and instance
+// id, if available.
 func (h *Host) Printf(format string, v ...interface{}) {
-	parts := []string{}
+	fields := logrus.Fields{}
 	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+		fields["uuid"] = h.uuid
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+		fields["instance"] = h.instance.InstanceId
 	}
-	logrus.Infof(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+	logrus.WithFields(fields).Infof(fmt.Sprintf("amazon: %s", format), v...)
 }
 
 // MetricsLabel returns the label with the current host's region if possible
