@@ -29,6 +29,8 @@ type Host struct {
 	RespecSuccess    bool   `json:"respec"`
 
 	Version string
+
+	requestID string
 }
 
 var ReceivedDriverOptions string
@@ -182,6 +184,10 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 		Username:   "action",
 		PrivateKey: key,
 	}
+}
+
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
 }
 
 func New(driverOptions string, hostOptions string) (host.Host, error) {

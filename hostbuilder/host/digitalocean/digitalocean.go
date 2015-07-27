@@ -89,7 +89,8 @@ type Host struct {
 	droplet    *godo.Droplet
 	privateKey *rsa.PrivateKey
 	sshKey     *godo.Key
-	uuid       string
+
+	requestID string
 }
 
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
@@ -136,29 +137,29 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
+			host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, errorMsg, queue.Create)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
 			return nil, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, step.Description, queue.Create)
 	}
 
 	if h.sshKey != nil {
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...", queue.Create)
 		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
+			host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...Failed!", queue.Create)
 			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...Done!", queue.Create)
 	}
 
 	info := h.dropletToInfo()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, info, queue.Create, "")
 	return info, nil
 }
 
@@ -321,14 +322,14 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	id, err := h.id()
 	if err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
@@ -336,25 +337,25 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err
@@ -399,12 +400,12 @@ func (h *Host) DriverName() string {
 	return "digitalocean"
 }
 
-// Printf logs the data together with the host uuid and droplet id if they are
+// Printf logs the data together with the host requestID and droplet id if they are
 // avalaible
 func (h *Host) Printf(format string, v ...interface{}) {
 	parts := []string{}
-	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	if h.requestID != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.requestID))
 	}
 	if h.droplet != nil {
 		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
@@ -453,6 +454,10 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
+}
+
 func (h *Host) id() (int, error) {
 	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
@@ -463,7 +468,7 @@ func (h *Host) id() (int, error) {
 
 func (h *Host) waitForAction(id int, timeout time.Duration) error {
 	info := map[string]interface{}{
-		"uuid": h.uuid,
+		"uuid": h.requestID,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -606,7 +611,7 @@ func createDroplet(ctx *host.HostContext) error {
 
 	if len(dropletRoot.Links.Actions) > 0 {
 		info := map[string]interface{}{
-			"uuid": h.uuid,
+			"uuid": h.requestID,
 		}
 		la := dropletRoot.Links.Actions[0]
 

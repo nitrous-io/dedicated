@@ -111,7 +111,8 @@ type Host struct {
 	driverConfig
 
 	Config *HostConfig
-	uuid   string // request UUID set by user
+
+	requestID string
 
 	// ec2 properties
 	auth     aws.Auth // this is used when we want to query all known regions
@@ -240,7 +241,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.Printf(errorMsg)
 			h.logFailed()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
+			host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, errorMsg, queue.Create)
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
 				return inf, ErrCreateTimeout
@@ -249,10 +250,10 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			return inf, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, step.Description, queue.Create)
 	}
 	info, err := h.Info()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, info, queue.Create, "")
 	return info, err
 }
 
@@ -677,22 +678,22 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
-	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, mh.Error(err, label)
 	}
@@ -705,18 +706,18 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 	} else {
-		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, err)
 	}
 
 	return info, err
@@ -890,8 +891,8 @@ func (h *Host) DriverName() string {
 // id, if available.
 func (h *Host) Printf(format string, v ...interface{}) {
 	fields := logrus.Fields{}
-	if h.uuid != "" {
-		fields["uuid"] = h.uuid
+	if h.requestID != "" {
+		fields["uuid"] = h.requestID
 	}
 	if h.instance != nil {
 		fields["instance"] = h.instance.InstanceId
@@ -949,6 +950,10 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 		Username:   "ubuntu",
 		PrivateKey: kp.privateKey,
 	}
+}
+
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
 }
 
 // reloadInstance reloads the current instance associated with this Host to the
