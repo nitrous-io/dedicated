@@ -6,6 +6,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -80,9 +81,18 @@ func publishSubscriptionEvent(env *middleware.Env, ev controllers.EventName, sub
 		return err
 	}
 
+	subSer := serializers.SerializeSubscription(sWSlug)
+
+	pl, err := plan.FindByID(env.DB, sub.PlanID)
+	if err != nil {
+		logrus.Errorf("Error locating plan for Subscription %d, err: %v", sub.ID, err)
+	} else {
+		subSer.Plan = serializers.SerializePlan(pl)
+	}
+
 	env.Events.Publish(
 		controllers.NewEvent(ev, map[string]interface{}{
-			"subscription": serializers.SerializeSubscription(sWSlug),
+			"subscription": subSer,
 		}),
 		u.Topic(),
 	)

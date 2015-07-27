@@ -21,6 +21,8 @@ type Subscription struct {
 	UpdatedAt *time.Time `json:"updated_at"`
 
 	HostSlug string `json:"host_slug,omitempty"`
+
+	Plan *Plan `json:"plan,omitempty"`
 }
 
 func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscription {

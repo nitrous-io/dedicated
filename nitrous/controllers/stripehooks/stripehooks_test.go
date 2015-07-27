@@ -306,6 +306,7 @@ var _ = Describe("controllers/stripehooks", func() {
 						MaxContainers: 1,
 						Price:         1499,
 						StripePlanID:  sql.NullString{"stripe-plan-id", true},
+						Hidden:        true,
 					}
 					Expect(pl.Insert(db)).To(BeNil())
 
@@ -368,6 +369,8 @@ var _ = Describe("controllers/stripehooks", func() {
 					Expect(ok).To(BeTrue())
 					Expect(s.Slug).To(Equal(sub.Slug))
 					Expect(s.HostSlug).To(BeEmpty())
+					Expect(s.Plan).ToNot(BeNil())
+					Expect(s.Plan.Slug).To(Equal("hs1Plan"))
 				})
 
 				It("should publish the host slug if available", func() {
@@ -406,6 +409,8 @@ var _ = Describe("controllers/stripehooks", func() {
 					Expect(ok).To(BeTrue())
 					Expect(s.Slug).To(Equal(sub.Slug))
 					Expect(s.HostSlug).To(Equal("my-host-1"))
+					Expect(s.Plan).ToNot(BeNil())
+					Expect(s.Plan.Slug).To(Equal("hs1Plan"))
 				})
 			})
 		})
