@@ -70,6 +70,17 @@ type driverConfig struct {
 	Env           string `json:"env"` // Created instances will be tagged with "dedicated=<Env>".
 	CreateTimeout string `json:"create_timeout"`
 	NotifyURL     string `json:"notify_url"`
+	Regions       []struct {
+		ID      string `json:"id"`
+		Keypair struct {
+			Name           string `json:"name"`
+			PrivateKeyPath string `json:"private_key_path"`
+		} `json:"keypair"`
+		InstancePool []struct {
+			Type string `json:"type"`
+			Max  int    `json:"max"`
+		} `json:"instance_pool"`
+	} `json:"regions"`
 
 	// TODO Super hacky - refactor this when we refactor hostbuilder drivers.
 	IgnoreRegion string `json:"ignore_region"`

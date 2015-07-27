@@ -11,7 +11,31 @@
       "secret_key": "",
       "env": "development",
       "create_timeout": "5m",
-      "notify_url": "http://pro.n2odev.com:3333/api/v0/hosts/{{slug}}/freighterd_hook"
+      "notify_url": "http://pro.n2odev.com:3333/api/v0/hosts/{{slug}}/freighterd_hook",
+      "regions": [
+        {
+          "id": "us-west-2",
+          "keypair": {
+            "name": "hostbuilder.us-west-2.dev",
+            "private_key_path": "/opt/hostbuilder/keypairs/us-west-2.pem"
+          },
+          "instance_pool": [
+            { "type": "t2.micro", "max": 5 },
+            { "type": "t2.small", "max": 2 },
+            { "type": "t2.medium", "max": 1 }
+          ]
+        },
+        {
+          "id": "ap-southeast-1",
+          "keypair": {
+            "name": "hostbuilder.ap-southeast-1.dev",
+            "private_key_path": "/opt/hostbuilder/keypairs/ap-southeast-1.pem"
+          },
+          "instance_pool": [
+            { "type": "t2.micro", "max": 2 }
+          ]
+        }
+      ]
     },
     "digitalocean": {
       "token": "",
