@@ -452,7 +452,6 @@ func (s *Server) driverFromRequest(r *http.Request, customConfig map[string]stri
 	for k, v := range customConfig {
 		providerConfig[k] = v
 	}
-	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
 	b, err := json.Marshal(providerConfig)
 	if err != nil {
 		return nil, err
@@ -463,7 +462,14 @@ func (s *Server) driverFromRequest(r *http.Request, customConfig map[string]stri
 		hostConfig = "{}"
 	}
 
-	return host.NewDriver(provider, string(b), hostConfig)
+	driver, err := host.NewDriver(provider, string(b), hostConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	driver.SetRequestID(r.Header.Get(NitrousUUIDHeader))
+
+	return driver, nil
 }
 
 func (s *Server) createRouter() {

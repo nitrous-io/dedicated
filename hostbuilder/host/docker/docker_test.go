@@ -76,9 +76,12 @@ var _ = Describe("host/docker", func() {
 					"endpoint":            "%s",
 					"freighterd_location": "/bin/true"
 				}`, server.URL()),
-				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"], "uuid": "uuid-111"}`,
+				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
 			Expect(err).To(BeNil())
+
+			h.SetRequestID("uuid-111")
+
 			queueInfo = &host.QueueInfo{
 				ID:     123,
 				Slug:   "go-124",
@@ -221,10 +224,12 @@ var _ = Describe("host/docker", func() {
 					"endpoint":            "%s",
 					"freighterd_location": "/bin/true"
 				}`, server.URL()),
-				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"], "uuid": "uuid-111"}`,
+				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
-
 			Expect(err).To(BeNil())
+
+			h.SetRequestID("uuid-111")
+
 			queueInfo = &host.QueueInfo{
 				ID:     123,
 				Slug:   "go-124",

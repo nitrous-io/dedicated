@@ -53,7 +53,7 @@ type Host struct {
 	TLS        *tlsConfig `json:"tls"`
 	Secret     string     `json:"secret"`
 
-	UUID string `json:"uuid"`
+	requestID string
 
 	client *dockerclient.Client
 }
@@ -64,20 +64,20 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	host.PublishMessage(qp, event.HostCreating, h.UUID, queueInfo, "Creating host", queue.Create)
+	host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Creating host", queue.Create)
 	imageName, err := h.createImage()
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.UUID, queueInfo, "Failed to create host's image", queue.Create)
+		host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, "Failed to create host's image", queue.Create)
 		return nil, err
 	}
-	host.PublishMessage(qp, event.HostCreating, h.UUID, queueInfo, "Created host image", queue.Create)
+	host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Created host image", queue.Create)
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.UUID, queueInfo, "Failed to create host's container", queue.Create)
+		host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, "Failed to create host's container", queue.Create)
 		return nil, err
 	}
-	host.PublishHost(qp, event.HostCreated, h.UUID, queueInfo, c, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, c, queue.Create, "")
 	return c, nil
 }
 
@@ -101,14 +101,14 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 }
 
 func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	host.PublishMessage(qp, event.HostRespeccing, h.uuid, queueInfo, "Respeccing host", queue.Respec)
+	host.PublishMessage(qp, event.HostRespeccing, h.requestID, queueInfo, "Respeccing host", queue.Respec)
 	inf, err := h.Info()
 	if err != nil {
-		host.PublishMessage(qp, event.HostRespecFailed, h.uuid, queueInfo, err.Error(), queue.Respec)
+		host.PublishMessage(qp, event.HostRespecFailed, h.requestID, queueInfo, err.Error(), queue.Respec)
 		return nil, err
 	}
 
-	host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, inf, queue.Respec, "")
+	host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, inf, queue.Respec, "")
 	return inf, nil
 }
 
@@ -178,24 +178,24 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	host.PublishMessage(qp, event.HostStopping, h.UUID, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
 		case *dockerclient.ContainerNotRunning:
 			info, hostInfoErr := h.Info()
 			if hostInfoErr == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.UUID, queueInfo, info, queue.Stop, "Containers are not running")
+				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, "Containers are not running")
 			} else {
-				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.UUID, hostInfoErr)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
 			}
 			return info, err
 		default:
 			info, hostInfoErr := h.Info()
 			if hostInfoErr == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.UUID, queueInfo, info, queue.Stop, err.Error())
+				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 			} else {
-				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.UUID, hostInfoErr)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
 			}
 			return info, err
 		}
@@ -203,7 +203,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.UUID, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err
@@ -239,6 +239,10 @@ func (h *Host) Settings() *host.Settings {
 
 func (h *Host) SSHConfig() *host.SSHConfig {
 	return nil
+}
+
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
 }
 
 // configFile is used to marshal/unmarshal /etc/freighter/config.json.

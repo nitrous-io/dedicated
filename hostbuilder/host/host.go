@@ -110,6 +110,8 @@ type Host interface {
 	Settings() *Settings
 	// SSHConfig returns the configuration to login to the remote host
 	SSHConfig() *SSHConfig
+
+	SetRequestID(id string)
 }
 
 type Logger interface {
