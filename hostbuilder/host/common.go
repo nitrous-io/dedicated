@@ -46,7 +46,7 @@ func WaitForSSH(ctx *HostContext) error {
 
 // create settings for the host with the provided dynamic properties.
 func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
-	settings := &Settings{
+	return &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
 		Config: &freighter.Config{
@@ -67,7 +67,6 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 		Version:    version,
 		PublicKeys: publicKeys,
 	}
-	return settings
 }
 
 // WriteSettings uploads necessary file system contents to the host, which
@@ -81,11 +80,6 @@ func WriteSettings(ctx *HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 	if conn == nil {
 		return mh.Error(errors.New("invalid SSH connection"), label)
-	}
-
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range settings.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
 	}
 
 	aptSourcesBuf := bytes.NewBuffer(nil)
@@ -104,9 +98,15 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(err, label)
 	}
 
-	pubKeyLocation := filepath.Join(settings.Home, ".ssh", "authorized_keys")
-	fl, err := uploadFile(l, conn, map[string]io.Reader{
-		pubKeyLocation:  pubKeysBuf,
+	// Append to ~/.ssh/authorized_keys file so that any existing keys are
+	// preserved.
+	authorizedKeysPath := filepath.Join(settings.Home, ".ssh", "authorized_keys")
+	cmd := fmt.Sprintf(`echo -e %q >> %s`, strings.Join(settings.PublicKeys, "\n"), authorizedKeysPath)
+	if err := conn.Execute(cmd); err != nil {
+		return mh.Error(err, label)
+	}
+
+	files, err := uploadFiles(l, conn, map[string]io.Reader{
 		SourceLocation:  aptSourcesBuf,
 		TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
 		TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
@@ -114,7 +114,7 @@ func WriteSettings(ctx *HostContext) error {
 		SecretLocation:  strings.NewReader(settings.Secret),
 		ConfigLocation:  bytes.NewBuffer(cfgb),
 	})
-	l.Printf("Uploaded (%s) to %v", pubKeyLocation, strings.Join(fl, ", "))
+	l.Printf("Uploaded files to %s", strings.Join(files, ", "))
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -196,7 +196,7 @@ func UpdateSoftware(ctx *HostContext) error {
 	return nil
 }
 
-func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
+func uploadFiles(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
 	flist := []string{}
 	// upload to tmp directory then mv to dest path to avoid permissions issues
 	for dest, val := range files {
