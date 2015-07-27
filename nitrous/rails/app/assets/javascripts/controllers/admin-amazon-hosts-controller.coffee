@@ -45,6 +45,12 @@ selectedDbHosts = (entries) ->
     entry.db_host
 
 App.AdminAmazonHostsController = Em.Controller.extend
+  queryParams: ['recent', 'region', 'state', 'slug']
+  recent: null
+  region: null
+  state: null
+  slug: null
+
   showFixBorn: false
   hostbuilderLog: null
   showHealthyHosts: false
@@ -68,6 +74,11 @@ App.AdminAmazonHostsController = Em.Controller.extend
     Em.$.ajax(
       type: 'GET'
       url: '/api/v0/admin/amazon/hosts'
+      data:
+        recent: @get('recent')
+        region: @get('region')
+        state: @get('state')
+        slug: @get('slug')
       headers: { Authorization: "Bearer #{App.get 'token'}" }
     )
     .then((data) =>
