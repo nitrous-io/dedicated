@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
@@ -32,7 +33,15 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	// we filter healthy hosts so the admin hosts frontend is faster
 	var filtered []*groupedhosts.HostEntry
-	regionFilter, stateFilter, recentFilter := r.FormValue("region"), r.FormValue("state"), r.FormValue("recent")
+
+	rf := r.FormValue // purely for brevity
+
+	// these are exact matches
+	regionFilter, stateFilter := rf("region"), rf("state")
+	// these are 'contains' filters
+	slugFilter := rf("slugFilter")
+	// this is a special case (default true, must be "false" to disable)
+	recentFilter := rf("recent")
 
 	eligible := func(he *groupedhosts.HostEntry) bool {
 		if regionFilter != "" {
@@ -42,6 +51,11 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		if stateFilter != "" {
 			if he.DBHost.State != stateFilter {
+				return false
+			}
+		}
+		if slugFilter != "" {
+			if !strings.Contains(he.DBHost.Slug, slugFilter) {
 				return false
 			}
 		}
