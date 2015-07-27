@@ -1,10 +1,13 @@
 package amazon
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"sync"
@@ -115,8 +118,9 @@ type Host struct {
 	provider *ec2.EC2
 	instance *ec2.Instance
 
-	// the following settings are only available during the creation phase
-	keypair *keypair // temporary keypair of the instance
+	// Caches keypair so that we don't have to parse config and read the private
+	// key file multiple times.
+	keypair *keypair
 
 	// For respec.
 	userVolume *ec2.Volume
@@ -176,24 +180,9 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		if hctx.Executor != nil {
 			hctx.Executor.Close()
 		}
-
-		if h.keypair != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
-			h.Printf("keyID=%s Removing key...", h.keypair.name)
-			if err := h.keypair.Delete(); err != nil {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
-				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
-			} else {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
-			}
-		}
 	}()
 
 	steps := []host.Step{
-		{
-			Description: "Creating key",
-			Func:        createKeypair,
-		},
 		{
 			Description: "Checking image's availability",
 			Func:        inspectSourceAMI,
@@ -947,14 +936,18 @@ func (h *Host) Name() string {
 	return strings.Replace(h.Config.Name, "{{env}}", env, -1)
 }
 
-// SSHConfig returns the host's SSH confiration. This configuration is only
-// valid during creation phase.
+// SSHConfig returns the host's SSH confiration.
 func (h *Host) SSHConfig() *host.SSHConfig {
+	kp, err := h.regionKeypair()
+	if err != nil {
+		h.Printf("error getting region keypair, err: %v", err)
+	}
+
 	return &host.SSHConfig{
 		IPAddress:  h.instance.PublicIpAddress,
 		Port:       host.SSHPort,
 		Username:   "ubuntu",
-		PrivateKey: h.keypair.privateKey,
+		PrivateKey: kp.privateKey,
 	}
 }
 
@@ -969,6 +962,35 @@ func (h *Host) generateNotifyURL() string {
 	return strings.Replace(h.driverConfig.NotifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
+func (h *Host) regionKeypair() (*keypair, error) {
+	if h.keypair != nil {
+		return h.keypair, nil
+	}
+
+	for _, r := range h.driverConfig.Regions {
+		if r.ID != h.Config.RegionID {
+			continue
+		}
+
+		path := r.Keypair.PrivateKeyPath
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("error reading private key at %q, err: %v", path, err)
+		}
+		block, _ := pem.Decode(data)
+		pk, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse a valid RSA private key from %q, err: %v", path, err)
+		}
+
+		h.keypair = &keypair{name: r.Keypair.Name, privateKey: pk}
+
+		return h.keypair, nil
+	}
+
+	return nil, fmt.Errorf("private key not configured for region %q", h.Config.RegionID)
+}
+
 // progressLog writes the message to the given writer and logs the message,
 // prefixing host information.  It is used for user-facing messages.  Use
 // `h.Printf` for internal logging.
@@ -979,11 +1001,7 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 
 func (h *Host) logFailed() {
 	if h.instance != nil {
-		if h.keypair != nil {
-			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
-		} else {
-			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
-		}
+		h.Printf("Leaving instance for inspection: %s", h.instance.InstanceId)
 	}
 }
 
@@ -1031,23 +1049,6 @@ func init() {
 	})
 }
 
-// createKeypair create a temporary keypair using Amazon API, store the
-// temporary private key so we can connect to the host during the creation
-// phase. The keypair should be deleted after provisioning finishes.
-func createKeypair(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("create_key")
-	defer mh.UpdateSince(label, time.Now())
-
-	// generate key pair
-	k, err := generateTempKeypair(h.provider)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	h.keypair = k
-	return nil
-}
-
 // inspectSourceAMI checks that the requested AMI exists and can be used with
 // the current settings.
 func inspectSourceAMI(ctx *host.HostContext) error {
@@ -1063,8 +1064,8 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 	return nil
 }
 
-// createInstance runs the instance with specified config and a temporary
-// keypair and wait for it to be ready.
+// createInstance launches a new instance with host's Config and waits for it to
+// enter the "running" state.
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("create_host")
@@ -1075,8 +1076,13 @@ func createInstance(ctx *host.HostContext) error {
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
 
+	kp, err := h.regionKeypair()
+	if err != nil {
+		return mh.Error(fmt.Errorf("amazon: failed to get region keypair %v", err), label)
+	}
+
 	opts := &ec2.RunInstances{
-		KeyName:        h.keypair.name,
+		KeyName:        kp.name,
 		ImageId:        h.Config.SourceAMI,
 		InstanceType:   h.Config.InstanceType,
 		SecurityGroups: h.Config.securityGroups(),
