@@ -15,10 +15,13 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   hostSlug: attr('string', as: 'host_slug')
   cancelPending: attr('boolean', as: 'cancel_pending')
 
+  _plan: attr('object', as: 'plan')
+
   plan: (->
-    if planId = @get('planId')
-      App.get('plans').findBy('id', planId)
-  ).property 'planId', 'App.plans.@each'
+    p = App.Plan.create()
+    p.load @get('_plan')
+    p
+  ).property '_plan'
 
   totalPriceInDollars: (->
     return unless @get 'plan'

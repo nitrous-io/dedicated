@@ -86,7 +86,8 @@ var _ = Describe("controllers/amazon", func() {
 
 	Describe("GET /api/v0/admin/amazon/hosts", func() {
 		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/amazon/hosts", nil)
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/admin/amazon/hosts",
+				&url.Values{"recent": []string{"false"}})
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
