@@ -31,7 +31,7 @@ type Host struct {
 	Version string
 }
 
-var ReceivedNewHostDefaultConfig map[string]string
+var ReceivedDriverOptions string
 
 func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	if !h.UpdateSuccess {
@@ -196,10 +196,10 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
-	ReceivedNewHostDefaultConfig = driverOptions
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	ReceivedDriverOptions = driverOptions
 	var host Host
-	json.Unmarshal([]byte(config), &host)
+	json.Unmarshal([]byte(hostOptions), &host)
 	return &host, nil
 }
 

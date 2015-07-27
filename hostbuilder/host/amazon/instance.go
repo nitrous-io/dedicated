@@ -39,8 +39,8 @@ func modifyInstanceType(provider instanceProvider, h *Host, instanceType string)
 
 func setTags(provider instanceProvider, h *Host) {
 	tags := []ec2.Tag{{"Name", h.Name()}}
-	if h.env != "" {
-		tags = append(tags, ec2.Tag{"dedicated", h.env})
+	if h.Env != "" {
+		tags = append(tags, ec2.Tag{"dedicated", h.Env})
 	}
 	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {

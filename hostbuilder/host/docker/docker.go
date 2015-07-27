@@ -37,17 +37,24 @@ type tlsConfig struct {
 	Key  string `json:"key"`
 }
 
-type Host struct {
-	ID                 string     `json:"id"`
-	Name               string     `json:"name"`
-	PublicKeys         []string   `json:"public_keys"`
-	IpAddress          string     `json:"ip_address"`
-	FreighterdLocation string     `json:"freighterd_location"`
-	DockerLocation     string     `json:"docker_location"`
-	TLS                *tlsConfig `json:"tls"`
-	Secret             string     `json:"secret"`
+type driverConfig struct {
+	Endpoint           string `json:"endpoint"`
+	FreighterdLocation string `json:"freighterd_location"`
+	DockerLocation     string `json:"docker_location"`
+}
 
-	uuid   string // request UUID set by user
+type Host struct {
+	driverConfig
+
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	PublicKeys []string   `json:"public_keys"`
+	IpAddress  string     `json:"ip_address"`
+	TLS        *tlsConfig `json:"tls"`
+	Secret     string     `json:"secret"`
+
+	UUID string `json:"uuid"`
+
 	client *dockerclient.Client
 }
 
@@ -57,20 +64,20 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	for i, k := range h.PublicKeys {
 		h.PublicKeys[i] = strings.TrimSpace(k)
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Creating host", queue.Create)
+	host.PublishMessage(qp, event.HostCreating, h.UUID, queueInfo, "Creating host", queue.Create)
 	imageName, err := h.createImage()
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's image", queue.Create)
+		host.PublishMessage(qp, event.HostCreateFailed, h.UUID, queueInfo, "Failed to create host's image", queue.Create)
 		return nil, err
 	}
-	host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Created host image", queue.Create)
+	host.PublishMessage(qp, event.HostCreating, h.UUID, queueInfo, "Created host image", queue.Create)
 
 	c, err := h.createContainer(imageName)
 	if err != nil {
-		host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, "Failed to create host's container", queue.Create)
+		host.PublishMessage(qp, event.HostCreateFailed, h.UUID, queueInfo, "Failed to create host's container", queue.Create)
 		return nil, err
 	}
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, c, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.UUID, queueInfo, c, queue.Create, "")
 	return c, nil
 }
 
@@ -171,24 +178,24 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.UUID, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.client.StopContainer(h.ID, uint(5)); err != nil {
 		switch err.(type) {
 		case *dockerclient.ContainerNotRunning:
 			info, hostInfoErr := h.Info()
 			if hostInfoErr == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, "Containers are not running")
+				host.PublishHost(qp, event.HostStopFailed, h.UUID, queueInfo, info, queue.Stop, "Containers are not running")
 			} else {
-				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.UUID, hostInfoErr)
 			}
 			return info, err
 		default:
 			info, hostInfoErr := h.Info()
 			if hostInfoErr == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+				host.PublishHost(qp, event.HostStopFailed, h.UUID, queueInfo, info, queue.Stop, err.Error())
 			} else {
-				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+				logrus.Debugf("[ERROR] uuid=%s docker: failed to send a message due to failure on getting host info: %v", h.UUID, hostInfoErr)
 			}
 			return info, err
 		}
@@ -196,7 +203,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.UUID, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err
@@ -312,33 +319,32 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 	return info, nil
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
-	host := &Host{
-		uuid: driverOptions["uuid"], // this is injected by the server per request
-	}
-	if err := json.Unmarshal([]byte(config), host); err != nil {
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverConfig := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
-	// fetch docker client endpoint from driverOptions
-	endpoint, ok := driverOptions["endpoint"]
-	if !ok {
-		endpoint = "unix:///var/run/docker.sock"
-	}
 
-	freighterdLocation, _ := driverOptions["freighterd_location"]
-	_, err := exec.LookPath(freighterdLocation)
+	_, err := exec.LookPath(driverConfig.FreighterdLocation)
 	if err != nil {
-		return nil, fmt.Errorf("Error finding freighterd binary at %s: %v", freighterdLocation, err)
+		return nil, fmt.Errorf("Error finding freighterd binary at %q: %v", driverConfig.FreighterdLocation, err)
 	}
 
-	host.FreighterdLocation = freighterdLocation
-
-	dockerLocation, _ := driverOptions["docker_location"]
-	if dockerLocation != "" {
+	if dockerLocation := driverConfig.DockerLocation; dockerLocation != "" {
 		if _, err := exec.LookPath(dockerLocation); err != nil {
-			return nil, fmt.Errorf("Error finding docker binary at %q: %s", dockerLocation, err)
+			return nil, fmt.Errorf("Error finding docker binary at %q: %v", dockerLocation, err)
 		}
-		host.DockerLocation = dockerLocation
+	}
+
+	endpoint := "unix:///var/run/docker.sock"
+	if driverConfig.Endpoint != "" {
+		endpoint = driverConfig.Endpoint
+	}
+
+	host := &Host{driverConfig: driverConfig}
+	if err := json.Unmarshal([]byte(hostOptions), host); err != nil {
+		return nil, err
 	}
 
 	client, err := dockerclient.NewClient(endpoint)
@@ -352,10 +358,10 @@ func New(driverOptions map[string]string, config string) (host.Host, error) {
 
 func (h *Host) start() (*host.Info, error) {
 	binds := []string{
-		fmt.Sprintf("%s:/freighterd", h.FreighterdLocation),
+		fmt.Sprintf("%s:/freighterd", h.driverConfig.FreighterdLocation),
 	}
-	if h.DockerLocation != "" {
-		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.DockerLocation))
+	if h.driverConfig.DockerLocation != "" {
+		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.driverConfig.DockerLocation))
 	}
 
 	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
