@@ -36,6 +36,30 @@ var (
 	tenderDropletNameRegex *regexp.Regexp = regexp.MustCompile(`tender.[A-Za-z0-9\-]+.com`)
 )
 
+type driverConfig struct {
+	Token         string `json:"token"`
+	NotifyURL     string `json:"notify_url"`
+	CreateTimeout string `json:"create_timeout"`
+
+	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
+	cachedCreateTimeout time.Duration
+}
+
+func (c *driverConfig) createTimeout() time.Duration {
+	if c.cachedCreateTimeout != 0 {
+		return c.cachedCreateTimeout
+	}
+
+	t := DefaultCreateTimeout
+	d, err := time.ParseDuration(c.CreateTimeout)
+	if err == nil {
+		t = d
+	}
+	c.cachedCreateTimeout = t
+
+	return t
+}
+
 type HostConfig struct {
 	ID         string          `json:"id"`
 	HostID     int64           `json:"host_id"` // database id of the host
@@ -57,15 +81,15 @@ type HostConfig struct {
 }
 
 type Host struct {
+	driverConfig
+
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet       *godo.Droplet
-	privateKey    *rsa.PrivateKey
-	sshKey        *godo.Key
-	uuid          string
-	notifyURL     string
-	createTimeout time.Duration
+	droplet    *godo.Droplet
+	privateKey *rsa.PrivateKey
+	sshKey     *godo.Key
+	uuid       string
 }
 
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
@@ -73,7 +97,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
 	hctx := host.NewContext(ctx, h, h, nil)
@@ -486,35 +510,35 @@ func (h *Host) logFailedDroplet() {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
+	return strings.Replace(h.driverConfig.NotifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
-	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s digitalocean: invalid config %s", driverOptions["uuid"], config)
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverConfig := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
-	if driverOptions["token"] == "" {
-		return nil, errors.New("digitalocean builder requires valid access token")
+
+	hostConfig := &HostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostConfig); err != nil {
+		logrus.Errorf("uuid=%s digitalocean: invalid host config: %s", hostOptions)
+		return nil, err
 	}
-	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(driverOptions["create_timeout"])
-	if err == nil {
-		createTimeout = d
+
+	if driverConfig.Token == "" {
+		return nil, errors.New("digitalocean: requires valid access token")
 	}
+
 	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: driverOptions["token"]},
+		Token: &oauth.Token{AccessToken: driverConfig.Token},
 	}
 	client := godo.NewClient(t.Client())
-	host := &Host{
-		Config:        hostConfig,
-		Client:        client,
-		uuid:          driverOptions["uuid"],
-		notifyURL:     driverOptions["notify_url"],
-		createTimeout: createTimeout,
-	}
-	return host, nil
+	return &Host{
+		driverConfig: driverConfig,
+		Config:       hostConfig,
+		Client:       client,
+	}, nil
 }
 
 func init() {

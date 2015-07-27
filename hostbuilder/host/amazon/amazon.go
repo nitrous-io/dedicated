@@ -62,12 +62,42 @@ var (
 	}
 )
 
+// driverConfig stores driver configuration, such as Amazon EC2 access/secret
+// keys, timeouts.
+type driverConfig struct {
+	AccessKey     string `json:"access_key"`
+	SecretKey     string `json:"secret_key"`
+	Env           string `json:"env"` // Created instances will be tagged with "dedicated=<Env>".
+	CreateTimeout string `json:"create_timeout"`
+	NotifyURL     string `json:"notify_url"`
+
+	// TODO Super hacky - refactor this when we refactor hostbuilder drivers.
+	IgnoreRegion string `json:"ignore_region"`
+
+	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
+	cachedCreateTimeout time.Duration
+}
+
+func (c *driverConfig) createTimeout() time.Duration {
+	if c.cachedCreateTimeout != 0 {
+		return c.cachedCreateTimeout
+	}
+
+	t := DefaultCreateTimeout
+	d, err := time.ParseDuration(c.CreateTimeout)
+	if err == nil {
+		t = d
+	}
+	c.cachedCreateTimeout = t
+
+	return t
+}
+
 type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	notifyURL    string // to be set in builder's config
-	uuid         string // request UUID set by user
-	env          string // env tag to be set for each instance
+	driverConfig
+
+	Config *HostConfig
+	uuid   string // request UUID set by user
 
 	// ec2 properties
 	auth     aws.Auth // this is used when we want to query all known regions
@@ -75,8 +105,7 @@ type Host struct {
 	instance *ec2.Instance
 
 	// the following settings are only available during the creation phase
-	keypair       *keypair      // temporary keypair of the instance
-	createTimeout time.Duration // limit of instance's creation time
+	keypair *keypair // temporary keypair of the instance
 
 	// For respec.
 	userVolume *ec2.Volume
@@ -117,11 +146,9 @@ type HostConfig struct {
 	FreighterdVersion string          `json:"freighterd_version"`
 }
 
-func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
+func (c *HostConfig) securityGroups() []ec2.SecurityGroup {
 	return []ec2.SecurityGroup{
-		ec2.SecurityGroup{
-			Id: h.SecurityGroupID,
-		},
+		{Id: c.SecurityGroupID},
 	}
 }
 
@@ -130,7 +157,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
 	hctx := host.NewContext(ctx, h, h, nil)
@@ -466,7 +493,7 @@ func snapshotUserVolume(ctx *host.HostContext) error {
 
 	tags := []ec2.Tag{
 		{Key: "InstanceID", Value: h.instance.InstanceId},
-		{Key: "dedicated", Value: h.env},
+		{Key: "dedicated", Value: h.driverConfig.Env},
 	}
 	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
 		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
@@ -809,7 +836,7 @@ func (h *Host) List() ([]*host.Info, error) {
 						checkInstance := false
 						// Tags is array of Tag. There is no way to check tag by key
 						for _, tag := range instance.Tags {
-							if tag.Key == "dedicated" && tag.Value == h.env {
+							if tag.Key == "dedicated" && tag.Value == h.driverConfig.Env {
 								checkInstance = true
 								break
 							}
@@ -902,7 +929,7 @@ func (h *Host) Settings() *host.Settings {
 
 // Name returns the name of the host, injecting env if available
 func (h *Host) Name() string {
-	env := h.env
+	env := h.driverConfig.Env
 	if env == "" {
 		env = "env"
 	}
@@ -928,7 +955,7 @@ func (h *Host) reloadInstance(id string) error {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
+	return strings.Replace(h.driverConfig.NotifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
 // progressLog writes the message to the given writer and logs the message,
@@ -949,47 +976,38 @@ func (h *Host) logFailed() {
 	}
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverConfig := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
+		return nil, err
+	}
+
 	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s amazon: invalid config %s", driverOptions["uuid"], config)
+	if err := json.Unmarshal([]byte(hostOptions), hostConfig); err != nil {
+		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
 		return nil, err
 	}
-	accessConfig := &AccessConfig{
-		AccessKey: driverOptions["access_key"],
-		SecretKey: driverOptions["secret_key"],
-		RawRegion: hostConfig.RegionID,
-	}
-	auth, err := accessConfig.Auth()
+
+	auth, err := aws.GetAuth(driverConfig.AccessKey, driverConfig.SecretKey)
 	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", driverOptions["uuid"], err)
+		logrus.Errorf("amazon: auth failed %v", err)
 		return nil, err
-	}
-	// get create timeout
-	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(driverOptions["create_timeout"])
-	if err == nil {
-		createTimeout = d
 	}
 
 	host := &Host{
-		AccessConfig:  accessConfig,
-		Config:        hostConfig,
-		auth:          auth,
-		createTimeout: createTimeout,
-		uuid:          driverOptions["uuid"], // this is injected by the server per request
-		notifyURL:     driverOptions["notify_url"],
-		env:           driverOptions["env"],
+		driverConfig: driverConfig,
+		Config:       hostConfig,
+		auth:         auth,
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if _, ok := driverOptions["ignore_region"]; !ok {
-		region, err := accessConfig.Region()
-		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", driverOptions["uuid"], err)
-			return nil, err
+	if driverConfig.IgnoreRegion != "true" {
+		region, ok := aws.Regions[hostConfig.RegionID]
+		if !ok {
+			return nil, fmt.Errorf("amazon: invalid region %q", hostConfig.RegionID)
 		}
 		host.provider = ec2.New(auth, region)
 	}

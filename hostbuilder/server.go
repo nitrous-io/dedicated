@@ -95,8 +95,8 @@ type Server struct {
 }
 
 // Return a copy of the original provider config for safe local mutation.
-func (s *Server) providerConfig(provider string) map[string]string {
-	cp := make(map[string]string)
+func (s *Server) providerConfig(provider string) map[string]interface{} {
+	cp := make(map[string]interface{})
 	for k, v := range s.Config.Providers[provider] {
 		cp[k] = v
 	}
@@ -123,47 +123,49 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return mh.Error(err, fmt.Sprintf("create.%s", r.Form.Get("provider")))
 	}
-	logrus.Infof("uuid=%s Creating a host using provider %s", r.Header.Get(NitrousUUIDHeader), driver.DriverName())
 
-	// record total time taken for this function
+	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
+	requestID := r.Header.Get(NitrousUUIDHeader)
+
+	logrus.Infof("uuid=%s Creating a host using provider %s", requestID, driver.DriverName())
+
 	label := fmt.Sprintf("create.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
-	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	queueInfo, err := getQueueInfo(r)
 	if err != nil {
 		return mh.Error(err, fmt.Sprintf("create.%s", driver.DriverName()))
 	}
+
 	info, err := driver.CreateWithQueue(s.Queue, queueInfo)
-	// include any information about the host
-	// even if an error occurs
-	baseResp := &Response{}
+	// include any information about the host even if an error occurs
+	resp := &Response{}
 	if info != nil {
-		baseResp.StatusCode = http.StatusCreated
-		baseResp.Status = "created"
-		baseResp.Provider = info.Provider
-		baseResp.ID = info.ID
-		baseResp.Name = info.Name
-		baseResp.IPAddress = info.IPAddress
-		baseResp.FreighterdPort = info.FreighterdPort
-		baseResp.Region = info.Region
-		baseResp.State = info.State.String()
+		resp.StatusCode = http.StatusCreated
+		resp.Status = "created"
+		resp.Provider = info.Provider
+		resp.ID = info.ID
+		resp.Name = info.Name
+		resp.IPAddress = info.IPAddress
+		resp.FreighterdPort = info.FreighterdPort
+		resp.Region = info.Region
+		resp.State = info.State.String()
 	}
 	if err != nil {
 		mh.Error(err, label)
-		logrus.Errorf("uuid=%s Failed to create host, err: %v", r.Header.Get(NitrousUUIDHeader), err)
-		baseResp.Error = fmt.Sprintf("failed to create a host on %s", driver.DriverName())
-		pw.WriteResponse(baseResp)
+		logrus.Errorf("uuid=%s Failed to create host, err: %v", requestID, err)
+		resp.Error = fmt.Sprintf("failed to create a host on %s", driver.DriverName())
+		pw.WriteResponse(resp)
 		return nil
 	}
-	logrus.Infof("uuid=%s Created host: %+v", r.Header.Get(NitrousUUIDHeader), info)
+	logrus.Infof("uuid=%s Created host: %+v", requestID, info)
 
 	mh.Time(fmt.Sprintf("ping.%s", label), func() {
 		// do not remove a host if freighter is down, we keep the host for debugging
 		pingHost(info, pw)
 	})
 
-	pw.WriteResponse(baseResp)
+	pw.WriteResponse(resp)
 
 	return nil
 }
@@ -438,18 +440,24 @@ func (s *Server) driverFromRequest(r *http.Request, customConfig map[string]stri
 	if err := r.ParseForm(); err != nil {
 		return nil, err
 	}
+
 	provider := r.Form.Get("provider")
 	providerConfig := s.providerConfig(provider)
 	for k, v := range customConfig {
 		providerConfig[k] = v
 	}
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
+	b, err := json.Marshal(providerConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	hostConfig := r.Form.Get("config")
 	if hostConfig == "" {
 		hostConfig = "{}"
 	}
 
-	return host.NewDriver(provider, providerConfig, hostConfig)
+	return host.NewDriver(provider, string(b), hostConfig)
 }
 
 func (s *Server) createRouter() {
