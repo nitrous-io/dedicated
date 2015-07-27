@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -31,10 +33,16 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+
+	plans, err := fetchPlansForSubscription(env.DB, subscriptions)
+	if err != nil {
+		return err
+	}
 	serializedSubscriptions := []*serializers.Subscription{}
 
 	for _, s := range subscriptions {
 		serializedSubscription := serializers.SerializeSubscription(s)
+		serializedSubscription.Plan = plans[s.PlanID]
 		serializedSubscriptions = append(serializedSubscriptions, serializedSubscription)
 	}
 
@@ -154,4 +162,37 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"status": "cancelled",
 	}
 	return nil
+}
+
+func fetchPlansForSubscription(d db.QueryReceiver, subs []*subscription.SubscriptionWithHostSlug) (map[int64]*serializers.Plan, error) {
+	planMap := map[int64]*serializers.Plan{}
+
+	if len(subs) == 0 {
+		return planMap, nil
+	}
+
+	ids := make([]int64, len(subs))
+	for i, sub := range subs {
+		ids[i] = sub.PlanID
+	}
+
+	query, args, err := sqlx.In("SELECT * FROM plans WHERE id IN (?);", ids)
+	if err != nil {
+		return nil, err
+	}
+
+	plans := []*plan.Plan{}
+
+	query = d.Rebind(query)
+	err = d.Select(&plans, query, args...)
+	if err != nil {
+		return planMap, err
+	}
+
+	for _, pl := range plans {
+		ser := serializers.SerializePlan(pl)
+		planMap[pl.ID] = ser
+	}
+
+	return planMap, nil
 }

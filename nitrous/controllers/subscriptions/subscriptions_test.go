@@ -93,6 +93,7 @@ var _ = Describe("controllers/subscriptions", func() {
 				Storage:       "1024 GB",
 				Price:         1024,
 				Memory:        "68 GB",
+				Hidden:        true,
 			}
 			p.Insert(db)
 
@@ -132,6 +133,8 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(subs[0].BillingProfileID).To(Equal(s.BillingProfileID))
 			Expect(subs[0].CreatedAt).NotTo(BeNil())
 			Expect(subs[0].UpdatedAt).NotTo(BeNil())
+			Expect(subs[0].Plan).ToNot(BeNil())
+			Expect(subs[0].Plan.Slug).To(Equal("plan-a"))
 		})
 	})
 
