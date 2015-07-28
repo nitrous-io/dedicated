@@ -582,18 +582,8 @@ func (h *Host) Destroy() error {
 		return mh.Error(err, label)
 	}
 
-	// if eip is disabled for this host, we dont need to release it
-	if !h.Config.DisableEIP {
-		if ip := h.Config.IPAddress; ip != "" {
-			// release elastic IP stored in the client. We cant use
-			// h.instance.PublicIPAddress because it's not guaranteed to be
-			// the correct IP when the instance is stopped
-			if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
-				err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-					h.Config.IPAddress, h.instance.InstanceId, err)
-				return mh.Error(err, label)
-			}
-		}
+	if err := h.releaseEIP(); err != nil {
+		return mh.Error(err, label)
 	}
 
 	// terminate the instance
@@ -961,6 +951,25 @@ func (h *Host) SetRequestID(id string) {
 // instance, or to load a new one.
 func (h *Host) reloadInstance(id string) error {
 	return getInstance(h.provider, id, h)
+}
+
+func (h *Host) releaseEIP() error {
+	if h.Config.DisableEIP {
+		return nil
+	}
+
+	if ip := h.Config.IPAddress; ip != "" {
+		// Release IP address given by the client. We can't use
+		// h.instance.PublicIPAddress because it's not guaranteed to be the
+		// correct IP when the instance is stopped.
+		logrus.Infof("amazon: releasing IP address %s for instance %s", ip, h.instance.InstanceId)
+		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+			return fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
+				h.Config.IPAddress, h.instance.InstanceId, err)
+		}
+	}
+
+	return nil
 }
 
 func (h *Host) generateNotifyURL() string {
