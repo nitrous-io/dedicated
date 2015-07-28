@@ -4,7 +4,7 @@
   .ui.card
     width: 600px
     user-select: none
-    font-size: 14px
+    font-size: $fontSizeSmall
     position: absolute
     top: 70px
 
@@ -24,13 +24,19 @@
 
     li
       margin: 0
-      line-height: 38px
       padding: 0 8px
       white-space: nowrap
       overflow: hidden
       text-overflow: ellipsis
       transition: background-color .2s, border-bottom-color .2s
       border-bottom: 1px solid $n2oGray800
+
+      .filename
+        padding: 5px 0 2px 0
+
+      .path
+        padding: 2px 0 5px 0
+        font-size: $fontSizeXSmall
 
       a
         color: $n2oGray300
