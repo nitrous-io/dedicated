@@ -78,7 +78,8 @@ var (
 type driverConfig struct {
 	AccessKey     string `json:"access_key"`
 	SecretKey     string `json:"secret_key"`
-	Env           string `json:"env"` // Created instances will be tagged with "dedicated=<Env>".
+	HostVersion   string `json:"host_version"` // Created instances will be tagged with "dedicated:version=#{HostVersion}"
+	Env           string `json:"env"`          // Created instances will be tagged with "dedicated=#{Env}".
 	CreateTimeout string `json:"create_timeout"`
 	NotifyURL     string `json:"notify_url"`
 	Regions       []struct {
