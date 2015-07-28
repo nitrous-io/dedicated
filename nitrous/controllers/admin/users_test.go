@@ -1,6 +1,7 @@
 package admin_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +14,18 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/admin"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	stripe "github.com/stripe/stripe-go"
 )
 
 var _ = Describe("controllers/admin", func() {
@@ -314,6 +319,80 @@ var _ = Describe("controllers/admin", func() {
 			Expect(pc.Mode).To(Equal("set"))
 			Expect(pc.PropsSet["deleted_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 			Expect(pc.PropsSet["banned_date"]).To(BeTemporally("~", time.Now(), time.Minute))
+		})
+
+		Context("with subscriptions", func() {
+			var (
+				fakeStripe *test.FakeStripe
+				bp         *billingprofile.BillingProfile
+			)
+
+			BeforeEach(func() {
+				fakeStripe = &test.FakeStripe{}
+				stripe.SetBackend(fakeStripe)
+
+				pl := &plan.Plan{
+					Slug:          "plan",
+					Name:          "plan",
+					MaxContainers: 1,
+					Price:         1499,
+					StripePlanID:  sql.NullString{"stripe-plan-id", true},
+				}
+				Expect(pl.Insert(db)).To(BeNil())
+
+				var err error
+				bp, err = trgt.BillingProfile(db)
+				Expect(err).To(BeNil())
+
+				sub := &subscription.Subscription{
+					BillingProfileID: bp.ID,
+					StripeID:         sql.NullString{"sub1", true},
+					PlanID:           pl.ID,
+					Slug:             "SLUG",
+				}
+				Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+			})
+
+			It("should cancel subscriptions immediately", func() {
+				fakeStripe.Errors = []*stripe.Error{}
+				fakeStripe.Responses = []string{
+					`{
+					"cancelled": true,
+					"id": "sub1"
+				}`,
+				}
+
+				res := doRequest(t, trgt.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r1 := fakeStripe.ReceivedRequests[0]
+				Expect(r1["method"]).To(Equal("DELETE"))
+				Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", bp.StripeID.String)))
+				Expect(r1).ToNot(HaveKey("at_period_end"))
+			})
+
+			It("should continue even if the subscription fails", func() {
+				fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
+				fakeStripe.Responses = []string{
+					`{
+					"cancelled": true,
+					"id": "sub1"
+				}`,
+				}
+
+				res := doRequest(t, trgt.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
+				var found bool
+				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM users WHERE id = $1
+					AND deleted_at IS NOT NULL AND banned_at IS NOT NULL AND banned_by_id = $2`, trgt.ID, u.ID)
+				Expect(err).To(BeNil())
+				Expect(found).To(BeTrue())
+			})
+
 		})
 	})
 })
