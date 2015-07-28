@@ -38,11 +38,13 @@ const (
 	IOPSVolumeType     = "io1"
 	MagneticVolumeType = "standard"
 
-	rootDeviceName = "/dev/sda1"
-	userDeviceName = "/dev/sdu"
+	rootDeviceName   = "/dev/sda1"
+	userDeviceName   = "/dev/sdu"
+	userDeviceOSName = "/dev/xvdu"
 
 	updateTimeout            = 30 * time.Second
 	resizeVolumeTimeout      = 30 * time.Minute
+	stopTimeout              = 10 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
 )
 
@@ -50,6 +52,7 @@ var (
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
+	ErrTimeout          = errors.New("operation timed out")
 	ErrInstanceNotFound = errors.New("instance not found")
 
 	KnownRegions = map[string]aws.Region{
@@ -281,7 +284,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 			h.Printf("ERROR: Failed in update host step: %v", err)
 			h.logFailed()
 			if err == context.DeadlineExceeded {
-				return nil, ErrCreateTimeout
+				return nil, ErrTimeout
 			}
 			return nil, err
 		}
@@ -464,7 +467,7 @@ func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err erro
 			}
 
 			if err == context.DeadlineExceeded {
-				return ErrCreateTimeout
+				return ErrTimeout
 			}
 			return err
 		}
@@ -630,6 +633,7 @@ func (h *Host) Info() (*host.Info, error) {
 }
 
 func (h *Host) Stop() (*host.Info, error) {
+	// WARNING You should probably be changing StopWithQueue() instead.
 	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -642,6 +646,37 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+// unmountUserVolume logs in to instance via SSH to:
+// 1. Stop freighter.
+// 2. Stop docker.
+// 3. Unmount user volume.
+// Then, we detach the user EBS volume from its instance.
+func unmountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("unmount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
+		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
+		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to unmount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	if _, err := detachVolume(h.provider, h.userVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (h *Host) stopInstance() error {
@@ -671,44 +706,119 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+		if info, e := h.Info(); e == nil {
 			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
 		}
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
-		}
-		return nil, mh.Error(err, label)
-	}
+	// TODO Feature flag required: for old hosts, we stop them the old way.
 
-	state := StateChangeConf{
-		Pending: []string{"pending", "running", "stopping"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "stopped",
-	}
-	updatedInstance, err := WaitForState(&state)
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), stopTimeout)
+	defer cancel()
+
+	userVolume, err := h.getUserVolume()
 	if err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+		return nil, mh.Error(err, label)
+	}
+	h.userVolume = userVolume
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Detaching user disk",
+			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Release Elastic IP",
+			Func: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+				return h.releaseEIP()
+			},
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			if info, e := h.Info(); e == nil {
+				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
+			} else {
+				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
+			}
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+			return nil, mh.Error(err, label)
+		}
+	}
+
+	instanceID := h.instance.InstanceId
+	instanceType := h.instance.InstanceType
+	logrus.Infof("amazon: successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
+
+	poolFull, err := h.isPoolFull(instanceType)
+	if err != nil {
+		if info, e := h.Info(); e == nil {
 			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
 		}
 		return nil, mh.Error(err, label)
 	}
-	h.instance = updatedInstance.(*ec2.Instance)
-	info, err := h.Info()
-	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
+
+	// If instance pool is full, we terminate the instance.
+	// Otherwise, we release the (still running) instance to the pool.
+	if poolFull {
+		logrus.Infof("amazon: pool for %s is full, terminating instance", instanceType)
+		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
+			err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", instanceID, err)
+			if info, e := h.Info(); e == nil {
+				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
+			} else {
+				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
+			}
+			return nil, mh.Error(err, label)
+		}
 	} else {
-		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, err)
+		logrus.Infof("amazon: releasing instance of stopped workspace to pool for %s", instanceType)
+		if err := h.releaseInstance(); err != nil {
+			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
+			if info, e := h.Info(); e == nil {
+				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
+			} else {
+				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
+			}
+			return nil, mh.Error(err, label)
+		}
 	}
+
+	info := &host.Info{
+		VolumeID: userVolume.VolumeId,
+		Provider: h.DriverName(),
+		Region:   h.provider.Region.Name,
+		State:    state.Detached,
+	}
+
+	host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 
 	return info, err
 }
