@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
+	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -391,18 +392,57 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	serialized := serializers.SerializeContainer(cn)
 	serialized.Config = serializers.SerializeContainerConfig(config)
 
-	// free users do not get ssh access
-	bp, err := env.User.BillingProfile(env.DB)
-	if err != nil {
-		return err
+	var wg sync.WaitGroup
+	var sshURL string
+	userData := map[string]string{}
+
+	var billingError error
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		// free users do not get ssh access
+		bp, err := env.User.BillingProfile(env.DB)
+		if err != nil {
+			billingError = err
+			return
+		}
+
+		if showSSH := bp.State != billingprofile.StateFree; showSSH {
+			url, err := FindSSHURL(h, config)
+			if err == nil {
+				sshURL = url
+			}
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		ucd, err := usercontainerdata.Find(env.DB, env.User.ID, cn.ID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return
+			}
+			logrus.Errorf("Error retrieving usercontainerdata err: %v", err)
+			return
+		}
+
+		for k, v := range ucd.Metadata.Map {
+			if v.Valid {
+				userData[k] = v.String
+			}
+		}
+	}()
+
+	wg.Wait()
+	if billingError != nil {
+		return billingError
 	}
 
-	if showSSH := bp.State != billingprofile.StateFree; showSSH {
-		sshURL, err := FindSSHURL(h, config)
-		if err == nil {
-			serialized.SSHURL = sshURL
-		}
-	}
+	serialized.SSHURL = sshURL
+	serialized.UserData = userData
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

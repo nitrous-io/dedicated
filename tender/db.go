@@ -127,8 +127,9 @@ func findContainer(db *sql.DB, slug string) (*Container, error) {
 func getContainers(db *sql.DB) (ContainersMap, error) {
 	m := ContainersMap{}
 	q := `SELECT containers.slug, containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
-			  FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
-			  WHERE containers.terminated_at IS NULL`
+		FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
+		WHERE containers.terminated_at IS NULL AND
+			hosts.state = 'running'`
 	rows, err := db.Query(q)
 	if err != nil {
 		logrus.Errorf("db.Query('%s') failed with '%s'", q, err)

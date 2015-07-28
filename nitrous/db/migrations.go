@@ -1416,5 +1416,20 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN provider_storage_identifier character varying(255);
 			`,
 		},
+		{
+			Version: "1360",
+			Up: `
+				CREATE TABLE user_container_data (
+					id bigserial PRIMARY KEY NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					container_id bigint REFERENCES containers(id) NOT NULL,
+					metadata hstore,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE UNIQUE INDEX index_user_container_data_on_con_user ON user_container_data USING btree (container_id, user_id);
+			`,
+		},
 	}
 }

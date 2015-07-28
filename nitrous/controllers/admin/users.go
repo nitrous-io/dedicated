@@ -6,14 +6,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	stripe "github.com/stripe/stripe-go"
+	stripesub "github.com/stripe/stripe-go/sub"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -130,6 +134,24 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 		})
 		if err != nil {
 			return err
+		}
+	}
+
+	bp, err := u.BillingProfile(db)
+	if err != nil {
+		return err
+	}
+	subs, err := subscription.FindAllActiveByUserID(db, u.ID)
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		err := stripesub.Cancel(
+			sub.StripeID.String,
+			&stripe.SubParams{Customer: bp.StripeID.String},
+		)
+		if err != nil {
+			logrus.WithField("uuid", env.UUID).Errorf("Error cancelling subscription %d, err: %v", sub.ID, err)
 		}
 	}
 

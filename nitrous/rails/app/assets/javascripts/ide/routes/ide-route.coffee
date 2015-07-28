@@ -40,6 +40,7 @@ App.IdeRoute = Em.Route.extend
     # prevent mis-click close tab / cmd + w
     return if App.get 'redirecting'
     $(window).bind 'beforeunload.ide', (ev)->
+      TabWatcher.syncChanges()
       message
 
   deactivate: ->
@@ -51,6 +52,7 @@ App.IdeRoute = Em.Route.extend
 
   actions:
     willTransition: (transition) ->
+      TabWatcher.syncChanges()
       return true if App.get 'isChromeWebView'
       return true if App.get 'redirecting'
       return true if window.confirm(message + '\n\nAre you sure you want to leave this page?')

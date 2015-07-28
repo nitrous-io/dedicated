@@ -255,6 +255,9 @@ var _ = Describe("hostbuilder", func() {
 			config, err := json.Marshal(h)
 			Expect(err).To(BeNil())
 			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
 			form.Set("provider", "dummy")
 			form.Set("config", string(config))
 
@@ -275,6 +278,31 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.State).To(Equal(state.Running.String()))
 
 			Expect(dummy.ReceivedNewHostDefaultConfig["uuid"]).ToNot(BeEmpty())
+		})
+
+		It("should send messages to queue", func() {
+			h := &dummy.Host{RespecSuccess: true}
+			srv, err := setupDummyHost(h)
+			Expect(err).To(BeNil())
+			defer srv.Close()
+
+			config, err := json.Marshal(h)
+			Expect(err).To(BeNil())
+			form := url.Values{}
+			form.Set("uid", "123")
+			form.Set("id", "456")
+			form.Set("slug", "dummy-456")
+			form.Set("provider", "dummy")
+			form.Set("config", string(config))
+
+			resp, err := http.PostForm(fmt.Sprintf("%s/%s", ts.URL, "hosts/respec"), form)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
+			Expect(err).To(BeNil())
+			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
+			qp.Delete()
 		})
 	})
 

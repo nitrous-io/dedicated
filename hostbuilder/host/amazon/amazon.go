@@ -261,15 +261,17 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-// Respec changes the specs of an existing host its new properties.
+// RespecWithQueue changes the specs of an existing host its new properties.
 // The following changes are supported:
 //   1. Changing storage size of root volume.
 //   2. Changing instance type (only between allowable instance types, e.g. we
 //      don't support changing from a VPC-only to non-VPC instance).
 //   3. Allocating/de-allocating an Elastic IP.
-func (h *Host) Respec() (*host.Info, error) {
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
+
+	host.PublishMessage(qp, event.HostRespeccing, h.uuid, queueInfo, "Respeccing host", queue.Respec)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		return nil, mh.Error(err, label)
@@ -291,6 +293,7 @@ func (h *Host) Respec() (*host.Info, error) {
 			Func:        allocateElasticIP,
 		})
 		if err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
 			return nil, mh.Error(err, label)
 		}
@@ -317,6 +320,7 @@ func (h *Host) Respec() (*host.Info, error) {
 
 		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
 		if err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
 		}
 
@@ -329,29 +333,46 @@ func (h *Host) Respec() (*host.Info, error) {
 
 	// If no further changes required, we're done.
 	if !changeInstanceType && !changeStorageSize {
-		return h.Info()
+		info, err := h.Info()
+		if err == nil {
+			host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+		} else {
+			logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
+		}
+
+		return info, err
 	}
 
 	// Otherwise, we stop the instance since any further changes now require
 	// it to be stopped.
 	if err := h.stopInstance(); err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
 	}
 
 	if changeInstanceType {
 		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
 		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
 		}
 	}
 
 	if changeStorageSize {
 		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
 		}
 	}
 
-	return h.Start()
+	info, err := h.Start()
+	if err == nil {
+		host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+	} else {
+		logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on starting host: %v", err)
+	}
+
+	return info, err
 }
 
 func (h *Host) getRootVolume() (*ec2.Volume, error) {
@@ -652,20 +673,12 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 
@@ -676,11 +689,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
@@ -858,17 +867,17 @@ func (h *Host) DriverName() string {
 	return "amazon"
 }
 
-// Printf logs the data together with the host uuid and droplet id if they are
-// avalaible
+// Printf logs a formatted string together with the request uuid and instance
+// id, if available.
 func (h *Host) Printf(format string, v ...interface{}) {
-	parts := []string{}
+	fields := logrus.Fields{}
 	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+		fields["uuid"] = h.uuid
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+		fields["instance"] = h.instance.InstanceId
 	}
-	logrus.Infof(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+	logrus.WithFields(fields).Infof(fmt.Sprintf("amazon: %s", format), v...)
 }
 
 // MetricsLabel returns the label with the current host's region if possible
@@ -948,25 +957,33 @@ func (h *Host) logFailed() {
 	}
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, ev event.Event, action queue.Event, err error) {
+	if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+		host.PublishHost(qp, ev, h.uuid, queueInfo, info, action, err.Error())
+	} else {
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+	}
+}
+
+func New(driverOptions map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s amazon: invalid config %s", driverOptions["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
-		AccessKey: defaultConfig["access_key"],
-		SecretKey: defaultConfig["secret_key"],
+		AccessKey: driverOptions["access_key"],
+		SecretKey: driverOptions["secret_key"],
 		RawRegion: hostConfig.RegionID,
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
+		logrus.Errorf("uuid=%s amazon: auth failed %v", driverOptions["uuid"], err)
 		return nil, err
 	}
 	// get create timeout
 	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	d, err := time.ParseDuration(driverOptions["create_timeout"])
 	if err == nil {
 		createTimeout = d
 	}
@@ -976,18 +993,18 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		auth:          auth,
 		createTimeout: createTimeout,
-		uuid:          defaultConfig["uuid"], // this is injected by the server per request
-		notifyURL:     defaultConfig["notify_url"],
-		env:           defaultConfig["env"],
+		uuid:          driverOptions["uuid"], // this is injected by the server per request
+		notifyURL:     driverOptions["notify_url"],
+		env:           driverOptions["env"],
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if _, ok := defaultConfig["ignore_region"]; !ok {
+	if _, ok := driverOptions["ignore_region"]; !ok {
 		region, err := accessConfig.Region()
 		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
+			logrus.Errorf("uuid=%s amazon: invalid region %v", driverOptions["uuid"], err)
 			return nil, err
 		}
 		host.provider = ec2.New(auth, region)
@@ -996,7 +1013,9 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func init() {
-	host.Hosts["amazon"] = NewHost
+	host.Register("amazon", &host.RegisteredDriver{
+		New: New,
+	})
 }
 
 // createKeypair create a temporary keypair using Amazon API, store the
@@ -1036,11 +1055,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("create_host")
-	defer func(start time.Time) {
-		// we are interested in the final context of `h` so label is generated
-		// inside defer block
-		mh.UpdateSince(label, start)
-	}(time.Now())
+	defer mh.UpdateSince(label, time.Now())
 
 	storageSize := computeSize(h.Config.StorageSize)
 

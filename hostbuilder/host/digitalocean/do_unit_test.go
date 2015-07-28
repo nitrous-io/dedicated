@@ -1,8 +1,6 @@
 package digitalocean
 
 import (
-	"testing"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/digitalocean/godo"
 	. "github.com/onsi/ginkgo"
@@ -10,11 +8,6 @@ import (
 )
 
 func init() { logrus.SetLevel(logrus.PanicLevel) }
-
-func TestDigitalOceanUnit(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "host/digitalocean")
-}
 
 var _ = Describe("MetricsLabel", func() {
 	It("returns metrics label of the host", func() {

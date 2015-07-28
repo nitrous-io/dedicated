@@ -58,9 +58,9 @@ type Response struct {
 	LaunchTime     *time.Time `json:"launch_time,omitempty"`
 }
 
-type HttpHandler func(w http.ResponseWriter, r *http.Request) error
+type httpHandler func(w http.ResponseWriter, r *http.Request) error
 
-func makeHttpHandler(handlerFunc HttpHandler) http.HandlerFunc {
+func makeHttpHandler(handlerFunc httpHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		uuidStr := r.Header.Get(NitrousUUIDHeader)
 		if uuidStr == "" {
@@ -94,15 +94,13 @@ type Server struct {
 	Queue queue.Publisher
 }
 
-// Return a copy of the original provider config
-// for safe local mutation
+// Return a copy of the original provider config for safe local mutation.
 func (s *Server) providerConfig(provider string) map[string]string {
-	config := s.Config.Providers[provider]
-	configCopy := make(map[string]string)
-	for k, v := range config {
-		configCopy[k] = v
+	cp := make(map[string]string)
+	for k, v := range s.Config.Providers[provider] {
+		cp[k] = v
 	}
-	return configCopy
+	return cp
 }
 
 // createHost streams progress data to the output. For example
@@ -121,28 +119,22 @@ func (s *Server) providerConfig(provider string) map[string]string {
 // { "stream": "Creating host...Failed!" }
 // { "error": "failed to create the host" }
 func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
-	provider := r.Form.Get("provider")
-	providerConfig := s.providerConfig(provider)
-	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
-
-	configJson := r.Form.Get("config")
-	logrus.Infof("uuid=%s Creating a host using provider %s", providerConfig["uuid"], provider)
-
-	h, err := host.InitHost(provider, providerConfig, configJson)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		return mh.Error(err, fmt.Sprintf("create.%s", r.Form.Get("provider")))
 	}
+	logrus.Infof("uuid=%s Creating a host using provider %s", r.Header.Get(NitrousUUIDHeader), driver.DriverName())
 
 	// record total time taken for this function
-	label := fmt.Sprintf("create.%s", provider)
+	label := fmt.Sprintf("create.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
 	queueInfo, err := getQueueInfo(r)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		return mh.Error(err, fmt.Sprintf("create.%s", driver.DriverName()))
 	}
-	info, err := h.CreateWithQueue(s.Queue, queueInfo)
+	info, err := driver.CreateWithQueue(s.Queue, queueInfo)
 	// include any information about the host
 	// even if an error occurs
 	baseResp := &Response{}
@@ -159,12 +151,12 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 	}
 	if err != nil {
 		mh.Error(err, label)
-		logrus.Errorf("uuid=%s Failed to create host, err: %v", providerConfig["uuid"], err)
-		baseResp.Error = fmt.Sprintf("failed to create a host on %s", provider)
+		logrus.Errorf("uuid=%s Failed to create host, err: %v", r.Header.Get(NitrousUUIDHeader), err)
+		baseResp.Error = fmt.Sprintf("failed to create a host on %s", driver.DriverName())
 		pw.WriteResponse(baseResp)
 		return nil
 	}
-	logrus.Infof("uuid=%s Created host: %+v", providerConfig["uuid"], info)
+	logrus.Infof("uuid=%s Created host: %+v", r.Header.Get(NitrousUUIDHeader), info)
 
 	mh.Time(fmt.Sprintf("ping.%s", label), func() {
 		// do not remove a host if freighter is down, we keep the host for debugging
@@ -177,25 +169,25 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r, nil)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("update.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
 
-	label := fmt.Sprintf("update.%s", h.DriverName())
+	label := fmt.Sprintf("update.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
 	pw := NewProgressWriter(flusher.NewWriteFlusher(w))
 
-	info, err := h.Update(pw)
+	info, err := driver.Update(pw)
 	if err != nil {
-		pw.WriteError(fmt.Errorf("failed to update host on %s, err: %v", h.DriverName(), err))
+		pw.WriteError(fmt.Errorf("failed to update host on %s, err: %v", driver.DriverName(), err))
 		return nil
 	}
 
 	if err := pingHost(info, pw); err != nil {
-		pw.WriteError(fmt.Errorf("failed to ping host on %s after updating, err: %v", h.DriverName(), err))
+		pw.WriteError(fmt.Errorf("failed to ping host on %s after updating, err: %v", driver.DriverName(), err))
 		return nil
 	}
 
@@ -215,16 +207,22 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) respecHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r, nil)
+	driver, err := s.driverFromRequest(r, nil)
+	provider := r.Form.Get("provider")
 	if err != nil {
-		label := fmt.Sprintf("respec.%s", r.Form.Get("provider"))
+		label := fmt.Sprintf("respec.%s", provider)
 		return mh.Error(err, label)
 	}
 
-	label := fmt.Sprintf("respec.%s", h.DriverName())
+	label := fmt.Sprintf("respec.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	info, err := h.Respec()
+	queueInfo, err := getQueueInfo(r)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("respec.%s", provider))
+	}
+
+	info, err := driver.RespecWithQueue(s.Queue, queueInfo)
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -245,17 +243,17 @@ func (s *Server) respecHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r, nil)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("delete.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
 
 	// record total time taken for this function
-	label := fmt.Sprintf("delete.%s", h.DriverName())
+	label := fmt.Sprintf("delete.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	if err := h.Destroy(); err != nil {
+	if err := driver.Destroy(); err != nil {
 		return mh.Error(err, label)
 	}
 	writeResponse(w, okResponse)
@@ -263,15 +261,7 @@ func (s *Server) deleteHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
-	var err error
-	var info *host.Info
-
-	provider := r.Form.Get("provider")
-	providerConfig := s.providerConfig(provider)
-	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
-	configJson := r.Form.Get("config")
-
-	h, err := host.InitHost(provider, providerConfig, configJson)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
 		return err
 	}
@@ -279,13 +269,12 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 	var queueInfo *host.QueueInfo
 	queueInfo, err = getQueueInfo(r)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("create.%s", provider))
+		return mh.Error(err, fmt.Sprintf("create.%s", driver.DriverName()))
 	}
 
-	info, err = h.StopWithQueue(s.Queue, queueInfo)
-
+	info, err := driver.StopWithQueue(s.Queue, queueInfo)
 	if err != nil {
-		logrus.Errorf("uuid=%s Failed to stop a host: %+v", providerConfig["uuid"], err)
+		logrus.Errorf("uuid=%s Failed to stop a host: %v", r.Header.Get(NitrousUUIDHeader), err)
 		return err
 	}
 
@@ -303,19 +292,15 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
-	provider := r.Form.Get("provider")
-	providerConfig := s.providerConfig(provider)
-	configJson := r.Form.Get("config")
-
-	h, err := host.InitHost(provider, providerConfig, configJson)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
-		return mh.Error(err, fmt.Sprintf("start.%s", provider))
+		return mh.Error(err, fmt.Sprintf("start.%s", r.Form.Get("provider")))
 	}
 
-	label := fmt.Sprintf("start.%s", h.DriverName())
+	label := fmt.Sprintf("start.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	info, err := h.Start()
+	info, err := driver.Start()
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -343,17 +328,17 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
-	h, err := s.hostFromRequest(r, nil)
+	driver, err := s.driverFromRequest(r, nil)
 	if err != nil {
 		label := fmt.Sprintf("restart.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
 
 	// record total time taken for this function
-	label := fmt.Sprintf("restart.%s", h.DriverName())
+	label := fmt.Sprintf("restart.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	info, err := h.Restart()
+	info, err := driver.Restart()
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -406,16 +391,16 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	// TODO This is independent of any particular host so we don't need to use
 	// host-specific form data.
-	h, err := s.hostFromRequest(r, map[string]string{"ignore_region": "true"})
+	driver, err := s.driverFromRequest(r, map[string]string{"ignore_region": "true"})
 	if err != nil {
 		label := fmt.Sprintf("list.%s", r.Form.Get("provider"))
 		return mh.Error(err, label)
 	}
 
-	label := fmt.Sprintf("list.%s", h.DriverName())
+	label := fmt.Sprintf("list.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	hosts, partialErr := h.List()
+	hosts, partialErr := driver.List()
 	if partialErr != nil {
 		if len(hosts) == 0 || !s.Config.AllowPartialList {
 			return mh.Error(partialErr, label)
@@ -455,7 +440,7 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) hostFromRequest(r *http.Request, customConfig map[string]string) (host.Host, error) {
+func (s *Server) driverFromRequest(r *http.Request, customConfig map[string]string) (host.Host, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, err
 	}
@@ -465,16 +450,17 @@ func (s *Server) hostFromRequest(r *http.Request, customConfig map[string]string
 		providerConfig[k] = v
 	}
 	providerConfig["uuid"] = r.Header.Get(NitrousUUIDHeader)
-	configJSON := r.Form.Get("config")
-	if configJSON == "" {
-		configJSON = "{}"
+	hostConfig := r.Form.Get("config")
+	if hostConfig == "" {
+		hostConfig = "{}"
 	}
-	return host.InitHost(provider, providerConfig, configJSON)
+
+	return host.NewDriver(provider, providerConfig, hostConfig)
 }
 
-func (s *Server) CreateRouter() {
+func (s *Server) createRouter() {
 	r := mux.NewRouter()
-	m := map[string]map[string]HttpHandler{
+	m := map[string]map[string]httpHandler{
 		"GET": {
 			"/hosts": s.listHosts,
 		},
@@ -505,9 +491,8 @@ func (s *Server) CreateRouter() {
 
 func New(config *Config) (*Server, error) {
 	server := &Server{Config: config}
-	server.CreateRouter()
-	// Add routes for debug
-	server.AddDebugRoutes(server.Router)
+	server.createRouter()
+	server.addDebugRoutes(server.Router)
 
 	if config.LibratoUser == "" || config.LibratoToken == "" {
 		logrus.Warn("missing librato config. Metrics logging is disabled")

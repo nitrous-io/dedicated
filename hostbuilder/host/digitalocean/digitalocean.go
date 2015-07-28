@@ -159,7 +159,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-func (h *Host) Respec() (*host.Info, error) {
+func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	return h.Info()
 }
 
@@ -489,37 +489,38 @@ func (h *Host) generateNotifyURL() string {
 	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+func New(driverOptions map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s digitalocean: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s digitalocean: invalid config %s", driverOptions["uuid"], config)
 		return nil, err
 	}
-	if defaultConfig["token"] == "" {
+	if driverOptions["token"] == "" {
 		return nil, errors.New("digitalocean builder requires valid access token")
 	}
 	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	d, err := time.ParseDuration(driverOptions["create_timeout"])
 	if err == nil {
 		createTimeout = d
 	}
 	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: defaultConfig["token"]},
+		Token: &oauth.Token{AccessToken: driverOptions["token"]},
 	}
 	client := godo.NewClient(t.Client())
 	host := &Host{
 		Config:        hostConfig,
 		Client:        client,
-		uuid:          defaultConfig["uuid"],
-		notifyURL:     defaultConfig["notify_url"],
+		uuid:          driverOptions["uuid"],
+		notifyURL:     driverOptions["notify_url"],
 		createTimeout: createTimeout,
 	}
 	return host, nil
 }
 
 func init() {
-	host.Hosts["digitalocean"] = NewHost
-
+	host.Register("digitalocean", &host.RegisteredDriver{
+		New: New,
+	})
 }
 
 func createSSHKey(ctx *host.HostContext) error {

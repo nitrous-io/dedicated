@@ -15,6 +15,7 @@ App.Container = klass = Em.Object.extend
   host: null
 
   metadata: null
+  user_data: null
 
   env: (->
     transformEnvArrayToHash @get('config').env
@@ -26,6 +27,15 @@ App.Container = klass = Em.Object.extend
       return "root"
     u
   ).property 'env'
+
+  userData: (->
+    hsh = @get 'user_data'
+    return unless hsh
+    data = {}
+    for key of hsh
+      data[key] = JSON.parse(hsh[key])
+    data
+  ).property 'user_data'
 
   previewPort: (->
     p = @get('env')["NITROUS_PREVIEW_PORT"]
@@ -113,6 +123,20 @@ App.Container = klass = Em.Object.extend
       ).done((retData, status, jqxhr) =>
         Object.keys(data).forEach (k) =>
           @set("metadata.#{k}", data[k])
+        resolve(retData)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+
+  setUserData: (key, value)->
+    new Em.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'PUT',
+        url: "/api/v0/containers/#{@get 'slug'}/user_data",
+        headers: { Authorization: "Bearer #{App.get 'token'}" },
+        data:
+          key: key
+          value: JSON.stringify(value)
+      ).done((retData, status, jqxhr) =>
         resolve(retData)
       ).fail (jqxhr) ->
         reject(jqxhr)

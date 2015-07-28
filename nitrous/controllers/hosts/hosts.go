@@ -471,51 +471,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	go func() {
-		started := time.Now()
-		successful := false
-		defer func() {
-			elapsed := time.Since(started)
-			logrus.WithFields(logrus.Fields{
-				"success": successful,
-				"host_id": h.ID,
-				"elapsed": elapsed.Seconds(),
-			}).Infof("Host Respec")
-		}()
-
-		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
-		if err != nil {
-			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
-				logrus.Errorf("error updating host after respec failed: %v", err)
-			}
-
-			if err := rs.UpdateState(db, respec.StateFailed); err != nil {
-				logrus.Errorf("error updating respec state to failed: %v", err)
-			}
-
-			env.Events.Publish(
-				controllers.NewEvent(controllers.EventHostRespecFailed, map[string]interface{}{
-					"host":  serializers.SerializeHost(h),
-					"error": err.Error(),
-				}),
-				env.User.Topic(),
-			)
-			return
-		}
-
-		h.ProviderTemplateID = rs.ProviderTemplateID
-		h.State = host.StateRunning
-		h.IPAddress = sql.NullString{info.IPAddress, true}
-		if err := h.UpdateAfterRespec(db); err != nil {
-			logrus.Errorf("error updating host after respec completed: %v", err)
-		}
-		if err := rs.UpdateState(db, respec.StateCompleted); err != nil {
-			logrus.Errorf("error updating respec state to completed: %v", err)
-		}
-
-		successful = true
-		PublishHostEvent(env, controllers.EventHostRespecced, h)
-	}()
+	_, err = HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
+	if err != nil {
+		return err
+	}
 
 	PublishHostEvent(env, controllers.EventHostRespeccing, h)
 	env.Status = http.StatusAccepted
