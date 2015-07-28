@@ -93,8 +93,10 @@ type Host interface {
 	// stop a host, publish events into the queue
 	StopWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
 
+	// respec a host, publish events into the queue
+	RespecWithQueue(qp queue.Publisher, info *QueueInfo) (*Info, error)
+
 	Update(io.Writer) (*Info, error)
-	Respec() (*Info, error)  // change specs of host. FIXME This should publish to queue.
 	Destroy() error          // destroy the current host
 	Stop() (*Info, error)    // stop the current host
 	Start() (*Info, error)   // start the current host

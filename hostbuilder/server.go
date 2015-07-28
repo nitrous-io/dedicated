@@ -208,15 +208,21 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 
 func (s *Server) respecHost(w http.ResponseWriter, r *http.Request) error {
 	driver, err := s.driverFromRequest(r, nil)
+	provider := r.Form.Get("provider")
 	if err != nil {
-		label := fmt.Sprintf("respec.%s", r.Form.Get("provider"))
+		label := fmt.Sprintf("respec.%s", provider)
 		return mh.Error(err, label)
 	}
 
 	label := fmt.Sprintf("respec.%s", driver.DriverName())
 	defer mh.UpdateSince(label, time.Now())
 
-	info, err := driver.Respec()
+	queueInfo, err := getQueueInfo(r)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("respec.%s", provider))
+	}
+
+	info, err := driver.RespecWithQueue(s.Queue, queueInfo)
 	if err != nil {
 		return mh.Error(err, label)
 	}

@@ -11,4 +11,7 @@ const (
 	HostStopped      Event = "host.stopped"
 	HostStopFailed   Event = "host.stop_failed"
 	HostUpdated      Event = "host.updated"
+	HostRespeccing   Event = "host.respeccing"
+	HostRespecFailed Event = "host.respec_failed"
+	HostRespecced    Event = "host.respecced"
 )

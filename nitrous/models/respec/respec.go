@@ -30,10 +30,20 @@ type Respec struct {
 // Find returns the pending respec for a host. There can only be 1 pending
 // respec for a host.
 func Find(d *db.Database, hostID int64) (*Respec, error) {
+	return findByState(d, hostID, StatePending)
+}
+
+// Find returns the processing respec for a host. There can only be 1 processing
+// respec for a host.
+func FindProcessing(d *db.Database, hostID int64) (*Respec, error) {
+	return findByState(d, hostID, StateProcessing)
+}
+
+func findByState(d *db.Database, hostID int64, state string) (*Respec, error) {
 	r := &Respec{}
 	err := d.Get(r, `SELECT * FROM respecs
 		WHERE host_id = $1 AND state = $2
-		ORDER BY created_at LIMIT 1`, hostID, StatePending)
+		ORDER BY created_at LIMIT 1`, hostID, state)
 	if err != nil {
 		return nil, err
 	}

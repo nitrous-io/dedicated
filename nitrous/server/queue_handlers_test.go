@@ -18,6 +18,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -866,5 +869,227 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(err).NotTo(BeNil())
 			})
 		})
+	})
+
+	Describe("Respec Host Message", func() {
+		var (
+			message   *queue.Message
+			requester *user.User
+			r         *respec.Respec
+		)
+
+		BeforeEach(func() {
+			requester = &user.User{
+				Username: "requester",
+				Password: "123456",
+				Email:    "requester@example.com",
+			}
+			Expect(test.WrapInTransaction(db, requester.Insert)).To(BeNil())
+
+			p := &plan.Plan{Slug: "1gb", Name: "small", MaxContainers: 3, Price: 1000}
+			Expect(p.Insert(db)).To(BeNil())
+
+			pt := &providertemplate.ProviderTemplate{
+				RegionID:        hs.PT.RegionID,
+				PlanID:          p.ID,
+				Name:            "new-host-size",
+				Provider:        "ec2",
+				PreprovisionMax: 2,
+			}
+			Expect(pt.Insert(db))
+
+			r = &respec.Respec{
+				HostID:             hs.H.ID,
+				ProviderTemplateID: pt.ID,
+			}
+			Expect(test.WrapInTransaction(db, r.Insert)).To(BeNil())
+			_, err := db.Exec("UPDATE respecs SET state = $1 WHERE id = $2", respec.StateProcessing, r.ID)
+			Expect(err).To(BeNil())
+		})
+
+		Context("a host is respeccing", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Message:     "respeccing host",
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "respec",
+					Event:        string(event.HostRespeccing),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("emits the message to the event publisher", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostRespeccing, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+
+				evtData, _ := evt.Data.(map[string]interface{})
+				h2, ok := evtData["host"].(*serializers.Host)
+				Expect(ok).To(BeTrue())
+				Expect(h2.ID).To(Equal(h.ID))
+			})
+		})
+
+		Context("a host is respecced", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Host: &hh.Info{
+						Provider:       "docker",
+						ID:             "host-1234",
+						Region:         "somewhere",
+						Name:           "hostname-1234",
+						IPAddress:      "192.2.3.4",
+						FreighterdPort: 62345,
+						State:          state.Running,
+					},
+					Message: "respecced host",
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "respec",
+					Event:        string(event.HostRespecced),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("updates the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.ProviderTemplateID).To(Equal(r.ProviderTemplateID))
+				Expect(updatedHost.State).To(Equal(host.StateRunning))
+				Expect(updatedHost.IPAddress.String).To(Equal("192.2.3.4"))
+			})
+
+			It("updates the respec record", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				r := &respec.Respec{}
+				err = db.Get(r, `SELECT * FROM respecs WHERE host_id = $1 LIMIT 1`, h.ID)
+				Expect(err).To(BeNil())
+
+				Expect(r.State).To(Equal(respec.StateCompleted))
+			})
+
+			It("emits the message to the event publisher", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostRespecced, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+
+				evtData, _ := evt.Data.(map[string]interface{})
+				h2, ok := evtData["host"].(*serializers.Host)
+				Expect(ok).To(BeTrue())
+				Expect(h2.ID).To(Equal(h.ID))
+			})
+
+			It("should return an error if the HostInfo is nil", func() {
+				queueInfo.Host = nil
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message.Payload = payload
+
+				err = handler(message)
+				Expect(err).ToNot(BeNil())
+			})
+		})
+
+		Context("a host respec fails", func() {
+			BeforeEach(func() {
+				queueInfo = &hh.QueueInfo{
+					ID:          h.ID,
+					Slug:        h.Slug,
+					UserID:      u.ID,
+					RequesterID: requester.ID,
+					Message:     "Amazon is down",
+				}
+
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message = &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "respec",
+					Event:        string(event.HostRespecFailed),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+			})
+
+			It("updates the host", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.ProviderTemplateID).ToNot(Equal(r.ProviderTemplateID))
+				Expect(updatedHost.State).To(Equal(host.StateRespecFailed))
+			})
+
+			It("updates the respec record", func() {
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				r := &respec.Respec{}
+				err = db.Get(r, `SELECT * FROM respecs WHERE host_id = $1 LIMIT 1`, h.ID)
+				Expect(err).To(BeNil())
+
+				Expect(r.State).To(Equal(respec.StateFailed))
+			})
+
+			It("emits the message to the event publisher", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostRespecFailed, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+
+				evtData, _ := evt.Data.(map[string]interface{})
+				h2, ok := evtData["host"].(*serializers.Host)
+				Expect(ok).To(BeTrue())
+				Expect(h2.ID).To(Equal(h.ID))
+				e, ok := evtData["error"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(e).To(Equal("Amazon is down"))
+			})
+		})
+
 	})
 })

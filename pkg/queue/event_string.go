@@ -4,9 +4,9 @@ package queue
 
 import "fmt"
 
-const _Event_name = "createupdatestartstoprestartterminate"
+const _Event_name = "createupdatestartstoprestartterminaterespec"
 
-var _Event_index = [...]uint8{0, 6, 12, 17, 21, 28, 37}
+var _Event_index = [...]uint8{0, 6, 12, 17, 21, 28, 37, 43}
 
 func (i Event) String() string {
 	if i < 0 || i+1 >= Event(len(_Event_index)) {
