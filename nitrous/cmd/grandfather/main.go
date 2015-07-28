@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 )
 
@@ -149,10 +150,15 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 	var strSub *stripe.Sub
 
 	err = d.WithTransaction(func(tx *sqlx.Tx) error {
+		slug, err := securerandom.Base64(8)
+		if err != nil {
+			return err
+		}
 		sub = &subscription.Subscription{
 			PlanID:           p.ID,
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
+			Slug:             slug[:10],
 		}
 		err = sub.Insert(tx)
 		if err != nil {
