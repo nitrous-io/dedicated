@@ -25,6 +25,8 @@ import (
 )
 
 const (
+	FFlagEBSHotswapping = 1 // Feature flag for EBS hotswapping
+
 	// represents 1gb of storage
 	storageUnit = 1
 	// minimum storage size in GB. This is the size of standard root disk used in AMI
@@ -1128,6 +1130,17 @@ func (h *Host) logFailed() {
 	if h.instance != nil {
 		h.Printf("Leaving instance for inspection: %s", h.instance.InstanceId)
 	}
+}
+
+func (h *Host) supportsEBSHotswapping() bool {
+	for _, tag := range h.instance.Tags {
+		if tag.Key == "dedicated:version" {
+			version, _ := strconv.ParseInt(tag.Value, 10, 64) // On any error, consider host as version 0.
+			return version >= FFlagEBSHotswapping
+		}
+	}
+
+	return false
 }
 
 func New(driverOptions string, hostOptions string) (host.Host, error) {
