@@ -1112,4 +1112,45 @@ var _ = Describe("models/container", func() {
 			})
 		})
 	})
+
+	Describe("UpdateColumn()", func() {
+		var (
+			c1 *container.Container
+			c2 *container.Container
+
+			updatedAt time.Time
+		)
+
+		BeforeEach(func() {
+			var err error
+
+			c1 = &container.Container{
+				CID:    "container1",
+				UserID: u.ID,
+				HostID: h.ID,
+				Image:  "nitrous-base",
+				Slug:   "foo",
+			}
+			err = c1.Insert(db)
+			Expect(err).To(BeNil())
+			updatedAt = *c1.UpdatedAt
+
+			time.Sleep(1 * time.Millisecond)
+			err = c1.UpdateColumn(db, "slug", "bar")
+			Expect(err).To(BeNil())
+
+			c2, err = container.FindByCID(db, "container1")
+			Expect(err).To(BeNil())
+			Expect(c2).NotTo(BeNil())
+		})
+
+		It("updates a single column", func() {
+			Expect(c2.Slug).To(Equal("bar"))
+		})
+
+		It("also updates updated_at", func() {
+			Expect(c2.UpdatedAt.UnixNano()).NotTo(Equal(updatedAt.UnixNano()))
+			Expect(time.Now().Sub(*c2.UpdatedAt)).To(BeNumerically("<=", 1*time.Second))
+		})
+	})
 })

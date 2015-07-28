@@ -100,6 +100,10 @@ var _ = Describe("CreateContainer", func() {
 			User:    u,
 		}
 
+		ports := make(map[string][]string)
+		ports["22"] = []string{"65022"}
+		ports["3000"] = []string{"63000"}
+
 		mockClient.CreatedContainer = &freighterclient.Container{
 			ID:      "deadbeef",
 			Name:    "elixir-web-1",
@@ -108,6 +112,13 @@ var _ = Describe("CreateContainer", func() {
 			State:   "running",
 			Image:   "elixir",
 			ImageID: "abc123",
+			Ports: map[string][]string{
+				"22":   []string{"65022"},
+				"3000": []string{"63000"},
+			},
+			Env: []string{
+				"NITROUS_PREVIEW_PORT=3000",
+			},
 		}
 
 		_, err = db.Exec(`ALTER SEQUENCE containers_slug_seq RESTART WITH 10000;`)
@@ -191,6 +202,7 @@ var _ = Describe("CreateContainer", func() {
 		Expect(slugbuilder.IsValid(c.Slug)).To(BeTrue())
 		Expect(c.Image).To(Equal("elixir"))
 		Expect(c.Name.String).To(Equal("elixir-web"))
+		Expect(c.PreviewPort.Int64).To(Equal(int64(63000)))
 		Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
 	})
 

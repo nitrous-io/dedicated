@@ -34,7 +34,10 @@ import (
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
-const transitionLockTime = 1 * time.Minute
+const (
+	transitionLockTime = 1 * time.Minute
+	previewPortEnvVar  = "NITROUS_PREVIEW_PORT"
+)
 
 type WithContainerAndHostOpt int
 
@@ -472,6 +475,11 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return doContainerExclusive(
 		cn, env, container.StateStarting, transitionLockTime,
 		func() error {
+			logger := logrus.WithFields(logrus.Fields{
+				"uuid":           env.UUID,
+				"container_slug": cn.Slug,
+			})
+
 			// broadcast transitioning state
 			PublishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
@@ -479,6 +487,18 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			if err != nil {
 				return expandFreighterClientError(err)
 			}
+			// Update preview port
+			previewPort, err := getPreviewPortFrom(liveContainer)
+			if previewPort != 0 {
+				if err := cn.UpdateColumn(env.DB, "preview_port", previewPort); err != nil {
+					logger.Errorf("container.start: failed to update preview port: %v", err)
+				}
+			} else if err != nil {
+				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
+			} else {
+				logrus.Debugf("containers.start: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
+			}
+
 			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
@@ -492,7 +512,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		})
 }
 
-type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error)
+type actionFn func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error)
 
 func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
 	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -511,7 +531,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 				}
 				PublishContainerEvent(env, evtName, cn, nil)
 
-				liveContainer, err := action(cl, cn.CID)
+				liveContainer, err := action(env, cl, cn)
 				if err != nil {
 					return err
 				}
@@ -533,14 +553,37 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 }
 
 var stop = controlActionHandler(
-	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
-		return cl.Stop(id)
+	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
+		return cl.Stop(cn.CID)
 
 	}, container.StateStopping, controllers.EventContainerStopped)
 
 var restart = controlActionHandler(
-	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
-		return cl.Restart(id)
+	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
+		liveContainer, err := cl.Restart(cn.CID)
+		if err != nil {
+			return nil, err
+		}
+
+		logger := logrus.WithFields(logrus.Fields{
+			"uuid":           env.UUID,
+			"container_slug": cn.Slug,
+		})
+
+		// Update preview port
+		previewPort, err := getPreviewPortFrom(liveContainer)
+		if previewPort != 0 {
+			if err := cn.UpdateColumn(env.DB, "preview_port", previewPort); err != nil {
+				logger.Errorf("container.restart: failed to update preview port: %v", err)
+			}
+		} else if err != nil {
+			logger.Errorf("container.restart: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
+			return nil, err
+		} else {
+			logrus.Debugf("containers.restart: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
+		}
+
+		return liveContainer, nil
 
 	}, container.StateRestarting, controllers.EventContainerRestarted)
 
@@ -841,4 +884,30 @@ func getEventName(s container.State) (controllers.EventName, error) {
 	default:
 		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
 	}
+}
+
+func getPreviewPortFrom(container *freighterclient.Container) (int64, error) {
+	var previewPortStr string
+	var err error
+
+	// Get preview port from environments
+	for _, val := range container.Env {
+		split := strings.SplitN(val, "=", 2)
+		if len(split) == 2 && split[0] == previewPortEnvVar {
+			previewPortStr = split[1]
+		}
+	}
+
+	// Get mapping port
+	if ports, ok := container.Ports[previewPortStr]; ok && len(ports) > 0 {
+		var containerPort int64
+		containerPort, err = strconv.ParseInt(ports[0], 10, 64)
+		if err != nil {
+			return 0, err
+		}
+
+		return containerPort, nil
+	}
+
+	return 0, nil
 }

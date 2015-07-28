@@ -133,14 +133,29 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 		return err
 	}
 
+	logger := logrus.WithFields(logrus.Fields{
+		"uuid":           env.UUID,
+		"container_slug": cn.Slug,
+	})
+
+	// Update preview port
+	previewPort, err := getPreviewPortFrom(liveContainer)
+	if previewPort != 0 {
+		cn.PreviewPort = sql.NullInt64{previewPort, true}
+	} else if err != nil {
+		logrus.Errorf("containers.reconfig: Failed to get preview port: %+v", err)
+	} else {
+		logrus.Debugf("containers.reconfig: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", cn)
+	}
+
 	err = cn.Update(db)
 	if err != nil {
-		logrus.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
+		logger.Errorf("containers.reconfig: successfully reconfigured container '%+v' in Freighter but failed to update database with '%+v', err: %v", liveContainer, cn, err)
 		return err
 	}
 
 	if err = updateVolumes(db, cn, hv, volumeSlugs(config.Mounts)); err != nil { // log and continue
-		logrus.Errorf("containers.reconfig: failed to update volumes on container %s, err: %v", cn.CID, err)
+		logger.Errorf("containers.reconfig: failed to update volumes on container '%+v', err: %v", cn, err)
 	}
 
 	add := map[string]interface{}{

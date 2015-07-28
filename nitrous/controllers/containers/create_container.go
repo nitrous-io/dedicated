@@ -184,6 +184,15 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	cn.ExitCode = created.ExitCode
 	cn.StartedAt = timePtr(created.StartedAt)
 	cn.FinishedAt = timePtr(created.FinishedAt)
+	previewPort, err := getPreviewPortFrom(created)
+
+	if previewPort != 0 {
+		cn.PreviewPort = sql.NullInt64{previewPort, true}
+	} else if err != nil {
+		logrus.Errorf("containers.create: Failed to get preview port: %+v", err)
+	} else {
+		logrus.Debugf("containers.create: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", cn)
+	}
 
 	if ok := cn.SetState(created.State); !ok { // log and continue
 		logrus.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
