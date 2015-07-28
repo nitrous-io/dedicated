@@ -4,12 +4,12 @@ package state
 
 import "fmt"
 
-const _State_name = "UnknownRunningStoppedStartingStoppingTerminated"
+const _State_name = "UnknownRunningStoppedStartingStoppingTerminatedDetached"
 
-var _State_index = [...]uint8{0, 7, 14, 21, 29, 37, 47}
+var _State_index = [...]uint8{0, 7, 14, 21, 29, 37, 47, 55}
 
 func (i State) String() string {
-	if i < 0 || i+1 >= State(len(_State_index)) {
+	if i < 0 || i >= State(len(_State_index)-1) {
 		return fmt.Sprintf("State(%d)", i)
 	}
 	return _State_name[_State_index[i]:_State_index[i+1]]
