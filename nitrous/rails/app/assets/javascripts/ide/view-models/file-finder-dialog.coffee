@@ -113,7 +113,8 @@ App.FileFinderDialog = klass = Em.Object.extend
   addResults: (pattern, path, newResults) ->
     results = @get this.resultsKey(pattern, path)
     _.each newResults, (result) =>
-      results.pushObject Em.Object.create(filename: result, absolutePath: [path, result].join('/') )
+      filename = result.substr(result.lastIndexOf('/')+1)
+      results.pushObject Em.Object.create(filename: filename, path: result, absolutePath: [path, result].join('/') )
     @set 'newResults', Date.now()
 
   incrementIndex: ->

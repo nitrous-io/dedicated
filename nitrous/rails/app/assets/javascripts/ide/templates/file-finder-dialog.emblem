@@ -12,4 +12,7 @@
           each view.content.currentResults
             li class={selected}
               a href='#' click='didClickResult absolutePath target="view"'
-                = filename
+                .filename
+                  = filename
+                .path
+                  = path
