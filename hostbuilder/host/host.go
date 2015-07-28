@@ -2,7 +2,6 @@ package host
 
 import (
 	"crypto/rsa"
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -24,8 +23,6 @@ var (
 	TLSKeyLocation  = "/etc/freighterd/key.crt"
 	SecretLocation  = "/etc/freighterd/secret"
 	ConfigLocation  = "/etc/freighterd/config.json"
-
-	ErrTimeout = errors.New("operation timedout")
 )
 
 // for setting up repository on the host
@@ -139,21 +136,33 @@ type Executor interface {
 	Close()
 }
 
-type NewHost func(defaultConfig map[string]string, config string) (Host, error)
+type RegisteredDriver struct {
+	New func(driverOptions map[string]string, hostOptions string) (Host, error)
+}
 
-var (
-	Hosts = map[string]NewHost{}
-)
+var drivers map[string]*RegisteredDriver
 
-// accept:
-// - provider: amazon, digitalocean, etc...
-// - defaultConfig: key-value strings. This is typically where we set the
-// default value that we use for all container hosts i.e access/secret key etc...
-// - config: json string of user customization
-func InitHost(provider string, defaultConfig map[string]string, config string) (Host, error) {
-	init, ok := Hosts[provider]
-	if !ok {
-		return nil, fmt.Errorf("Invalid provider %v", provider)
+func init() {
+	drivers = map[string]*RegisteredDriver{}
+}
+
+func Register(name string, registeredDriver *RegisteredDriver) error {
+	if _, ok := drivers[name]; ok {
+		return fmt.Errorf("Driver %q already registered", name)
 	}
-	return init(defaultConfig, config)
+
+	drivers[name] = registeredDriver
+	return nil
+}
+
+// NewDriver returns the registered driver with the given name, initializing it
+// with options for the driver and host.
+// Driver options are things like AWS access/secret keys.
+// Host options are things like instance type, storage size.
+func NewDriver(name string, driverOptions map[string]string, hostOptions string) (Host, error) {
+	driver, ok := drivers[name]
+	if !ok {
+		return nil, fmt.Errorf("Unknown driver %q", name)
+	}
+	return driver.New(driverOptions, hostOptions)
 }

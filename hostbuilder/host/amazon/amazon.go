@@ -858,17 +858,17 @@ func (h *Host) DriverName() string {
 	return "amazon"
 }
 
-// Printf logs the data together with the host uuid and droplet id if they are
-// avalaible
+// Printf logs a formatted string together with the request uuid and instance
+// id, if available.
 func (h *Host) Printf(format string, v ...interface{}) {
-	parts := []string{}
+	fields := logrus.Fields{}
 	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+		fields["uuid"] = h.uuid
 	}
 	if h.instance != nil {
-		parts = append(parts, fmt.Sprintf("instance=%s", h.instance.InstanceId))
+		fields["instance"] = h.instance.InstanceId
 	}
-	logrus.Infof(fmt.Sprintf("amazon: %s %s", strings.Join(parts, " "), format), v...)
+	logrus.WithFields(fields).Infof(fmt.Sprintf("amazon: %s", format), v...)
 }
 
 // MetricsLabel returns the label with the current host's region if possible
@@ -948,25 +948,25 @@ func (h *Host) logFailed() {
 	}
 }
 
-func NewHost(defaultConfig map[string]string, config string) (host.Host, error) {
+func New(driverOptions map[string]string, config string) (host.Host, error) {
 	hostConfig := &HostConfig{}
 	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s amazon: invalid config %s", defaultConfig["uuid"], config)
+		logrus.Errorf("uuid=%s amazon: invalid config %s", driverOptions["uuid"], config)
 		return nil, err
 	}
 	accessConfig := &AccessConfig{
-		AccessKey: defaultConfig["access_key"],
-		SecretKey: defaultConfig["secret_key"],
+		AccessKey: driverOptions["access_key"],
+		SecretKey: driverOptions["secret_key"],
 		RawRegion: hostConfig.RegionID,
 	}
 	auth, err := accessConfig.Auth()
 	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", defaultConfig["uuid"], err)
+		logrus.Errorf("uuid=%s amazon: auth failed %v", driverOptions["uuid"], err)
 		return nil, err
 	}
 	// get create timeout
 	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(defaultConfig["create_timeout"])
+	d, err := time.ParseDuration(driverOptions["create_timeout"])
 	if err == nil {
 		createTimeout = d
 	}
@@ -976,18 +976,18 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 		Config:        hostConfig,
 		auth:          auth,
 		createTimeout: createTimeout,
-		uuid:          defaultConfig["uuid"], // this is injected by the server per request
-		notifyURL:     defaultConfig["notify_url"],
-		env:           defaultConfig["env"],
+		uuid:          driverOptions["uuid"], // this is injected by the server per request
+		notifyURL:     driverOptions["notify_url"],
+		env:           driverOptions["env"],
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if _, ok := defaultConfig["ignore_region"]; !ok {
+	if _, ok := driverOptions["ignore_region"]; !ok {
 		region, err := accessConfig.Region()
 		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", defaultConfig["uuid"], err)
+			logrus.Errorf("uuid=%s amazon: invalid region %v", driverOptions["uuid"], err)
 			return nil, err
 		}
 		host.provider = ec2.New(auth, region)
@@ -996,7 +996,9 @@ func NewHost(defaultConfig map[string]string, config string) (host.Host, error) 
 }
 
 func init() {
-	host.Hosts["amazon"] = NewHost
+	host.Register("amazon", &host.RegisteredDriver{
+		New: New,
+	})
 }
 
 // createKeypair create a temporary keypair using Amazon API, store the
@@ -1036,11 +1038,7 @@ func inspectSourceAMI(ctx *host.HostContext) error {
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("create_host")
-	defer func(start time.Time) {
-		// we are interested in the final context of `h` so label is generated
-		// inside defer block
-		mh.UpdateSince(label, start)
-	}(time.Now())
+	defer mh.UpdateSince(label, time.Now())
 
 	storageSize := computeSize(h.Config.StorageSize)
 
