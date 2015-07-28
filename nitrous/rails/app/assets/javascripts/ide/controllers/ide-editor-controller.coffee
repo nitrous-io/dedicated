@@ -7,6 +7,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   confirmCloseDialog: null
   goToLineDialog: null
   chatNotification: null
+  tabWatcher: null
 
   opsSocketBinding: Em.Binding.oneWay 'App.router.ideController.opsSocket'
   opsSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.opsSocketReady'
@@ -31,6 +32,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
     @set 'activePane', editorPane
+    @set 'tabWatcher', new TabWatcher(editorPane, App.get('container'))
 
     @useUserSettings()
 
@@ -69,6 +71,10 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @_super(tab)
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
+
+  activeTabDidChange: (->
+    @get('tabWatcher').notifyOfChange()
+  ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
 
   saveGoDocument: (doc) ->
     path = doc.get 'path'

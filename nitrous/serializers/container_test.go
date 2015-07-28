@@ -87,6 +87,7 @@ var _ = Describe("container serializer", func() {
 					"Key": "Value",
 					"Some": "Thing"
 				},
+				"user_data": null,
 				"started_at": "2014-08-13T00:00:00Z",
 				"finished_at": null,
 				"terminated_at": "2013-11-03T00:00:00Z",

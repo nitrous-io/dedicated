@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/usercontainerdata"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
@@ -1559,6 +1560,35 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
 			Expect(j.Container.Config.Ports).To(Equal(mockClient.ConfigContainerConfig.PortBindings))
 			Expect(j.Container.Config.Mounts).To(Equal([]string{"database-75:/var/lib/postgresql/data"}))
+		})
+
+		It("includes the container userdata if available", func() {
+			ucd := &usercontainerdata.UserContainerData{
+				ContainerID: c.ID,
+				UserID:      u.ID,
+				Metadata: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"Key": sql.NullString{"Value", true},
+					},
+				},
+			}
+			nstmt, err := db.PrepareNamed(`INSERT INTO user_container_data
+                                (user_id, container_id, metadata)
+                                VALUES (:user_id, :container_id, :metadata) RETURNING *;`)
+			Expect(err).To(BeNil())
+			Expect(nstmt.QueryRowx(ucd).StructScan(ucd)).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Container *serializers.Container `json:"container"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Container.ID).To(Equal(c.ID))
+			Expect(j.Container.UserData["Key"]).To(Equal("Value"))
 		})
 
 		Describe("SSH URL", func() {

@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/usercontainerdata"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userkeys"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/userprofiles"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
@@ -202,14 +203,15 @@ func (s *Server) drawRoutes() {
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
 			},
 			"PUT": {
-				"/users":                      r("users.Update", users.Update, EventUserUpdatedProfile),
-				"/hosts/{slug}":               r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
-				"/hosts/{slug}/versions":      r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
-				"/containers/{slug}/keys":     r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
-				"/user/billing_profile":       r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
-				"/containers/{slug}/metadata": r("containers.Metadata", containers.Metadata),
-				"/admin/host/{slug}":          r("admin.UpdateHost", admin.UpdateHost),
-				"/admin/template/{slug}":      r("admin.TemplateUpdate", admin.TemplateUpdate),
+				"/users":                       r("users.Update", users.Update, EventUserUpdatedProfile),
+				"/hosts/{slug}":                r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
+				"/hosts/{slug}/versions":       r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
+				"/containers/{slug}/keys":      r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
+				"/user/billing_profile":        r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
+				"/containers/{slug}/metadata":  r("containers.Metadata", containers.Metadata),
+				"/containers/{slug}/user_data": r("usercontainerdata.SetData", usercontainerdata.SetData),
+				"/admin/host/{slug}":           r("admin.UpdateHost", admin.UpdateHost),
+				"/admin/template/{slug}":       r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                           r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
