@@ -100,22 +100,6 @@ func refreshCachesWorker(db *sql.DB) {
 	}
 }
 
-func installSignalHandlers() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGUSR1, syscall.SIGUSR2)
-	go func() {
-		for s := range c {
-			if s == syscall.SIGUSR1 {
-				tender.ToggleVerboseLog()
-			} else if s == syscall.SIGUSR2 {
-				tender.DumpHostsCache()
-			} else {
-				logrus.Errorf("Unexpected signal %s", s)
-			}
-		}
-	}()
-}
-
 func main() {
 	flag.Parse()
 	if *flVersion {
@@ -126,7 +110,6 @@ func main() {
 	if *flVerboseLogs {
 		tender.VerboseLog = 1
 	}
-	installSignalHandlers()
 	tender.InitDNS()
 
 	db, err := connectDB(databaseURL)
@@ -145,7 +128,7 @@ func main() {
 
 	timeStart = time.Now()
 	tender.RefreshHostsCache(db)
-	logrus.Infof("nitial refreshHostsCache() took %s", time.Since(timeStart))
+	logrus.Infof("initial refreshHostsCache() took %s", time.Since(timeStart))
 
 	go refreshCachesWorker(db)
 
