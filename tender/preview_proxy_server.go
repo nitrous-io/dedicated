@@ -71,7 +71,7 @@ func RefreshContainersCache(db *sql.DB) error {
 	containersCache = m
 	muContainers.Unlock()
 	containersCacheLastUpdate = time.Now()
-	LogVerbosef("got %d containers in %s\n", n, time.Since(timeStart))
+	LogVerbosef("got %d containers in %s", n, time.Since(timeStart))
 	return nil
 }
 
