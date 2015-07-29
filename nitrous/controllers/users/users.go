@@ -39,8 +39,8 @@ var (
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 
-	bannedEmailAddress = httperror.New(http.StatusBadRequest, "email_banned", "this email address has been banned")
-	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number has been banned")
+	bannedEmailAddress = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
+	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number is banned")
 
 	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
 	errUpdateForbidden = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")

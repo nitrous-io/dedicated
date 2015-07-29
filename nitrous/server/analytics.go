@@ -46,4 +46,6 @@ const (
 	EventInvoiceManuallyPaid = "Invoice Manually Paid"
 
 	EventUserDeleted = "User Deleted"
+
+	EventOrgCreated = "Org Created"
 )

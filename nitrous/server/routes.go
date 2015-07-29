@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -208,6 +209,7 @@ func (s *Server) drawRoutes() {
 				"/admin/change_host_state":                 r("admin.ChangeHostState", admin.ChangeHostState),
 				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
+				"/orgs":                                    r("orgs.Create", orgs.Create, EventOrgCreated),
 			},
 			"PUT": {
 				"/users":                       r("users.Update", users.Update, EventUserUpdatedProfile),

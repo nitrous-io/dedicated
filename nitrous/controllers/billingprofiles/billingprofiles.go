@@ -23,7 +23,7 @@ var (
 	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
 	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
-	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card has been banned.")
+	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card is banned.")
 )
 
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
