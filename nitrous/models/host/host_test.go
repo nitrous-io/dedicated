@@ -1396,30 +1396,35 @@ var _ = Describe("models/host", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
 				}: hostbuilderclient.Config{
 					"id":          "i-123456",
+					"volume_id":   "vol-abcde",
 					"region_id":   "us-west-2",
 					"ip_address":  "10.0.0.1",
 					"disable_eip": false,
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
-					ProviderTemplate:   &host.ProviderTemplate{},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					ProviderTemplate:          &host.ProviderTemplate{},
 				}: hostbuilderclient.Config{
 					"id":          "i-123456",
+					"volume_id":   "",
 					"region_id":   "us-west-2",
 					"ip_address":  "10.0.0.1",
 					"disable_eip": false,
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
 					ProviderTemplate: &host.ProviderTemplate{
 						Config: hstore.Hstore{
 							Map: map[string]sql.NullString{
@@ -1429,6 +1434,7 @@ var _ = Describe("models/host", func() {
 					},
 				}: hostbuilderclient.Config{
 					"id":          "i-123456",
+					"volume_id":   "vol-abcde",
 					"region_id":   "us-west-2",
 					"ip_address":  "10.0.0.1",
 					"disable_eip": true,
