@@ -734,7 +734,12 @@ func unmountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to unmount %s, err: %v, output: %s", userDeviceOSName, err, out)
 	}
 
-	if _, err := detachVolume(h.provider, h.userVolume.VolumeId, h.instance.InstanceId); err != nil {
+	userVolume, err := h.getUserVolume()
+	if err != nil {
+		return err
+	}
+
+	if _, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
 		return err
 	}
 
@@ -833,7 +838,6 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	if err != nil {
 		return nil, mh.Error(err, label)
 	}
-	h.userVolume = userVolume
 
 	hctx := host.NewContext(ctx, h, h, nil)
 	defer func() {
@@ -1000,8 +1004,9 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	if err != nil {
 		h.Printf("could not acquire an instance from pool for instance type %q, err: %v", instanceType, err)
 
-		// TODO If an error occurs, we create a new instance and use the user's
-		// existing volume.
+		// If we can't acquire an instance from the pool, we create a new
+		// instance and attach the user's existing volume.
+		return h.attachToNewInstance(h.Config.VolumeID)
 	}
 
 	h.instance = instance
@@ -1055,6 +1060,113 @@ func (h *Host) startWithPool() (*host.Info, error) {
 			}
 
 			return nil, mh.Error(err, label)
+		}
+	}
+
+	return h.Info()
+}
+
+// attachToNewInstance creates a new EC2 instance and attaches the given volume
+// to the instance as its user volume.
+func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+		{
+			Func:    host.WaitForSSH,
+			Timeout: 5 * time.Minute,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Connecting via SSH",
+			Func:        host.WaitForSSH,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Discovering new disk",
+			Func: func(ctx *host.HostContext) error {
+				// Get info of the volume attached to instance, so that we can
+				// detach and delete it.
+				h := ctx.Host.(*Host)
+
+				userVolume, err := h.getUserVolume()
+				if err != nil {
+					return err
+				}
+
+				h.userVolume = userVolume
+
+				return nil
+			},
+		},
+		{
+			Description: "Detaching new disk",
+			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Deleting new disk",
+			Func:        deleteOldVolume,
+		},
+		{
+			Description: "Attaching user's disk",
+			Func: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+
+				instanceID := h.instance.InstanceId
+
+				h.Printf("attaching user's volume %s to instance %s", volumeID, instanceID)
+				vol, err := attachVolume(h.provider, volumeID, instanceID, userDeviceName)
+				if err != nil {
+					return fmt.Errorf("amazon: failed to attach user volume %s to %s, err: %v", volumeID, instanceID, err)
+				}
+				h.Printf("attached user's volume %s to instance %s", volumeID, instanceID)
+
+				h.userVolume = vol
+
+				return nil
+			},
+		},
+		{
+			Description: "Mounting user disk",
+			Func:        mountUserVolume,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+			return nil, err
 		}
 	}
 
