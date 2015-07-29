@@ -2498,8 +2498,7 @@ footer
       color: #FFF
       font-weight: bold
       cursor: default
-
-
+    
   .dropdown
     position: absolute
     bottom: -20px
@@ -2593,9 +2592,12 @@ footer
 
 .copyright
   color: #4E5862
+  
+  a
+    color: rgba(255,255,255,.4)
 
   ul
-    margin-top: 8px
+    margin-top: 0
 
   .nitrous-logo
     width: 104px
@@ -2606,6 +2608,47 @@ footer
     background: image_url("home/nitrous-logo.png") 0 0 no-repeat
     background-size: 104px 12px
     opacity: .6
+  
+  ul.social
+    margin: 10px 0 0 0
+    display: flex
+    
+    li
+      float: none
+      margin-right: 6px
+      
+      a
+        width: 32px
+        height: 32px
+        display: block
+        position: relative
+        text-indent: -99999px
+        
+        &:after
+          position: absolute
+          top: 0
+          left: 0
+          width: 32px
+          height: 32px
+          display: block
+          font-family: fontAwesome
+          color: #4E5862
+          font-size: 20px
+          text-indent: 0
+        
+        &:hover
+          &:after
+            color: #FFF
+      
+      &.twitter
+        a:after
+          content: "\f099"
+      &.facebook
+        a:after
+          content: "\f082"
+      &.github
+        a:after
+          content: "\f09b"
 
 
 .copy-wrapper
