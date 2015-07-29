@@ -577,18 +577,28 @@ func deleteOldVolume(ctx *host.HostContext) error {
 	return nil
 }
 
-// Destroy releases the instance Elastic IP and terminate it
+// Destroy will either:
+// 1. for hosts prior to pre-EBS hotswapping, we release the EIP and terminate
+//    the instance, or
+// 2. for hosts that support EBS hotswapping, we delete the user volume.
 func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		// if the instance does not exist, then consider that it is sucessfully destroyed
-		if err == ErrInstanceNotFound {
-			return nil
-		}
+	h.Printf("destroy - checking if instance %s supports EBS hotswapping", h.Config.ID)
+
+	err := h.reloadInstance(h.Config.ID)
+	if err != nil && err != ErrInstanceNotFound {
 		return mh.Error(err, label)
 	}
+
+	// [Feature flag] - requires EBS hotswapping / host version >= 1.
+	// For hosts created prior to EBS hotswapping, we simply stop the instance.
+	if err == ErrInstanceNotFound || h.supportsEBSHotswapping() {
+		return h.destroyWithPool()
+	}
+
+	h.Printf("destroying pre-EBS hotswapping instance normally")
 
 	if err := h.releaseEIP(); err != nil {
 		return mh.Error(err, label)
@@ -611,6 +621,26 @@ func (h *Host) Destroy() error {
 		return mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
+
+	return nil
+}
+
+// destroyWithPool deletes the user volume.
+// We assume that the host has previously been stopped, so it no longer has an
+// associated EIP nor an EC2 instance.
+func (h *Host) destroyWithPool() error {
+	label := h.MetricsLabel("destroy_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	volumeID := h.Config.VolumeID
+
+	h.Printf("deleting user volume %s", volumeID)
+
+	if _, err := h.provider.DeleteVolume(volumeID); err != nil {
+		h.Printf("ERROR: failed to delete user volume %s, err: %v", volumeID, err)
+		return err
+	}
+	h.Printf("deleted user volume %s", volumeID)
 
 	return nil
 }
