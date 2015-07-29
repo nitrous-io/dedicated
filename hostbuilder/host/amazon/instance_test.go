@@ -104,7 +104,7 @@ var _ = Describe("setTags", func() {
 	It("sets name, dedicated tag, and dedicated:version tag", func() {
 		p := &dummyInstanceProvider{}
 		h := &Host{
-			Config:   &HostConfig{Name: "test-host"},
+			Config:   &hostConfig{Name: "test-host"},
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 		}
 		setTags(p, h)
@@ -117,7 +117,7 @@ var _ = Describe("setTags", func() {
 		p = &dummyInstanceProvider{}
 		h = &Host{
 			driverConfig: driverConfig{Env: "staging", HostVersion: "42"},
-			Config:       &HostConfig{Name: "test-{{env}}-host"},
+			Config:       &hostConfig{Name: "test-{{env}}-host"},
 			instance:     &ec2.Instance{InstanceId: "i-1234"},
 		}
 		setTags(p, h)
