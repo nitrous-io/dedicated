@@ -121,7 +121,7 @@ func (c *driverConfig) createTimeout() time.Duration {
 type Host struct {
 	driverConfig
 
-	Config *HostConfig
+	Config *hostConfig
 
 	requestID string
 
@@ -141,7 +141,7 @@ type Host struct {
 	newSize    int64 // New storage size in GB.
 }
 
-type HostConfig struct {
+type hostConfig struct {
 	ID              string `json:"id"`
 	HostID          int64  `json:"host_id"` // database id of the host
 	Name            string `json:"name"`
@@ -173,7 +173,7 @@ type HostConfig struct {
 	FreighterdVersion string          `json:"freighterd_version"`
 }
 
-func (c *HostConfig) securityGroups() []ec2.SecurityGroup {
+func (c *hostConfig) securityGroups() []ec2.SecurityGroup {
 	return []ec2.SecurityGroup{
 		{Id: c.SecurityGroupID},
 	}
@@ -1176,7 +1176,7 @@ func New(driverOptions string, hostOptions string) (host.Host, error) {
 		return nil, err
 	}
 
-	hostConfig := &HostConfig{}
+	hostConfig := &hostConfig{}
 	if err := json.Unmarshal([]byte(hostOptions), hostConfig); err != nil {
 		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
 		return nil, err
