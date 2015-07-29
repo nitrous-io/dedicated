@@ -476,7 +476,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when some error occurrs during the transaction", func() {
-			It("returns an the error", func() {
+			It("returns the error", func() {
 				tx, err := db.Beginx()
 				Expect(err).To(BeNil())
 

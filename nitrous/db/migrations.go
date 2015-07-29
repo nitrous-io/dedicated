@@ -1438,6 +1438,22 @@ func init() {
 			`,
 		},
 		{
+			Version: "1438044083",
+			Up: `
+				CREATE TABLE orgs (
+					id bigserial PRIMARY KEY NOT NULL,
+					name character varying(255) NOT NULL,
+					slug character varying(255) NOT NULL,
+					email character varying(255) NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now(),
+				  deleted_at timestamp without time zone DEFAULT NULL
+				);
+				CREATE UNIQUE INDEX index_orgs_on_id ON orgs USING btree (id);
+				CREATE UNIQUE INDEX index_orgs_on_slug ON orgs USING btree (slug) WHERE deleted_at IS NULL;
+			`,
+		},
+		{
 			Version: "1439318024",
 			Up: `
 				ALTER TABLE users ADD COLUMN suspicious text

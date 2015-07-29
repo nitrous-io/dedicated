@@ -1473,7 +1473,7 @@ var _ = Describe("models/host", func() {
 			Expect(h.Validate()).To(BeNil())
 		})
 
-		It("validates name", func() {
+		It("validates slug", func() {
 			buf := make([]byte, 64)
 			for i := range buf {
 				buf[i] = 'f'
