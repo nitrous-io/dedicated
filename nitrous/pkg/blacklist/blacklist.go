@@ -1,4 +1,4 @@
-package user
+package blacklist
 
 import (
 	"bufio"
@@ -15,7 +15,7 @@ const delimiter = "@"
 
 var blacklist map[string]struct{}
 
-func IsBlacklisted(email string) bool {
+func Check(email string) bool {
 	index := strings.Index(email, delimiter)
 	if index < 0 {
 		logrus.Errorf("Email address(%s) does not contain @", email)

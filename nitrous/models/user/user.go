@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
@@ -284,7 +285,7 @@ func (u *User) Validate() error {
 	if !emailRe.MatchString(u.Email) {
 		return ErrEmailInvalid
 	}
-	if IsBlacklisted(u.Email) {
+	if blacklist.Check(u.Email) {
 		return ErrEmailBlacklisted
 	}
 

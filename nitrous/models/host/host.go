@@ -448,11 +448,11 @@ func (h *Host) Validate() error {
 	if h.Slug == "" {
 		return ErrSlugBlank
 	}
-	nameLen := len(h.Slug)
-	if nameLen < 2 {
+	slugLen := len(h.Slug)
+	if slugLen < 2 {
 		return ErrSlugTooShort
 	}
-	if nameLen > 63 {
+	if slugLen > 63 {
 		return ErrSlugTooLong
 	}
 	if !slugRe.MatchString(h.Slug) {
