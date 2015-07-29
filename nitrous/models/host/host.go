@@ -465,20 +465,28 @@ func (h *Host) Validate() error {
 // identify the host and manipulate it.
 func (h *Host) MachineConfig() hostbuilderclient.Config {
 	var disableEIP bool
-	// if the host's provider template set disable_eip
-	// then we can use that value. Otherwise we assume that disableEIP is false
+
+	cfg := hostbuilderclient.Config{
+		"id":         h.ProviderIdentifier.String,
+		"volume_id":  h.ProviderStorageIdentifier.String,
+		"region_id":  h.RegionIdentifier.String,
+		"ip_address": h.IPAddress.String,
+	}
+
 	if h.ProviderTemplate != nil {
-		if val, ok := h.ProviderTemplate.Config.Map["disable_eip"]; ok {
-			disableEIP, _ = strconv.ParseBool(val.String)
+		// if the host's provider template set disable_eip
+		// then we can use that value. Otherwise we assume that disableEIP is false
+		if v, ok := h.ProviderTemplate.Config.Map["disable_eip"]; ok {
+			disableEIP, _ = strconv.ParseBool(v.String)
+		}
+		if v, ok := h.ProviderTemplate.Config.Map["instance_type"]; ok {
+			cfg["instance_type"] = v.String
 		}
 	}
-	return hostbuilderclient.Config{
-		"id":          h.ProviderIdentifier.String,
-		"volume_id":   h.ProviderStorageIdentifier.String,
-		"region_id":   h.RegionIdentifier.String,
-		"ip_address":  h.IPAddress.String,
-		"disable_eip": disableEIP,
-	}
+
+	cfg["disable_eip"] = disableEIP
+
+	return cfg
 }
 
 // Hostname returns the public domain that the host can be reached. This should be the

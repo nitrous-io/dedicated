@@ -1428,16 +1428,18 @@ var _ = Describe("models/host", func() {
 					ProviderTemplate: &host.ProviderTemplate{
 						Config: hstore.Hstore{
 							Map: map[string]sql.NullString{
-								"disable_eip": sql.NullString{"true", true},
+								"disable_eip":   sql.NullString{"true", true},
+								"instance_type": sql.NullString{"t2.micro", true},
 							},
 						},
 					},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"volume_id":   "vol-abcde",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": true,
+					"id":            "i-123456",
+					"volume_id":     "vol-abcde",
+					"region_id":     "us-west-2",
+					"ip_address":    "10.0.0.1",
+					"disable_eip":   true,
+					"instance_type": "t2.micro",
 				},
 			}
 
