@@ -313,6 +313,8 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
 
+	h.Printf("respec received: %#v", h.Config)
+
 	host.PublishMessage(qp, event.HostRespeccing, h.requestID, queueInfo, "Respeccing host", queue.Respec)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {

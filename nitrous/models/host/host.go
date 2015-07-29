@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -30,11 +30,6 @@ var (
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 	ErrUpdateFailed = errors.New("failed to update host with stale original state")
 )
-
-type ProviderTemplate struct {
-	Provider string        `db:"provider"`
-	Config   hstore.Hstore `db:"config"`
-}
 
 const (
 	StateBorn         = "born"
@@ -117,7 +112,7 @@ type Host struct {
 	// this is populated via a join
 	SubscriptionSlug sql.NullString `db:"subscription_slug"`
 
-	*ProviderTemplate
+	*providertemplate.ProviderTemplate
 
 	// Optional username field
 	Username sql.NullString `db:"username"`
@@ -472,8 +467,6 @@ func (h *Host) Validate() error {
 // MachineConfig returns the configuration that hostbuilder can use to
 // identify the host and manipulate it.
 func (h *Host) MachineConfig() hostbuilderclient.Config {
-	var disableEIP bool
-
 	cfg := hostbuilderclient.Config{
 		"id":         h.ProviderIdentifier.String,
 		"volume_id":  h.ProviderStorageIdentifier.String,
@@ -481,18 +474,32 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 		"ip_address": h.IPAddress.String,
 	}
 
-	if h.ProviderTemplate != nil {
-		// if the host's provider template set disable_eip
-		// then we can use that value. Otherwise we assume that disableEIP is false
-		if v, ok := h.ProviderTemplate.Config.Map["disable_eip"]; ok {
-			disableEIP, _ = strconv.ParseBool(v.String)
+	if pt := h.ProviderTemplate; pt != nil {
+		for k, v := range pt.Config.Map {
+			if v.Valid {
+				cfg[k] = v.String
+			}
 		}
-		if v, ok := h.ProviderTemplate.Config.Map["instance_type"]; ok {
-			cfg["instance_type"] = v.String
+
+		switch pt.Provider {
+		case "amazon":
+			// hostbuilder will replace the {{env}} with the hostbuilder environment
+			cfg["name"] = fmt.Sprintf("userhost-{{env}}-%d", h.ID)
+
+			size, err := strconv.Atoi(cfg["storage_size"].(string))
+			if err == nil {
+				cfg["storage_size"] = size
+			}
+
+			var disableEIP bool
+			if v, ok := pt.Config.Map["disable_eip"]; ok {
+				disableEIP, _ = strconv.ParseBool(v.String)
+			}
+			cfg["disable_eip"] = disableEIP
+		default:
+			// Don't care about other providers.
 		}
 	}
-
-	cfg["disable_eip"] = disableEIP
 
 	return cfg
 }

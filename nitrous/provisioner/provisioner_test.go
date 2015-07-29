@@ -3,7 +3,6 @@ package provisioner_test
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"syscall"
 	"testing"
@@ -365,75 +364,6 @@ var _ = Describe("provisioner", func() {
 			Eventually(func() bool {
 				return prov.IsRunning()
 			}).Should(BeTrue())
-		})
-	})
-
-	Describe("ApplyProviderConfig()", func() {
-		var (
-			pcfg *provisioner.Config
-			prov *provisioner.Provisioner
-			hs   *test.HostStack
-		)
-
-		BeforeEach(func() {
-			pcfg = &provisioner.Config{
-				Username: provisionerUser.Username,
-				Interval: 50 * time.Millisecond,
-			}
-			prov = provisioner.NewProvisioner(db, nil, pcfg)
-			var err error
-			hs, err = test.CreateHostStack(db, nil)
-			Expect(err).To(BeNil())
-		})
-
-		It("uses convention for provider name", func() {
-			hs.PT.Provider = provisioner.AmazonProvider
-			origCfg := hostbuilderclient.Config{
-				"region_id":    "usw2",
-				"storage_size": "25",
-			}
-
-			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
-			Expect(err).To(BeNil())
-			Expect(cfg["name"]).To(Equal(fmt.Sprintf("userhost-{{env}}-%d", hs.H.ID)))
-		})
-
-		It("amazon provider returns config given valid opts", func() {
-			hs.PT.Provider = provisioner.AmazonProvider
-			origCfg := hostbuilderclient.Config{
-				"region_id":    "usw2",
-				"storage_size": "25",
-			}
-
-			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
-			Expect(err).To(BeNil())
-			Expect(cfg["storage_size"]).To(Equal(25))
-			Expect(cfg["disable_eip"]).To(Equal(false))
-		})
-
-		It("amazon provider disables eip if set", func() {
-			hs.PT.Provider = provisioner.AmazonProvider
-			origCfg := hostbuilderclient.Config{
-				"region_id":    "usw2",
-				"storage_size": "25",
-				"disable_eip":  "true",
-			}
-
-			cfg, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
-			Expect(err).To(BeNil())
-			Expect(cfg["disable_eip"]).To(Equal(true))
-		})
-
-		It("amazon provider errs on invalid storage_size", func() {
-			hs.PT.Provider = provisioner.AmazonProvider
-			origCfg := hostbuilderclient.Config{
-				"region_id":    "usw2",
-				"storage_size": "mongo hdd",
-			}
-
-			_, err := prov.ApplyProviderConfig(origCfg, hs.PT, hs.H)
-			Expect(err).NotTo(BeNil())
-			Expect(err.Error()).To(ContainSubstring("invalid storage_size"))
 		})
 	})
 })
