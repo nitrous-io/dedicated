@@ -746,7 +746,51 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		return nil, mh.Error(err, label)
 	}
 
-	// TODO Feature flag required: for old hosts, we stop them the old way.
+	// [Feature flag] - requires EBS hotswapping / host version >= 1.
+	// For hosts created prior to EBS hotswapping, we simply stop the instance.
+	if h.supportsEBSHotswapping() {
+		return h.stopWithPool(qp, queueInfo)
+	}
+
+	h.Printf("stopping pre-EBS hotswapping instance normally")
+
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
+		}
+		return nil, mh.Error(err, label)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "stopping"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "stopped",
+	}
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		if info, e := h.Info(); e == nil {
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
+		} else {
+			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
+		}
+		return nil, mh.Error(err, label)
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
+	} else {
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, err)
+	}
+
+	return info, err
+}
+
+func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("stop_with_pool")
+	defer mh.UpdateSince(label, time.Now())
 
 	var (
 		ctx    context.Context
