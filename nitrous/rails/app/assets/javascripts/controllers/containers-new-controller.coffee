@@ -1,10 +1,12 @@
 App.ContainersNewController = Lib.ContainerConfigController.extend
-  queryParams: ['preselectHost', 'runCreate']
+  queryParams: ['preselectHost', 'runCreate', 'selectedTemplateSlug', 'autofillName']
   preselectHost: null
   # Flag to indicate whether we allow a container to be created immediately upon
   # entering this route. This prevents unintended creates when the browser
   # "Back" button is used.
   runCreate: false
+  selectedTemplateSlug: null
+  autofillName: null
 
   selectedHostSlug: null
   name: null
@@ -37,9 +39,14 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   clear: ->
     @_super.apply this, arguments
+    selectedTemplate = null
+    if sl = @get 'selectedTemplateSlug'
+      selectedTemplate = App.get('templates').findBy 'slug', sl
+    selectedTemplate ||= App.get 'templates.firstObject'
+
     @setProperties
       selectedHostSlug: if App.get('singleHost') then App.get('hosts.firstObject.slug') else null
-      name: null
+      name: @get 'autofillName'
       error: null
       invalidField: null
 
@@ -49,10 +56,13 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       createdContainer: null
       openingIDE: false
 
-      selectedTemplate: App.get('templates.firstObject')
+      selectedTemplate: selectedTemplate
       selectedOption: null
 
-      nameFieldEdited: false
+      nameFieldEdited: @get('autofillName') != null
+
+      autofillName: null
+      selectedTemplateSlug: null
 
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')
@@ -108,7 +118,10 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
         return callback?()
 
       @set 'saving', false
-      App.postError "You have exceeded your container limit on #{@get('selectedHost.name')}"
+      if sub = @get 'selectedHost.subscription.slug'
+        @transitionToRoute 'subscriptions.upgrade', sub, queryParams: { exceededContainerLimit: true, selectedTemplate: @get('selectedTemplate.slug'), containerName: @get('name') }
+      else
+        App.postError "You have exceeded your container limit on #{@get('selectedHost.name')}"
     ).fail (jqxhr) =>
       @set 'saving', false
       App.postError(jqxhr.responseJSON, "Failed to create container!")

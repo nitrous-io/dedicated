@@ -3,9 +3,14 @@
 
 .card-body
 
-  .notice-text
-    i.fa.fa-info
-    | You will have a chance to review your changes before upgrading.
+  if exceededContainerLimit
+    .notice-text.error
+      i.fa.fa-warning
+      | You have reached your container limit, please upgrade your plan to create more containers.
+  else
+    .notice-text
+      i.fa.fa-info
+      | You will have a chance to review your changes before upgrading.
 
   .ui.input-group
     .plan-groups
