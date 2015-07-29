@@ -61,7 +61,7 @@ func RefreshHostsCache(db *sql.DB) error {
 	hostsCache = m
 	muHosts.Unlock()
 	hostsCacheLastUpdate = time.Now()
-	LogVerbosef("got %d hosts in %s\n", n, time.Since(timeStart))
+	LogVerbosef("got %d hosts in %s", n, time.Since(timeStart))
 	return nil
 }
 
