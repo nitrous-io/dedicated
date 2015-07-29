@@ -51,6 +51,7 @@ const (
 
 	updateTimeout            = 30 * time.Second
 	resizeVolumeTimeout      = 30 * time.Minute
+	startTimeout             = 5 * time.Minute
 	stopTimeout              = 10 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
 )
@@ -144,6 +145,7 @@ type Host struct {
 type hostConfig struct {
 	ID              string `json:"id"`
 	HostID          int64  `json:"host_id"` // database id of the host
+	VolumeID        string `json:"volume_id"`
 	Name            string `json:"name"`
 	SourceAMI       string `json:"source_ami"`
 	InstanceType    string `json:"instance_type"`
@@ -677,8 +679,35 @@ func (h *Host) Stop() (*host.Info, error) {
 	return h.Info()
 }
 
+// mountUserVolume logs in to instance via SSH to:
+// 1. Mount user volume.
+// 2. Start docker.
+// 3. Start freighterd.
+func mountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("mount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	// Mount user device, assuming that /etc/fstab already knows the mountpoint.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo mount %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
+		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd start`); err != nil {
+		return fmt.Errorf("failed to start freighterd, err: %v, output: %s", err, out)
+	}
+
+	return nil
+}
+
 // unmountUserVolume logs in to instance via SSH to:
-// 1. Stop freighter.
+// 1. Stop freighterd.
 // 2. Stop docker.
 // 3. Unmount user volume.
 // Then, we detach the user EBS volume from its instance.
@@ -765,7 +794,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		{
 			Description: "Connecting to workspace",
 			Func:        host.WaitForSSH,
-			Timeout:     5 * time.Minute,
+			Timeout:     3 * time.Minute,
 		},
 		{
 			Description: "Detaching user disk",
@@ -809,7 +838,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	// If instance pool is full, we terminate the instance.
 	// Otherwise, we release the (still running) instance to the pool.
 	if poolFull {
-		logrus.Infof("amazon: pool for %s is full, terminating instance", instanceType)
+		logrus.Infof("amazon: pool for %q is full, terminating instance", instanceType)
 		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
 			err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", instanceID, err)
 			if info, e := h.Info(); e == nil {
@@ -820,7 +849,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 			return nil, mh.Error(err, label)
 		}
 	} else {
-		logrus.Infof("amazon: releasing instance of stopped workspace to pool for %s", instanceType)
+		logrus.Infof("amazon: releasing instance of stopped workspace to pool for %q", instanceType)
 		if err := h.releaseInstance(); err != nil {
 			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
 			if info, e := h.Info(); e == nil {
@@ -844,14 +873,26 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	return info, err
 }
 
-// Start starts the instance and allocate the desired IP address to it
+// Start starts an instance and allocate the desired IP address to it
 func (h *Host) Start() (*host.Info, error) {
 	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
 
-	if err := h.reloadInstance(h.Config.ID); err != nil {
+	h.Printf("checking if instance %s supports EBS hotswapping", h.Config.ID)
+
+	err := h.reloadInstance(h.Config.ID)
+	if err != nil && err != ErrInstanceNotFound {
 		return nil, mh.Error(err, label)
 	}
+
+	// [Feature flag] - requires EBS hotswapping / host version >= 1.
+	// For hosts created prior to EBS hotswapping, their instance will be in the
+	// "stopped" state, and we simply start them back up.
+	if err == ErrInstanceNotFound || h.instance.State.Name != "stopped" || h.supportsEBSHotswapping() {
+		return h.startWithPool()
+	}
+
+	h.Printf("starting pre-EBS hotswapping instance normally")
 
 	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
 		return nil, mh.Error(err, label)
@@ -883,6 +924,80 @@ func (h *Host) Start() (*host.Info, error) {
 
 		// reload the instance to get a new public IP address
 		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+			return nil, mh.Error(err, label)
+		}
+	}
+
+	return h.Info()
+}
+
+func (h *Host) startWithPool() (*host.Info, error) {
+	label := h.MetricsLabel("start_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	instanceType := h.Config.InstanceType
+
+	h.Printf("attempting to acquire instance of type %q from pool", instanceType)
+
+	// Attempt to acquire an instance from pool.
+	instance, err := h.acquireInstance(instanceType)
+	if err != nil {
+		h.Printf("could not acquire an instance from pool for instance type %q, err: %v", instanceType, err)
+
+		// TODO If an error occurs, we create a new instance and use the user's
+		// existing volume.
+	}
+
+	h.instance = instance
+
+	h.Printf("attaching user's volume %s to instance %s", h.Config.VolumeID, instance.InstanceId)
+	if _, err := attachVolume(h.provider, h.Config.VolumeID, instance.InstanceId, userDeviceName); err != nil {
+		return nil, fmt.Errorf("amazon: failed to attach user volume %s to %s, err: %v", h.Config.VolumeID, h.instance.InstanceId, err)
+	}
+	h.Printf("attached user's volume %s to instance %s", h.Config.VolumeID, instance.InstanceId)
+
+	// Login to the instance and start docker and freighterd.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), startTimeout)
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     3 * time.Minute,
+		},
+		{
+			Description: "Mounting user disk",
+			Func:        mountUserVolume,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+
 			return nil, mh.Error(err, label)
 		}
 	}
