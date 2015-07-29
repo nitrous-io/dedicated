@@ -24,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
-	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -258,13 +257,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	PublishHostEvent(env, controllers.EventHostStarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
-	hbConfig := h.MachineConfig()
-	switch h.ProviderTemplate.Provider {
-	case "amazon":
-		hbConfig["name"] = fmt.Sprintf("userhost-{{env}}-%d", h.ID)
-	}
-
-	info, err := HostbuilderClient.Start(h.Provider, hbConfig, hostbuilderHeaders(env), urlArgs)
+	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			logrus.Errorf("hostbuilder timeout starting host: %v", e)
@@ -448,33 +441,11 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	pt, err := providertemplate.FindByID(db, rs.ProviderTemplateID)
-	if err != nil {
-		return err
-	}
-
 	if err := h.UpdateState(db, host.StateRespeccing); err != nil {
 		return err
 	}
 
 	if err := rs.UpdateState(db, respec.StateProcessing); err != nil {
-		return err
-	}
-
-	cfg := h.MachineConfig()
-	for k, v := range pt.Config.Map {
-		if v.Valid {
-			cfg[k] = v.String
-		} else {
-			cfg[k] = ""
-		}
-	}
-
-	// Apply provider-specific configuration.
-	prov := env.Provisioner
-	cfg, err = prov.ApplyProviderConfig(cfg, pt, h)
-	if err != nil {
-		logrus.Errorf("failed to apply provider-specific config, err: %v", err)
 		return err
 	}
 
@@ -490,7 +461,7 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 			}).Infof("Host Respec")
 		}()
 
-		info, err := HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
+		info, err := HostbuilderClient.Respec(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), host.URLArgsFromHost(h))
 		if err != nil {
 			if err := h.UpdateState(db, host.StateRespecFailed); err != nil {
 				logrus.Errorf("error updating host after respec failed: %v", err)

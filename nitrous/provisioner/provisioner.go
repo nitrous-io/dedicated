@@ -37,23 +37,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	DigitalOceanProvider = "digitalocean"
-	AmazonProvider       = "amazon"
-	DockerProvider       = "docker"
-	DummyProvider        = "dummy"
-)
-
-// format strings for provider name conventions
-// hostbuilder will replace the {{env}} with the hostbuilder environment
-const (
-	AmazonNamef = "userhost-{{env}}-%d"
-
-	// we have separate accounts for DO staging and production, so no env
-	// distinction needed
-	DigitalOceanNamef = "userhost-%d"
-)
-
 var (
 	// shared client to interact with hostbuilder
 	HostbuilderClient *hostbuilderclient.Hostbuilder
@@ -630,11 +613,7 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		}
 	}()
 
-	config, err := p.mkHostbuilderConfig(phost, opts)
-	if err != nil {
-		return nil, err
-	}
-
+	config := p.mkHostbuilderConfig(phost, opts)
 	urlArgs := host.URLArgsFromHost(h)
 	hostinfo, err := HostbuilderClient.Create(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
 	logrus.Debugf("provisionTracer: hostinfo: %+v err: %+v", hostinfo, err)
@@ -711,7 +690,7 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 	return p.provision(phost, opts)
 }
 
-func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) (hostbuilderclient.Config, error) {
+func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {
 	h := phost.host
 	config := hostbuilderclient.Config{
 		"host_id":     h.ID,
@@ -729,60 +708,12 @@ func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOpt
 		"apt_dist":           opts.AptDist,
 		"freighterd_version": phost.host.FreighterdVersion,
 	}
-	for k, v := range opts.Template.Config.Map {
-		if v.Valid {
-			config[k] = v.String
-		} else {
-			config[k] = ""
-		}
+
+	machineCfg := h.MachineConfig()
+	for k, v := range machineCfg {
+		config[k] = v
 	}
-
-	return p.ApplyProviderConfig(config, opts.Template, h)
-}
-
-func (p *Provisioner) ApplyProviderConfig(cfg hostbuilderclient.Config, pt *providertemplate.ProviderTemplate, h *host.Host) (hostbuilderclient.Config, error) {
-	switch pt.Provider {
-	case AmazonProvider:
-		cfg["name"] = fmt.Sprintf(AmazonNamef, h.ID)
-
-		// convert storage_size to format accepted by hostbuilder
-		size, err := strconv.Atoi(cfg["storage_size"].(string))
-		if err != nil {
-			return nil, fmt.Errorf("invalid storage_size for config %v", cfg)
-		}
-		cfg["storage_size"] = size
-
-		// convert disable_eip to format accepted by hostbuilder
-		// if disable_eip is invalid, it will be set to false
-		if disableEIPconf, ok := cfg["disable_eip"]; ok {
-			switch disable := disableEIPconf.(type) {
-			case bool:
-				cfg["disable_eip"] = disable
-			case string:
-				cfg["disable_eip"], _ = strconv.ParseBool(disable)
-			default:
-				cfg["disable_eip"] = false
-			}
-		} else {
-			cfg["disable_eip"] = false
-		}
-	case DigitalOceanProvider:
-		cfg["name"] = fmt.Sprintf(DigitalOceanNamef, h.ID)
-
-		if rid, ok := pt.Config.Map["region_id"]; ok {
-			if reg, ok := doRegionsMap[rid.String]; ok {
-				cfg["region_id"] = reg
-			} else {
-				return nil, fmt.Errorf("region %s is invalid", rid.String)
-			}
-		}
-	case DockerProvider, DummyProvider:
-		// no special config required
-	default:
-		return nil, ErrUnknownProvider
-	}
-
-	return cfg, nil
+	return config
 }
 
 func (p *Provisioner) hostbuilderHeaders(opts ProvisionOptions) http.Header {
