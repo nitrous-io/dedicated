@@ -482,6 +482,7 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 	}
 	return hostbuilderclient.Config{
 		"id":          h.ProviderIdentifier.String,
+		"volume_id":   h.ProviderStorageIdentifier.String,
 		"region_id":   h.RegionIdentifier.String,
 		"ip_address":  h.IPAddress.String,
 		"disable_eip": disableEIP,
