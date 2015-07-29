@@ -258,7 +258,13 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	PublishHostEvent(env, controllers.EventHostStarting, h)
 
 	urlArgs := host.URLArgsFromHost(h)
-	info, err := HostbuilderClient.Start(h.Provider, h.MachineConfig(), hostbuilderHeaders(env), urlArgs)
+	hbConfig := h.MachineConfig()
+	switch h.ProviderTemplate.Provider {
+	case "amazon":
+		hbConfig["name"] = fmt.Sprintf("userhost-{{env}}-%d", h.ID)
+	}
+
+	info, err := HostbuilderClient.Start(h.Provider, hbConfig, hostbuilderHeaders(env), urlArgs)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
 			logrus.Errorf("hostbuilder timeout starting host: %v", e)
@@ -275,6 +281,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	h.State = host.StateRunning
+	h.ProviderIdentifier = sql.NullString{info.ID, true}
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
