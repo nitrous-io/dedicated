@@ -497,6 +497,9 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
 			} else {
 				logrus.Debugf("containers.start: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
+				if err := cn.UpdateColumn(env.DB, "preview_port", nil); err != nil {
+					logger.Errorf("container.start: failed to update preview port to nil: %v", err)
+				}
 			}
 
 			// reset the temp state, so freighter state will be exposed
@@ -581,6 +584,9 @@ var restart = controlActionHandler(
 			return nil, err
 		} else {
 			logrus.Debugf("containers.restart: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
+			if err := cn.UpdateColumn(env.DB, "preview_port", nil); err != nil {
+				logger.Errorf("container.restart: failed to update preview port to nil: %v", err)
+			}
 		}
 
 		return liveContainer, nil

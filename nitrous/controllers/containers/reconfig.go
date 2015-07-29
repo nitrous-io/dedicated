@@ -146,6 +146,7 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 		logrus.Errorf("containers.reconfig: Failed to get preview port: %+v", err)
 	} else {
 		logrus.Debugf("containers.reconfig: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", cn)
+		cn.PreviewPort = sql.NullInt64{0, false}
 	}
 
 	err = cn.Update(db)

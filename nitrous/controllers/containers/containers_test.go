@@ -2778,8 +2778,10 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		Describe("Preview Port", func() {
+			var c *container.Container
+
 			BeforeEach(func() {
-				c := &container.Container{
+				c = &container.Container{
 					CID:    "deadbead",
 					Slug:   "foo",
 					Image:  "nitrous-base",
@@ -2871,6 +2873,36 @@ var _ = Describe("controllers/containers", func() {
 				Expect(err).To(BeNil())
 				Expect(updatedContainer.PreviewPort.Valid).To((Equal(false)))
 			})
+
+			It("updates preview port to nil if there is no vaild preview port", func() {
+				c.PreviewPort = sql.NullInt64{9000, true}
+				err := c.Update(db)
+				Expect(err).To(BeNil())
+
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"4000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=3000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+				Expect(updatedContainer.PreviewPort.Valid).To((Equal(false)))
+			})
 		})
 	})
 
@@ -2904,8 +2936,10 @@ var _ = Describe("controllers/containers", func() {
 		itBehavesLikeAControlAction(i)
 
 		Describe("Preview Port", func() {
+			var c *container.Container
+
 			BeforeEach(func() {
-				c := &container.Container{
+				c = &container.Container{
 					CID:    "deadbead",
 					Slug:   "foo",
 					Image:  "nitrous-base",
@@ -2996,6 +3030,36 @@ var _ = Describe("controllers/containers", func() {
 				updatedContainer, err := container.FindByCID(db, "deadbead")
 				Expect(err).To(BeNil())
 				Expect(updatedContainer.PreviewPort.Valid).To(Equal(false))
+			})
+
+			It("updates preview port to nil if there is no vaild preview port", func() {
+				c.PreviewPort = sql.NullInt64{9000, true}
+				err := c.Update(db)
+				Expect(err).To(BeNil())
+
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"4000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=3000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+				Expect(updatedContainer.PreviewPort.Valid).To((Equal(false)))
 			})
 		})
 	})
@@ -3535,6 +3599,41 @@ var _ = Describe("controllers/containers", func() {
 			Expect(err).To(BeNil())
 			Expect(cvs).To(HaveLen(1))
 			Expect(cvs[0].VolumeID).To(Equal(music.ID))
+		})
+
+		Context("when preview port is reset", func() {
+			BeforeEach(func() {
+				c.PreviewPort = sql.NullInt64{9000, true}
+				err := c.Update(db)
+				Expect(err).To(BeNil())
+
+				mockClient.ReconfigContainer = &freighterclient.Container{
+					ID:    "livebeef",
+					Name:  containerName,
+					Host:  "1.2.3.4",
+					State: "running",
+					Image: "deadbeef-reconfig-1420683989905982895",
+					Ports: map[string][]string{
+						"3000":  []string{"8080"},
+						"4552":  []string{"65123"},
+						"11211": []string{"8081"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=5000",
+					},
+				}
+			})
+
+			It("updates container record", func() {
+				doRequest(testParams)
+
+				c, err := container.Find(db, hs.U, containerName)
+				Expect(err).To(BeNil())
+				Expect(c.CID).To(Equal("livebeef"))
+				Expect(c.Image).To(Equal("nitrous-base"))
+				Expect(c.LockedUntil).To(BeNil())
+				Expect(c.PreviewPort.Valid).To(Equal(false))
+			})
 		})
 
 		Context("when the Freighter client returns an error", func() {
