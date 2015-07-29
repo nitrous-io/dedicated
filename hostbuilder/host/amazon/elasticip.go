@@ -155,7 +155,7 @@ func tryAssociateAddress(provider ipProvider, opts *ec2.AssociateAddress) (*ec2.
 	return resp, err // persistent InvalidAllocationID.NotFound errors
 }
 
-// getAddresses returns the addresses associated with an EC2 instance.
+// getAddresses returns the Elastic IP addresses associated with an EC2 instance.
 func getAddresses(provider ipProvider, instanceID string) ([]ec2.Address, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-id", instanceID)
