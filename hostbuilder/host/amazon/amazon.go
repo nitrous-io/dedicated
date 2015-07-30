@@ -189,40 +189,67 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
-	hctx := host.NewContext(ctx, h, h, nil)
-	defer func() {
-		if hctx.Executor != nil {
-			hctx.Executor.Close()
+	var steps []host.Step
+
+	// Attempt to acquire an instance from pool.
+	h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
+	instanceFromPool, err := h.acquireInstance(h.Config.InstanceType)
+	if err != nil {
+		h.Printf("creating a new instance because we could not acquire instance from pool, err: %v", err)
+
+		steps = []host.Step{
+			{
+				Description: "Checking image's availability",
+				Func:        inspectSourceAMI,
+			},
+			{
+				Description: "Creating workspace",
+				Func:        createInstance,
+				Timeout:     5 * time.Minute,
+			},
+			/*
+				  From @dqminh
+					to prevent ec2 from assigning network interfaces to a not running instance
+					(i.e., maybe the API reported a false positive ? ), we actually wait for SSH to
+					be ready right after finishing creating the instance.
+
+					This waits for SSH to be accessible using the instance's dynamic public IP
+					instead of the elasic IP. If the instance is accessible, it should be in
+					running state.
+
+					After assigning the elastic IP, ssh check should be really quick, so it's safe
+					to double-check it.
+			*/
+			{
+				Func:    host.WaitForSSH,
+				Timeout: 5 * time.Minute,
+			},
 		}
-	}()
+	} else {
+		h.Printf("acquired instance %s from pool, using to create host", instanceFromPool.InstanceId)
 
-	steps := []host.Step{
-		{
-			Description: "Checking image's availability",
-			Func:        inspectSourceAMI,
-		},
-		{
-			Description: "Creating workspace",
-			Func:        createInstance,
-			Timeout:     5 * time.Minute,
-		},
-		/*
-			  From @dqminh
-				to prevent ec2 from assigning network interfaces to a not running instance
-				(i.e., maybe the API reported a false positive ? ), we actually wait for SSH to
-				be ready right after finishing creating the instance.
+		h.instance = instanceFromPool
 
-				This waits for SSH to be accessible using the instance's dynamic public IP
-				instead of the elasic IP. If the instance is accessible, it should be in
-				running state.
+		steps = []host.Step{
+			{
+				Description: "Initializing disk",
+				Func:        attachNewUserVolume,
+			},
+			{
+				Description: "Connecting to workspace",
+				Func:        host.WaitForSSH,
+				Timeout:     5 * time.Minute,
+			},
+			{
+				Description: "Mounting disk",
+				Func:        mountUserVolume,
+			},
+		}
+	}
 
-				After assigning the elastic IP, ssh check should be really quick, so it's safe
-				to double-check it.
-		*/
-		{
-			Func:    host.WaitForSSH,
-			Timeout: 5 * time.Minute,
-		},
+	// These steps are required regardless of whether instance is from pool or
+	// a newly created one.
+	commonSteps := []host.Step{
 		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
@@ -249,6 +276,17 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			Func:        host.RestartServices,
 		},
 	}
+	for _, step := range commonSteps {
+		steps = append(steps, step)
+	}
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
@@ -268,6 +306,54 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	info, err := h.Info()
 	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, info, queue.Create, "")
 	return info, err
+}
+
+func attachNewUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	// Get snapshot ID of user volume from AMI.
+	resp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Images) != 1 {
+		return fmt.Errorf("expected 1 AMI but got %d, API response: %#v", len(resp.Images), resp)
+	}
+
+	ami := resp.Images[0]
+
+	var snapshotID string
+	for _, dev := range ami.BlockDevices {
+		if dev.DeviceName == userDeviceName {
+			snapshotID = dev.SnapshotId
+			break
+		}
+	}
+
+	if snapshotID == "" {
+		return fmt.Errorf("could not find snapshot of user volume for AMI %s", h.Config.SourceAMI)
+	}
+
+	h.Printf("creating new user volume from snapshot %s", snapshotID)
+
+	// Create volume from snapshot, with the requested size.
+	vol, err := createVolume(h.provider, snapshotID, h.instance.AvailZone, computeSize(h.Config.StorageSize))
+	if err != nil {
+		return err
+	}
+
+	h.Printf("attaching new user volume %s to instance %s", vol.VolumeId, h.instance.InstanceId)
+
+	// Attach volume to instance.
+	vol, err = attachVolume(h.provider, vol.VolumeId, h.instance.InstanceId, userDeviceName)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to attach new user volume %s to %s, err: %v", vol.VolumeId, h.instance.InstanceId, err)
+	}
+
+	h.userVolume = vol
+
+	return nil
 }
 
 // Update sets properties of an existing host
