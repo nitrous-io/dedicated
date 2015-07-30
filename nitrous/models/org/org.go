@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 )
 
@@ -48,14 +49,37 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 }
 
 func (o *Org) Insert(d db.QueryReceiver) error {
-	nstmt, err := d.PrepareNamed(`INSERT INTO orgs
+	s, err := d.PrepareNamed(`
+		INSERT INTO orgs
 		(slug, name, email)
-    VALUES (:slug, :name, :email)
-		RETURNING *;`)
+		VALUES (:slug, :name, :email)
+		RETURNING *;
+	`)
 	if err != nil {
 		return err
 	}
-	return nstmt.QueryRowx(o).StructScan(o)
+	return s.QueryRowx(o).StructScan(o)
+}
+
+func (o *Org) AddMember(d db.QueryReceiver, uid int64, role string) error {
+	if _, ok := orgmembership.ValidRoles[role]; !ok {
+		return orgmembership.InvalidRoleError{Role: role}
+	}
+	om := &orgmembership.OrgMembership{
+		OrgID:  o.ID,
+		UserID: uid,
+		Role:   role,
+	}
+	s, err := d.PrepareNamed(`
+		INSERT INTO org_memberships
+		(org_id, user_id, role)
+		VALUES (:org_id, :user_id, :role)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.Exec(om)
+	return err
 }
 
 func (o *Org) Validate() error {
