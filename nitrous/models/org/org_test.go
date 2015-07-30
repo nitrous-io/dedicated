@@ -6,8 +6,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
-	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -218,86 +216,6 @@ var _ = Describe("models/org", func() {
 				Expect(o.Validate() == t.err).To(BeTrue(),
 					"Expected '%s' to return error '%v'", t.input, t.err)
 			}
-		})
-	})
-
-	Describe("AddMember()", func() {
-		var (
-			o, o2     *org.Org
-			u, u2, u3 *user.User
-		)
-
-		BeforeEach(func() {
-			var err error
-			o, err = org.FindBySlug(db, "foobar")
-			Expect(err).To(BeNil())
-			o2, err = org.FindBySlug(db, "watermelon")
-			Expect(err).To(BeNil())
-
-			u = &user.User{
-				Username: "foo",
-				Email:    "foo@example.com",
-				Password: "123456",
-				Name:     "Mr. Foo",
-			}
-			err = test.WrapInTransaction(db, u.Insert)
-			Expect(err).To(BeNil())
-
-			u2 = &user.User{
-				Username: "bar",
-				Email:    "bar@example.com",
-				Password: "123456",
-				Name:     "Ms. Bar",
-			}
-			err = test.WrapInTransaction(db, u2.Insert)
-			Expect(err).To(BeNil())
-
-			u3 = &user.User{
-				Username: "baz",
-				Email:    "baz@example.com",
-				Password: "123456",
-				Name:     "Mrs. Baz",
-			}
-			err = test.WrapInTransaction(db, u3.Insert)
-			Expect(err).To(BeNil())
-		})
-
-		Context("when an invalid role is given", func() {
-			It("returns error", func() {
-				err := o.AddMember(db, u.ID, "destroyer")
-				Expect(err).To(MatchError("invalid role: destroyer"))
-			})
-		})
-
-		Context("when a non-existent user id is given", func() {
-			It("returns error", func() {
-				err := o.AddMember(db, u.ID+9000, "member")
-				Expect(err).NotTo(BeNil())
-				Expect(err.Error()).To(ContainSubstring("violates foreign key constraint"))
-			})
-		})
-
-		Context("when a user with a given id exists", func() {
-			It("adds user as an org member", func() {
-				err := o.AddMember(db, u.ID, "owner")
-				Expect(err).To(BeNil())
-				err = o2.AddMember(db, u2.ID, "admin")
-				Expect(err).To(BeNil())
-				err = o.AddMember(db, u3.ID, "member")
-				Expect(err).To(BeNil())
-
-				m, err := orgmembership.FindAllByOrgId(db, o.ID)
-				Expect(err).To(BeNil())
-				Expect(m).To(HaveLen(2))
-				Expect(m[0].Username).To(Equal("foo"))
-				Expect(m[0].Email).To(Equal("foo@example.com"))
-				Expect(m[0].Name).To(Equal("Mr. Foo"))
-				Expect(m[0].Role).To(Equal("owner"))
-				Expect(m[1].Username).To(Equal("baz"))
-				Expect(m[1].Email).To(Equal("baz@example.com"))
-				Expect(m[1].Name).To(Equal("Mrs. Baz"))
-				Expect(m[1].Role).To(Equal("member"))
-			})
 		})
 	})
 })
