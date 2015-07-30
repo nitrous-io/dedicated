@@ -7,6 +7,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -87,6 +88,27 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 
+		It("does not return the billing profile for the given user ID if it belongs to an org", func() {
+			_, err := db.Exec(`DELETE FROM billing_profiles WHERE user_id=$1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			org := &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(org.Insert(db)).To(BeNil())
+
+			_, err = db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state) 
+                                VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+
+			p, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(p).To(BeNil())
+		})
+
 		It("billing profile should be cached when called with user.BillingProfile()", func() {
 			bp, err := u.BillingProfile(db)
 			Expect(err).To(BeNil())
@@ -131,6 +153,36 @@ var _ = Describe("models/billingprofile", func() {
 			b, err := billingprofile.FindByID(db, p.ID)
 			Expect(err).To(BeNil())
 			Expect(b).To(Equal(p))
+		})
+	})
+
+	Describe("FindForOrg()", func() {
+		It("returns the billing profile for a given organisation", func() {
+			org := &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(org.Insert(db)).To(BeNil())
+
+			_, err := db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state) 
+                                VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+
+			p, err := billingprofile.FindForOrg(db, org.ID)
+			Expect(err).To(BeNil())
+			Expect(p.State).To(Equal(billingprofile.StateNoCard))
+
+			u, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u.ID).ToNot(Equal(p.ID))
+		})
+
+		It("returns error if there is no given BP for the organisation", func() {
+			p, err := billingprofile.FindForOrg(db, 9999)
+			Expect(p).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 	})
 

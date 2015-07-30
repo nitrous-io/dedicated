@@ -15,7 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/card"
 )
 
@@ -76,7 +76,7 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		pending_activation = TRUE,
 		max_hours = NULL,
 		state = $1
-		WHERE user_id = $2`, billingprofile.StateNoCard, env.User.ID)
+		WHERE user_id = $2 AND org_id IS NULL`, billingprofile.StateNoCard, env.User.ID)
 	if err != nil {
 		return err
 	}

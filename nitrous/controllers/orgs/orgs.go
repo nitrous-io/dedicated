@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -50,22 +52,24 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errBannedEmail
 	}
 
-	tx, err := db.Beginx()
+	err = db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := o.Insert(tx); err != nil {
+			return err
+		}
+
+		if err := billingprofile.Create(tx, user.ID, sql.NullInt64{o.ID, true}); err != nil {
+			return err
+		}
+
+		if err := orgmembership.AddMember(tx, o.ID, user.ID, "owner"); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return err
-	}
-
-	if err = o.Insert(tx); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err = orgmembership.AddMember(tx, o.ID, user.ID, "owner"); err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
+		fmt.Printf("Err: %v", err)
 		return err
 	}
 

@@ -686,8 +686,8 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)
 				Expect(errType).To(Equal("card_banned"))
+				Expect(errDesc).To(Equal("Your credit card is banned."))
 			})
-			Expect(errDesc).To(Equal("Your credit card is banned."))
 
 			ItReturnsTheCreatedBillingProfile := func() {
 				It("returns the created billing profile", func() {
