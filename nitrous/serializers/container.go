@@ -34,11 +34,9 @@ type Container struct {
 	Metadata map[string]string `json:"metadata"`
 	UserData map[string]string `json:"user_data"`
 
-	CreatedAt    *time.Time `json:"created_at"`
-	UpdatedAt    *time.Time `json:"updated_at,omitempty"`
-	TerminatedAt *time.Time `json:"terminated_at,omitempty"`
-	StartedAt    *time.Time `json:"started_at"`
-	FinishedAt   *time.Time `json:"finished_at"`
+	CreatedAt  *time.Time `json:"created_at"`
+	StartedAt  *time.Time `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at"`
 }
 
 type SharedContainer struct {
@@ -72,8 +70,6 @@ func SerializeContainer(c *container.Container) *Container {
 		StartedAt:       c.StartedAt,
 		FinishedAt:      c.FinishedAt,
 		CreatedAt:       c.CreatedAt,
-		UpdatedAt:       c.UpdatedAt,
-		TerminatedAt:    c.TerminatedAt,
 	}
 
 	for key, value := range c.Metadata.Map {

@@ -19,10 +19,8 @@ App.Container = klass = App.Model.extend
   ipAddress: attr(as: 'ip_address', serialize: false)
   gatewayIP: attr(as: 'gateway_ip', serialize: false)
   createdAt: attr('date', as: 'created_at', serialize: false)
-  updatedAt: attr('date', as: 'updated_at', serialize: false)
   startedAt: attr('date', as: 'started_at', serialize: false)
   finishedAt: attr('date', as: 'finished_at', serialize: false)
-  terminatedAt: attr('date', as: 'terminated_at', serialize: false)
 
   canEdit: true
 

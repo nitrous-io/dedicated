@@ -17,11 +17,9 @@ import (
 
 var _ = Describe("container serializer", func() {
 	var (
-		touchedAt    = time.Date(2013, time.November, 2, 12, 0, 0, 0, time.UTC)
-		terminatedAt = time.Date(2013, time.November, 3, 0, 0, 0, 0, time.UTC)
-		createdAt    = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
-		updatedAt    = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
-		startedAt    = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
+		touchedAt = time.Date(2013, time.November, 2, 12, 0, 0, 0, time.UTC)
+		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
+		startedAt = time.Date(2014, time.August, 13, 0, 0, 0, 0, time.UTC)
 
 		model = &container.Container{
 			ID:         10,
@@ -44,12 +42,10 @@ var _ = Describe("container serializer", func() {
 					"Some": {"Thing", true},
 				},
 			},
-			StartedAt:    &startedAt,
-			FinishedAt:   nil,        // will be omitted
-			TouchedAt:    &touchedAt, // Not serialized.
-			TerminatedAt: &terminatedAt,
-			CreatedAt:    &createdAt,
-			UpdatedAt:    &updatedAt,
+			StartedAt:  &startedAt,
+			FinishedAt: nil,        // will be omitted
+			TouchedAt:  &touchedAt, // Not serialized.
+			CreatedAt:  &createdAt,
 		}
 	)
 
@@ -90,9 +86,7 @@ var _ = Describe("container serializer", func() {
 				"user_data": null,
 				"started_at": "2014-08-13T00:00:00Z",
 				"finished_at": null,
-				"terminated_at": "2013-11-03T00:00:00Z",
 				"created_at": "2013-11-01T00:00:00Z",
-				"updated_at": "2013-11-02T00:00:00Z",
 				"config": {
 					"config_port_bindings": ["public::5050", "private::3000"],
 					"port": ["public:4040:5050", "private:4000:3000"],

@@ -353,8 +353,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
 			Expect(j.Containers[0].FinishedAt).To(BeNil())
 			Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
-			Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
-			Expect(j.Containers[0].TerminatedAt).To(BeNil())
 		})
 
 		It("keeps the list ordered by slug", func() {
@@ -542,8 +540,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].StartedAt).To(Equal(&startedAt))
 				Expect(j.Containers[0].FinishedAt).To(BeNil())
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].TerminatedAt).To(BeNil())
 
 				Expect(j.Containers[1].ID).To(Equal(int64(0))) // Container exists in Freighter but not in DB.
 				Expect(j.Containers[1].CID).To(Equal("cafebabe"))
@@ -562,8 +558,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].StartedAt).To(Equal(&startedAt))
 				Expect(j.Containers[1].FinishedAt).To(BeNil())
 				Expect(j.Containers[1].CreatedAt).To(BeNil())
-				Expect(j.Containers[1].UpdatedAt).To(BeNil())
-				Expect(j.Containers[1].TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -613,8 +607,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
 				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].TerminatedAt).To(BeNil())
 				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
@@ -682,8 +674,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Slug).To(Equal("forever-container-21"))
 				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].TerminatedAt).To(BeNil())
 				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
@@ -763,8 +753,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].Slug).To(Equal("dominant-intercooler-42"))
 				Expect(j.Containers[0].Name).To(Equal("Rails app server"))
 				Expect(j.Containers[0].CreatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].UpdatedAt).NotTo(BeNil())
-				Expect(j.Containers[0].TerminatedAt).To(BeNil())
 				// ip address, gateway will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[0].IPAddress).To(Equal(""))
@@ -779,8 +767,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[1].Slug).To(Equal("forever-container-21"))
 				Expect(j.Containers[1].Name).To(Equal("Rails app server"))
 				Expect(j.Containers[1].CreatedAt).NotTo(BeNil())
-				Expect(j.Containers[1].UpdatedAt).NotTo(BeNil())
-				Expect(j.Containers[1].TerminatedAt).To(BeNil())
 				// ip address, gateway state will be empty since the host is stopped,
 				// so the freighter API call didn't happen
 				Expect(j.Containers[1].IPAddress).To(Equal(""))
@@ -1553,8 +1539,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(j.Container.StartedAt).To(Equal(&startedAt))
 			Expect(j.Container.FinishedAt).To(BeNil())
 			Expect(j.Container.CreatedAt).NotTo(BeNil())
-			Expect(j.Container.UpdatedAt).NotTo(BeNil())
-			Expect(j.Container.TerminatedAt).To(BeNil())
 			Expect(j.Container.SSHURL).To(Equal("ssh://nitrous@foo.n2odev.com:2020"))
 			Expect(j.Container.Config.Cmd).To(Equal(mockClient.ConfigContainerConfig.Cmd))
 			Expect(j.Container.Config.Env).To(Equal(mockClient.ConfigContainerConfig.Env))
@@ -1769,8 +1753,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.StartedAt).To(BeNil())
 				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
-				Expect(j.Container.UpdatedAt).NotTo(BeNil())
-				Expect(j.Container.TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -1807,8 +1789,6 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Container.StartedAt).To(BeNil())
 				Expect(j.Container.FinishedAt).To(BeNil())
 				Expect(j.Container.CreatedAt).NotTo(BeNil())
-				Expect(j.Container.UpdatedAt).NotTo(BeNil())
-				Expect(j.Container.TerminatedAt).To(BeNil())
 			})
 		})
 
@@ -1895,8 +1875,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.StartedAt).To(Equal(&startedAt))
 			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())
-			Expect(cn.UpdatedAt).NotTo(BeNil())
-			Expect(cn.TerminatedAt).To(BeNil())
 		}
 
 		It("should block if the user has billing issues", func() {
@@ -2875,8 +2853,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.StartedAt).To(Equal(&startedAt))
 			Expect(cn.FinishedAt).To(Equal(&finishedAt))
 			Expect(cn.CreatedAt).NotTo(BeNil())
-			Expect(cn.UpdatedAt).NotTo(BeNil())
-			Expect(cn.TerminatedAt).NotTo(BeNil())
 		}
 
 		It("calls the Freighter client to Terminate the container", func() {
@@ -3298,7 +3274,6 @@ var _ = Describe("controllers/containers", func() {
 			Expect(cn.IPAddress).To(Equal("1.2.3.4"))
 			Expect(cn.State).To(Equal("running"))
 			Expect(cn.Name).To(Equal("Elixir server"))
-			Expect(cn.UpdatedAt).NotTo(BeNil())
 			Expect(cn.UserID).To(Equal(u.ID))
 			Expect(cn.HostID).To(Equal(hs.H.ID))
 		})
