@@ -1471,5 +1471,14 @@ func init() {
 				CREATE INDEX index_org_memberships_on_user_id ON org_memberships USING btree (user_id);
 			`,
 		},
+		{
+			Version: "1438295977",
+			Up: `
+                                ALTER TABLE billing_profiles ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
+                                DROP INDEX index_billing_profiles_on_user_id;
+				CREATE UNIQUE INDEX index_billing_profiles_on_user_org_id ON billing_profiles USING btree (user_id, org_id);
+                                CREATE UNIQUE INDEX index_billing_profiles_on_org_id ON billing_profiles USING btree (org_id) WHERE org_id IS NOT NULL;
+			`,
+		},
 	}
 }

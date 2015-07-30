@@ -21,7 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
 
@@ -230,7 +230,7 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 		return err
 	}
 
-	return billingprofile.Create(tx, u.ID)
+	return billingprofile.Create(tx, u.ID, sql.NullInt64{Valid: false})
 }
 
 func (u *User) Update(d db.QueryReceiver) error {
@@ -616,6 +616,7 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 		StripeID:          sql.NullString{c.ID, true},
 		PendingActivation: false,
 		State:             existing.State,
+		ID:                existing.ID,
 	}
 
 	if c.Cards != nil && len(c.Cards.Values) >= 1 {

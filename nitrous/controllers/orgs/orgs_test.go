@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -109,6 +110,15 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(o.Slug).To(Equal("nitrous"))
 				Expect(o.CreatedAt).NotTo(BeNil())
 				Expect(o.DeletedAt.Valid).To(BeFalse())
+			})
+
+			It("should create a billing profile for the organisation", func() {
+				Expect(res.Code).To(Equal(http.StatusCreated))
+				o, err := org.FindBySlug(db, "nitrous")
+				Expect(err).To(BeNil())
+				bp, err := billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+				Expect(bp.State).To(Equal(billingprofile.StateNoCard))
 			})
 
 			It("responds with a json representation of the org that's been created", func() {
