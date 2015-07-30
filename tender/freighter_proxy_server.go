@@ -41,15 +41,6 @@ type FreighterProxyServer struct {
 	tlsConfig *tls.Config
 }
 
-func DumpHostsCache() {
-	muHosts.Lock()
-	defer muHosts.Unlock()
-	logrus.Printf("hostsCache: %d hosts, last updated %s ago\n", len(hostsCache), time.Since(hostsCacheLastUpdate))
-	for slug, h := range hostsCache {
-		logrus.Printf(" %s: %s:%d\n", slug, h.IP, h.Port)
-	}
-}
-
 func RefreshHostsCache(db *sql.DB) error {
 	timeStart := time.Now()
 	m, err := getHosts(db)

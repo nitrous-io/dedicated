@@ -181,17 +181,6 @@ func ServeTLS(port int64, tlsConfig *tls.Config, s http.Handler) error {
 	return srv.Serve(ln)
 }
 
-func ToggleVerboseLog() {
-	v := atomic.LoadInt32(&VerboseLog)
-	if v == 0 {
-		v = 1
-	} else {
-		v = 0
-	}
-	atomic.StoreInt32(&VerboseLog, v)
-	logrus.Printf("Toggled verbose logging to %d", v)
-}
-
 func LogVerbosef(format string, args ...interface{}) {
 	v := atomic.LoadInt32(&VerboseLog)
 	if v == 0 {
