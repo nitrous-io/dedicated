@@ -1,16 +1,17 @@
 package orgmembership
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
-var ValidRoles = map[string]struct{}{
+var ValidRoles = map[string][]string{
+	"owner":  {"owner", "admin", "member"},
+	"admin":  {"admin", "member"},
 	"member": {},
-	"owner":  {},
-	"admin":  {},
 }
 
 type InvalidRoleError struct {
@@ -39,7 +40,7 @@ type OrgMember struct {
 	Name     string `db:"name"`
 }
 
-func FindAllByOrgId(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
+func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	members := []*OrgMember{}
 	err := d.Select(&members, `
 		SELECT org_memberships.*, users.username, users.email, users.name
@@ -52,4 +53,63 @@ func FindAllByOrgId(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 		return nil, err
 	}
 	return members, nil
+}
+
+func FindByUsernameAndOrgSlug(d db.QueryReceiver, username, slug string) (*OrgMembership, error) {
+	member := &OrgMembership{}
+	err := d.Get(member, `
+		SELECT org_memberships.*
+		FROM org_memberships
+		INNER JOIN users ON org_memberships.user_id = users.id
+		INNER JOIN orgs ON org_memberships.org_id = orgs.id
+		WHERE users.username = $1 AND orgs.slug = $2
+		ORDER BY org_memberships.id
+	`, username, slug)
+	if err != nil {
+		return nil, err
+	}
+	return member, nil
+}
+
+func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
+	if _, ok := ValidRoles[role]; !ok {
+		return InvalidRoleError{Role: role}
+	}
+	om := &OrgMembership{
+		OrgID:  orgID,
+		UserID: userID,
+		Role:   role,
+	}
+	s, err := d.PrepareNamed(`
+		INSERT INTO org_memberships
+		(org_id, user_id, role)
+		VALUES (:org_id, :user_id, :role)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = s.Exec(om)
+	return err
+}
+
+func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {
+	if _, ok := ValidRoles[role]; !ok {
+		return InvalidRoleError{Role: role}
+	}
+	r, err := d.Exec(`
+		UPDATE org_memberships
+		SET role = $1, updated_at = now()
+		WHERE org_id = $2 AND user_id = $3
+	`, role, orgID, userID)
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

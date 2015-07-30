@@ -47,5 +47,6 @@ const (
 
 	EventUserDeleted = "User Deleted"
 
-	EventOrgCreated = "Org Created"
+	EventOrgCreated       = "Org Created"
+	EventOrgMemberUpdated = "Org Member Updated"
 )
