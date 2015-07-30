@@ -22,6 +22,7 @@ CREATE TABLE containers (
   cid character varying(255) NOT NULL,
   slug character varying(63) NOT NULL, -- Used as DNS label, see http://tools.ietf.org/html/rfc1034#section-3.1.
   host_id bigint REFERENCES hosts(id) NOT NULL,
+  port_mappings text DEFAULT '{}' NOT NULL,
   terminated_at timestamp without time zone
 );
 
@@ -36,9 +37,9 @@ INSERT INTO hosts (slug, ip_address, freighterd_port, state)
      VALUES ('newapp', '10.0.0.2', 10002, 'running');
 
 -- containers
-INSERT INTO containers (slug, cid, host_id)
-     VALUES ('rails-app', 'asfd', (SELECT id FROM hosts WHERE slug='oldapp' LIMIT 1));
-INSERT INTO containers (slug, cid, host_id)
-     VALUES ('python-app', 'qwer', (SELECT id FROM hosts WHERE slug='oldapp' LIMIT 1));
-INSERT INTO containers (slug, cid, host_id)
-     VALUES ('nodejs-app', 'zxcv', (SELECT id FROM hosts WHERE slug='newapp' LIMIT 1));
+INSERT INTO containers (slug, cid, host_id, port_mappings)
+     VALUES ('rails-app', 'asfd', (SELECT id FROM hosts WHERE slug='oldapp' LIMIT 1), '{"22":"32000","5000":"32100","preview":"32200"}');
+INSERT INTO containers (slug, cid, host_id, port_mappings)
+     VALUES ('python-app', 'qwer', (SELECT id FROM hosts WHERE slug='oldapp' LIMIT 1), '{"22":"32100"}');
+INSERT INTO containers (slug, cid, host_id, port_mappings)
+     VALUES ('nodejs-app', 'zxcv', (SELECT id FROM hosts WHERE slug='newapp' LIMIT 1), '{"3000":"32200"}');

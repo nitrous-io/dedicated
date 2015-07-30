@@ -55,6 +55,12 @@ var _ = Describe("db", func() {
 			Expect(container.HostIP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
 			Expect(container.HostPort).To(Equal(10001), "Expect to get port given a valid name")
 			Expect(container.HostSecret).ToNot(BeEmpty(), "Expect to get host secret")
+			Expect(container.PortMappings).To(Equal(map[string]string{
+				"22":      "32000",
+				"5000":    "32100",
+				"preview": "32200",
+			},
+			), "Expect to get port mappings")
 
 			// not in cache, returns nil
 			container, ok = containerCacheGet("invalid name")
