@@ -2854,6 +2854,8 @@ var _ = Describe("controllers/containers", func() {
 				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
 				Expect(err).To(BeNil())
 				Expect(portMappings["3000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
 			})
 
 			It("does not update preview port if there is no port mapping for NITROUS_PREVIEW_PORT", func() {
@@ -2884,40 +2886,8 @@ var _ = Describe("controllers/containers", func() {
 				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
 				Expect(err).To(BeNil())
 				Expect(portMappings["4000"]).To(Equal("63000"))
-			})
-
-			It("updates preview port to nil if there is no vaild preview port", func() {
-				c.PortMappings = "{\"prewview\": \"5000\"}"
-				err := c.Update(db)
-				Expect(err).To(BeNil())
-
-				fc := &freighterclient.Container{
-					ID:         "deadbead",
-					Name:       "foo",
-					Host:       "1.2.3.4",
-					Gateway:    "1.2.3.0",
-					State:      "starting",
-					Image:      "nitrous-base",
-					Cmd:        []string{"/sbin/init"},
-					Entrypoint: []string{"/bin/blah"},
-					User:       "guest",
-					Ports: map[string][]string{
-						"4000": []string{"63000"},
-					},
-					Env: []string{
-						"NITROUS_PREVIEW_PORT=3000",
-					},
-				}
-				mockClient.Containers = []*freighterclient.Container{fc}
-				doRequest()
-
-				updatedContainer, err := container.FindByCID(db, "deadbead")
-				Expect(err).To(BeNil())
-
-				var portMappings map[string]string
-				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
-				Expect(err).To(BeNil())
-				Expect(portMappings["4000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
 			})
 		})
 	})
@@ -3028,6 +2998,8 @@ var _ = Describe("controllers/containers", func() {
 				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
 				Expect(err).To(BeNil())
 				Expect(portMappings["3000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
 			})
 
 			It("does not update preview port if there is not mapping port for NITROUS_PREVIEW_PORT", func() {
@@ -3058,40 +3030,8 @@ var _ = Describe("controllers/containers", func() {
 				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
 				Expect(err).To(BeNil())
 				Expect(portMappings["3000"]).To(Equal("63000"))
-			})
-
-			It("updates preview port to nil if there is no vaild preview port", func() {
-				c.PortMappings = "{\"prewview\": \"9000\"}"
-				err := c.Update(db)
-				Expect(err).To(BeNil())
-
-				fc := &freighterclient.Container{
-					ID:         "deadbead",
-					Name:       "foo",
-					Host:       "1.2.3.4",
-					Gateway:    "1.2.3.0",
-					State:      "starting",
-					Image:      "nitrous-base",
-					Cmd:        []string{"/sbin/init"},
-					Entrypoint: []string{"/bin/blah"},
-					User:       "guest",
-					Ports: map[string][]string{
-						"4000": []string{"63000"},
-					},
-					Env: []string{
-						"NITROUS_PREVIEW_PORT=3000",
-					},
-				}
-				mockClient.Containers = []*freighterclient.Container{fc}
-				doRequest()
-
-				updatedContainer, err := container.FindByCID(db, "deadbead")
-				Expect(err).To(BeNil())
-
-				var portMappings map[string]string
-				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
-				Expect(err).To(BeNil())
-				Expect(portMappings["4000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
 			})
 		})
 	})
