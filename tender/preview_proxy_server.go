@@ -142,12 +142,6 @@ func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type containerWithInfo struct {
-	*Container
-	ports map[string][]string
-	env   []string
-}
-
 // try CNAME resolve host and do getHostname() on resolved name (if any)
 func getCNAMEHostname(host, domain string) (string, error) {
 	var err error
