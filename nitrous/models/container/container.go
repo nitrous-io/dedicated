@@ -52,7 +52,7 @@ type Container struct {
 	UpdatedAt    *time.Time `db:"updated_at"`
 	LockedUntil  *time.Time `db:"locked_until"`
 
-	PreviewPort sql.NullInt64 `db:"preview_port"`
+	PortMappings string `db:"port_mappings"`
 
 	// These fields come from Freighter.
 	State      State
@@ -201,8 +201,8 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, image, temp_state, touched_at, updated_at, preview_port)
-		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now(), :preview_port)
+		SET (cid, slug, name, image, temp_state, touched_at, updated_at, port_mappings)
+		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now(), :port_mappings)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

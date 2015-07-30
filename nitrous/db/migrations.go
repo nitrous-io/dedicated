@@ -1434,7 +1434,7 @@ func init() {
 		{
 			Version: "1370",
 			Up: `
-				ALTER TABLE containers ADD COLUMN preview_port bigint
+				ALTER TABLE containers ADD COLUMN port_mappings text DEFAULT '{}' NOT NULL
 			`,
 		},
 	}

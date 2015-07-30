@@ -2,6 +2,7 @@ package containers_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -202,7 +203,13 @@ var _ = Describe("CreateContainer", func() {
 		Expect(slugbuilder.IsValid(c.Slug)).To(BeTrue())
 		Expect(c.Image).To(Equal("elixir"))
 		Expect(c.Name.String).To(Equal("elixir-web"))
-		Expect(c.PreviewPort.Int64).To(Equal(int64(63000)))
+
+		var portMappings map[string]string
+		err = json.Unmarshal([]byte(c.PortMappings), &portMappings)
+		Expect(err).To(BeNil())
+		Expect(portMappings["preview"]).To(Equal("63000"))
+		Expect(portMappings["22"]).To(Equal("65022"))
+
 		Expect(mockClient.ReceivedSecret).To(Equal(c.Secret))
 	})
 

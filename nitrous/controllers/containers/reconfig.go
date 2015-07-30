@@ -138,15 +138,12 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 		"container_slug": cn.Slug,
 	})
 
-	// Update preview port
-	previewPort, err := getPreviewPortFrom(liveContainer)
-	if previewPort != 0 {
-		cn.PreviewPort = sql.NullInt64{previewPort, true}
+	// Update port mappings
+	portMappings, err := GetPortMappingsJsonFrom(liveContainer)
+	if err == nil {
+		cn.PortMappings = portMappings
 	} else if err != nil {
-		logrus.Errorf("containers.reconfig: Failed to get preview port: %+v", err)
-	} else {
-		logrus.Debugf("containers.reconfig: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", cn)
-		cn.PreviewPort = sql.NullInt64{0, false}
+		logger.Errorf("containers.reconfig: Failed to get preview port: %+v", err)
 	}
 
 	err = cn.Update(db)

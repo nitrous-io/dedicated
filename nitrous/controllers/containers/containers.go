@@ -2,6 +2,7 @@ package containers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -487,19 +488,15 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			if err != nil {
 				return expandFreighterClientError(err)
 			}
-			// Update preview port
-			previewPort, err := getPreviewPortFrom(liveContainer)
-			if previewPort != 0 {
-				if err := cn.UpdateColumn(env.DB, "preview_port", previewPort); err != nil {
-					logger.Errorf("container.start: failed to update preview port: %v", err)
+
+			// Update port mappings
+			portMappings, err := GetPortMappingsJsonFrom(liveContainer)
+			if err == nil {
+				if err := cn.UpdateColumn(env.DB, "port_mappings", portMappings); err != nil {
+					logger.Errorf("container.start: failed to update port mappings: %v", err)
 				}
-			} else if err != nil {
-				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
 			} else {
-				logrus.Debugf("containers.start: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
-				if err := cn.UpdateColumn(env.DB, "preview_port", nil); err != nil {
-					logger.Errorf("container.start: failed to update preview port to nil: %v", err)
-				}
+				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
 			}
 
 			// reset the temp state, so freighter state will be exposed
@@ -573,20 +570,15 @@ var restart = controlActionHandler(
 			"container_slug": cn.Slug,
 		})
 
-		// Update preview port
-		previewPort, err := getPreviewPortFrom(liveContainer)
-		if previewPort != 0 {
-			if err := cn.UpdateColumn(env.DB, "preview_port", previewPort); err != nil {
+		// Update port mappings
+		portMappings, err := GetPortMappingsJsonFrom(liveContainer)
+		if err == nil {
+			if err := cn.UpdateColumn(env.DB, "port_mappings", portMappings); err != nil {
 				logger.Errorf("container.restart: failed to update preview port: %v", err)
 			}
-		} else if err != nil {
+		} else {
 			logger.Errorf("container.restart: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
 			return nil, err
-		} else {
-			logrus.Debugf("containers.restart: No Preview Port for the container(%+v) because NITROUS_PREVIEW_PORT is not specified", liveContainer)
-			if err := cn.UpdateColumn(env.DB, "preview_port", nil); err != nil {
-				logger.Errorf("container.restart: failed to update preview port to nil: %v", err)
-			}
 		}
 
 		return liveContainer, nil
@@ -892,28 +884,39 @@ func getEventName(s container.State) (controllers.EventName, error) {
 	}
 }
 
-func getPreviewPortFrom(container *freighterclient.Container) (int64, error) {
-	var previewPortStr string
-	var err error
+func GetPortMappingsJsonFrom(container *freighterclient.Container) (string, error) {
+	var (
+		previewPort string
+		err         error
+	)
+
+	portMappings := make(map[string]string)
 
 	// Get preview port from environments
 	for _, val := range container.Env {
 		split := strings.SplitN(val, "=", 2)
 		if len(split) == 2 && split[0] == previewPortEnvVar {
-			previewPortStr = split[1]
+			previewPort = split[1]
 		}
 	}
 
 	// Get mapping port
-	if ports, ok := container.Ports[previewPortStr]; ok && len(ports) > 0 {
-		var containerPort int64
-		containerPort, err = strconv.ParseInt(ports[0], 10, 64)
-		if err != nil {
-			return 0, err
+	for incomingPort, mappingPorts := range container.Ports {
+		if incomingPort == previewPort {
+			if len(mappingPorts) > 0 {
+				portMappings["preview"] = mappingPorts[0]
+			}
+		} else {
+			if len(mappingPorts) > 0 {
+				portMappings[incomingPort] = mappingPorts[0]
+			}
 		}
-
-		return containerPort, nil
 	}
 
-	return 0, nil
+	portMappingsJson, err := json.Marshal(portMappings)
+	if err != nil {
+		return "", err
+	}
+
+	return string(portMappingsJson), nil
 }
