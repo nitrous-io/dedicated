@@ -40,9 +40,10 @@ import (
 )
 
 type routeData struct {
-	mw    mw.Middleware
-	track string
-	label string
+	mw        mw.Middleware
+	track     string
+	label     string
+	logParams bool
 }
 
 // r is a helper that returns routeData. A route should always have label which
@@ -52,7 +53,13 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 	if len(args) > 0 {
 		track = args[0]
 	}
-	return routeData{mw: mw, track: track, label: label}
+	return routeData{mw: mw, track: track, label: label, logParams: true}
+}
+
+func rNoLog(label string, mw mw.Middleware, args ...string) routeData {
+	data := r(label, mw, args...)
+	data.logParams = false
+	return data
 }
 
 // drawRouteData draw the route with `route`.
@@ -60,7 +67,7 @@ func r(label string, mw mw.Middleware, args ...string) routeData {
 // if `track` for a route is set then we setup the track middleware for it
 func (s *Server) drawRouteData(method string, auth bool, routes map[string]routeData) {
 	for path, r := range routes {
-		s.route(path, routeStrictJSON, chainMiddleware(auth, r), method)
+		s.route(path, routeStrictJSON, chainMiddleware(auth, r), RouteOpts{Methods: []string{method}, LogParams: r.logParams})
 	}
 }
 
@@ -77,16 +84,16 @@ func chainMiddleware(auth bool, r routeData) mw.Middleware {
 }
 
 func (s *Server) drawRoutes() {
-	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), "GET")
-	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), "GET")
+	s.route("/", routeWritesResponse, mw.Call("home.Index", home.Index), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+	s.route("/api/v0/github/oauth_cb", routeWritesResponse, mw.Call("github.OAuthCallback", github.OAuthCallback), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 	if envvars.Debug == "true" {
 		s.router.HandleFunc("/sleep", s.sleep).Methods("GET")
 	}
 
 	s.namespace("/api/v0", func() {
-		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), "GET")
-		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), "GET")
+		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
@@ -208,8 +215,8 @@ func (s *Server) drawRoutes() {
 				"/hosts/{slug}/versions":       r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
 				"/containers/{slug}/keys":      r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
 				"/user/billing_profile":        r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
-				"/containers/{slug}/metadata":  r("containers.Metadata", containers.Metadata),
-				"/containers/{slug}/user_data": r("usercontainerdata.SetData", usercontainerdata.SetData),
+				"/containers/{slug}/metadata":  rNoLog("containers.Metadata", containers.Metadata),
+				"/containers/{slug}/user_data": rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
 				"/admin/host/{slug}":           r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":       r("admin.TemplateUpdate", admin.TemplateUpdate),
 			},
@@ -246,7 +253,7 @@ func (s *Server) drawRoutes() {
 			for path, r := range routes {
 				final := mw.Call("nitrous."+r.label, r.mw)
 				final = mw.VerifyTrust(final)
-				s.route(path, routeStrictJSON, final, method)
+				s.route(path, routeStrictJSON, final, RouteOpts{Methods: []string{method}, LogParams: true})
 			}
 		}
 
@@ -262,7 +269,7 @@ func (s *Server) drawRoutes() {
 			for path, r := range routes {
 				final := mw.Call("nitrous."+r.label, r.mw)
 				final = mw.VerifyTrust(final)
-				s.route(path, routeWritesResponse, final, method)
+				s.route(path, routeWritesResponse, final, RouteOpts{Methods: []string{method}, LogParams: true})
 			}
 		}
 	})

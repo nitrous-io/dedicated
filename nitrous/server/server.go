@@ -77,6 +77,11 @@ type Server struct {
 	deferstatsClient *deferstats.Client
 }
 
+type RouteOpts struct {
+	Methods   []string
+	LogParams bool
+}
+
 func NewServer(root string, db *db.Database, conf *provisioner.Config, deferstatsClient *deferstats.Client) *Server {
 	events := pubsub.New(128)
 	svr := &Server{
@@ -197,7 +202,7 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf("slept for %d seconds", duration)))
 }
 
-func (s *Server) route(route string, respondMode int, mw middleware.Middleware, methods ...string) {
+func (s *Server) route(route string, respondMode int, mw middleware.Middleware, o RouteOpts) {
 	route = strings.Join(nsStack, "") + route
 	h := func(w http.ResponseWriter, r *http.Request) {
 		mh.Meter("requests.nitrous").Mark(1)
@@ -212,7 +217,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			fields := logFields(r, map[string]interface{}{
 				"uuid": uuidStr,
 			})
-			if r.Method == "POST" || r.Method == "PUT" {
+			if (r.Method == "POST" || r.Method == "PUT") && o.LogParams {
 				r.ParseMultipartForm(32 << 20) // defaultMaxMemory from net/http; ParseMultipartForm is idempotent
 				params := make(map[string][]string)
 				for k, vs := range r.PostForm {
@@ -253,7 +258,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 		}
 	}
 
-	s.router.HandleFunc(route, h).Methods(methods...)
+	s.router.HandleFunc(route, h).Methods(o.Methods...)
 }
 
 func (s *Server) static(prefix string, dir string) {
