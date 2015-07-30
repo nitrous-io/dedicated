@@ -41,6 +41,7 @@ const (
 
 	EventContainerCollabAdded   = "Container Collaborator Added"
 	EventContainerCollabRemoved = "Container Collaborator Removed"
+	EventContainerCollabLeft    = "Container Collaborator Left"
 
 	EventBillingProfileActivated = "Billing Profile Activated"
 

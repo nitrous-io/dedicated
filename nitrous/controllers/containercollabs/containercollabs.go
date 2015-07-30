@@ -35,6 +35,7 @@ var (
 	Index  middleware.Middleware = containers.WithContainerAndHost(index, containers.AllowCollab)
 	Add    middleware.Middleware = containers.WithContainerAndHost(add, containers.TouchHost)
 	Remove middleware.Middleware = containers.WithContainerAndHost(remove, containers.TouchHost)
+	Leave  middleware.Middleware = containers.WithContainerAndHost(leave, containers.AllowCollab)
 
 	errMissingUserParam     = httperror.New(http.StatusBadRequest, "invalid_request", "`user` must be provided")
 	errUserNotFound         = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
@@ -114,14 +115,9 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 	return nil
 }
 
-func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	ccid, err := strconv.ParseInt(mux.Vars(r)["ccid"], 10, 64)
-	if err != nil {
-		return err
-	}
-
-	var affectedUserID sql.NullInt64
-	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1 AND container_id = $2`, ccid, cn.ID).Scan(&affectedUserID)
+func leave(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	var ccID int64
+	err := env.DB.QueryRow(`SELECT id FROM container_collabs WHERE user_id = $1 AND container_id = $2`, env.User.ID, cn.ID).Scan(&ccID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errCollaboratorNotFound
@@ -129,7 +125,29 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	err = containercollab.Delete(env.DB, ccid, cn.ID)
+	return removeContainerCollaborator(env.User.ID, ccID, cn, env)
+}
+
+func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	ccID, err := strconv.ParseInt(mux.Vars(r)["ccid"], 10, 64)
+	if err != nil {
+		return err
+	}
+
+	var affectedUserID sql.NullInt64
+	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1 AND container_id = $2`, ccID, cn.ID).Scan(&affectedUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errCollaboratorNotFound
+		}
+		return err
+	}
+
+	return removeContainerCollaborator(affectedUserID.Int64, ccID, cn, env)
+}
+
+func removeContainerCollaborator(affectedUserID, ccID int64, cn *container.Container, env *middleware.Env) error {
+	err := containercollab.Delete(env.DB, ccID, cn.ID)
 	if err != nil {
 		return err
 	}
@@ -138,17 +156,15 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	containers.PublishContainerEvent(env, ev, cn, nil)
 
 	// fire to removed user
-	if affectedUserID.Valid {
-		topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID.Int64))
-		data := map[string]interface{}{
-			"container": serializers.SerializeContainer(cn),
-			"initiated_by": map[string]interface{}{
-				"username": env.User.Username,
-				"id":       env.User.ID,
-			},
-		}
-		env.Events.Publish(controllers.NewEvent(ev, data), topic)
+	topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID))
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+		"initiated_by": map[string]interface{}{
+			"username": env.User.Username,
+			"id":       env.User.ID,
+		},
 	}
+	env.Events.Publish(controllers.NewEvent(ev, data), topic)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{

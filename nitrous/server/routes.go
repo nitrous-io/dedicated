@@ -222,6 +222,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys/{kslug}":         r("userkeys.Delete", userkeys.Delete, EventContainerKeyRemoved),
 				"/containers/{slug}/keys":                 r("userkeys.DeleteAll", userkeys.DeleteAll, EventContainerKeyRemoved),
 				"/containers/{slug}/collaborators/{ccid}": r("containercollabs.Remove", containercollabs.Remove, EventContainerCollabRemoved),
+				"/containers/{slug}/leave":                r("containercollabs.Leave", containercollabs.Leave, EventContainerCollabLeft),
 				"/subscriptions/{slug}/cancel":            r("subscriptions.Cancel", subscriptions.Cancel),
 				"/logout":                                 r("oauth.Logout", oauth.Logout),
 				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),

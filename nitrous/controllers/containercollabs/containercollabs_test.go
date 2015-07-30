@@ -708,4 +708,128 @@ var _ = Describe("controllers/containercollabs", func() {
 		})
 	})
 
+	Describe("DELETE /containers/{slug}/leave", func() {
+		var (
+			otherUser *user.User
+			oT        *token.Token
+		)
+
+		BeforeEach(func() {
+			otherUser = &user.User{
+				Username: "other",
+				Email:    "other@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			oT = &token.Token{
+				UserID: otherUser.ID,
+				Token:  "other-token",
+			}
+			err = oT.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func() {
+			req, err := test.NewRequest("DELETE", fmt.Sprintf("/api/v0/containers/%s/leave", cnr.Slug), nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+oT.Token)
+
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should return a not found if the collaborator record does not exist", func() {
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return a not found if the collaborator record does belong to the container", func() {
+			cnr2 := &container.Container{
+				CID:    "cafebabe2",
+				UserID: cnr.UserID,
+				HostID: cnr.HostID,
+				Image:  "nitrous-base",
+				Slug:   "java-test-container2",
+				Name:   sql.NullString{"Java", true},
+			}
+			err := cnr2.Insert(db)
+			Expect(err).To(BeNil())
+			cc, err := containercollab.Create(db, cnr2.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
+		It("should perform a delete", func() {
+			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest()
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j struct {
+				Success bool `json:"success"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.Success).To(BeTrue())
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE id = $1;`, cc.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+		})
+
+		It("should fire off events to the target user and container owner", func() {
+			_, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			chOwner := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(chOwner, u.Topic())
+			chCollab := svr.Events.Subscribe(otherUser.Topic())
+			defer svr.Events.Unsubscribe(chCollab, otherUser.Topic())
+
+			doRequest()
+
+			msgsOwners := []pubsub.Message{}
+			msgsCollab := []pubsub.Message{}
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				msgsOwners = append(msgsOwners, <-chOwner)
+				wg.Done()
+			}()
+			go func() {
+				msgsCollab = append(msgsCollab, <-chCollab)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			Expect(msgsOwners).To(HaveLen(1))
+			Expect(msgsCollab).To(HaveLen(1))
+
+			ownerMsg := msgsOwners[0].(*controllers.Event)
+			Expect(ownerMsg.Name).To(Equal(controllers.EventCollaboratorRemoved))
+			data, ok := ownerMsg.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok := data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
+
+			ownerCollab := msgsCollab[0].(*controllers.Event)
+			Expect(ownerCollab.Name).To(Equal(controllers.EventCollaboratorRemoved))
+			data, ok = ownerCollab.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			cn, ok = data["container"].(*serializers.Container)
+			Expect(cn.ID).To(Equal(cnr.ID))
+		})
+	})
+
 })
