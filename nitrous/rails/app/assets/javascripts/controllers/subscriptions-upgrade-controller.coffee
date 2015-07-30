@@ -1,6 +1,9 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
-  queryParams: ['planId']
+  queryParams: ['planId', 'exceededContainerLimit', 'selectedTemplate', 'containerName']
   planId: null # when being transferred from successful add-card
+  exceededContainerLimit: false
+  selectedTemplate: null
+  containerName: null
 
   selectedPlan: null
   prorataCharge: null
@@ -90,7 +93,10 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
             events.off 'host.respec_failed', onRespecFailed
             events.off 'host.respecced', onRespecced
             ui.hideModal currentModal
-            @transitionToRoute 'host.index', host.get 'slug'
+            if @get('exceededContainerLimit') && tmplSlug = @get 'selectedTemplate'
+              @transitionToRoute 'containers.new', queryParams: { preselectHost: host.get('slug'), selectedTemplateSlug: tmplSlug, autofillName: @get('containerName') }
+            else
+              @transitionToRoute 'host.index', host.get 'slug'
             App.snackbar.post("Your workspace “#{host.get('slug')}” has been upgraded.")
 
           events.on 'host.respec_failed', onRespecFailed
