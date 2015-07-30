@@ -76,6 +76,17 @@ type Message struct {
 	Payload      []byte `json: "payload"`
 }
 
+func (m *Message) LogFields() logrus.Fields {
+	return logrus.Fields{
+		"uuid":          m.UUID,
+		"action":        m.Action,
+		"event":         m.Event,
+		"resource_name": m.ResourceName,
+		"resource_id":   m.ResourceID,
+		"payload":       string(m.Payload),
+	}
+}
+
 type queueHandler func(*Message) error
 
 func NewQueue(redisUrl string, redisPort string, redisDatabase int64, name string) Publisher {
@@ -100,16 +111,17 @@ func (qp *QueuePublisher) PublishRetry(msg *Message, tries int, retryInterval ti
 	for forever || tries >= 0 {
 		err := qp.Queue.Put(str)
 		if err != nil {
+			logstr := fmt.Sprintf("Retrying event in (%s) queue: %v", qp.Queue.Name, err)
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
-				logrus.Warnf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
+				logrus.WithFields(msg.LogFields()).Warnf(logstr)
 				tries--
 				time.Sleep(retryInterval)
 				continue
 			}
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
-				logrus.Warnf("uuid=%s Retrying event %s in (%s) queue: %v", msg.UUID, msg.Event, qp.Queue.Name, err)
+				logrus.WithFields(msg.LogFields()).Warnf(logstr)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -185,16 +197,17 @@ func (d *redisDelivery) Ack(retryInterval time.Duration) error {
 	for {
 		err := d.p.Ack()
 		if err != nil {
+			logstr := fmt.Sprintf("Retrying ack for message: %v", err)
 			// if we failed to connect to redis or received EOF error then retry
 			if _, ok := err.(*net.OpError); ok || err == io.EOF {
-				logrus.Warnf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
+				logrus.WithFields(m.LogFields()).Warnf(logstr)
 				time.Sleep(retryInterval)
 				continue
 			}
 
 			// redis emits `open connections too fast` when we exceeds the error limit
 			if strings.Contains(err.Error(), "open connections too fast") {
-				logrus.Warnf("uuid=%s Retrying ack for message(%s) : %v", m.UUID, m.Event, err)
+				logrus.WithFields(m.LogFields()).Warnf(logstr)
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -208,10 +221,9 @@ func (d *redisDelivery) Ack(retryInterval time.Duration) error {
 // Fail push failed message to failed queue
 // It will not retry since we can submit a message manually
 func (d *redisDelivery) Fail() {
-	err := d.p.Fail()
-	if err != nil {
-		logrus.Errorf("uuid=%s Failed to push a message(%s) to failed queue: %v",
-			d.msg.UUID, d.msg.Payload, err)
+	if err := d.p.Fail(); err != nil {
+		logrus.WithFields(d.msg.LogFields()).Errorf(
+			"Failed to push a message to failed queue: %v", err)
 	}
 }
 
@@ -256,16 +268,16 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 			return nil
 		case d := <-msg:
 			m := d.msg
-			logrus.Infof("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, queueName)
+			logrus.WithFields(m.LogFields()).Infof("got message in (%s) queue", queueName)
 			go func() {
 				err := qc.handler(m)
 				if err != nil {
-					logrus.Errorf("uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
+					logrus.WithFields(m.LogFields()).Errorf("Failed to process message in (%s) queue: %v", queueName, err)
 					d.Fail()
 				} else {
 					err := d.Ack(1 * time.Second)
 					if err != nil {
-						logrus.Errorf("uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, queueName, err)
+						logrus.WithFields(m.LogFields()).Errorf("Failed to send ACK for message in (%s) queue: %v", queueName, err)
 					}
 				}
 				finished <- true
@@ -273,9 +285,9 @@ func (qc *QueueConsumer) Start(stop chan struct{}) error {
 
 			select {
 			case <-finished:
-				logrus.Debugf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				logrus.WithFields(m.LogFields()).Debugf("Finished to process message in (%s) queue", queueName)
 			case <-time.After(qc.handlerTimeout):
-				logrus.Errorf("uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, queueName)
+				logrus.WithFields(m.LogFields()).Errorf("Timed out to process message in (%s) queue", queueName)
 				d.Fail()
 			}
 			msg <- d
