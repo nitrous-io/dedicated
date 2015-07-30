@@ -1472,6 +1472,15 @@ func init() {
 			`,
 		},
 		{
+			Version: "1438295977",
+			Up: `
+					ALTER TABLE billing_profiles ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
+					DROP INDEX index_billing_profiles_on_user_id;
+					CREATE UNIQUE INDEX index_billing_profiles_on_user_org_id ON billing_profiles USING btree (user_id, org_id);
+					CREATE UNIQUE INDEX index_billing_profiles_on_org_id ON billing_profiles USING btree (org_id) WHERE org_id IS NOT NULL;
+			`,
+		},
+		{
 			Version: "1439318024",
 			Up: `
 				ALTER TABLE users ADD COLUMN suspicious text

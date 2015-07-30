@@ -8,7 +8,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
 
@@ -40,6 +40,7 @@ const (
 type BillingProfile struct {
 	ID                int64          `db:"id"`
 	UserID            int64          `db:"user_id"`
+	OrgID             sql.NullInt64  `db:"org_id"`
 	State             string         `db:"state"` // possible states: 'free', 'exempt', 'paid', 'payment_due', 'delinquent', 'no_card'
 	StripeID          sql.NullString `db:"stripe_id"`
 	StripeFingerprint sql.NullString `db:"stripe_fingerprint"`
@@ -81,17 +82,26 @@ func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
 	return b, nil
 }
 
-func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
+func FindForOrg(d db.QueryReceiver, orgID int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
-	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1;", userID)
+	err := d.Get(b, "SELECT * FROM billing_profiles WHERE org_id = $1 ORDER BY created_at DESC LIMIT 1;", orgID)
 	if err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-func Create(tx *sqlx.Tx, userID int64) error {
-	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, state) VALUES ($1, $2);`, userID, StateNoCard)
+func Find(d db.QueryReceiver, userID int64) (*BillingProfile, error) {
+	b := &BillingProfile{}
+	err := d.Get(b, "SELECT * FROM billing_profiles WHERE user_id = $1 AND org_id IS NULL ORDER BY created_at DESC LIMIT 1;", userID)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func Create(tx *sqlx.Tx, userID int64, orgID sql.NullInt64) error {
+	_, err := tx.Exec(`INSERT INTO billing_profiles (user_id, org_id, state) VALUES ($1, $2, $3);`, userID, orgID, StateNoCard)
 	return err
 }
 
@@ -101,7 +111,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
 		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, max_hours, updated_at)
 		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, :max_hours, now())
-		WHERE user_id = :user_id
+		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err

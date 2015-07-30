@@ -435,7 +435,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 				return err
 			}
 		} else {
-			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1 FOR UPDATE", inv.UserID)
+			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1 AND org_id IS NULL FOR UPDATE", inv.UserID)
 			if err != nil {
 				return err
 			}

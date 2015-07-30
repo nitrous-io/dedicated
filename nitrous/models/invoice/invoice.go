@@ -160,6 +160,7 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	_, err = tx.Exec(`UPDATE billing_profiles
 		SET state = $1
 		WHERE user_id = $2
+                AND org_id IS NULL
 		AND state NOT IN ($3, $4)
 		AND NOT EXISTS (
 			SELECT id FROM invoices

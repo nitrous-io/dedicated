@@ -94,7 +94,7 @@ func FindByUserID(d db.QueryReceiver, id, userID int64) (*Subscription, error) {
 	sub := &Subscription{}
 	err := d.Get(sub, `SELECT subscriptions.* FROM subscriptions
 		INNER JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
-		WHERE subscriptions.id = $1 AND billing_profiles.user_id = $2;`,
+		WHERE subscriptions.id = $1 AND billing_profiles.user_id = $2 AND billing_profiles.org_id IS NULL;`,
 		id, userID)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,9 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
 			JOIN billing_profiles bp ON bp.id = s.billing_profile_id
 			LEFT JOIN hosts ON hosts.subscription_id = s.id
-			WHERE bp.user_id = $1 AND s.cancelled_at IS NULL ORDER BY s.created_at ASC;`, userID)
+			WHERE bp.user_id = $1 AND s.cancelled_at IS NULL
+                        AND bp.org_id IS NULL
+                        ORDER BY s.created_at ASC;`, userID)
 	if err != nil {
 		return nil, err
 	}
