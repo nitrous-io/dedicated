@@ -11,6 +11,7 @@ sql = <<-SQL
 SELECT containers.slug AS container_slug, containers.cid, hosts.slug AS host_slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
     FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
     WHERE containers.terminated_at IS NULL AND hosts.state = 'running'
+    LIMIT 100
 SQL
 
 ca_file = ENV['CA_PATH']
@@ -30,12 +31,15 @@ $db.fetch(sql) do |row|
     preview_port_env = container['container']['env'].detect { |env| env.start_with?('NITROUS_PREVIEW_PORT') }
     preview_port = preview_port_env.split('=').last if preview_port_env
 
-    if !preview_port.nil? && preview_port.length > 0
-      container_port = container['container']['ports'][preview_port].first
-      if !container_port.nil? && container_port.length > 0
-        puts "UPDATE containers SET preview_port = '#{container_port}' WHERE slug = '#{row[:container_slug]}';"
+    port_mappings = {}
+    container['container']['ports'].each_pair do |exposed_port, mapping_ports|
+      if !preview_port.nil? && preview_port.length > 0 && preview_port == exposed_port
+        port_mappings['preview'] = mapping_ports.first if mapping_ports.length > 0
+      else
+        port_mappings[exposed_port] = mapping_ports.first if mapping_ports.length > 0
       end
     end
+    puts "UPDATE containers SET port_mappings = '#{JSON.dump(port_mappings)}' WHERE slug = '#{row[:container_slug]}';" unless port_mappings.empty?
   end
 end
 
