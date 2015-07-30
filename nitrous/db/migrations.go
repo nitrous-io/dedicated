@@ -279,15 +279,15 @@ func init() {
 			Version: "215",
 			Up: `
 				DROP INDEX index_plans_on_name;
-        ALTER TABLE plans ADD COLUMN slug character varying(255);
-        UPDATE plans SET slug=name;
-        ALTER TABLE plans ALTER COLUMN slug SET NOT NULL;
+				ALTER TABLE plans ADD COLUMN slug character varying(255);
+				UPDATE plans SET slug=name;
+				ALTER TABLE plans ALTER COLUMN slug SET NOT NULL;
 				CREATE UNIQUE INDEX index_plans_on_slug ON plans USING btree (slug);
-        DROP INDEX index_regions_on_name;
+				DROP INDEX index_regions_on_name;
 				ALTER TABLE regions RENAME COLUMN name TO slug;
 				CREATE UNIQUE INDEX index_regions_on_slug ON regions USING btree (slug);
 				ALTER TABLE regions RENAME COLUMN description TO name;
-      `,
+			`,
 		},
 		{
 			Version: "220",
@@ -472,9 +472,9 @@ func init() {
 			Version: "395",
 			Up: `
 				ALTER TABLE provider_templates
-				  ADD COLUMN preprovision_max smallint
-				    CONSTRAINT cost_control CHECK (preprovision_max < 10)
-				    DEFAULT 0 NOT NULL;
+					ADD COLUMN preprovision_max smallint
+						CONSTRAINT cost_control CHECK (preprovision_max < 10)
+						DEFAULT 0 NOT NULL;
 			`,
 		},
 		{
@@ -1046,7 +1046,7 @@ func init() {
 				);
 
 				-- Allow only one verification at a time (i.e. only 1 phone per
-			    -- user) since we don't need to support multiple phones, for now.
+					-- user) since we don't need to support multiple phones, for now.
 				CREATE UNIQUE INDEX index_verifications_on_user_id ON verifications USING btree (user_id);
 			`,
 		},
@@ -1360,7 +1360,7 @@ func init() {
 				ALTER TABLE hosts ADD COLUMN auto_shutdown bool DEFAULT false NOT NULL;
 				CREATE INDEX index_hosts_on_auto_shutdown ON hosts USING btree (auto_shutdown);
 				CREATE INDEX index_hosts_on_auto_shutdown_state_and_last_pinged_at
-				  ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
+					ON hosts USING btree (auto_shutdown, state, last_pinged_at) WHERE last_pinged_at IS NOT NULL AND terminated_at IS NULL;
 			`,
 		},
 		{
@@ -1447,10 +1447,28 @@ func init() {
 					email character varying(255) NOT NULL,
 					created_at timestamp without time zone DEFAULT now(),
 					updated_at timestamp without time zone DEFAULT now(),
-				  deleted_at timestamp without time zone DEFAULT NULL
+					deleted_at timestamp without time zone DEFAULT NULL
 				);
 				CREATE UNIQUE INDEX index_orgs_on_id ON orgs USING btree (id);
 				CREATE UNIQUE INDEX index_orgs_on_slug ON orgs USING btree (slug) WHERE deleted_at IS NULL;
+			`,
+		},
+		{
+			Version: "1438207067",
+			Up: `
+				CREATE TABLE org_memberships (
+					id bigserial PRIMARY KEY NOT NULL,
+					org_id bigint REFERENCES orgs(id) NOT NULL,
+					user_id bigint REFERENCES users(id) NOT NULL,
+					role character varying(20) DEFAULT 'member' NOT NULL,
+					created_at timestamp without time zone DEFAULT now(),
+					updated_at timestamp without time zone DEFAULT now()
+				);
+
+				CREATE UNIQUE INDEX index_org_memberships_on_id ON org_memberships USING btree (id);
+				CREATE UNIQUE INDEX index_org_memberships_on_user_id_and_org_id ON org_memberships USING btree (user_id, org_id);
+				CREATE INDEX index_org_memberships_on_org_id ON org_memberships USING btree (org_id);
+				CREATE INDEX index_org_memberships_on_user_id ON org_memberships USING btree (user_id);
 			`,
 		},
 		{

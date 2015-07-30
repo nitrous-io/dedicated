@@ -16,6 +16,7 @@ var (
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
+	user := env.User
 
 	slug := strings.ToLower(r.FormValue("slug"))
 	name := r.FormValue("name")
@@ -42,7 +43,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errBannedEmail
 	}
 
-	if err = o.Insert(db); err != nil {
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	if err = o.Insert(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err = o.AddMember(tx, user.ID, "owner"); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 

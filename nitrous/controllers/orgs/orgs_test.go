@@ -12,6 +12,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -123,6 +124,18 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.Email).To(Equal("accounting@nitrous.io"))
 				Expect(j.Org.Name).To(Equal("Nitrous, Inc."))
 				Expect(j.Org.Slug).To(Equal("nitrous"))
+			})
+
+			It("adds the user as the owner of the org", func() {
+				o, err := org.FindBySlug(db, "nitrous")
+				Expect(err).To(BeNil())
+
+				m, err := orgmembership.FindAllByOrgId(db, o.ID)
+				Expect(err).To(BeNil())
+
+				Expect(m).To(HaveLen(1))
+				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Role).To(Equal("owner"))
 			})
 		})
 
