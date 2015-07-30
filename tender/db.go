@@ -2,6 +2,7 @@ package tender
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net"
 
@@ -17,12 +18,13 @@ type Host struct {
 
 // Container describes a container
 type Container struct {
-	CID        string
-	Slug       string
-	HostSlug   string
-	HostIP     net.IP
-	HostPort   int
-	HostSecret string
+	CID          string
+	Slug         string
+	HostSlug     string
+	HostIP       net.IP
+	HostPort     int
+	HostSecret   string
+	PortMappings map[string]string
 }
 
 // HostsMap is a map from slug to Host
@@ -104,29 +106,37 @@ func getHosts(db *sql.DB) (HostsMap, error) {
 
 // findContainer returns the container data given its unique slug
 func findContainer(db *sql.DB, slug string) (*Container, error) {
-	var cid, ip, hostSlug, secret string
+	var cid, ip, hostSlug, secret, portMappingsJson string
 	var port int
 	err := db.QueryRow(`
-		SELECT containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
+		SELECT containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret, containers.port_mappings
 		FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
 		WHERE containers.slug = $1 AND containers.terminated_at IS NULL
-	`, slug).Scan(&cid, &hostSlug, &ip, &port, &secret)
+	`, slug).Scan(&cid, &hostSlug, &ip, &port, &secret, &portMappingsJson)
 	if err != nil {
 		return nil, err
 	}
+
+	var portMappings map[string]string
+	err = json.Unmarshal([]byte(portMappingsJson), &portMappings)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Container{
-		CID:        cid,
-		Slug:       slug,
-		HostSlug:   hostSlug,
-		HostIP:     net.ParseIP(ip),
-		HostPort:   port,
-		HostSecret: secret,
+		CID:          cid,
+		Slug:         slug,
+		HostSlug:     hostSlug,
+		HostIP:       net.ParseIP(ip),
+		HostPort:     port,
+		HostSecret:   secret,
+		PortMappings: portMappings,
 	}, nil
 }
 
 func getContainers(db *sql.DB) (ContainersMap, error) {
 	m := ContainersMap{}
-	q := `SELECT containers.slug, containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
+	q := `SELECT containers.slug, containers.cid, hosts.slug, hosts.ip_address, hosts.freighterd_port, hosts.secret, containers.port_mappings
 		FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
 		WHERE containers.terminated_at IS NULL AND
 			hosts.state = 'running'`
@@ -137,19 +147,27 @@ func getContainers(db *sql.DB) (ContainersMap, error) {
 	}
 
 	for rows.Next() {
-		var slug, cid, ip, hostSlug, secret string
+		var slug, cid, ip, hostSlug, secret, portMappingsJson string
 		var port int
-		err = rows.Scan(&slug, &cid, &hostSlug, &ip, &port, &secret)
+		err = rows.Scan(&slug, &cid, &hostSlug, &ip, &port, &secret, &portMappingsJson)
 		if err != nil {
 			return nil, err
 		}
+
+		var portMappings map[string]string
+		err = json.Unmarshal([]byte(portMappingsJson), &portMappings)
+		if err != nil {
+			return nil, err
+		}
+
 		c := &Container{
-			CID:        cid,
-			Slug:       slug,
-			HostSlug:   hostSlug,
-			HostIP:     net.ParseIP(ip),
-			HostPort:   port,
-			HostSecret: secret,
+			CID:          cid,
+			Slug:         slug,
+			HostSlug:     hostSlug,
+			HostIP:       net.ParseIP(ip),
+			HostPort:     port,
+			HostSecret:   secret,
+			PortMappings: portMappings,
 		}
 		m[slug] = c
 	}
