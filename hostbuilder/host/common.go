@@ -86,11 +86,6 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(errors.New("invalid SSH connection"), label)
 	}
 
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := SourceTemplate.Execute(aptSourcesBuf, settings.AptConfig); err != nil {
-		return mh.Error(err, label)
-	}
-
 	cfgb, err := json.Marshal(settings.Config)
 	if err != nil {
 		err = fmt.Errorf("invalid config, err: %v", err)
@@ -106,12 +101,24 @@ func WriteSettings(ctx *HostContext) error {
 	// preserved.
 	authorizedKeysPath := filepath.Join(settings.Home, ".ssh", "authorized_keys")
 	cmd := fmt.Sprintf(`echo -e %q >> %s`, strings.Join(settings.PublicKeys, "\n"), authorizedKeysPath)
-	if err := conn.Execute(cmd); err != nil {
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err := fmt.Errorf("failed to write to %s, output: %s, err: %v", authorizedKeysPath, out, err)
+		return mh.Error(err, label)
+	}
+
+	// Write to apt sources file so that we preserve its permissions/ownership
+	// and follow symlinks (if it is a symlink).
+	buf := bytes.NewBuffer(nil)
+	if err := SourceTemplate.Execute(buf, settings.AptConfig); err != nil {
+		return mh.Error(err, label)
+	}
+	cmd = fmt.Sprintf(`echo -e %q | sudo tee %s > /dev/null`, buf.String(), SourceLocation)
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err := fmt.Errorf("failed to write to %s, output: %s, err: %v", SourceLocation, out, err)
 		return mh.Error(err, label)
 	}
 
 	files, err := uploadFiles(l, conn, map[string]io.Reader{
-		SourceLocation:  aptSourcesBuf,
 		TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
 		TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
 		TLSKeyLocation:  strings.NewReader(settings.TLSConfig.Key),

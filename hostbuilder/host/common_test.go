@@ -94,6 +94,9 @@ var _ = Describe("WriteSettings", func() {
 
 		Expect(e.cmds[1]).To(Equal(`echo -e "pubkey1\npubkey2" >> /home/action/.ssh/authorized_keys`))
 
+		Expect(e.cmds[2]).To(ContainSubstring(`deb https://distro:passwd@master precise main`))
+		Expect(e.cmds[2]).To(ContainSubstring(host.SourceLocation))
+
 		uploads := [][3]string{
 			// destination, contents, equality ("" = test contents for substring)
 			{"/etc/freighterd/ca.crt", "ca", "true"},
@@ -101,7 +104,6 @@ var _ = Describe("WriteSettings", func() {
 			{"/etc/freighterd/key.crt", "key", "true"},
 			{"/etc/freighterd/secret", "secret", "true"},
 			{"/etc/freighterd/config.json", "http://google.com", ""},
-			{host.SourceLocation, "deb https://distro:passwd@master precise main", ""},
 		}
 
 		for _, v := range uploads {
