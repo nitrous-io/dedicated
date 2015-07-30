@@ -192,7 +192,14 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	if p.IsSubscription() {
 		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u)
 		if err != nil {
-			logrus.Errorf("uuid=%s queueProvisionTracer: Subscribe err: %+v h: %+v", uuid, err, h)
+			logrus.WithFields(logrus.Fields{
+				"uuid":     uuid,
+				"alert":    "nosubscription",
+				"err":      err.Error(),
+				"host":     h,
+				"username": u.Username,
+				"email":    u.Email,
+			}).Errorf("queueProvisionTracer: SubscriptionCreateError")
 			if err == subscriptions.ErrCardExpired || err == subscriptions.ErrCardDeclined {
 				return SubscriptionCreateError{Err: err.Error()}
 			}

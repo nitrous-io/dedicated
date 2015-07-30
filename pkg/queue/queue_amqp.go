@@ -66,11 +66,11 @@ PUBLISH:
 		)
 		if err != nil {
 			if err == amqp.ErrClosed {
-				logrus.Printf("uuid=%s Retrying event %s in (%s) queue: %v", m.UUID, m.Event, p.name, err)
+				logrus.WithFields(m.LogFields()).Printf("Retrying event in (%s) queue: %v", p.name, err)
 				tries--
 				time.Sleep(retryInterval)
 				if err := p.reconnect(); err != nil {
-					logrus.Errorf("uuid=%s amqp: reconnect %s/%s failed, err: %v", m.UUID, p.addr, p.name, err)
+					logrus.WithFields(m.LogFields()).Errorf("amqp: reconnect %s/%s failed, err: %v", p.addr, p.name, err)
 				}
 				continue PUBLISH
 			}
@@ -84,14 +84,14 @@ PUBLISH:
 			// Republish the message when it is NACKed
 			// if tries is exhausted, it means that the message will be
 			// discarded
-			logrus.Errorf("uuid=%s queue=%s message=%s nacked", m.UUID, p.name, m.Event)
+			logrus.WithFields(m.LogFields()).Errorf("queue=%s nacked", p.name)
 			continue PUBLISH
 		case <-time.After(10 * time.Second):
 			// timed out waiting for server to confirm.
 			// reconnect and retry publishing
-			logrus.Printf("uuid=%s queue=%s message=%s timed out", m.UUID, p.name, m.Event)
+			logrus.WithFields(m.LogFields()).Debugf("queue=%s timed out", p.name)
 			if err := p.reconnect(); err != nil {
-				logrus.Errorf("uuid=%s amqp: reconnect %s/%s failed, err: %v", m.UUID, p.addr, p.name, err)
+				logrus.WithFields(m.LogFields()).Errorf("amqp: reconnect %s/%s failed, err: %v", p.addr, p.name, err)
 			}
 			continue PUBLISH
 		}
@@ -204,8 +204,8 @@ func (d *amqpDelivery) Ack(retryInterval time.Duration) error {
 		d.consumer.mu.RUnlock()
 		if err != nil {
 			if _, ok := err.(*net.OpError); ok {
-				logrus.Printf("uuid=%s Retrying ack for message(%s) : %v",
-					d.msg.UUID, d.msg.Event, err)
+				logrus.WithFields(d.msg.LogFields()).Debugf(
+					"Retrying ack for message: %v", err)
 				time.Sleep(retryInterval)
 				continue
 			}
@@ -222,8 +222,8 @@ func (d *amqpDelivery) Fail() {
 	err := d.consumer.ch.Nack(d.delivery.DeliveryTag, false, false)
 	d.consumer.mu.RUnlock()
 	if err != nil {
-		logrus.Errorf("uuid=%s Failed to push a message(%s) to failed queue: %v",
-			d.msg.UUID, d.msg.Event, err)
+		logrus.WithFields(d.msg.LogFields()).Errorf(
+			"Failed to push a message to failed queue: %v", err)
 	}
 }
 
@@ -340,25 +340,24 @@ func (qc *AmqpConsumer) Start(stop chan struct{}) error {
 			return nil
 		case d := <-msgCh: // when there's new message
 			m := d.msg
-			logrus.Infof("uuid=%s got (%+v) message in (%s) queue", m.UUID, m, qc.name)
+			logrus.WithFields(m.LogFields()).Infof("got message in (%s) queue", qc.name)
 			go func() {
 				err := qc.handler(m)
 				if err != nil {
-					logrus.Errorf("uuid=%s Failed to process (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
+					logrus.WithFields(m.LogFields()).Errorf("Failed to process message in (%s) queue: %v", qc.name, err)
 					d.Fail()
 				} else {
-					err := d.Ack(ackWait)
-					if err != nil {
-						logrus.Errorf("uuid=%s Failed to send ACK for (%+v) message in (%s) queue: %v", m.UUID, m, qc.name, err)
+					if err := d.Ack(ackWait); err != nil {
+						logrus.WithFields(m.LogFields()).Errorf("Failed to send ACK for message in (%s) queue: %v", qc.name, err)
 					}
 				}
 				done <- struct{}{}
 			}()
 			select {
 			case <-done:
-				logrus.Debugf("uuid=%s Finished to process (%+v) message in (%s) queue", m.UUID, m, qc.name)
+				logrus.WithFields(m.LogFields()).Debugf("Finished to process message in (%s) queue", qc.name)
 			case <-time.After(qc.handlerTimeout):
-				logrus.Errorf("uuid=%s Timed out to process (%+v) message in (%s) queue", m.UUID, m, qc.name)
+				logrus.WithFields(m.LogFields()).Errorf("Timed out to process message in (%s) queue", qc.name)
 				d.Fail()
 			}
 			msgCh <- d
