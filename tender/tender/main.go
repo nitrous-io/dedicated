@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/deferpanic/deferclient/deferstats"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/tender"
 )
 
@@ -49,6 +51,7 @@ var (
 	flVerboseLogs = flag.Bool("verbose", false, "show verbose logging")
 
 	profileDumpFolder string
+	deferPanicToken   string
 )
 
 func init() {
@@ -80,6 +83,7 @@ func init() {
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
 
 	profileDumpFolder = os.Getenv("PROFILE_DUMP_FOLDER")
+	deferPanicToken = os.Getenv("DEFER_PANIC_TOKEN")
 }
 
 func refreshCachesWorker(db *sql.DB) {
@@ -120,6 +124,14 @@ func main() {
 	privCACert, err := ioutil.ReadFile(privCACertPath)
 	if err != nil {
 		logrus.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
+	}
+
+	// Setting Defer Panic
+	var deferstatsClient *deferstats.Client
+	if envvars.DeferPanicToken != "" {
+		deferstatsClient = deferstats.NewClient(envvars.DeferPanicToken)
+		deferstatsClient.SetappGroup("Tender")
+		go deferstatsClient.CaptureStats()
 	}
 
 	timeStart := time.Now()
