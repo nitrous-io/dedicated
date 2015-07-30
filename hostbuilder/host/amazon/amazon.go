@@ -814,11 +814,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	h.Printf("stopping pre-EBS hotswapping instance normally")
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, hostInfoErr)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 
@@ -829,11 +825,7 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		if info, e := h.Info(); e == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-		} else {
-			logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
-		}
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
@@ -892,11 +884,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 		if err := hctx.Run(step); err != nil {
 			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
 
-			if info, e := h.Info(); e == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-			} else {
-				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
-			}
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 
 			if err == context.DeadlineExceeded {
 				return nil, ErrTimeout
@@ -907,7 +895,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 
 	instanceID := h.instance.InstanceId
 	instanceType := h.instance.InstanceType
-	logrus.Infof("amazon: successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
+	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
 
 	poolFull, err := h.isPoolFull(instanceType)
 	if err != nil {
@@ -918,25 +906,17 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	// If instance pool is full, we terminate the instance.
 	// Otherwise, we release the (still running) instance to the pool.
 	if poolFull {
-		logrus.Infof("amazon: pool for %q is full, terminating instance", instanceType)
+		h.Printf("pool for %q is full, terminating instance", instanceType)
 		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
 			err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", instanceID, err)
-			if info, e := h.Info(); e == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-			} else {
-				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
-			}
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 			return nil, mh.Error(err, label)
 		}
 	} else {
-		logrus.Infof("amazon: releasing instance of stopped workspace to pool for %q", instanceType)
+		h.Printf("releasing instance %s of stopped workspace to pool for %q", instanceID, instanceType)
 		if err := h.releaseInstance(); err != nil {
 			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
-			if info, e := h.Info(); e == nil {
-				host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
-			} else {
-				logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
-			}
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 			return nil, mh.Error(err, label)
 		}
 	}
@@ -1396,7 +1376,7 @@ func (h *Host) releaseEIP() error {
 		// Release IP address given by the client. We can't use
 		// h.instance.PublicIPAddress because it's not guaranteed to be the
 		// correct IP when the instance is stopped.
-		logrus.Infof("amazon: releasing IP address %s for instance %s", ip, h.instance.InstanceId)
+		h.Printf("releasing IP address %s for instance %s", ip, h.instance.InstanceId)
 		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
 			return fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
 				h.Config.IPAddress, h.instance.InstanceId, err)
