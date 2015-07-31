@@ -69,13 +69,19 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	})
 
 	if err != nil {
-		fmt.Printf("Err: %v", err)
 		return err
 	}
 
+	bp, err := billingprofile.FindForOrg(db, o.ID)
+	if err != nil {
+		return err
+	}
+	ser := serializers.SerializeOrg(o)
+	ser.BillingProfile = serializers.SerializeBillingProfile(bp)
+
 	env.Status = http.StatusCreated
 	env.Data = map[string]interface{}{
-		"org": serializers.SerializeOrg(o),
+		"org": ser,
 	}
 
 	return nil
@@ -117,7 +123,7 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	_, err = orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	mem, err := orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -125,9 +131,18 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	ser := serializers.SerializeOrg(o)
+	if mem.IsAdmin() {
+		bp, err := billingprofile.FindForOrg(db, o.ID)
+		if err != nil {
+			return err
+		}
+		ser.BillingProfile = serializers.SerializeBillingProfile(bp)
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"org": serializers.SerializeOrg(o),
+		"org": ser,
 	}
 
 	return nil

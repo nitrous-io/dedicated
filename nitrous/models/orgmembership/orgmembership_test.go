@@ -2,6 +2,7 @@ package orgmembership_test
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -78,6 +79,22 @@ var _ = Describe("models/orgmembership", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("IsAdmin()", func() {
+		It("should be correct for the role", func() {
+			roles := map[string]bool{
+				"owner":  true,
+				"admin":  true,
+				"member": false,
+			}
+
+			o := &orgmembership.OrgMembership{}
+			for role, val := range roles {
+				o.Role = role
+				Expect(o.IsAdmin()).To(Equal(val), fmt.Sprintf("Should be %v for %s", val, role))
+			}
+		})
 	})
 
 	Describe("FindAllByOrgID()", func() {
