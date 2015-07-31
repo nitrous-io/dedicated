@@ -1,0 +1,5 @@
+require './env'
+
+Dir.glob('./lib/*.rb').each {|f| require f }
+
+# vim:ft=ruby
