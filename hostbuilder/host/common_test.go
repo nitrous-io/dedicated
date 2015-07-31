@@ -94,8 +94,7 @@ var _ = Describe("WriteSettings", func() {
 
 		Expect(e.cmds[1]).To(Equal(`echo -e "pubkey1\npubkey2" >> /home/action/.ssh/authorized_keys`))
 
-		Expect(e.cmds[2]).To(ContainSubstring(`deb https://distro:passwd@master precise main`))
-		Expect(e.cmds[2]).To(ContainSubstring(host.SourceLocation))
+		Expect(e.cmds[2]).To(Equal(fmt.Sprintf(`echo -e "deb https://distro:passwd@master precise main" | sudo tee %s > /dev/null`, host.SourceLocation)))
 
 		uploads := [][3]string{
 			// destination, contents, equality ("" = test contents for substring)
