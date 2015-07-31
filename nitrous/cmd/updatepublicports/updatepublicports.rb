@@ -11,7 +11,6 @@ sql = <<-SQL
 SELECT containers.slug AS container_slug, containers.cid, hosts.slug AS host_slug, hosts.ip_address, hosts.freighterd_port, hosts.secret
     FROM containers INNER JOIN hosts ON containers.host_id = hosts.id
     WHERE containers.terminated_at IS NULL AND hosts.state = 'running'
-    LIMIT 100
 SQL
 
 ca_file = ENV['CA_PATH']
@@ -33,13 +32,23 @@ $db.fetch(sql) do |row|
 
     port_mappings = {}
     container['container']['ports'].each_pair do |exposed_port, mapping_ports|
+      incoming_port = exposed_port
       if !preview_port.nil? && preview_port.length > 0 && preview_port == exposed_port
-        port_mappings['preview'] = mapping_ports.first if mapping_ports.length > 0
-      else
-        port_mappings[exposed_port] = mapping_ports.first if mapping_ports.length > 0
+        incoming_port = 'preview'
+      end
+
+      if mapping_ports.length > 0
+        port = mapping_ports.first
+        if port != nil && port.length > 0
+          port_mappings[incoming_port] = mapping_ports.first
+        end
       end
     end
-    puts "UPDATE containers SET port_mappings = '#{JSON.dump(port_mappings)}' WHERE slug = '#{row[:container_slug]}';" unless port_mappings.empty?
+
+    unless port_mappings.empty?
+      scope = $db[:containers].where(slug: row[:container_slug])
+      scope.update(port_mappings: JSON.dump(port_mappings))
+    end
   end
 end
 
