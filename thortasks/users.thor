@@ -4,6 +4,20 @@ class Users < Thor
     puts User.find(ident)
   end
 
+  desc "search TERM", "Searches user usernames and e-mails for TERM"
+  def search(term)
+    term = term.gsub('_', '\_') # escape for LIKE
+    term = ['%', term, '%'].join if !term.match(/%/) # add wildcards for substring if wildcards not present
+    results = User.query.
+      where { Sequel.like(:username, term) | Sequel.like(:email, term) }.
+      order(Sequel.desc(:users__id))
+    puts "Too many results (#{results.count}). Displaying most recent 5" if results.count > 5
+    results.to_a.take(5).each do |r|
+      puts "-" * 20
+      puts User.new(r)
+    end
+  end
+
   desc "allow_free IDENT", "Allows user IDENT to be a free user"
   def allow_free(ident)
     u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }

@@ -40,7 +40,6 @@ class User
     when /\A\d+\z/
       [:users__id, ident.to_i]
     when /@/
-      puts "email"
       [:email, ident]
     else
       [:username, ident]
