@@ -694,7 +694,8 @@ func deleteOldVolume(ctx *host.HostContext) error {
 // Destroy will either:
 // 1. for hosts prior to pre-EBS hotswapping, we release the EIP and terminate
 //    the instance, or
-// 2. for hosts that support EBS hotswapping, we delete the user volume.
+// 2. for hosts that support EBS hotswapping, we delete the user volume. If the
+//    volume is attached to an instance, we terminate the instance as well.
 func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
@@ -714,14 +715,52 @@ func (h *Host) Destroy() error {
 
 	h.Printf("destroying pre-EBS hotswapping instance normally")
 
-	if err := h.releaseEIP(); err != nil {
+	if err := h.terminateInstance(); err != nil {
 		return mh.Error(err, label)
 	}
 
-	// terminate the instance
+	return nil
+}
+
+// destroyWithPool deletes the user volume. If the volume is attached to an
+// instance, we terminate the instance and release any associated EIP.
+func (h *Host) destroyWithPool() error {
+	label := h.MetricsLabel("destroy_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	volumeID := h.Config.VolumeID
+
+	// Check whether user volume is still attached to an instance.
+	if h.instance != nil {
+		userDevice := userDevice(h.instance)
+		if userDevice != nil && userDevice.VolumeId == volumeID {
+			h.Printf("user volume %s is still attached to instance %s, terminating that instance",
+				volumeID, h.instance.InstanceId)
+			if err := h.terminateInstance(); err != nil {
+				return err
+			}
+		}
+	}
+
+	h.Printf("deleting user volume %s", volumeID)
+	if _, err := h.provider.DeleteVolume(volumeID); err != nil {
+		h.Printf("ERROR: failed to delete user volume %s, err: %v", volumeID, err)
+		return err
+	}
+	h.Printf("deleted user volume %s", volumeID)
+
+	return nil
+}
+
+// terminateInstance releases the EIP associated to the host's instance (if any)
+// and terminates the instance.
+func (h *Host) terminateInstance() error {
+	if err := h.releaseEIP(); err != nil {
+		return err
+	}
+
 	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
-		err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
-		return mh.Error(err, label)
+		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
 	}
 
 	state := StateChangeConf{
@@ -732,29 +771,9 @@ func (h *Host) Destroy() error {
 	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return mh.Error(err, label)
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	return nil
-}
-
-// destroyWithPool deletes the user volume.
-// We assume that the host has previously been stopped, so it no longer has an
-// associated EIP nor an EC2 instance.
-func (h *Host) destroyWithPool() error {
-	label := h.MetricsLabel("destroy_with_pool")
-	defer mh.UpdateSince(label, time.Now())
-
-	volumeID := h.Config.VolumeID
-
-	h.Printf("deleting user volume %s", volumeID)
-
-	if _, err := h.provider.DeleteVolume(volumeID); err != nil {
-		h.Printf("ERROR: failed to delete user volume %s, err: %v", volumeID, err)
 		return err
 	}
-	h.Printf("deleted user volume %s", volumeID)
+	h.instance = updatedInstance.(*ec2.Instance)
 
 	return nil
 }
