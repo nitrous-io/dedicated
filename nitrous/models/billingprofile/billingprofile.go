@@ -134,29 +134,12 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 
 	crd := c.Cards.Values[0]
 
-	var banned bool
-	err = d.Get(&banned, `SELECT COUNT(*) > 0
-		FROM billing_profiles
-		INNER JOIN users ON users.id = billing_profiles.user_id
-		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
-	if err != nil {
+	if err := b.SetCard(d, crd); err != nil {
 		return err
 	}
-	if banned {
-		return ErrCardBanned
-	}
-
 	if b.State == StateNoCard || b.State == StateFree {
 		b.State = StatePaid
 	}
-
-	b.StripeID = sql.NullString{c.ID, true}
-	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
-	b.LastFour = sql.NullString{crd.LastFour, true}
-	b.CardType = sql.NullString{string(crd.Brand), true}
-	b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
-	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
-	b.PendingActivation = false
 
 	tx, err := d.Beginx()
 	if err != nil {
@@ -169,6 +152,48 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 	}
 
 	return tx.Commit()
+}
+
+func (b *BillingProfile) SetCard(d *db.Database, crd *stripe.Card) error {
+	var banned bool
+	err := d.Get(&banned, `SELECT COUNT(*) > 0
+		FROM billing_profiles
+		INNER JOIN users ON users.id = billing_profiles.user_id
+		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	if err != nil {
+		return err
+	}
+	if banned {
+		return ErrCardBanned
+	}
+
+	b.LastFour = sql.NullString{crd.LastFour, true}
+	b.CardType = sql.NullString{string(crd.Brand), true}
+	b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
+	b.ExpYear = sql.NullInt64{int64(crd.Year), true}
+	b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
+	b.PendingActivation = false
+	b.State = StatePaid
+
+	return nil
+}
+
+func (b *BillingProfile) Activate(d *db.Database, cus *stripe.Customer) error {
+	b.StripeID = sql.NullString{cus.ID, true}
+	b.PendingActivation = false
+
+	if cus.Cards != nil && len(cus.Cards.Values) >= 1 {
+		if err := b.SetCard(d, cus.Cards.Values[0]); err != nil {
+			return err
+		}
+	}
+
+	return d.WithTransaction(func(t *sqlx.Tx) error {
+		if err := b.Update(t); err != nil {
+			return fmt.Errorf("Billing profile update failed for user %d org %d. Reason - %s", b.UserID, b.OrgID.Int64, err)
+		}
+		return nil
+	})
 }
 
 func (b *BillingProfile) UpdateEmail(d db.QueryReceiver, email string) error {

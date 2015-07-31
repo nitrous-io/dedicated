@@ -47,6 +47,15 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 	return org, nil
 }
 
+func Find(d db.QueryReceiver, id int64) (*Org, error) {
+	org := &Org{}
+	err := d.Get(org, "SELECT * FROM orgs WHERE id = $1 AND deleted_at IS NULL", id)
+	if err != nil {
+		return nil, err
+	}
+	return org, nil
+}
+
 func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*Org, error) {
 	orgs := []*Org{}
 	err := d.Select(&orgs, `
