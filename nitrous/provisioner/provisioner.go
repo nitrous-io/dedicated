@@ -514,6 +514,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Slug:               opts.Slug,
 		Name:               sql.NullString{opts.Name, true},
 		MaxContainers:      sql.NullInt64{opts.Plan.MaxContainers, true},
+		AutoShutdown:       opts.Plan.AutoShutdown,
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
 		Preprovisioned:     opts.Preprovision,
