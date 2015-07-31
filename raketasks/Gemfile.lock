@@ -3,6 +3,7 @@ GEM
   specs:
     pg (0.18.2)
     sequel (4.24.0)
+    thor (0.19.1)
 
 PLATFORMS
   ruby
@@ -10,3 +11,4 @@ PLATFORMS
 DEPENDENCIES
   pg
   sequel
+  thor
