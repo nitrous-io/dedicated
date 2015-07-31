@@ -8,10 +8,16 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
+const (
+	RoleOwner  = "owner"
+	RoleAdmin  = "admin"
+	RoleMember = "member"
+)
+
 var ValidRoles = map[string][]string{
-	"owner":  {"owner", "admin", "member"},
-	"admin":  {"admin", "member"},
-	"member": {},
+	RoleOwner:  {RoleOwner, RoleAdmin, RoleMember},
+	RoleAdmin:  {RoleAdmin, RoleMember},
+	RoleMember: {},
 }
 
 type InvalidRoleError struct {

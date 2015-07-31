@@ -230,6 +230,11 @@ func MarkDelinquentUser(db *db.Database, u *nuser.User) {
 	Expect(err).To(BeNil())
 }
 
+func MarkDelinquentBP(db *db.Database, bp *billingprofile.BillingProfile) {
+	_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE id = $2;`, billingprofile.StateDelinquent, bp.ID)
+	Expect(err).To(BeNil())
+}
+
 func VerifyDelinquentUserResponse(res *httptest.ResponseRecorder) {
 	Expect(res.Code).To(Equal(http.StatusBadRequest))
 	err, errSlug := ErrorSlug(res.Body)

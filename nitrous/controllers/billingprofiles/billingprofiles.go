@@ -7,13 +7,18 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	stripe "github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
 )
 
 var (
@@ -24,10 +29,27 @@ var (
 	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
 	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card is banned.")
+
+	errIncorrectSubscriptionRole = httperror.New(http.StatusForbidden, "incorrect_role", "You don't have permission to access this subscription")
 )
 
+func billingProfileForRequest(env *middleware.Env, r *http.Request) (*billingprofile.BillingProfile, error) {
+	if orgSlug := mux.Vars(r)["org_slug"]; orgSlug != "" {
+		mem, err := orgmembership.FindByUsernameAndOrgSlug(env.DB, env.User.Username, orgSlug)
+		if err != nil {
+			return nil, err
+		}
+		if mem.Role != "owner" {
+			return nil, errIncorrectSubscriptionRole
+		}
+		return billingprofile.FindForOrg(env.DB, mem.OrgID)
+	}
+
+	return billingprofile.Find(env.DB, env.User.ID)
+}
+
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	bp, err := billingprofile.Find(env.DB, env.User.ID)
+	bp, err := billingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -58,7 +80,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingprofile.Find(db, u.ID)
+	bp, err := billingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -69,11 +91,19 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	if bp.StripeID.Valid {
 		err = bp.UpdateCard(db, cardToken)
 		if err != nil {
-			fmt.Printf("Err: %+v\n", err)
 			return handleBillingError(err)
 		}
 	} else {
-		bp, err = u.ActivateBillingProfile(db, cardToken)
+		if bp.OrgID.Valid {
+			var o *org.Org
+			o, err = org.Find(db, bp.OrgID.Int64)
+			if err != nil {
+				return err
+			}
+			err = activateOrgBillingProfile(db, o, bp, cardToken)
+		} else {
+			bp, err = u.ActivateBillingProfile(db, cardToken)
+		}
 		if err != nil {
 			return handleBillingError(err)
 		}
@@ -90,19 +120,31 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		if err := bp.Update(db); err != nil {
 			// since this part is technically optional, we log any errors
 			// encountered and continue
-			logrus.Errorf("Error updating CIDRBlacklisted user to delinquent: %v", err)
+			logrus.Errorf("Error updating CIDRBlacklisted billing profile to delinquent: %v", err)
 		}
 	}
 
+	ser := serializers.SerializeBillingProfile(bp)
+	defer func() {
+		env.Status = http.StatusCreated
+		env.Data = map[string]interface{}{
+			"billing_profile": ser,
+		}
+	}()
+
+	// all other operates are user focused, we skip these if for a Organisation
+	if bp.OrgID.Valid {
+		return nil
+	}
+
 	// determine if this user gets a credit
-	var credited int64
 	if previousPendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
 			logrus.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
 		} else if count <= 1 {
-			credited = awardCredits(db, u)
+			ser.AmountCredited = awardCredits(db, u)
 		}
 	}
 
@@ -117,13 +159,6 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": previousState})
 	}
 
-	ser := serializers.SerializeBillingProfile(bp)
-	ser.AmountCredited = credited
-
-	env.Status = http.StatusCreated
-	env.Data = map[string]interface{}{
-		"billing_profile": ser,
-	}
 	return nil
 }
 
@@ -135,7 +170,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingprofile.Find(db, env.User.ID)
+	bp, err := billingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -218,4 +253,25 @@ func awardCredits(d *db.Database, user *user.User) int64 {
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
 	return credittype.FindValidCreditTypeByName(d, creditCode)
+}
+
+func activateOrgBillingProfile(d *db.Database, o *org.Org, bp *billingprofile.BillingProfile, token string) error {
+	params := &stripe.CustomerParams{
+		Email: o.Email,
+		Desc:  fmt.Sprintf("Organisation %q", o.Name),
+		Params: stripe.Params{
+			Meta: map[string]string{
+				"name": o.Name,
+			},
+		},
+	}
+	if token != "" {
+		params.Token = token
+	}
+	c, err := customer.New(params)
+	if err != nil {
+		return billingprofile.HandleStripeError(err)
+	}
+
+	return bp.Activate(d, c)
 }
