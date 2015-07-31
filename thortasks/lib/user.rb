@@ -18,38 +18,41 @@ class User
       "#{s}: #{val}"
     end
 
-    lines << "Can create free? #{phone_authed && bp_state == 'free'}"
-    
+    lines << "Can create free? #{can_create_free?}"
+
     lines.join("\n")
+  end
+
+  def can_create_free?
+    phone_authed && bp_state == 'free'
   end
 
   # Returns a single user object
   # Supports optional block to filter the result
   # If the result isn't a single row, returns an error
-  def self.find_one(&block)
-    finders = {
-      username:  'USER_USERNAME',
-      email:     'USER_EMAIL',
-      users__id: 'USER_ID',
-    }
-    column, value, count = nil, nil, 0
-    finders.each do |db_column, envvar|
-      next if ENV[envvar].nil?
-      count += 1
-      raise "Please specify only one of #{finders.values.inspect}" if count > 1
-      column = db_column
-      value = ENV[envvar]
+  # ident can be id, username, or e-mail
+  # id = all numeric
+  # e-mail = has '@'
+  # username = everything else
+  # all numeric usernames are possible but unsupported
+  def self.find(ident, &block)
+    column, value = case ident
+    when /\A\d+\z/
+      [:users__id, ident.to_i]
+    when /@/
+      puts "email"
+      [:email, ident]
+    else
+      [:username, ident]
     end
-    raise "No query values given" if column.nil?
-    q = User.query.where(column => value)
 
+    q = User.query.where(column => value)
     q = block.call(q) if block_given?
 
-    raise "no user found" if q.count == 0
+    halt "no user found" if q.count == 0
     if q.count > 1
       puts "#{q.count} users found"
-      p q.all if q.count < 10
-      raise "Bad result"
+      halt "Bad result"
     end
     self.new(q.all[0])
   end

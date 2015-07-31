@@ -2,4 +2,4 @@ require './env'
 
 Dir.glob('./lib/*.rb').each {|f| require f }
 
-Dir.glob('*.rake').each { |r| import r }
+# vim:ft=ruby
