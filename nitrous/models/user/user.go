@@ -607,63 +607,17 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 		return nil, billingprofile.HandleStripeError(err)
 	}
 
-	existing, err := u.BillingProfile(d)
+	bp, err := u.BillingProfile(d)
 	if err != nil {
 		return nil, err
 	}
 
-	b := &billingprofile.BillingProfile{
-		UserID:            u.ID,
-		StripeID:          sql.NullString{c.ID, true},
-		PendingActivation: false,
-		State:             existing.State,
-		ID:                existing.ID,
-	}
-
-	if c.Cards != nil && len(c.Cards.Values) >= 1 {
-		// update the profile with details returned from Stripe
-		crd := c.Cards.Values[0]
-
-		var banned bool
-		err = d.Get(&banned, `SELECT COUNT(*) > 0
-		FROM billing_profiles
-		INNER JOIN users ON users.id = billing_profiles.user_id
-		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
-		if err != nil {
-			return nil, err
-		}
-		if banned {
+	if err := bp.Activate(d, c); err != nil {
+		if err == billingprofile.ErrCardBanned {
 			return nil, ErrCardBanned
 		}
-
-		b.LastFour = sql.NullString{crd.LastFour, true}
-		b.CardType = sql.NullString{string(crd.Brand), true}
-		b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
-		b.ExpYear = sql.NullInt64{int64(crd.Year), true}
-		b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
-		b.State = billingprofile.StatePaid
-	}
-
-	tx, err := d.Beginx()
-	if err != nil {
 		return nil, err
 	}
 
-	err = b.Update(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("Billing profile update failed for user %s. Reason - %s", u.Username, err)
-	}
-
-	err = u.Update(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("Update failed for user %s. Reason - %s", u.Username, err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return bp, nil
 }

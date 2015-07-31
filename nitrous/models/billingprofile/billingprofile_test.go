@@ -100,7 +100,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(org.Insert(db)).To(BeNil())
 
 			_, err = db.Exec(`
-                                INSERT INTO billing_profiles (user_id, org_id, state) 
+                                INSERT INTO billing_profiles (user_id, org_id, state)
                                 VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
 			Expect(err).To(BeNil())
 
@@ -166,7 +166,7 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(org.Insert(db)).To(BeNil())
 
 			_, err := db.Exec(`
-                                INSERT INTO billing_profiles (user_id, org_id, state) 
+                                INSERT INTO billing_profiles (user_id, org_id, state)
                                 VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
 			Expect(err).To(BeNil())
 
@@ -367,6 +367,65 @@ var _ = Describe("models/billingprofile", func() {
 				err = bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 			})
+		})
+	})
+
+	Describe("Activate", func() {
+		It("should set the BP with a StripeID", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			cus := &stripe.Customer{
+				ID: "cus_12xx35z",
+			}
+			Expect(b.Activate(db, cus)).To(BeNil())
+
+			b1, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(b1.StripeID.String).To(Equal("cus_12xx35z"))
+			Expect(b1.PendingActivation).To(BeFalse())
+			Expect(b1.LastFour.String).To(Equal("2344"))
+		})
+
+		It("should set the BP with card data", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'no_card', pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			cus := &stripe.Customer{
+				ID: "cus_12xx35z",
+				Cards: &stripe.CardList{
+					Values: []*stripe.Card{
+						&stripe.Card{
+							LastFour:    "1901",
+							Brand:       "AMEX",
+							Month:       8,
+							Year:        2019,
+							Fingerprint: "xcv22sx3",
+						},
+					},
+				},
+			}
+			Expect(b.Activate(db, cus)).To(BeNil())
+
+			b1, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(b1.StripeID.String).To(Equal("cus_12xx35z"))
+			Expect(b1.PendingActivation).To(BeFalse())
+			Expect(b1.LastFour.String).To(Equal("1901"))
+			Expect(b1.CardType.String).To(Equal("AMEX"))
+			Expect(b1.ExpMonth.Int64).To(Equal(int64(8)))
+			Expect(b1.ExpYear.Int64).To(Equal(int64(2019)))
+			Expect(b1.StripeFingerprint.String).To(Equal("xcv22sx3"))
+			Expect(b1.State).To(Equal(billingprofile.StatePaid))
+			Expect(b1.PendingActivation).To(BeFalse())
 		})
 	})
 

@@ -19,20 +19,45 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("models/org", func() {
-	var db *db.Database
+	var (
+		db             *db.Database
+		o1, o2, o3, o4 *org.Org
+	)
 
 	BeforeEach(func() {
 		var err error
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Foo Bar, Inc.", "eng@foobar.com", "foobar")
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Watermelon Corp.", "admin@watermelon.co", "watermelon")
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Macrosoft Corp.", "bill@macrosoft.com", "macrosoft")
-		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO orgs (name, email, slug, deleted_at) values ($1, $2, $3, now());", "Action Enterprises", "dev@actionent.io", "action-enterprises")
+		o1 = &org.Org{
+			Name:  "Foo Bar, Inc.",
+			Email: "eng@foobar.com",
+			Slug:  "foobar",
+		}
+		Expect(o1.Insert(db)).To(BeNil())
+
+		o2 = &org.Org{
+			Name:  "Watermelon Corp.",
+			Email: "admin@watermelon.co",
+			Slug:  "watermelon",
+		}
+		Expect(o2.Insert(db)).To(BeNil())
+
+		o3 = &org.Org{
+			Name:  "Macrosoft Corp.",
+			Email: "bill@macrosoft.com",
+			Slug:  "macrosoft",
+		}
+		Expect(o3.Insert(db)).To(BeNil())
+
+		o4 = &org.Org{
+			Name:  "Action Enterprises",
+			Email: "dev@actionent.io",
+			Slug:  "action-enterprises",
+		}
+		Expect(o4.Insert(db)).To(BeNil())
+
+		_, err = db.Exec("UPDATE orgs SET deleted_at = now() WHERE id = $1", o4.ID)
 		Expect(err).To(BeNil())
 	})
 
@@ -43,21 +68,12 @@ var _ = Describe("models/org", func() {
 	})
 
 	Describe("FindBySlug()", func() {
-		var foobarID, watermelonID int64
-
-		BeforeEach(func() {
-			err := db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "foobar").Scan(&foobarID)
-			Expect(err).To(BeNil())
-			err = db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "watermelon").Scan(&watermelonID)
-			Expect(err).To(BeNil())
-		})
-
 		Context("when a record with a given slug exists", func() {
 			It("returns the record", func() {
 				o, err := org.FindBySlug(db, "foobar")
 				Expect(err).To(BeNil())
 				Expect(o).NotTo(BeNil())
-				Expect(o.ID).To(Equal(foobarID))
+				Expect(o.ID).To(Equal(o1.ID))
 				Expect(o.Name).To(Equal("Foo Bar, Inc."))
 				Expect(o.Slug).To(Equal("foobar"))
 				Expect(o.Email).To(Equal("eng@foobar.com"))
@@ -66,7 +82,7 @@ var _ = Describe("models/org", func() {
 				Expect(err).To(BeNil())
 				Expect(o2).NotTo(BeNil())
 				Expect(o2).NotTo(Equal(o))
-				Expect(o2.ID).To(Equal(watermelonID))
+				Expect(o2.ID).To(Equal(o2.ID))
 				Expect(o2.Name).To(Equal("Watermelon Corp."))
 				Expect(o2.Slug).To(Equal("watermelon"))
 				Expect(o2.Email).To(Equal("admin@watermelon.co"))
@@ -93,6 +109,52 @@ var _ = Describe("models/org", func() {
 			It("returns error", func() {
 				db.Close()
 				o, err := org.FindBySlug(db, "foobar")
+				Expect(o).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Describe("Find()", func() {
+		Context("when a record with a given ID exists", func() {
+			It("returns the record", func() {
+				o, err := org.Find(db, o1.ID)
+				Expect(err).To(BeNil())
+				Expect(o).NotTo(BeNil())
+				Expect(o.Name).To(Equal("Foo Bar, Inc."))
+				Expect(o.Slug).To(Equal("foobar"))
+				Expect(o.Email).To(Equal("eng@foobar.com"))
+
+				o2, err := org.Find(db, o2.ID)
+				Expect(err).To(BeNil())
+				Expect(o2).NotTo(BeNil())
+				Expect(o2).NotTo(Equal(o))
+				Expect(o2.Name).To(Equal("Watermelon Corp."))
+				Expect(o2.Slug).To(Equal("watermelon"))
+				Expect(o2.Email).To(Equal("admin@watermelon.co"))
+			})
+		})
+
+		Context("when a record with a given org does not exist", func() {
+			It("returns error", func() {
+				o, err := org.Find(db, -99)
+				Expect(o).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a record with a given org is deleted", func() {
+			It("returns error", func() {
+				o, err := org.Find(db, o4.ID)
+				Expect(o).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				o, err := org.Find(db, o1.ID)
 				Expect(o).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
