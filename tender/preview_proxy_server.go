@@ -32,7 +32,7 @@ var (
 	// as if they were made on port 3000.
 	previewForwardPorts = []int{80, 443}
 
-	errContainerNotFound      = errors.New("Host not found")
+	errContainerNotFound      = errors.New("container not found")
 	containersCache           ContainersMap
 	containersCacheLastUpdate time.Time
 	muContainers              sync.Mutex
