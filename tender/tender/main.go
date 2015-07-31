@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/deferpanic/deferclient/deferstats"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/tender"
 )
 
@@ -49,6 +51,7 @@ var (
 	flVerboseLogs = flag.Bool("verbose", false, "show verbose logging")
 
 	profileDumpFolder string
+	deferPanicToken   string
 )
 
 func init() {
@@ -80,6 +83,7 @@ func init() {
 	previewEndPort = os.Getenv("PREVIEW_END_PORT")
 
 	profileDumpFolder = os.Getenv("PROFILE_DUMP_FOLDER")
+	deferPanicToken = os.Getenv("DEFER_PANIC_TOKEN")
 }
 
 func refreshCachesWorker(db *sql.DB) {
@@ -122,6 +126,14 @@ func main() {
 		logrus.Fatalf("tender: failed to find private certificate at %s: %v", privCACertPath, err)
 	}
 
+	// Setting Defer Panic
+	var deferstatsClient *deferstats.Client
+	if envvars.DeferPanicToken != "" {
+		deferstatsClient = deferstats.NewClient(envvars.DeferPanicToken)
+		deferstatsClient.SetappGroup("Tender")
+		go deferstatsClient.CaptureStats()
+	}
+
 	timeStart := time.Now()
 	tender.RefreshContainersCache(db)
 	logrus.Infof("initial refreshContainersCache() took %s", time.Since(timeStart))
@@ -132,8 +144,8 @@ func main() {
 
 	go refreshCachesWorker(db)
 
-	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
-	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert)
+	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert, deferstatsClient)
+	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert, deferstatsClient)
 
 	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
 	if err != nil {

@@ -121,6 +121,7 @@ func main() {
 	var deferstatsClient *deferstats.Client
 	if envvars.DeferPanicToken != "" {
 		deferstatsClient = deferstats.NewClient(envvars.DeferPanicToken)
+		deferstatsClient.SetappGroup("Nitrousd")
 		go deferstatsClient.CaptureStats()
 	}
 

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/deferpanic/deferclient/deferstats"
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
@@ -58,6 +59,9 @@ type PreviewProxyServer struct {
 	ca []byte
 
 	freighterdPort int
+
+	// deferpanic stats client for error handling
+	deferstatsClient *deferstats.Client
 }
 
 func RefreshContainersCache(db *sql.DB) error {
@@ -116,14 +120,15 @@ func containerGet(db *sql.DB, slug string) (*Container, error) {
 // NewPreviewProxyServer returns a `http.Handler` which can be used to proxy
 // preview request to` a Nitrous.IO host
 func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
-	db *sql.DB, caBytes []byte) http.Handler {
+	db *sql.DB, caBytes []byte, deferstatsClient *deferstats.Client) http.Handler {
 
 	s := &PreviewProxyServer{
-		tlsDomain:      tlsDomain,
-		domain:         baseDomain,
-		freighterdPort: freighterdPort,
-		db:             db,
-		ca:             caBytes,
+		tlsDomain:        tlsDomain,
+		domain:           baseDomain,
+		freighterdPort:   freighterdPort,
+		db:               db,
+		ca:               caBytes,
+		deferstatsClient: deferstatsClient,
 	}
 	// set the default tls config for proxied connections
 	if len(caBytes) > 0 {
@@ -139,6 +144,9 @@ func NewPreviewProxyServer(baseDomain, tlsDomain string, freighterdPort int,
 func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.proxy(w, r); err != nil {
 		handleError(w, r, err)
+		if s.deferstatsClient != nil {
+			s.deferstatsClient.Wrap(err)
+		}
 		return
 	}
 }
