@@ -164,6 +164,7 @@ func (s *Server) drawRoutes() {
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
 				"/orgs/{slug}":                        r("orgs.Show", orgs.Show),
+				"/orgs/{slug}/members":                r("orgs.Show", orgs.ShowMembers),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
