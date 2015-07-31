@@ -18,7 +18,7 @@ import (
 var (
 	errBannedEmail  = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
 	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
-	errNoPermission = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to add or update member")
+	errNoPermission = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
 )
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -160,6 +160,10 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errNotFound
 	}
 
+	if currentUser.Username == username {
+		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
+	}
+
 	role := strings.ToLower(r.FormValue("role"))
 	if _, ok := orgmembership.ValidRoles[role]; !ok {
 		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", role))
@@ -199,7 +203,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	m, err := orgmembership.FindByUsernameAndOrgSlug(db, username, o.Slug)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return errNotFound
+			return err
 		}
 		if err = orgmembership.AddMember(db, o.ID, u.ID, role); err != nil {
 			return err
@@ -228,6 +232,82 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		members = []*orgmembership.OrgMember{}
 	}
 
+	env.Data = map[string]interface{}{
+		"members": serializers.SerializeOrgMembers(members),
+	}
+	return nil
+}
+
+func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	currentUser := env.User
+	slug := mux.Vars(r)["slug"]
+	username := mux.Vars(r)["username"]
+
+	if slug == "" || username == "" {
+		return errNotFound
+	}
+
+	if currentUser.Username == username {
+		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself")
+	}
+
+	o, err := org.FindBySlug(db, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	u, err := user.FindByUsername(db, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+	}
+
+	cuMembership, err := orgmembership.FindByUsernameAndOrgSlug(db, currentUser.Username, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNoPermission
+		}
+	}
+
+	permissableRoles, ok := orgmembership.ValidRoles[cuMembership.Role]
+	if !ok {
+		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", cuMembership.Role))
+	}
+
+	m, err := orgmembership.FindByUsernameAndOrgSlug(db, username, o.Slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	if !containsString(permissableRoles, m.Role) {
+		return errNoPermission
+	}
+
+	err = orgmembership.RemoveMember(db, o.ID, u.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	members, err := orgmembership.FindAllByOrgID(db, o.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+		members = []*orgmembership.OrgMember{}
+	}
+
+	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"members": serializers.SerializeOrgMembers(members),
 	}

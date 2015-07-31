@@ -265,7 +265,7 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when a non-existent org slug is given", func() {
 			It("responds with 400 not found", func() {
-				doRequest("pineapple-inc", u.Username)
+				doRequest("pineapple-inc", u2.Username)
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -293,10 +293,23 @@ var _ = Describe("controllers/orgs", func() {
 			})
 		})
 
+		Context("when target user is same as requesting user", func() {
+			It("responds with 400 bad request", func() {
+				doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_action"))
+				Expect(j["error_description"]).To(Equal("you cannot edit yourself"))
+			})
+		})
+
 		Context("when an invalid role is given", func() {
 			It("responds with 400 bad request", func() {
 				params.Set("role", "destroyer")
-				doRequest(o.Slug, u.Username)
+				doRequest(o.Slug, u2.Username)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -317,7 +330,7 @@ var _ = Describe("controllers/orgs", func() {
 
 		Context("when user is not a part of the org", func() {
 			It("responds with 403 forbidden", func() {
-				doRequest(o.Slug, u.Username)
+				doRequest(o.Slug, u2.Username)
 				Expect(res.Code).To(Equal(http.StatusForbidden))
 
 				m, err := orgmembership.FindAllByOrgID(db, o.ID)
@@ -332,7 +345,6 @@ var _ = Describe("controllers/orgs", func() {
 				err = json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("permission_denied"))
-				Expect(j["error_description"]).To(Equal("you do not have permission to add or update member"))
 			})
 		})
 
@@ -531,6 +543,186 @@ var _ = Describe("controllers/orgs", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/orgs/foobar/members/foo"
 				authTokenInputs.Method = "PUT"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("DELETE /api/v0/orgs/{slug}/members/{username}", func() {
+		var (
+			o, o2 *org.Org
+			u2    *user.User
+		)
+
+		BeforeEach(func() {
+			var err error
+
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err = o.Insert(db)
+			Expect(err).To(BeNil())
+
+			o2 = &org.Org{
+				Name:  "Macrosoft Corp.",
+				Slug:  "macrosoft",
+				Email: "bill@macrosoft.com",
+			}
+			err = o2.Insert(db)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+				Name:     "Ms. Bar",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(slug, username string) {
+			var err error
+			url := fmt.Sprintf("/api/v0/orgs/%s/members/%s", slug, username)
+			req, err = test.NewFormRequest("DELETE", url, params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when an org with a given slug does not exist", func() {
+			It("responds with 404 not found", func() {
+				doRequest("pineapple-inc", u2.Username)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when requesting user does not belong to the org", func() {
+			It("responds with 403 forbidden", func() {
+				doRequest(o.Slug, u2.Username)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("permission_denied"))
+			})
+		})
+
+		Context("when target user does not belong to the org", func() {
+			It("responds with 404 not found", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "admin")
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o2.ID, u2.ID, "member")
+				Expect(err).To(BeNil())
+
+				doRequest(o.Slug, u2.Username)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when target user is same as requesting user", func() {
+			It("responds with 400 bad request", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "admin")
+				Expect(err).To(BeNil())
+
+				doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				j := map[string]string{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("invalid_action"))
+				Expect(j["error_description"]).To(Equal("you cannot remove yourself"))
+			})
+		})
+
+		Context("when requesting user belongs to the org", func() {
+			type tc struct {
+				myRole         string
+				targetUserRole string
+				allowed        bool
+			}
+			tcs := []tc{
+				{"owner", "owner", true},
+				{"owner", "admin", true},
+				{"owner", "member", true},
+				{"admin", "owner", false},
+				{"admin", "admin", true},
+				{"admin", "member", true},
+				{"member", "owner", false},
+				{"member", "admin", false},
+				{"member", "member", false},
+			}
+			for _, t := range tcs {
+				func(t tc) {
+					Context(fmt.Sprintf("when %s requests deletion of %s", t.myRole, t.targetUserRole), func() {
+						BeforeEach(func() {
+							err := orgmembership.AddMember(db, o.ID, u.ID, t.myRole)
+							Expect(err).To(BeNil())
+							err = orgmembership.AddMember(db, o.ID, u2.ID, t.targetUserRole)
+							Expect(err).To(BeNil())
+
+							doRequest(o.Slug, u2.Username)
+						})
+
+						if t.allowed {
+							It("allows deletion", func() {
+								Expect(res.Code).To(Equal(http.StatusOK))
+
+								m, err := orgmembership.FindAllByOrgID(db, o.ID)
+								Expect(err).To(BeNil())
+								Expect(m).To(HaveLen(1))
+								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Role).To(Equal(t.myRole))
+
+								var j struct {
+									Members []*serializers.OrgMember `json:"members"`
+								}
+								err = json.Unmarshal(res.Body.Bytes(), &j)
+								Expect(err).To(BeNil())
+								Expect(j.Members).To(HaveLen(1))
+								Expect(j.Members[0].UserID).To(Equal(u.ID))
+								Expect(j.Members[0].Username).To(Equal(u.Username))
+								Expect(j.Members[0].Email).To(Equal(u.Email))
+								Expect(j.Members[0].Role).To(Equal(t.myRole))
+								Expect(j.Members[0].Name).To(Equal(u.Name))
+							})
+						} else {
+							It("disallows deletion", func() {
+								Expect(res.Code).To(Equal(http.StatusForbidden))
+
+								m, err := orgmembership.FindAllByOrgID(db, o.ID)
+								Expect(err).To(BeNil())
+								Expect(m).To(HaveLen(2))
+								Expect(m[0].Username).To(Equal(u.Username))
+								Expect(m[0].Role).To(Equal(t.myRole))
+								Expect(m[1].Username).To(Equal(u2.Username))
+								Expect(m[1].Role).To(Equal(t.targetUserRole))
+							})
+						}
+					})
+				}(t)
+			}
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/orgs/foobar/members/foo"
+				authTokenInputs.Method = "DELETE"
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)
