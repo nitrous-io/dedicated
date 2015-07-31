@@ -52,6 +52,8 @@ type Container struct {
 	UpdatedAt    *time.Time `db:"updated_at"`
 	LockedUntil  *time.Time `db:"locked_until"`
 
+	PortMappings string `db:"port_mappings"`
+
 	// These fields come from Freighter.
 	State      State
 	User       string
@@ -199,14 +201,20 @@ func (c *Container) Insert(d db.QueryReceiver) error {
 
 func (c *Container) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE containers
-		SET (cid, slug, name, image, temp_state, touched_at, updated_at)
-		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now())
+		SET (cid, slug, name, image, temp_state, touched_at, updated_at, port_mappings)
+		= (:cid, :slug, :name, :image, :temp_state, :touched_at, now(), :port_mappings)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
+}
+
+func (c *Container) UpdateColumn(d db.QueryReceiver, column string, value interface{}) error {
+	// Warning: 2nd argument (column) should never be a user provided string!
+	_, err := d.Exec(fmt.Sprintf(`UPDATE "containers" SET ("%s", updated_at) = ($1, now()) WHERE id = $2;`, column), value, c.ID)
+	return err
 }
 
 func (c *Container) Delete(d db.QueryReceiver) error {
