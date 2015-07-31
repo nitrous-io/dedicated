@@ -113,3 +113,21 @@ func UpdateMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	}
 	return nil
 }
+
+func RemoveMember(d db.QueryReceiver, orgID, userID int64) error {
+	r, err := d.Exec(`
+		DELETE FROM org_memberships
+		WHERE org_id = $1 AND user_id = $2
+	`, orgID, userID)
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}

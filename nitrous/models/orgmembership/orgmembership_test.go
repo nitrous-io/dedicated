@@ -311,4 +311,71 @@ var _ = Describe("models/orgmembership", func() {
 			})
 		})
 	})
+
+	Describe("RemoveMember()", func() {
+		Context("when a non-existent org id is given", func() {
+			It("returns error", func() {
+				err := orgmembership.RemoveMember(db, o.ID+9000, u.ID)
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a non-existent user id is given", func() {
+			It("returns error", func() {
+				err := orgmembership.RemoveMember(db, o.ID, u.ID+9000)
+				Expect(err).NotTo(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a user with a given id exists", func() {
+			Context("when user is not already a member", func() {
+				It("returns error", func() {
+					err := orgmembership.RemoveMember(db, o.ID, u.ID)
+					Expect(err).NotTo(BeNil())
+					err = orgmembership.RemoveMember(db, o2.ID, u2.ID)
+					Expect(err).NotTo(BeNil())
+					err = orgmembership.RemoveMember(db, o.ID, u3.ID)
+					Expect(err).NotTo(BeNil())
+				})
+			})
+
+			It("removes user", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o2.ID, u2.ID, "admin")
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u3.ID, "member")
+				Expect(err).To(BeNil())
+
+				err = orgmembership.RemoveMember(db, o.ID, u.ID)
+				Expect(err).To(BeNil())
+				err = orgmembership.RemoveMember(db, o2.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				m, err := orgmembership.FindAllByOrgID(db, o.ID)
+				Expect(err).To(BeNil())
+				Expect(m).To(HaveLen(1))
+				Expect(m[0].Username).To(Equal(u3.Username))
+				Expect(m[0].Email).To(Equal(u3.Email))
+				Expect(m[0].Name).To(Equal(u3.Name))
+				Expect(m[0].Role).To(Equal("member"))
+
+				m, err = orgmembership.FindAllByOrgID(db, o2.ID)
+				Expect(err).To(BeNil())
+				Expect(m).To(HaveLen(0))
+			})
+		})
+
+		Context("when some other error occurs", func() {
+			It("returns error", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				Expect(err).To(BeNil())
+				db.Close()
+				err = orgmembership.RemoveMember(db, o.ID, u.ID)
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
 })
