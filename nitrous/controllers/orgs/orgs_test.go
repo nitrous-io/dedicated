@@ -225,8 +225,8 @@ var _ = Describe("controllers/orgs", func() {
 			var err error
 
 			o = &org.Org{
-				Slug:  "Foobar",
 				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
 				Email: "eng@foobar.com",
 			}
 			err = o.Insert(db)
@@ -530,6 +530,95 @@ var _ = Describe("controllers/orgs", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/orgs/foobar/members/foo"
 				authTokenInputs.Method = "PUT"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/orgs/{slug}", func() {
+		var (
+			o, o2 *org.Org
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+
+			o2 = &org.Org{
+				Name:  "Macrosoft Corp.",
+				Slug:  "macrosoft",
+				Email: "bill@macrosoft.com",
+			}
+			err = o2.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(slug string) {
+			var err error
+			url := fmt.Sprintf("/api/v0/orgs/%s", slug)
+			req, err = test.NewRequest("GET", url, params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when an org with a given slug does not exist", func() {
+			It("responds with 404 not found", func() {
+				doRequest("pineapple-inc")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when user does not belong to the org", func() {
+			It("responds with 404 not found", func() {
+				doRequest(o.Slug)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when user belongs to the org", func() {
+			BeforeEach(func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with 200 ok and org information", func() {
+				doRequest(o.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Org *serializers.Org `json:"org"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Org.ID).To(Equal(o.ID))
+				Expect(j.Org.Slug).To(Equal(o.Slug))
+				Expect(j.Org.Name).To(Equal(o.Name))
+				Expect(j.Org.Email).To(Equal(o.Email))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/orgs/foobar"
+				authTokenInputs.Method = "GET"
 			})
 
 			test.ItRequiresAuthToken(&authTokenInputs)

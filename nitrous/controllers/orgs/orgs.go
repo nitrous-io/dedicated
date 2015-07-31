@@ -17,7 +17,7 @@ import (
 
 var (
 	errBannedEmail  = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
-	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "user or org not found")
+	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
 	errNoPermission = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to add or update member")
 )
 
@@ -70,6 +70,39 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	env.Status = http.StatusCreated
+	env.Data = map[string]interface{}{
+		"org": serializers.SerializeOrg(o),
+	}
+
+	return nil
+}
+
+func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	user := env.User
+	slug := mux.Vars(r)["slug"]
+
+	if slug == "" {
+		return errNotFound
+	}
+
+	o, err := org.FindBySlug(db, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	_, err = orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"org": serializers.SerializeOrg(o),
 	}
