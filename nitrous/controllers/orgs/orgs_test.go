@@ -1,6 +1,7 @@
 package orgs_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -135,6 +137,8 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.Email).To(Equal("accounting@nitrous.io"))
 				Expect(j.Org.Name).To(Equal("Nitrous, Inc."))
 				Expect(j.Org.Slug).To(Equal("nitrous"))
+				Expect(j.Org.BillingProfile).ToNot(BeNil())
+				Expect(j.Org.BillingProfile.State).To(Equal(billingprofile.StateNoCard))
 			})
 
 			It("adds the user as the owner of the org", func() {
@@ -760,6 +764,12 @@ var _ = Describe("controllers/orgs", func() {
 			}
 			err = o2.Insert(db)
 			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o2.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
 		})
 
 		doRequest := func(slug string) {
@@ -815,6 +825,26 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.Slug).To(Equal(o.Slug))
 				Expect(j.Org.Name).To(Equal(o.Name))
 				Expect(j.Org.Email).To(Equal(o.Email))
+				Expect(j.Org.BillingProfile).To(BeNil())
+			})
+
+			It("includes the billing profile if the user is an admin", func() {
+				for _, role := range []string{"owner", "admin"} {
+					_, err := db.Exec("UPDATE org_memberships SET role = $1 WHERE org_id = $2 and user_id = $3", role, o.ID, u.ID)
+					Expect(err).To(BeNil())
+
+					doRequest(o.Slug)
+					Expect(res.Code).To(Equal(http.StatusOK))
+
+					var j struct {
+						Org *serializers.Org `json:"org"`
+					}
+					err = json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					Expect(j.Org.BillingProfile).ToNot(BeNil())
+					Expect(j.Org.BillingProfile.State).To(Equal(billingprofile.StateNoCard))
+				}
 			})
 		})
 

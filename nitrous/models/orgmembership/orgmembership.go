@@ -32,6 +32,10 @@ type OrgMembership struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
+func (o *OrgMembership) IsAdmin() bool {
+	return o.Role == "owner" || o.Role == "admin"
+}
+
 type OrgMember struct {
 	OrgMembership
 
