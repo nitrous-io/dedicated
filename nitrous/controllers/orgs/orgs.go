@@ -110,6 +110,46 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	user := env.User
+	slug := mux.Vars(r)["slug"]
+
+	if slug == "" {
+		return errNotFound
+	}
+
+	o, err := org.FindBySlug(db, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	_, err = orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errNotFound
+		}
+		return err
+	}
+
+	members, err := orgmembership.FindAllByOrgID(db, o.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+		members = []*orgmembership.OrgMember{}
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"members": serializers.SerializeOrgMembers(members),
+	}
+	return nil
+}
+
 func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	currentUser := env.User

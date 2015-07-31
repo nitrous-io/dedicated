@@ -55,8 +55,9 @@ var _ = Describe("controllers/orgs", func() {
 
 		u = &user.User{
 			Username: "foo",
-			Password: "123456",
 			Email:    "foo@example.com",
+			Password: "123456",
+			Name:     "Mr. Foo",
 		}
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -618,6 +619,123 @@ var _ = Describe("controllers/orgs", func() {
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/orgs/foobar"
+				authTokenInputs.Method = "GET"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
+
+	Describe("GET /api/v0/orgs/{slug}/members", func() {
+		var (
+			o, o2  *org.Org
+			u2, u3 *user.User
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+
+			o2 = &org.Org{
+				Name:  "Macrosoft Corp.",
+				Slug:  "macrosoft",
+				Email: "bill@macrosoft.com",
+			}
+			err = o2.Insert(db)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+				Name:     "Ms. Bar",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			u3 = &user.User{
+				Username: "baz",
+				Email:    "baz@example.com",
+				Password: "123456",
+				Name:     "Mrs. Baz",
+			}
+			err = test.WrapInTransaction(db, u3.Insert)
+			Expect(err).To(BeNil())
+
+			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o2.ID, u2.ID, "member")
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u3.ID, "admin")
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(slug string) {
+			var err error
+			url := fmt.Sprintf("/api/v0/orgs/%s/members", slug)
+			req, err = test.NewRequest("GET", url, params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when an org with a given slug does not exist", func() {
+			It("responds with 404 not found", func() {
+				doRequest("pineapple-inc")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when user does not belong to the org", func() {
+			It("responds with 404 not found", func() {
+				doRequest(o2.Slug)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				j := map[string]string{}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(Equal("not_found"))
+			})
+		})
+
+		Context("when user belongs to the org", func() {
+			It("responds with 200 and members of the org", func() {
+				doRequest(o.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Members []*serializers.OrgMember `json:"members"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Members).To(HaveLen(2))
+				Expect(j.Members[0].UserID).To(Equal(u.ID))
+				Expect(j.Members[0].Username).To(Equal(u.Username))
+				Expect(j.Members[0].Email).To(Equal(u.Email))
+				Expect(j.Members[0].Role).To(Equal("owner"))
+				Expect(j.Members[0].Name).To(Equal(u.Name))
+				Expect(j.Members[1].UserID).To(Equal(u3.ID))
+				Expect(j.Members[1].Username).To(Equal(u3.Username))
+				Expect(j.Members[1].Email).To(Equal(u3.Email))
+				Expect(j.Members[1].Role).To(Equal("admin"))
+				Expect(j.Members[1].Name).To(Equal(u3.Name))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/orgs/foobar/members"
 				authTokenInputs.Method = "GET"
 			})
 
