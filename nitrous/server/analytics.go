@@ -2,16 +2,15 @@ package server
 
 // mixpanel event names
 const (
-	EventContainerCommitted      = "Container Committed"
-	EventContainerCreated        = "Container Created"
-	EventContainerKeyAdded       = "Container Key Added"
-	EventContainerKeyRemoved     = "Container Key Removed"
-	EventContainerReconfigured   = "Container Reconfigured"
-	EventContainerRestarted      = "Container Restarted"
-	EventContainerStarted        = "Container Started"
-	EventContainerStopped        = "Container Stopped"
-	EventContainerTerminated     = "Container Terminated"
-	EventContainerTokenRequested = "Container Token Requested"
+	EventContainerCommitted    = "Container Committed"
+	EventContainerCreated      = "Container Created"
+	EventContainerKeyAdded     = "Container Key Added"
+	EventContainerKeyRemoved   = "Container Key Removed"
+	EventContainerReconfigured = "Container Reconfigured"
+	EventContainerRestarted    = "Container Restarted"
+	EventContainerStarted      = "Container Started"
+	EventContainerStopped      = "Container Stopped"
+	EventContainerTerminated   = "Container Terminated"
 
 	EventHostCreated         = "Host Created"
 	EventHostStarted         = "Host Started"
