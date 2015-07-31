@@ -238,6 +238,7 @@ func (s *Server) drawRoutes() {
 				"/logout":                                 r("oauth.Logout", oauth.Logout),
 				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
 				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
+				"/orgs/{slug}/members/{username}":         r("orgs.RemoveMember", orgs.RemoveMember, EventOrgMemberRemoved),
 			},
 		}
 
