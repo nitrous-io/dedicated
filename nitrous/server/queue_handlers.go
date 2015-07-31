@@ -419,6 +419,9 @@ func (s *Server) handleRespecMessage(m *queue.Message) error {
 		h.ProviderTemplateID = rs.ProviderTemplateID
 		h.State = host.StateRunning
 		h.IPAddress = sql.NullString{info.IPAddress, true}
+		h.ProviderIdentifier = sql.NullString{info.ID, true}
+		h.ProviderStorageIdentifier = sql.NullString{info.VolumeID, true}
+
 		if err := h.UpdateAfterRespec(db); err != nil {
 			logData.Errorf("error updating host after respec completed: %v", err)
 		}

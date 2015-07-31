@@ -955,7 +955,8 @@ var _ = Describe("HostQueueHandler", func() {
 					RequesterID: requester.ID,
 					Host: &hh.Info{
 						Provider:       "docker",
-						ID:             "host-1234",
+						ID:             "host-2345",
+						VolumeID:       "vol-abcd",
 						Region:         "somewhere",
 						Name:           "hostname-1234",
 						IPAddress:      "192.2.3.4",
@@ -987,6 +988,8 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(updatedHost.ProviderTemplateID).To(Equal(r.ProviderTemplateID))
 				Expect(updatedHost.State).To(Equal(host.StateRunning))
 				Expect(updatedHost.IPAddress.String).To(Equal("192.2.3.4"))
+				Expect(updatedHost.ProviderIdentifier.String).To(Equal("host-2345"))
+				Expect(updatedHost.ProviderStorageIdentifier.String).To(Equal("vol-abcd"))
 			})
 
 			It("updates the respec record", func() {

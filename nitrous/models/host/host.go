@@ -394,8 +394,10 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 
 func (h *Host) UpdateAfterRespec(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (provider_template_id, state, ip_address, updated_at)
-		= (:provider_template_id, :state, :ip_address, now())
+		SET (provider_identifier, provider_storage_identifier,
+			provider_template_id, state, ip_address, updated_at)
+		= (:provider_identifier, :provider_storage_identifier,
+			:provider_template_id, :state, :ip_address, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

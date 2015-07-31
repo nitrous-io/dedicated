@@ -1119,13 +1119,15 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates only the provider template ID, state, and IP address", func() {
+		It("updates only the provider identifier, provider storage identifier, provider template ID, state, and IP address", func() {
 			hs2, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h.ProviderTemplateID = hs2.PT.ID
 			h.State = host.StateRunning
 			h.IPAddress = sql.NullString{"192.168.0.1", true}
+			h.ProviderIdentifier = sql.NullString{"i-beef", true}
+			h.ProviderStorageIdentifier = sql.NullString{"vol-babe", true}
 
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"new name", true}
@@ -1143,6 +1145,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderTemplateID).To(Equal(hs2.PT.ID))
 			Expect(h2.State).To(Equal(host.StateRunning))
 			Expect(h2.IPAddress.String).To(Equal("192.168.0.1"))
+			Expect(h2.ProviderIdentifier.String).To(Equal("i-beef"))
+			Expect(h2.ProviderStorageIdentifier.String).To(Equal("vol-babe"))
 
 			// Unchanged fields.
 			Expect(h2.Slug).To(Equal("host-1"))
@@ -1150,7 +1154,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.PlanID).To(Equal(h.PlanID))
 			Expect(h2.RegionID).To(Equal(h.RegionID))
 			Expect(h2.HourlyPrice).To(Equal(h.HourlyPrice))
-			Expect(h2.ProviderIdentifier.String).To(Equal(h.ProviderIdentifier.String))
 			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
 			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
 			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
