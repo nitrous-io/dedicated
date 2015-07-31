@@ -360,6 +360,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(pc.PropsSet["workspaces_plans"]).To(Equal([]string{"Large"}))
 		})
 
+		It("sets auto_shutdown true if the plan specifies it", func() {
+			_, err := db.Exec("UPDATE plans SET auto_shutdown = true WHERE id = $1", hs.P.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.AutoShutdown).To(BeTrue())
+		})
+
 		It("creates a host record for the user when JSON is sent by the client", func() {
 			jsonStr := `{
 				"host": {

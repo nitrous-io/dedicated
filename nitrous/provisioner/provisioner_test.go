@@ -234,19 +234,30 @@ var _ = Describe("provisioner", func() {
 			Expect(err).To(BeNil())
 			Expect(canCreate).To(BeTrue())
 
+			// Add a plan belonging to a different provider - it should not be returned.
+			p2 := &plan.Plan{
+				Slug:          "ultimate",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 20,
+				AutoShutdown:  true,
+			}
+			Expect(p2.Insert(db)).To(BeNil())
+
 			newHost, err := prov.ProvisionHost(provisioner.ProvisionOptions{
 				OutputStream:       GinkgoWriter,
 				Slug:               "bypassed",
 				Name:               "new-name",
 				User:               hs.U,
 				Region:             hs.R,
-				Plan:               hs.P,
+				Plan:               p2,
 				Template:           hs.PT,
 				UUID:               "DEF",
 				BypassPreprovision: true,
 			})
 			Expect(err).To(BeNil())
 			Expect(newHost.ID).NotTo(Equal(hs.H.ID))
+			Expect(newHost.AutoShutdown).To(BeTrue())
+			Expect(newHost.MaxContainers.Int64).To(Equal(int64(20)))
 
 			// assert post config data
 			var hcfg hostbuilderclient.Config
