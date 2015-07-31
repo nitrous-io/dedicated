@@ -144,8 +144,8 @@ func main() {
 
 	go refreshCachesWorker(db)
 
-	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert)
-	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert)
+	freighterProxy := tender.NewFreighterProxyServer(hostBaseDomain, tlsDomain, db, privCACert, deferstatsClient)
+	previewProxy := tender.NewPreviewProxyServer(containerBaseDomain, tlsDomain, int(freighterdPort), db, privCACert, deferstatsClient)
 
 	hostCert, err := tls.LoadX509KeyPair(hostCACert, hostCAKey)
 	if err != nil {
