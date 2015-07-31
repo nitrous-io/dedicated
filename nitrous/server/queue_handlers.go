@@ -373,7 +373,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 	default:
-		logrus.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
+		logrus.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
 
 	return nil

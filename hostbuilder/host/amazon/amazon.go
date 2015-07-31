@@ -389,12 +389,12 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-// RespecWithQueue changes the specs of an existing host its new properties.
+// RespecWithQueue changes the specs of an existing host.
 // The following changes are supported:
 //   1. Changing storage size of user volume.
 //   2. Changing instance type (only between allowable instance types, e.g. we
 //      don't support changing from a VPC-only to non-VPC instance).
-//   3. Allocating/de-allocating an Elastic IP.
+//   3. Allocating an Elastic IP.
 func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
@@ -473,21 +473,6 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		return info, err
 	}
 
-	// Otherwise, we stop the instance since any further changes now require
-	// it to be stopped.
-	if err := h.stopInstance(); err != nil {
-		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
-	}
-
-	if changeInstanceType {
-		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
-		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
-		}
-	}
-
 	if changeStorageSize {
 		if err := h.resizeUserVolume(userVolume, configuredSize); err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
@@ -495,11 +480,31 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		}
 	}
 
-	info, err := h.Start()
+	if changeInstanceType {
+		// TODO We should try to acquire a new instance from the instance pool
+		// of the new instance type.
+		if err := h.stopInstance(); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+		}
+
+		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
+		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
+		}
+
+		if err := h.startInstance(); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to start instance for respeccing, err: %v", err), label)
+		}
+	}
+
+	info, err := h.Info()
 	if err == nil {
 		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
 	} else {
-		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on starting host: %v", err)
+		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
 	}
 
 	return info, err
@@ -527,11 +532,6 @@ func (h *Host) getUserVolume() (*ec2.Volume, error) {
 	return userVolume, nil
 }
 
-type resizeStep struct {
-	host.Step
-	restartOnError bool
-}
-
 func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
 	var (
 		ctx    context.Context
@@ -544,46 +544,40 @@ func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err erro
 	h.newSize = newSize
 
 	hctx := host.NewContext(ctx, h, h, nil)
-	steps := []resizeStep{
+	steps := []host.Step{
 		{
-			Step: host.Step{
-				Description: "Taking snapshot of disk",
-				Func:        snapshotUserVolume,
-			},
-			restartOnError: true,
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     3 * time.Minute,
 		},
 		{
-			Step: host.Step{
-				Description: "Creating larger disk",
-				Func:        createNewVolume,
-			},
-			restartOnError: true,
+			Description: "Unmounting current user volume",
+			Func:        unmountUserVolume,
 		},
 		{
-			Step: host.Step{
-				Description: "Switching to larger disk",
-				Func:        swapUserVolume,
-			},
+			Description: "Taking snapshot of current user volume",
+			Func:        snapshotUserVolume,
 		},
 		{
-			Step: host.Step{
-				Description: "Cleaning up",
-				Func:        deleteOldVolume,
-			},
+			Description: "Creating larger volume",
+			Func:        createNewVolume,
+		},
+		{
+			Description: "Switching to new user volume",
+			Func:        swapUserVolume,
+		},
+		{
+			Description: "Mounting new user volume",
+			Func:        mountUserVolume,
+		},
+		{
+			Description: "Cleaning up",
+			Func:        deleteOldVolume,
 		},
 	}
 	for _, step := range steps {
-		if err := hctx.Run(step.Step); err != nil {
+		if err := hctx.Run(step); err != nil {
 			h.Printf("ERROR: failed in resize user volume step %q: %v", step.Description, err)
-
-			// Start the instance back up if necessary.
-			// Note that the time to start the instance is excluded from the
-			// context timeout.
-			if step.restartOnError {
-				if _, e := h.Start(); e != nil {
-					h.Printf("failed to start instance %s back up", h.instance.InstanceId)
-				}
-			}
 
 			if err == context.DeadlineExceeded {
 				return ErrTimeout
@@ -847,7 +841,6 @@ func mountUserVolume(ctx *host.HostContext) error {
 // 1. Stop freighterd.
 // 2. Stop docker.
 // 3. Unmount user volume.
-// Then, we detach the user EBS volume from its instance.
 func unmountUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	conn := ctx.Executor
@@ -867,14 +860,22 @@ func unmountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to unmount %s, err: %v, output: %s", userDeviceOSName, err, out)
 	}
 
+	return nil
+}
+
+func detachUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
 	userVolume, err := h.getUserVolume()
 	if err != nil {
 		return err
 	}
 
+	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
 	if _, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
 		return err
 	}
+	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	return nil
 }
@@ -974,8 +975,12 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 			Timeout:     3 * time.Minute,
 		},
 		{
-			Description: "Detaching user disk",
+			Description: "Unmounting user disk",
 			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Detaching user volume",
+			Func:        detachUserVolume,
 		},
 		{
 			Description: "Release Elastic IP",
@@ -1059,38 +1064,8 @@ func (h *Host) Start() (*host.Info, error) {
 
 	h.Printf("starting pre-EBS hotswapping instance normally")
 
-	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+	if err := h.startInstance(); err != nil {
 		return nil, mh.Error(err, label)
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending", "stopped"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "running",
-	}
-	h.Printf("waiting for state to become %s", state.Target)
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		return nil, mh.Error(err, label)
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	// if this is a VPC instance, we dont have to reassociate ElasticIP because
-	// it will be persisted after stop by default.
-	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
-	if !isVPC(h.instance) && !h.Config.DisableEIP {
-		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
-			InstanceId:         h.instance.InstanceId,
-			PublicIp:           h.Config.IPAddress,
-			AllowReassociation: false,
-		}); err != nil {
-			return nil, mh.Error(err, label)
-		}
-
-		// reload the instance to get a new public IP address
-		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
-			return nil, mh.Error(err, label)
-		}
 	}
 
 	return h.Info()
@@ -1171,6 +1146,44 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	return h.Info()
 }
 
+func (h *Host) startInstance() error {
+	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+		return err
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "stopped"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "running",
+	}
+	h.Printf("waiting for state to become %s", state.Target)
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return err
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	// if this is a VPC instance, we dont have to reassociate ElasticIP because
+	// it will be persisted after stop by default.
+	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
+	if !isVPC(h.instance) && !h.Config.DisableEIP {
+		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
+			InstanceId:         h.instance.InstanceId,
+			PublicIp:           h.Config.IPAddress,
+			AllowReassociation: false,
+		}); err != nil {
+			return err
+		}
+
+		// reload the instance to get a new public IP address
+		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // attachToNewInstance creates a new EC2 instance and attaches the given volume
 // to the instance as its user volume.
 func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
@@ -1233,8 +1246,12 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 			},
 		},
 		{
-			Description: "Detaching new disk",
+			Description: "Unmount new disk",
 			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Detaching new disk",
+			Func:        detachUserVolume,
 		},
 		{
 			Description: "Deleting new disk",
@@ -1287,6 +1304,7 @@ func (h *Host) Restart() (*host.Info, error) {
 	if _, err := h.Stop(); err != nil {
 		return nil, err
 	}
+
 	return h.Start()
 }
 
