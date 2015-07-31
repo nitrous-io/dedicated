@@ -14,6 +14,8 @@ type Org struct {
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+
+	BillingProfile *BillingProfile `json:"billing_profile,omitempty"`
 }
 
 func SerializeOrg(o *org.Org) *Org {
