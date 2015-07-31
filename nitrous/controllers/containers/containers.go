@@ -2,6 +2,7 @@ package containers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -34,7 +35,10 @@ import (
 	"github.com/nitrous-io/nitrous-common/hmactoken"
 )
 
-const transitionLockTime = 1 * time.Minute
+const (
+	transitionLockTime = 1 * time.Minute
+	previewPortEnvVar  = "NITROUS_PREVIEW_PORT"
+)
 
 type WithContainerAndHostOpt int
 
@@ -472,6 +476,11 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 	return doContainerExclusive(
 		cn, env, container.StateStarting, transitionLockTime,
 		func() error {
+			logger := logrus.WithFields(logrus.Fields{
+				"uuid":           env.UUID,
+				"container_slug": cn.Slug,
+			})
+
 			// broadcast transitioning state
 			PublishContainerEvent(env, controllers.EventContainerStarting, cn, nil)
 
@@ -479,6 +488,17 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 			if err != nil {
 				return expandFreighterClientError(err)
 			}
+
+			// Update port mappings
+			portMappings, err := GetPortMappingsJsonFrom(liveContainer)
+			if err == nil {
+				if err := cn.UpdateColumn(env.DB, "port_mappings", portMappings); err != nil {
+					logger.Errorf("container.start: failed to update port mappings: %v", err)
+				}
+			} else {
+				logger.Errorf("container.start: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
+			}
+
 			// reset the temp state, so freighter state will be exposed
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
@@ -492,7 +512,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		})
 }
 
-type actionFn func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error)
+type actionFn func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error)
 
 func controlActionHandler(action actionFn, tempState container.State, eventName controllers.EventName) containerHandler {
 	return func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -511,7 +531,7 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 				}
 				PublishContainerEvent(env, evtName, cn, nil)
 
-				liveContainer, err := action(cl, cn.CID)
+				liveContainer, err := action(env, cl, cn)
 				if err != nil {
 					return err
 				}
@@ -533,14 +553,36 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 }
 
 var stop = controlActionHandler(
-	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
-		return cl.Stop(id)
+	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
+		return cl.Stop(cn.CID)
 
 	}, container.StateStopping, controllers.EventContainerStopped)
 
 var restart = controlActionHandler(
-	func(cl *controllers.FreighterClient, id string) (*freighterclient.Container, error) {
-		return cl.Restart(id)
+	func(env *middleware.Env, cl *controllers.FreighterClient, cn *container.Container) (*freighterclient.Container, error) {
+		liveContainer, err := cl.Restart(cn.CID)
+		if err != nil {
+			return nil, err
+		}
+
+		logger := logrus.WithFields(logrus.Fields{
+			"uuid":           env.UUID,
+			"container_slug": cn.Slug,
+		})
+
+		// Update port mappings
+		portMappings, err := GetPortMappingsJsonFrom(liveContainer)
+		if err != nil {
+			logger.Errorf("container.restart: Failed to get preview port for container(%+v) : %+v", liveContainer, err)
+			return nil, err
+		}
+
+		if err := cn.UpdateColumn(env.DB, "port_mappings", portMappings); err != nil {
+			logger.Errorf("container.restart: failed to update preview port: %v", err)
+			return nil, err
+		}
+
+		return liveContainer, nil
 
 	}, container.StateRestarting, controllers.EventContainerRestarted)
 
@@ -841,4 +883,41 @@ func getEventName(s container.State) (controllers.EventName, error) {
 	default:
 		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
 	}
+}
+
+func GetPortMappingsJsonFrom(container *freighterclient.Container) (string, error) {
+	var (
+		previewPort string
+		err         error
+	)
+
+	portMappings := make(map[string]string)
+
+	// Get preview port from environments
+	for _, val := range container.Env {
+		split := strings.SplitN(val, "=", 2)
+		if len(split) == 2 && split[0] == previewPortEnvVar {
+			previewPort = split[1]
+		}
+	}
+
+	// Get mapping port
+	for incomingPort, mappingPorts := range container.Ports {
+		if incomingPort == previewPort {
+			if len(mappingPorts) > 0 {
+				portMappings["preview"] = mappingPorts[0]
+			}
+		} else {
+			if len(mappingPorts) > 0 {
+				portMappings[incomingPort] = mappingPorts[0]
+			}
+		}
+	}
+
+	portMappingsJson, err := json.Marshal(portMappings)
+	if err != nil {
+		return "", err
+	}
+
+	return string(portMappingsJson), nil
 }

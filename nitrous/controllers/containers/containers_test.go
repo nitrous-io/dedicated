@@ -2776,6 +2776,120 @@ var _ = Describe("controllers/containers", func() {
 			Expect(conf.Env).To(ConsistOf("LANG=C", "NODE=nope"))
 			Expect(conf.PortBindings).To(ConsistOf("3000:8080", "0.0.0.0::4552"))
 		})
+
+		Describe("Port mappings", func() {
+			var c *container.Container
+
+			BeforeEach(func() {
+				c = &container.Container{
+					CID:    "deadbead",
+					Slug:   "foo",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			doRequest := func() {
+				req, err := NewRequest("POST", "/api/v0/containers/foo/start", nil)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", "Bearer valid-token")
+				handler.ServeHTTP(res, req)
+			}
+
+			It("updates port mappings", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"3000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=3000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["preview"]).To(Equal("63000"))
+			})
+
+			It("does not update preview port if NITROUS_PREVIEW_PORT is not specified", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"3000": []string{"63000"},
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["3000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
+			})
+
+			It("does not update preview port if there is no port mapping for NITROUS_PREVIEW_PORT", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"4000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=3000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["4000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("POST /api/v0/containers/{slug}/stop", func() {
@@ -2806,6 +2920,120 @@ var _ = Describe("controllers/containers", func() {
 		})
 
 		itBehavesLikeAControlAction(i)
+
+		Describe("Port Mappings", func() {
+			var c *container.Container
+
+			BeforeEach(func() {
+				c = &container.Container{
+					CID:    "deadbead",
+					Slug:   "foo",
+					Image:  "nitrous-base",
+					UserID: u.ID,
+					HostID: hs.H.ID,
+				}
+				err := c.Insert(db)
+				Expect(err).To(BeNil())
+			})
+
+			doRequest := func() {
+				req, err := NewRequest("POST", "/api/v0/containers/foo/restart", nil)
+				Expect(err).To(BeNil())
+				req.Header.Set("Authorization", "Bearer valid-token")
+				handler.ServeHTTP(res, req)
+			}
+
+			It("updates preview port", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"3000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=3000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["preview"]).To(Equal("63000"))
+			})
+
+			It("does not update preview port if NITROUS_PREVIEW_PORT is not specified ", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"3000": []string{"63000"},
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["3000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
+			})
+
+			It("does not update preview port if there is not mapping port for NITROUS_PREVIEW_PORT", func() {
+				fc := &freighterclient.Container{
+					ID:         "deadbead",
+					Name:       "foo",
+					Host:       "1.2.3.4",
+					Gateway:    "1.2.3.0",
+					State:      "starting",
+					Image:      "nitrous-base",
+					Cmd:        []string{"/sbin/init"},
+					Entrypoint: []string{"/bin/blah"},
+					User:       "guest",
+					Ports: map[string][]string{
+						"3000": []string{"63000"},
+					},
+					Env: []string{
+						"NITROUS_PREVIEW_PORT=4000",
+					},
+				}
+				mockClient.Containers = []*freighterclient.Container{fc}
+				doRequest()
+
+				updatedContainer, err := container.FindByCID(db, "deadbead")
+				Expect(err).To(BeNil())
+
+				var portMappings map[string]string
+				err = json.Unmarshal([]byte(updatedContainer.PortMappings), &portMappings)
+				Expect(err).To(BeNil())
+				Expect(portMappings["3000"]).To(Equal("63000"))
+				_, ok := portMappings["preview"]
+				Expect(ok).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("DELETE /containers/{slug}", func() {
@@ -3255,6 +3483,14 @@ var _ = Describe("controllers/containers", func() {
 				Host:  "1.2.3.4",
 				State: "running",
 				Image: "deadbeef-reconfig-1420683989905982895",
+				Ports: map[string][]string{
+					"3000":  []string{"8080"},
+					"4552":  []string{"65123"},
+					"11211": []string{"8081"},
+				},
+				Env: []string{
+					"NITROUS_PREVIEW_PORT=3000",
+				},
 			}
 			mockClient.ConfigContainerConfig = &freighterclient.ContainerConfig{}
 		})
@@ -3311,6 +3547,13 @@ var _ = Describe("controllers/containers", func() {
 			Expect(c.CID).To(Equal("livebeef"))
 			Expect(c.Image).To(Equal("nitrous-base"))
 			Expect(c.LockedUntil).To(BeNil())
+
+			var portMappings map[string]string
+			err = json.Unmarshal([]byte(c.PortMappings), &portMappings)
+			Expect(err).To(BeNil())
+			Expect(portMappings["preview"]).To(Equal("8080"))
+			Expect(portMappings["4552"]).To(Equal("65123"))
+			Expect(portMappings["11211"]).To(Equal("8081"))
 		})
 
 		It("updates volumes", func() {
@@ -3923,5 +4166,92 @@ var _ = Describe("FindSSHURL()", func() {
 			_, err := containers.FindSSHURL(h, testCase.config)
 			Expect(err).To(Equal(testCase.expectedError))
 		}
+	})
+
+	Describe("GetPortMappingsFrom", func() {
+		It("returns port mappings from freighterclient container", func() {
+			fc := &freighterclient.Container{
+				Ports: map[string][]string{
+					"3000": []string{"63000"},
+					"5000": []string{"8000"},
+					"7000": []string{"9000"},
+				},
+				Env: []string{
+					"NITROUS_PREVIEW_PORT=3000",
+				},
+			}
+
+			var portMappings map[string]string
+			portMappigsJson, err := containers.GetPortMappingsJsonFrom(fc)
+			Expect(err).To(BeNil())
+
+			err = json.Unmarshal([]byte(portMappigsJson), &portMappings)
+			Expect(err).To(BeNil())
+
+			Expect(portMappings).To(HaveLen(3))
+			Expect(portMappings["preview"]).To(Equal("63000"))
+			Expect(portMappings["5000"]).To(Equal("8000"))
+			Expect(portMappings["7000"]).To(Equal("9000"))
+		})
+
+		It("does not contain preview if NITROUS_PREVIEW_PORT is not specified", func() {
+			fc := &freighterclient.Container{
+				Ports: map[string][]string{
+					"3000": []string{"63000"},
+				},
+			}
+
+			var portMappings map[string]string
+			portMappigsJson, err := containers.GetPortMappingsJsonFrom(fc)
+			Expect(err).To(BeNil())
+
+			err = json.Unmarshal([]byte(portMappigsJson), &portMappings)
+			Expect(err).To(BeNil())
+
+			Expect(portMappings).To(HaveLen(1))
+			Expect(portMappings["3000"]).To(Equal("63000"))
+		})
+
+		It("does not contain preview if mapping port is empty", func() {
+			fc := &freighterclient.Container{
+				Ports: map[string][]string{
+					"3000": []string{},
+					"5000": []string{"8000"},
+					"7000": []string{"9000"},
+				},
+				Env: []string{
+					"NITROUS_PREVIEW_PORT=3000",
+				},
+			}
+
+			var portMappings map[string]string
+			portMappigsJson, err := containers.GetPortMappingsJsonFrom(fc)
+			Expect(err).To(BeNil())
+
+			err = json.Unmarshal([]byte(portMappigsJson), &portMappings)
+			Expect(err).To(BeNil())
+
+			Expect(portMappings).To(HaveLen(2))
+			Expect(portMappings["5000"]).To(Equal("8000"))
+			Expect(portMappings["7000"]).To(Equal("9000"))
+		})
+
+		It("returns empty array if no exposed ports", func() {
+			fc := &freighterclient.Container{
+				Ports: map[string][]string{},
+				Env: []string{
+					"NITROUS_PREVIEW_PORT=3000",
+				},
+			}
+
+			var portMappings map[string]string
+			portMappigsJson, err := containers.GetPortMappingsJsonFrom(fc)
+			Expect(err).To(BeNil())
+
+			err = json.Unmarshal([]byte(portMappigsJson), &portMappings)
+			Expect(err).To(BeNil())
+
+			Expect(portMappings).To(HaveLen(0))
+		})
 	})
 })

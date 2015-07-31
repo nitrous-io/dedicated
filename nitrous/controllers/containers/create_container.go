@@ -185,6 +185,14 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	cn.StartedAt = timePtr(created.StartedAt)
 	cn.FinishedAt = timePtr(created.FinishedAt)
 
+	// Update port mappings
+	portMappings, err := GetPortMappingsJsonFrom(created)
+	if err == nil {
+		cn.PortMappings = portMappings
+	} else if err != nil {
+		logrus.Errorf("containers.create: Failed to get preview port: %+v", err)
+	}
+
 	if ok := cn.SetState(created.State); !ok { // log and continue
 		logrus.Errorf("containers.create: Freighter returned container with unexpected state: %v", created.State)
 	}

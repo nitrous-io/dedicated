@@ -1431,5 +1431,11 @@ func init() {
 				CREATE UNIQUE INDEX index_user_container_data_on_con_user ON user_container_data USING btree (container_id, user_id);
 			`,
 		},
+		{
+			Version: "1370",
+			Up: `
+				ALTER TABLE containers ADD COLUMN port_mappings text DEFAULT '{}' NOT NULL
+			`,
+		},
 	}
 }
