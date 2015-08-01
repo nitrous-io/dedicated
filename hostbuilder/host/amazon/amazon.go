@@ -1146,6 +1146,8 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	return h.Info()
 }
 
+// startInstance starts the underlying EC2 instance and reassociates it with the
+// configured IP address (Config.IPAddress), if necessary.
 func (h *Host) startInstance() error {
 	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
 		return err
@@ -1163,9 +1165,11 @@ func (h *Host) startInstance() error {
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	// if this is a VPC instance, we dont have to reassociate ElasticIP because
-	// it will be persisted after stop by default.
-	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
+	// Reassociate Elastic IP if:
+	// 1. configured (i.e. Config.DisableEIP is false), and
+	// 2. underlying EC2 instance is not in a VPC.
+	// When a VPC instance is stopped, its Elastic EIP remains associated, so
+	// we don't have to reassociate. See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences.
 	if !isVPC(h.instance) && !h.Config.DisableEIP {
 		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
 			InstanceId:         h.instance.InstanceId,
@@ -1295,17 +1299,27 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 	return h.Info()
 }
 
-// Restart performs a hard-reset of the instance. This should not change the
-// public IP address of the instance. This does not use RebootAPI, but instead
-// stop/starting the instance to make sure that it has a clean state.
+// Restart performs a stop, then start of the underlying EC2 instance,
+// preserving its public IP address. This is a "soft restart" compared to
+// calling Stop() and then Start(), since this guarantees that the underlying
+// EC2 instance is never changed.
 func (h *Host) Restart() (*host.Info, error) {
 	label := h.MetricsLabel("restart")
 	defer mh.UpdateSince(label, time.Now())
-	if _, err := h.Stop(); err != nil {
-		return nil, err
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
 	}
 
-	return h.Start()
+	if err := h.stopInstance(); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if err := h.startInstance(); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	return h.Info()
 }
 
 // List returns all instances in the current region. To perform list of
