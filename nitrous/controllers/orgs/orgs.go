@@ -77,6 +77,25 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+	user := env.User
+
+	orgs, err := org.FindAllByMemberUserID(db, user.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+		orgs = []*org.Org{}
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"orgs": serializers.SerializeOrgs(orgs),
+	}
+	return nil
+}
+
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	user := env.User

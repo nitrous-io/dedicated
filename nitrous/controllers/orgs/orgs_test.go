@@ -934,4 +934,99 @@ var _ = Describe("controllers/orgs", func() {
 			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
+
+	Describe("GET /api/v0/orgs", func() {
+		var (
+			o, o2, o3 *org.Org
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+
+			o2 = &org.Org{
+				Name:  "Macrosoft Corp.",
+				Slug:  "macrosoft",
+				Email: "bill@macrosoft.com",
+			}
+			err = o2.Insert(db)
+			Expect(err).To(BeNil())
+
+			o3 = &org.Org{
+				Name:  "Watermelon Corp.",
+				Slug:  "watermelon",
+				Email: "admin@watermelon.co",
+			}
+			err = o3.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func() {
+			var err error
+			req, err = test.NewRequest("GET", "/api/v0/orgs", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			handler.ServeHTTP(res, req)
+		}
+
+		Context("when user does not belong to any org", func() {
+			It("returns 200 ok with empty result", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Orgs []*serializers.Org `json:"orgs"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.Orgs).To(HaveLen(0))
+			})
+		})
+
+		Context("when user belongs to orgs", func() {
+			BeforeEach(func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				Expect(err).To(BeNil())
+
+				err = orgmembership.AddMember(db, o3.ID, u.ID, "member")
+				Expect(err).To(BeNil())
+			})
+
+			It("returns 200 ok with user's orgs", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Orgs []*serializers.Org `json:"orgs"`
+				}
+				err := json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.Orgs).To(HaveLen(2))
+				Expect(j.Orgs[0].ID).To(Equal(o.ID))
+				Expect(j.Orgs[0].Email).To(Equal(o.Email))
+				Expect(j.Orgs[0].Name).To(Equal(o.Name))
+				Expect(j.Orgs[0].Slug).To(Equal(o.Slug))
+				Expect(j.Orgs[1].ID).To(Equal(o3.ID))
+				Expect(j.Orgs[1].Email).To(Equal(o3.Email))
+				Expect(j.Orgs[1].Name).To(Equal(o3.Name))
+				Expect(j.Orgs[1].Slug).To(Equal(o3.Slug))
+			})
+		})
+
+		Context("oauth token failure modes", func() {
+			BeforeEach(func() {
+				authTokenInputs.Path = "/api/v0/orgs"
+				authTokenInputs.Method = "GET"
+			})
+
+			test.ItRequiresAuthToken(&authTokenInputs)
+		})
+	})
 })
