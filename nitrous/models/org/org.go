@@ -47,6 +47,21 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 	return org, nil
 }
 
+func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*Org, error) {
+	orgs := []*Org{}
+	err := d.Select(&orgs, `
+		SELECT orgs.*
+		FROM orgs
+		INNER JOIN org_memberships ON orgs.id = org_memberships.org_id
+		WHERE org_memberships.user_id = $1 AND orgs.deleted_at IS NULL
+		ORDER BY orgs.id;
+	`, uid)
+	if err != nil {
+		return nil, err
+	}
+	return orgs, nil
+}
+
 func (o *Org) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO orgs
