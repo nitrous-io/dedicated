@@ -43,4 +43,42 @@ var _ = Describe("org serializer", func() {
 			}`))
 		})
 	})
+
+	Describe("SerializeOrgs", func() {
+		var model2 *org.Org
+
+		BeforeEach(func() {
+			model2 = &org.Org{
+				ID:        11,
+				Slug:      "foobar",
+				Name:      "Foo Bar, Inc.",
+				Email:     "eng@foobar.com",
+				CreatedAt: &createdAt,
+				UpdatedAt: &updatedAt,
+			}
+		})
+
+		It("serializes to JSON", func() {
+			b, err := json.Marshal(serializers.SerializeOrgs([]*org.Org{model, model2}))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`[
+				{
+					"id": 10,
+					"name": "Macrosoft Corp.",
+					"slug": "macrosoft",
+					"email": "bill@macrosoft.com",
+					"created_at": "2013-11-01T00:00:00Z",
+					"updated_at": "2013-11-02T00:00:00Z"
+				},
+				{
+					"id": 11,
+					"name": "Foo Bar, Inc.",
+					"slug": "foobar",
+					"email": "eng@foobar.com",
+					"created_at": "2013-11-01T00:00:00Z",
+					"updated_at": "2013-11-02T00:00:00Z"
+				}
+			]`))
+		})
+	})
 })

@@ -30,3 +30,11 @@ func SerializeOrg(o *org.Org) *Org {
 	}
 	return serialized
 }
+
+func SerializeOrgs(orgs []*org.Org) []*Org {
+	ret := make([]*Org, len(orgs))
+	for i, o := range orgs {
+		ret[i] = SerializeOrg(o)
+	}
+	return ret
+}

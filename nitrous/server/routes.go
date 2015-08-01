@@ -163,6 +163,7 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
+				"/orgs":                               r("orgs.Index", orgs.Index),
 				"/orgs/{slug}":                        r("orgs.Show", orgs.Show),
 				"/orgs/{slug}/members":                r("orgs.Show", orgs.ShowMembers),
 			},

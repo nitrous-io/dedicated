@@ -6,6 +6,8 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,6 +29,8 @@ var _ = Describe("models/org", func() {
 		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Foo Bar, Inc.", "eng@foobar.com", "foobar")
 		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Watermelon Corp.", "admin@watermelon.co", "watermelon")
+		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO orgs (name, email, slug) values ($1, $2, $3);", "Macrosoft Corp.", "bill@macrosoft.com", "macrosoft")
 		Expect(err).To(BeNil())
 		_, err = db.Exec("INSERT INTO orgs (name, email, slug, deleted_at) values ($1, $2, $3, now());", "Action Enterprises", "dev@actionent.io", "action-enterprises")
 		Expect(err).To(BeNil())
@@ -100,9 +104,9 @@ var _ = Describe("models/org", func() {
 
 		BeforeEach(func() {
 			o = &org.Org{
-				Name:  "Macrosoft Corp.",
-				Slug:  "macrosoft",
-				Email: "bill@macrosoft.com",
+				Name:  "Pineapple, Inc.",
+				Slug:  "pineapple-inc",
+				Email: "tcook@pineapple.com",
 			}
 		})
 
@@ -111,12 +115,12 @@ var _ = Describe("models/org", func() {
 				err := o.Insert(db)
 				Expect(err).To(BeNil())
 
-				o2, err := org.FindBySlug(db, "macrosoft")
+				o2, err := org.FindBySlug(db, "pineapple-inc")
 				Expect(err).To(BeNil())
 				Expect(o2).NotTo(BeNil())
-				Expect(o2.Name).To(Equal("Macrosoft Corp."))
-				Expect(o2.Slug).To(Equal("macrosoft"))
-				Expect(o2.Email).To(Equal("bill@macrosoft.com"))
+				Expect(o2.Name).To(Equal("Pineapple, Inc."))
+				Expect(o2.Slug).To(Equal("pineapple-inc"))
+				Expect(o2.Email).To(Equal("tcook@pineapple.com"))
 				Expect(o2.CreatedAt).NotTo(BeNil())
 				Expect(o2.UpdatedAt).NotTo(BeNil())
 			})
@@ -216,6 +220,86 @@ var _ = Describe("models/org", func() {
 				Expect(o.Validate() == t.err).To(BeTrue(),
 					"Expected '%s' to return error '%v'", t.input, t.err)
 			}
+		})
+	})
+
+	Describe("FindAllByMemberUserID", func() {
+		var (
+			oID, o2ID, o3ID, o4ID int64
+			u                     *user.User
+		)
+
+		BeforeEach(func() {
+			err := db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "foobar").Scan(&oID)
+			Expect(err).To(BeNil())
+			err = db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "watermelon").Scan(&o2ID)
+			Expect(err).To(BeNil())
+			err = db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "macrosoft").Scan(&o3ID)
+			Expect(err).To(BeNil())
+			err = db.QueryRow("SELECT id FROM orgs WHERE slug = $1", "action-enterprises").Scan(&o4ID)
+			Expect(err).To(BeNil())
+
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+				Name:     "Mr. Foo",
+			}
+			err = test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+			Expect(u.ID).NotTo(BeZero())
+		})
+
+		Context("when a non-existent user id is given", func() {
+			It("returns error", func() {
+				o, err := org.FindAllByMemberUserID(db, u.ID+9000)
+				Expect(err).To(BeNil())
+				Expect(o).To(HaveLen(0))
+			})
+		})
+
+		Context("when a user with given user id exists", func() {
+			Context("when user does not belong to any org", func() {
+				It("returns error", func() {
+					o, err := org.FindAllByMemberUserID(db, u.ID)
+					Expect(err).To(BeNil())
+					Expect(o).To(HaveLen(0))
+				})
+			})
+
+			Context("when user belongs to orgs", func() {
+				BeforeEach(func() {
+					err := orgmembership.AddMember(db, oID, u.ID, "admin")
+					Expect(err).To(BeNil())
+					err = orgmembership.AddMember(db, o3ID, u.ID, "member")
+					Expect(err).To(BeNil())
+					err = orgmembership.AddMember(db, o4ID, u.ID, "owner")
+					Expect(err).To(BeNil())
+				})
+
+				It("returns a list of orgs, excluding deleted orgs", func() {
+					o, err := org.FindAllByMemberUserID(db, u.ID)
+					Expect(err).To(BeNil())
+					Expect(o).To(HaveLen(2))
+					Expect(o[0].ID).To(Equal(oID))
+					Expect(o[0].Name).To(Equal("Foo Bar, Inc."))
+					Expect(o[0].Email).To(Equal("eng@foobar.com"))
+					Expect(o[0].Slug).To(Equal("foobar"))
+					Expect(o[1].ID).To(Equal(o3ID))
+					Expect(o[1].Name).To(Equal("Macrosoft Corp."))
+					Expect(o[1].Email).To(Equal("bill@macrosoft.com"))
+					Expect(o[1].Slug).To(Equal("macrosoft"))
+				})
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				o, err := org.FindAllByMemberUserID(db, u.ID)
+				Expect(o).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
 		})
 	})
 })
