@@ -69,8 +69,14 @@ func RefreshContainersCache(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
 	n := len(m)
 	muContainers.Lock()
+	for slug, _ := range containersCache {
+		if _, ok := m[slug]; !ok {
+			m[slug] = containerNotFound
+		}
+	}
 	containersCache = m
 	muContainers.Unlock()
 	containersCacheLastUpdate = time.Now()
@@ -106,10 +112,15 @@ func containerGet(db *sql.DB, slug string) (*Container, error) {
 	if !ok {
 		cn, err = findContainer(db, slug)
 		if err != nil {
-			cn = containerNotFound
+			if err == sql.ErrNoRows {
+				containerCacheSet(slug, containerNotFound)
+			} else {
+				logrus.Errorf("Failed to fetch container(%s) from postgres. err: (%+v)", slug, err)
+			}
+			return nil, err
 		}
-		containerCacheSet(slug, cn)
 	}
+
 	if cn == containerNotFound {
 		return nil, errContainerNotFound
 	}
@@ -144,7 +155,9 @@ func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.proxy(w, r); err != nil {
 		handleError(w, r, err)
 		if s.deferstatsClient != nil {
-			s.deferstatsClient.Wrap(err)
+			if err != errContainerNotFound {
+				s.deferstatsClient.Wrap(err)
+			}
 		}
 		return
 	}
