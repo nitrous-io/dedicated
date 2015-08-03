@@ -153,7 +153,7 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllByUser(db *db.Database, userID int64) ([]*Host, error) {
+func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
 			FROM hosts
