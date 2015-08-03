@@ -36,7 +36,11 @@
             { "type": "t2.micro", "max": 2 }
           ]
         }
-      ]
+      ],
+      "redis": {
+        "host": "localhost",
+        "port": "6379"
+      }
     },
     "digitalocean": {
       "token": "",

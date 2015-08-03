@@ -95,6 +95,11 @@ type driverConfig struct {
 		} `json:"instance_pool"`
 	} `json:"regions"`
 
+	Redis struct {
+		Host string `json:"host"`
+		Port string `json:"port"`
+	} `json:"redis"`
+
 	// TODO Super hacky - refactor this when we refactor hostbuilder drivers.
 	IgnoreRegion string `json:"ignore_region"`
 

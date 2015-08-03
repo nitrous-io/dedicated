@@ -4,9 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/goamz/ec2"
+	"github.com/nitrous-io/dedicated/pkg/distsync"
 )
 
 /*
@@ -106,6 +109,23 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 		return nil, errors.New("no pool configured")
 	}
 
+	// Attempt to acquire a lock on the instance pool (for the required
+	// instance type) so that no other hostbuilder processes can acquire /
+	// release from the same pool at any time.
+	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
+	mu := distsync.NewMutex(poolMutexName(instancetype), addr)
+
+	// The lock will be valid for this duration, during which we will:
+	//   1. list the instances in the pool (performs AWS API request),
+	// 	 2. pick an instance to acquire,
+	//   3. edit the tags of acquired instance (performs AWS API request).
+	mu.Expiry = 1 * time.Minute
+
+	if err := mu.Lock(); err != nil {
+		return nil, err
+	}
+	defer mu.Unlock()
+
 	instances, err := h.instancesInPool(instancetype)
 	if err != nil {
 		return nil, err
@@ -117,11 +137,6 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 
 	// Pick a random instance.
 	instance := instances[rand.Intn(len(instances))]
-
-	// TODO This should be implemented using a distributed lock, e.g. using
-	// Postgres, Redis (http://redis.io/topics/distlock) or etcd's TestAndSet,
-	// instead of the current process-level lock which will not work with > 1
-	// instance of hostbuilder.
 
 	h.Printf("acquired instance %s from pool for %s", instance.InstanceId, instancetype)
 
@@ -137,6 +152,18 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 // releaseInstance releases an instance to the pool of available instances. We
 // indicate that an instance is in a pool by adding a "dedicated:pool=true" tag.
 func (h *Host) releaseInstance() error {
+	instancetype := h.instance.InstanceType
+
+	// Attempt to acquire a lock on the instance pool.
+	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
+	mu := distsync.NewMutex(poolMutexName(instancetype), addr)
+	mu.Expiry = 30 * time.Second // Not less than expected time needed to create tags.
+
+	if err := mu.Lock(); err != nil {
+		return err
+	}
+	defer mu.Unlock()
+
 	tags := []ec2.Tag{
 		{Key: poolTag, Value: "true"},
 		{Key: "Name", Value: "userhost-pool"},
@@ -146,4 +173,8 @@ func (h *Host) releaseInstance() error {
 	}
 
 	return nil
+}
+
+func poolMutexName(instancetype string) string {
+	return fmt.Sprintf("pool-%s", instancetype)
 }
