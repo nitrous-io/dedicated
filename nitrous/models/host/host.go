@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/hostbuilderclient"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
@@ -152,14 +153,21 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	return hosts, nil
 }
 
-func FindAllByUser(db *db.Database, userID int64) ([]*Host, error) {
+func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
-			WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND hosts.state NOT IN ($2, $3) ORDER BY id;`,
-		userID, StateOrphan, StateMigrating)
+			WHERE user_id = $1 AND terminated_at IS NULL
+				AND preprovisioned = FALSE
+				AND hosts.state NOT IN ($2, $3)
+				AND (
+					sub.state IS NULL OR -- users with no subscriptions still exist
+					sub.state != $4 -- deleted subscriptions should not be visible to the user
+				)
+			ORDER BY id;`,
+		userID, StateOrphan, StateMigrating, subscription.StateDeleted)
 	if err != nil {
 		return nil, err
 	}

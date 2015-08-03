@@ -309,8 +309,10 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 
 	str := string(data)
 	if len(str) > maxLoggedResponseLen {
-		// truncate respons for /api/v0/admin/* and /api/v0/templates
-		shouldTruncate := strings.Contains(r.URL.Path, "/admin/") || strings.HasSuffix(r.URL.Path, "/templates")
+		// truncate response for /api/v0/admin/* , /api/v0/templates , /api/v0/containers
+		shouldTruncate := strings.Contains(r.URL.Path, "/admin/") ||
+			strings.HasSuffix(r.URL.Path, "/templates") ||
+			strings.HasSuffix(r.URL.Path, "/containers")
 		if shouldTruncate {
 			str = fmt.Sprintf("TRUNC (from: %d) %s...", len(str), str[:maxLoggedResponseLen])
 		}
