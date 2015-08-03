@@ -224,7 +224,7 @@ var _ = Describe("models/host", func() {
 				BillingProfileID: bp.ID,
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
-				Slug:             "SLUG",
+				Slug:             "subslug",
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -267,7 +267,23 @@ var _ = Describe("models/host", func() {
 				Expect(hosts[0].ID).NotTo(BeZero())
 				Expect(hosts[0].UserID).To(Equal(u1.ID))
 				Expect(hosts[0].Slug).To(Equal("my-host-1"))
-				Expect(hosts[0].SubscriptionSlug.String).To(Equal("SLUG"))
+				Expect(hosts[0].SubscriptionSlug.String).To(Equal("subslug"))
+			})
+		})
+
+		Context("when the given user has host records but deleted subscriptions", func() {
+			BeforeEach(func() {
+				s, err := subscription.FindBySlug(db, "subslug", u1.ID)
+				Expect(err).To(BeNil())
+				s.State = subscription.StateDeleted
+				err = s.Update(db)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not return those records", func() {
+				hosts, err := host.FindAllByUser(db, u1.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(0))
 			})
 		})
 
