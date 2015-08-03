@@ -128,6 +128,7 @@ type Host struct {
 	auth     aws.Auth // this is used when we want to query all known regions
 	provider *ec2.EC2
 	instance *ec2.Instance
+	ami      *ec2.Image
 
 	// Caches keypair so that we don't have to parse config and read the private
 	// key file multiple times.
@@ -187,19 +188,40 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
+	// Check if we should use the instance pool.
+	var useInstancePool bool
+
+	ami, err := getImage(h.provider, h.Config.SourceAMI)
+	if err != nil {
+		return nil, err
+	}
+	h.ami = ami
+
+	// If the AMI specifies a block device mapping for a user device, we use the
+	// instance pool.
+	if containsUserDevice(ami.BlockDevices) {
+		useInstancePool = true
+	}
+
 	var steps []host.Step
 
-	// Attempt to acquire an instance from pool.
-	h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
-	instanceFromPool, err := h.acquireInstance(h.Config.InstanceType)
-	if err != nil {
-		h.Printf("creating a new instance because we could not acquire instance from pool, err: %v", err)
+	var instanceFromPool *ec2.Instance
+	if useInstancePool {
+		h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
+
+		var err error
+		instanceFromPool, err = h.acquireInstance(h.Config.InstanceType)
+		if err != nil {
+			h.Printf("could not acquire instance from pool, err: %v", err)
+
+			useInstancePool = false
+		}
+	}
+
+	if !useInstancePool {
+		h.Printf("creating a new instance")
 
 		steps = []host.Step{
-			{
-				Description: "Checking image's availability",
-				Func:        inspectSourceAMI,
-			},
 			{
 				Description: "Creating workspace",
 				Func:        createInstance,
@@ -310,16 +332,10 @@ func attachNewUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 
 	// Get snapshot ID of user volume from AMI.
-	resp, err := h.provider.Images([]string{h.Config.SourceAMI}, ec2.NewFilter())
+	ami, err := getImage(h.provider, h.Config.SourceAMI)
 	if err != nil {
 		return err
 	}
-
-	if len(resp.Images) != 1 {
-		return fmt.Errorf("expected 1 AMI but got %d, API response: %#v", len(resp.Images), resp)
-	}
-
-	ami := resp.Images[0]
 
 	var snapshotID string
 	for _, dev := range ami.BlockDevices {
@@ -1658,18 +1674,21 @@ func init() {
 	})
 }
 
-// inspectSourceAMI checks that the requested AMI exists and can be used with
-// the current settings.
+// inspectSourceAMI gets the requested AMI's info and saves it.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("inspect_source_ami")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("inspecting source ami %q", h.Config.SourceAMI)
-	if _, err := getImage(h.provider, h.Config.SourceAMI); err != nil {
+	image, err := getImage(h.provider, h.Config.SourceAMI)
+	if err != nil {
 		return mh.Error(err, label)
 	}
-	h.Printf("inspecting source ami %q... Done", h.Config.SourceAMI)
+	h.Printf("source ami: %#v", image)
+
+	h.ami = image
+
 	return nil
 }
 
@@ -1690,30 +1709,34 @@ func createInstance(ctx *host.HostContext) error {
 		return mh.Error(fmt.Errorf("amazon: failed to get region keypair %v", err), label)
 	}
 
-	opts := &ec2.RunInstances{
-		KeyName:        kp.name,
-		ImageId:        h.Config.SourceAMI,
-		InstanceType:   h.Config.InstanceType,
-		SecurityGroups: h.Config.securityGroups(),
-		MinCount:       0,
-		MaxCount:       0,
-		BlockDevices: []ec2.BlockDeviceMapping{
-			{
-				// The root volume is defined in the AMI's block devices as a
-				// snapshot, so we do not need to specify its size.
-				DeviceName:          rootDeviceName,
-				VolumeType:          GeneralVolumeType,
-				DeleteOnTermination: true,
-			},
-			{
-				// The user volume is also defined in the AMI's block devices
-				// and we override its size to what was requested.
-				DeviceName:          userDeviceName,
-				VolumeSize:          storageSize,
-				VolumeType:          GeneralVolumeType,
-				DeleteOnTermination: false,
-			},
+	bdm := []ec2.BlockDeviceMapping{
+		{
+			// The root volume is defined in the AMI's block devices as a
+			// snapshot, so we do not need to specify its size.
+			DeviceName:          rootDeviceName,
+			VolumeType:          GeneralVolumeType,
+			DeleteOnTermination: true,
 		},
+	}
+	if containsUserDevice(h.ami.BlockDevices) {
+		bdm = append(bdm, ec2.BlockDeviceMapping{
+			// The user volume is also in the AMI's block devices
+			// and we override its size to what was requested.
+			DeviceName:          userDeviceName,
+			VolumeSize:          storageSize,
+			VolumeType:          GeneralVolumeType,
+			DeleteOnTermination: false,
+		})
+	}
+
+	opts := &ec2.RunInstances{
+		KeyName:                  kp.name,
+		ImageId:                  h.Config.SourceAMI,
+		InstanceType:             h.Config.InstanceType,
+		SecurityGroups:           h.Config.securityGroups(),
+		MinCount:                 0,
+		MaxCount:                 0,
+		BlockDevices:             bdm,
 		AssociatePublicIpAddress: true,
 	}
 	// assigned subnet ID for VPC instance
@@ -1821,4 +1844,14 @@ func blockDevice(instance *ec2.Instance, deviceName string) *ec2.BlockDevice {
 		}
 	}
 	return nil
+}
+
+func containsUserDevice(bdm []ec2.BlockDeviceMapping) bool {
+	for _, m := range bdm {
+		if m.DeviceName == userDeviceName {
+			return true
+		}
+	}
+
+	return false
 }
