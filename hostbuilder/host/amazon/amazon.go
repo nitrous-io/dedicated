@@ -25,8 +25,6 @@ import (
 )
 
 const (
-	FFlagEBSHotswapping = 1 // Feature flag for EBS hotswapping
-
 	// represents 1gb of storage
 	storageUnit = 1
 	// minimum storage size in GB. This is the size of standard root disk used in AMI
@@ -511,7 +509,7 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 }
 
 func (h *Host) getUserVolume() (*ec2.Volume, error) {
-	userDevice := userDevice(h.instance)
+	userDevice := blockDevice(h.instance, userDeviceName)
 	if userDevice == nil {
 		return nil, fmt.Errorf("amazon: cannot find user device for instance %s", h.instance.InstanceId)
 	}
@@ -696,18 +694,21 @@ func (h *Host) Destroy() error {
 
 	h.Printf("destroy - checking if instance %s supports EBS hotswapping", h.Config.ID)
 
-	err := h.reloadInstance(h.Config.ID)
-	if err != nil && err != ErrInstanceNotFound {
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
 		return mh.Error(err, label)
 	}
 
-	// [Feature flag] - requires EBS hotswapping / host version >= 1.
-	// For hosts created prior to EBS hotswapping, we simply stop the instance.
-	if err == ErrInstanceNotFound || h.supportsEBSHotswapping() {
+	if h.supportsEBSHotswapping(vol) {
 		return h.destroyWithPool()
 	}
 
 	h.Printf("destroying pre-EBS hotswapping instance normally")
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return mh.Error(err, label)
+	}
 
 	if err := h.terminateInstance(); err != nil {
 		return mh.Error(err, label)
@@ -726,7 +727,7 @@ func (h *Host) destroyWithPool() error {
 
 	// Check whether user volume is still attached to an instance.
 	if h.instance != nil {
-		userDevice := userDevice(h.instance)
+		userDevice := blockDevice(h.instance, userDeviceName)
 		if userDevice != nil && userDevice.VolumeId == volumeID {
 			h.Printf("user volume %s is still attached to instance %s, terminating that instance",
 				volumeID, h.instance.InstanceId)
@@ -911,9 +912,13 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 		return nil, mh.Error(err, label)
 	}
 
-	// [Feature flag] - requires EBS hotswapping / host version >= 1.
-	// For hosts created prior to EBS hotswapping, we simply stop the instance.
-	if h.supportsEBSHotswapping() {
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if h.supportsEBSHotswapping(vol) {
 		return h.stopWithPool(qp, queueInfo)
 	}
 
@@ -1050,19 +1055,21 @@ func (h *Host) Start() (*host.Info, error) {
 
 	h.Printf("checking if instance %s supports EBS hotswapping", h.Config.ID)
 
-	err := h.reloadInstance(h.Config.ID)
-	if err != nil && err != ErrInstanceNotFound {
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
 		return nil, mh.Error(err, label)
 	}
 
-	// [Feature flag] - requires EBS hotswapping / host version >= 1.
-	// For hosts created prior to EBS hotswapping, their instance will be in the
-	// "stopped" state, and we simply start them back up.
-	if err == ErrInstanceNotFound || h.instance.State.Name != "stopped" || h.supportsEBSHotswapping() {
+	if h.supportsEBSHotswapping(vol) {
 		return h.startWithPool()
 	}
 
 	h.Printf("starting pre-EBS hotswapping instance normally")
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
+	}
 
 	if err := h.startInstance(); err != nil {
 		return nil, mh.Error(err, label)
@@ -1578,12 +1585,30 @@ func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, e
 	}
 }
 
-func (h *Host) supportsEBSHotswapping() bool {
-	for _, tag := range h.instance.Tags {
-		if tag.Key == "dedicated:version" {
-			version, _ := strconv.ParseInt(tag.Value, 10, 64) // On any error, consider host as version 0.
-			return version >= FFlagEBSHotswapping
-		}
+func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
+	resp, err := h.provider.Volumes([]string{h.Config.VolumeID}, ec2.NewFilter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get volume info of volume ID %s, err: %v", volumeID, err)
+	}
+	if len(resp.Volumes) != 1 {
+		return nil, fmt.Errorf("expected to get 1 volume but got %+v", resp.Volumes)
+	}
+
+	return &resp.Volumes[0], nil
+}
+
+// supportsEBSHotswapping returns true if:
+// 1. the configured volume is not attached to an instance.
+// 2. the configured volume is attached to the configured instance as its user
+//    device.
+func (h *Host) supportsEBSHotswapping(vol *ec2.Volume) bool {
+	if len(vol.Attachments) == 0 {
+		return true
+	}
+
+	attachment := vol.Attachments[0]
+	if attachment.InstanceId == h.Config.ID && attachment.Device == userDeviceName {
+		return true
 	}
 
 	return false
@@ -1789,9 +1814,9 @@ func computeSize(size int) int64 {
 	return storageSize
 }
 
-func userDevice(instance *ec2.Instance) *ec2.BlockDevice {
+func blockDevice(instance *ec2.Instance, deviceName string) *ec2.BlockDevice {
 	for _, dev := range instance.BlockDevices {
-		if dev.DeviceName == userDeviceName {
+		if dev.DeviceName == deviceName {
 			return &dev
 		}
 	}
