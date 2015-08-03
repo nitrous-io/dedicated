@@ -1751,7 +1751,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
 		})
 
-		It("should not set FirstAttemptAt if it is already set", func() {
+		It("should handle the first retry attempt", func() {
 			t := time.Unix(1434681522, 0)
 			_, err := db.Exec("UPDATE invoices SET first_attempt_at = $1 WHERE id = $2;", t, inv.ID)
 			Expect(err).To(BeNil())
@@ -1815,14 +1815,95 @@ var _ = Describe("subscriptions", func() {
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
 			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())
-			Expect(fakeMailer.Subject).To(Equal("Nitrous - final warning"))
+			Expect(fakeMailer.Subject).To(Equal("Nitrous - payment retry unsuccessful"))
 			Expect(fakeMailer.Body).To(ContainSubstring("We are still having issues successfully"))
 			Expect(fakeMailer.Body).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.Body).To(ContainSubstring("We will retry billing your card in 3 days"))
 			Expect(fakeMailer.Body).To(ContainSubstring("verify your credit card at https://nitrous.example/app/#/billing"))
 			Expect(fakeMailer.Body).To(ContainSubstring("email our support team at support@nitrous.io"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("We are still having issues successfully"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("We will retry billing your card in 3 days"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/billing">verify your credit card</a>`))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
+		})
+
+		It("should handle the second retry attempt", func() {
+			t := time.Unix(1434681522, 0)
+			_, err := db.Exec("UPDATE invoices SET first_attempt_at = $1 WHERE id = $2;", t, inv.ID)
+			Expect(err).To(BeNil())
+
+			fakeStripe.Errors = []*stripe.Error{nil}
+			fakeStripe.Responses = []string{
+				`{
+					"id": "inv1",
+					"object": "invoice",
+					"subscription": "abc1",
+					"total": 1499,
+					"period_start": 1434418419,
+					"period_end": 1437010419,
+					"next_payment_attempt": 1434699271,
+					"attempt_count": 3,
+					"stripe_id": "str-invoice-1",
+					"paid": false,
+					"lines": {
+					"data": [
+						{
+							"id": "stripe-item-1",
+							"object": "line_item",
+							"type": "subscription",
+							"livemode": true,
+							"amount": 1499,
+							"currency": "usd",
+							"proration": false,
+							"period": {
+								"start": 1434418419,
+								"end": 1437010419
+							}
+						}
+					],
+					"total_count": 1,
+					"object": "list",
+					"url": "/v1/invoices/inv1/lines"
+					}
+				}`,
+			}
+
+			i, err := subProvider.HandleSubscriptionInvoiceFailed(db, "inv_ABCD1")
+			Expect(err).To(BeNil())
+			Expect(i).ToNot(BeNil())
+
+			Expect(i.State).To(Equal(invoice.StateUnpaid))
+			Expect(*i.FirstAttemptAt).To(BeTemporally("~", t, time.Second))
+			Expect(*i.LastAttemptAt).To(BeTemporally("~", time.Now(), time.Second))
+			Expect(i.Attempts).To(Equal(3))
+
+			bp, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(bp.State).To(Equal(billingprofile.StatePaymentDue))
+
+			i2, err := invoice.FindByStripeID(db, "inv_ABCD1")
+			Expect(err).To(BeNil())
+			Expect(i).To(Equal(i2))
+
+			Expect(fakeMailer.SendMailCalled).To(BeTrue())
+			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
+			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
+			Expect(fakeMailer.Bccs).To(BeEmpty())
+			Expect(fakeMailer.Subject).To(Equal("Nitrous - final warning"))
+			Expect(fakeMailer.Body).To(ContainSubstring("We are still having issues successfully"))
+			Expect(fakeMailer.Body).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.Body).To(ContainSubstring("We will retry billing your card very shortly"))
+			Expect(fakeMailer.Body).To(ContainSubstring("verify your credit card at https://nitrous.example/app/#/billing"))
+			Expect(fakeMailer.Body).To(ContainSubstring("terminated after our next retry"))
+			Expect(fakeMailer.Body).To(ContainSubstring("email our support team at support@nitrous.io"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("We are still having issues successfully"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("ending in 2334 to the value of $14.99"))
+			Expect(fakeMailer.HTML).To(ContainSubstring("We will retry billing your card very shortly"))
+			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/billing">verify your credit card</a>`))
+			Expect(fakeMailer.HTML).To(ContainSubstring("terminated after our next retry"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`email our support team at <a href="mailto:support@nitrous.io">support@nitrous.io</a>`))
 		})
 
@@ -1840,7 +1921,7 @@ var _ = Describe("subscriptions", func() {
           "total": 1499,
           "period_start": 1434418419,
           "period_end": 1437010419,
-          "attempt_count": 3,
+          "attempt_count": 4,
           "stripe_id": "str-invoice-1",
           "paid": false,
           "lines": {
@@ -1873,7 +1954,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(i.State).To(Equal(invoice.StateFailed))
 			Expect(*i.FirstAttemptAt).To(BeTemporally("~", t, time.Second))
 			Expect(*i.LastAttemptAt).To(BeTemporally("~", time.Now(), time.Second))
-			Expect(i.Attempts).To(Equal(3))
+			Expect(i.Attempts).To(Equal(4))
 
 			bp, err := billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())

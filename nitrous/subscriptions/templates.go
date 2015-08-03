@@ -33,7 +33,38 @@ Thanks,
 The Nitrous team
 `
 
-const paymentFailedHtmlTmpl = `
+const paymentSecondFailedHtmlTmpl = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Nitrous - payment retry unsuccessful</title>
+  </head>
+  <body>
+    <h3>Hello {{ .Name }},</h3>
+    <p>We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.</p>
+    <p>We will retry billing your card in 3 days, but in the meantime please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
+    <p>Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspaces will be <strong>terminated soon</strong>.</p>
+    <p>If you have any questions please email our support team at <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.</p>
+    <br />
+    <p>Thanks,</p>
+    <p>The Nitrous team</p>
+  </body>
+</html>
+`
+
+const paymentSecondFailedTxtTmpl = `
+Hello {{ .Name }},
+We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.
+We will retry billing your card in 3 days, but in the meantime please verify your credit card at {{ .BillingUrl }}.
+Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspace will be **terminated soon**.
+If you have any questions please email our support team at {{ .SupportEmail }}.
+
+Thanks,
+The Nitrous team
+`
+
+const paymentThirdFailedHtmlTmpl = `
 <!DOCTYPE html>
 <html>
   <head>
@@ -44,7 +75,7 @@ const paymentFailedHtmlTmpl = `
     <h3>Hello {{ .Name }},</h3>
     <p>We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.</p>
     <p>We will retry billing your card very shortly, but in the meantime please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
-    <p>If we are unable to bill your credit card your workspaces will be <strong>terminated after our next retry</strong>.</p>
+    <p>If we are unable to bill your credit card by the 10th your workspaces will be <strong>terminated after our next retry</strong>.</p>
     <p>If you have any questions please email our support team at <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.</p>
     <br />
     <p>Thanks,</p>
@@ -53,11 +84,11 @@ const paymentFailedHtmlTmpl = `
 </html>
 `
 
-const paymentFailedTxtTmpl = `
+const paymentThirdFailedTxtTmpl = `
 Hello {{ .Name }},
 We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.
 We will retry billing your card very shortly, but in the meantime please verify your credit card at {{ .BillingUrl }}.
-Your workspaces have been stopped and if we are unable to bill your credit card your workspace will be **terminated after our next retry**.
+Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspace will be **terminated after our next retry**.
 If you have any questions please email our support team at {{ .SupportEmail }}.
 
 Thanks,
@@ -97,8 +128,11 @@ var (
 	paymentFirstFailedHtmlTemplate *template.Template
 	paymentFirstFailedTxtTemplate  *template.Template
 
-	paymentFailedHtmlTemplate *template.Template
-	paymentFailedTxtTemplate  *template.Template
+	paymentSecondFailedHtmlTemplate *template.Template
+	paymentSecondFailedTxtTemplate  *template.Template
+
+	paymentThirdFailedHtmlTemplate *template.Template
+	paymentThirdFailedTxtTemplate  *template.Template
 
 	paymentFinalFailedHtmlTemplate *template.Template
 	paymentFinalFailedTxtTemplate  *template.Template
@@ -110,10 +144,15 @@ func init() {
 	paymentFirstFailedTxtTemplate =
 		template.Must(template.New("paymentFirstFailedTxt").Parse(paymentFirstFailedTxtTmpl))
 
-	paymentFailedHtmlTemplate =
-		template.Must(template.New("paymentFailedHtml").Parse(paymentFailedHtmlTmpl))
-	paymentFailedTxtTemplate =
-		template.Must(template.New("paymentFailedTxt").Parse(paymentFailedTxtTmpl))
+	paymentSecondFailedHtmlTemplate =
+		template.Must(template.New("paymentSecondFailedHtml").Parse(paymentSecondFailedHtmlTmpl))
+	paymentSecondFailedTxtTemplate =
+		template.Must(template.New("paymentSecondFailedTxt").Parse(paymentSecondFailedTxtTmpl))
+
+	paymentThirdFailedHtmlTemplate =
+		template.Must(template.New("paymentThirdFailedHtml").Parse(paymentThirdFailedHtmlTmpl))
+	paymentThirdFailedTxtTemplate =
+		template.Must(template.New("paymentThirdFailedTxt").Parse(paymentThirdFailedTxtTmpl))
 
 	paymentFinalFailedHtmlTemplate =
 		template.Must(template.New("paymentFinalFailedHtml").Parse(paymentFinalFailedHtmlTmpl))
