@@ -53,6 +53,11 @@ func RefreshHostsCache(db *sql.DB) error {
 	}
 	n := len(m)
 	muHosts.Lock()
+	for slug, _ := range hostsCache {
+		if _, ok := m[slug]; !ok {
+			m[slug] = hostNotFound
+		}
+	}
 	hostsCache = m
 	muHosts.Unlock()
 	hostsCacheLastUpdate = time.Now()
@@ -81,9 +86,13 @@ func hostGet(db *sql.DB, slug string) (*Host, error) {
 	if !ok {
 		host, err = findHost(db, slug)
 		if err != nil {
-			host = hostNotFound
+			if err == sql.ErrNoRows {
+				hostCacheSet(slug, hostNotFound)
+			} else {
+				logrus.Errorf("Failed to fetch host(%s) from postgres. err: (%+v)", slug, err)
+			}
+			return nil, err
 		}
-		hostCacheSet(slug, host)
 	}
 	if host == hostNotFound {
 		return nil, errHostNotFound
@@ -117,7 +126,9 @@ func (s *FreighterProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if err := s.proxy(w, r); err != nil {
 		handleError(w, r, err)
 		if s.deferstatsClient != nil {
-			s.deferstatsClient.Wrap(err)
+			if err != errHostNotFound {
+				s.deferstatsClient.Wrap(err)
+			}
 		}
 		return
 	}

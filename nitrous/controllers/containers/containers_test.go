@@ -4188,8 +4188,9 @@ var _ = Describe("FindSSHURL()", func() {
 			err = json.Unmarshal([]byte(portMappigsJson), &portMappings)
 			Expect(err).To(BeNil())
 
-			Expect(portMappings).To(HaveLen(3))
+			Expect(portMappings).To(HaveLen(4))
 			Expect(portMappings["preview"]).To(Equal("63000"))
+			Expect(portMappings["3000"]).To(Equal("63000"))
 			Expect(portMappings["5000"]).To(Equal("8000"))
 			Expect(portMappings["7000"]).To(Equal("9000"))
 		})
