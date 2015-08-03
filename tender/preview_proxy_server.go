@@ -17,7 +17,6 @@ import (
 	"github.com/deferpanic/deferclient/deferstats"
 	_ "github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter"
-	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	proxyerror "github.com/nitrous-io/dedicated/pkg/errorpages/proxy"
 	"github.com/nitrous-io/dedicated/pkg/proxy"
 )
@@ -151,12 +150,6 @@ func (s *PreviewProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type containerWithInfo struct {
-	*Container
-	ports map[string][]string
-	env   []string
-}
-
 // try CNAME resolve host and do getHostname() on resolved name (if any)
 func getCNAMEHostname(host, domain string) (string, error) {
 	var err error
@@ -190,37 +183,15 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		return err
 	}
 
-	fhost := freighterclient.NewHost(
-		cn.HostIP.String(),
-		cn.HostPort,
-		cn.HostSlug+s.tlsDomain,
-		s.ca,
-	)
-	// TODO: extract and pass UUID?
-	fclient, err := freighterclient.NewClient(fhost, cn.HostSecret, "")
-	if err != nil {
-		return fmt.Errorf("failed to initialize freighter client for %s: %v", cn.Slug, err)
-	}
-	info, err := fclient.Info(cn.CID)
-	if err != nil {
-		return fmt.Errorf("failed to fetch container info %s: %v", cn.Slug, err)
-	}
-
-	container := containerWithInfo{
-		Container: cn,
-		ports:     info.Ports,
-		env:       info.Env,
-	}
-
 	incomingPort := parsePort(r)
-	containerPort, err := s.getContainerPort(container, incomingPort)
+	containerPort, err := s.getContainerPort(cn, incomingPort)
 	if err != nil {
 		return err
 	}
 
 	// set X-FORWARDED-PORT for the request
 	r.Header.Set(freighter.ForwardPortHeader, containerPort)
-	destAddr := net.JoinHostPort(container.HostIP.String(), containerPort)
+	destAddr := net.JoinHostPort(cn.HostIP.String(), containerPort)
 
 	// For TLS requests, we proxy to Freighter on the host, which will then
 	// proxy to the container.
@@ -229,7 +200,7 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 		tlsConfig = &tls.Config{}
 		*tlsConfig = *s.tlsConfig
 		tlsConfig.ServerName = slug + s.tlsDomain
-		destAddr = net.JoinHostPort(container.HostIP.String(), strconv.Itoa(s.freighterdPort))
+		destAddr = net.JoinHostPort(cn.HostIP.String(), strconv.Itoa(s.freighterdPort))
 	}
 
 	if proxy.IsWebsocket(r) {
@@ -240,30 +211,23 @@ func (s *PreviewProxyServer) proxy(w http.ResponseWriter, r *http.Request) (err 
 	return nil
 }
 
-func (s *PreviewProxyServer) getContainerPort(container containerWithInfo, port int) (string, error) {
+func (s *PreviewProxyServer) getContainerPort(container *Container, port int) (string, error) {
 	// Try to map requests on previewForwardPorts to the port specified by the
 	// container's NITROUS_PREVIEW_PORT env var.
 	for _, p := range previewForwardPorts {
 		if port != p {
 			continue
 		}
-		if previewPort, ok := envValue(container.env, previewPortEnvVar); ok {
-			p, err := getPublicFreighterdPort(container.ports, previewPort)
-			if err == nil {
-				return p, nil
-			}
+
+		if previewPort, ok := container.PortMappings["preview"]; ok {
+			return previewPort, nil
 		}
 	}
 
-	return getPublicFreighterdPort(container.ports, strconv.Itoa(port))
-}
-
-func envValue(env []string, envVar string) (string, bool) {
-	for _, val := range env {
-		split := strings.SplitN(val, "=", 2)
-		if len(split) == 2 && split[0] == envVar {
-			return split[1], true
-		}
+	portStr := strconv.Itoa(port)
+	if previewPort, ok := container.PortMappings[portStr]; ok {
+		return previewPort, nil
 	}
-	return "", false
+
+	return "", fmt.Errorf("port %d is not exposed", port)
 }
