@@ -42,6 +42,38 @@ var _ = Describe("db", func() {
 			Expect(ok).To(BeTrue())
 			Expect(host).To(Equal(hostNotFound))
 		})
+
+		It("marks removed hosts as stopped hosts", func() {
+			var err error
+
+			host, ok := hostCacheGet("oldapp")
+			Expect(ok).To(BeTrue())
+			Expect(host.IP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(host.Port).To(Equal(10001), "Expect to get port given a valid name")
+
+			// Termiates hosts
+			_, err = db.Exec("UPDATE hosts SET terminated_at = now() WHERE slug = 'oldapp'")
+			Expect(err).To(BeNil())
+
+			RefreshHostsCache(db)
+
+			// Save as stopped or deleted container
+			host, ok = hostCacheGet("oldapp")
+			Expect(ok).To(BeTrue())
+			Expect(host).To(Equal(hostNotFound))
+
+			// Untermiates container
+			_, err = db.Exec("UPDATE hosts SET terminated_at = NULL WHERE slug = 'oldapp'")
+			Expect(err).To(BeNil())
+
+			RefreshHostsCache(db)
+
+			// Cache as live container
+			host, ok = hostCacheGet("oldapp")
+			Expect(ok).To(BeTrue())
+			Expect(host.IP.String()).To(Equal("10.0.0.1"), "Expect to get host ip given a valid name")
+			Expect(host.Port).To(Equal(10001), "Expect to get port given a valid name")
+		})
 	})
 
 	Describe("container cache", func() {
@@ -69,7 +101,35 @@ var _ = Describe("db", func() {
 			container, ok = containerCacheGet("invalid name")
 			Expect(ok).To(BeTrue())
 			Expect(container).To(Equal(containerNotFound))
+		})
 
+		It("marks removed containers as stopped containers", func() {
+			var err error
+
+			container, ok := containerCacheGet("rails-app")
+			Expect(ok).To(BeTrue())
+
+			// Termiates container
+			_, err = db.Exec("UPDATE containers SET terminated_at = now() WHERE slug = 'rails-app'")
+			Expect(err).To(BeNil())
+
+			RefreshContainersCache(db)
+
+			// Save as stopped or deleted container
+			container, ok = containerCacheGet("rails-app")
+			Expect(ok).To(BeTrue())
+			Expect(container).To(Equal(containerNotFound))
+
+			// Untermiates container
+			_, err = db.Exec("UPDATE containers SET terminated_at = NULL WHERE slug = 'rails-app'")
+			Expect(err).To(BeNil())
+
+			RefreshContainersCache(db)
+
+			// Cache as live container
+			container, ok = containerCacheGet("rails-app")
+			Expect(ok).To(BeTrue())
+			Expect(container.Slug).To(Equal("rails-app"), "Expect to get correct container")
 		})
 	})
 })

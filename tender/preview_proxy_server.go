@@ -70,8 +70,14 @@ func RefreshContainersCache(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
 	n := len(m)
 	muContainers.Lock()
+	for slug, _ := range containersCache {
+		if _, ok := m[slug]; !ok {
+			m[slug] = containerNotFound
+		}
+	}
 	containersCache = m
 	muContainers.Unlock()
 	containersCacheLastUpdate = time.Now()

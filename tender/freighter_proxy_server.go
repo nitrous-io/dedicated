@@ -53,6 +53,11 @@ func RefreshHostsCache(db *sql.DB) error {
 	}
 	n := len(m)
 	muHosts.Lock()
+	for slug, _ := range hostsCache {
+		if _, ok := m[slug]; !ok {
+			m[slug] = hostNotFound
+		}
+	}
 	hostsCache = m
 	muHosts.Unlock()
 	hostsCacheLastUpdate = time.Now()
