@@ -183,9 +183,10 @@ func Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *s
 			Plan:     planID,
 		}
 
-		if bp.State != billingprofile.StateFree {
-			sParams.TrialEnd = 1438387199 // this is the result of `date -d '2015-07-31 23:59:59' -u +%s`
-		}
+		// It is now past July 31
+		//if bp.State != billingprofile.StateFree {
+		//	sParams.TrialEnd = 1438387199 // this is the result of `date -d '2015-07-31 23:59:59' -u +%s`
+		//}
 
 		strSub, err = stripesub.New(sParams)
 		if err != nil {
