@@ -907,10 +907,9 @@ func GetPortMappingsJsonFrom(container *freighterclient.Container) (string, erro
 			if len(mappingPorts) > 0 {
 				portMappings["preview"] = mappingPorts[0]
 			}
-		} else {
-			if len(mappingPorts) > 0 {
-				portMappings[incomingPort] = mappingPorts[0]
-			}
+		}
+		if len(mappingPorts) > 0 {
+			portMappings[incomingPort] = mappingPorts[0]
 		}
 	}
 
