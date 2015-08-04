@@ -462,7 +462,7 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	// If StorageSize is 0, no change required.
 	if h.Config.StorageSize != 0 {
 		var err error
-		userVolume, err = h.getUserVolume()
+		userVolume, err = h.getVolumeByDeviceName(userDeviceName)
 		if err != nil {
 			return nil, mh.Error(err, label)
 		}
@@ -529,26 +529,23 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	return info, err
 }
 
-func (h *Host) getUserVolume() (*ec2.Volume, error) {
-	userDevice := blockDevice(h.instance, userDeviceName)
-	if userDevice == nil {
-		return nil, fmt.Errorf("amazon: cannot find user device for instance %s", h.instance.InstanceId)
+func (h *Host) getVolumeByDeviceName(deviceName string) (*ec2.Volume, error) {
+	device := blockDevice(h.instance, deviceName)
+	if device == nil {
+		return nil, fmt.Errorf("amazon: cannot find volume for device %s of instance %s", deviceName, h.instance.InstanceId)
 	}
 
-	resp, err := h.provider.Volumes([]string{userDevice.VolumeId}, ec2.NewFilter())
+	vol, err := h.getVolume(device.VolumeId)
 	if err != nil {
-		return nil, fmt.Errorf("amazon: failed to get user volume info, err: %v", err)
-	}
-	if len(resp.Volumes) != 1 {
-		return nil, fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes)
-	}
-	userVolume := &resp.Volumes[0]
-	if userVolume.VolumeId != userDevice.VolumeId {
-		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", userDevice.VolumeId, userVolume)
+		return nil, err
 	}
 
-	return userVolume, nil
+	if vol.VolumeId != device.VolumeId {
+		// Sanity check - because using the wrong volume is bad m'kay.
+		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", device.VolumeId, vol)
+	}
+
+	return vol, nil
 }
 
 func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
@@ -808,9 +805,18 @@ func (h *Host) Info() (*host.Info, error) {
 		State:          getState(h.instance),
 	}
 
-	userVolume, err := h.getUserVolume()
+	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
 	if err == nil {
 		info.VolumeID = userVolume.VolumeId
+	}
+
+	// Return root volume ID if we don't have a user volume.
+	// This is to support old hosts that only have a root volume.
+	if info.VolumeID == "" {
+		rootVolume, err := h.getVolumeByDeviceName(rootDeviceName)
+		if err == nil {
+			info.VolumeID = rootVolume.VolumeId
+		}
 	}
 
 	return info, nil
@@ -913,7 +919,7 @@ func unmountUserVolume(ctx *host.HostContext) error {
 func detachUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 
-	userVolume, err := h.getUserVolume()
+	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
 	if err != nil {
 		return err
 	}
@@ -1007,7 +1013,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	ctx, cancel = context.WithTimeout(context.Background(), stopTimeout)
 	defer cancel()
 
-	userVolume, err := h.getUserVolume()
+	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
 	if err != nil {
 		return nil, mh.Error(err, label)
 	}
@@ -1294,7 +1300,7 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 				// detach and delete it.
 				h := ctx.Host.(*Host)
 
-				userVolume, err := h.getUserVolume()
+				userVolume, err := h.getVolumeByDeviceName(userDeviceName)
 				if err != nil {
 					return err
 				}

@@ -163,7 +163,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		if hostInfo.VolumeID != "" {
 			h.ProviderStorageIdentifier = sql.NullString{hostInfo.VolumeID, true}
 		} else if hostInfo.Provider == "amazon" {
-			return fmt.Errorf("No root volume for host: %+v", hostInfo)
+			return fmt.Errorf("did not receive volume ID for host: %+v", hostInfo)
 		}
 	}
 
