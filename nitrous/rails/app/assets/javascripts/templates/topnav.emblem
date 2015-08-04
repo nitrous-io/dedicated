@@ -2,7 +2,7 @@
   ul.nav.left
     li
       if App.user
-        link-to 'home.index'
+        = link-to 'home.index'
           h1.logo
             span Nitrous
             small Pro
@@ -24,14 +24,17 @@
                 | New Container...
           else
             li
-              link-to 'containers.new' | New Container...
+              = link-to 'containers.new' | New Container...
           unless App.billingProfile.free
             if App.canCreateHosts
               li
-                link-to 'hosts.new'| New Workspace...
+                = link-to 'hosts.new' | New Workspace...
             else
               li.disabled
                 a href='#' title=view.newHostTitle New Workspace...
+          li.separator
+          li
+            = link-to 'orgs.new' | New Organization...
       if App.user.admin
         li.ui.dropdown
           a href='#'
@@ -72,9 +75,9 @@
           .ui.dropdown-triangle
         ul.dropdown-menu.right
           li
-            link-to 'account' | Account Settings
+            = link-to 'account' | Account Settings
           li
-            link-to 'billing' | Billing
+            = link-to 'billing' | Billing
           li.separator
           li
             a href='#' click='sendFeedback target="view"'
@@ -87,13 +90,13 @@
               a href='#' click='switchBackAdmin target="view"'
                 | Switch Back Admin
           li
-            link-to 'logout' | Log Out
+            = link-to 'logout' | Log Out
     else
       li
         a href='/pricing' Pricing
       li
         a href='https://community.nitrous.io/docs' target='_blank' Documentation
       li.primary
-        link-to 'signup' | Sign Up
+        = link-to 'signup' | Sign Up
       li.primary
-        link-to 'login' | Log In
+        = link-to 'login' | Log In

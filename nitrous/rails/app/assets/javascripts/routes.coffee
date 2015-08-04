@@ -40,6 +40,9 @@ App.Router.map ->
       @route 'new'
       @route 'pull'
 
+    @resource 'orgs', path: '/orgs', ->
+      @route 'new'
+
     @resource 'account'
     @resource 'add-phone'
     @resource 'billing'
