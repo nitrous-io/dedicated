@@ -878,8 +878,26 @@ func unmountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
 	}
 
-	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName)); err != nil {
-		return fmt.Errorf("failed to unmount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	// Try to unmount volume. We retry this several times in case there are
+	// processes that have open files on the user volume.
+	tries := 3
+	delay := 1 * time.Second
+	unmountOK := false
+	for i := 0; i < tries; i++ {
+		out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName))
+		if err != nil {
+			h.Printf("failed to unmount %s - attempt %d, err: %v, output: %s",
+				userDeviceOSName, i+1, err, out)
+			time.Sleep(delay)
+			continue
+		}
+
+		unmountOK = true
+		break
+	}
+
+	if !unmountOK {
+		return fmt.Errorf("could not unmount %s", userDeviceOSName)
 	}
 
 	return nil
