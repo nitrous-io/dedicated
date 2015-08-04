@@ -848,6 +848,13 @@ func mountUserVolume(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
 	}
 
+	// Explicitly resize mounted file system to the size of the volume.
+	// This is necessary because we detach and attach EBS volumes of varying
+	// sizes, and we want the OS to recognize the new volume's size.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo resize2fs %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
 	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
 		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
 	}
