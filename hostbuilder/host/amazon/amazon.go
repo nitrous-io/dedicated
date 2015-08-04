@@ -1,10 +1,13 @@
 package amazon
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,10 +38,19 @@ const (
 	IOPSVolumeType     = "io1"
 	MagneticVolumeType = "standard"
 
+	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+	// for device naming on Linux instances.
 	rootDeviceName = "/dev/sda1"
+	// userDeviceName is the name of the user device/volume that we pass to EC2,
+	// e.g. in block device mapping.
+	userDeviceName = "/dev/sdu"
+	// userDeviceOSName is the name of the user device/volume within the OS.
+	userDeviceOSName = "/dev/xvdu"
 
 	updateTimeout            = 30 * time.Second
-	resizeRootVolumeTimeout  = 30 * time.Minute
+	resizeVolumeTimeout      = 30 * time.Minute
+	startTimeout             = 5 * time.Minute
+	stopTimeout              = 10 * time.Minute
 	allocateElasticIPTimeout = 3 * time.Minute
 )
 
@@ -46,6 +58,7 @@ var (
 	DefaultCreateTimeout = 10 * time.Minute
 
 	ErrCreateTimeout    = errors.New("timed out creating host")
+	ErrTimeout          = errors.New("operation timed out")
 	ErrInstanceNotFound = errors.New("instance not found")
 
 	KnownRegions = map[string]aws.Region{
@@ -61,32 +74,82 @@ var (
 	}
 )
 
+// driverConfig stores driver configuration, such as Amazon EC2 access/secret
+// keys, timeouts.
+type driverConfig struct {
+	AccessKey     string `json:"access_key"`
+	SecretKey     string `json:"secret_key"`
+	HostVersion   string `json:"host_version"` // Created instances will be tagged with "dedicated:version=#{HostVersion}"
+	Env           string `json:"env"`          // Created instances will be tagged with "dedicated=#{Env}".
+	CreateTimeout string `json:"create_timeout"`
+	NotifyURL     string `json:"notify_url"`
+	Regions       []struct {
+		ID      string `json:"id"`
+		Keypair struct {
+			Name           string `json:"name"`
+			PrivateKeyPath string `json:"private_key_path"`
+		} `json:"keypair"`
+		InstancePool []struct {
+			Type string `json:"type"`
+			Max  int    `json:"max"`
+		} `json:"instance_pool"`
+	} `json:"regions"`
+
+	Redis struct {
+		Host string `json:"host"`
+		Port string `json:"port"`
+	} `json:"redis"`
+
+	// TODO Super hacky - refactor this when we refactor hostbuilder drivers.
+	IgnoreRegion string `json:"ignore_region"`
+
+	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
+	cachedCreateTimeout time.Duration
+}
+
+func (c *driverConfig) createTimeout() time.Duration {
+	if c.cachedCreateTimeout != 0 {
+		return c.cachedCreateTimeout
+	}
+
+	t := DefaultCreateTimeout
+	d, err := time.ParseDuration(c.CreateTimeout)
+	if err == nil {
+		t = d
+	}
+	c.cachedCreateTimeout = t
+
+	return t
+}
+
 type Host struct {
-	AccessConfig *AccessConfig
-	Config       *HostConfig
-	notifyURL    string // to be set in builder's config
-	uuid         string // request UUID set by user
-	env          string // env tag to be set for each instance
+	driverConfig
+
+	Config *hostConfig
+
+	requestID string
 
 	// ec2 properties
 	auth     aws.Auth // this is used when we want to query all known regions
 	provider *ec2.EC2
 	instance *ec2.Instance
+	ami      *ec2.Image
 
-	// the following settings are only available during the creation phase
-	keypair       *keypair      // temporary keypair of the instance
-	createTimeout time.Duration // limit of instance's creation time
+	// Caches keypair so that we don't have to parse config and read the private
+	// key file multiple times.
+	keypair *keypair
 
 	// For respec.
-	rootVolume *ec2.Volume
+	userVolume *ec2.Volume
 	newVolume  *ec2.Volume
 	snapshot   *ec2.Snapshot
 	newSize    int64 // New storage size in GB.
 }
 
-type HostConfig struct {
+type hostConfig struct {
 	ID              string `json:"id"`
 	HostID          int64  `json:"host_id"` // database id of the host
+	VolumeID        string `json:"volume_id"`
 	Name            string `json:"name"`
 	SourceAMI       string `json:"source_ami"`
 	InstanceType    string `json:"instance_type"`
@@ -116,11 +179,9 @@ type HostConfig struct {
 	FreighterdVersion string          `json:"freighterd_version"`
 }
 
-func (h *HostConfig) securityGroups() []ec2.SecurityGroup {
+func (c *hostConfig) securityGroups() []ec2.SecurityGroup {
 	return []ec2.SecurityGroup{
-		ec2.SecurityGroup{
-			Id: h.SecurityGroupID,
-		},
+		{Id: c.SecurityGroupID},
 	}
 }
 
@@ -129,58 +190,91 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
-	hctx := host.NewContext(ctx, h, h, nil)
-	defer func() {
-		if hctx.Executor != nil {
-			hctx.Executor.Close()
+	// Check if we should use the instance pool.
+	var useInstancePool bool
+
+	ami, err := getImage(h.provider, h.Config.SourceAMI)
+	if err != nil {
+		return nil, err
+	}
+	h.ami = ami
+
+	// If the AMI specifies a block device mapping for a user device, we use the
+	// instance pool.
+	if containsUserDevice(ami.BlockDevices) {
+		useInstancePool = true
+	}
+
+	var steps []host.Step
+
+	var instanceFromPool *ec2.Instance
+	if useInstancePool {
+		h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
+
+		var err error
+		instanceFromPool, err = h.acquireInstance(h.Config.InstanceType)
+		if err != nil {
+			h.Printf("could not acquire instance from pool, err: %v", err)
+
+			useInstancePool = false
 		}
+	}
 
-		if h.keypair != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
-			h.Printf("keyID=%s Removing key...", h.keypair.name)
-			if err := h.keypair.Delete(); err != nil {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
-				h.Printf("ERROR: Failed to remove key %s", h.keypair.name)
-			} else {
-				host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
-			}
+	if !useInstancePool {
+		h.Printf("creating a new instance")
+
+		steps = []host.Step{
+			{
+				Description: "Creating workspace",
+				Func:        createInstance,
+				Timeout:     5 * time.Minute,
+			},
+			/*
+				  From @dqminh
+					to prevent ec2 from assigning network interfaces to a not running instance
+					(i.e., maybe the API reported a false positive ? ), we actually wait for SSH to
+					be ready right after finishing creating the instance.
+
+					This waits for SSH to be accessible using the instance's dynamic public IP
+					instead of the elasic IP. If the instance is accessible, it should be in
+					running state.
+
+					After assigning the elastic IP, ssh check should be really quick, so it's safe
+					to double-check it.
+			*/
+			{
+				Func:    host.WaitForSSH,
+				Timeout: 5 * time.Minute,
+			},
 		}
-	}()
+	} else {
+		h.Printf("acquired instance %s from pool, using to create host", instanceFromPool.InstanceId)
 
-	steps := []host.Step{
-		{
-			Description: "Creating key",
-			Func:        createKeypair,
-		},
-		{
-			Description: "Checking image's availability",
-			Func:        inspectSourceAMI,
-		},
-		{
-			Description: "Creating workspace",
-			Func:        createInstance,
-			Timeout:     5 * time.Minute,
-		},
-		/*
-			  From @dqminh
-				to prevent ec2 from assigning network interfaces to a not running instance
-				(i.e., maybe the API reported a false positive ? ), we actually wait for SSH to
-				be ready right after finishing creating the instance.
+		h.instance = instanceFromPool
 
-				This waits for SSH to be accessible using the instance's dynamic public IP
-				instead of the elasic IP. If the instance is accessible, it should be in
-				running state.
+		steps = []host.Step{
+			{
+				Description: "Initializing disk",
+				Func:        attachNewUserVolume,
+			},
+			{
+				Description: "Connecting to workspace",
+				Func:        host.WaitForSSH,
+				Timeout:     5 * time.Minute,
+			},
+			{
+				Description: "Mounting disk",
+				Func:        mountUserVolume,
+			},
+		}
+	}
 
-				After assigning the elastic IP, ssh check should be really quick, so it's safe
-				to double-check it.
-		*/
-		{
-			Func:    host.WaitForSSH,
-			Timeout: 5 * time.Minute,
-		},
+	// These steps are required regardless of whether instance is from pool or
+	// a newly created one.
+	commonSteps := []host.Step{
 		{
 			Description: "Setting workspace's name",
 			Func:        associateInstanceTags,
@@ -207,12 +301,23 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			Func:        host.RestartServices,
 		},
 	}
+	for _, step := range commonSteps {
+		steps = append(steps, step)
+	}
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
 	for _, step := range steps {
 		if err := hctx.Run(step); err != nil {
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step %q: %v", step.Description, err)
 			h.Printf(errorMsg)
 			h.logFailed()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
+			host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, errorMsg, queue.Create)
 			inf, _ := h.Info()
 			if err == context.DeadlineExceeded {
 				return inf, ErrCreateTimeout
@@ -221,11 +326,53 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			return inf, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, step.Description, queue.Create)
 	}
 	info, err := h.Info()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, info, queue.Create, "")
 	return info, err
+}
+
+func attachNewUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	// Get snapshot ID of user volume from AMI.
+	ami, err := getImage(h.provider, h.Config.SourceAMI)
+	if err != nil {
+		return err
+	}
+
+	var snapshotID string
+	for _, dev := range ami.BlockDevices {
+		if dev.DeviceName == userDeviceName {
+			snapshotID = dev.SnapshotId
+			break
+		}
+	}
+
+	if snapshotID == "" {
+		return fmt.Errorf("could not find snapshot of user volume for AMI %s", h.Config.SourceAMI)
+	}
+
+	h.Printf("creating new user volume from snapshot %s", snapshotID)
+
+	// Create volume from snapshot, with the requested size.
+	vol, err := createVolume(h.provider, snapshotID, h.instance.AvailZone, computeSize(h.Config.StorageSize))
+	if err != nil {
+		return err
+	}
+
+	h.Printf("attaching new user volume %s to instance %s", vol.VolumeId, h.instance.InstanceId)
+
+	// Attach volume to instance.
+	vol, err = attachVolume(h.provider, vol.VolumeId, h.instance.InstanceId, userDeviceName)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to attach new user volume %s to %s, err: %v", vol.VolumeId, h.instance.InstanceId, err)
+	}
+
+	h.userVolume = vol
+
+	return nil
 }
 
 // Update sets properties of an existing host
@@ -252,7 +399,7 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 			h.Printf("ERROR: Failed in update host step: %v", err)
 			h.logFailed()
 			if err == context.DeadlineExceeded {
-				return nil, ErrCreateTimeout
+				return nil, ErrTimeout
 			}
 			return nil, err
 		}
@@ -261,17 +408,19 @@ func (h *Host) Update(w io.Writer) (*host.Info, error) {
 	return h.Info()
 }
 
-// RespecWithQueue changes the specs of an existing host its new properties.
+// RespecWithQueue changes the specs of an existing host.
 // The following changes are supported:
-//   1. Changing storage size of root volume.
+//   1. Changing storage size of user volume.
 //   2. Changing instance type (only between allowable instance types, e.g. we
 //      don't support changing from a VPC-only to non-VPC instance).
-//   3. Allocating/de-allocating an Elastic IP.
+//   3. Allocating an Elastic IP.
 func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
 
-	host.PublishMessage(qp, event.HostRespeccing, h.uuid, queueInfo, "Respeccing host", queue.Respec)
+	h.Printf("respec received: %#v", h.Config)
+
+	host.PublishMessage(qp, event.HostRespeccing, h.requestID, queueInfo, "Respeccing host", queue.Respec)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		return nil, mh.Error(err, label)
@@ -306,22 +455,22 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	var (
-		rootVolume     *ec2.Volume
+		userVolume     *ec2.Volume
 		configuredSize int64
 	)
 
 	// If StorageSize is 0, no change required.
 	if h.Config.StorageSize != 0 {
 		var err error
-		rootVolume, err = h.getRootVolume()
+		userVolume, err = h.getUserVolume()
 		if err != nil {
 			return nil, mh.Error(err, label)
 		}
 
-		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		currentSize, err := strconv.ParseInt(userVolume.Size, 10, 64)
 		if err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", userVolume, err), label)
 		}
 
 		configuredSize = computeSize(h.Config.StorageSize)
@@ -335,128 +484,122 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	if !changeInstanceType && !changeStorageSize {
 		info, err := h.Info()
 		if err == nil {
-			host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+			host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
 		} else {
-			logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
+			logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
 		}
 
 		return info, err
 	}
 
-	// Otherwise, we stop the instance since any further changes now require
-	// it to be stopped.
-	if err := h.stopInstance(); err != nil {
-		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+	if changeStorageSize {
+		if err := h.resizeUserVolume(userVolume, configuredSize); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to resize user volume, err: %v", err), label)
+		}
 	}
 
 	if changeInstanceType {
+		// TODO We should try to acquire a new instance from the instance pool
+		// of the new instance type.
+		if err := h.stopInstance(); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+		}
+
 		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
 		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
 		}
-	}
 
-	if changeStorageSize {
-		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+		if err := h.startInstance(); err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to start instance for respeccing, err: %v", err), label)
 		}
 	}
 
-	info, err := h.Start()
+	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostRespecced, h.uuid, queueInfo, info, queue.Respec, "")
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
 	} else {
-		logrus.WithField("uuid", h.uuid).Errorf("amazon: failed to send a message due to failure on starting host: %v", err)
+		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
 	}
 
 	return info, err
 }
 
-func (h *Host) getRootVolume() (*ec2.Volume, error) {
-	rootDevice := rootDevice(h.instance)
-	if rootDevice == nil {
-		return nil, fmt.Errorf("amazon: cannot find root device for instance %s", h.instance.InstanceId)
+func (h *Host) getUserVolume() (*ec2.Volume, error) {
+	userDevice := blockDevice(h.instance, userDeviceName)
+	if userDevice == nil {
+		return nil, fmt.Errorf("amazon: cannot find user device for instance %s", h.instance.InstanceId)
 	}
 
-	resp, err := h.provider.Volumes([]string{rootDevice.VolumeId}, ec2.NewFilter())
+	resp, err := h.provider.Volumes([]string{userDevice.VolumeId}, ec2.NewFilter())
 	if err != nil {
-		return nil, fmt.Errorf("amazon: failed to get root volume info, err: %v", err)
+		return nil, fmt.Errorf("amazon: failed to get user volume info, err: %v", err)
 	}
 	if len(resp.Volumes) != 1 {
 		return nil, fmt.Errorf("amazon: expected to get 1 volume but got %+v", resp.Volumes)
 	}
-	rootVolume := &resp.Volumes[0]
-	if rootVolume.VolumeId != rootDevice.VolumeId {
+	userVolume := &resp.Volumes[0]
+	if userVolume.VolumeId != userDevice.VolumeId {
 		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", rootDevice.VolumeId, rootVolume)
+		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", userDevice.VolumeId, userVolume)
 	}
 
-	return rootVolume, nil
+	return userVolume, nil
 }
 
-type resizeStep struct {
-	host.Step
-	restartOnError bool
-}
-
-func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err error) {
+func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), resizeRootVolumeTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeVolumeTimeout)
 	defer cancel()
 
-	h.rootVolume = rootVolume
+	h.userVolume = userVolume
 	h.newSize = newSize
 
 	hctx := host.NewContext(ctx, h, h, nil)
-	steps := []resizeStep{
+	steps := []host.Step{
 		{
-			Step: host.Step{
-				Description: "Taking snapshot of disk",
-				Func:        snapshotRootVolume,
-			},
-			restartOnError: true,
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     3 * time.Minute,
 		},
 		{
-			Step: host.Step{
-				Description: "Creating larger disk",
-				Func:        createNewVolume,
-			},
-			restartOnError: true,
+			Description: "Unmounting current user volume",
+			Func:        unmountUserVolume,
 		},
 		{
-			Step: host.Step{
-				Description: "Switching to larger disk",
-				Func:        swapRootVolume,
-			},
+			Description: "Taking snapshot of current user volume",
+			Func:        snapshotUserVolume,
 		},
 		{
-			Step: host.Step{
-				Description: "Cleaning up",
-				Func:        deleteOldVolume,
-			},
+			Description: "Creating larger volume",
+			Func:        createNewVolume,
+		},
+		{
+			Description: "Switching to new user volume",
+			Func:        swapUserVolume,
+		},
+		{
+			Description: "Mounting new user volume",
+			Func:        mountUserVolume,
+		},
+		{
+			Description: "Cleaning up",
+			Func:        deleteOldVolume,
 		},
 	}
 	for _, step := range steps {
-		if err := hctx.Run(step.Step); err != nil {
-			h.Printf("ERROR: failed in resize root volume step %q: %v", step.Description, err)
-
-			// Start the instance back up if necessary.
-			// Note that the time to start the instance is excluded from the
-			// context timeout.
-			if step.restartOnError {
-				if _, e := h.Start(); e != nil {
-					h.Printf("failed to start instance %s back up", h.instance.InstanceId)
-				}
-			}
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in resize user volume step %q: %v", step.Description, err)
 
 			if err == context.DeadlineExceeded {
-				return ErrCreateTimeout
+				return ErrTimeout
 			}
 			return err
 		}
@@ -465,34 +608,34 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	return nil
 }
 
-func snapshotRootVolume(ctx *host.HostContext) error {
+func snapshotUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("snapshot_root_volume")
+	label := h.MetricsLabel("snapshot_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	newSize := h.newSize
 
-	h.Printf("Creating snapshot of root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Creating snapshot of user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
-		h.instance.InstanceId, rootVolume.Size, newSize)
-	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+		h.instance.InstanceId, userVolume.Size, newSize)
+	snapshot, err := createSnapshot(h.provider, userVolume.VolumeId, desc)
 	if err != nil {
-		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
+		return fmt.Errorf("amazon: failed to create snapshot of user volume %+v, err: %v", userVolume, err)
 	}
 
 	h.snapshot = snapshot
 
 	tags := []ec2.Tag{
 		{Key: "InstanceID", Value: h.instance.InstanceId},
-		{Key: "dedicated", Value: h.env},
+		{Key: "dedicated", Value: h.driverConfig.Env},
 	}
 	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
 		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
 	}
 
-	h.Printf("Created snapshot %s of volume %s", snapshot.Id, rootVolume.VolumeId)
+	h.Printf("Created snapshot %s of volume %s", snapshot.Id, userVolume.VolumeId)
 
 	return nil
 }
@@ -502,12 +645,12 @@ func createNewVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("create_new_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	snapshot := h.snapshot
 	newSize := h.newSize
 
 	h.Printf("Creating volume from snapshot %s", snapshot.Id)
-	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	newVolume, err := createVolume(h.provider, snapshot.Id, userVolume.AvailZone, newSize)
 	if err != nil {
 		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
 	}
@@ -518,24 +661,24 @@ func createNewVolume(ctx *host.HostContext) error {
 	return nil
 }
 
-func swapRootVolume(ctx *host.HostContext) error {
+func swapUserVolume(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("swap_root_volume")
+	label := h.MetricsLabel("swap_user_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 	newVolume := h.newVolume
 
-	h.Printf("Detaching root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
-		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
+	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return fmt.Errorf("amazon: failed to detach user volume, err: %v", err)
 	} else {
-		rootVolume = vol
+		userVolume = vol
 	}
-	h.Printf("Detached root volume %s from %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	h.Printf("Attaching new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
-	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, userDeviceName); err != nil {
 		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
 	} else {
 		newVolume = vol
@@ -550,48 +693,90 @@ func deleteOldVolume(ctx *host.HostContext) error {
 	label := h.MetricsLabel("delete_old_volume")
 	defer mh.UpdateSince(label, time.Now())
 
-	rootVolume := h.rootVolume
+	userVolume := h.userVolume
 
-	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
-	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
-		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	h.Printf("Deleting old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if _, err := h.provider.DeleteVolume(userVolume.VolumeId); err != nil {
+		h.Printf("ERROR: failed to delete old user volume %s for instance %s after respec, err: %v", userVolume.VolumeId, h.instance.InstanceId, err)
 	}
-	h.Printf("Deleted old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Deleted old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
 
 	return nil
 }
 
-// Destroy releases the instance Elastic IP and terminate it
+// Destroy will either:
+// 1. for hosts prior to pre-EBS hotswapping, we release the EIP and terminate
+//    the instance, or
+// 2. for hosts that support EBS hotswapping, we delete the user volume. If the
+//    volume is attached to an instance, we terminate the instance as well.
 func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		// if the instance does not exist, then consider that it is sucessfully destroyed
-		if err == ErrInstanceNotFound {
-			return nil
-		}
+	h.Printf("destroy - checking if instance %s supports EBS hotswapping", h.Config.ID)
+
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
 		return mh.Error(err, label)
 	}
 
-	// if eip is disabled for this host, we dont need to release it
-	if !h.Config.DisableEIP {
-		if ip := h.Config.IPAddress; ip != "" {
-			// release elastic IP stored in the client. We cant use
-			// h.instance.PublicIPAddress because it's not guaranteed to be
-			// the correct IP when the instance is stopped
-			if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
-				err = fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-					h.Config.IPAddress, h.instance.InstanceId, err)
-				return mh.Error(err, label)
+	if h.supportsEBSHotswapping(vol) {
+		return h.destroyWithPool()
+	}
+
+	h.Printf("destroying pre-EBS hotswapping instance normally")
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return mh.Error(err, label)
+	}
+
+	if err := h.terminateInstance(); err != nil {
+		return mh.Error(err, label)
+	}
+
+	return nil
+}
+
+// destroyWithPool deletes the user volume. If the volume is attached to an
+// instance, we terminate the instance and release any associated EIP.
+func (h *Host) destroyWithPool() error {
+	label := h.MetricsLabel("destroy_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	volumeID := h.Config.VolumeID
+
+	// Check whether user volume is still attached to an instance.
+	if h.instance != nil {
+		userDevice := blockDevice(h.instance, userDeviceName)
+		if userDevice != nil && userDevice.VolumeId == volumeID {
+			h.Printf("user volume %s is still attached to instance %s, terminating that instance",
+				volumeID, h.instance.InstanceId)
+			if err := h.terminateInstance(); err != nil {
+				return err
 			}
 		}
 	}
 
-	// terminate the instance
+	h.Printf("deleting user volume %s", volumeID)
+	if _, err := h.provider.DeleteVolume(volumeID); err != nil {
+		h.Printf("ERROR: failed to delete user volume %s, err: %v", volumeID, err)
+		return err
+	}
+	h.Printf("deleted user volume %s", volumeID)
+
+	return nil
+}
+
+// terminateInstance releases the EIP associated to the host's instance (if any)
+// and terminates the instance.
+func (h *Host) terminateInstance() error {
+	if err := h.releaseEIP(); err != nil {
+		return err
+	}
+
 	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
-		err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
-		return mh.Error(err, label)
+		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
 	}
 
 	state := StateChangeConf{
@@ -602,7 +787,7 @@ func (h *Host) Destroy() error {
 	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return mh.Error(err, label)
+		return err
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
@@ -623,15 +808,16 @@ func (h *Host) Info() (*host.Info, error) {
 		State:          getState(h.instance),
 	}
 
-	rootVolume, err := h.getRootVolume()
+	userVolume, err := h.getUserVolume()
 	if err == nil {
-		info.VolumeID = rootVolume.VolumeId
+		info.VolumeID = userVolume.VolumeId
 	}
 
 	return info, nil
 }
 
 func (h *Host) Stop() (*host.Info, error) {
+	// WARNING You should probably be changing StopWithQueue() instead.
 	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -644,6 +830,101 @@ func (h *Host) Stop() (*host.Info, error) {
 	}
 
 	return h.Info()
+}
+
+// mountUserVolume logs in to instance via SSH to:
+// 1. Mount user volume.
+// 2. Start docker.
+// 3. Start freighterd.
+func mountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("mount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	// Mount user device, assuming that /etc/fstab already knows the mountpoint.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo mount %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	// Explicitly resize mounted file system to the size of the volume.
+	// This is necessary because we detach and attach EBS volumes of varying
+	// sizes, and we want the OS to recognize the new volume's size.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo resize2fs %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
+		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd start`); err != nil {
+		return fmt.Errorf("failed to start freighterd, err: %v, output: %s", err, out)
+	}
+
+	return nil
+}
+
+// unmountUserVolume logs in to instance via SSH to:
+// 1. Stop freighterd.
+// 2. Stop docker.
+// 3. Unmount user volume.
+func unmountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("unmount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
+		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
+		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
+	}
+
+	// Try to unmount volume. We retry this several times in case there are
+	// processes that have open files on the user volume.
+	tries := 3
+	delay := 1 * time.Second
+	unmountOK := false
+	for i := 0; i < tries; i++ {
+		out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName))
+		if err != nil {
+			h.Printf("failed to unmount %s - attempt %d, err: %v, output: %s",
+				userDeviceOSName, i+1, err, out)
+			time.Sleep(delay)
+			continue
+		}
+
+		unmountOK = true
+		break
+	}
+
+	if !unmountOK {
+		return fmt.Errorf("could not unmount %s", userDeviceOSName)
+	}
+
+	return nil
+}
+
+func detachUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	userVolume, err := h.getUserVolume()
+	if err != nil {
+		return err
+	}
+
+	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if _, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return err
+	}
+	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
 }
 
 func (h *Host) stopInstance() error {
@@ -670,12 +951,24 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	label := h.MetricsLabel("stop")
 	defer mh.UpdateSince(label, time.Now())
 
-	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
 	}
+
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if h.supportsEBSHotswapping(vol) {
+		return h.stopWithPool(qp, queueInfo)
+	}
+
+	h.Printf("stopping pre-EBS hotswapping instance normally")
 
 	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
 		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
@@ -695,25 +988,224 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	h.instance = updatedInstance.(*ec2.Instance)
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 	} else {
-		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, err)
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, err)
 	}
 
 	return info, err
 }
 
-// Start starts the instance and allocate the desired IP address to it
+func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("stop_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), stopTimeout)
+	defer cancel()
+
+	userVolume, err := h.getUserVolume()
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     3 * time.Minute,
+		},
+		{
+			Description: "Unmounting user volume",
+			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Detaching user volume",
+			Func:        detachUserVolume,
+		},
+		{
+			Description: "Release Elastic IP",
+			Func: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+				return h.releaseEIP()
+			},
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+			return nil, mh.Error(err, label)
+		}
+
+		host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, step.Description, queue.Stop)
+	}
+
+	instanceID := h.instance.InstanceId
+	instanceType := h.instance.InstanceType
+	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
+
+	poolFull, err := h.isPoolFull(instanceType)
+	if err != nil {
+		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
+		return nil, mh.Error(err, label)
+	}
+
+	// If instance pool is full, we terminate the instance.
+	// Otherwise, we release the (still running) instance to the pool.
+	if poolFull {
+		h.Printf("pool for %q is full, terminating instance", instanceType)
+		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
+			err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", instanceID, err)
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
+			return nil, mh.Error(err, label)
+		}
+	} else {
+		h.Printf("releasing instance %s of stopped workspace to pool for %q", instanceID, instanceType)
+		if err := h.releaseInstance(); err != nil {
+			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
+			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
+			return nil, mh.Error(err, label)
+		}
+	}
+
+	info := &host.Info{
+		VolumeID: userVolume.VolumeId,
+		Provider: h.DriverName(),
+		Region:   h.provider.Region.Name,
+		State:    state.Detached,
+	}
+
+	host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
+
+	return info, err
+}
+
+// Start starts an instance and allocate the desired IP address to it
 func (h *Host) Start() (*host.Info, error) {
 	label := h.MetricsLabel("start")
 	defer mh.UpdateSince(label, time.Now())
+
+	h.Printf("checking if instance %s supports EBS hotswapping", h.Config.ID)
+
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if h.supportsEBSHotswapping(vol) {
+		return h.startWithPool()
+	}
+
+	h.Printf("starting pre-EBS hotswapping instance normally")
 
 	if err := h.reloadInstance(h.Config.ID); err != nil {
 		return nil, mh.Error(err, label)
 	}
 
-	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+	if err := h.startInstance(); err != nil {
 		return nil, mh.Error(err, label)
+	}
+
+	return h.Info()
+}
+
+func (h *Host) startWithPool() (*host.Info, error) {
+	label := h.MetricsLabel("start_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
+	instanceType := h.Config.InstanceType
+
+	h.Printf("attempting to acquire instance of type %q from pool", instanceType)
+
+	// Attempt to acquire an instance from pool.
+	instance, err := h.acquireInstance(instanceType)
+	if err != nil {
+		h.Printf("could not acquire an instance from pool for instance type %q, err: %v", instanceType, err)
+
+		// If we can't acquire an instance from the pool, we create a new
+		// instance and attach the user's existing volume.
+		return h.attachToNewInstance(h.Config.VolumeID)
+	}
+
+	h.instance = instance
+
+	h.Printf("attaching user's volume %s to instance %s", h.Config.VolumeID, instance.InstanceId)
+	if _, err := attachVolume(h.provider, h.Config.VolumeID, instance.InstanceId, userDeviceName); err != nil {
+		return nil, fmt.Errorf("amazon: failed to attach user volume %s to %s, err: %v", h.Config.VolumeID, h.instance.InstanceId, err)
+	}
+	h.Printf("attached user's volume %s to instance %s", h.Config.VolumeID, instance.InstanceId)
+
+	// Login to the instance and start docker and freighterd.
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), startTimeout)
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Connecting to workspace",
+			Func:        host.WaitForSSH,
+			Timeout:     3 * time.Minute,
+		},
+		{
+			Description: "Mounting user volume",
+			Func:        mountUserVolume,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+
+			return nil, mh.Error(err, label)
+		}
+	}
+
+	return h.Info()
+}
+
+// startInstance starts the underlying EC2 instance and reassociates it with the
+// configured IP address (Config.IPAddress), if necessary.
+func (h *Host) startInstance() error {
+	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+		return err
 	}
 
 	state := StateChangeConf{
@@ -724,41 +1216,165 @@ func (h *Host) Start() (*host.Info, error) {
 	h.Printf("waiting for state to become %s", state.Target)
 	updatedInstance, err := WaitForState(&state)
 	if err != nil {
-		return nil, mh.Error(err, label)
+		return err
 	}
 	h.instance = updatedInstance.(*ec2.Instance)
 
-	// if this is a VPC instance, we dont have to reassociate ElasticIP because
-	// it will be persisted after stop by default.
-	// http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences
+	// Reassociate Elastic IP if:
+	// 1. configured (i.e. Config.DisableEIP is false), and
+	// 2. underlying EC2 instance is not in a VPC.
+	// When a VPC instance is stopped, its Elastic EIP remains associated, so
+	// we don't have to reassociate. See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences.
 	if !isVPC(h.instance) && !h.Config.DisableEIP {
 		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
 			InstanceId:         h.instance.InstanceId,
 			PublicIp:           h.Config.IPAddress,
 			AllowReassociation: false,
 		}); err != nil {
-			return nil, mh.Error(err, label)
+			return err
 		}
 
 		// reload the instance to get a new public IP address
 		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
-			return nil, mh.Error(err, label)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// attachToNewInstance creates a new EC2 instance and attaches the given volume
+// to the instance as its user volume.
+func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
+	defer cancel()
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	defer func() {
+		if hctx.Executor != nil {
+			hctx.Executor.Close()
+		}
+	}()
+
+	steps := []host.Step{
+		{
+			Description: "Checking image's availability",
+			Func:        inspectSourceAMI,
+		},
+		{
+			Description: "Creating workspace",
+			Func:        createInstance,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Setting workspace's name",
+			Func:        associateInstanceTags,
+		},
+		{
+			Func:    host.WaitForSSH,
+			Timeout: 5 * time.Minute,
+		},
+		{
+			Description: "Assigning network address",
+			Func:        allocateElasticIP,
+		},
+		{
+			Description: "Connecting via SSH",
+			Func:        host.WaitForSSH,
+			Timeout:     5 * time.Minute,
+		},
+		{
+			Description: "Discovering new disk",
+			Func: func(ctx *host.HostContext) error {
+				// Get info of the volume attached to instance, so that we can
+				// detach and delete it.
+				h := ctx.Host.(*Host)
+
+				userVolume, err := h.getUserVolume()
+				if err != nil {
+					return err
+				}
+
+				h.userVolume = userVolume
+
+				return nil
+			},
+		},
+		{
+			Description: "Unmount new volume",
+			Func:        unmountUserVolume,
+		},
+		{
+			Description: "Detaching new volume",
+			Func:        detachUserVolume,
+		},
+		{
+			Description: "Deleting new volume",
+			Func:        deleteOldVolume,
+		},
+		{
+			Description: "Attaching user's volume",
+			Func: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+
+				instanceID := h.instance.InstanceId
+
+				h.Printf("attaching user's volume %s to instance %s", volumeID, instanceID)
+				vol, err := attachVolume(h.provider, volumeID, instanceID, userDeviceName)
+				if err != nil {
+					return fmt.Errorf("amazon: failed to attach user volume %s to %s, err: %v", volumeID, instanceID, err)
+				}
+				h.Printf("attached user's volume %s to instance %s", volumeID, instanceID)
+
+				h.userVolume = vol
+
+				return nil
+			},
+		},
+		{
+			Description: "Mounting user volume",
+			Func:        mountUserVolume,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
+
+			if err == context.DeadlineExceeded {
+				return nil, ErrTimeout
+			}
+			return nil, err
 		}
 	}
 
 	return h.Info()
 }
 
-// Restart performs a hard-reset of the instance. This should not change the
-// public IP address of the instance. This does not use RebootAPI, but instead
-// stop/starting the instance to make sure that it has a clean state.
+// Restart performs a stop, then start of the underlying EC2 instance,
+// preserving its public IP address. This is a "soft restart" compared to
+// calling Stop() and then Start(), since this guarantees that the underlying
+// EC2 instance is never changed.
 func (h *Host) Restart() (*host.Info, error) {
 	label := h.MetricsLabel("restart")
 	defer mh.UpdateSince(label, time.Now())
-	if _, err := h.Stop(); err != nil {
-		return nil, err
+
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, mh.Error(err, label)
 	}
-	return h.Start()
+
+	if err := h.stopInstance(); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if err := h.startInstance(); err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	return h.Info()
 }
 
 // List returns all instances in the current region. To perform list of
@@ -817,7 +1433,7 @@ func (h *Host) List() ([]*host.Info, error) {
 						checkInstance := false
 						// Tags is array of Tag. There is no way to check tag by key
 						for _, tag := range instance.Tags {
-							if tag.Key == "dedicated" && tag.Value == h.env {
+							if tag.Key == "dedicated" && tag.Value == h.driverConfig.Env {
 								checkInstance = true
 								break
 							}
@@ -871,8 +1487,8 @@ func (h *Host) DriverName() string {
 // id, if available.
 func (h *Host) Printf(format string, v ...interface{}) {
 	fields := logrus.Fields{}
-	if h.uuid != "" {
-		fields["uuid"] = h.uuid
+	if h.requestID != "" {
+		fields["uuid"] = h.requestID
 	}
 	if h.instance != nil {
 		fields["instance"] = h.instance.InstanceId
@@ -910,22 +1526,30 @@ func (h *Host) Settings() *host.Settings {
 
 // Name returns the name of the host, injecting env if available
 func (h *Host) Name() string {
-	env := h.env
+	env := h.driverConfig.Env
 	if env == "" {
 		env = "env"
 	}
 	return strings.Replace(h.Config.Name, "{{env}}", env, -1)
 }
 
-// SSHConfig returns the host's SSH confiration. This configuration is only
-// valid during creation phase.
+// SSHConfig returns the host's SSH confiration.
 func (h *Host) SSHConfig() *host.SSHConfig {
+	kp, err := h.regionKeypair()
+	if err != nil {
+		h.Printf("error getting region keypair, err: %v", err)
+	}
+
 	return &host.SSHConfig{
 		IPAddress:  h.instance.PublicIpAddress,
 		Port:       host.SSHPort,
 		Username:   "ubuntu",
-		PrivateKey: h.keypair.privateKey,
+		PrivateKey: kp.privateKey,
 	}
+}
+
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
 }
 
 // reloadInstance reloads the current instance associated with this Host to the
@@ -935,8 +1559,56 @@ func (h *Host) reloadInstance(id string) error {
 	return getInstance(h.provider, id, h)
 }
 
+func (h *Host) releaseEIP() error {
+	if h.Config.DisableEIP {
+		return nil
+	}
+
+	if ip := h.Config.IPAddress; ip != "" {
+		// Release IP address given by the client. We can't use
+		// h.instance.PublicIPAddress because it's not guaranteed to be the
+		// correct IP when the instance is stopped.
+		h.Printf("releasing IP address %s for instance %s", ip, h.instance.InstanceId)
+		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+			return fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
+				h.Config.IPAddress, h.instance.InstanceId, err)
+		}
+	}
+
+	return nil
+}
+
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
+	return strings.Replace(h.driverConfig.NotifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
+}
+
+func (h *Host) regionKeypair() (*keypair, error) {
+	if h.keypair != nil {
+		return h.keypair, nil
+	}
+
+	for _, r := range h.driverConfig.Regions {
+		if r.ID != h.Config.RegionID {
+			continue
+		}
+
+		path := r.Keypair.PrivateKeyPath
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("error reading private key at %q, err: %v", path, err)
+		}
+		block, _ := pem.Decode(data)
+		pk, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse a valid RSA private key from %q, err: %v", path, err)
+		}
+
+		h.keypair = &keypair{name: r.Keypair.Name, privateKey: pk}
+
+		return h.keypair, nil
+	}
+
+	return nil, fmt.Errorf("private key not configured for region %q", h.Config.RegionID)
 }
 
 // progressLog writes the message to the given writer and logs the message,
@@ -949,63 +1621,79 @@ func (h *Host) progressLog(w io.Writer, format string, v ...interface{}) {
 
 func (h *Host) logFailed() {
 	if h.instance != nil {
-		if h.keypair != nil {
-			h.Printf("keyID=%s Leaving instance for inspection: %s", h.keypair.name, h.instance.InstanceId)
-		} else {
-			h.Printf("keyID=unknown Leaving instance for inspection: %s", h.instance.InstanceId)
-		}
+		h.Printf("Leaving instance for inspection: %s", h.instance.InstanceId)
 	}
 }
 
 func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, ev event.Event, action queue.Event, err error) {
-	if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-		host.PublishHost(qp, ev, h.uuid, queueInfo, info, action, err.Error())
+	if info, e := h.Info(); e == nil {
+		host.PublishHost(qp, ev, h.requestID, queueInfo, info, action, err.Error())
 	} else {
-		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.uuid, hostInfoErr)
+		logrus.Debugf("[ERROR] uuid=%s amazon: failed to send a message due to failure on getting host info: %v", h.requestID, e)
 	}
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
-	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s amazon: invalid config %s", driverOptions["uuid"], config)
-		return nil, err
-	}
-	accessConfig := &AccessConfig{
-		AccessKey: driverOptions["access_key"],
-		SecretKey: driverOptions["secret_key"],
-		RawRegion: hostConfig.RegionID,
-	}
-	auth, err := accessConfig.Auth()
+func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
+	resp, err := h.provider.Volumes([]string{h.Config.VolumeID}, ec2.NewFilter())
 	if err != nil {
-		logrus.Errorf("uuid=%s amazon: auth failed %v", driverOptions["uuid"], err)
+		return nil, fmt.Errorf("failed to get volume info of volume ID %s, err: %v", volumeID, err)
+	}
+	if len(resp.Volumes) != 1 {
+		return nil, fmt.Errorf("expected to get 1 volume but got %+v", resp.Volumes)
+	}
+
+	return &resp.Volumes[0], nil
+}
+
+// supportsEBSHotswapping returns true if:
+// 1. the configured volume is not attached to an instance.
+// 2. the configured volume is attached to the configured instance as its user
+//    device.
+func (h *Host) supportsEBSHotswapping(vol *ec2.Volume) bool {
+	if len(vol.Attachments) == 0 {
+		return true
+	}
+
+	attachment := vol.Attachments[0]
+	if attachment.InstanceId == h.Config.ID && attachment.Device == userDeviceName {
+		return true
+	}
+
+	return false
+}
+
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
-	// get create timeout
-	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(driverOptions["create_timeout"])
-	if err == nil {
-		createTimeout = d
+
+	hostCfg := &hostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
+		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
+		return nil, err
+	}
+
+	auth, err := aws.GetAuth(driverCfg.AccessKey, driverCfg.SecretKey)
+	if err != nil {
+		logrus.Errorf("amazon: auth failed %v", err)
+		return nil, err
 	}
 
 	host := &Host{
-		AccessConfig:  accessConfig,
-		Config:        hostConfig,
-		auth:          auth,
-		createTimeout: createTimeout,
-		uuid:          driverOptions["uuid"], // this is injected by the server per request
-		notifyURL:     driverOptions["notify_url"],
-		env:           driverOptions["env"],
+		driverConfig: driverCfg,
+		Config:       hostCfg,
+		auth:         auth,
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if _, ok := driverOptions["ignore_region"]; !ok {
-		region, err := accessConfig.Region()
-		if err != nil {
-			logrus.Errorf("uuid=%s amazon: invalid region %v", driverOptions["uuid"], err)
-			return nil, err
+	if driverCfg.IgnoreRegion != "true" {
+		region, ok := aws.Regions[hostCfg.RegionID]
+		if !ok {
+			return nil, fmt.Errorf("amazon: invalid region %q", hostCfg.RegionID)
 		}
 		host.provider = ec2.New(auth, region)
 	}
@@ -1018,40 +1706,26 @@ func init() {
 	})
 }
 
-// createKeypair create a temporary keypair using Amazon API, store the
-// temporary private key so we can connect to the host during the creation
-// phase. The keypair should be deleted after provisioning finishes.
-func createKeypair(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	label := h.MetricsLabel("create_key")
-	defer mh.UpdateSince(label, time.Now())
-
-	// generate key pair
-	k, err := generateTempKeypair(h.provider)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-	h.keypair = k
-	return nil
-}
-
-// inspectSourceAMI checks that the requested AMI exists and can be used with
-// the current settings.
+// inspectSourceAMI gets the requested AMI's info and saves it.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("inspect_source_ami")
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("inspecting source ami %q", h.Config.SourceAMI)
-	if _, err := getImage(h.provider, h.Config.SourceAMI); err != nil {
+	image, err := getImage(h.provider, h.Config.SourceAMI)
+	if err != nil {
 		return mh.Error(err, label)
 	}
-	h.Printf("inspecting source ami %q... Done", h.Config.SourceAMI)
+	h.Printf("source ami: %#v", image)
+
+	h.ami = image
+
 	return nil
 }
 
-// createInstance runs the instance with specified config and a temporary
-// keypair and wait for it to be ready.
+// createInstance launches a new instance with host's Config and waits for it to
+// enter the "running" state.
 func createInstance(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("create_host")
@@ -1062,21 +1736,39 @@ func createInstance(ctx *host.HostContext) error {
 	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
 		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
 
-	opts := &ec2.RunInstances{
-		KeyName:        h.keypair.name,
-		ImageId:        h.Config.SourceAMI,
-		InstanceType:   h.Config.InstanceType,
-		SecurityGroups: h.Config.securityGroups(),
-		MinCount:       0,
-		MaxCount:       0,
-		BlockDevices: []ec2.BlockDeviceMapping{
-			{
-				DeviceName:          rootDeviceName,
-				VolumeType:          GeneralVolumeType,
-				VolumeSize:          storageSize,
-				DeleteOnTermination: true,
-			},
+	kp, err := h.regionKeypair()
+	if err != nil {
+		return mh.Error(fmt.Errorf("amazon: failed to get region keypair %v", err), label)
+	}
+
+	bdm := []ec2.BlockDeviceMapping{
+		{
+			// The root volume is defined in the AMI's block devices as a
+			// snapshot, so we do not need to specify its size.
+			DeviceName:          rootDeviceName,
+			VolumeType:          GeneralVolumeType,
+			DeleteOnTermination: true,
 		},
+	}
+	if containsUserDevice(h.ami.BlockDevices) {
+		bdm = append(bdm, ec2.BlockDeviceMapping{
+			// The user volume is also in the AMI's block devices
+			// and we override its size to what was requested.
+			DeviceName:          userDeviceName,
+			VolumeSize:          storageSize,
+			VolumeType:          GeneralVolumeType,
+			DeleteOnTermination: false,
+		})
+	}
+
+	opts := &ec2.RunInstances{
+		KeyName:                  kp.name,
+		ImageId:                  h.Config.SourceAMI,
+		InstanceType:             h.Config.InstanceType,
+		SecurityGroups:           h.Config.securityGroups(),
+		MinCount:                 0,
+		MaxCount:                 0,
+		BlockDevices:             bdm,
 		AssociatePublicIpAddress: true,
 	}
 	// assigned subnet ID for VPC instance
@@ -1177,11 +1869,21 @@ func computeSize(size int) int64 {
 	return storageSize
 }
 
-func rootDevice(instance *ec2.Instance) *ec2.BlockDevice {
+func blockDevice(instance *ec2.Instance, deviceName string) *ec2.BlockDevice {
 	for _, dev := range instance.BlockDevices {
-		if dev.DeviceName == rootDeviceName {
+		if dev.DeviceName == deviceName {
 			return &dev
 		}
 	}
 	return nil
+}
+
+func containsUserDevice(bdm []ec2.BlockDeviceMapping) bool {
+	for _, m := range bdm {
+		if m.DeviceName == userDeviceName {
+			return true
+		}
+	}
+
+	return false
 }

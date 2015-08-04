@@ -1119,13 +1119,15 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates only the provider template ID, state, and IP address", func() {
+		It("updates only the provider identifier, provider storage identifier, provider template ID, state, and IP address", func() {
 			hs2, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h.ProviderTemplateID = hs2.PT.ID
 			h.State = host.StateRunning
 			h.IPAddress = sql.NullString{"192.168.0.1", true}
+			h.ProviderIdentifier = sql.NullString{"i-beef", true}
+			h.ProviderStorageIdentifier = sql.NullString{"vol-babe", true}
 
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"new name", true}
@@ -1143,6 +1145,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderTemplateID).To(Equal(hs2.PT.ID))
 			Expect(h2.State).To(Equal(host.StateRunning))
 			Expect(h2.IPAddress.String).To(Equal("192.168.0.1"))
+			Expect(h2.ProviderIdentifier.String).To(Equal("i-beef"))
+			Expect(h2.ProviderStorageIdentifier.String).To(Equal("vol-babe"))
 
 			// Unchanged fields.
 			Expect(h2.Slug).To(Equal("host-1"))
@@ -1150,7 +1154,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.PlanID).To(Equal(h.PlanID))
 			Expect(h2.RegionID).To(Equal(h.RegionID))
 			Expect(h2.HourlyPrice).To(Equal(h.HourlyPrice))
-			Expect(h2.ProviderIdentifier.String).To(Equal(h.ProviderIdentifier.String))
 			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
 			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
 			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
@@ -1412,42 +1415,55 @@ var _ = Describe("models/host", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": false,
+					"id":         "i-123456",
+					"volume_id":  "vol-abcde",
+					"region_id":  "us-west-2",
+					"ip_address": "10.0.0.1",
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
-					ProviderTemplate:   &host.ProviderTemplate{},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					ProviderTemplate:          &providertemplate.ProviderTemplate{},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": false,
+					"id":         "i-123456",
+					"volume_id":  "",
+					"region_id":  "us-west-2",
+					"ip_address": "10.0.0.1",
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
-					ProviderTemplate: &host.ProviderTemplate{
+					ID:                        42,
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					ProviderTemplate: &providertemplate.ProviderTemplate{
+						Provider: "amazon",
 						Config: hstore.Hstore{
 							Map: map[string]sql.NullString{
-								"disable_eip": sql.NullString{"true", true},
+								"disable_eip":   sql.NullString{"true", true},
+								"instance_type": sql.NullString{"t2.micro", true},
+								"source_ami":    sql.NullString{"ami-zxcv", true},
+								"storage_size":  sql.NullString{"10", true},
 							},
 						},
 					},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": true,
+					"id":            "i-123456",
+					"volume_id":     "vol-abcde",
+					"region_id":     "us-west-2",
+					"ip_address":    "10.0.0.1",
+					"name":          "userhost-{{env}}-42",
+					"disable_eip":   true,
+					"instance_type": "t2.micro",
+					"source_ami":    "ami-zxcv",
+					"storage_size":  10,
 				},
 			}
 

@@ -119,6 +119,14 @@
 			"Rev": "e15478f1b6c7310e103152b9abee172bbc159f65"
 		},
 		{
+			"ImportPath": "github.com/garyburd/redigo/internal",
+			"Rev": "a47585eaae68b1d14b02940d2af1b9194f3caa9c"
+		},
+		{
+			"ImportPath": "github.com/garyburd/redigo/redis",
+			"Rev": "a47585eaae68b1d14b02940d2af1b9194f3caa9c"
+		},
+		{
 			"ImportPath": "github.com/go-fsnotify/fsnotify",
 			"Comment": "v1.2.0",
 			"Rev": "96c060f6a6b7e0d6f75fddd10efeaca3e5d1bcb0"
@@ -270,6 +278,10 @@
 			"ImportPath": "github.com/stripe/stripe-go",
 			"Comment": "v3.1.0",
 			"Rev": "fdb42cffdfb93c097566219f43cb9ca5a9403178"
+		},
+		{
+			"ImportPath": "github.com/stvp/tempredis",
+			"Rev": "67c04d1c96c503a11ebce2de1ad3b8c56100ba5a"
 		},
 		{
 			"ImportPath": "github.com/subosito/figo",

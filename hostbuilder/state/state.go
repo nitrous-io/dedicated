@@ -14,4 +14,5 @@ const (
 	Starting
 	Stopping
 	Terminated
+	Detached
 )

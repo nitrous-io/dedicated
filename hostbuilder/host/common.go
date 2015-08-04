@@ -26,6 +26,10 @@ func WaitForSSH(ctx *HostContext) error {
 	timeout := ctx.Done()
 	config := ctx.Host.SSHConfig()
 
+	if config.PrivateKey == nil {
+		return errors.New("host's private key is missing")
+	}
+
 	label := l.MetricsLabel("ssh_wait")
 	defer mh.UpdateSince(label, time.Now())
 
@@ -46,7 +50,7 @@ func WaitForSSH(ctx *HostContext) error {
 
 // create settings for the host with the provided dynamic properties.
 func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, version string, publicKeys []string) *Settings {
-	settings := &Settings{
+	return &Settings{
 		TLSConfig: tls,
 		AptConfig: apt,
 		Config: &freighter.Config{
@@ -67,7 +71,6 @@ func NewSettings(tls *TLSConfig, apt *AptConfig, home, notifyURL, secret, versio
 		Version:    version,
 		PublicKeys: publicKeys,
 	}
-	return settings
 }
 
 // WriteSettings uploads necessary file system contents to the host, which
@@ -83,16 +86,6 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(errors.New("invalid SSH connection"), label)
 	}
 
-	pubKeysBuf := bytes.NewBuffer(nil)
-	for _, k := range settings.PublicKeys {
-		fmt.Fprintln(pubKeysBuf, k)
-	}
-
-	aptSourcesBuf := bytes.NewBuffer(nil)
-	if err := SourceTemplate.Execute(aptSourcesBuf, settings.AptConfig); err != nil {
-		return mh.Error(err, label)
-	}
-
 	cfgb, err := json.Marshal(settings.Config)
 	if err != nil {
 		err = fmt.Errorf("invalid config, err: %v", err)
@@ -104,17 +97,35 @@ func WriteSettings(ctx *HostContext) error {
 		return mh.Error(err, label)
 	}
 
-	pubKeyLocation := filepath.Join(settings.Home, ".ssh", "authorized_keys")
-	fl, err := uploadFile(l, conn, map[string]io.Reader{
-		pubKeyLocation:  pubKeysBuf,
-		SourceLocation:  aptSourcesBuf,
+	// Append to ~/.ssh/authorized_keys file so that any existing keys are
+	// preserved.
+	authorizedKeysPath := filepath.Join(settings.Home, ".ssh", "authorized_keys")
+	cmd := fmt.Sprintf(`echo -e %q >> %s`, strings.Join(settings.PublicKeys, "\n"), authorizedKeysPath)
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err := fmt.Errorf("failed to write to %s, output: %s, err: %v", authorizedKeysPath, out, err)
+		return mh.Error(err, label)
+	}
+
+	// Write to apt sources file so that we preserve its permissions/ownership
+	// and follow symlinks (if it is a symlink).
+	buf := bytes.NewBuffer(nil)
+	if err := SourceTemplate.Execute(buf, settings.AptConfig); err != nil {
+		return mh.Error(err, label)
+	}
+	cmd = fmt.Sprintf(`echo -e %q | sudo tee %s > /dev/null`, buf.String(), SourceLocation)
+	if out, err := conn.CombinedOutput(cmd); err != nil {
+		err := fmt.Errorf("failed to write to %s, output: %s, err: %v", SourceLocation, out, err)
+		return mh.Error(err, label)
+	}
+
+	files, err := uploadFiles(l, conn, map[string]io.Reader{
 		TLSCALocation:   strings.NewReader(settings.TLSConfig.CA),
 		TLSCertLocation: strings.NewReader(settings.TLSConfig.Cert),
 		TLSKeyLocation:  strings.NewReader(settings.TLSConfig.Key),
 		SecretLocation:  strings.NewReader(settings.Secret),
 		ConfigLocation:  bytes.NewBuffer(cfgb),
 	})
-	l.Printf("Uploaded (%s) to %v", pubKeyLocation, strings.Join(fl, ", "))
+	l.Printf("Uploaded files to %s", strings.Join(files, ", "))
 	if err != nil {
 		return mh.Error(err, label)
 	}
@@ -196,7 +207,7 @@ func UpdateSoftware(ctx *HostContext) error {
 	return nil
 }
 
-func uploadFile(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
+func uploadFiles(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
 	flist := []string{}
 	// upload to tmp directory then mv to dest path to avoid permissions issues
 	for dest, val := range files {

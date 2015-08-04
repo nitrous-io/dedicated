@@ -8,6 +8,8 @@ import (
 	"github.com/c9s/goprocinfo/linux"
 )
 
+const storagePath = "/var/lib/docker"
+
 type Stats struct {
 	// Uptime in seconds.
 	Uptime uint64 `json:"uptime"`
@@ -41,7 +43,9 @@ var Sample = func(period time.Duration) (*Stats, error) {
 	stats.MemoryTotal = uint64(sys.Totalram) / unit
 
 	statfs := &syscall.Statfs_t{}
-	syscall.Statfs("/", statfs) // Assume root volume is the volume made available to users.
+	// Assume the volume that docker's var dir is on is the volume made
+	// available to users.
+	syscall.Statfs(storagePath, statfs)
 	total := statfs.Blocks * uint64(statfs.Bsize)
 	used := total - (statfs.Bfree * uint64(statfs.Bsize))
 	stats.StorageUsage = used

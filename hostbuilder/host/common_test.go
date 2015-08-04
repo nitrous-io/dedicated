@@ -89,17 +89,20 @@ var _ = Describe("WriteSettings", func() {
 
 		err := host.WriteSettings(ctx)
 		Expect(err).To(BeNil())
+
 		Expect(e.cmds[0]).To(Equal("sudo mkdir -p /etc/freighterd"))
+
+		Expect(e.cmds[1]).To(Equal(`echo -e "pubkey1\npubkey2" >> /home/action/.ssh/authorized_keys`))
+
+		Expect(e.cmds[2]).To(Equal(fmt.Sprintf(`echo -e "deb https://distro:passwd@master precise main" | sudo tee %s > /dev/null`, host.SourceLocation)))
 
 		uploads := [][3]string{
 			// destination, contents, equality ("" = test contents for substring)
-			{"/home/action/.ssh/authorized_keys", "pubkey1\npubkey2\n", "true"},
 			{"/etc/freighterd/ca.crt", "ca", "true"},
 			{"/etc/freighterd/cert.crt", "cert", "true"},
 			{"/etc/freighterd/key.crt", "key", "true"},
 			{"/etc/freighterd/secret", "secret", "true"},
 			{"/etc/freighterd/config.json", "http://google.com", ""},
-			{host.SourceLocation, "deb https://distro:passwd@master precise main", ""},
 		}
 
 		for _, v := range uploads {

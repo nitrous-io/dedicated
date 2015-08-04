@@ -373,7 +373,7 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			u.Topic(),
 		)
 	default:
-		logrus.Debugf("uuid=%s queueTracer: unexpected event for stapping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
+		logrus.Debugf("uuid=%s queueTracer: unexpected event for stopping a host: queueInfo(%+v) message(%+v)", m.UUID, queueInfo, m)
 	}
 
 	return nil
@@ -419,6 +419,9 @@ func (s *Server) handleRespecMessage(m *queue.Message) error {
 		h.ProviderTemplateID = rs.ProviderTemplateID
 		h.State = host.StateRunning
 		h.IPAddress = sql.NullString{info.IPAddress, true}
+		h.ProviderIdentifier = sql.NullString{info.ID, true}
+		h.ProviderStorageIdentifier = sql.NullString{info.VolumeID, true}
+
 		if err := h.UpdateAfterRespec(db); err != nil {
 			logData.Errorf("error updating host after respec completed: %v", err)
 		}

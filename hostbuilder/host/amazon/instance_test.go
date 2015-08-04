@@ -101,29 +101,30 @@ var _ = Describe("modifyInstanceType", func() {
 })
 
 var _ = Describe("setTags", func() {
-	It("set name and dedicated attribute", func() {
+	It("sets name, dedicated tag, and dedicated:version tag", func() {
 		p := &dummyInstanceProvider{}
 		h := &Host{
-			Config:   &HostConfig{Name: "test-host"},
+			Config:   &hostConfig{Name: "test-host"},
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 		}
 		setTags(p, h)
 
 		Expect(p.calls[0].args[0].([]string)).To(Equal([]string{"i-1234"}))
-		Expect(p.calls[0].args[1].([]ec2.Tag)).To(Equal([]ec2.Tag{
-			{"Name", "test-host"},
-		}))
+		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
+			ec2.Tag{"Name", "test-host"},
+		))
 
 		p = &dummyInstanceProvider{}
 		h = &Host{
-			Config:   &HostConfig{Name: "test-{{env}}-host"},
-			instance: &ec2.Instance{InstanceId: "i-1234"},
-			env:      "staging",
+			driverConfig: driverConfig{Env: "staging", HostVersion: "42"},
+			Config:       &hostConfig{Name: "test-{{env}}-host"},
+			instance:     &ec2.Instance{InstanceId: "i-1234"},
 		}
 		setTags(p, h)
-		Expect(p.calls[0].args[1].([]ec2.Tag)).To(Equal([]ec2.Tag{
-			{"Name", "test-staging-host"},
-			{"dedicated", "staging"},
-		}))
+		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
+			ec2.Tag{"Name", "test-staging-host"},
+			ec2.Tag{"dedicated", "staging"},
+			ec2.Tag{"dedicated:version", "42"},
+		))
 	})
 })
