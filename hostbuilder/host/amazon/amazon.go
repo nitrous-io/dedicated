@@ -1640,7 +1640,7 @@ func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, e
 }
 
 func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
-	resp, err := h.provider.Volumes([]string{h.Config.VolumeID}, ec2.NewFilter())
+	resp, err := h.provider.Volumes([]string{volumeID}, ec2.NewFilter())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volume info of volume ID %s, err: %v", volumeID, err)
 	}
