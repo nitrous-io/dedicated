@@ -519,29 +519,29 @@ func (h *Host) generateNotifyURL() string {
 }
 
 func New(driverOptions string, hostOptions string) (host.Host, error) {
-	driverConfig := driverConfig{}
-	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
 		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
 
-	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(hostOptions), hostConfig); err != nil {
+	hostCfg := &HostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
 		logrus.Errorf("uuid=%s digitalocean: invalid host config: %s", hostOptions)
 		return nil, err
 	}
 
-	if driverConfig.Token == "" {
+	if driverCfg.Token == "" {
 		return nil, errors.New("digitalocean: requires valid access token")
 	}
 
 	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: driverConfig.Token},
+		Token: &oauth.Token{AccessToken: driverCfg.Token},
 	}
 	client := godo.NewClient(t.Client())
 	return &Host{
-		driverConfig: driverConfig,
-		Config:       hostConfig,
+		driverConfig: driverCfg,
+		Config:       hostCfg,
 		Client:       client,
 	}, nil
 }

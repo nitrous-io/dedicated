@@ -1636,37 +1636,37 @@ func (h *Host) supportsEBSHotswapping(vol *ec2.Volume) bool {
 }
 
 func New(driverOptions string, hostOptions string) (host.Host, error) {
-	driverConfig := driverConfig{}
-	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
 		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
 
-	hostConfig := &hostConfig{}
-	if err := json.Unmarshal([]byte(hostOptions), hostConfig); err != nil {
+	hostCfg := &hostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
 		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
 		return nil, err
 	}
 
-	auth, err := aws.GetAuth(driverConfig.AccessKey, driverConfig.SecretKey)
+	auth, err := aws.GetAuth(driverCfg.AccessKey, driverCfg.SecretKey)
 	if err != nil {
 		logrus.Errorf("amazon: auth failed %v", err)
 		return nil, err
 	}
 
 	host := &Host{
-		driverConfig: driverConfig,
-		Config:       hostConfig,
+		driverConfig: driverCfg,
+		Config:       hostCfg,
 		auth:         auth,
 	}
 
 	// workaround for actions that requires multiple regions i.e. Host#List
 	// This is set by the caller and should not be serialized as a
 	// configuration value
-	if driverConfig.IgnoreRegion != "true" {
-		region, ok := aws.Regions[hostConfig.RegionID]
+	if driverCfg.IgnoreRegion != "true" {
+		region, ok := aws.Regions[hostCfg.RegionID]
 		if !ok {
-			return nil, fmt.Errorf("amazon: invalid region %q", hostConfig.RegionID)
+			return nil, fmt.Errorf("amazon: invalid region %q", hostCfg.RegionID)
 		}
 		host.provider = ec2.New(auth, region)
 	}

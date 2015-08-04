@@ -324,29 +324,29 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 }
 
 func New(driverOptions string, hostOptions string) (host.Host, error) {
-	driverConfig := driverConfig{}
-	if err := json.Unmarshal([]byte(driverOptions), &driverConfig); err != nil {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
 		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
 
-	_, err := exec.LookPath(driverConfig.FreighterdLocation)
+	_, err := exec.LookPath(driverCfg.FreighterdLocation)
 	if err != nil {
-		return nil, fmt.Errorf("Error finding freighterd binary at %q: %v", driverConfig.FreighterdLocation, err)
+		return nil, fmt.Errorf("Error finding freighterd binary at %q: %v", driverCfg.FreighterdLocation, err)
 	}
 
-	if dockerLocation := driverConfig.DockerLocation; dockerLocation != "" {
+	if dockerLocation := driverCfg.DockerLocation; dockerLocation != "" {
 		if _, err := exec.LookPath(dockerLocation); err != nil {
 			return nil, fmt.Errorf("Error finding docker binary at %q: %v", dockerLocation, err)
 		}
 	}
 
 	endpoint := "unix:///var/run/docker.sock"
-	if driverConfig.Endpoint != "" {
-		endpoint = driverConfig.Endpoint
+	if driverCfg.Endpoint != "" {
+		endpoint = driverCfg.Endpoint
 	}
 
-	host := &Host{driverConfig: driverConfig}
+	host := &Host{driverConfig: driverCfg}
 	if err := json.Unmarshal([]byte(hostOptions), host); err != nil {
 		return nil, err
 	}
