@@ -26,7 +26,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
+	from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
 	to := (&mail.Address{Name: "Nitrous Feedback", Address: "support@nitrous.io"}).String()
 	replyTo := (&mail.Address{Name: env.User.Name, Address: env.User.Email}).String()
 

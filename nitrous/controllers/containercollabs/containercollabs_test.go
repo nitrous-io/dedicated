@@ -347,9 +347,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				return collab.EmailSentAt.Valid
 			}).Should(BeTrue())
 
-			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"steve" <steve@stevey.com>`}))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Subject).To(Equal("owner has shared container java-test-container with you!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello steve!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/containers/java-test-container"))
@@ -385,9 +385,9 @@ var _ = Describe("controllers/containercollabs", func() {
 				return collab.EmailSentAt.Valid
 			}).Should(BeTrue())
 
-			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"steve" <steve@stevey.com>`}))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Subject).To(Equal("&lt;bold&gt;HTML&lt;/bold&gt; has shared container java-test-container with you!"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("java-test-container by &lt;bold&gt;HTML&lt;/bold&gt;."))
 		})
@@ -450,9 +450,9 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			url := fmt.Sprintf("https://nitrous.example/app/#/signup?email=robin@example.com&invite_code=%s", collab.InviteCode.String)
 
-			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{"robin@example.com"}))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <mailer@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
 			Expect(fakeMailer.Subject).To(Equal("&lt;p&gt;HTML&lt;/p&gt; has shared container java-test-container with you!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello robin@example.com!"))
 			Expect(fakeMailer.Body).To(ContainSubstring(url))

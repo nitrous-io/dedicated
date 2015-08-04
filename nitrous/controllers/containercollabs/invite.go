@@ -77,7 +77,7 @@ func inviteUser(d *db.Database, c *container.Container, email string, sharer *us
 			return err
 		}
 
-		from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
+		from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
 		return Mailer.SendMail(from, []string{email}, []string{from}, nil, from, tmplData.Subject, txtBuf.String(), htmlBuf.String())
 	})
 }

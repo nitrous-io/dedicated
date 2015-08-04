@@ -508,7 +508,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
 		targetEmail = u.Email
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
+	from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
 	to := (&mail.Address{Name: u.DisplayName(), Address: targetEmail}).String()
 
 	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
