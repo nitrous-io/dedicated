@@ -20,7 +20,7 @@ App.User = klass = Em.Object.extend
 
 klass.reopenClass
   fetch: ->
-    promise = new Ember.RSVP.Promise (resolve, reject) =>
+    new Ember.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
         type: 'GET',
         url: '/api/v0/user',
@@ -29,4 +29,3 @@ klass.reopenClass
         resolve(App.User.create(data.user))
       ).fail (jqxhr) ->
         reject(jqxhr)
-    promise

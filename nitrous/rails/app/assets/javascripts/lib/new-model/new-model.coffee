@@ -95,7 +95,7 @@ klass.reopenClass
       added.push(record) if !existing.contains(record)
 
     existing.removeObjects(removed)
-    existing.pushObjects(removed)
+    existing.pushObjects(added)
     existing
 
 stripUndefined = (data) ->
