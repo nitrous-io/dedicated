@@ -213,13 +213,15 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		if err != nil {
 			return err
 		}
-		if err := subProvider.Cancel(env.DB, sub); err != nil {
-			return err
-		}
-		if !h.Free && !env.User.Admin {
-			serializeHost(env, h)
-			env.Data["subscription"] = "cancelled"
-			return nil
+		if sub.State != subscription.StateDeleted {
+			if err := subProvider.Cancel(env.DB, sub); err != nil {
+				return err
+			}
+			if !h.Free && !env.User.Admin {
+				serializeHost(env, h)
+				env.Data["subscription"] = "cancelled"
+				return nil
+			}
 		}
 	}
 
