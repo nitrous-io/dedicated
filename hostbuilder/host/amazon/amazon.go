@@ -792,6 +792,10 @@ func (h *Host) terminateInstance() error {
 }
 
 func (h *Host) Info() (*host.Info, error) {
+	if err := h.reloadInstance(h.Config.ID); err != nil {
+		return nil, err
+	}
+
 	if h.instance == nil {
 		return nil, errors.New("Invalid ec2 instance")
 	}
