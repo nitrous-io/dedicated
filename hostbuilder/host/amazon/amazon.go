@@ -1019,7 +1019,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 			Timeout:     3 * time.Minute,
 		},
 		{
-			Description: "Unmounting user disk",
+			Description: "Unmounting user volume",
 			Func:        unmountUserVolume,
 		},
 		{
@@ -1045,6 +1045,8 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 			}
 			return nil, mh.Error(err, label)
 		}
+
+		host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, step.Description, queue.Stop)
 	}
 
 	instanceID := h.instance.InstanceId
@@ -1169,7 +1171,7 @@ func (h *Host) startWithPool() (*host.Info, error) {
 			Timeout:     3 * time.Minute,
 		},
 		{
-			Description: "Mounting user disk",
+			Description: "Mounting user volume",
 			Func:        mountUserVolume,
 		},
 		{
@@ -1296,19 +1298,19 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 			},
 		},
 		{
-			Description: "Unmount new disk",
+			Description: "Unmount new volume",
 			Func:        unmountUserVolume,
 		},
 		{
-			Description: "Detaching new disk",
+			Description: "Detaching new volume",
 			Func:        detachUserVolume,
 		},
 		{
-			Description: "Deleting new disk",
+			Description: "Deleting new volume",
 			Func:        deleteOldVolume,
 		},
 		{
-			Description: "Attaching user's disk",
+			Description: "Attaching user's volume",
 			Func: func(ctx *host.HostContext) error {
 				h := ctx.Host.(*Host)
 
@@ -1327,7 +1329,7 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 			},
 		},
 		{
-			Description: "Mounting user disk",
+			Description: "Mounting user volume",
 			Func:        mountUserVolume,
 		},
 	}
