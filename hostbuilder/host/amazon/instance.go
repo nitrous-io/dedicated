@@ -11,6 +11,7 @@ type instanceProvider interface {
 	Instances(ids []string, filter *ec2.Filter) (*ec2.InstancesResp, error)
 	ModifyInstance(id string, options *ec2.ModifyInstance) (*ec2.ModifyInstanceResp, error)
 	CreateTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
+	DeleteTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
 }
 
 func getInstance(provider instanceProvider, id string, h *Host) error {

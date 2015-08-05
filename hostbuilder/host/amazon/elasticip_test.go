@@ -2,17 +2,11 @@ package amazon
 
 import (
 	"errors"
-	"testing"
 
 	"github.com/mitchellh/goamz/ec2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-func TestAmazon(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "host/amazon")
-}
 
 type fn struct {
 	name string

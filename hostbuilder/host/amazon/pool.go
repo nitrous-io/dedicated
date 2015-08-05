@@ -3,7 +3,6 @@ package amazon
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"time"
 
@@ -18,10 +17,10 @@ import (
 
 var poolTag = "dedicated:pool"
 
-type instancePoolConfig struct {
-	Type string
-	Max  int
-}
+var (
+	errPoolNotConfigured = errors.New("no pool configured")
+	errPoolEmpty         = errors.New("pool is empty")
+)
 
 // instancePoolConfig returns the configuration for the instance pool of the
 // given instance type.
@@ -46,7 +45,7 @@ func (h *Host) instancePoolConfig(instancetype string) *instancePoolConfig {
 
 // instancesInPool returns the instances in the pool for the given instance
 // type. Instances should be running and tagged with "dedicated:pool=true".
-func (h *Host) instancesInPool(instancetype string) ([]*ec2.Instance, error) {
+func (h *Host) instancesInPool(provider instanceProvider, instancetype string) ([]*ec2.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-type", instancetype)
 	filter.Add(fmt.Sprintf(`tag:%s`, poolTag), "true")
@@ -56,7 +55,7 @@ func (h *Host) instancesInPool(instancetype string) ([]*ec2.Instance, error) {
 	// TODO We should actually paginate through requests, but we are just gonna
 	// rely on the API returning at least 1000 results, which is bigger than the
 	// size of any instance pool we want to configure, for now.
-	resp, err := h.provider.Instances(nil, filter)
+	resp, err := provider.Instances(nil, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -73,8 +72,8 @@ func (h *Host) instancesInPool(instancetype string) ([]*ec2.Instance, error) {
 
 // poolSize returns the number of running instances currently in the instance
 // pool of the given instance type.
-func (h *Host) poolSize(instancetype string) (int, error) {
-	instances, err := h.instancesInPool(instancetype)
+func (h *Host) poolSize(provider instanceProvider, instancetype string) (int, error) {
+	instances, err := h.instancesInPool(provider, instancetype)
 	if err != nil {
 		return 0, err
 	}
@@ -84,7 +83,7 @@ func (h *Host) poolSize(instancetype string) (int, error) {
 
 // isPoolFull returns true when the instance pool for the given instance type is
 // full.
-func (h *Host) isPoolFull(instancetype string) (bool, error) {
+func (h *Host) isPoolFull(provider instanceProvider, instancetype string) (bool, error) {
 	cfg := h.instancePoolConfig(instancetype)
 	if cfg == nil {
 		// A non-existent config is considered full (i.e. doesn't need any more
@@ -92,7 +91,7 @@ func (h *Host) isPoolFull(instancetype string) (bool, error) {
 		return true, nil
 	}
 
-	poolSize, err := h.poolSize(instancetype)
+	poolSize, err := h.poolSize(provider, instancetype)
 	if err != nil {
 		return false, err
 	}
@@ -104,10 +103,10 @@ func (h *Host) isPoolFull(instancetype string) (bool, error) {
 
 // acquireInstance removes an instance from the pool of available instances and
 // returns it. We remove the "dedicated:pool=true" tag.
-func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
+func (h *Host) acquireInstance(provider instanceProvider, instancetype string) (*ec2.Instance, error) {
 	cfg := h.instancePoolConfig(instancetype)
 	if cfg == nil {
-		return nil, errors.New("no pool configured")
+		return nil, errPoolNotConfigured
 	}
 
 	// Attempt to acquire a lock on the instance pool (for the required
@@ -127,23 +126,24 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 	}
 	defer mu.Unlock()
 
-	instances, err := h.instancesInPool(instancetype)
+	instances, err := h.instancesInPool(provider, instancetype)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(instances) == 0 {
-		return nil, errors.New("pool is empty")
+		return nil, errPoolEmpty
 	}
 
-	// Pick a random instance.
-	instance := instances[rand.Intn(len(instances))]
+	// Pick the first instance (there is no point randomizing since we lock at
+	// the pool level, not the instance level).
+	instance := instances[0]
 
 	h.Printf("acquired instance %s from pool for %s", instance.InstanceId, instancetype)
 
 	// Remove tag that indicates this instance is in the pool.
 	tags := []ec2.Tag{{Key: poolTag}}
-	if _, err := h.provider.DeleteTags([]string{instance.InstanceId}, tags); err != nil {
+	if _, err := provider.DeleteTags([]string{instance.InstanceId}, tags); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +152,7 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 
 // releaseInstance releases an instance to the pool of available instances. We
 // indicate that an instance is in a pool by adding a "dedicated:pool=true" tag.
-func (h *Host) releaseInstance() error {
+func (h *Host) releaseInstance(provider instanceProvider) error {
 	instancetype := h.instance.InstanceType
 
 	// Attempt to acquire a lock on the instance pool.
@@ -169,7 +169,7 @@ func (h *Host) releaseInstance() error {
 		{Key: poolTag, Value: "true"},
 		{Key: "Name", Value: "userhost-pool"},
 	}
-	if _, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags); err != nil {
+	if _, err := provider.CreateTags([]string{h.instance.InstanceId}, tags); err != nil {
 		return err
 	}
 

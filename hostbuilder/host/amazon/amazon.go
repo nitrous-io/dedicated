@@ -83,28 +83,37 @@ type driverConfig struct {
 	Env           string `json:"env"`          // Created instances will be tagged with "dedicated=#{Env}".
 	CreateTimeout string `json:"create_timeout"`
 	NotifyURL     string `json:"notify_url"`
-	Regions       []struct {
-		ID      string `json:"id"`
-		Keypair struct {
-			Name           string `json:"name"`
-			PrivateKeyPath string `json:"private_key_path"`
-		} `json:"keypair"`
-		InstancePool []struct {
-			Type string `json:"type"`
-			Max  int    `json:"max"`
-		} `json:"instance_pool"`
-	} `json:"regions"`
 
-	Redis struct {
-		Host string `json:"host"`
-		Port string `json:"port"`
-	} `json:"redis"`
+	Regions []regionConfig `json:"regions"`
+
+	Redis redisConfig `json:"redis"`
 
 	// TODO Super hacky - refactor this when we refactor hostbuilder drivers.
 	IgnoreRegion string `json:"ignore_region"`
 
 	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
 	cachedCreateTimeout time.Duration
+}
+
+type regionConfig struct {
+	ID           string               `json:"id"`
+	Keypair      keypairConfig        `json:"keypair"`
+	InstancePool []instancePoolConfig `json:"instance_pool"`
+}
+
+type keypairConfig struct {
+	Name           string `json:"name"`
+	PrivateKeyPath string `json:"private_key_path"`
+}
+
+type instancePoolConfig struct {
+	Type string `json:"type"`
+	Max  int    `json:"max"`
+}
+
+type redisConfig struct {
+	Host string `json:"host"`
+	Port string `json:"port"`
 }
 
 func (c *driverConfig) createTimeout() time.Duration {
@@ -216,7 +225,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		h.Printf("attempting to acquire instance of type %q from pool", h.Config.InstanceType)
 
 		var err error
-		instanceFromPool, err = h.acquireInstance(h.Config.InstanceType)
+		instanceFromPool, err = h.acquireInstance(h.provider, h.Config.InstanceType)
 		if err != nil {
 			h.Printf("could not acquire instance from pool, err: %v", err)
 
@@ -1331,7 +1340,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	instanceType := h.instance.InstanceType
 	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
 
-	poolFull, err := h.isPoolFull(instanceType)
+	poolFull, err := h.isPoolFull(h.provider, instanceType)
 	if err != nil {
 		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 		return nil, mh.Error(err, label)
@@ -1348,7 +1357,7 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 		}
 	} else {
 		h.Printf("releasing instance %s of stopped workspace to pool for %q", instanceID, instanceType)
-		if err := h.releaseInstance(); err != nil {
+		if err := h.releaseInstance(h.provider); err != nil {
 			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
 			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
 			return nil, mh.Error(err, label)
@@ -1406,7 +1415,7 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	h.Printf("attempting to acquire instance of type %q from pool", instanceType)
 
 	// Attempt to acquire an instance from pool.
-	instance, err := h.acquireInstance(instanceType)
+	instance, err := h.acquireInstance(h.provider, instanceType)
 	if err != nil {
 		h.Printf("could not acquire an instance from pool for instance type %q, err: %v", instanceType, err)
 
