@@ -19,6 +19,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -43,6 +45,10 @@ type progress struct {
 }
 
 const freighterRetryCount int = 5
+
+var (
+	errUnableToCreateSubscription = SubscriptionCreateError{Err: "Failed to create subscription, please try again."}
+)
 
 func (s *Server) HostQueueHandler() func(m *queue.Message) error {
 	return func(m *queue.Message) error {
@@ -154,7 +160,12 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 
 func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo *hh.Info) error {
 	db := s.db
-	logrus.Debugf("uuid=%s queueProvisionTracer: queue: %+v", uuid, hostInfo)
+	logData := logrus.WithFields(logrus.Fields{
+		"uuid":    uuid,
+		"host_id": h.ID,
+		"user_id": u.ID,
+	})
+	logData.Debugf("queueProvisionTracer: queue: %+v", uuid, hostInfo)
 	if hostInfo != nil {
 		h.IPAddress = sql.NullString{hostInfo.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{hostInfo.ID, true}
@@ -180,30 +191,48 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 	}
 
 	if err := nstmt.QueryRowx(h).StructScan(h); err != nil {
-		logrus.Debugf("uuid=%s queueProvisionTracer: update (provider) err: %+v h: %+v", uuid, err, h)
+		logData.Debugf("queueProvisionTracer: update (provider) err: %+v h: %+v", uuid, err, h)
 		return err
 	}
 
 	p, err := plan.FindByID(db, h.PlanID)
 	if err != nil {
-		logrus.Debugf("uuid=%s queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
+		logData.Debugf("queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
 	if p.IsSubscription() {
-		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u)
+		var o *org.Org
+		if h.OrgID.Valid {
+			o, err = org.Find(db, h.OrgID.Int64)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return SubscriptionCreateError{Err: "Unable to locate organization."}
+				}
+				logData.Errorf("Unable to locate org: %d, err: %v", h.OrgID.Int64)
+				return errUnableToCreateSubscription
+			}
+			_, err := orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return SubscriptionCreateError{Err: "You do not have access to this organization."}
+				}
+				logData.Errorf("Unable to locate org membership: %d, err: %v", h.OrgID.Int64)
+				return errUnableToCreateSubscription
+			}
+		}
+		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u, o)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"uuid":     uuid,
+			logData.WithFields(logrus.Fields{
 				"alert":    "nosubscription",
 				"err":      err.Error(),
-				"host":     h,
 				"username": u.Username,
 				"email":    u.Email,
+				"host":     h,
 			}).Errorf("queueProvisionTracer: SubscriptionCreateError")
 			if err == subscriptions.ErrCardExpired || err == subscriptions.ErrCardDeclined {
 				return SubscriptionCreateError{Err: err.Error()}
 			}
-			return SubscriptionCreateError{Err: "Failed to create subscription, please try again."}
+			return errUnableToCreateSubscription
 		}
 	}
 
