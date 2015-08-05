@@ -1480,5 +1480,11 @@ func init() {
                                 CREATE UNIQUE INDEX index_billing_profiles_on_org_id ON billing_profiles USING btree (org_id) WHERE org_id IS NOT NULL;
 			`,
 		},
+		{
+			Version: "1438723458",
+			Up: `
+                                ALTER TABLE hosts ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
+                        `,
+		},
 	}
 }
