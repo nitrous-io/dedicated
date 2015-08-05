@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
@@ -120,6 +122,67 @@ var _ = Describe("CreateStart", func() {
 			Expect(info.State).To(Equal(provider.ContainerStateStopped))
 			Expect(info.Host).To(Equal(""))
 			Expect(info.Gateway).To(Equal(""))
+		})
+	})
+
+	// This is part of creating a container. Since it is hard to create an image with volume config,
+	// Separate it into different functions and test it individually.
+	Describe("FixImage", func() {
+		It("removes .nitrous-container-slug file", func() {
+			// Create a empty file in the image directly
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
+
+			output, err := exec.Command("docker", "inspect", "-f", "{{.Id}}", "busybox:latest").Output()
+			Expect(err).To(BeNil())
+
+			imageID := strings.TrimSpace(string(output))
+			invalidFilePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", imageID)
+
+			f, err := os.Create(invalidFilePath)
+			Expect(err).To(BeNil())
+			f.Close()
+
+			defer os.Remove(invalidFilePath)
+
+			err = prov.FixImage("busybox:latest")
+			Expect(err).To(BeNil())
+
+			_, err = os.Stat(invalidFilePath)
+			Expect(err).NotTo(BeNil())
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+	})
+
+	Describe("RemoveContainerWithName", func() {
+		It("removes a container with name", func() {
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
+
+			name := test.RandomName("freighterd-test")
+			configJSON := `{ "Cmd": ["yes"] }`
+			cnr, err := prov.CreateStart(name, "busybox:latest", "secret", configJSON)
+			Expect(err).To(BeNil())
+			defer test.CleanUpContainer(name)
+
+			// Stop container
+			cnr, err = prov.Stop(cnr.ID)
+			Expect(err).To(BeNil())
+
+			// To check if the container exists
+			err = exec.Command("docker", "inspect", cnr.ID).Run()
+			Expect(err).To(BeNil())
+
+			err = prov.RemoveContainerWithName(name)
+			Expect(err).To(BeNil())
+
+			// To check if the container exists
+			err = exec.Command("docker", "inspect", cnr.ID).Run()
+			Expect(err).NotTo(BeNil())
 		})
 	})
 })

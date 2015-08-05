@@ -162,10 +162,32 @@ func (p *DockerProvider) List() ([]*provider.ContainerInfo, error) {
 // If the container cannot be started, the container info *and* a
 // provider.StartFailedError is returned.
 func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string) (*provider.ContainerInfo, error) {
-	createdCnr, err := p.create(name, imageName, secret, configJSON)
+	var (
+		createdCnr *provider.ContainerInfo
+		err        error
+	)
+
+	createdCnr, err = p.create(name, imageName, secret, configJSON)
 	if err != nil {
 		logrus.Errorf("DockerProvider: failed to create container %s: %v", name, err)
-		return nil, err
+
+		if strings.Contains(err.Error(), "cannot mount volume over existing file") && strings.Contains(err.Error(), ".nitrous-container-slug") {
+			if e := p.FixImage(imageName); e != nil {
+				return nil, err
+			}
+
+			if e := p.RemoveContainerWithName(name); e != nil {
+				return nil, err
+			}
+
+			createdCnr, err = p.create(name, imageName, secret, configJSON)
+			if err != nil {
+				logrus.Errorf("DockerProvider: failed to create container %s on second try: %v", name, err)
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	startedCnr, err := p.Start(createdCnr.ID, configJSON)
@@ -1530,4 +1552,39 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
+}
+
+// This is to remove .nitrous-container-slug from snapshots from old container
+// https://github.com/nitrous-io/dedicated/issues/1918
+func (p *DockerProvider) FixImage(imageName string) error {
+	logrus.Infof("DockerProvider: Removing .nitrous-container-slug from %s", imageName)
+	info, err := p.client.InspectImage(imageName)
+
+	if err != nil {
+		logrus.Errorf("DockerProvider: failed to inspect the image %s: %v", imageName, err)
+		return err
+	}
+
+	filePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", info.ID)
+	if err := os.Remove(filePath); err != nil {
+		logrus.Errorf("DockerProvider: failed to remove invalid file %s: %v", filePath, err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *DockerProvider) RemoveContainerWithName(name string) error {
+	c, err := p.inspectContainer(name)
+	if err != nil {
+		logrus.Errorf("DockerProvider: failed to inspect container %s: %v", name, err)
+		return err
+	}
+
+	if err := p.client.RemoveContainer(dockerclient.RemoveContainerOptions{ID: c.ID}); err != nil {
+		logrus.Errorf("DockerProvider: failed to terminate container %s: %v", name, err)
+		return err
+	}
+
+	return nil
 }
