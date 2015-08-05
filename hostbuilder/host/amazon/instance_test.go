@@ -107,7 +107,9 @@ var _ = Describe("setTags", func() {
 			Config:   &hostConfig{Name: "test-host"},
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 		}
-		setTags(p, h)
+
+		err := setTags(p, h)
+		Expect(err).To(BeNil())
 
 		Expect(p.calls[0].args[0].([]string)).To(Equal([]string{"i-1234"}))
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
@@ -120,7 +122,10 @@ var _ = Describe("setTags", func() {
 			Config:       &hostConfig{Name: "test-{{env}}-host"},
 			instance:     &ec2.Instance{InstanceId: "i-1234"},
 		}
-		setTags(p, h)
+
+		err = setTags(p, h)
+		Expect(err).To(BeNil())
+
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
 			ec2.Tag{"Name", "test-staging-host"},
 			ec2.Tag{"dedicated", "staging"},

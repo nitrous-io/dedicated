@@ -2099,14 +2099,12 @@ func allocateElasticIP(ctx *host.HostContext) error {
 
 // associateInstanceTags sets the instance's tags which include Name and
 // dedicated environment.
-// If this fails, we still consider the operation to be successful
 func associateInstanceTags(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
 	label := h.MetricsLabel("set_tags")
 	defer mh.UpdateSince(label, time.Now())
 
-	setTags(h.provider, h)
-	return nil
+	return setTags(h.provider, h)
 }
 
 func getState(instance *ec2.Instance) state.State {
