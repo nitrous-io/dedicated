@@ -1,16 +1,14 @@
 #= require ./authed-route
 
 App.OrgRoute = App.AuthedRoute.extend
+  controllerName: 'org'
+
   model: (params) ->
-    orgsController = @controllerFor 'orgs'
-    if org = orgsController.get('collection').findBy('slug', params.orgSlug)
-      orgsController.set 'selectedRecord', org
-      org
-    else
-      promise = App.Org.fetchOne(slug: params.orgSlug)
-      promise.then (org) ->
-        orgsController.set 'selectedRecord', org
-      promise
+    @controllerFor('orgs').get('collection').findBy('slug', params.orgSlug) ?
+      App.Org.fetchOne(slug: params.orgSlug)
+
+  renderTemplate: ->
+    @render 'org', outlet: 'content'
 
   deactivate: ->
-    @controllerFor('orgs').set 'selectedRecord', null
+    @controller.set 'model', null

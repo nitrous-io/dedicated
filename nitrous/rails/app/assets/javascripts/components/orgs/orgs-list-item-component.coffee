@@ -1,6 +1,6 @@
 App.OrgsListItemComponent = Em.Component.extend
+  layoutName: 'components/orgs/list-item'
   tagName: 'li'
-  templateName: 'components/orgs/list-item'
   classNames: ['orgs-list-item']
   classNameBindings: ['selected']
 

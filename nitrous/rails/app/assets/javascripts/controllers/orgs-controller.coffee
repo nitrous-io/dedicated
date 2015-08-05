@@ -1,7 +1,6 @@
 App.OrgsController = Em.Controller.extend
   collection: null
   newRecord: null
-  selectedRecord: null
 
   init: ->
     @_super.apply this, arguments
