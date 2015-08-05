@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -16,8 +17,11 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
@@ -78,6 +82,9 @@ var _ = Describe("HostQueueHandler", func() {
 		})
 		Expect(err).To(BeNil())
 		h = hs.H
+
+		_, err = db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
+		Expect(err).To(BeNil())
 
 		svr = server.NewServer("", db, nil, nil)
 		handler = svr.HostQueueHandler()
@@ -150,6 +157,8 @@ var _ = Describe("HostQueueHandler", func() {
 			var (
 				message    *queue.Message
 				mockClient *freighterclient.MockClient
+				fsub       *test.FakeSubscriptionProvider
+				rt         *test.FakeRoundTripper
 			)
 
 			BeforeEach(func() {
@@ -180,6 +189,17 @@ var _ = Describe("HostQueueHandler", func() {
 					ResourceID:   "host-1234",
 					Payload:      payload,
 				}
+
+				fsub = &test.FakeSubscriptionProvider{}
+				svr.SubscriptionProvider = fsub
+
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				rt = &test.FakeRoundTripper{
+					Message: `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`,
+					Status:  http.StatusOK,
+				}
+				hb.Client.Client.Transport = rt
+				hostcontrol.HostbuilderClient = hb
 			})
 
 			AfterEach(func() {
@@ -315,120 +335,181 @@ var _ = Describe("HostQueueHandler", func() {
 				}
 			})
 
-			Context("when the host plan requires subscription", func() {
+			It("terminates the host if the subscribe fails", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				fsub.SubscribeError = errors.New("I failed")
+
+				err := handler(message)
+				Expect(err).To(MatchError("Failed to create subscription, please try again."))
+				Expect(rt.Requests).To(HaveLen(1))
+
+				Expect(fsub.SubscribeCalled).To(BeTrue())
+				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+				evtData, _ := evt.Data.(map[string]interface{})
+				s, ok := evtData["error"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(s).To(Equal("Failed to create subscription, please try again."))
+
+				hosts, _ := host.FindAllByUser(db, u.ID)
+				Expect(hosts).To(HaveLen(0))
+			})
+
+			It("terminates the host if the card is declined", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				fsub.SubscribeError = subscriptions.ErrCardDeclined
+
+				err := handler(message)
+				Expect(err).To(MatchError(subscriptions.ErrCardDeclined.Error()))
+				Expect(rt.Requests).To(HaveLen(1))
+
+				Expect(fsub.SubscribeCalled).To(BeTrue())
+				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+				evtData, _ := evt.Data.(map[string]interface{})
+				s, ok := evtData["error"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(s).To(Equal(subscriptions.ErrCardDeclined.Error()))
+
+				hosts, _ := host.FindAllByUser(db, u.ID)
+				Expect(hosts).To(HaveLen(0))
+			})
+
+			It("terminates the host if the card is explired", func() {
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				fsub.SubscribeError = subscriptions.ErrCardExpired
+
+				err := handler(message)
+				Expect(err).To(MatchError(subscriptions.ErrCardExpired.Error()))
+				Expect(rt.Requests).To(HaveLen(1))
+
+				Expect(fsub.SubscribeCalled).To(BeTrue())
+				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
+				Expect(err).To(BeNil())
+				evtData, _ := evt.Data.(map[string]interface{})
+				s, ok := evtData["error"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(s).To(Equal(subscriptions.ErrCardExpired.Error()))
+
+				hosts, _ := host.FindAllByUser(db, u.ID)
+				Expect(hosts).To(HaveLen(0))
+			})
+
+			It("continues creating if the subscribe succeeds", func() {
+				fsub.SubscribeError = nil
+				fsub.SubscribeReturn = &subscription.Subscription{}
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+				Expect(rt.Requests).To(HaveLen(0))
+
+				Expect(fsub.SubscribeCalled).To(BeTrue())
+				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+			})
+
+			Context("with an organisation", func() {
 				var (
-					fsub *test.FakeSubscriptionProvider
-					rt   *test.FakeRoundTripper
+					o *org.Org
 				)
 
 				BeforeEach(func() {
-					fsub = &test.FakeSubscriptionProvider{}
-					svr.SubscriptionProvider = fsub
-
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					rt = &test.FakeRoundTripper{
-						Message: `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`,
-						Status:  http.StatusOK,
+					o = &org.Org{
+						Name:  "Foo Bar, Inc.",
+						Slug:  "foobar",
+						Email: "eng@foobar.com",
 					}
-					hb.Client.Client.Transport = rt
-					hostcontrol.HostbuilderClient = hb
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+					err = db.WithTransaction(func(t *sqlx.Tx) error {
+						Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+						return nil
+					})
+					Expect(err).To(BeNil())
+					err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE hosts SET org_id = $1 WHERE id = $2;`, o.ID, hs.H.ID)
+					Expect(err).To(BeNil())
 				})
 
-				It("terminates the host if the subscribe fails", func() {
+				It("terminates the host if the organisation could not be found", func() {
+					_, err := db.Exec(`UPDATE orgs SET deleted_at = now() WHERE id = $1;`, o.ID)
+					Expect(err).To(BeNil())
+
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
-					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-					Expect(err).To(BeNil())
-
-					fsub.SubscribeError = errors.New("I failed")
-
 					err = handler(message)
-					Expect(err).To(MatchError("Failed to create subscription, please try again."))
+					Expect(err).To(MatchError("Unable to locate organization."))
 					Expect(rt.Requests).To(HaveLen(1))
 
-					Expect(fsub.SubscribeCalled).To(BeTrue())
-					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+					Expect(fsub.SubscribeCalled).To(BeFalse())
 
 					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
 					Expect(err).To(BeNil())
 					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["error"].(string)
 					Expect(ok).To(BeTrue())
-					Expect(s).To(Equal("Failed to create subscription, please try again."))
+					Expect(s).To(Equal("Unable to locate organization."))
 
 					hosts, _ := host.FindAllByUser(db, u.ID)
 					Expect(hosts).To(HaveLen(0))
 				})
 
-				It("terminates the host if the card is declined", func() {
+				It("terminates the host if the user is not a member of the organisation", func() {
+					_, err := db.Exec(`DELETE FROM org_memberships WHERE org_id = $1`, o.ID)
+					Expect(err).To(BeNil())
+
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
-					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-					Expect(err).To(BeNil())
-
-					fsub.SubscribeError = subscriptions.ErrCardDeclined
-
 					err = handler(message)
-					Expect(err).To(MatchError(subscriptions.ErrCardDeclined.Error()))
+					Expect(err).To(MatchError("You do not have access to this organization."))
 					Expect(rt.Requests).To(HaveLen(1))
 
-					Expect(fsub.SubscribeCalled).To(BeTrue())
-					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+					Expect(fsub.SubscribeCalled).To(BeFalse())
 
 					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
 					Expect(err).To(BeNil())
 					evtData, _ := evt.Data.(map[string]interface{})
 					s, ok := evtData["error"].(string)
 					Expect(ok).To(BeTrue())
-					Expect(s).To(Equal(subscriptions.ErrCardDeclined.Error()))
+					Expect(s).To(Equal("You do not have access to this organization."))
 
 					hosts, _ := host.FindAllByUser(db, u.ID)
 					Expect(hosts).To(HaveLen(0))
 				})
 
-				It("terminates the host if the card is explired", func() {
-					ch := svr.Events.Subscribe(u.Topic())
-					defer svr.Events.Unsubscribe(ch, u.Topic())
-
-					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-					Expect(err).To(BeNil())
-
-					fsub.SubscribeError = subscriptions.ErrCardExpired
-
-					err = handler(message)
-					Expect(err).To(MatchError(subscriptions.ErrCardExpired.Error()))
-					Expect(rt.Requests).To(HaveLen(1))
-
-					Expect(fsub.SubscribeCalled).To(BeTrue())
-					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
-
-					evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
-					Expect(err).To(BeNil())
-					evtData, _ := evt.Data.(map[string]interface{})
-					s, ok := evtData["error"].(string)
-					Expect(ok).To(BeTrue())
-					Expect(s).To(Equal(subscriptions.ErrCardExpired.Error()))
-
-					hosts, _ := host.FindAllByUser(db, u.ID)
-					Expect(hosts).To(HaveLen(0))
-				})
-
-				It("continues creating if the subscribe succeeds", func() {
-					_, err := db.Exec(`UPDATE plans SET stripe_plan_id = 'plan-id' WHERE id = $1;`, hs.P.ID)
-					Expect(err).To(BeNil())
-
+				It("continues if the user is a member of the organisation", func() {
 					fsub.SubscribeError = nil
 					fsub.SubscribeReturn = &subscription.Subscription{}
 
-					err = handler(message)
+					err := handler(message)
 					Expect(err).To(BeNil())
 					Expect(rt.Requests).To(HaveLen(0))
 
@@ -436,6 +517,7 @@ var _ = Describe("HostQueueHandler", func() {
 					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
 					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
 					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+					Expect(fsub.SubscribeOrg.ID).To(Equal(o.ID))
 
 					hosts, err := host.FindAllByUser(db, u.ID)
 					Expect(err).To(BeNil())

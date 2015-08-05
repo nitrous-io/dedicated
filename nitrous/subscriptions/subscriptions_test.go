@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -17,6 +18,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
@@ -42,6 +45,7 @@ var _ = Describe("subscriptions", func() {
 
 		hs *test.HostStack
 		u  *user.User
+		bp *billingprofile.BillingProfile
 		pl *plan.Plan
 
 		fakeMailer *test.FakeMailer
@@ -71,6 +75,9 @@ var _ = Describe("subscriptions", func() {
 		_, err = db.Exec(`UPDATE billing_profiles SET state=$1, stripe_id=$2 WHERE user_id=$3;`, billingprofile.StatePaid, stripeCustomerID, u.ID)
 		Expect(err).To(BeNil())
 
+		bp, err = u.BillingProfile(db)
+		Expect(err).To(BeNil())
+
 		pl = &plan.Plan{
 			Slug:          "hs1Plan",
 			Name:          "hs1Plan",
@@ -97,375 +104,382 @@ var _ = Describe("subscriptions", func() {
 	})
 
 	Describe("Subscribe()", func() {
-		It("should return an error if the plan is not subscribable", func() {
-			p := &plan.Plan{}
-			s, err := subProvider.Subscribe(db, hs.H, p, u)
-			Expect(err).To(Equal(subscriptions.ErrNotSubscribablePlan))
-			Expect(s).To(BeNil())
+		var (
+			o *org.Org
+		)
+
+		BeforeEach(func() {
+			o = nil
 		})
 
-		It("should return an error if the billing profile is ineligible", func() {
-			bp, err := u.BillingProfile(db)
-			Expect(err).To(BeNil())
-			bp.State = billingprofile.StateDelinquent
-			Expect(bp.Update(db)).To(BeNil())
+		sharedExamples := func() {
+			It("should return an error if the plan is not subscribable", func() {
+				p := &plan.Plan{}
+				s, err := subProvider.Subscribe(db, hs.H, p, u, o)
+				Expect(err).To(Equal(subscriptions.ErrNotSubscribablePlan))
+				Expect(s).To(BeNil())
+			})
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
-			Expect(s).To(BeNil())
-		})
+			It("should return an error if the billing profile is ineligible", func() {
+				bp.State = billingprofile.StateDelinquent
+				Expect(bp.Update(db)).To(BeNil())
 
-		It("should not create a subscription if it was unable to submit the Subscription", func() {
-			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
-			fakeStripe.Responses = []string{
-				`{"object": null, "id": null}`,
-			}
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
+				Expect(s).To(BeNil())
+			})
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(Equal(fakeStripe.Errors[0]))
-			Expect(s).To(BeNil())
+			It("should not create a subscription if it was unable to submit the Subscription", func() {
+				fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
+				fakeStripe.Responses = []string{
+					`{"object": null, "id": null}`,
+				}
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-			r := fakeStripe.ReceivedRequests[0]
-			Expect(r["method"]).To(Equal("POST"))
-			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r["plan"]).To(Equal("stripe-plan-id"))
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(fakeStripe.Errors[0]))
+				Expect(s).To(BeNil())
 
-			_, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-		})
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r["plan"]).To(Equal("stripe-plan-id"))
 
-		It("should submit the subscription and create the model object", func() {
-			fakeStripe.Responses = []string{
-				`{
+				_, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+
+			It("should submit the subscription and create the model object", func() {
+				fakeStripe.Responses = []string{
+					`{
 					"object": "subscription",
 					"id": "abc1",
 					"status": "active",
 					"current_period_start": 1434418419,
 					"current_period_end": 1437010419
 				}`,
-			}
+				}
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 
-			s, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(BeNil())
-			Expect(s.PlanID).To(Equal(pl.ID))
-			Expect(s.StripeID.String).To(Equal("abc1"))
-			Expect(s.State).To(Equal("active"))
-			Expect(s.Slug).To(HaveLen(10))
-			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
-			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
-			Expect(s.CancelPending).To(BeFalse())
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s.PlanID).To(Equal(pl.ID))
+				Expect(s.StripeID.String).To(Equal("abc1"))
+				Expect(s.State).To(Equal("active"))
+				Expect(s.Slug).To(HaveLen(10))
+				Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418419, 0)))
+				Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010419, 0)))
+				Expect(s.CancelPending).To(BeFalse())
 
-			h, err := host.Find(db, u, hs.H.Slug)
-			Expect(err).To(BeNil())
-			Expect(h.SubscriptionID.Int64).To(Equal(s.ID))
-		})
+				h, err := host.Find(db, u, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.SubscriptionID.Int64).To(Equal(s.ID))
+			})
 
-		It("should roll back the credit invoice item if it was unable to submit the Subscription", func() {
-			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 2000);", u.ID)
-			Expect(err).To(BeNil())
+			It("should roll back the credit invoice item if it was unable to submit the Subscription", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 2000);", u.ID)
+				Expect(err).To(BeNil())
 
-			fakeStripe.Errors = []*stripe.Error{nil, &stripe.Error{}, nil}
-			fakeStripe.Responses = []string{
-				`{
+				fakeStripe.Errors = []*stripe.Error{nil, &stripe.Error{}, nil}
+				fakeStripe.Responses = []string{
+					`{
 					"object": "invoiceitem",
 					"id": "item-1"
 				}`,
-				`{
+					`{
 					"object": "subscription",
 					"id": "abc1",
 					"status": "active",
 					"current_period_start": 1434418419,
 					"current_period_end": 1437010419
 				}`,
-				`{
+					`{
 					"deleted": true,
 					"id": "item-1"
 				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(Equal(fakeStripe.Errors[1]))
-			Expect(s).To(BeNil())
-
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
-			r1 := fakeStripe.ReceivedRequests[0]
-			Expect(r1["method"]).To(Equal("POST"))
-			Expect(r1["path"]).To(Equal("/invoiceitems"))
-			Expect(r1["customer"]).To(Equal(stripeCustomerID))
-			Expect(r1["amount"]).To(Equal("-1499"))
-			Expect(r1["desc"]).To(Equal("Credit of $14.99"))
-			r2 := fakeStripe.ReceivedRequests[1]
-			Expect(r2["method"]).To(Equal("POST"))
-			Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r2["plan"]).To(Equal("stripe-plan-id"))
-			r3 := fakeStripe.ReceivedRequests[2]
-			Expect(r3["method"]).To(Equal("DELETE"))
-			Expect(r3["path"]).To(Equal("/invoiceitems/item-1"))
-
-			_, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-
-			a, err := credit.AvailableCredits(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(a).To(Equal(int64(2000)))
-		})
-
-		It("should handle card expired", func() {
-			fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.ExpiredCard}}
-			fakeStripe.Responses = []string{
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(Equal(subscriptions.ErrCardExpired))
-			Expect(s).To(BeNil())
-
-			_, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-		})
-
-		It("should handle card declined", func() {
-			fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.CardDeclined}}
-			fakeStripe.Responses = []string{
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(Equal(subscriptions.ErrCardDeclined))
-			Expect(s).To(BeNil())
-
-			_, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-		})
-
-		It("should keep the credit invoice item if it was able to submit the Subscription", func() {
-			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 2000);", u.ID)
-			Expect(err).To(BeNil())
-
-			fakeStripe.Errors = []*stripe.Error{nil, nil, nil}
-			fakeStripe.Responses = []string{
-				`{
-					"object": "invoiceitem",
-					"id": "item-1"
-				}`,
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-			r1 := fakeStripe.ReceivedRequests[0]
-			Expect(r1["method"]).To(Equal("POST"))
-			Expect(r1["path"]).To(Equal("/invoiceitems"))
-			Expect(r1["customer"]).To(Equal(stripeCustomerID))
-			Expect(r1["amount"]).To(Equal("-1499"))
-			Expect(r1["desc"]).To(Equal("Credit of $14.99"))
-			r2 := fakeStripe.ReceivedRequests[1]
-			Expect(r2["method"]).To(Equal("POST"))
-			Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r2["plan"]).To(Equal("stripe-plan-id"))
-
-			s, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			a, err := credit.AvailableCredits(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(a).To(Equal(int64(501)))
-		})
-
-		It("should use the minimum credit amount if the plan is greater", func() {
-			_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 100);", u.ID)
-			Expect(err).To(BeNil())
-
-			fakeStripe.Errors = []*stripe.Error{nil, nil}
-			fakeStripe.Responses = []string{
-				`{
-					"object": "invoiceitem",
-					"id": "item-1"
-				}`,
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
-			r1 := fakeStripe.ReceivedRequests[0]
-			Expect(r1["method"]).To(Equal("POST"))
-			Expect(r1["path"]).To(Equal("/invoiceitems"))
-			Expect(r1["customer"]).To(Equal(stripeCustomerID))
-			Expect(r1["amount"]).To(Equal("-100"))
-			Expect(r1["desc"]).To(Equal("Credit of $1.00"))
-			r2 := fakeStripe.ReceivedRequests[1]
-			Expect(r2["method"]).To(Equal("POST"))
-			Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r2["plan"]).To(Equal("stripe-plan-id"))
-
-			s, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			a, err := credit.AvailableCredits(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(a).To(Equal(int64(0)))
-		})
-
-		It("uses a Stripe plan ID with a '-exempt' suffix if the user is exempt", func() {
-			_, err := db.Exec("UPDATE billing_profiles SET state = $1 WHERE user_id = $2;", billingprofile.StateExempt, u.ID)
-			Expect(err).To(BeNil())
-
-			fakeStripe.Errors = []*stripe.Error{nil, nil}
-			fakeStripe.Responses = []string{
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-			r := fakeStripe.ReceivedRequests[0]
-			Expect(r["method"]).To(Equal("POST"))
-			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r["plan"]).To(Equal("stripe-plan-id-exempt"))
-
-			s, err = findByHostID(db, hs.H.ID)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-		})
-
-		It("sends user's coupon to Stripe, then marks it as used", func() {
-			cp := &coupon.Coupon{
-				UserID: u.ID,
-				Code:   "test-code",
-			}
-			Expect(cp.Insert(db)).To(BeNil())
-
-			fakeStripe.Responses = []string{
-				`{
-					"object": "subscription",
-					"id": "abc1",
-					"status": "active",
-					"current_period_start": 1434418419,
-					"current_period_end": 1437010419
-				}`,
-			}
-
-			subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
-				if code == cp.Code {
-					return &stripe.Coupon{}, nil
 				}
-				return nil, fmt.Errorf("Wrong code")
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(fakeStripe.Errors[1]))
+				Expect(s).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+				r1 := fakeStripe.ReceivedRequests[0]
+				Expect(r1["method"]).To(Equal("POST"))
+				Expect(r1["path"]).To(Equal("/invoiceitems"))
+				Expect(r1["customer"]).To(Equal(stripeCustomerID))
+				Expect(r1["amount"]).To(Equal("-1499"))
+				Expect(r1["desc"]).To(Equal("Credit of $14.99"))
+				r2 := fakeStripe.ReceivedRequests[1]
+				Expect(r2["method"]).To(Equal("POST"))
+				Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r2["plan"]).To(Equal("stripe-plan-id"))
+				r3 := fakeStripe.ReceivedRequests[2]
+				Expect(r3["method"]).To(Equal("DELETE"))
+				Expect(r3["path"]).To(Equal("/invoiceitems/item-1"))
+
+				_, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+
+				a, err := credit.AvailableCredits(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(a).To(Equal(int64(2000)))
 			})
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
-
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-			r := fakeStripe.ReceivedRequests[0]
-			Expect(r["method"]).To(Equal("POST"))
-			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			Expect(r["coupon"]).To(Equal("test-code"))
-
-			// Coupon should be used.
-			_, err = coupon.Find(db, u.ID)
-			Expect(err).To(Equal(sql.ErrNoRows))
-			cp2 := &coupon.Coupon{}
-			err = db.Get(cp2, `SELECT * FROM coupons WHERE id = $1;`, cp.ID)
-			Expect(err).To(BeNil())
-			Expect(cp2.UsedAt.Valid).To(BeTrue())
-			Expect(cp2.UsedAt.Time).ToNot(BeZero())
-		})
-
-		It("does not send invalid coupon to Stripe nor mark it as used", func() {
-			cp := &coupon.Coupon{
-				UserID: u.ID,
-				Code:   "invalid-code",
-			}
-			Expect(cp.Insert(db)).To(BeNil())
-
-			fakeStripe.Responses = []string{
-				`{
+			It("should handle card expired", func() {
+				fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.ExpiredCard}}
+				fakeStripe.Responses = []string{
+					`{
 					"object": "subscription",
 					"id": "abc1",
 					"status": "active",
 					"current_period_start": 1434418419,
 					"current_period_end": 1437010419
 				}`,
-			}
+				}
 
-			subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
-				return nil, fmt.Errorf("Nope, try again")
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrCardExpired))
+				Expect(s).To(BeNil())
+
+				_, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
 			})
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
+			It("should handle card declined", func() {
+				fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.CardDeclined}}
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-			r := fakeStripe.ReceivedRequests[0]
-			Expect(r["coupon"]).To(BeEmpty())
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrCardDeclined))
+				Expect(s).To(BeNil())
 
-			// Coupon should not be used.
-			cp2 := &coupon.Coupon{}
-			err = db.Get(cp2, `SELECT * FROM coupons WHERE id = $1;`, cp.ID)
-			Expect(err).To(BeNil())
-			Expect(cp2.UsedAt.Valid).To(BeFalse())
-		})
+				_, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
 
-		It("does not send coupon to Stripe for free plans", func() {
-			pl.Price = 0
+			It("should keep the credit invoice item if it was able to submit the Subscription", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 2000);", u.ID)
+				Expect(err).To(BeNil())
 
-			cp := &coupon.Coupon{
-				UserID: u.ID,
-				Code:   "test-code",
-			}
-			Expect(cp.Insert(db)).To(BeNil())
+				fakeStripe.Errors = []*stripe.Error{nil, nil, nil}
+				fakeStripe.Responses = []string{
+					`{
+					"object": "invoiceitem",
+					"id": "item-1"
+				}`,
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
 
-			fakeStripe.Responses = []string{
-				`{
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+				r1 := fakeStripe.ReceivedRequests[0]
+				Expect(r1["method"]).To(Equal("POST"))
+				Expect(r1["path"]).To(Equal("/invoiceitems"))
+				Expect(r1["customer"]).To(Equal(stripeCustomerID))
+				Expect(r1["amount"]).To(Equal("-1499"))
+				Expect(r1["desc"]).To(Equal("Credit of $14.99"))
+				r2 := fakeStripe.ReceivedRequests[1]
+				Expect(r2["method"]).To(Equal("POST"))
+				Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r2["plan"]).To(Equal("stripe-plan-id"))
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				a, err := credit.AvailableCredits(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(a).To(Equal(int64(501)))
+			})
+
+			It("should use the minimum credit amount if the plan is greater", func() {
+				_, err := db.Exec("INSERT INTO credits (user_id, amount) values ($1, 100);", u.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil, nil}
+				fakeStripe.Responses = []string{
+					`{
+					"object": "invoiceitem",
+					"id": "item-1"
+				}`,
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+				r1 := fakeStripe.ReceivedRequests[0]
+				Expect(r1["method"]).To(Equal("POST"))
+				Expect(r1["path"]).To(Equal("/invoiceitems"))
+				Expect(r1["customer"]).To(Equal(stripeCustomerID))
+				Expect(r1["amount"]).To(Equal("-100"))
+				Expect(r1["desc"]).To(Equal("Credit of $1.00"))
+				r2 := fakeStripe.ReceivedRequests[1]
+				Expect(r2["method"]).To(Equal("POST"))
+				Expect(r2["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r2["plan"]).To(Equal("stripe-plan-id"))
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				a, err := credit.AvailableCredits(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(a).To(Equal(int64(0)))
+			})
+
+			It("uses a Stripe plan ID with a '-exempt' suffix if the user is exempt", func() {
+				bp.State = billingprofile.StateExempt
+				Expect(bp.Update(db)).To(BeNil())
+
+				fakeStripe.Errors = []*stripe.Error{nil, nil}
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r["plan"]).To(Equal("stripe-plan-id-exempt"))
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+			})
+
+			It("sends user's coupon to Stripe, then marks it as used", func() {
+				cp := &coupon.Coupon{
+					UserID: u.ID,
+					Code:   "test-code",
+				}
+				Expect(cp.Insert(db)).To(BeNil())
+
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
+					if code == cp.Code {
+						return &stripe.Coupon{}, nil
+					}
+					return nil, fmt.Errorf("Wrong code")
+				})
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				Expect(r["coupon"]).To(Equal("test-code"))
+
+				// Coupon should be used.
+				_, err = coupon.Find(db, u.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				cp2 := &coupon.Coupon{}
+				err = db.Get(cp2, `SELECT * FROM coupons WHERE id = $1;`, cp.ID)
+				Expect(err).To(BeNil())
+				Expect(cp2.UsedAt.Valid).To(BeTrue())
+				Expect(cp2.UsedAt.Time).ToNot(BeZero())
+			})
+
+			It("does not send invalid coupon to Stripe nor mark it as used", func() {
+				cp := &coupon.Coupon{
+					UserID: u.ID,
+					Code:   "invalid-code",
+				}
+				Expect(cp.Insert(db)).To(BeNil())
+
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				subscriptions.SetCouponGetFn(func(code string, params *stripe.CouponParams) (*stripe.Coupon, error) {
+					return nil, fmt.Errorf("Nope, try again")
+				})
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["coupon"]).To(BeEmpty())
+
+				// Coupon should not be used.
+				cp2 := &coupon.Coupon{}
+				err = db.Get(cp2, `SELECT * FROM coupons WHERE id = $1;`, cp.ID)
+				Expect(err).To(BeNil())
+				Expect(cp2.UsedAt.Valid).To(BeFalse())
+			})
+
+			It("does not send coupon to Stripe for free plans", func() {
+				pl.Price = 0
+
+				cp := &coupon.Coupon{
+					UserID: u.ID,
+					Code:   "test-code",
+				}
+				Expect(cp.Insert(db)).To(BeNil())
+
+				fakeStripe.Responses = []string{
+					`{
 					"object": "subscription",
 					"id": "abc1",
 					"status": "active",
@@ -473,24 +487,62 @@ var _ = Describe("subscriptions", func() {
 					"current_period_end": 1437010419,
 					"plan": { "id": "stripe-plan-id" }
 				}`,
-			}
+				}
 
-			s, err := subProvider.Subscribe(db, hs.H, pl, u)
-			Expect(err).To(BeNil())
-			Expect(s).ToNot(BeNil())
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
 
-			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
-			r := fakeStripe.ReceivedRequests[0]
-			Expect(r["method"]).To(Equal("POST"))
-			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
-			_, ok := r["coupon"]
-			Expect(ok).To(BeFalse())
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				_, ok := r["coupon"]
+				Expect(ok).To(BeFalse())
 
-			// Coupon should be unused.
-			cp2, err := coupon.Find(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(cp2.UsedAt.Valid).To(BeFalse())
-			Expect(cp2.UsedAt.Time).To(BeZero())
+				// Coupon should be unused.
+				cp2, err := coupon.Find(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(cp2.UsedAt.Valid).To(BeFalse())
+				Expect(cp2.UsedAt.Time).To(BeZero())
+			})
+		}
+
+		Context("as a user", func() {
+			sharedExamples()
+		})
+
+		Context("as a organisation", func() {
+			BeforeEach(func() {
+				o = &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+				err = db.WithTransaction(func(t *sqlx.Tx) error {
+					Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+					return nil
+				})
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				Expect(err).To(BeNil())
+
+				// corrupt the user's billing profile so we ensure the operation runs over the org BP
+				Expect(bp.OrgID.Valid).To(BeFalse())
+				bp.State = billingprofile.StateNoCard
+				bp.StripeID = sql.NullString{stripeCustomerID + "-disabled", true}
+				Expect(bp.Update(db)).To(BeNil())
+
+				bp, err = billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+				bp.State = billingprofile.StatePaid
+				bp.StripeID = sql.NullString{stripeCustomerID, true}
+				Expect(bp.Update(db)).To(BeNil())
+			})
+
+			sharedExamples()
 		})
 	})
 

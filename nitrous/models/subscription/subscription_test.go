@@ -5,9 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -224,7 +228,140 @@ var _ = Describe("models/subscription", func() {
 		})
 	})
 
-	Describe("FindAllByUserID", func() {
+	Describe("FindBySlug", func() {
+		var (
+			s1 *subscription.Subscription
+			s2 *subscription.Subscription
+			s3 *subscription.Subscription
+			u2 *user.User
+		)
+
+		BeforeEach(func() {
+			// Insert subscriptions
+			bp1, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s1 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SUB1",
+			}
+			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
+
+			s2 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"X", true},
+				Slug:             "SUB2",
+			}
+			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
+
+			u2 = &user.User{
+				Username: "user2",
+				Email:    "user2@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			bp2, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s3 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp2.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"3", true},
+				Slug:             "SUB3",
+			}
+			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
+		})
+
+		It("should find by slug belonging to a user", func() {
+			s, err := subscription.FindBySlug(db, "SUB1", u.ID)
+			Expect(err).To(BeNil())
+			Expect(s).To(Equal(s1))
+		})
+
+		It("should not find by slug if the subscription doesn't belong to the user", func() {
+			s, err := subscription.FindBySlug(db, "SUB3", u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(s).To(BeNil())
+		})
+
+		Context("with organisation", func() {
+			var (
+				owner  *user.User
+				o      *org.Org
+				orgSub *subscription.Subscription
+				orgHS  *test.HostStack
+			)
+
+			BeforeEach(func() {
+				owner = &user.User{
+					Username: "boss",
+					Email:    "boss@corp.com",
+					Password: "123456",
+				}
+				Expect(test.WrapInTransaction(db, owner.Insert)).To(BeNil())
+				o = &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+				err = db.WithTransaction(func(t *sqlx.Tx) error {
+					Expect(billingprofile.Create(t, owner.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+					return nil
+				})
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, owner.ID, orgmembership.RoleOwner)
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				oBP, err := billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+
+				orgSub = &subscription.Subscription{
+					PlanID:           pl.ID,
+					BillingProfileID: oBP.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"orgSub", true},
+					Slug:             "ORG-SUB1",
+				}
+				Expect(test.WrapInTransaction(db, orgSub.Insert)).To(BeNil())
+
+				orgHS, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						Slug:        "my-org-host",
+						HourlyPrice: 2000,
+					},
+					P: pl,
+					U: u,
+				})
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", orgSub.ID, orgHS.H.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should find if the subscription is tied to a org and host which belongs to a user", func() {
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u.ID)
+				Expect(err).To(BeNil())
+				Expect(s).To(Equal(orgSub))
+			})
+
+			It("should not find if the subscription is tied to a org and host which belongs to a different user", func() {
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				Expect(s).To(BeNil())
+			})
+
+		})
+	})
+
+	Describe("FindAllActiveByUserID", func() {
 		var (
 			s1 *subscription.Subscription
 			s2 *subscription.Subscription
@@ -294,6 +431,85 @@ var _ = Describe("models/subscription", func() {
 
 			Expect(subscriptions[1].ID).To(Equal(s2.ID))
 			Expect(subscriptions[1].HostSlug.String).To(Equal("my-host-1"))
+		})
+
+		Context("with organisation", func() {
+			var (
+				owner  *user.User
+				o      *org.Org
+				orgSub *subscription.Subscription
+				orgHS  *test.HostStack
+			)
+
+			BeforeEach(func() {
+				owner = &user.User{
+					Username: "boss",
+					Email:    "boss@corp.com",
+					Password: "123456",
+				}
+				Expect(test.WrapInTransaction(db, owner.Insert)).To(BeNil())
+				o = &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+				err = db.WithTransaction(func(t *sqlx.Tx) error {
+					Expect(billingprofile.Create(t, owner.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+					return nil
+				})
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, owner.ID, orgmembership.RoleOwner)
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				oBP, err := billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+
+				orgSub = &subscription.Subscription{
+					PlanID:           pl.ID,
+					BillingProfileID: oBP.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"orgSub", true},
+					Slug:             "SUB1",
+				}
+				Expect(test.WrapInTransaction(db, orgSub.Insert)).To(BeNil())
+
+				orgHS, err = test.CreateHostStack(db, &test.HostStack{
+					H: &host.Host{
+						Slug:        "my-org-host",
+						HourlyPrice: 2000,
+					},
+					P: pl,
+					U: u,
+				})
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", orgSub.ID, orgHS.H.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should return subscriptions for which the user's hosts belongs to in an org", func() {
+				subscriptions, err := subscription.FindAllActiveByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+
+				Expect(subscriptions).To(HaveLen(3))
+				Expect(subscriptions[2].ID).To(Equal(orgSub.ID))
+				Expect(subscriptions[2].HostSlug.String).To(Equal("my-org-host"))
+			})
+
+			It("should not double up subscriptions if the host and org BP belong to the same user", func() {
+				_, err := db.Exec("UPDATE billing_profiles SET user_id = $1 WHERE org_id = $2;", u.ID, o.ID)
+				Expect(err).To(BeNil())
+
+				subscriptions, err := subscription.FindAllActiveByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+
+				Expect(subscriptions).To(HaveLen(3))
+				Expect(subscriptions[2].ID).To(Equal(orgSub.ID))
+				Expect(subscriptions[2].HostSlug.String).To(Equal("my-org-host"))
+			})
 		})
 	})
 })
