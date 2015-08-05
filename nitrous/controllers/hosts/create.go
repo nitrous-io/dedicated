@@ -16,9 +16,11 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -42,7 +44,10 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
-	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
+	errSuspiciousUser      = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
+	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden",
+		"You do not have access to this organization")
+	errOrgNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching org found")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -57,6 +62,7 @@ type createOpts struct {
 	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
 	Name   string `json:"name"`
 	Async  bool   `json:"async"`
+	Org    string `json:"org"`
 
 	// Container-related fields for when we want to create a container on the
 	// host as well.
@@ -82,6 +88,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		reg      *region.Region
 		pl       *plan.Plan
 		template *providertemplate.ProviderTemplate
+		o        *org.Org
 	)
 
 	// if template name is specified, we use it to locate the correct plan,
@@ -114,7 +121,28 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	err = freetier.CreateHostWithPlanAllowed(db, u, pl)
+	var bp *billingprofile.BillingProfile
+
+	if options.Org != "" {
+		o, err = org.FindBySlug(db, options.Org)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errOrgNotFound
+			}
+			return err
+		}
+		bp, err = billingprofile.FindForOrg(db, o.ID)
+		if err != nil {
+			return err
+		}
+	} else {
+		bp, err = u.BillingProfile(db)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl)
 	if err != nil {
 		switch err {
 		case freetier.ErrFreePlanNotAllowed:
@@ -180,6 +208,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		User:               u,
 		Region:             reg,
 		Plan:               pl,
+		Org:                o,
 		Template:           template,
 		ProvisionFailedFn:  publishProvisionFailure,
 		UUID:               env.UUID,
@@ -199,6 +228,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errMultipleRequests
 		case provisioner.ErrHostCreationNotAllowed:
 			return errHostCreationNotAllowed
+		case provisioner.ErrOrgPermissionDenied:
+			return errOrgPermissionDenied
 		}
 		return err
 	}
@@ -244,6 +275,7 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 			TemplateName:          r.FormValue("template_name"),
 			ContainerTemplateSlug: r.FormValue("container_template_slug"),
 			ContainerName:         r.FormValue("container_name"),
+			Org:                   r.FormValue("org"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
