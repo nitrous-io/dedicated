@@ -1486,5 +1486,11 @@ func init() {
 				ALTER TABLE users ADD COLUMN suspicious text
 			`,
 		},
+		{
+			Version: "1438723458",
+			Up: `
+                                ALTER TABLE hosts ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
+                        `,
+		},
 	}
 }
