@@ -1,5 +1,5 @@
 App.OrgsListComponent = Em.Component.extend
-  templateName: 'components/orgs/list'
+  layoutName: 'components/orgs/list'
   elementId: 'orgs-list'
 
   collection: null

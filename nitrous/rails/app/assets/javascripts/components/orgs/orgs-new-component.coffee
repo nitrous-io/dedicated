@@ -1,5 +1,5 @@
 App.OrgsNewComponent = Em.Component.extend
-  templateName: 'components/orgs/new'
+  layoutName: 'components/orgs/new'
   elementId: 'orgs-new'
   classNames: ['ui', 'card']
 

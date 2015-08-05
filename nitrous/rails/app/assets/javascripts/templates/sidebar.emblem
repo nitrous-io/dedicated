@@ -53,7 +53,7 @@ if App.groupedSharedContainers.length
                   span
                     = container.state
 
-= orgs-list collection=controllers.orgs.collection selectedItem=controllers.orgs.selectedRecord
+= orgs-list collection=controllers.orgs.collection selectedItem=controllers.org.model
 
 .app-download
   if App.billingProfile.free
