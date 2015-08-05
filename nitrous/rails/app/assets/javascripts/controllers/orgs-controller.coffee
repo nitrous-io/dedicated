@@ -1,7 +1,13 @@
 App.OrgsController = Em.Controller.extend
   collection: null
   newRecord: null
+  selectedRecord: null
 
   init: ->
     @_super.apply this, arguments
-    @set 'model', Em.A()
+    @set 'collection', []
+    PubSub.subscribe 'orgs-new.created', (msg, data) =>
+      @get('collection').addObject(data)
+
+  reload: ->
+    App.Org.fetch(@get 'collection')

@@ -12,6 +12,19 @@ App.Org = klass = App.NewModel.extend
     name: @get 'name'
     email: @get 'email'
 
+  recordUrl: (->
+    if slug = @get 'slug'
+      "/api/v0/orgs/#{slug}"
+  ).property 'slug'
+
+  displayName: (->
+    @get('name') || @get('slug')
+  ).property 'name', 'slug'
+
+  gravatar: (->
+    "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=40"
+  ).property 'email'
+
 klass.reopenClass
   collectionUrl: '/api/v0/orgs'
   collectionRoot: 'orgs'
