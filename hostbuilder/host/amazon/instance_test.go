@@ -1,6 +1,8 @@
 package amazon
 
 import (
+	"errors"
+
 	"github.com/mitchellh/goamz/ec2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,6 +42,10 @@ func (p *dummyInstanceProvider) ModifyInstance(id string, options *ec2.ModifyIns
 func (p *dummyInstanceProvider) CreateTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error) {
 	p.calls = append(p.calls, fn{"CreateTags", []interface{}{ids, tags}})
 	return &ec2.SimpleResp{}, nil
+}
+
+func (p *dummyInstanceProvider) DeleteTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error) {
+	return nil, errors.New("not implemented in test")
 }
 
 var _ = Describe("getInstance", func() {
@@ -107,7 +113,9 @@ var _ = Describe("setTags", func() {
 			Config:   &hostConfig{Name: "test-host"},
 			instance: &ec2.Instance{InstanceId: "i-1234"},
 		}
-		setTags(p, h)
+
+		err := setTags(p, h)
+		Expect(err).To(BeNil())
 
 		Expect(p.calls[0].args[0].([]string)).To(Equal([]string{"i-1234"}))
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
@@ -120,7 +128,10 @@ var _ = Describe("setTags", func() {
 			Config:       &hostConfig{Name: "test-{{env}}-host"},
 			instance:     &ec2.Instance{InstanceId: "i-1234"},
 		}
-		setTags(p, h)
+
+		err = setTags(p, h)
+		Expect(err).To(BeNil())
+
 		Expect(p.calls[0].args[1].([]ec2.Tag)).To(ConsistOf(
 			ec2.Tag{"Name", "test-staging-host"},
 			ec2.Tag{"dedicated", "staging"},
