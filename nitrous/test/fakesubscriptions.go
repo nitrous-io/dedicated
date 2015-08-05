@@ -4,6 +4,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -14,6 +15,7 @@ type FakeSubscriptionProvider struct {
 	SubscribeHost   *host.Host
 	SubscribePlan   *plan.Plan
 	SubscribeUser   *user.User
+	SubscribeOrg    *org.Org
 	SubscribeError  error
 	SubscribeReturn *subscription.Subscription
 
@@ -48,11 +50,12 @@ type FakeSubscriptionProvider struct {
 	HandleSubscriptionInvoiceFailedReturn    *invoice.Invoice
 }
 
-func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
+func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (sub *subscription.Subscription, err error) {
 	s.SubscribeCalled = true
 	s.SubscribeHost = h
 	s.SubscribePlan = p
 	s.SubscribeUser = u
+	s.SubscribeOrg = o
 	return s.SubscribeReturn, s.SubscribeError
 }
 
