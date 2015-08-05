@@ -85,6 +85,29 @@ klass.reopenClass
       ).fail (jqxhr) ->
         reject(jqxhr)
 
+  fetchOne: (attrs={}, query={}) ->
+    tmpRecord = @create(attrs)
+    url = tmpRecord.get 'recordUrl'
+
+    new Ember.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'GET'
+        url: url
+        data: query
+        dataType: 'json'
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+      ).done((data, status, jqxhr) =>
+        if d = data[Em.get(this, 'recordRoot')]
+          deserialized = @deserialize(d)
+          key = deserialized[Em.get(this, 'primaryKey')]
+          record = @fromCache(key) ? tmpRecord
+          record.load(deserialized, true)
+          resolve(record)
+        else
+          reject(jqxhr)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
+
   diffMerge: (existing, newArray) ->
     removed = []
     added = []
