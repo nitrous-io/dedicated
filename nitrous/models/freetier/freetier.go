@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -44,6 +45,29 @@ func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*pla
 	return plan.PaidPlansForProvider(d, provider)
 }
 
+// Checks whether a free/paid user can create a host of given plan.
+func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.BillingProfile, p *plan.Plan) error {
+	if bp.IsFreeTier() && !bp.OrgID.Valid {
+		if !p.IsFree() {
+			// Free-tier user must upgrade their billing profile first before creating paid plan
+			return ErrPaidPlanNotAllowed
+		}
+
+		if err := createFreeTierHostAllowed(d, u); err != nil {
+			return err
+		}
+		return nil
+	} else {
+		// Organizations & Paid users cannot create hosts with free plan. Doesn't apply to admin
+		// users so that we can test more easily
+		if p.IsFree() && (bp.OrgID.Valid || !u.Admin) {
+			return ErrFreePlanNotAllowed
+		}
+	}
+
+	return nil
+}
+
 // Checks whether a user of given billing profile can create new free tier host.
 // It returns ErrFreePlanNotAllowed if user is not in free tier or if free user has created a host
 func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
@@ -76,34 +100,6 @@ func createFreeTierHostAllowed(d *db.Database, u *user.User) error {
 
 	if count > 0 {
 		return ErrMaxFreeHostReached
-	}
-
-	return nil
-}
-
-// Checks whether a free/paid user can create a host of given plan.
-func CreateHostWithPlanAllowed(d *db.Database, u *user.User, p *plan.Plan) error {
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return err
-	}
-
-	if bp.IsFreeTier() {
-		if !p.IsFree() {
-			// Free-tier user must upgrade their billing profile first before creating paid plan
-			return ErrPaidPlanNotAllowed
-		}
-
-		if err := createFreeTierHostAllowed(d, u); err != nil {
-			return err
-		}
-		return nil
-	} else {
-		// Paid users cannot create hosts with free plan. Doesn't apply to admin
-		// users so that we can test more easily
-		if p.IsFree() && !u.Admin {
-			return ErrFreePlanNotAllowed
-		}
 	}
 
 	return nil

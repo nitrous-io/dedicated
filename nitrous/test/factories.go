@@ -9,6 +9,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -21,6 +22,7 @@ type HostStack struct {
 	PT   *providertemplate.ProviderTemplate
 	H    *host.Host
 	U    *user.User
+	O    *org.Org
 	Cert *cert.Cert
 }
 
@@ -156,6 +158,10 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 	}
 	if hs.H.DockerVersion == "" {
 		hs.H.DockerVersion = "1.4.1-nitrous"
+	}
+
+	if hs.O != nil {
+		hs.H.OrgID = sql.NullInt64{hs.O.ID, true}
 	}
 
 	err = hs.H.Insert(tx)
