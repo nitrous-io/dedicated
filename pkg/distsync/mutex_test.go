@@ -1,7 +1,6 @@
 package distsync
 
 import (
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -28,41 +27,45 @@ func TestMain(m *testing.M) {
 }
 
 func TestMutex(t *testing.T) {
+	start := make(chan struct{})
 	done := make(chan struct{})
 	errCh := make(chan error)
 
-	concurrentClients := 4
-	locksPerClient := 10
+	concurrentClients := 5
 
 	for i := 0; i < concurrentClients; i++ {
-		go func() {
+		go func(i int) {
 			mu := NewMutex("my-mutex", ":63790")
-			mu.Delay = 1 * time.Second
 
-			for j := 0; j < locksPerClient; j++ {
-				err := mu.Lock()
-				if err != nil {
-					errCh <- err
-					return
-				}
+			// Try for 10 seconds (this should be more than the time needed for
+			// all clients to get a lock.
+			mu.Delay = 500 * time.Millisecond
+			mu.Tries = 20
 
-				// Give goroutine scheduler a chance to run other goroutines.
-				time.Sleep(1 * time.Millisecond)
+			<-start
 
-				mu.Unlock()
-
-				// Wait a random amount of time before trying to lock again.
-				time.Sleep(time.Duration(rand.Int31n(100)) * time.Millisecond)
+			err := mu.Lock()
+			if err != nil {
+				t.Logf("error in client %d, err: %v", i, err)
+				errCh <- err
+				return
 			}
 
+			// Do work.
+			time.Sleep(50 * time.Millisecond)
+
+			mu.Unlock()
+
 			done <- struct{}{}
-		}()
+		}(i)
 	}
+
+	close(start) // Start all goroutines at once to simulate lock contention.
 
 	for i := 0; i < concurrentClients; i++ {
 		select {
 		case <-done:
-			t.Logf("client %d done", i)
+			t.Logf("%d client(s) done", i+1)
 		case err := <-errCh:
 			t.Fatal(err)
 		}
