@@ -45,7 +45,7 @@ App.Host = klass = App.Model.extend
 
   displayName: (->
     @get('name') || @get('slug')
-  ).property 'slug'
+  ).property 'name', 'slug'
 
   stateForDisplay: (->
     switch state = @get('state')

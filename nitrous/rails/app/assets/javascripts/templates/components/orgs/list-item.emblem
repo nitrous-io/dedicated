@@ -1,0 +1,4 @@
+= link-to 'org.index' item.slug
+  h3
+    = item.displayName
+    img.gravatar src=item.gravatar

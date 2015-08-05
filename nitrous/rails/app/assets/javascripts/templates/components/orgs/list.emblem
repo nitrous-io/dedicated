@@ -1,0 +1,5 @@
+if collection.length
+  h2 Organizations
+  ul.sidebar-list.orgs
+    each item in collection
+      = orgs-list-item item=item selectedItem=selectedItem

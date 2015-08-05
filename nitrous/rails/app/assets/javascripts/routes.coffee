@@ -43,6 +43,8 @@ App.Router.map ->
     @resource 'orgs', path: '/orgs', ->
       @route 'new'
 
+    @resource 'org', path: '/orgs/:orgSlug', ->
+
     @resource 'account'
     @resource 'add-phone'
     @resource 'billing'

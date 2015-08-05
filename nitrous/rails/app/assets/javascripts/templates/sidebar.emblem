@@ -1,6 +1,6 @@
 if App.hosts.length
   h2 Workspaces
-  ul.hosts
+  ul.sidebar-list.hosts
     each host in App.hosts
       li class={host.selected:selected host.isTerminated:disabled}
         if host.isTerminated
@@ -34,24 +34,26 @@ if App.hosts.length
                             = container.state
 
 if App.groupedSharedContainers.length
-  h2 Shared
-  ul.hosts
+  h2 Shared Containers
+  ul.sidebar-list.shared-containers
     each group in App.groupedSharedContainers
       li
-          h3
-            = group.username
-          img.sharer-image src=group.gravatar width="20" height="20"
-          ul.containers
-            each container in group.items
-              li class={container.selected container.isTerminated:disabled}
-                link-to 'container.index' container.slug
-                  .group
-                    h4
-                      = container.displayName
+        h3
+          = group.username
+        img.gravatar src=group.gravatar
+        ul.containers
+          each container in group.items
+            li class={container.selected container.isTerminated:disabled}
+              link-to 'container.index' container.slug
+                .group
+                  h4
+                    = container.displayName
 
-                  .state-indicator class={container.state} title={container.state}
-                    span
-                      = container.state
+                .state-indicator class={container.state} title={container.state}
+                  span
+                    = container.state
+
+= orgs-list collection=controllers.orgs.collection selectedItem=controllers.orgs.selectedRecord
 
 .app-download
   if App.billingProfile.free
