@@ -50,6 +50,7 @@ func (h *Host) instancesInPool(instancetype string) ([]*ec2.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-type", instancetype)
 	filter.Add(fmt.Sprintf(`tag:%s`, poolTag), "true")
+	filter.Add(`tag:dedicated`, h.driverConfig.Env)
 	filter.Add("instance-state-name", "running")
 
 	// TODO We should actually paginate through requests, but we are just gonna
