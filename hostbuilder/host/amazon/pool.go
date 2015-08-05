@@ -114,7 +114,7 @@ func (h *Host) acquireInstance(instancetype string) (*ec2.Instance, error) {
 	// instance type) so that no other hostbuilder processes can acquire /
 	// release from the same pool at any time.
 	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
-	mu := distsync.NewMutex(poolMutexName(instancetype), addr)
+	mu := distsync.NewMutex(h.poolMutexName(instancetype), addr)
 
 	// The lock will be valid for this duration, during which we will:
 	//   1. list the instances in the pool (performs AWS API request),
@@ -157,7 +157,7 @@ func (h *Host) releaseInstance() error {
 
 	// Attempt to acquire a lock on the instance pool.
 	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
-	mu := distsync.NewMutex(poolMutexName(instancetype), addr)
+	mu := distsync.NewMutex(h.poolMutexName(instancetype), addr)
 	mu.Expiry = 30 * time.Second // Not less than expected time needed to create tags.
 
 	if err := mu.Lock(); err != nil {
@@ -176,6 +176,6 @@ func (h *Host) releaseInstance() error {
 	return nil
 }
 
-func poolMutexName(instancetype string) string {
-	return fmt.Sprintf("pool-%s", instancetype)
+func (h *Host) poolMutexName(instancetype string) string {
+	return fmt.Sprintf("pool-%s-%s", h.Config.RegionID, instancetype)
 }
