@@ -112,9 +112,11 @@ type Host struct {
 	HourlyPrice    int64         `db:"hourly_price"`
 	Free           bool          `db:"free"`
 	SubscriptionID sql.NullInt64 `db:"subscription_id"`
+	OrgID          sql.NullInt64 `db:"org_id"`
 
 	// this is populated via a join
 	SubscriptionSlug sql.NullString `db:"subscription_slug"`
+	OrgSlug          sql.NullString `db:"org_slug"`
 
 	*ProviderTemplate
 
@@ -154,10 +156,11 @@ func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 
 func FindAllByUser(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
-	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE user_id = $1 AND terminated_at IS NULL AND preprovisioned = FALSE AND hosts.state NOT IN ($2, $3) ORDER BY id;`,
 		userID, StateOrphan, StateMigrating)
 	if err != nil {
@@ -206,18 +209,20 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE hosts.user_id = $1 AND hosts.slug = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE hosts.user_id = $1 AND hosts.id = $2
 			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
 	}
@@ -237,22 +242,24 @@ func FindShared(db *db.Database, user *user.User, identifier string) (*Host, err
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
 			INNER JOIN container_collabs AS cc ON c.id = cc.container_id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE cc.user_id = $1 AND hosts.slug = $2
 			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			INNER JOIN containers AS c ON hosts.id = c.host_id
 			INNER JOIN container_collabs AS cc ON c.id = cc.container_id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE cc.user_id = $1 AND hosts.id = $2
 			AND hosts.terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
 	}
@@ -274,18 +281,20 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	if err != nil {
 		// If we can't parse an int, identifier is a slug.
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE hosts.slug = $1
 			AND terminated_at IS NULL;`, identifier)
 	} else {
 		err = db.Get(host,
-			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
 			FROM hosts
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        LEFT JOIN orgs ON hosts.org_id = orgs.id
 			WHERE hosts.id = $1
 			AND terminated_at IS NULL;`, id)
 	}
@@ -328,12 +337,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 		h.Secret = sec[:255]
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO hosts (
-			user_id, region_id, plan_id, provider_template_id, slug, name, secret,
+			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned, freighterd_version, docker_version,
 			region_identifier, last_pinged_at, auto_shutdown
 		) VALUES (
-			:user_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
+                        :user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
 			:region_identifier, :last_pinged_at, :auto_shutdown
