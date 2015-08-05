@@ -2,12 +2,16 @@ package org
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
+	stripe "github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/customer"
 )
 
 var (
@@ -116,4 +120,25 @@ func (o *Org) Validate() error {
 	}
 
 	return nil
+}
+
+func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) error {
+	params := &stripe.CustomerParams{
+		Email: o.Email,
+		Desc:  fmt.Sprintf("Organisation %q", o.Name),
+		Params: stripe.Params{
+			Meta: map[string]string{
+				"name": o.Name,
+			},
+		},
+	}
+	if token != "" {
+		params.Token = token
+	}
+	c, err := customer.New(params)
+	if err != nil {
+		return billingprofile.HandleStripeError(err)
+	}
+
+	return bp.Activate(d, c)
 }
