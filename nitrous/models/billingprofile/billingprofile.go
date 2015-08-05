@@ -73,6 +73,20 @@ func (bp *BillingProfile) EligibleForSubscription() bool {
 		bp.State == StatePaymentDue
 }
 
+func (bp *BillingProfile) CanCreateHosts() bool {
+	switch bp.State {
+	// noop for these cases
+	case StatePaid:
+	case StatePaymentDue:
+	case StateExempt:
+	case StateFree:
+	default:
+		// return disallowed if not in any of previous state
+		return false
+	}
+	return true
+}
+
 func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
 	b := &BillingProfile{}
 	err := d.Get(b, "SELECT * FROM billing_profiles WHERE id = $1 ORDER BY created_at DESC LIMIT 1;", id)
