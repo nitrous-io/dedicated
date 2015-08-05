@@ -140,6 +140,7 @@ type Host struct {
 	keypair *keypair
 
 	// For respec.
+	rootVolume *ec2.Volume
 	userVolume *ec2.Volume
 	newVolume  *ec2.Volume
 	snapshot   *ec2.Snapshot
@@ -448,6 +449,106 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		}
 	}
 
+	// [Feature flag] - requires EBS hotswapping.
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	if h.supportsEBSHotswapping(vol) {
+		return h.respecWithPool(qp, queueInfo)
+	}
+
+	h.Printf("respeccing pre-EBS hotswapping instance normally")
+
+	var changeInstanceType, changeStorageSize bool
+
+	if h.Config.InstanceType != "" && h.Config.InstanceType != h.instance.InstanceType {
+		changeInstanceType = true
+	}
+
+	var (
+		rootVolume     *ec2.Volume
+		configuredSize int64
+	)
+
+	// If StorageSize is 0, no change required.
+	if h.Config.StorageSize != 0 {
+		var err error
+		rootVolume, err = h.getVolumeByDeviceName(rootDeviceName)
+		if err != nil {
+			return nil, mh.Error(err, label)
+		}
+
+		currentSize, err := strconv.ParseInt(rootVolume.Size, 10, 64)
+		if err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", rootVolume, err), label)
+		}
+
+		configuredSize = computeSize(h.Config.StorageSize)
+		if currentSize < configuredSize {
+			changeStorageSize = true
+			h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+		}
+	}
+
+	// If no further changes required, we're done.
+	if !changeInstanceType && !changeStorageSize {
+		info, err := h.Info()
+		if err == nil {
+			host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+		} else {
+			logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
+		}
+
+		return info, err
+	}
+
+	// Otherwise, we stop the instance since any further changes now require
+	// it to be stopped.
+	if err := h.stopInstance(); err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+	}
+
+	if changeInstanceType {
+		h.Printf("Changing instance type of instance %s from %s to %s", h.instance.InstanceId, h.instance.InstanceType, h.Config.InstanceType)
+		if err := modifyInstanceType(h.provider, h, h.Config.InstanceType); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to change instance type, err: %v"), label)
+		}
+	}
+
+	if changeStorageSize {
+		if err := h.resizeRootVolume(rootVolume, configuredSize); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to resize root volume, err: %v", err), label)
+		}
+	}
+
+	if err := h.startInstance(); err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+		return nil, mh.Error(fmt.Errorf("amazon: failed to start instance for respeccing, err: %v", err), label)
+	}
+
+	info, err := h.Info()
+	if err == nil {
+		host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+	} else {
+		logrus.WithField("uuid", h.requestID).Errorf("amazon: failed to send a message due to failure on getting host info: %v", err)
+	}
+
+	return info, err
+}
+
+// respecWithPool changes the specs of an existing host that supports EBS
+// hotswapping. "WithPool" is a misnomer (since we don't use the instance pool
+// atm) but keeping it as a greppable convention (see startWithPool, etc).
+func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("respec_with_pool")
+	defer mh.UpdateSince(label, time.Now())
+
 	var changeInstanceType, changeStorageSize bool
 
 	if h.Config.InstanceType != "" && h.Config.InstanceType != h.instance.InstanceType {
@@ -546,6 +647,170 @@ func (h *Host) getVolumeByDeviceName(deviceName string) (*ec2.Volume, error) {
 	}
 
 	return vol, nil
+}
+
+type resizeStep struct {
+	host.Step
+	restartOnError bool
+}
+
+func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeVolumeTimeout)
+	defer cancel()
+
+	h.rootVolume = rootVolume
+	h.newSize = newSize
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	steps := []resizeStep{
+		{
+			Step: host.Step{
+				Description: "Taking snapshot of disk",
+				Func:        snapshotRootVolume,
+			},
+			restartOnError: true,
+		},
+		{
+			Step: host.Step{
+				Description: "Creating larger disk",
+				Func:        createNewRootVolume,
+			},
+			restartOnError: true,
+		},
+		{
+			Step: host.Step{
+				Description: "Switching to larger disk",
+				Func:        swapRootVolume,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Cleaning up",
+				Func:        deleteOldRootVolume,
+			},
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step.Step); err != nil {
+			h.Printf("ERROR: failed in resize root volume step %q: %v", step.Description, err)
+
+			// Start the instance back up if necessary.
+			// Note that the time to start the instance is excluded from the
+			// context timeout.
+			if step.restartOnError {
+				if e := h.startInstance(); e != nil {
+					h.Printf("failed to start instance %s back up", h.instance.InstanceId)
+				}
+			}
+
+			if err == context.DeadlineExceeded {
+				return ErrCreateTimeout
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func snapshotRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("snapshot_root_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	newSize := h.newSize
+
+	h.Printf("Creating snapshot of root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
+		h.instance.InstanceId, rootVolume.Size, newSize)
+	snapshot, err := createSnapshot(h.provider, rootVolume.VolumeId, desc)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to create snapshot of root volume %+v, err: %v", rootVolume, err)
+	}
+
+	h.snapshot = snapshot
+
+	tags := []ec2.Tag{
+		{Key: "InstanceID", Value: h.instance.InstanceId},
+		{Key: "dedicated", Value: h.driverConfig.Env},
+	}
+	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
+		h.Printf("ERROR: failed to tag snapshot %v, err: %v", snapshot.Id, err)
+	}
+
+	h.Printf("Created snapshot %s of volume %s", snapshot.Id, rootVolume.VolumeId)
+
+	return nil
+}
+
+func createNewRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("create_new_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	snapshot := h.snapshot
+	newSize := h.newSize
+
+	h.Printf("Creating volume from snapshot %s", snapshot.Id)
+	newVolume, err := createVolume(h.provider, snapshot.Id, rootVolume.AvailZone, newSize)
+	if err != nil {
+		return fmt.Errorf("amazon: failed to create new volume from snapshot %s, err: %v", snapshot.Id, err)
+	}
+	h.Printf("Created new volume %s from snapshot %s", newVolume.VolumeId, snapshot.Id)
+
+	h.newVolume = newVolume
+
+	return nil
+}
+
+func swapRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("swap_root_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+	newVolume := h.newVolume
+
+	h.Printf("Detaching root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := detachVolume(h.provider, rootVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return fmt.Errorf("amazon: failed to detach root volume, err: %v", err)
+	} else {
+		rootVolume = vol
+	}
+	h.Printf("Detached root volume %s from %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	h.Printf("Attaching new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
+	if vol, err := attachVolume(h.provider, newVolume.VolumeId, h.instance.InstanceId, rootDeviceName); err != nil {
+		return fmt.Errorf("amazon: failed to attach new volume %+v to %s, err: %v", newVolume, h.instance.InstanceId, err)
+	} else {
+		newVolume = vol
+	}
+	h.Printf("Attached new volume %s to instance %s", newVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
+}
+
+func deleteOldRootVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("delete_old_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	rootVolume := h.rootVolume
+
+	h.Printf("Deleting old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+	if _, err := h.provider.DeleteVolume(rootVolume.VolumeId); err != nil {
+		h.Printf("ERROR: failed to delete old root volume %s for instance %s after respec, err: %v", rootVolume.VolumeId, h.instance.InstanceId, err)
+	}
+	h.Printf("Deleted old root volume %s of instance %s", rootVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
 }
 
 func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
