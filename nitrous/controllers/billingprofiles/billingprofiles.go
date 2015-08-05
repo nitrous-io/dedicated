@@ -2,7 +2,6 @@ package billingprofiles
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -17,8 +16,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	stripe "github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/customer"
 )
 
 var (
@@ -100,7 +97,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 			if err != nil {
 				return err
 			}
-			err = activateOrgBillingProfile(db, o, bp, cardToken)
+			err = o.ActivateBillingProfile(db, bp, cardToken)
 		} else {
 			bp, err = u.ActivateBillingProfile(db, cardToken)
 		}
@@ -253,25 +250,4 @@ func awardCredits(d *db.Database, user *user.User) int64 {
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
 	return credittype.FindValidCreditTypeByName(d, creditCode)
-}
-
-func activateOrgBillingProfile(d *db.Database, o *org.Org, bp *billingprofile.BillingProfile, token string) error {
-	params := &stripe.CustomerParams{
-		Email: o.Email,
-		Desc:  fmt.Sprintf("Organisation %q", o.Name),
-		Params: stripe.Params{
-			Meta: map[string]string{
-				"name": o.Name,
-			},
-		},
-	}
-	if token != "" {
-		params.Token = token
-	}
-	c, err := customer.New(params)
-	if err != nil {
-		return billingprofile.HandleStripeError(err)
-	}
-
-	return bp.Activate(d, c)
 }

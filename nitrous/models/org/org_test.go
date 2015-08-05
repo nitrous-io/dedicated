@@ -4,13 +4,16 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	stripe "github.com/stripe/stripe-go"
 )
 
 func Test(t *testing.T) {
@@ -361,6 +364,157 @@ var _ = Describe("models/org", func() {
 				o, err := org.FindAllByMemberUserID(db, u.ID)
 				Expect(o).To(BeNil())
 				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
+	Describe("ActivateBillingProfile", func() {
+		var (
+			u          *user.User
+			fakeStripe *test.FakeStripe
+			bp         *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o1.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			bp, err = billingprofile.FindForOrg(db, o1.ID)
+			Expect(err).To(BeNil())
+			fakeStripe = &test.FakeStripe{}
+			stripe.SetBackend(fakeStripe)
+		})
+
+		It("sends a request to Stripe to create a customer", func() {
+			o1.ActivateBillingProfile(db, bp, "token")
+
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
+				"method":         "POST",
+				"path":           "/customers",
+				"card":           "token",
+				"email":          o1.Email,
+				"desc":           `Organisation "Foo Bar, Inc."`,
+				"metadata[name]": "Foo Bar, Inc.",
+			}))
+		})
+
+		It("should send a request if a token is not provided", func() {
+			o1.ActivateBillingProfile(db, bp, "")
+
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
+				"method":         "POST",
+				"path":           "/customers",
+				"card":           "",
+				"email":          o1.Email,
+				"desc":           `Organisation "Foo Bar, Inc."`,
+				"metadata[name]": "Foo Bar, Inc.",
+			}))
+		})
+
+		Context("when Stripe returns the created customer", func() {
+			It("updates and persists the record", func() {
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err := o1.ActivateBillingProfile(db, bp, "token")
+				Expect(err).To(BeNil())
+
+				Expect(bp.ID).NotTo(BeNil())
+				Expect(bp.UserID).To(Equal(u.ID))
+				Expect(bp.StripeID.String).To(Equal("sc_01"))
+				Expect(bp.LastFour.String).To(Equal("4242"))
+				Expect(bp.CardType.String).To(Equal("Visa"))
+				Expect(bp.ExpMonth.Int64).To(Equal(int64(10)))
+				Expect(bp.ExpYear.Int64).To(Equal(int64(2018)))
+				Expect(bp.PendingActivation).To(BeFalse())
+			})
+
+			It("should create a record without a card", func() {
+				resp := `{
+					"id": "sc_01",
+					"email": "user@example.com",
+					"cards": null,
+					"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
+				}`
+				fakeStripe.Responses = []string{resp}
+
+				err := o1.ActivateBillingProfile(db, bp, "token")
+				Expect(err).To(BeNil())
+
+				Expect(bp.ID).NotTo(BeNil())
+				Expect(bp.UserID).To(Equal(u.ID))
+				Expect(bp.StripeID.String).To(Equal("sc_01"))
+				Expect(bp.LastFour.String).To(BeEmpty())
+				Expect(bp.CardType.String).To(BeEmpty())
+				Expect(bp.ExpMonth.Int64).To(BeZero())
+				Expect(bp.ExpYear.Int64).To(BeZero())
+				Expect(bp.State).To(Equal("no_card"))
+				Expect(bp.PendingActivation).To(BeFalse())
+			})
+
+			It("should not allow a banned card", func() {
+				b := &user.User{
+					Username: "banner",
+					Password: "123456",
+					Email:    "banner@example.com",
+				}
+				err := test.WrapInTransaction(db, b.Insert)
+				Expect(err).To(BeNil())
+
+				u2 := &user.User{
+					Username: "bad",
+					Name:     "quxboy",
+					Password: "123456",
+					Email:    "bad@example.com",
+				}
+				err = test.WrapInTransaction(db, u2.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, b.ID, u2.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+				Expect(err).To(BeNil())
+
+				fakeStripe.Responses = []string{test.StripeCustomerResponse}
+
+				err = o1.ActivateBillingProfile(db, bp, "token")
+				Expect(err).To(Equal(billingprofile.ErrCardBanned))
+			})
+		})
+
+		Context("when Stripe returns a card declined error", func() {
+			It("returns the error, without updating the record", func() {
+				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
+
+				err := o1.ActivateBillingProfile(db, bp, "token")
+				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
+				Expect(bp.State).To(Equal("no_card"))
+			})
+		})
+
+		Context("when Stripe returns an error", func() {
+			It("returns the error, without updating the record", func() {
+				fakeStripe.Errors = []*stripe.Error{
+					&stripe.Error{
+						Type: stripe.ErrorType(stripe.APIErr),
+						Msg:  "some error occurred",
+						Code: stripe.ErrorCode(stripe.ProcessingErr),
+					},
+				}
+
+				err := o1.ActivateBillingProfile(db, bp, "token")
+				Expect(err).NotTo(BeNil())
+				Expect(bp.State).To(Equal("no_card"))
 			})
 		})
 	})
