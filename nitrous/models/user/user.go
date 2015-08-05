@@ -349,18 +349,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return false, err
 	}
 
-	switch bp.State {
-	// noop for these cases
-	case billingprofile.StatePaid:
-	case billingprofile.StatePaymentDue:
-	case billingprofile.StateExempt:
-
-	case billingprofile.StateFree:
-		// actual checking against allowed quota & plan
-		// is done by models/freetier
-
-	default:
-		// return disallowed if not in any of previous state
+	if !bp.CanCreateHosts() {
 		return false, nil
 	}
 

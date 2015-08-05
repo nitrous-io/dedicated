@@ -368,6 +368,96 @@ var _ = Describe("models/org", func() {
 		})
 	})
 
+	Describe("CanCreateHosts", func() {
+		var (
+			u  *user.User
+			bp *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o1.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			bp, err = billingprofile.FindForOrg(db, o1.ID)
+			Expect(err).To(BeNil())
+
+			bp.State = billingprofile.StatePaid
+			bp.StripeID = sql.NullString{"cus_1x23a", true}
+			Expect(bp.Update(db)).To(BeNil())
+		})
+
+		It("should be false if the BP is a invalid state", func() {
+			states := []string{
+				billingprofile.StateNoCard,
+				billingprofile.StateDelinquent,
+			}
+			for _, st := range states {
+				bp.State = st
+				Expect(bp.Update(db)).To(BeNil())
+
+				can, err := o1.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(can).To(BeFalse())
+			}
+		})
+
+		It("should be true if the BP is in a valid state", func() {
+			states := []string{
+				billingprofile.StateExempt,
+				billingprofile.StatePaid,
+				billingprofile.StatePaid,
+				billingprofile.StatePaymentDue,
+			}
+			for _, st := range states {
+				bp.State = st
+				Expect(bp.Update(db)).To(BeNil())
+
+				can, err := o1.CanCreateHosts(db)
+				Expect(err).To(BeNil())
+				Expect(can).To(BeTrue())
+			}
+		})
+
+		It("should be false if the org exceeds the max hosts", func() {
+			_, err := db.Exec(`UPDATE orgs SET max_hosts = 1 WHERE id = $1;`, o1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				O: o1,
+			})
+			Expect(err).To(BeNil())
+
+			can, err := o1.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+			Expect(can).To(BeFalse())
+		})
+		It("should be true if the org does not exceed the max hosts", func() {
+			_, err := db.Exec(`UPDATE orgs SET max_hosts = 2 WHERE id = $1;`, o1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				O: o1,
+			})
+			Expect(err).To(BeNil())
+
+			can, err := o1.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+			Expect(can).To(BeTrue())
+		})
+	})
+
 	Describe("ActivateBillingProfile", func() {
 		var (
 			u          *user.User

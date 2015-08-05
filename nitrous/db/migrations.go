@@ -1492,5 +1492,11 @@ func init() {
                                 ALTER TABLE hosts ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
                         `,
 		},
+		{
+			Version: "1438806805",
+			Up: `
+                                ALTER TABLE orgs ADD COLUMN max_hosts bigint NOT NULL DEFAULT 10;
+                        `,
+		},
 	}
 }

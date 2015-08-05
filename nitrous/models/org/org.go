@@ -36,6 +36,8 @@ type Org struct {
 	Name  string `db:"name"`
 	Email string `db:"email"`
 
+	MaxHosts int64 `db:"max_hosts"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
@@ -120,6 +122,30 @@ func (o *Org) Validate() error {
 	}
 
 	return nil
+}
+
+func (o *Org) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+	bp, err := billingprofile.FindForOrg(d, o.ID)
+	if err != nil {
+		return false, err
+	}
+
+	if !bp.CanCreateHosts() {
+		return false, nil
+	}
+
+	// ensure max_hosts limit has not been reached
+	var b bool
+	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(o.max_hosts), 0))
+		FROM orgs o
+		LEFT JOIN hosts h ON (h.org_id = o.id AND h.terminated_at IS NULL)
+		WHERE o.id = $1;`,
+		o.ID).Scan(&b)
+	if err != nil {
+		return false, err
+	}
+
+	return b, nil
 }
 
 func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) error {
