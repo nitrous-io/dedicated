@@ -224,6 +224,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/user_data":    rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
 				"/admin/host/{slug}":              r("admin.UpdateHost", admin.UpdateHost),
 				"/admin/template/{slug}":          r("admin.TemplateUpdate", admin.TemplateUpdate),
+				"/orgs/{slug}/members":            r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
 				"/orgs/{slug}/members/{username}": r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
 			},
 			"DELETE": {
