@@ -35,6 +35,7 @@ type OrgMembership struct {
 type OrgMember struct {
 	OrgMembership
 
+	OrgSlug  string `db:"org_slug"`
 	Username string `db:"username"`
 	Email    string `db:"email"`
 	Name     string `db:"name"`
@@ -43,9 +44,10 @@ type OrgMember struct {
 func FindAllByOrgID(d db.QueryReceiver, id int64) ([]*OrgMember, error) {
 	members := []*OrgMember{}
 	err := d.Select(&members, `
-		SELECT org_memberships.*, users.username, users.email, users.name
+		SELECT org_memberships.*, orgs.slug as org_slug, users.username, users.email, users.name
 		FROM org_memberships
 		INNER JOIN users ON org_memberships.user_id = users.id
+		INNER JOIN orgs ON org_memberships.org_id = orgs.id
 		WHERE org_memberships.org_id = $1
 		ORDER BY org_memberships.id;
 	`, id)

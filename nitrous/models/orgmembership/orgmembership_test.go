@@ -91,13 +91,27 @@ var _ = Describe("models/orgmembership", func() {
 		})
 
 		It("returns all members for a given org", func() {
+			var omID, om2ID int64
+			err := db.QueryRow("SELECT id FROM org_memberships WHERE org_id = $1 AND user_id = $2", o.ID, u.ID).Scan(&omID)
+			Expect(err).To(BeNil())
+			err = db.QueryRow("SELECT id FROM org_memberships WHERE org_id = $1 AND user_id = $2", o.ID, u3.ID).Scan(&om2ID)
+			Expect(err).To(BeNil())
+
 			m, err := orgmembership.FindAllByOrgID(db, o.ID)
 			Expect(err).To(BeNil())
 			Expect(m).To(HaveLen(2))
+			Expect(m[0].ID).To(Equal(omID))
+			Expect(m[0].OrgID).To(Equal(o.ID))
+			Expect(m[0].OrgSlug).To(Equal(o.Slug))
+			Expect(m[0].UserID).To(Equal(u.ID))
 			Expect(m[0].Username).To(Equal("foo"))
 			Expect(m[0].Email).To(Equal("foo@example.com"))
 			Expect(m[0].Name).To(Equal("Mr. Foo"))
 			Expect(m[0].Role).To(Equal("owner"))
+			Expect(m[1].ID).To(Equal(om2ID))
+			Expect(m[1].OrgID).To(Equal(o.ID))
+			Expect(m[1].OrgSlug).To(Equal(o.Slug))
+			Expect(m[1].UserID).To(Equal(u3.ID))
 			Expect(m[1].Username).To(Equal("baz"))
 			Expect(m[1].Email).To(Equal("baz@example.com"))
 			Expect(m[1].Name).To(Equal("Mrs. Baz"))
