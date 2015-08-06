@@ -51,6 +51,11 @@ var (
 	SendgridUsername = os.Getenv("SENDGRID_USERNAME")
 	SendgridPassword = os.Getenv("SENDGRID_PASSWORD")
 
+	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
+	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
+	HelpScoutMailboxID   int
+	HelpScoutUserID      int
+
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
 
@@ -114,6 +119,16 @@ func init() {
 	SupportEmailAddr, err = mail.ParseAddress(SupportEmail)
 	if err != nil {
 		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
+	}
+
+	var err error
+	HelpScoutMailboxID, err = strconv.Atoi(os.Getenv("HELPSCOUT_MAILBOX_ID"))
+	if err != nil {
+		fmt.Printf("WARNING: HELPSCOUT_MAILBOX_ID set to 'disable'. ERROR: %v\n", err)
+	}
+	HelpScoutUserID, err = strconv.Atoi(os.Getenv("HELPSCOUT_USER_ID"))
+	if err != nil {
+		fmt.Printf("WARNING: HELPSCOUT_USER_ID set to 'disable'. ERROR: %v\n", err)
 	}
 }
 
