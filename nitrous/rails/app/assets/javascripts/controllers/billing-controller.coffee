@@ -1,5 +1,3 @@
-#= require jquery.payment
-
 App.BillingController = Em.ObjectController.extend
   subscription: null
   totalSubscriptionCharge: (->

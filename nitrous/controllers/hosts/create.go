@@ -62,7 +62,7 @@ type createOpts struct {
 	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
 	Name   string `json:"name"`
 	Async  bool   `json:"async"`
-	Org    string `json:"org"`
+	Org    string `json:"org"` // org slug
 
 	// Container-related fields for when we want to create a container on the
 	// host as well.
