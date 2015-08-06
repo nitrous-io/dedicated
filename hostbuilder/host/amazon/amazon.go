@@ -95,206 +95,48 @@ type Host struct {
 	newSize    int64 // New storage size in GB.
 }
 
-func (h *Host) getVolumeByDeviceName(deviceName string) (*ec2.Volume, error) {
-	device := blockDevice(h.instance, deviceName)
-	if device == nil {
-		return nil, fmt.Errorf("amazon: cannot find volume for device %s of instance %s", deviceName, h.instance.InstanceId)
-	}
+func init() {
+	host.Register("amazon", &host.RegisteredDriver{
+		New: New,
+	})
+}
 
-	vol, err := h.getVolume(device.VolumeId)
-	if err != nil {
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
 
-	if vol.VolumeId != device.VolumeId {
-		// Sanity check - because using the wrong volume is bad m'kay.
-		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", device.VolumeId, vol)
+	hostCfg := &hostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
+		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
+		return nil, err
 	}
 
-	return vol, nil
-}
-
-// terminateInstance releases the EIP associated to the host's instance (if any)
-// and terminates the instance.
-func (h *Host) terminateInstance() error {
-	if err := h.releaseEIP(); err != nil {
-		return err
-	}
-
-	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
-		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "terminated",
-	}
-	h.Printf("waiting for state to become %s", state.Target)
-	updatedInstance, err := WaitForState(&state)
+	auth, err := aws.GetAuth(driverCfg.AccessKey, driverCfg.SecretKey)
 	if err != nil {
-		return err
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	return nil
-}
-
-// mountUserVolume logs in to instance via SSH to:
-// 1. Mount user volume.
-// 2. Start docker.
-// 3. Start freighterd.
-func mountUserVolume(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	conn := ctx.Executor
-
-	label := h.MetricsLabel("mount_user_volume")
-	defer mh.UpdateSince(label, time.Now())
-
-	// Mount user device, assuming that /etc/fstab already knows the mountpoint.
-	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo mount %s`, userDeviceOSName)); err != nil {
-		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+		logrus.Errorf("amazon: auth failed %v", err)
+		return nil, err
 	}
 
-	// Explicitly resize mounted file system to the size of the volume.
-	// This is necessary because we detach and attach EBS volumes of varying
-	// sizes, and we want the OS to recognize the new volume's size.
-	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo resize2fs %s`, userDeviceOSName)); err != nil {
-		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	host := &Host{
+		driverConfig: driverCfg,
+		Config:       hostCfg,
+		auth:         auth,
 	}
 
-	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
-		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
-	}
-
-	if out, err := conn.CombinedOutput(`sudo service freighterd start`); err != nil {
-		return fmt.Errorf("failed to start freighterd, err: %v, output: %s", err, out)
-	}
-
-	return nil
-}
-
-// unmountUserVolume logs in to instance via SSH to:
-// 1. Stop freighterd.
-// 2. Stop docker.
-// 3. Unmount user volume.
-func unmountUserVolume(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-	conn := ctx.Executor
-
-	label := h.MetricsLabel("unmount_user_volume")
-	defer mh.UpdateSince(label, time.Now())
-
-	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
-		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
-	}
-
-	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
-		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
-	}
-
-	// Try to unmount volume. We retry this several times in case there are
-	// processes that have open files on the user volume.
-	tries := 3
-	delay := 1 * time.Second
-	unmountOK := false
-	for i := 0; i < tries; i++ {
-		out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName))
-		if err != nil {
-			h.Printf("failed to unmount %s - attempt %d, err: %v, output: %s",
-				userDeviceOSName, i+1, err, out)
-			time.Sleep(delay)
-			continue
+	// workaround for actions that requires multiple regions i.e. Host#List
+	// This is set by the caller and should not be serialized as a
+	// configuration value
+	if driverCfg.IgnoreRegion != "true" {
+		region, ok := aws.Regions[hostCfg.RegionID]
+		if !ok {
+			return nil, fmt.Errorf("amazon: invalid region %q", hostCfg.RegionID)
 		}
-
-		unmountOK = true
-		break
+		host.provider = ec2.New(auth, region)
 	}
-
-	if !unmountOK {
-		return fmt.Errorf("could not unmount %s", userDeviceOSName)
-	}
-
-	return nil
-}
-
-func detachUserVolume(ctx *host.HostContext) error {
-	h := ctx.Host.(*Host)
-
-	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
-	if err != nil {
-		return err
-	}
-
-	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
-	if _, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
-		return err
-	}
-	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
-
-	return nil
-}
-
-func (h *Host) stopInstance() error {
-	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
-		return err
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending", "running", "stopping"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "stopped",
-	}
-	h.Printf("waiting for state to become %s", state.Target)
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		return err
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	return nil
-}
-
-// startInstance starts the underlying EC2 instance and reassociates it with the
-// configured IP address (Config.IPAddress), if necessary.
-func (h *Host) startInstance() error {
-	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
-		return err
-	}
-
-	state := StateChangeConf{
-		Pending: []string{"pending", "stopped"},
-		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
-		Target:  "running",
-	}
-	h.Printf("waiting for state to become %s", state.Target)
-	updatedInstance, err := WaitForState(&state)
-	if err != nil {
-		return err
-	}
-	h.instance = updatedInstance.(*ec2.Instance)
-
-	// Reassociate Elastic IP if:
-	// 1. configured (i.e. Config.DisableEIP is false), and
-	// 2. underlying EC2 instance is not in a VPC.
-	// When a VPC instance is stopped, its Elastic EIP remains associated, so
-	// we don't have to reassociate. See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences.
-	if !isVPC(h.instance) && !h.Config.DisableEIP {
-		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
-			InstanceId:         h.instance.InstanceId,
-			PublicIp:           h.Config.IPAddress,
-			AllowReassociation: false,
-		}); err != nil {
-			return err
-		}
-
-		// reload the instance to get a new public IP address
-		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return host, nil
 }
 
 func (h *Host) DriverName() string {
@@ -377,6 +219,94 @@ func (h *Host) reloadInstance(id string) error {
 	return getInstance(h.provider, id, h)
 }
 
+func (h *Host) stopInstance() error {
+	if _, err := h.provider.StopInstances(h.instance.InstanceId); err != nil {
+		return err
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "stopping"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "stopped",
+	}
+	h.Printf("waiting for state to become %s", state.Target)
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return err
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	return nil
+}
+
+// startInstance starts the underlying EC2 instance and reassociates it with the
+// configured IP address (Config.IPAddress), if necessary.
+func (h *Host) startInstance() error {
+	if _, err := h.provider.StartInstances(h.instance.InstanceId); err != nil {
+		return err
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "stopped"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "running",
+	}
+	h.Printf("waiting for state to become %s", state.Target)
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return err
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	// Reassociate Elastic IP if:
+	// 1. configured (i.e. Config.DisableEIP is false), and
+	// 2. underlying EC2 instance is not in a VPC.
+	// When a VPC instance is stopped, its Elastic EIP remains associated, so
+	// we don't have to reassociate. See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html#VPC_EIP_EC2_Differences.
+	if !isVPC(h.instance) && !h.Config.DisableEIP {
+		if _, err := h.provider.AssociateAddress(&ec2.AssociateAddress{
+			InstanceId:         h.instance.InstanceId,
+			PublicIp:           h.Config.IPAddress,
+			AllowReassociation: false,
+		}); err != nil {
+			return err
+		}
+
+		// reload the instance to get a new public IP address
+		if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// terminateInstance releases the EIP associated to the host's instance (if any)
+// and terminates the instance.
+func (h *Host) terminateInstance() error {
+	if err := h.releaseEIP(); err != nil {
+		return err
+	}
+
+	if _, err := h.provider.TerminateInstances([]string{h.instance.InstanceId}); err != nil {
+		return fmt.Errorf("amazon: failed to terminate instance %s, err %v", h.instance.InstanceId, err)
+	}
+
+	state := StateChangeConf{
+		Pending: []string{"pending", "running", "shutting-down", "stopped", "stopping"},
+		Refresh: instanceStateRefreshFunc(h.provider, h.instance),
+		Target:  "terminated",
+	}
+	h.Printf("waiting for state to become %s", state.Target)
+	updatedInstance, err := WaitForState(&state)
+	if err != nil {
+		return err
+	}
+	h.instance = updatedInstance.(*ec2.Instance)
+
+	return nil
+}
+
 func (h *Host) releaseEIP() error {
 	if h.Config.DisableEIP {
 		return nil
@@ -451,6 +381,25 @@ func (h *Host) publishHostError(qp queue.Publisher, queueInfo *host.QueueInfo, e
 	}
 }
 
+func (h *Host) getVolumeByDeviceName(deviceName string) (*ec2.Volume, error) {
+	device := blockDevice(h.instance, deviceName)
+	if device == nil {
+		return nil, fmt.Errorf("amazon: cannot find volume for device %s of instance %s", deviceName, h.instance.InstanceId)
+	}
+
+	vol, err := h.getVolume(device.VolumeId)
+	if err != nil {
+		return nil, err
+	}
+
+	if vol.VolumeId != device.VolumeId {
+		// Sanity check - because using the wrong volume is bad m'kay.
+		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", device.VolumeId, vol)
+	}
+
+	return vol, nil
+}
+
 func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
 	resp, err := h.provider.Volumes([]string{volumeID}, ec2.NewFilter())
 	if err != nil {
@@ -478,50 +427,6 @@ func (h *Host) supportsEBSHotswapping(vol *ec2.Volume) bool {
 	}
 
 	return false
-}
-
-func New(driverOptions string, hostOptions string) (host.Host, error) {
-	driverCfg := driverConfig{}
-	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
-		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
-		return nil, err
-	}
-
-	hostCfg := &hostConfig{}
-	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
-		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
-		return nil, err
-	}
-
-	auth, err := aws.GetAuth(driverCfg.AccessKey, driverCfg.SecretKey)
-	if err != nil {
-		logrus.Errorf("amazon: auth failed %v", err)
-		return nil, err
-	}
-
-	host := &Host{
-		driverConfig: driverCfg,
-		Config:       hostCfg,
-		auth:         auth,
-	}
-
-	// workaround for actions that requires multiple regions i.e. Host#List
-	// This is set by the caller and should not be serialized as a
-	// configuration value
-	if driverCfg.IgnoreRegion != "true" {
-		region, ok := aws.Regions[hostCfg.RegionID]
-		if !ok {
-			return nil, fmt.Errorf("amazon: invalid region %q", hostCfg.RegionID)
-		}
-		host.provider = ec2.New(auth, region)
-	}
-	return host, nil
-}
-
-func init() {
-	host.Register("amazon", &host.RegisteredDriver{
-		New: New,
-	})
 }
 
 // inspectSourceAMI gets the requested AMI's info and saves it.
@@ -652,6 +557,101 @@ func associateInstanceTags(ctx *host.HostContext) error {
 	defer mh.UpdateSince(label, time.Now())
 
 	return setTags(h.provider, h)
+}
+
+// mountUserVolume logs in to instance via SSH to:
+// 1. Mount user volume.
+// 2. Start docker.
+// 3. Start freighterd.
+func mountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("mount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	// Mount user device, assuming that /etc/fstab already knows the mountpoint.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo mount %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	// Explicitly resize mounted file system to the size of the volume.
+	// This is necessary because we detach and attach EBS volumes of varying
+	// sizes, and we want the OS to recognize the new volume's size.
+	if out, err := conn.CombinedOutput(fmt.Sprintf(`sudo resize2fs %s`, userDeviceOSName)); err != nil {
+		return fmt.Errorf("failed to mount %s, err: %v, output: %s", userDeviceOSName, err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker start`); err != nil {
+		return fmt.Errorf("failed to start docker, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd start`); err != nil {
+		return fmt.Errorf("failed to start freighterd, err: %v, output: %s", err, out)
+	}
+
+	return nil
+}
+
+// unmountUserVolume logs in to instance via SSH to:
+// 1. Stop freighterd.
+// 2. Stop docker.
+// 3. Unmount user volume.
+func unmountUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	conn := ctx.Executor
+
+	label := h.MetricsLabel("unmount_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
+	if out, err := conn.CombinedOutput(`sudo service freighterd stop`); err != nil {
+		return fmt.Errorf("failed to stop freighterd, err: %v, output: %s", err, out)
+	}
+
+	if out, err := conn.CombinedOutput(`sudo service docker stop`); err != nil {
+		return fmt.Errorf("failed to stop docker, err: %v, output: %s", err, out)
+	}
+
+	// Try to unmount volume. We retry this several times in case there are
+	// processes that have open files on the user volume.
+	tries := 3
+	delay := 1 * time.Second
+	unmountOK := false
+	for i := 0; i < tries; i++ {
+		out, err := conn.CombinedOutput(fmt.Sprintf(`sudo umount %s`, userDeviceOSName))
+		if err != nil {
+			h.Printf("failed to unmount %s - attempt %d, err: %v, output: %s",
+				userDeviceOSName, i+1, err, out)
+			time.Sleep(delay)
+			continue
+		}
+
+		unmountOK = true
+		break
+	}
+
+	if !unmountOK {
+		return fmt.Errorf("could not unmount %s", userDeviceOSName)
+	}
+
+	return nil
+}
+
+func detachUserVolume(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+
+	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
+	if err != nil {
+		return err
+	}
+
+	h.Printf("Detaching user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	if _, err := detachVolume(h.provider, userVolume.VolumeId, h.instance.InstanceId); err != nil {
+		return err
+	}
+	h.Printf("Detached user volume %s from %s", userVolume.VolumeId, h.instance.InstanceId)
+
+	return nil
 }
 
 func getState(instance *ec2.Instance) state.State {
