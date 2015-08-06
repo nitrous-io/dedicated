@@ -1,0 +1,88 @@
+.card-header.bordered
+  h2
+    if billingProfile.hasCard
+      | Change Credit Card
+    else
+      | Add Credit Card
+
+form autocomplete='on' submit='save'
+  .card-body
+    if pendingHost
+      if pendingContainerData
+        .ui.input-group
+          .spec
+            if pendingContainerData.selectedTemplate
+              img src={pendingContainerData.selectedTemplate.iconUrl} class='template'
+            .description
+              span = pendingContainerData.name
+              | &middot;
+              span = pendingHost.region.name
+              | &middot;
+              span
+                = pendingHost.plan.name
+                | ($
+                = pendingHost.plan.totalPriceInDollars
+                | /mo.)
+
+    if pendingPlan
+      .notice-text
+        p
+          i.fa.fa-info-circle
+          '
+          ' You are upgrading to the plan
+          strong
+            = pendingPlan.name
+          '  which will be charged at
+          strong
+            | $
+            = pendingPlan.totalPriceInDollars
+            | /mo
+          | .
+
+    .ui.input-group
+      label#cardholders-name.field-label for='card-name'
+        | Cardholder's Name
+      = input type='text' id='card-name' name='name' disabled=saving value=name autofocus=true
+
+    .ui.flex.horizontal
+      .ui.input-group
+        label.field-label for='card-number'
+          | Credit Card Number
+        = input type='text' id='card-number' name='number' classNameBindings='view.numberFieldInvalid:error :cc-number' autocomplete='cc-number' disabled=saving value=number required=true
+
+      .ui.input-group
+        label.field-label for='card-cvc'
+          | CVC
+        = input type='password' id='card-cvc' name='cvc' classNameBindings='view.cvcFieldInvalid:error :cc-cvc' disabled=saving value=cvc autocomplete='off'
+
+    .ui.flex.horizontal
+      .ui.input-group
+        label.field-label for='card-expiration'
+          | Expiration
+        = input type='text' id='card-expiration' name='expiration' placeholder='MM / YYYY' classNameBindings='view.expirationFieldInvalid:error' disabled=saving value=expiration
+
+      .ui.input-group
+        label.field-label for='card-zip-code'
+          | Zip / Postal Code
+        = input type='text' id='card-zipcode' name='zipcode' classNameBindings='view.zipFieldInvalid:error'  disabled=saving value=zipcode
+
+    p.note-text
+      | Please review the&nbsp;
+      a href='http://docs.nitrous.io/v1.0/docs/terms-of-use' terms of service
+      |, and&nbsp;
+      a href='http://docs.nitrous.io/v1.0/docs/privacy-policy' privacy policy
+      |. All sales are final.
+
+  .card-footer.bordered
+    .left
+      a click='showHelp target=view'
+        span.onboarding-trigger
+    if saving
+      .right
+        button.ui.btn disabled='disabled'
+          i.spinner
+          | Saving...
+    else
+      .right
+        a.ui.btn href='#' click='cancel' Cancel
+        input.ui.btn.primary type='submit' disabled={view.saveButtonDisabled} value='Save'
