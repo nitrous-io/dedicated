@@ -30,7 +30,7 @@ func Find(db *db.Database, userID, cID int64) (*UserContainerData, error) {
 func SetData(db *db.Database, userID, cID int64, key, value string) error {
 	_, err := db.Exec(`WITH upsert AS 
                 (UPDATE user_container_data 
-                        SET metadata = metadata || hstore($1, $2) 
+                        SET metadata = metadata || hstore($1, $2), updated_at = now() 
                         WHERE user_id = $3 AND container_id = $4 RETURNING *) 
                 INSERT INTO user_container_data (user_id, container_id, metadata) 
                         SELECT $3, $4, hstore($1, $2) WHERE NOT EXISTS (SELECT * FROM upsert);`,
