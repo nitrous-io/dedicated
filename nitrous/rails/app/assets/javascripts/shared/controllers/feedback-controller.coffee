@@ -18,10 +18,8 @@ App.FeedbackController = Em.Controller.extend
   body: (->
     title = @get 'title'
     message = @get 'message'
-    userAgent = navigator.userAgent
-    platform = navigator.platform
-    "Form type: #{title}\nUser Agent: #{userAgent}\nPlatform: #{platform}\n\n#{message}"
-  ).property 'message'
+    "Form type: #{title}\n\n#{message}"
+  ).property 'title', 'message'
 
   title: (->
     if t = @get 'titleOverride'
@@ -36,6 +34,9 @@ App.FeedbackController = Em.Controller.extend
       data =
         subject: @get 'subject'
         body: @get 'body'
+        userAgent: navigator.userAgent 
+        platform: navigator.platform
+        currentURL: navigator.currentURL 
 
       Em.$.ajax(
         type: 'POST',
