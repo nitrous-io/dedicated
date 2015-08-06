@@ -7,7 +7,6 @@
         '
         | Collaborators can work with you in real-time in the IDE and have full console access.
 
-
   if records.loaded
     ul.ui.list.item-1-line.with-margins
       each collaborator in records

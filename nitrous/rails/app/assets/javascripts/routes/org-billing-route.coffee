@@ -6,7 +6,8 @@ App.OrgBillingRoute = App.AuthedRoute.extend
   setupController: (controller) ->
     @_super.apply this, arguments
     controller.set 'currentTab', 'billing'
+    model = controller.get 'model'
+    App.set 'title', model.get('displayName') + ' › Billing'
 
   deactivate: ->
-    console.log @controller
     @controller.set 'currentTab', null

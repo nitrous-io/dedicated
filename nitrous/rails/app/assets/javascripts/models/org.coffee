@@ -7,6 +7,8 @@ App.Org = klass = App.NewModel.extend
   createdAt: null
   updatedAt: null
 
+  members: null
+
   serialize: ->
     slug: @get 'slug'
     name: @get 'name'
@@ -24,6 +26,12 @@ App.Org = klass = App.NewModel.extend
   gravatar: (->
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=40"
   ).property 'email'
+
+  fetchMembers: ->
+    p = App.OrgMember.fetch(null, orgSlug: @get('slug'))
+    p.then (members) =>
+      @set 'members', members
+    p
 
 klass.reopenClass
   collectionUrl: '/api/v0/orgs'
