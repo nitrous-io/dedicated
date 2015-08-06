@@ -172,18 +172,25 @@ func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 	currentUser := env.User
-	slug := mux.Vars(r)["slug"]
-	username := mux.Vars(r)["username"]
+	slug := strings.ToLower(mux.Vars(r)["slug"])
+	username := strings.ToLower(mux.Vars(r)["username"])
+	if username == "" {
+		username = strings.ToLower(r.FormValue("username"))
+	}
 
 	if slug == "" || username == "" {
 		return errNotFound
 	}
 
-	if currentUser.Username == username {
+	if currentUser.Username == username || currentUser.Email == username {
 		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot edit yourself")
 	}
 
 	role := strings.ToLower(r.FormValue("role"))
+	if role == "" {
+		role = "member"
+	}
+
 	if _, ok := orgmembership.ValidRoles[role]; !ok {
 		return httperror.New(http.StatusBadRequest, "invalid_role", fmt.Sprintf("%s is not a valid role", role))
 	}
@@ -196,7 +203,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	u, err := user.FindByUsername(db, username)
+	u, err := user.FindByUsernameOrEmail(db, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
@@ -219,7 +226,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errNoPermission
 	}
 
-	m, err := orgmembership.FindByUsernameAndOrgSlug(db, username, o.Slug)
+	m, err := orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return err
