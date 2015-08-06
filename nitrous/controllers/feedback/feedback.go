@@ -13,6 +13,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 )
 
+var HelpScout helpscout.HelpScout
+
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	subject := r.FormValue("subject")
 	body := r.FormValue("body")
@@ -74,11 +76,12 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			env.User.ConfirmedAt.Time,
 			env.User.PhoneAuthed,
 			billingProfile.State),
-		fmt.Sprintf("Workspace(s) Info: %s", workspaceInfo),
+		fmt.Sprintf("Workspace(s) Info: %s\n", workspaceInfo),
 	}, "\n")
 
 	customer := helpscout.Person{
 		Email:     email,
+		Username:  username,   // Optional
 		FirstName: name,       // Optional
 		Typ:       "customer", // Optional
 	}
@@ -90,22 +93,25 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		&helpscout.Thread{
 			Typ: "customer",
 			CreatedBy: helpscout.Person{
-				Typ:   "customer",
-				Email: email,
+				Typ:       "customer",
+				Email:     email,
+				Username:  username, // Optional
+				FirstName: name,     // Optional
 			},
 			Body: body,
 		},
 		&helpscout.Thread{
 			Typ: "note",
 			CreatedBy: helpscout.Person{
-				Typ: "user",
-				ID:  envvars.HelpScoutUserID,
+				Typ:       "user",
+				ID:        int64(envvars.HelpScoutUserID),
+				FirstName: "", // Optional
 			},
 			Body: metadata,
 		},
 	}
 
-	err = helpscout.CreateConversation(customer, subject, mailbox, threads)
+	err = HelpScout.CreateConversation(customer, subject, mailbox, threads)
 	if err != nil {
 		return err
 	}

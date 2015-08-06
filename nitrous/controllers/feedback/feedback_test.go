@@ -2,10 +2,12 @@ package feedback_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
@@ -13,7 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -27,25 +29,29 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/feedback", func() {
 	var (
-		origMailer mailer.Mailer
-		fakeMailer *FakeMailer
-		db         *db.Database
-		svr        *server.Server
-		handler    *mux.Router
-		res        *httptest.ResponseRecorder
+		origHelpScout helpscout.HelpScout
+		fakeHelpScout *FakeHelpScout
+		db            *db.Database
+		svr           *server.Server
+		handler       *mux.Router
+		res           *httptest.ResponseRecorder
 
 		authTokenInputs AuthTokenInputs
 
 		u *user.User
 		t *token.Token
+
+		username = "cats"
+		name     = "CATS"
+		email    = "cats@example.com"
 	)
 
 	BeforeEach(func() {
 		var err error
 
-		origMailer = feedback.Mailer
-		fakeMailer = &FakeMailer{}
-		feedback.Mailer = fakeMailer
+		origHelpScout = feedback.HelpScout
+		fakeHelpScout = &FakeHelpScout{}
+		feedback.HelpScout = fakeHelpScout
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -56,10 +62,10 @@ var _ = Describe("controllers/feedback", func() {
 		res = httptest.NewRecorder()
 
 		u = &user.User{
-			Username: "cats",
+			Username: username,
 			Password: "123456",
-			Name:     "CATS",
-			Email:    "cats@example.com",
+			Name:     name,
+			Email:    email,
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -70,10 +76,13 @@ var _ = Describe("controllers/feedback", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`UPDATE billing_profiles SET state = 'delinquent'  WHERE user_id = $1;`, u.ID)
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
-		feedback.Mailer = origMailer
+		feedback.HelpScout = origHelpScout
 		if db != nil {
 			db.Close()
 		}
@@ -96,25 +105,83 @@ var _ = Describe("controllers/feedback", func() {
 			It("sends successfully", func() {
 				subject := "All your server are belong to us"
 				body := "You have no chance to survive make your time."
+				userAgent := "Mozilla"
+				platform := "MacIntel"
+				currentURL := "https://nitrous.com"
 
 				params := &url.Values{}
 				params.Set("subject", subject)
 				params.Set("body", body)
+				params.Set("userAgent", userAgent)
+				params.Set("platform", platform)
+				params.Set("currentURL", currentURL)
 
 				doRequest("valid-token", params)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.From).To(Equal(`"Nitrous" <mailer@nitrous.io>`))
-				Expect(fakeMailer.Tos).To(Equal([]string{envvars.SupportEmail}))
-				Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
-				Expect(fakeMailer.Bccs).To(BeNil())
-				Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))
-				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] " + subject))
-				Expect(fakeMailer.Body).To(Equal("Username: cats\nName: CATS\nEmail: cats@example.com\n" + body))
+				var createdAt time.Time
+
+				billingProfile, err := u.BillingProfile(db)
+				Expect(err).To(BeNil())
+				subject = fmt.Sprintf("[nitrous-pro] %s", subject)
+
+				// FIXME: Get proper values for workspace
+				body = fmt.Sprintf("Username: %s\nName: %s\nEmail: %s\n%s", username, name, email, body)
+				metadata := fmt.Sprintf("User Agent: %s\nPlatform: %s\nCurrent URL: %s\nUser Info:\n\tID: %v\n\tUsername: %s\n\tEmail: %s\n\tConfirmed At: %v, Phone Authed: %t\n\tBilling Profile State: %s\nWorkspace(s) Info: %s\n",
+					userAgent,
+					platform,
+					currentURL,
+					u.ID,
+					username,
+					email,
+					createdAt,
+					false,
+					billingProfile.State,
+					"")
+
+				customer := helpscout.Person{
+					ID:        0,
+					Email:     email,
+					Username:  username,
+					FirstName: name,
+					Typ:       "customer",
+				}
+
+				mailbox := helpscout.MailboxRef{
+					ID:   envvars.HelpScoutMailboxID,
+					Name: envvars.HelpScoutMailboxName,
+				}
+
+				threads := []*helpscout.Thread{
+					&helpscout.Thread{
+						Typ: "customer",
+						CreatedBy: helpscout.Person{
+							Email:     email,
+							Username:  username,
+							FirstName: name,
+							Typ:       "customer",
+						},
+						Body: body,
+					},
+					&helpscout.Thread{
+						Typ: "note",
+						CreatedBy: helpscout.Person{
+							ID:  int64(envvars.HelpScoutUserID),
+							Typ: "user",
+						},
+						Body: metadata,
+					},
+				}
+
+				Expect(fakeHelpScout.CreateConversationCalled).To(Equal(1))
+				Expect(fakeHelpScout.Customer).To(Equal(customer))
+				Expect(fakeHelpScout.Subject).To(Equal(subject))
+				Expect(fakeHelpScout.Mailbox).To(Equal(mailbox))
+				Expect(fakeHelpScout.Threads).To(Equal(threads))
 
 				j := map[string]interface{}{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+
+				err = json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["status"].(string)).To(Equal("ok"))
 			})
@@ -137,7 +204,7 @@ var _ = Describe("controllers/feedback", func() {
 				doRequest("valid-token", nil)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+				Expect(fakeHelpScout.CreateConversationCalled).To(Equal(0))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
