@@ -1735,10 +1735,10 @@ var _ = Describe("subscriptions", func() {
 			Expect(i).To(Equal(i2))
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
-			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
-			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
+			Expect(fakeMailer.Ccs).To(Equal([]string{envvars.SupportEmail}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())
 			Expect(fakeMailer.Subject).To(Equal("Nitrous - payment unsuccessful"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Unfortunately, we have been unable to successfully"))

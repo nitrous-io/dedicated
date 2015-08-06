@@ -508,7 +508,7 @@ func (u *User) SendConfirmationEmail(d db.QueryReceiver, newUser bool) error {
 		targetEmail = u.Email
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
+	from := envvars.SupportEmail
 	to := (&mail.Address{Name: u.DisplayName(), Address: targetEmail}).String()
 
 	return Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, txtBuf.String(), htmlBuf.String())
@@ -550,7 +550,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 		return err
 	}
 
-	from := (&mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}).String()
+	from := envvars.SupportEmail
 	to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 	replyTo := from
 	subject := fmt.Sprintf("[nitrous-pro] Reset password instructions")

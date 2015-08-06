@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -104,8 +105,8 @@ var _ = Describe("controllers/feedback", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.From).To(Equal(`"Nitrous Pro" <support@nitrous.io>`))
-				Expect(fakeMailer.Tos).To(Equal([]string{`"Nitrous Feedback" <support@nitrous.io>`}))
+				Expect(fakeMailer.From).To(Equal(`"Nitrous" <mailer@nitrous.io>`))
+				Expect(fakeMailer.Tos).To(Equal([]string{envvars.SupportEmail}))
 				Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
 				Expect(fakeMailer.Bccs).To(BeNil())
 				Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))

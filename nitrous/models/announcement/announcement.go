@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	userLib "github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -343,10 +344,6 @@ func renderTemplate(templateCache **templateLib.Template, templateName, template
 	return buf.String(), nil
 }
 
-func emailAddress(name string, address string) string {
-	return (&mail.Address{Name: name, Address: address}).String()
-}
-
 func sendEmail(from, to, subject, body string) error {
 	return userLib.Mailer.SendMail(from, []string{to}, []string{from}, nil, from, subject, body, "")
 }
@@ -369,8 +366,8 @@ func SendToOwner(ann *Announcement, owner *HostOwner) error {
 
 	msgBody := fmt.Sprintf("Hello %s,\n\n%s\n\nThanks,\nThe Nitrous Team", uName, message)
 
-	from := emailAddress("Nitrous Pro", "support@nitrous.io")
-	to := emailAddress(owner.Fullname, owner.Email)
+	from := envvars.SupportEmail
+	to := (&mail.Address{Name: owner.Fullname, Address: owner.Email}).String()
 
 	if err := sendEmail(from, to, subject, msgBody); err != nil {
 		return err

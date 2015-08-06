@@ -1328,9 +1328,9 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
-			Expect(fakeMailer.From).To(Equal("\"Nitrous Pro\" <support@nitrous.io>"))
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
-			Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Pro\" <support@nitrous.io>"))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Subject).To(Equal("Confirm your Nitrous email"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
 			Expect(fakeMailer.Body).To(ContainSubstring(fmt.Sprintf("https://nitrous.example/app/#/confirm-email?token=%s", u.ConfirmationToken.String)))
@@ -1347,9 +1347,9 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
-			Expect(fakeMailer.From).To(Equal("\"Nitrous Pro\" <support@nitrous.io>"))
+			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Tos).To(Equal([]string{"\"quxboy\" <qux@example.com>"}))
-			Expect(fakeMailer.ReplyTo).To(Equal("\"Nitrous Pro\" <support@nitrous.io>"))
+			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Subject).To(Equal("Confirm your Nitrous email"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Hello quxboy!"))
 			Expect(fakeMailer.Body).To(ContainSubstring("Thanks for signing up for Nitrous!"))

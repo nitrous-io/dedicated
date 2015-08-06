@@ -1,7 +1,7 @@
 package envvars
 
 import (
-	"fmt"
+	"net/mail"
 	"os"
 	"strconv"
 	"strings"
@@ -97,12 +97,23 @@ var (
 
 	// Folder for cpu profiling
 	ProfileDumpFolder = os.Getenv("PROFILE_DUMP_FOLDER")
+
+	SupportEmail     = os.Getenv("SUPPORT_EMAIL_ADDRESS")
+	SupportEmailAddr *mail.Address
 )
 
 func init() {
 	if strings.HasSuffix(os.Args[0], ".test") && !Testing {
-		fmt.Println("ERROR: It appears that you are running tests, but the env var \"TESTING\" is not set!")
-		os.Exit(1)
+		logrus.Fatal("It appears that you are running tests, but the env var \"TESTING\" is not set!")
+	}
+
+	if SupportEmail == "" {
+		SupportEmail = `"Nitrous" <support@nitrous.io>`
+	}
+	var err error
+	SupportEmailAddr, err = mail.ParseAddress(SupportEmail)
+	if err != nil {
+		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
 	}
 }
 
