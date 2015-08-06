@@ -6,7 +6,8 @@ App.OrgMembersRoute = App.AuthedRoute.extend
   setupController: (controller) ->
     @_super.apply this, arguments
     controller.set 'currentTab', 'members'
+    model = controller.get 'model'
+    App.set 'title', model.get('displayName') + ' › Members'
 
   deactivate: ->
-    console.log @controller
     @controller.set 'currentTab', null

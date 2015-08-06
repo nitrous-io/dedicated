@@ -10,7 +10,7 @@ ul.ui.tab-bar.org-tab-bar
     link-to 'org.billing' | Billing
 
 if membersSelected
-  = org-members
+  = org-members org=model
 else
   if billingSelected
-     = org-billing
+     = org-billing model=model

@@ -28,7 +28,7 @@ App.OrgsNewComponent = Em.Component.extend
       @set 'saving', true
       model = @get('model')
       model.save().then(=>
-        App.snackbar.post("Your organization “#{model.get 'name'}” was successfully created.")
+        App.snackbar.post("Your organization “#{model.get 'displayName'}” was successfully created.")
         PubSub.publish 'orgs-new.created', model
       , (jqxhr) =>
         App.postError(jqxhr.responseJSON, 'Could not create organization, please try again.')

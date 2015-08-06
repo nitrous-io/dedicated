@@ -6,7 +6,8 @@ App.OrgsNewRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'New Organization'
     @subOrgsNewCreated = PubSub.subscribe 'orgs-new.created', (msg, model) =>
-      console.log('created! yay!')
+      @controllerFor('orgs').set 'newRecord', null
+      @transitionTo 'org.members', model.get('slug')
 
   deactivate: ->
     PubSub.unsubscribe @subOrgsNewCreated

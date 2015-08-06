@@ -12,14 +12,16 @@ App.NewModel = klass = Em.Object.extend
     @cache()
     this
 
-  save: ->
+  save: (params={}) ->
     id = @get 'id'
     unless id
       # create
       new Ember.RSVP.Promise (resolve, reject) =>
+        url = Em.get(@constructor, 'collectionUrl')
+        url = fillPathSegments(url, params)
         Em.$.ajax(
           type: 'POST',
-          url: Em.get(@constructor, 'collectionUrl')
+          url: url
           dataType: 'json'
           headers: { Authorization: "Bearer #{App.get 'token'}" }
           data: stripUndefined(@serialize())
@@ -62,31 +64,36 @@ klass.reopenClass
     return unless key?
     (@cache ?= {})[key]
 
-  fetch: (existingCollection=null, query={}) ->
+  load: (existingCollection=null, data=[]) ->
+    records = data.map (d) =>
+      deserialized = @deserialize(d)
+      key = deserialized[Em.get(this, 'primaryKey')]
+      record = @fromCache(key) ? @create()
+      record.load(deserialized, true)
+    # if existingCollection is given, it is merged with records fetched
+    if existingCollection
+      records = @diffMerge(existingCollection, records)
+    records
+
+  fetch: (existingCollection=null, params={}) ->
     new Ember.RSVP.Promise (resolve, reject) =>
+      url = Em.get(this, 'collectionUrl')
+      url = fillPathSegments(url, params)
       Em.$.ajax(
         type: 'GET'
-        url: Em.get(this, 'collectionUrl')
-        data: query
+        url: url
+        data: params
         dataType: 'json'
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).done((data, status, jqxhr) =>
         if ds = data[Em.get(this, 'collectionRoot')]
-          records = ds.map (d) =>
-            deserialized = @deserialize(d)
-            key = deserialized[Em.get(this, 'primaryKey')]
-            record = @fromCache(key) ? @create()
-            record.load(deserialized, true)
-          # if existingCollection is given, it is merged with records fetched
-          if existingCollection
-            return resolve(@diffMerge(existingCollection, records))
-          resolve(records)
+          resolve(@load(existingCollection, ds))
         else
           reject(jqxhr)
       ).fail (jqxhr) ->
         reject(jqxhr)
 
-  fetchOne: (attrs={}, query={}) ->
+  fetchOne: (attrs={}, params={}) ->
     tmpRecord = @create(attrs)
     url = tmpRecord.get 'recordUrl'
 
@@ -94,7 +101,7 @@ klass.reopenClass
       Em.$.ajax(
         type: 'GET'
         url: url
-        data: query
+        data: params
         dataType: 'json'
         headers: { Authorization: "Bearer #{App.get 'token'}" }
       ).done((data, status, jqxhr) =>
@@ -127,3 +134,13 @@ stripUndefined = (data) ->
   for own k, v of data
     d[k] = v unless v == undefined
   d
+
+fillPathSegments = (url, params={}) ->
+  urlComps = url.split('/')
+  for comp, i in urlComps
+    if comp.charAt(0) == ':' && comp.length > 1
+      k = comp.slice(1)
+      v = params[k]
+      urlComps[i] = v unless v == undefined
+      delete params[k]
+  urlComps.join('/')

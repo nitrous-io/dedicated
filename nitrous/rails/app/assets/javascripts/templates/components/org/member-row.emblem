@@ -1,0 +1,22 @@
+.left-accessory
+  img.gravatar.medium src=member.gravatar
+.lines
+  h4
+    = member.username
+    if member.name
+      '
+      | (#{member.name})
+  p
+    | Added #{ago member.createdAt}
+.right-accessory
+  if canEdit
+    .ui.select
+      Ember.Select content=allowedRoles value=newRole name='role' disabled=saving
+    button.ui.btn click='remove' disabled=saving
+      i.fa.fa-close
+  else
+    span.role
+      = member.role
+      if isSelf
+        '
+        | (You)
