@@ -167,6 +167,7 @@ func (s *Server) drawRoutes() {
 				"/orgs/{slug}":                        r("orgs.Show", orgs.Show),
 				"/orgs/{slug}/members":                r("orgs.Show", orgs.ShowMembers),
 				"/orgs/{org_slug}/billing_profile":    r("billingprofiles.Show", billingprofiles.Show),
+				"/orgs/{org_slug}/subscriptions":      r("subscriptions.Index", subscriptions.Index),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
