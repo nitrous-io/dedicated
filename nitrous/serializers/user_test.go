@@ -149,6 +149,9 @@ var _ = Describe("user serializer", func() {
 					"advanced": false
 				},
 				"billing_profile": {
+					"id": 10,
+					"user_id": 10,
+					"org_id": null,
 					"state": "paid",
 					"last_four": "1234",
 					"card_type": "Visa",
