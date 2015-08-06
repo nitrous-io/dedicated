@@ -85,7 +85,7 @@ func FindBySlug(d db.QueryReceiver, slug string, userID int64) (*Subscription, e
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
 		WHERE s.slug = $1 AND
                 (
-                        (billing_profiles.user_id = $2 AND billing_profiles.org_id IS NULL) OR
+                        (billing_profiles.user_id = $2) OR
                         (hosts.user_id = $2 AND billing_profiles.org_id IS NOT NULL)
                 );`, slug, userID)
 	if err != nil {
@@ -98,12 +98,25 @@ func FindByUserID(d db.QueryReceiver, id, userID int64) (*Subscription, error) {
 	sub := &Subscription{}
 	err := d.Get(sub, `SELECT subscriptions.* FROM subscriptions
 		INNER JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
-		WHERE subscriptions.id = $1 AND billing_profiles.user_id = $2 AND billing_profiles.org_id IS NULL;`,
+		WHERE subscriptions.id = $1 AND billing_profiles.user_id = $2;`,
 		id, userID)
 	if err != nil {
 		return nil, err
 	}
 	return sub, nil
+}
+
+func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHostSlug, error) {
+	subscriptions := []*SubscriptionWithHostSlug{}
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
+                JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+                LEFT JOIN hosts ON hosts.subscription_id = s.id
+                WHERE bp.org_id = $1 AND s.cancelled_at IS NULL
+                ORDER BY s.created_at ASC;`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return subscriptions, nil
 }
 
 func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWithHostSlug, error) {
