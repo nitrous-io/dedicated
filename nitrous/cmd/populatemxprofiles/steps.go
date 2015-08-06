@@ -101,7 +101,7 @@ func GenHostCreatedJobs(jobs chan job, u *User) error {
 	return nil
 }
 
-func GenMixpanelProfiles(jobs chan job, u *User) error {
+func GenMixpanelProfileJobs(jobs chan job, u *User) error {
 	logrus.Infof("creating mixpanel profile for %s", u.Email)
 	u2 := &user.User{
 		ID:        u.ID,
@@ -113,6 +113,26 @@ func GenMixpanelProfiles(jobs chan job, u *User) error {
 	finished := tracker.CreateProfile(u2, "")
 	if finished != nil {
 		<-finished
+	}
+	return nil
+}
+
+func GenUnsetDeletedJobs(jobs chan job) error {
+	users := []*User{}
+	err := dbConn.Select(&users, `
+	SELECT email, MIN(users.id) AS user_id
+	FROM users
+	GROUP BY email
+	HAVING COUNT(email) > 1
+	ORDER BY user_id
+	`)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	for _, u := range users {
+		jobs <- NewJob("unset", u.ID, map[string]interface{}{
+			"deleted_date": 0,
+		})
 	}
 	return nil
 }
