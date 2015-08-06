@@ -28,6 +28,7 @@ var _ = Describe("orgmembership serializer", func() {
 					CreatedAt: &createdAt,
 					UpdatedAt: &updatedAt,
 				},
+				OrgSlug:  "foobar-inc",
 				Username: "foo",
 				Name:     "Mr. Foo",
 				Email:    "foo@example.com",
@@ -39,6 +40,9 @@ var _ = Describe("orgmembership serializer", func() {
 				b, err := json.Marshal(serializers.SerializeOrgMember(model))
 				Expect(err).To(BeNil())
 				Expect(b).To(MatchJSON(`{
+					"id": 1,
+					"org_id": 2,
+					"org_slug": "foobar-inc",
 					"user_id": 3,
 					"username": "foo",
 					"name": "Mr. Foo",
@@ -57,12 +61,13 @@ var _ = Describe("orgmembership serializer", func() {
 				model2 = &orgmembership.OrgMember{
 					OrgMembership: orgmembership.OrgMembership{
 						ID:        2,
-						OrgID:     2,
+						OrgID:     3,
 						UserID:    4,
 						Role:      "member",
 						CreatedAt: &createdAt,
 						UpdatedAt: &updatedAt,
 					},
+					OrgSlug:  "macrosoft-corp",
 					Username: "bar",
 					Name:     "Ms. Bar",
 					Email:    "bar@example.com",
@@ -74,7 +79,10 @@ var _ = Describe("orgmembership serializer", func() {
 				Expect(err).To(BeNil())
 				Expect(b).To(MatchJSON(`[
 					{
-						"user_id": 3,
+					"id": 1,
+					"org_id": 2,
+					"org_slug": "foobar-inc",
+					"user_id": 3,
 						"username": "foo",
 						"name": "Mr. Foo",
 						"email": "foo@example.com",
@@ -83,6 +91,9 @@ var _ = Describe("orgmembership serializer", func() {
 						"updated_at": "2013-11-02T00:00:00Z"
 					},
 					{
+						"id": 2,
+						"org_id": 3,
+						"org_slug": "macrosoft-corp",
 						"user_id": 4,
 						"username": "bar",
 						"name": "Ms. Bar",

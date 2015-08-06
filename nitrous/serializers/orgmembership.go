@@ -7,6 +7,9 @@ import (
 )
 
 type OrgMember struct {
+	ID       int64  `json:"id"`
+	OrgID    int64  `json:"org_id"`
+	OrgSlug  string `json:"org_slug"`
 	UserID   int64  `json:"user_id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -22,6 +25,9 @@ func SerializeOrgMember(o *orgmembership.OrgMember) *OrgMember {
 		return nil
 	}
 	serialized := &OrgMember{
+		ID:        o.ID,
+		OrgID:     o.OrgID,
+		OrgSlug:   o.OrgSlug,
 		UserID:    o.UserID,
 		Username:  o.Username,
 		Name:      o.Name,
