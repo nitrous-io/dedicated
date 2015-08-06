@@ -358,6 +358,66 @@ var _ = Describe("models/subscription", func() {
 				Expect(s).To(BeNil())
 			})
 
+			It("should find if the user manages the billing profile", func() {
+				_, err := db.Exec("UPDATE billing_profiles SET user_id = $1 WHERE org_id = $2", u2.ID, o.ID)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(BeNil())
+				Expect(s).To(Equal(orgSub))
+			})
+
+		})
+	})
+
+	Describe("FindAllActiveForOrg()", func() {
+		var (
+			o      *org.Org
+			orgSub *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			bp1, err := u.BillingProfile(db)
+			s := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SUB1",
+			}
+			Expect(test.WrapInTransaction(db, s.Insert)).To(BeNil())
+
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err = o.Insert(db)
+			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			oBP, err := billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+
+			orgSub = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: oBP.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"orgSub", true},
+				Slug:             "SUB1",
+			}
+			Expect(test.WrapInTransaction(db, orgSub.Insert)).To(BeNil())
+		})
+
+		It("should find subscriptions under the org", func() {
+			subs, err := subscription.FindAllActiveForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(subs).To(HaveLen(1))
+			Expect(subs[0].ID).To(Equal(orgSub.ID))
 		})
 	})
 

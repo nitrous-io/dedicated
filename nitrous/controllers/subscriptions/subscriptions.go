@@ -1,6 +1,7 @@
 package subscriptions
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -22,6 +24,7 @@ var (
 	subProvider sub.Provider
 
 	errCannotUpgrade = httperror.New(http.StatusBadRequest, "invalid_request", "you cannnot upgrade to this plan")
+	errOrgForbidden  = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
 )
 
 func init() {
@@ -29,7 +32,25 @@ func init() {
 }
 
 func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	subscriptions, err := subscription.FindAllActiveByUserID(env.DB, env.User.ID)
+	var (
+		err           error
+		subscriptions []*subscription.SubscriptionWithHostSlug
+	)
+	if orgSlug := mux.Vars(r)["org_slug"]; orgSlug != "" {
+		mem, err := orgmembership.FindByUsernameAndOrgSlug(env.DB, env.User.Username, orgSlug)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errOrgForbidden
+			}
+			return err
+		}
+		if mem.Role != orgmembership.RoleOwner {
+			return errOrgForbidden
+		}
+		subscriptions, err = subscription.FindAllActiveForOrg(env.DB, mem.OrgID)
+	} else {
+		subscriptions, err = subscription.FindAllActiveByUserID(env.DB, env.User.ID)
+	}
 	if err != nil {
 		return err
 	}
