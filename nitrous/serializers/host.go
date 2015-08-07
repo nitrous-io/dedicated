@@ -11,6 +11,7 @@ type Host struct {
 	UserID             int64  `json:"user_id"`
 	RegionID           int64  `json:"region_id"`
 	PlanID             int64  `json:"plan_id"`
+	OrgID              *int64 `json:"org_id"`
 	Slug               string `json:"slug"`
 	Name               string `json:"name"`
 	IPAddress          string `json:"ip_address"`
@@ -42,7 +43,6 @@ type Host struct {
 	PendingRespec bool `json:"pending_respec"`
 
 	SubscriptionSlug string `json:"subscription_slug,omitempty"`
-	OrgSlug          string `json:"org_slug,omitempty"`
 	Free             bool   `json:"free,omitempty"`
 }
 
@@ -77,7 +77,6 @@ func SerializeHost(h *host.Host) *Host {
 		MaxContainers:         h.MaxContainers.Int64,
 		PendingRespec:         h.PendingRespec,
 		SubscriptionSlug:      h.SubscriptionSlug.String,
-		OrgSlug:               h.OrgSlug.String,
 		Free:                  h.Free,
 	}
 	if h.AssignedAt != nil {
@@ -91,6 +90,11 @@ func SerializeHost(h *host.Host) *Host {
 	}
 	if h.LastPingedAt.Valid {
 		serialized.LastPingedAt = &(h.LastPingedAt.Time)
+	}
+	if h.OrgID.Valid {
+		serialized.OrgID = &h.OrgID.Int64
+	} else {
+		serialized.OrgID = nil
 	}
 	return serialized
 }
