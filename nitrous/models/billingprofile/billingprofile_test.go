@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -595,6 +596,102 @@ var _ = Describe("models/billingprofile", func() {
 				State: billingprofile.StatePaid,
 			}
 			Expect(bp.IsFreeOrCardRequired()).To(BeFalse())
+		})
+	})
+
+	Describe("FindForOrgs()", func() {
+		var (
+			o *org.Org
+		)
+		BeforeEach(func() {
+			o = &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
+			_, err := db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state)
+                                VALUES ($1, $2, $3);`, u.ID, o.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+		})
+
+		It("should return orgs for the billing profile owner", func() {
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should return orgs for the org admin", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleAdmin)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should return orgs for the org owner", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleOwner)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should not return orgs for the org member", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleMember)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
+		})
+
+		It("should not return orgs for non members", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
+		})
+
+		It("should return empty if not given any IDs", func() {
+			orgs, err := billingprofile.FindForOrgs(db, []int64{}, u.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
 		})
 	})
 })

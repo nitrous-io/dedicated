@@ -8,6 +8,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
@@ -94,6 +95,33 @@ func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func FindForOrgs(d db.QueryReceiver, orgIDs []int64, userID int64) ([]*BillingProfile, error) {
+	bps := []*BillingProfile{}
+	if len(orgIDs) == 0 {
+		return bps, nil
+	}
+
+	arg := map[string]interface{}{
+		"user_id": userID,
+		"ids":     orgIDs,
+		"roles":   []string{orgmembership.RoleOwner, orgmembership.RoleAdmin},
+	}
+	query, args, err := sqlx.Named(`SELECT b.* FROM billing_profiles b LEFT JOIN org_memberships o ON o.org_id = b.org_id WHERE b.org_id IN (:ids) AND (b.user_id = :user_id OR (o.role IN (:roles) AND o.user_id = :user_id));`, arg)
+	if err != nil {
+		return bps, err
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return bps, err
+	}
+	query = d.Rebind(query)
+	err = d.Select(&bps, query, args...)
+	if err != nil {
+		return bps, err
+	}
+	return bps, nil
 }
 
 func FindForOrg(d db.QueryReceiver, orgID int64) (*BillingProfile, error) {

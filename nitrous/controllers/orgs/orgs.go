@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -99,9 +100,31 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		orgs = []*org.Org{}
 	}
 
+	orgIDs := make([]int64, len(orgs))
+	for i, o := range orgs {
+		orgIDs[i] = o.ID
+	}
+
+	bps, err := billingprofile.FindForOrgs(db, orgIDs, user.ID)
+	if err != nil {
+		logrus.Errorf("Error fetching billing profiles for user %d err: %v", user.ID, err)
+	}
+	bpMap := make(map[int64]*billingprofile.BillingProfile)
+	for _, bp := range bps {
+		bpMap[bp.OrgID.Int64] = bp
+	}
+
+	ser := serializers.SerializeOrgs(orgs)
+	for _, o := range ser {
+		bp, ok := bpMap[o.ID]
+		if !ok {
+			continue
+		}
+		o.BillingProfile = serializers.SerializeBillingProfile(bp)
+	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"orgs": serializers.SerializeOrgs(orgs),
+		"orgs": ser,
 	}
 	return nil
 }
