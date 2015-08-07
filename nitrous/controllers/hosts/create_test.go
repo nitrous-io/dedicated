@@ -418,8 +418,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err := o.Insert(db)
 			Expect(err).To(BeNil())
 			err = db.WithTransaction(func(t *sqlx.Tx) error {
-				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
-				return nil
+				return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 			})
 			Expect(err).To(BeNil())
 			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
@@ -955,7 +954,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(errDesc).To(ContainSubstring("not allowed"))
 	})
 
-	It("does not orgs create a free plan", func() {
+	It("does allow orgs to create a free host", func() {
 		o := &org.Org{
 			Name:  "Foo Bar, Inc.",
 			Slug:  "foobar",
@@ -964,8 +963,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		err := o.Insert(db)
 		Expect(err).To(BeNil())
 		err = db.WithTransaction(func(t *sqlx.Tx) error {
-			Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
-			return nil
+			return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 		})
 		Expect(err).To(BeNil())
 		err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
