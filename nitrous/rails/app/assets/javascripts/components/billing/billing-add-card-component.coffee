@@ -1,6 +1,6 @@
-App.AddCardComponent = Em.Component.extend
+App.BillingAddCardComponent = Em.Component.extend
   layoutName: 'components/billing/add-card'
-  elementId: 'add-card'
+  elementId: 'billing-add-card'
   classNames: ['ui', 'card']
 
   billingProfile: null
@@ -101,6 +101,9 @@ App.AddCardComponent = Em.Component.extend
         @set 'saving', true
 
         billingProfile = @get 'billingProfile'
+
+        hadCard = billingProfile.get('hasCard')
+
         billingProfile.addCard(
           name: @get('name'),
           number: @get('number'),
@@ -113,16 +116,19 @@ App.AddCardComponent = Em.Component.extend
           App.refreshUsage()
           App.refreshBillingProfile()
 
-          App.snackbar.post "Credit card added."
+          if hadCard
+            App.snackbar.post "Credit card updated."
+          else
+            App.snackbar.post "Credit card added."
 
           if (sub = @get 'subscriptionSlug') && (pl = @get 'pendingPlanId')
-            PubSub.publish 'addCard.upgradedToPaid', subscriptionSlug: sub, planId: pl
+            PubSub.publish 'billing.addCard.upgradedToPaid', subscriptionSlug: sub, planId: pl
           else
-            PubSub.publish 'addCard.added', @get('pendingHost')?
+            PubSub.publish 'billing.addCard.added', @get('pendingHost')?
         , (errorMsg) =>
           @set 'saving', false
           @processErrorMessage(errorMsg)
           App.postError(errorMsg, 'Failed to create billing profile!')
 
     cancel: ->
-      PubSub.publish 'addCard.canceled', @get('pendingHost')?
+      PubSub.publish 'billing.addCard.canceled', @get('pendingHost')?

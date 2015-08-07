@@ -5,7 +5,7 @@ App.OrgsController = Em.Controller.extend
   init: ->
     @_super.apply this, arguments
     @set 'collection', []
-    PubSub.subscribe 'orgs-new.created', (msg, data) =>
+    PubSub.subscribe 'orgs.new.created', (msg, data) =>
       @get('collection').addObject(data)
 
   reload: ->

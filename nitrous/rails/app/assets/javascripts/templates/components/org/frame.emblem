@@ -1,16 +1,20 @@
 .card-header.bordered
   h2
-    link-to 'org.index' model.slug
-      = model.displayName
+    link-to 'org.index' org.slug
+      = org.displayName
 
 ul.ui.tab-bar.org-tab-bar
   li class={membersSelected:selected}
     link-to 'org.members' | Members
-  li class={billingSelected:selected}
-    link-to 'org.billing' | Billing
+  if canSeeBillingTab
+    li class={billingOrAddCardSelected:selected}
+      link-to 'org.billing' | Billing
 
 if membersSelected
-  = org-members org=model
+  = org-members org=org
 else
   if billingSelected
-     = org-billing model=model
+     = org-billing org=org
+  else
+    if addCardSelected
+      = org-add-card org=org

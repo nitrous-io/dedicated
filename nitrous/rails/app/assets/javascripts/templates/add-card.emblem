@@ -1,1 +1,8 @@
-= add-card billingProfile=App.billingProfile subscriptionSlug=subscriptionSlug pendingPlanId=pendingPlanId pendingHost=App.pendingHost pendingContainerData=App.pendingContainerData
+.card-header.bordered
+  h2
+    if App.billingProfile.hasCard
+      | Change Credit Card
+    else
+      | Add Credit Card
+
+= billing-add-card billingProfile=App.billingProfile subscriptionSlug=subscriptionSlug pendingPlanId=pendingPlanId pendingHost=App.pendingHost pendingContainerData=App.pendingContainerData

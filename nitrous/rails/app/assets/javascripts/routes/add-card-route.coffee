@@ -2,19 +2,19 @@ App.AddCardRoute = App.AuthedRoute.extend
   activate: ->
     App.set 'title', 'Billing'
 
-    @subAddCardUpgradedToPaid = PubSub.subscribe 'addCard.upgradedToPaid', (msg, data) =>
+    @subBillingAddCardUpgradedToPaid = PubSub.subscribe 'billing.addCard.upgradedToPaid', (msg, data) =>
       @controllerFor('addCard').setProperties
         subscriptionSlug: null
         pendingPlanId: null
       @transitionTo 'subscriptions.upgrade', data.subscriptionSlug, queryParams: { planId: data.planId }
 
-    @subAddCardAdded = PubSub.subscribe 'addCard.added', (msg, pendingHost) =>
+    @subBillingAddCardAdded = PubSub.subscribe 'billing.addCard.added', (msg, pendingHost) =>
       if pendingHost
         @transitionTo 'hosts.new'
       else
         @transitionTo 'billing'
 
-    @subAddCardCanceled = PubSub.subscribe 'addCard.canceled', (msg, pendingHost) =>
+    @subBillingAddCardCanceled = PubSub.subscribe 'billing.addCard.canceled', (msg, pendingHost) =>
       if pendingHost
         App.set 'pendingHost', null
         @transitionTo 'hosts.new'
@@ -22,9 +22,9 @@ App.AddCardRoute = App.AuthedRoute.extend
         @transitionTo 'billing'
 
   deactivate: ->
-    PubSub.unsubscribe @subAddCardUpgradedToPaid
-    PubSub.unsubscribe @subAddCardAdded
-    PubSub.unsubscribe @subAddCardCanceled
+    PubSub.unsubscribe @subBillingAddCardUpgradedToPaid
+    PubSub.unsubscribe @subBillingAddCardAdded
+    PubSub.unsubscribe @subBillingAddCardCanceled
 
   renderTemplate: ->
     @render 'add-card', outlet: 'content'
