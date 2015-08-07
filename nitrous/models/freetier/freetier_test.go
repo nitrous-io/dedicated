@@ -168,6 +168,24 @@ var _ = Describe("models/freetier", func() {
 			})
 		})
 
+		Context("for an Org", func() {
+			BeforeEach(func() {
+				bp.OrgID = sql.NullInt64{20, true}
+			})
+
+			It("should not allow a free plan even if the BP is in a free tier", func() {
+				bp.State = billingprofile.StateFree
+				err := freetier.CreateHostWithPlanAllowed(db, u, bp, freePlan)
+				Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
+			})
+
+			It("should not allow a free plan even if the BP is not in a free state", func() {
+				bp.State = billingprofile.StatePaid
+				err := freetier.CreateHostWithPlanAllowed(db, u, bp, freePlan)
+				Expect(err).To(Equal(freetier.ErrFreePlanNotAllowed))
+			})
+		})
+
 		Context("When user is in free tier without phone verification", func() {
 			BeforeEach(func() {
 				bp.State = billingprofile.StateFree
