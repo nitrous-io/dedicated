@@ -699,6 +699,7 @@ var _ = Describe("subscriptions", func() {
 			bp, err := u.BillingProfile(db)
 			Expect(err).To(BeNil())
 			bp.State = billingprofile.StateExempt
+			Expect(bp.Update(db)).To(BeNil())
 
 			err = subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())

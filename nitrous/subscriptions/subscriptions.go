@@ -243,7 +243,7 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 }
 
 func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
-	bp, err := u.BillingProfile(d)
+	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
 	if err != nil {
 		return err
 	}
