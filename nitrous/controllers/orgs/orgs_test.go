@@ -1123,6 +1123,35 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Orgs[1].Name).To(Equal(o3.Name))
 				Expect(j.Orgs[1].Slug).To(Equal(o3.Slug))
 			})
+
+			It("returns the billing profile if a member can see the billing profile", func() {
+				err := db.WithTransaction(func(tx *sqlx.Tx) error {
+					return billingprofile.Create(tx, u.ID, sql.NullInt64{o.ID, true})
+				})
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE billing_profiles SET last_four = '2334' WHERE org_id = $1", o.ID)
+				Expect(err).To(BeNil())
+				_, err = db.Exec("UPDATE org_memberships SET role = $1 WHERE user_id = $2 AND org_id = $3", orgmembership.RoleAdmin, u.ID, o.ID)
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Orgs []*serializers.Org `json:"orgs"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.Orgs).To(HaveLen(2))
+				Expect(j.Orgs[0].ID).To(Equal(o.ID))
+				Expect(j.Orgs[0].Email).To(Equal(o.Email))
+				Expect(j.Orgs[0].Name).To(Equal(o.Name))
+				Expect(j.Orgs[0].Slug).To(Equal(o.Slug))
+				Expect(j.Orgs[0].BillingProfile).ToNot(BeNil())
+				Expect(j.Orgs[1].ID).To(Equal(o3.ID))
+				Expect(j.Orgs[1].Email).To(Equal(o3.Email))
+				Expect(j.Orgs[1].Name).To(Equal(o3.Name))
+				Expect(j.Orgs[1].Slug).To(Equal(o3.Slug))
+			})
 		})
 
 		Context("oauth token failure modes", func() {
