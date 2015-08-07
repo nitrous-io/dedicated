@@ -11,23 +11,12 @@ if App.billingProfile.hasCard
         '
         a href='#' click='didClickShowInvoices target="view"' click Pay Now on your invoices below
         | .
-    table.ui.table.horizontal.credit-card-info
-      tr
-        th Card Type
-        td#card-type
-          = App.billingProfile.cardType
-      tr
-        th Last Four Digits
-        td
-          = App.billingProfile.lastFour
-      tr
-        th Expiry
-        td
-          = App.billingProfile.expiry
+
+    = billing-card-info billingProfile=App.billingProfile
 
   .card-footer.bordered
-      .right
-        button.ui.btn click='changeCard' Change Card
+    .right
+      button.ui.btn click='changeCard' Change Card
 
 if view.showSubscriptions
   = partial 'partials/billing-subscriptions'

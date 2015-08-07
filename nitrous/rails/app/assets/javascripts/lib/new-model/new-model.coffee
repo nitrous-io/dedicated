@@ -20,7 +20,7 @@ App.NewModel = klass = Em.Object.extend
         url = Em.get(@constructor, 'collectionUrl')
         url = fillPathSegments(url, params)
         Em.$.ajax(
-          type: 'POST',
+          type: 'POST'
           url: url
           dataType: 'json'
           headers: { Authorization: "Bearer #{App.get 'token'}" }
@@ -33,6 +33,22 @@ App.NewModel = klass = Em.Object.extend
             reject(jqxhr)
         ).fail (jqxhr) ->
           reject(jqxhr)
+
+  reload: ->
+    new Ember.RSVP.Promise (resolve, reject) =>
+      Em.$.ajax(
+        type: 'GET'
+        url: @get 'recordUrl'
+        dataType: 'json'
+        headers: { Authorization: "Bearer #{App.get 'token'}" }
+      ).done((data, status, jqxhr) =>
+        if d = data[Em.get(@constructor, 'recordRoot')]
+          @load(d)
+          resolve(this)
+        else
+          reject(jqxhr)
+      ).fail (jqxhr) ->
+        reject(jqxhr)
 
   cache: ->
     primaryKey = Em.get(@constructor, 'primaryKey')

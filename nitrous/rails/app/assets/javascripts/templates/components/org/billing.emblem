@@ -1,1 +1,16 @@
-| billing
+.card-body
+  unless org.billingProfile.hasCard
+    .notice-text
+      i.fa.fa-warning
+      | Please add your credit card information to enable workspace creation for your organization.
+
+  = billing-card-info billingProfile=org.billingProfile
+
+if cardUpdateAllowed
+  .card-footer.bordered
+    .right
+      button.ui.btn click='updateCard' disabled=noBillingProfile
+        if org.billingProfile.hasCard
+          | Change Card
+        else
+          | Add Card

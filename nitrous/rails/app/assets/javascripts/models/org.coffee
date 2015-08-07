@@ -3,6 +3,7 @@ App.Org = klass = App.NewModel.extend
   slug: null
   name: null
   email: null
+  billingProfile: null
 
   createdAt: null
   updatedAt: null
@@ -45,3 +46,4 @@ klass.reopenClass
     email: data.email
     createdAt: new Date(data.created_at) if data.created_at != undefined
     updatedAt: new Date(data.updated_at) if data.updated_at != undefined
+    billingProfile: App.OrgBillingProfile.create(orgSlug: data.slug).load(data.billing_profile) if data.billing_profile != undefined

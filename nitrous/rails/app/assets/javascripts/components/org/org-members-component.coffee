@@ -1,9 +1,11 @@
+#= require ./org-members-mixin
+
 allowedRoleMap =
   owner: ['owner', 'admin', 'member']
   admin: ['admin', 'member']
   member: []
 
-App.OrgMembersComponent = Em.Component.extend
+App.OrgMembersComponent = Em.Component.extend App.OrgMembersMixin,
   layoutName: 'components/org/members'
   elementId: 'org-members'
 
@@ -13,11 +15,6 @@ App.OrgMembersComponent = Em.Component.extend
 
   newMemberUsername: null
   newMemberRole: 'member'
-
-  user: (->
-    userId = App.get 'user.id'
-    @get('org.members')?.findBy('userId', userId)
-  ).property 'org.members.@each', 'App.user.id'
 
   allowedRoles: (->
     allowedRoleMap[@get 'user.role'] ? []
@@ -30,15 +27,6 @@ App.OrgMembersComponent = Em.Component.extend
   didInsertElement: ->
     @_super()
     @fetchMembers()
-
-  fetchMembers: (->
-    return unless org = @get 'org'
-    @set 'loading', true
-    org.fetchMembers().catch((jqxhr) =>
-      App.postError(jqxhr.responseJSON, "Could not load members for “#{org.get 'displayName'}”, please try again.")
-    ).finally =>
-      @set 'loading', false
-  ).observes 'org'
 
   actions:
     add: ->

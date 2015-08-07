@@ -1,10 +1,3 @@
-.card-header.bordered
-  h2
-    if billingProfile.hasCard
-      | Change Credit Card
-    else
-      | Add Credit Card
-
 form autocomplete='on' submit='save'
   .card-body
     if pendingHost

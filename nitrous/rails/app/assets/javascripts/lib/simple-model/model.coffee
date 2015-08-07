@@ -32,6 +32,7 @@ SM.Model = klass = Ember.Object.extend
     @setProperties(data)
     @set 'loaded', true
     @_saveToCache()
+    this
 
   getPrimaryKey: ->
     @get(Ember.get @constructor, 'primaryKey')
