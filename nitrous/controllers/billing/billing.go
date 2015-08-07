@@ -12,8 +12,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
@@ -25,7 +27,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 	strinv "github.com/stripe/stripe-go/invoice"
 )
 
@@ -125,7 +127,11 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 }
 
 func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	invoices, err := fetchRecentInvoices(env.DB, env.User.ID)
+	bp, err := shared.BillingProfileForRequest(env, r)
+	if err != nil {
+		return err
+	}
+	invoices, err := fetchRecentInvoices(env.DB, bp.ID)
 	if err != nil {
 		return err
 	}
@@ -245,10 +251,15 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	inv := &invoice.Invoice{}
-	if err := env.DB.Get(inv, `SELECT * FROM invoices WHERE id = $1 AND user_id = $2`, invID, env.User.ID); err != nil {
+	if err := env.DB.Get(inv, `SELECT i.* FROM invoices AS i INNER JOIN billing_profiles b ON b.id = i.billing_profile_id WHERE b.user_id = $1 AND i.id = $2`, env.User.ID, invID); err != nil {
 		if err == sql.ErrNoRows {
 			return errInvoiceNotFound
 		}
+		return err
+	}
+
+	bp, err := billingprofile.FindByID(env.DB, inv.BillingProfileID.Int64)
+	if err != nil {
 		return err
 	}
 
@@ -263,9 +274,9 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	i, err := strinv.Pay(inv.StripeID.String, nil)
 	if err != nil {
 		if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, false, err.Error()); err != nil {
-			logrus.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+			logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", invID, bp.ID, err)
 		}
-		logrus.Errorf("Error manual paying Stripe invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		logrus.Errorf("Error manual paying Stripe invoice %d for bp %d, err: %v", invID, bp.ID, err)
 		sErr, ok := err.(*stripe.Error)
 		if !ok {
 			return sErr
@@ -280,11 +291,11 @@ func PayInvoice(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	if !i.Paid {
-		return fmt.Errorf("Unexpected Stripe invoice %d for user %d not paid: %v", invID, env.User.ID, i)
+		return fmt.Errorf("Unexpected Stripe invoice %d for bp %d not paid: %v", invID, bp.ID, i)
 	}
 
 	if err := invoicemanualattempt.CreateForInvoice(env.DB, invID, true, ""); err != nil {
-		logrus.Errorf("Failure recording manual attempt for invoice %d for user %d, err: %v", invID, env.User.ID, err)
+		logrus.Errorf("Failure recording manual attempt for invoice %d for bp %d, err: %v", invID, bp.ID, err)
 	}
 
 	env.Status = http.StatusOK
@@ -306,9 +317,9 @@ func fetchHosts(db *db.Database, user *user.User) (map[int64]*host.Host, error) 
 	return hMap, nil
 }
 
-func fetchRecentInvoices(d db.QueryReceiver, userID int64) ([]invoice.Invoice, error) {
+func fetchRecentInvoices(d db.QueryReceiver, bpID int64) ([]invoice.Invoice, error) {
 	invoices := []invoice.Invoice{}
-	err := d.Select(&invoices, "SELECT * FROM invoices WHERE user_id = $1 ORDER BY id DESC LIMIT 6;", userID)
+	err := d.Select(&invoices, "SELECT * FROM invoices WHERE billing_profile_id = $1 ORDER BY id DESC LIMIT 6;", bpID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,11 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -185,305 +189,369 @@ var _ = Describe("controllers/billing", func() {
 	})
 
 	Describe("GET /api/v0/billing/invoices", func() {
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := NewAuthedRequest(t, "GET", "/api/v0/billing/invoices", nil)
-			Expect(err).To(BeNil())
-			res := httptest.NewRecorder()
-			svr.Router().ServeHTTP(res, req)
-			return res
-		}
+		var (
+			bp        *billingprofile.BillingProfile
+			doRequest func() *httptest.ResponseRecorder
+		)
 
-		It("should return an empty items with no invoices", func() {
-			j := map[string]interface{}{}
-			res := doRequest()
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j["invoices"]).To(BeEmpty())
-		})
+		sharedExamples := func() {
 
-		It("should not be blocked if the user has billing issues", func() {
-			MarkDelinquentUser(db, u)
-			res := doRequest()
-			Expect(res.Code).To(Equal(http.StatusOK))
-		})
-
-		Context("with invoices", func() {
-			var (
-				hs1, hs2, hs3 *HostStack
-				h1, h2, h3    *host.Host
-				i1, i2, i3    *invoice.Invoice
-			)
-
-			BeforeEach(func() {
-				var err error
-				hs1, err = CreateHostStack(db, &HostStack{
-					H: &host.Host{
-						Slug:        "my-host-1",
-						HourlyPrice: 2000,
-					},
-					U: u,
-				})
-				Expect(err).To(BeNil())
-				h1 = hs1.H
-
-				_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", h1.ID)
-				Expect(err).To(BeNil())
-
-				hs2, err = CreateHostStack(db, &HostStack{
-					H: &host.Host{
-						Slug:        "my-host-2",
-						HourlyPrice: 500,
-					},
-					U: u,
-				})
-				Expect(err).To(BeNil())
-				h2 = hs2.H
-
-				hs3, err = CreateHostStack(db, &HostStack{
-					H: &host.Host{
-						Slug:        "my-host-3",
-						HourlyPrice: 37210,
-					},
-					P: &plan.Plan{
-						Slug:          "hs3Plan",
-						Name:          "hs3Plan",
-						MaxContainers: 1,
-						Price:         20,
-					},
-					U: u,
-				})
-				Expect(err).To(BeNil())
-				h3 = hs3.H
-
-				pS1 := time.Now()
-				pE1 := pS1.Add(-2 * time.Minute)
-				i1 = &invoice.Invoice{
-					UserID:      u.ID,
-					State:       invoice.StateUnpaid,
-					PeriodStart: &pS1,
-					PeriodEnd:   &pE1,
-					TotalCharge: 290,
-				}
-				Expect(i1.Insert(db)).To(BeNil())
-
-				pS2 := time.Now().Add(10 * time.Minute)
-				pE2 := pS1.Add(-2 * time.Minute)
-				i2 = &invoice.Invoice{
-					UserID:      u.ID,
-					State:       invoice.StatePaid,
-					PeriodStart: &pS2,
-					PeriodEnd:   &pE2,
-					TotalCharge: 300,
-				}
-				Expect(i2.Insert(db)).To(BeNil())
-
-				pS3 := time.Now().Add(10 * time.Minute)
-				pE3 := pS3.Add(15 * time.Minute)
-				i3 = &invoice.Invoice{
-					UserID:      u.ID,
-					State:       invoice.StateUnpaid,
-					PeriodStart: &pS3,
-					PeriodEnd:   &pE3,
-					TotalCharge: 100,
-				}
-				Expect(i3.Insert(db)).To(BeNil())
-			})
-
-			It("should list out the invoices", func() {
-				var j map[string][]serializers.Invoice
+			It("should return an empty items with no invoices", func() {
+				j := map[string]interface{}{}
 				res := doRequest()
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
-
-				invoices := j["invoices"]
-				Expect(invoices).To(HaveLen(3))
-				Expect(invoices[0].ID).To(Equal(i3.ID))
-				Expect(invoices[0].UserID).To(Equal(i3.UserID))
-				Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
-				Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
-				Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
-				Expect(invoices[0].Items).To(BeEmpty())
-
-				Expect(invoices[1].ID).To(Equal(i2.ID))
-				Expect(invoices[1].UserID).To(Equal(i2.UserID))
-				Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
-				Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
-				Expect(invoices[1].State).To(Equal(invoice.StatePaid))
-				Expect(invoices[1].Items).To(BeEmpty())
-
-				Expect(invoices[2].ID).To(Equal(i1.ID))
-				Expect(invoices[2].UserID).To(Equal(i1.UserID))
-				Expect(invoices[2].PeriodStart.Unix()).To(Equal(i1.PeriodStart.Unix()))
-				Expect(invoices[2].PeriodEnd.Unix()).To(Equal(i1.PeriodEnd.Unix()))
-				Expect(invoices[2].State).To(Equal(invoice.StateUnpaid))
-				Expect(invoices[2].Items).To(BeEmpty())
+				Expect(j["invoices"]).To(BeEmpty())
 			})
 
-			It("should list out the available credits at the time of the invoices", func() {
-				_, err := db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 200, i3.ID)
-				Expect(err).To(BeNil())
-				_, err = db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 90, i2.ID)
-				Expect(err).To(BeNil())
-
-				var j map[string][]serializers.Invoice
+			It("should not be blocked if the user has billing issues", func() {
+				MarkDelinquentUser(db, u)
 				res := doRequest()
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-
-				invoices := j["invoices"]
-				Expect(invoices).To(HaveLen(3))
-				Expect(invoices[0].ID).To(Equal(i3.ID))
-				Expect(invoices[0].UserID).To(Equal(i3.UserID))
-				Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
-				Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
-				Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
-				Expect(invoices[0].Items).To(BeEmpty())
-				Expect(invoices[0].AvailableCredit).To(Equal(int64(200)))
-
-				Expect(invoices[1].ID).To(Equal(i2.ID))
-				Expect(invoices[1].UserID).To(Equal(i2.UserID))
-				Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
-				Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
-				Expect(invoices[1].State).To(Equal(invoice.StatePaid))
-				Expect(invoices[1].Items).To(BeEmpty())
-				Expect(invoices[1].AvailableCredit).To(Equal(int64(90)))
+				Expect(res.Code).To(Equal(http.StatusOK))
 			})
 
-			It("should be able to list the invoice items", func() {
-				itm1 := invoiceitem.InvoiceItem{
-					InvoiceID:   i1.ID,
-					HostID:      sql.NullInt64{h1.ID, true},
-					Hours:       sql.NullInt64{24, true},
-					HourlyPrice: sql.NullInt64{2000, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"1 TB", true},
-				}
-				Expect(itm1.Insert(db)).To(BeNil())
-				itm2 := invoiceitem.InvoiceItem{
-					InvoiceID:   i1.ID,
-					HostID:      sql.NullInt64{h2.ID, true},
-					Hours:       sql.NullInt64{48, true},
-					HourlyPrice: sql.NullInt64{1000, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"1 TB", true},
-				}
-				Expect(itm2.Insert(db)).To(BeNil())
+			Context("with invoices", func() {
+				var (
+					hs1, hs2, hs3 *HostStack
+					h1, h2, h3    *host.Host
+					i1, i2, i3    *invoice.Invoice
+				)
 
-				itm3 := invoiceitem.InvoiceItem{
-					InvoiceID:   i2.ID,
-					HostID:      sql.NullInt64{h2.ID, true},
-					Hours:       sql.NullInt64{10, true},
-					HourlyPrice: sql.NullInt64{3000, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"6 GB", true},
-				}
-				Expect(itm3.Insert(db)).To(BeNil())
+				BeforeEach(func() {
+					var err error
+					hs1, err = CreateHostStack(db, &HostStack{
+						H: &host.Host{
+							Slug:        "my-host-1",
+							HourlyPrice: 2000,
+						},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+					h1 = hs1.H
 
-				itm4 := invoiceitem.InvoiceItem{
-					InvoiceID:   i3.ID,
-					HostID:      sql.NullInt64{h1.ID, true},
-					Hours:       sql.NullInt64{8, true},
-					HourlyPrice: sql.NullInt64{1000, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"2 GB", true},
-				}
-				Expect(itm4.Insert(db)).To(BeNil())
-				itm5 := invoiceitem.InvoiceItem{
-					InvoiceID:   i3.ID,
-					HostID:      sql.NullInt64{h2.ID, true},
-					Hours:       sql.NullInt64{12, true},
-					HourlyPrice: sql.NullInt64{500, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"12 MB", true},
-				}
-				Expect(itm5.Insert(db)).To(BeNil())
-				itm6 := invoiceitem.InvoiceItem{
-					InvoiceID:   i3.ID,
-					HostID:      sql.NullInt64{h3.ID, true},
-					Hours:       sql.NullInt64{6, true},
-					HourlyPrice: sql.NullInt64{37210, true},
-					ItemType:    invoiceitem.ItemTypeCompute,
-					PlanMemory:  sql.NullString{"1 GB", true},
-				}
-				Expect(itm6.Insert(db)).To(BeNil())
-				itm7 := invoiceitem.InvoiceItem{
-					InvoiceID: i3.ID,
-					Credit:    sql.NullInt64{200, true},
-					ItemType:  invoiceitem.ItemTypeCredit,
-				}
-				Expect(itm7.Insert(db)).To(BeNil())
+					_, err = db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1;", h1.ID)
+					Expect(err).To(BeNil())
 
-				_, err := db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", i3.PeriodStart, i3.PeriodStart.Add(63*time.Minute))
-				Expect(err).To(BeNil())
-				_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", i3.PeriodStart.Add(63*time.Minute))
-				Expect(err).To(BeNil())
+					hs2, err = CreateHostStack(db, &HostStack{
+						H: &host.Host{
+							Slug:        "my-host-2",
+							HourlyPrice: 500,
+						},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+					h2 = hs2.H
 
-				var j map[string][]serializers.Invoice
-				res := doRequest()
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
+					hs3, err = CreateHostStack(db, &HostStack{
+						H: &host.Host{
+							Slug:        "my-host-3",
+							HourlyPrice: 37210,
+						},
+						P: &plan.Plan{
+							Slug:          "hs3Plan",
+							Name:          "hs3Plan",
+							MaxContainers: 1,
+							Price:         20,
+						},
+						U: u,
+					})
+					Expect(err).To(BeNil())
+					h3 = hs3.H
 
-				invoices := j["invoices"]
+					pS1 := time.Now()
+					pE1 := pS1.Add(-2 * time.Minute)
+					i1 = &invoice.Invoice{
+						UserID:           u.ID,
+						State:            invoice.StateUnpaid,
+						PeriodStart:      &pS1,
+						PeriodEnd:        &pE1,
+						TotalCharge:      290,
+						BillingProfileID: sql.NullInt64{bp.ID, true},
+					}
+					Expect(i1.Insert(db)).To(BeNil())
 
-				Expect(invoices[0].Items).To(HaveLen(3))
-				Expect(invoices[0].Items[0].InvoiceID).To(Equal(i3.ID))
-				Expect(invoices[0].Items[0].HostID).To(Equal(h3.ID))
-				Expect(invoices[0].Items[0].Hours).To(Equal(int64(6)))
-				Expect(invoices[0].Items[0].HourlyCents).To(Equal(37.21))
-				Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(20))) // capped by plan
-				Expect(invoices[0].Items[0].HostSlug).To(Equal("my-host-3"))
-				Expect(invoices[0].Items[0].Usage).To(BeEmpty())
-				Expect(invoices[0].Items[1].InvoiceID).To(Equal(i3.ID))
-				Expect(invoices[0].Items[1].HostID).To(Equal(h2.ID))
-				Expect(invoices[0].Items[1].Hours).To(Equal(int64(12)))
-				Expect(invoices[0].Items[1].HourlyCents).To(Equal(0.50))
-				Expect(invoices[0].Items[1].TotalCharge).To(Equal(int64(6)))
-				Expect(invoices[0].Items[1].HostSlug).To(Equal("my-host-2"))
-				Expect(invoices[0].Items[1].Usage).To(BeEmpty())
-				Expect(invoices[0].Items[2].InvoiceID).To(Equal(i3.ID))
-				Expect(invoices[0].Items[2].HostID).To(Equal(h1.ID))
-				Expect(invoices[0].Items[2].Hours).To(Equal(int64(8)))
-				Expect(invoices[0].Items[2].HourlyCents).To(Equal(1.00))
-				Expect(invoices[0].Items[2].TotalCharge).To(Equal(int64(8)))
-				Expect(invoices[0].Items[2].HostSlug).To(Equal("my-host-1"))
-				Expect(invoices[0].Items[2].Usage).To(HaveLen(1))
-				Expect(invoices[0].Items[2].Usage[0].Minutes).To(Equal(int64(15)))
-				Expect(invoices[0].Items[2].Usage[0].Start).To(BeTemporally("~", *i3.PeriodStart, time.Second))
-				Expect(invoices[0].Items[2].Usage[0].End).To(BeTemporally("~", *i3.PeriodEnd, time.Second))
-				Expect(invoices[0].TotalCredit).To(Equal(int64(200)))
+					pS2 := time.Now().Add(10 * time.Minute)
+					pE2 := pS1.Add(-2 * time.Minute)
+					i2 = &invoice.Invoice{
+						UserID:           u.ID,
+						State:            invoice.StatePaid,
+						PeriodStart:      &pS2,
+						PeriodEnd:        &pE2,
+						TotalCharge:      300,
+						BillingProfileID: sql.NullInt64{bp.ID, true},
+					}
+					Expect(i2.Insert(db)).To(BeNil())
 
-				Expect(invoices[1].Items).To(HaveLen(1))
-				Expect(invoices[1].Items[0].InvoiceID).To(Equal(i2.ID))
-				Expect(invoices[1].Items[0].HostID).To(Equal(h2.ID))
-				Expect(invoices[1].Items[0].Hours).To(Equal(int64(10)))
-				Expect(invoices[1].Items[0].HourlyCents).To(Equal(3.00))
-				Expect(invoices[1].Items[0].TotalCharge).To(Equal(int64(30)))
-				Expect(invoices[1].Items[0].HostSlug).To(Equal("my-host-2"))
-				Expect(invoices[1].Items[0].Usage).To(BeEmpty())
-				Expect(invoices[1].TotalCredit).To(Equal(int64(0)))
+					pS3 := time.Now().Add(10 * time.Minute)
+					pE3 := pS3.Add(15 * time.Minute)
+					i3 = &invoice.Invoice{
+						UserID:           u.ID,
+						State:            invoice.StateUnpaid,
+						PeriodStart:      &pS3,
+						PeriodEnd:        &pE3,
+						TotalCharge:      100,
+						BillingProfileID: sql.NullInt64{bp.ID, true},
+					}
+					Expect(i3.Insert(db)).To(BeNil())
+				})
 
-				Expect(invoices[2].Items).To(HaveLen(2))
-				Expect(invoices[2].Items[0].InvoiceID).To(Equal(i1.ID))
-				Expect(invoices[2].Items[0].HostID).To(Equal(h2.ID))
-				Expect(invoices[2].Items[0].Hours).To(Equal(int64(48)))
-				Expect(invoices[2].Items[0].HourlyCents).To(Equal(1.00))
-				Expect(invoices[2].Items[0].TotalCharge).To(Equal(int64(48)))
-				Expect(invoices[2].Items[0].HostSlug).To(Equal("my-host-2"))
-				Expect(invoices[2].Items[0].Usage).To(BeEmpty())
-				Expect(invoices[2].Items[1].InvoiceID).To(Equal(i1.ID))
-				Expect(invoices[2].Items[1].HostID).To(Equal(h1.ID))
-				Expect(invoices[2].Items[1].Hours).To(Equal(int64(24)))
-				Expect(invoices[2].Items[1].HourlyCents).To(Equal(2.00))
-				Expect(invoices[2].Items[1].TotalCharge).To(Equal(int64(48)))
-				Expect(invoices[2].Items[1].HostSlug).To(Equal("my-host-1"))
-				Expect(invoices[2].Items[1].Usage).To(BeEmpty())
-				Expect(invoices[2].TotalCredit).To(Equal(int64(0)))
+				It("should list out the invoices", func() {
+					var j map[string][]serializers.Invoice
+					res := doRequest()
+					err := json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					invoices := j["invoices"]
+					Expect(invoices).To(HaveLen(3))
+					Expect(invoices[0].ID).To(Equal(i3.ID))
+					Expect(invoices[0].UserID).To(Equal(i3.UserID))
+					Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
+					Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
+					Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
+					Expect(invoices[0].Items).To(BeEmpty())
+
+					Expect(invoices[1].ID).To(Equal(i2.ID))
+					Expect(invoices[1].UserID).To(Equal(i2.UserID))
+					Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
+					Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
+					Expect(invoices[1].State).To(Equal(invoice.StatePaid))
+					Expect(invoices[1].Items).To(BeEmpty())
+
+					Expect(invoices[2].ID).To(Equal(i1.ID))
+					Expect(invoices[2].UserID).To(Equal(i1.UserID))
+					Expect(invoices[2].PeriodStart.Unix()).To(Equal(i1.PeriodStart.Unix()))
+					Expect(invoices[2].PeriodEnd.Unix()).To(Equal(i1.PeriodEnd.Unix()))
+					Expect(invoices[2].State).To(Equal(invoice.StateUnpaid))
+					Expect(invoices[2].Items).To(BeEmpty())
+				})
+
+				It("should list out the available credits at the time of the invoices", func() {
+					_, err := db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 200, i3.ID)
+					Expect(err).To(BeNil())
+					_, err = db.Exec("UPDATE invoices SET available_credit = $1 WHERE id = $2;", 90, i2.ID)
+					Expect(err).To(BeNil())
+
+					var j map[string][]serializers.Invoice
+					res := doRequest()
+					err = json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					invoices := j["invoices"]
+					Expect(invoices).To(HaveLen(3))
+					Expect(invoices[0].ID).To(Equal(i3.ID))
+					Expect(invoices[0].UserID).To(Equal(i3.UserID))
+					Expect(invoices[0].PeriodStart.Unix()).To(Equal(i3.PeriodStart.Unix()))
+					Expect(invoices[0].PeriodEnd.Unix()).To(Equal(i3.PeriodEnd.Unix()))
+					Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
+					Expect(invoices[0].Items).To(BeEmpty())
+					Expect(invoices[0].AvailableCredit).To(Equal(int64(200)))
+
+					Expect(invoices[1].ID).To(Equal(i2.ID))
+					Expect(invoices[1].UserID).To(Equal(i2.UserID))
+					Expect(invoices[1].PeriodStart.Unix()).To(Equal(i2.PeriodStart.Unix()))
+					Expect(invoices[1].PeriodEnd.Unix()).To(Equal(i2.PeriodEnd.Unix()))
+					Expect(invoices[1].State).To(Equal(invoice.StatePaid))
+					Expect(invoices[1].Items).To(BeEmpty())
+					Expect(invoices[1].AvailableCredit).To(Equal(int64(90)))
+				})
+
+				It("should be able to list the invoice items", func() {
+					itm1 := invoiceitem.InvoiceItem{
+						InvoiceID:   i1.ID,
+						HostID:      sql.NullInt64{h1.ID, true},
+						Hours:       sql.NullInt64{24, true},
+						HourlyPrice: sql.NullInt64{2000, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"1 TB", true},
+					}
+					Expect(itm1.Insert(db)).To(BeNil())
+					itm2 := invoiceitem.InvoiceItem{
+						InvoiceID:   i1.ID,
+						HostID:      sql.NullInt64{h2.ID, true},
+						Hours:       sql.NullInt64{48, true},
+						HourlyPrice: sql.NullInt64{1000, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"1 TB", true},
+					}
+					Expect(itm2.Insert(db)).To(BeNil())
+
+					itm3 := invoiceitem.InvoiceItem{
+						InvoiceID:   i2.ID,
+						HostID:      sql.NullInt64{h2.ID, true},
+						Hours:       sql.NullInt64{10, true},
+						HourlyPrice: sql.NullInt64{3000, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"6 GB", true},
+					}
+					Expect(itm3.Insert(db)).To(BeNil())
+
+					itm4 := invoiceitem.InvoiceItem{
+						InvoiceID:   i3.ID,
+						HostID:      sql.NullInt64{h1.ID, true},
+						Hours:       sql.NullInt64{8, true},
+						HourlyPrice: sql.NullInt64{1000, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"2 GB", true},
+					}
+					Expect(itm4.Insert(db)).To(BeNil())
+					itm5 := invoiceitem.InvoiceItem{
+						InvoiceID:   i3.ID,
+						HostID:      sql.NullInt64{h2.ID, true},
+						Hours:       sql.NullInt64{12, true},
+						HourlyPrice: sql.NullInt64{500, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"12 MB", true},
+					}
+					Expect(itm5.Insert(db)).To(BeNil())
+					itm6 := invoiceitem.InvoiceItem{
+						InvoiceID:   i3.ID,
+						HostID:      sql.NullInt64{h3.ID, true},
+						Hours:       sql.NullInt64{6, true},
+						HourlyPrice: sql.NullInt64{37210, true},
+						ItemType:    invoiceitem.ItemTypeCompute,
+						PlanMemory:  sql.NullString{"1 GB", true},
+					}
+					Expect(itm6.Insert(db)).To(BeNil())
+					itm7 := invoiceitem.InvoiceItem{
+						InvoiceID: i3.ID,
+						Credit:    sql.NullInt64{200, true},
+						ItemType:  invoiceitem.ItemTypeCredit,
+					}
+					Expect(itm7.Insert(db)).To(BeNil())
+
+					_, err := db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at, ended_at) values ($1, $2, $3, $4, $5);", h1.ID, "born", "running", i3.PeriodStart, i3.PeriodStart.Add(63*time.Minute))
+					Expect(err).To(BeNil())
+					_, err = db.Exec("INSERT INTO host_transitions (host_id, previous_state, state, created_at) values ($1, $2, $3, $4);", h1.ID, "running", "stopped", i3.PeriodStart.Add(63*time.Minute))
+					Expect(err).To(BeNil())
+
+					var j map[string][]serializers.Invoice
+					res := doRequest()
+					err = json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+
+					invoices := j["invoices"]
+
+					Expect(invoices[0].Items).To(HaveLen(3))
+					Expect(invoices[0].Items[0].InvoiceID).To(Equal(i3.ID))
+					Expect(invoices[0].Items[0].HostID).To(Equal(h3.ID))
+					Expect(invoices[0].Items[0].Hours).To(Equal(int64(6)))
+					Expect(invoices[0].Items[0].HourlyCents).To(Equal(37.21))
+					Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(20))) // capped by plan
+					Expect(invoices[0].Items[0].HostSlug).To(Equal("my-host-3"))
+					Expect(invoices[0].Items[0].Usage).To(BeEmpty())
+					Expect(invoices[0].Items[1].InvoiceID).To(Equal(i3.ID))
+					Expect(invoices[0].Items[1].HostID).To(Equal(h2.ID))
+					Expect(invoices[0].Items[1].Hours).To(Equal(int64(12)))
+					Expect(invoices[0].Items[1].HourlyCents).To(Equal(0.50))
+					Expect(invoices[0].Items[1].TotalCharge).To(Equal(int64(6)))
+					Expect(invoices[0].Items[1].HostSlug).To(Equal("my-host-2"))
+					Expect(invoices[0].Items[1].Usage).To(BeEmpty())
+					Expect(invoices[0].Items[2].InvoiceID).To(Equal(i3.ID))
+					Expect(invoices[0].Items[2].HostID).To(Equal(h1.ID))
+					Expect(invoices[0].Items[2].Hours).To(Equal(int64(8)))
+					Expect(invoices[0].Items[2].HourlyCents).To(Equal(1.00))
+					Expect(invoices[0].Items[2].TotalCharge).To(Equal(int64(8)))
+					Expect(invoices[0].Items[2].HostSlug).To(Equal("my-host-1"))
+					Expect(invoices[0].Items[2].Usage).To(HaveLen(1))
+					Expect(invoices[0].Items[2].Usage[0].Minutes).To(Equal(int64(15)))
+					Expect(invoices[0].Items[2].Usage[0].Start).To(BeTemporally("~", *i3.PeriodStart, time.Second))
+					Expect(invoices[0].Items[2].Usage[0].End).To(BeTemporally("~", *i3.PeriodEnd, time.Second))
+					Expect(invoices[0].TotalCredit).To(Equal(int64(200)))
+
+					Expect(invoices[1].Items).To(HaveLen(1))
+					Expect(invoices[1].Items[0].InvoiceID).To(Equal(i2.ID))
+					Expect(invoices[1].Items[0].HostID).To(Equal(h2.ID))
+					Expect(invoices[1].Items[0].Hours).To(Equal(int64(10)))
+					Expect(invoices[1].Items[0].HourlyCents).To(Equal(3.00))
+					Expect(invoices[1].Items[0].TotalCharge).To(Equal(int64(30)))
+					Expect(invoices[1].Items[0].HostSlug).To(Equal("my-host-2"))
+					Expect(invoices[1].Items[0].Usage).To(BeEmpty())
+					Expect(invoices[1].TotalCredit).To(Equal(int64(0)))
+
+					Expect(invoices[2].Items).To(HaveLen(2))
+					Expect(invoices[2].Items[0].InvoiceID).To(Equal(i1.ID))
+					Expect(invoices[2].Items[0].HostID).To(Equal(h2.ID))
+					Expect(invoices[2].Items[0].Hours).To(Equal(int64(48)))
+					Expect(invoices[2].Items[0].HourlyCents).To(Equal(1.00))
+					Expect(invoices[2].Items[0].TotalCharge).To(Equal(int64(48)))
+					Expect(invoices[2].Items[0].HostSlug).To(Equal("my-host-2"))
+					Expect(invoices[2].Items[0].Usage).To(BeEmpty())
+					Expect(invoices[2].Items[1].InvoiceID).To(Equal(i1.ID))
+					Expect(invoices[2].Items[1].HostID).To(Equal(h1.ID))
+					Expect(invoices[2].Items[1].Hours).To(Equal(int64(24)))
+					Expect(invoices[2].Items[1].HourlyCents).To(Equal(2.00))
+					Expect(invoices[2].Items[1].TotalCharge).To(Equal(int64(48)))
+					Expect(invoices[2].Items[1].HostSlug).To(Equal("my-host-1"))
+					Expect(invoices[2].Items[1].Usage).To(BeEmpty())
+					Expect(invoices[2].TotalCredit).To(Equal(int64(0)))
+				})
 			})
+
+		}
+
+		Context("as a user", func() {
+			BeforeEach(func() {
+				var err error
+				bp, err = u.BillingProfile(db)
+				Expect(err).To(BeNil())
+
+				doRequest = func() *httptest.ResponseRecorder {
+					req, err := NewAuthedRequest(t, "GET", "/api/v0/billing/invoices", nil)
+					Expect(err).To(BeNil())
+					res := httptest.NewRecorder()
+					svr.Router().ServeHTTP(res, req)
+					return res
+				}
+			})
+
+			sharedExamples()
+		})
+
+		Context("as a organisation", func() {
+			BeforeEach(func() {
+				o := &org.Org{
+					Name:  "Foo Bar, Inc.",
+					Slug:  "foobar",
+					Email: "eng@foobar.com",
+				}
+				err := o.Insert(db)
+				Expect(err).To(BeNil())
+				err = db.WithTransaction(func(t *sqlx.Tx) error {
+					Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+					return nil
+				})
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+				Expect(err).To(BeNil())
+
+				// corrupt the user's billing profile so we ensure the operation runs over the org BP
+				bp, err = u.BillingProfile(db)
+				Expect(err).To(BeNil())
+				Expect(bp.OrgID.Valid).To(BeFalse())
+				bp.State = billingprofile.StateDelinquent
+				Expect(bp.Update(db)).To(BeNil())
+
+				bp, err = billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+				bp.State = billingprofile.StatePaid
+				Expect(bp.Update(db)).To(BeNil())
+
+				doRequest = func() *httptest.ResponseRecorder {
+					req, err := NewAuthedRequest(t, "GET", "/api/v0/orgs/foobar/invoices", nil)
+					Expect(err).To(BeNil())
+					res := httptest.NewRecorder()
+					svr.Router().ServeHTTP(res, req)
+					return res
+				}
+			})
+
+			sharedExamples()
 		})
 	})
 
 	Describe("POST /api/v0/invoices/{id}/pay", func() {
 		var (
+			bp         *billingprofile.BillingProfile
 			fakeStripe *FakeStripe
 			in         *invoice.Invoice
 		)
@@ -498,13 +566,18 @@ var _ = Describe("controllers/billing", func() {
 		}
 
 		BeforeEach(func() {
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
 			start := time.Now()
 			end := start.Add(2 * time.Hour)
 			in = &invoice.Invoice{
-				UserID:      u.ID,
-				PeriodStart: &start,
-				PeriodEnd:   &end,
-				State:       invoice.StateUnpaid,
+				UserID:           u.ID,
+				PeriodStart:      &start,
+				PeriodEnd:        &end,
+				State:            invoice.StateUnpaid,
+				BillingProfileID: sql.NullInt64{bp.ID, true},
 			}
 			Expect(in.Insert(db)).To(BeNil())
 
@@ -696,5 +769,6 @@ var _ = Describe("controllers/billing", func() {
 			res := doRequest(in.ID)
 			Expect(res.Code).To(Equal(http.StatusForbidden))
 		})
+
 	})
 })

@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
-	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -26,27 +25,10 @@ var (
 	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
 	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card is banned.")
-
-	errIncorrectSubscriptionRole = httperror.New(http.StatusForbidden, "incorrect_role", "You don't have permission to access this subscription")
 )
 
-func billingProfileForRequest(env *middleware.Env, r *http.Request) (*billingprofile.BillingProfile, error) {
-	if orgSlug := mux.Vars(r)["org_slug"]; orgSlug != "" {
-		mem, err := orgmembership.FindByUsernameAndOrgSlug(env.DB, env.User.Username, orgSlug)
-		if err != nil {
-			return nil, err
-		}
-		if mem.Role != "owner" {
-			return nil, errIncorrectSubscriptionRole
-		}
-		return billingprofile.FindForOrg(env.DB, mem.OrgID)
-	}
-
-	return billingprofile.Find(env.DB, env.User.ID)
-}
-
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	bp, err := billingProfileForRequest(env, r)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -77,7 +59,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingProfileForRequest(env, r)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -161,7 +143,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingProfileForRequest(env, r)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
