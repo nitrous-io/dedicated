@@ -1228,6 +1228,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(inv.SubscriptionID.Int64).To(Equal(sub.ID))
 			Expect(inv.TotalCharge).To(Equal(int64(1499)))
 			Expect(inv).To(Equal(i))
+			Expect(inv.BillingProfileID.Int64).To(Equal(bp.ID))
 
 			items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 			Expect(err).To(BeNil())
@@ -1524,6 +1525,7 @@ var _ = Describe("subscriptions", func() {
 				Expect(inv.StripeID.String).To(Equal("inv1"))
 				Expect(inv.SubscriptionID.Int64).To(Equal(sub.ID))
 				Expect(inv).To(Equal(i))
+				Expect(inv.BillingProfileID.Int64).To(Equal(bp.ID))
 
 				items, err := invoiceitem.FindAllForInvoice(db, inv.ID)
 				Expect(err).To(BeNil())

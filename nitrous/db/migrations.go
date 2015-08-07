@@ -1492,5 +1492,12 @@ func init() {
                                 ALTER TABLE orgs ADD COLUMN max_hosts bigint NOT NULL DEFAULT 10;
                         `,
 		},
+		{
+			Version: "1438982623",
+			Up: `
+                                ALTER TABLE invoices ADD COLUMN billing_profile_id bigint REFERENCES billing_profiles(id) DEFAULT NULL;
+                                UPDATE invoices SET billing_profile_id = b.id FROM billing_profiles b WHERE invoices.user_id = b.user_id;
+                        `,
+		},
 	}
 }
