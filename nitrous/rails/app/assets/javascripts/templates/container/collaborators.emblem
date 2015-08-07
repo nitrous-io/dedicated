@@ -17,6 +17,9 @@
             h4
               if collaborator.username
                 = collaborator.username
+                if collaborator.name
+                  '
+                  | (#{collaborator.name})
               else
                 = collaborator.pendingEmail
                 |  (pending)

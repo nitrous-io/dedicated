@@ -1,5 +1,9 @@
 .card-header.bordered
   h2
+    if org
+      link-to 'org.index' org.slug
+        = org.name
+      span.divider.fa.fa-angle-right
     if host
       link-to 'host.index' host.slug
         = host.displayName

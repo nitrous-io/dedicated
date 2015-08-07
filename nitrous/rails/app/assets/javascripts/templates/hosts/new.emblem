@@ -17,6 +17,21 @@
             '
             | Free workspaces are not yet available for your region
 
+        if orgs.length
+          .ui.input-group
+            label.field-label for='hosts-owner'
+              | Owner
+
+            .ui.select
+              select name='hosts-new-owner' disabled=saving
+                optgroup label='Personal'
+                  option value='(user)'
+                    | #{App.user.displayName} (You)
+                optgroup label='Organization'
+                  each org in orgs
+                    option value=org.slug
+                      = org.name
+
         .ui.input-group
           label.field-label for='hosts-new-name'
             | Workspace Name

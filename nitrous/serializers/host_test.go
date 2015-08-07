@@ -62,6 +62,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -99,6 +100,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -136,6 +138,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -172,6 +175,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -206,6 +210,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -234,7 +239,7 @@ var _ = Describe("host serializer", func() {
 		})
 
 		It("includes OrgSlug if present", func() {
-			model.OrgSlug = sql.NullString{"ASUB", true}
+			model.OrgID = sql.NullInt64{14, true}
 			b, err := json.Marshal(serializers.SerializeHost(model))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`{
@@ -242,6 +247,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": 14,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -264,7 +270,6 @@ var _ = Describe("host serializer", func() {
 				"update_available": "hard",
 				"max_containers": 3,
 				"pending_respec": true,
-				"org_slug": "ASUB",
 				"free": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
@@ -289,6 +294,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",

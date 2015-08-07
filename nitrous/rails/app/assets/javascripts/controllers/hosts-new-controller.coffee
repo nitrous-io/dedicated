@@ -1,4 +1,5 @@
 App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
+  needs: ['orgs']
   queryParams: ['pendingContainer']
   pendingContainer: false
 
@@ -6,6 +7,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   name: null
   selectedRegion: null
   selectedPlan: null
+  selectedOrgSlug: null
   error: null
   invalidField: null
   host: null
@@ -19,6 +21,13 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   freePlanNotAllowed: false
 
   nameFieldEdited: false
+
+  orgs: Em.computed.alias 'controllers.orgs.collection'
+
+  selectedOrg: (->
+    if slug = @get 'selectedOrgSlug'
+      @get('orgs')?.findBy('slug', slug)
+  ).property 'orgs.@each', 'selectedOrgSlug'
 
   paidPlans: (->
     @get('sortedPlans').filter (plan) ->
@@ -41,6 +50,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       name: null
       sortedPlans: sortedPlans
       selectedRegion: App.get('regions.firstObject')
+      selectedOrgSlug: null
       error: null
       invalidField: null
       host: null
@@ -108,6 +118,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           regionId: @get('selectedRegion.id')
           planSlug: @get('selectedPlan.slug')
           planId: @get('selectedPlan.id')
+          orgId: @get('selectedOrg.id')
+          orgSlug: @get('selectedOrg.slug')
           name: @get 'name'
       @set 'host', host
 

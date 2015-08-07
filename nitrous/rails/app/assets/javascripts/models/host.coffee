@@ -6,6 +6,7 @@ App.Host = klass = App.Model.extend
   userId: attr('number', as: 'user_id', serialize: false)
   regionId: attr('number', as: 'region_id', serialize: false)
   planId: attr('number', as: 'plan_id', serialize: false)
+  orgId: attr('number', as: 'org_id', serialize: false)
   name: attr()
   slug: attr()
   state: attr(serialize: false)
@@ -29,6 +30,7 @@ App.Host = klass = App.Model.extend
   # only used in create
   planSlug: attr(as: 'size')
   regionSlug: attr(as: 'region')
+  orgSlug: attr(as: 'org')
 
   stats: null
   liveHost: null
