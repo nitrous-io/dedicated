@@ -370,6 +370,61 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
+	Describe("SetCard()", func() {
+		var (
+			bp *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+		})
+		It("should return an error if the card is banned", func() {
+			u2 := &user.User{
+				Username: "bad",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "bad@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, u.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+			Expect(err).To(BeNil())
+
+			strCard := &stripe.Card{
+				Fingerprint: "H0SJieNrXmTdq3qs",
+			}
+			Expect(bp.SetCard(db, strCard)).To(Equal(billingprofile.ErrCardBanned))
+
+			Expect(bp.StripeFingerprint).ToNot(Equal("H0SJieNrXmTdq3qs"))
+		})
+
+		It("set the properties on the card", func() {
+			strCard := &stripe.Card{
+				Fingerprint: "H0SJieNrXmTdq3qs",
+				LastFour:    "1901",
+				Brand:       "AMEX",
+				Month:       8,
+				Year:        2019,
+			}
+			Expect(bp.SetCard(db, strCard)).To(BeNil())
+
+			Expect(bp.PendingActivation).To(BeFalse())
+			Expect(bp.LastFour.String).To(Equal("1901"))
+			Expect(bp.CardType.String).To(Equal("AMEX"))
+			Expect(bp.ExpMonth.Int64).To(Equal(int64(8)))
+			Expect(bp.ExpYear.Int64).To(Equal(int64(2019)))
+			Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
+			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			Expect(bp.PendingActivation).To(BeFalse())
+		})
+	})
+
 	Describe("Activate", func() {
 		It("should set the BP with a StripeID", func() {
 			_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
