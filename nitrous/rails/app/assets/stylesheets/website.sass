@@ -2560,127 +2560,117 @@ footer
         transform-origin: bottom left
 
 
-.footer-item
-  margin: 0
-  line-height: 32px
+  .footer-item
+    margin: 0
+    line-height: 32px
 
-  h4, h4 a
-    font-size: 16px
-    padding-bottom: 12px
-    color: #FFF
+    h4, h4 a
+      font-size: 16px
+      padding-bottom: 12px
+      color: #FFF
 
-  &.blog
-    width: 300px
-    margin-right: 0
+    &.blog
+      width: 300px
+      margin-right: 0
 
-    li
-      line-height: 20px
+      li
+        line-height: 20px
 
-      &:first-child
-        padding-top: 6px
+        &:first-child
+          padding-top: 6px
+
+      a
+        font-size: 15px
+        display: block
+        margin-bottom: 20px
+
+        &.more-articles
+          color: #FFF
+          font-weight: 400
+          &:hover
+            color: $blueLink
+  
+  .copyright
+    color: #4E5862
+    
+    .copy-wrapper
+      height: 44px
 
     a
-      font-size: 15px
-      display: block
-      margin-bottom: 20px
-
-      &.more-articles
-        color: #FFF
-        font-weight: 400
-        &:hover
-          color: $blueLink
-
-.copyright
-  color: #4E5862
-  
-  a
-    color: rgba(255,255,255,.4)
-
-  ul
-    margin-top: 0
-
-  .nitrous-logo
-    width: 104px
-    height: 12px
-    margin-top: 10px
-    padding-bottom: 2px
-    display: block
-    background: image_url("home/nitrous-logo.png") 0 0 no-repeat
-    background-size: 104px 12px
-    opacity: .6
-  
-  ul.social
-    margin: 10px 0 0 0
-    display: flex
+      color: rgba(255,255,255,.4)
     
-    li
-      float: none
-      margin-right: 6px
-      
-      a
-        width: 32px
-        height: 32px
-        display: block
-        position: relative
-        text-indent: -99999px
+    .nitrous-logo
+      width: 104px
+      height: 12px
+      margin-top: 10px
+      padding-bottom: 2px
+      display: block
+      background: image_url("home/nitrous-logo.png") 0 0 no-repeat
+      background-size: 104px 12px
+      opacity: .6
+    
+    .mixpanel-btn
+      width: 114px
+      height: 36px
+      display: block
+      margin-top: 14px
+
+    ul
+      margin-top: 0
+    
+    ul.inline
+      li
+        margin: 0
+        padding: 0
+        line-height: 24px
         
-        &:after
-          position: absolute
-          top: 0
-          left: 0
+        span
+          padding-left: 6px
+          padding-right: 2px
+          
+        a:hover
+          color: #FFF
+
+    ul.social
+      margin: 14px 0 0 0
+      display: flex
+
+      li
+        float: none
+        margin-right: 6px
+
+        a
           width: 32px
           height: 32px
           display: block
-          font-family: fontAwesome
-          color: #4E5862
-          font-size: 20px
-          text-indent: 0
-        
-        &:hover
+          position: relative
+          text-indent: -99999px
+
           &:after
-            color: #FFF
-      
-      &.twitter
-        a:after
-          content: "\f099"
-      &.facebook
-        a:after
-          content: "\f082"
-      &.github
-        a:after
-          content: "\f09b"
+            position: absolute
+            top: 0
+            left: 0
+            width: 32px
+            height: 32px
+            display: block
+            font-family: fontAwesome
+            color: #4E5862
+            font-size: 20px
+            text-indent: 0
 
+          &:hover
+            &:after
+              color: #FFF
 
-.copy-wrapper
-  height: 44px
-
-.logomark
-  width: 66px
-  height: 74px
-  clear: both
-  margin: 60px auto 40px auto
-  background: image_url('home/footer-logomark.png') 0 0 no-repeat
-  background-size: 66px 74px
-
-  &, .caret
-    display: block
-    position: relative
-
-  .caret
-    width: 2px
-    height: 20px
-    left: 43px
-    top: 27px
-    background: rgba(255,255,255,0)
-    animation: blink 1.25s step-end infinite
-    overflow: hidden
-    +webkitFix
-
-  &.alt
-    width: 34px
-    height: 34px
-    background: image_url('home/footer-logomark-alt.svg') 0 0 no-repeat
-    background-size: 34px 34px
+        &.twitter
+          a:after
+            content: "\f099"
+        &.facebook
+          a:after
+            content: "\f082"
+        &.github
+          a:after
+            content: "\f09b"
 
 
 // --------------------------------------
