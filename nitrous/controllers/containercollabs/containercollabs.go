@@ -237,7 +237,7 @@ func sendEmail(d *db.Database, c *container.Container, collab *containercollab.C
 		return err
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
+	from := envvars.SupportEmail
 	to := (&mail.Address{Name: recv.DisplayName(), Address: recv.Email}).String()
 
 	err = Mailer.SendMail(from, []string{to}, []string{from}, nil, from, tmplData.Subject, txtBuf.String(), htmlBuf.String())

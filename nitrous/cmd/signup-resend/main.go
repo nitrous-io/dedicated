@@ -121,7 +121,7 @@ func main() {
 		if err := resendEmailTxtTemplate.Execute(txtBuf, tmplData); err != nil {
 			logrus.Fatalf("Error compiling: %s", err)
 		}
-		from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
+		from := envvars.SupportEmail
 		to := (&mail.Address{Name: u.DisplayName(), Address: u.Email}).String()
 
 		if liveRun {

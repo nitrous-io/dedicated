@@ -123,7 +123,7 @@ func renderAndSend(email string) error {
 		return nil
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "support@nitrous.io"}).String()
+	from := envvars.SupportEmail
 
 	err = sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
 		subjBuf.String(), textBuf.String(), htmlBuf.String())
