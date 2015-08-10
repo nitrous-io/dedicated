@@ -18,6 +18,13 @@ App.OrgBillingComponent = Em.Component.extend App.OrgMembersMixin,
   didInsertElement: ->
     @_super()
     @fetchMembers()
+    @reloadSubscriptions()
+
+  reloadSubscriptions: (->
+    subscriptions = @get 'org.subscriptions'
+    if subscriptions && subscriptions.get('loaded')
+      subscriptions.reload()
+  ).observes 'org'
 
   actions:
     updateCard: ->
