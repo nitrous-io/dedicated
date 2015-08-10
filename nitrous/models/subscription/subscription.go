@@ -44,6 +44,7 @@ type Subscription struct {
 type SubscriptionWithHostSlug struct {
 	*Subscription
 	HostSlug sql.NullString `db:"host_slug"`
+	OrgID    sql.NullInt64  `db:"org_id"`
 }
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
@@ -108,7 +109,7 @@ func FindByUserID(d db.QueryReceiver, id, userID int64) (*Subscription, error) {
 
 func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHostSlug, error) {
 	subscriptions := []*SubscriptionWithHostSlug{}
-	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
                 WHERE bp.org_id = $1 AND s.cancelled_at IS NULL
@@ -121,7 +122,7 @@ func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHo
 
 func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWithHostSlug, error) {
 	subscriptions := []*SubscriptionWithHostSlug{}
-	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
                 WHERE (

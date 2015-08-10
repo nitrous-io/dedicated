@@ -557,6 +557,7 @@ var _ = Describe("models/subscription", func() {
 				Expect(subscriptions).To(HaveLen(3))
 				Expect(subscriptions[2].ID).To(Equal(orgSub.ID))
 				Expect(subscriptions[2].HostSlug.String).To(Equal("my-org-host"))
+				Expect(subscriptions[2].OrgID.Int64).To(Equal(o.ID))
 			})
 
 			It("should not double up subscriptions if the host and org BP belong to the same user", func() {
@@ -569,6 +570,7 @@ var _ = Describe("models/subscription", func() {
 				Expect(subscriptions).To(HaveLen(3))
 				Expect(subscriptions[2].ID).To(Equal(orgSub.ID))
 				Expect(subscriptions[2].HostSlug.String).To(Equal("my-org-host"))
+				Expect(subscriptions[2].OrgID.Int64).To(Equal(o.ID))
 			})
 		})
 	})
