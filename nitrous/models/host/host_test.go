@@ -360,6 +360,132 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllForTermination()", func() {
+		var (
+			u1 *user.User
+			u2 *user.User
+			s  *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			var err error
+			fv := "1.0.69-deadbeef-88"
+			dv := "1.4.1-nitrous"
+
+			u1 = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			p := &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u1.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            subscription.StateDeleted,
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "subslug",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '50 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            subscription.StateDeleted,
+				StripeID:         sql.NullString{"2", true},
+				Slug:             "sub2slug",
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			// insert a valid running host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+			Expect(err).To(BeNil())
+
+			// insert a terminated host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+			Expect(err).To(BeNil())
+
+			// insert a valid running host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s2.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should only include hosts with cancelled subscriptions", func() {
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].Slug).To(Equal("my-host-1"))
+		})
+
+		It("should not include hosts where subscriptions have been recently cancelled", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '12 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+
+		It("should not include hosts where subscriptions have not been cancelled", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET state = 'active', cancelled_at  = NULL WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+
+		It("should not include hosts where subscriptions have partial cancel due to bugs", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET state = $1, cancelled_at  = NULL WHERE id = $2`, subscription.StateDeleted, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+	})
+
 	Describe("CountPreprovisioned()", func() {
 		var hs2 *test.HostStack
 

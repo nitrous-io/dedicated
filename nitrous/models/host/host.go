@@ -178,6 +178,23 @@ func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	return hosts, nil
 }
 
+func FindAllForTermination(db *db.Database) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+                        INNER JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        WHERE sub.state = $1
+                        AND sub.cancel_pending IS FALSE
+                        AND hosts.terminated_at IS NULL
+                        AND sub.cancelled_at < (now() - interval '48 hours');`, // 48hrs gives a grace period in case of any bugs (so we don't immediately term)
+		subscription.StateDeleted)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
 func CountPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (int, error) {
 	var count int
 	if err := db.QueryRow(`SELECT count(*) FROM hosts
