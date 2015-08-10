@@ -32,9 +32,10 @@
             else
               li.disabled
                 a href='#' title=view.newHostTitle New Workspace...
-          li.separator
-          li
-            = link-to 'orgs.new' | New Organization...
+          if App.user.admin
+            li.separator
+            li
+              = link-to 'orgs.new' | New Organization...
       if App.user.admin
         li.ui.dropdown
           a href='#'
