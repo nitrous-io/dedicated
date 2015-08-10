@@ -1,0 +1,121 @@
+.card-header.bordered
+  h2
+    if hasMultipleSubscriptions
+      | Subscriptions
+    else
+      | Subscription
+.card-body
+  if subscriptions.length
+    .invoice-item
+      table.ui.table.horizontal
+        tbody
+          = each subscription in subscriptions
+            tr class={subscription.cancelPending:cancelled}
+              td
+                if subscription.hostSlug
+                  ' Workspace
+                  = subscription.hostSlug
+                  span.dash
+                    '  &#8212;
+                  = subscription.plan.name
+                else
+                  = subscription.plan.name
+              td class={subscription.cancelPending:cancel-pending}
+                if subscription.cancelPending
+                  ' Cancels on
+                else
+                  ' Renews on
+                = monDayYear subscription.currentPeriodEnd
+              td.actions
+                if hasMultipleSubscriptions
+                  unless subscription.cancelPending
+                    if subscription.canUpgrade
+                      = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary raised'
+                        | Upgrade
+                    else
+                      button.ui.btn.primary disabled='disabled'
+                        | Upgrade
+                    button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
+              td.charge
+                | $
+                = currency subscription.totalPriceInDollars
+
+        if hasMultipleSubscriptions
+          tr
+            td.gap
+
+          tr
+            td colspan="3"
+              | Total Subscriptions
+            td.charge
+              = subscriptions.length
+
+          tr.total-charge
+            td colspan="3"
+              | Total Charged
+            td.charge
+              | $
+              = currency totalSubscriptionCharge
+  else
+    .notice-text
+      i.fa.fa-info
+      '
+      ' You don't have any subscriptions,
+      link-to 'hosts.new'| create one now
+      | .
+
+if hasSingleSubscription
+  unless subscriptions.firstObject.cancelPending
+    .card-footer.bordered
+      .right
+        if subscriptions.firstObject.canUpgrade
+          = link-to 'subscriptions.upgrade' subscriptions.firstObject.slug  class='ui btn primary raised'
+            | Upgrade Subscription
+        else
+          button.ui.btn.primary disabled='disabled'
+            | Upgrade Subscription
+        button.ui.btn.danger click='showCancelSubscription subscriptions.firstObject' disabled=subscriptions.firstObject.cancelPending Cancel Subscription
+
+.cancel-subscription-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Cancel subscription
+    .card-body
+      p
+        ' Are you sure you want to cancel the subscription for
+        if subscription.hostSlug
+          | the workspace &ldquo;
+          if subscription.host.displayName
+            = subscription.host.displayName
+          else
+            = subscription.hostSlug
+          | &rdquo; (#{subscription.plan.name})?
+        else
+          | the plan &ldquo;#{subscription.plan.name}&rdquo;?
+      p
+        ' Your subscription will end on
+        = simpledate subscription.currentPeriodEnd
+        '  after which your
+        if subscription.hostSlug
+          | workspace &ldquo;
+          if subscription.host.displayName
+            = subscription.host.displayName
+          else
+            = subscription.hostSlug
+          | &rdquo;
+        else
+          | workspaces
+        |  will be terminated.
+      p
+        ' Please type in the slug of the workspace
+        strong
+          | (
+          span.click-highlight
+            = subscription.hostSlug
+          ' )
+        | to confirm:
+      .ui.input-group
+        Em.TextField class='focus' placeholder=slug value=terminateSlugConfirmation insertNewline=view.clickTerminate
+    .card-footer
+      .right
+        button.ui.btn click='hideCancelSubscription' Back
+        button.ui.btn.danger.terminate-btn click='cancelSubscription subscription' disabled=terminateSlugConfirmationInvalid Cancel Subscription
