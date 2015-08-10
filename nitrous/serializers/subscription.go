@@ -21,6 +21,7 @@ type Subscription struct {
 	UpdatedAt *time.Time `json:"updated_at"`
 
 	HostSlug string `json:"host_slug,omitempty"`
+	OrgID    int64  `json:"org_id,omitempty"`
 
 	Plan *Plan `json:"plan,omitempty"`
 }
@@ -35,6 +36,7 @@ func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscripti
 		UpdatedAt:        s.UpdatedAt,
 		HostSlug:         s.HostSlug.String,
 		CancelPending:    s.CancelPending,
+		OrgID:            s.OrgID.Int64,
 	}
 
 	if s.CurrentPeriodStart.Valid {
