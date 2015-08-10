@@ -6,6 +6,9 @@
 
   = billing-card-info billingProfile=org.billingProfile
 
+if org.subscriptions.length
+  = billing-subscriptions subscriptions=org.subscriptions
+
 if cardUpdateAllowed
   .card-footer.bordered
     .right

@@ -6,6 +6,7 @@ attr = SM.attr
 App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   slug: attr('string')
   planId: attr('number', as: 'plan_id')
+  orgId: attr('number', as: 'org_id')
   billingProfileId: attr('number', as: 'billing_profile_id')
   state: attr('string', as: 'state')
   currentPeriodStart: attr('date', as: 'current_period_start')

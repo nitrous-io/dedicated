@@ -5,3 +5,5 @@ App.OrgBillingProfile = klass = App.BillingProfile.extend
 
 klass.reopenClass
   url: '/orgs/:orgSlug/billing_profile'
+  primaryKey: 'orgSlug'
+  noCache: true

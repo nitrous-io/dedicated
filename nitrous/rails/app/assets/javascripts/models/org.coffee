@@ -34,6 +34,11 @@ App.Org = klass = App.NewModel.extend
       @set 'members', members
     p
 
+  subscriptions: (->
+    if slug = @get('slug')
+      App.OrgSubscription.fetch(orgSlug: slug).value
+  ).property 'slug'
+
 klass.reopenClass
   collectionUrl: '/api/v0/orgs'
   collectionRoot: 'orgs'

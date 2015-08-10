@@ -1,4 +1,5 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
+  needs: ['orgs']
   queryParams: ['planId', 'exceededContainerLimit', 'selectedTemplate', 'containerName']
   planId: null # when being transferred from successful add-card
   exceededContainerLimit: false
@@ -111,4 +112,7 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
         @set 'upgrading', false
 
     cancel: ->
-      @transitionToRoute 'billing'
+      if orgId = @get('model.orgId')
+        @transitionToRoute 'org.billing', @get('controllers.orgs.collection').findBy('id', orgId).get('slug')
+      else
+        @transitionToRoute 'billing'

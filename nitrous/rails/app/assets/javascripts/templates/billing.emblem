@@ -19,7 +19,7 @@ if App.billingProfile.hasCard
       button.ui.btn click='changeCard' Change Card
 
 if view.showSubscriptions
-  = billing-subscriptions subscriptions=App.subscriptions
+  = billing-subscriptions subscriptions=personalSubscriptions
 
 if App.billingUsage.groupedItems.length
   unless App.billingProfile.exempt

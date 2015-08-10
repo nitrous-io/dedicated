@@ -38,6 +38,7 @@ SM.Model = klass = Ember.Object.extend
     @get(Ember.get @constructor, 'primaryKey')
 
   _saveToCache: ->
+    return if Ember.get(@constructor, 'noCache')
     cache = Ember.get(@constructor, '_cache')
     if Ember.get(@constructor, 'singular')
       cache.set 1, this
@@ -60,6 +61,7 @@ klass.reopenClass
   primaryKey: 'id'
   singular: false
   adapter: null
+  noCache: false
 
   _cache: Ember.computed ->
     Ember.Map.create()
@@ -78,6 +80,7 @@ klass.reopenClass
     @_getAttr(propertyName).options.as || propertyName
 
   _findInCache: (primaryKey) ->
+    return if Ember.get(this, 'noCache')
     if Ember.get this, 'singular'
       primaryKey = 1
     cache = Ember.get this, '_cache'

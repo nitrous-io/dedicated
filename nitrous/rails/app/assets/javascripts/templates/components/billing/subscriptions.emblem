@@ -27,15 +27,14 @@
                   ' Renews on
                 = monDayYear subscription.currentPeriodEnd
               td.actions
-                if hasMultipleSubscriptions
-                  unless subscription.cancelPending
-                    if subscription.canUpgrade
-                      = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary raised'
-                        | Upgrade
-                    else
-                      button.ui.btn.primary disabled='disabled'
-                        | Upgrade
-                    button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
+                unless subscription.cancelPending
+                  if subscription.canUpgrade
+                    = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary'
+                      | Upgrade
+                  else
+                    button.ui.btn.primary disabled='disabled'
+                      | Upgrade
+                  button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
               td.charge
                 | $
                 = currency subscription.totalPriceInDollars
@@ -63,18 +62,6 @@
       ' You don't have any subscriptions,
       link-to 'hosts.new'| create one now
       | .
-
-if hasSingleSubscription
-  unless subscriptions.firstObject.cancelPending
-    .card-footer.bordered
-      .right
-        if subscriptions.firstObject.canUpgrade
-          = link-to 'subscriptions.upgrade' subscriptions.firstObject.slug  class='ui btn primary raised'
-            | Upgrade Subscription
-        else
-          button.ui.btn.primary disabled='disabled'
-            | Upgrade Subscription
-        button.ui.btn.danger click='showCancelSubscription subscriptions.firstObject' disabled=subscriptions.firstObject.cancelPending Cancel Subscription
 
 .cancel-subscription-modal-dialog.ui.modal
   .ui.card
