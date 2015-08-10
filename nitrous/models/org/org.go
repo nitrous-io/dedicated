@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
@@ -148,10 +149,10 @@ func (o *Org) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 	return b, nil
 }
 
-func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) error {
+func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) (err error) {
 	params := &stripe.CustomerParams{
 		Email: o.Email,
-		Desc:  fmt.Sprintf("Organisation %q", o.Name),
+		Desc:  fmt.Sprintf("Organization %q", o.Name),
 		Params: stripe.Params{
 			Meta: map[string]string{
 				"name": o.Name,
@@ -163,8 +164,18 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		return billingprofile.HandleStripeError(err)
+		err = billingprofile.HandleStripeError(err)
+		return
 	}
 
-	return bp.Activate(d, c)
+	defer func() {
+		if err != nil {
+			if err := customer.Del(c.ID); err != nil {
+				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
+			}
+		}
+	}()
+
+	err = bp.Activate(d, c)
+	return
 }

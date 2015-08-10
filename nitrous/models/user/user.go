@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -576,7 +577,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 }
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
-func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingprofile.BillingProfile, error) {
+func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billingprofile.BillingProfile, err error) {
 	params := &stripe.CustomerParams{
 		Email: u.Email,
 		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
@@ -592,20 +593,31 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		return nil, billingprofile.HandleStripeError(err)
+		err = billingprofile.HandleStripeError(err)
+		return
 	}
 
-	bp, err := u.BillingProfile(d)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := bp.Activate(d, c); err != nil {
-		if err == billingprofile.ErrCardBanned {
-			return nil, ErrCardBanned
+	// remove the Stripe profile to prevent junk in the Stripe dashboard
+	defer func() {
+		if err != nil {
+			if err := customer.Del(c.ID); err != nil {
+				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
+			}
 		}
-		return nil, err
+	}()
+
+	bp, err = u.BillingProfile(d)
+	if err != nil {
+		return
 	}
 
-	return bp, nil
+	if err = bp.Activate(d, c); err != nil {
+		if err == billingprofile.ErrCardBanned {
+			err = ErrCardBanned
+		}
+		return
+	}
+
+	err = nil
+	return
 }
