@@ -488,12 +488,13 @@ var _ = Describe("models/org", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			o1.ActivateBillingProfile(db, bp, "token")
 
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method":         "POST",
 				"path":           "/customers",
 				"card":           "token",
 				"email":          o1.Email,
-				"desc":           `Organisation "Foo Bar, Inc."`,
+				"desc":           `Organization "Foo Bar, Inc."`,
 				"metadata[name]": "Foo Bar, Inc.",
 			}))
 		})
@@ -501,12 +502,13 @@ var _ = Describe("models/org", func() {
 		It("should send a request if a token is not provided", func() {
 			o1.ActivateBillingProfile(db, bp, "")
 
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method":         "POST",
 				"path":           "/customers",
 				"card":           "",
 				"email":          o1.Email,
-				"desc":           `Organisation "Foo Bar, Inc."`,
+				"desc":           `Organization "Foo Bar, Inc."`,
 				"metadata[name]": "Foo Bar, Inc.",
 			}))
 		})
@@ -517,6 +519,8 @@ var _ = Describe("models/org", func() {
 
 				err := o1.ActivateBillingProfile(db, bp, "token")
 				Expect(err).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 
 				Expect(bp.ID).NotTo(BeNil())
 				Expect(bp.UserID).To(Equal(u.ID))
@@ -539,6 +543,8 @@ var _ = Describe("models/org", func() {
 
 				err := o1.ActivateBillingProfile(db, bp, "token")
 				Expect(err).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 
 				Expect(bp.ID).NotTo(BeNil())
 				Expect(bp.UserID).To(Equal(u.ID))
@@ -579,6 +585,11 @@ var _ = Describe("models/org", func() {
 
 				err = o1.ActivateBillingProfile(db, bp, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+				delReq := fakeStripe.ReceivedRequests[1]
+				Expect(delReq["method"]).To(Equal("DELETE"))
+				Expect(delReq["path"]).To(Equal("/customers/sc_01"))
 			})
 		})
 
