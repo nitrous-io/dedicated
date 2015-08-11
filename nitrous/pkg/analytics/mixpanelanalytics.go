@@ -62,15 +62,18 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, distinctID string) chan st
 
 	userID := strconv.Itoa(int(u.ID))
 	finished := make(chan struct{}, 1)
+	profileOpID := distinctID
+	if distinctID == "" {
+		profileOpID = userID
+	}
 	go func() {
+		profileOp := m.client.NewProfileOp(profileOpID, p)
 		if distinctID == "" {
-			profileOp := m.client.NewProfileOp(userID, p)
 			err := profileOp.Create()
 			if err != nil {
 				logrus.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
 			}
 		} else {
-			profileOp := m.client.NewProfileOp(distinctID, p)
 			err := profileOp.Create()
 			if err != nil {
 				logrus.Errorf("analytics: failed to create user profile: %s. err: %v", u.Email, err)
@@ -80,6 +83,12 @@ func (m *MixpanelTracker) CreateProfile(u *user.User, distinctID string) chan st
 			if err != nil {
 				logrus.Errorf("analytics: failed to alias user profile %s to distinct_id %s. err: %v", u.Email, distinctID, err)
 			}
+		}
+		deleteOp := m.client.NewProfileOp(profileOpID, map[string]interface{}{
+			"deleted_date": "stub",
+		})
+		if err := deleteOp.Unset(); err != nil {
+			logrus.Errorf("analytics: failed to unset deleted_date on profile %s. err: %v", u.Email, err)
 		}
 
 		finished <- struct{}{}

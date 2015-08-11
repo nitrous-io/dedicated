@@ -82,11 +82,11 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(res.Code).To(Equal(http.StatusOK))
 
 				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
+				Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
 				Expect(fakeMailer.Tos).To(Equal([]string{fmt.Sprintf("%q <%s>", u.Name, u.Email)}))
 				Expect(fakeMailer.Ccs).To(BeNil())
 				Expect(fakeMailer.Bccs).To(BeNil())
-				Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+				Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
 				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] Reset password instructions"))
 				Expect(fakeMailer.HTML).To(ContainSubstring(fmt.Sprintf("Hello %s", u.Name)))
 				Expect(fakeMailer.HTML).To(ContainSubstring("Change my password"))

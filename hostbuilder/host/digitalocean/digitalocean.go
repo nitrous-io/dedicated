@@ -36,6 +36,30 @@ var (
 	tenderDropletNameRegex *regexp.Regexp = regexp.MustCompile(`tender.[A-Za-z0-9\-]+.com`)
 )
 
+type driverConfig struct {
+	Token         string `json:"token"`
+	NotifyURL     string `json:"notify_url"`
+	CreateTimeout string `json:"create_timeout"`
+
+	// cachedCreateTimeout is used to cache a parsed CreateTimeout.
+	cachedCreateTimeout time.Duration
+}
+
+func (c *driverConfig) createTimeout() time.Duration {
+	if c.cachedCreateTimeout != 0 {
+		return c.cachedCreateTimeout
+	}
+
+	t := DefaultCreateTimeout
+	d, err := time.ParseDuration(c.CreateTimeout)
+	if err == nil {
+		t = d
+	}
+	c.cachedCreateTimeout = t
+
+	return t
+}
+
 type HostConfig struct {
 	ID         string          `json:"id"`
 	HostID     int64           `json:"host_id"` // database id of the host
@@ -57,15 +81,16 @@ type HostConfig struct {
 }
 
 type Host struct {
+	driverConfig
+
 	Client *godo.Client
 	Config *HostConfig
 
-	droplet       *godo.Droplet
-	privateKey    *rsa.PrivateKey
-	sshKey        *godo.Key
-	uuid          string
-	notifyURL     string
-	createTimeout time.Duration
+	droplet    *godo.Droplet
+	privateKey *rsa.PrivateKey
+	sshKey     *godo.Key
+
+	requestID string
 }
 
 func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
@@ -73,7 +98,7 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout)
+	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
 
 	hctx := host.NewContext(ctx, h, h, nil)
@@ -112,29 +137,29 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			errorMsg := fmt.Sprintf("ERROR: Failed in create host step: %v", err)
 			h.Printf(errorMsg)
 			h.logFailedDroplet()
-			host.PublishMessage(qp, event.HostCreateFailed, h.uuid, queueInfo, errorMsg, queue.Create)
+			host.PublishMessage(qp, event.HostCreateFailed, h.requestID, queueInfo, errorMsg, queue.Create)
 			if err == context.DeadlineExceeded {
 				return nil, ErrCreateTimeout
 			}
 			return nil, err
 		}
 
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, step.Description, queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, step.Description, queue.Create)
 	}
 
 	if h.sshKey != nil {
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...", queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...", queue.Create)
 		h.Printf("keyID=%d Removing key...", h.sshKey.ID)
 		_, err := h.Client.Keys.DeleteByID(h.sshKey.ID)
 		if err != nil {
-			host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Failed!", queue.Create)
+			host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...Failed!", queue.Create)
 			h.Printf("ERROR: Failed to remove key %d", h.sshKey.ID)
 		}
-		host.PublishMessage(qp, event.HostCreating, h.uuid, queueInfo, "Removing key...Done!", queue.Create)
+		host.PublishMessage(qp, event.HostCreating, h.requestID, queueInfo, "Removing key...Done!", queue.Create)
 	}
 
 	info := h.dropletToInfo()
-	host.PublishHost(qp, event.HostCreated, h.uuid, queueInfo, info, queue.Create, "")
+	host.PublishHost(qp, event.HostCreated, h.requestID, queueInfo, info, queue.Create, "")
 	return info, nil
 }
 
@@ -297,14 +322,14 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
-	host.PublishMessage(qp, event.HostStopping, h.uuid, queueInfo, "Stopping host", queue.Stop)
+	host.PublishMessage(qp, event.HostStopping, h.requestID, queueInfo, "Stopping host", queue.Stop)
 
 	id, err := h.id()
 	if err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
@@ -312,25 +337,25 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	action, _, err := h.Client.DropletActions.PowerOff(id)
 	if err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	if err := h.waitForAction(action.ID, 10*time.Minute); err != nil {
 		if info, hostInfoErr := h.Info(); hostInfoErr == nil {
-			host.PublishHost(qp, event.HostStopFailed, h.uuid, queueInfo, info, queue.Stop, err.Error())
+			host.PublishHost(qp, event.HostStopFailed, h.requestID, queueInfo, info, queue.Stop, err.Error())
 		} else {
-			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.uuid, hostInfoErr)
+			logrus.Debugf("uuid=%s digitalocean: failed to get host info: %v", h.requestID, hostInfoErr)
 		}
 		return nil, err
 	}
 
 	info, err := h.Info()
 	if err == nil {
-		host.PublishHost(qp, event.HostStopped, h.uuid, queueInfo, info, queue.Stop, "")
+		host.PublishHost(qp, event.HostStopped, h.requestID, queueInfo, info, queue.Stop, "")
 	}
 
 	return info, err
@@ -375,12 +400,12 @@ func (h *Host) DriverName() string {
 	return "digitalocean"
 }
 
-// Printf logs the data together with the host uuid and droplet id if they are
+// Printf logs the data together with the host requestID and droplet id if they are
 // avalaible
 func (h *Host) Printf(format string, v ...interface{}) {
 	parts := []string{}
-	if h.uuid != "" {
-		parts = append(parts, fmt.Sprintf("uuid=%s", h.uuid))
+	if h.requestID != "" {
+		parts = append(parts, fmt.Sprintf("uuid=%s", h.requestID))
 	}
 	if h.droplet != nil {
 		parts = append(parts, fmt.Sprintf("droplet=%d", h.droplet.ID))
@@ -429,6 +454,10 @@ func (h *Host) SSHConfig() *host.SSHConfig {
 	}
 }
 
+func (h *Host) SetRequestID(id string) {
+	h.requestID = id
+}
+
 func (h *Host) id() (int, error) {
 	id64, err := strconv.ParseInt(h.Config.ID, 10, 64)
 	if err != nil {
@@ -439,7 +468,7 @@ func (h *Host) id() (int, error) {
 
 func (h *Host) waitForAction(id int, timeout time.Duration) error {
 	info := map[string]interface{}{
-		"uuid": h.uuid,
+		"uuid": h.requestID,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -486,35 +515,35 @@ func (h *Host) logFailedDroplet() {
 }
 
 func (h *Host) generateNotifyURL() string {
-	return strings.Replace(h.notifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
+	return strings.Replace(h.driverConfig.NotifyURL, "{{slug}}", strconv.FormatInt(h.Config.HostID, 10), -1)
 }
 
-func New(driverOptions map[string]string, config string) (host.Host, error) {
-	hostConfig := &HostConfig{}
-	if err := json.Unmarshal([]byte(config), hostConfig); err != nil {
-		logrus.Errorf("uuid=%s digitalocean: invalid config %s", driverOptions["uuid"], config)
+func New(driverOptions string, hostOptions string) (host.Host, error) {
+	driverCfg := driverConfig{}
+	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
+		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
-	if driverOptions["token"] == "" {
-		return nil, errors.New("digitalocean builder requires valid access token")
+
+	hostCfg := &HostConfig{}
+	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
+		logrus.Errorf("uuid=%s digitalocean: invalid host config: %s", hostOptions)
+		return nil, err
 	}
-	createTimeout := DefaultCreateTimeout
-	d, err := time.ParseDuration(driverOptions["create_timeout"])
-	if err == nil {
-		createTimeout = d
+
+	if driverCfg.Token == "" {
+		return nil, errors.New("digitalocean: requires valid access token")
 	}
+
 	t := &oauth.Transport{
-		Token: &oauth.Token{AccessToken: driverOptions["token"]},
+		Token: &oauth.Token{AccessToken: driverCfg.Token},
 	}
 	client := godo.NewClient(t.Client())
-	host := &Host{
-		Config:        hostConfig,
-		Client:        client,
-		uuid:          driverOptions["uuid"],
-		notifyURL:     driverOptions["notify_url"],
-		createTimeout: createTimeout,
-	}
-	return host, nil
+	return &Host{
+		driverConfig: driverCfg,
+		Config:       hostCfg,
+		Client:       client,
+	}, nil
 }
 
 func init() {
@@ -582,7 +611,7 @@ func createDroplet(ctx *host.HostContext) error {
 
 	if len(dropletRoot.Links.Actions) > 0 {
 		info := map[string]interface{}{
-			"uuid": h.uuid,
+			"uuid": h.requestID,
 		}
 		la := dropletRoot.Links.Actions[0]
 

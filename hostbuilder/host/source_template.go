@@ -2,9 +2,7 @@ package host
 
 import "text/template"
 
-var source = `# Nitrous.IO apt manager
-deb https://{{.AptUsername}}:{{.AptPassword}}@{{.AptLocation}} {{.AptDist}} main
-`
+var source = `deb https://{{.AptUsername}}:{{.AptPassword}}@{{.AptLocation}} {{.AptDist}} main`
 
 var SourceTemplate *template.Template
 

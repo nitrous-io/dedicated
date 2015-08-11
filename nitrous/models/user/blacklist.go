@@ -65,6 +65,6 @@ func fetchBlacklist() error {
 func init() {
 	err := fetchBlacklist()
 	if err != nil {
-		logrus.Errorf("Failed to initalize email black list: %v", err)
+		logrus.Errorf("Failed to initialize email black list: %v", err)
 	}
 }

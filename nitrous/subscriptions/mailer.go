@@ -21,7 +21,7 @@ func (s *SubscriptionProvider) sendFailureEmail(d db.QueryReceiver, tryCount int
 		return err
 	}
 
-	from := &mail.Address{Name: "Nitrous", Address: "support@nitrous.io"}
+	from := envvars.SupportEmailAddr
 	to := &mail.Address{Name: u.DisplayName(), Address: u.Email}
 
 	tmplData := struct {

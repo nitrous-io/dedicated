@@ -360,6 +360,132 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllForTermination()", func() {
+		var (
+			u1 *user.User
+			u2 *user.User
+			s  *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			var err error
+			fv := "1.0.69-deadbeef-88"
+			dv := "1.4.1-nitrous"
+
+			u1 = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			p := &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u1.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            subscription.StateDeleted,
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "subslug",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '50 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            subscription.StateDeleted,
+				StripeID:         sql.NullString{"2", true},
+				Slug:             "sub2slug",
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			// insert a valid running host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+			Expect(err).To(BeNil())
+
+			// insert a terminated host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, terminated_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now());`,
+				u1.ID, "my-host-2", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+			Expect(err).To(BeNil())
+
+			// insert a valid running host
+			_, err = db.Exec(`INSERT INTO hosts
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
+				u1.ID, "my-host-3", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s2.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should only include hosts with cancelled subscriptions", func() {
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(1))
+			Expect(hosts[0].Slug).To(Equal("my-host-1"))
+		})
+
+		It("should not include hosts where subscriptions have been recently cancelled", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET cancelled_at = now() - interval '12 hours' WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+
+		It("should not include hosts where subscriptions have not been cancelled", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET state = 'active', cancelled_at  = NULL WHERE id = $1`, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+
+		It("should not include hosts where subscriptions have partial cancel due to bugs", func() {
+			_, err := db.Exec(`UPDATE subscriptions SET state = $1, cancelled_at  = NULL WHERE id = $2`, subscription.StateDeleted, s.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllForTermination(db)
+			Expect(err).To(BeNil())
+
+			Expect(hosts).To(HaveLen(0))
+		})
+	})
+
 	Describe("CountPreprovisioned()", func() {
 		var hs2 *test.HostStack
 
@@ -1119,13 +1245,15 @@ var _ = Describe("models/host", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("updates only the provider template ID, state, and IP address", func() {
+		It("updates only the provider identifier, provider storage identifier, provider template ID, state, and IP address", func() {
 			hs2, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 
 			h.ProviderTemplateID = hs2.PT.ID
 			h.State = host.StateRunning
 			h.IPAddress = sql.NullString{"192.168.0.1", true}
+			h.ProviderIdentifier = sql.NullString{"i-beef", true}
+			h.ProviderStorageIdentifier = sql.NullString{"vol-babe", true}
 
 			h.Slug = "new-slug"
 			h.Name = sql.NullString{"new name", true}
@@ -1143,6 +1271,8 @@ var _ = Describe("models/host", func() {
 			Expect(h2.ProviderTemplateID).To(Equal(hs2.PT.ID))
 			Expect(h2.State).To(Equal(host.StateRunning))
 			Expect(h2.IPAddress.String).To(Equal("192.168.0.1"))
+			Expect(h2.ProviderIdentifier.String).To(Equal("i-beef"))
+			Expect(h2.ProviderStorageIdentifier.String).To(Equal("vol-babe"))
 
 			// Unchanged fields.
 			Expect(h2.Slug).To(Equal("host-1"))
@@ -1150,7 +1280,6 @@ var _ = Describe("models/host", func() {
 			Expect(h2.PlanID).To(Equal(h.PlanID))
 			Expect(h2.RegionID).To(Equal(h.RegionID))
 			Expect(h2.HourlyPrice).To(Equal(h.HourlyPrice))
-			Expect(h2.ProviderIdentifier.String).To(Equal(h.ProviderIdentifier.String))
 			Expect(h2.MaxContainers.Int64).To(Equal(h.MaxContainers.Int64))
 			Expect(h2.FreighterdPort.Int64).To(Equal(h.FreighterdPort.Int64))
 			Expect(h2.Preprovisioned).To(Equal(h.Preprovisioned))
@@ -1412,42 +1541,55 @@ var _ = Describe("models/host", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": false,
+					"id":         "i-123456",
+					"volume_id":  "vol-abcde",
+					"region_id":  "us-west-2",
+					"ip_address": "10.0.0.1",
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
-					ProviderTemplate:   &host.ProviderTemplate{},
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					ProviderTemplate:          &providertemplate.ProviderTemplate{},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": false,
+					"id":         "i-123456",
+					"volume_id":  "",
+					"region_id":  "us-west-2",
+					"ip_address": "10.0.0.1",
 				},
 				&host.Host{
-					ProviderIdentifier: sql.NullString{"i-123456", true},
-					RegionIdentifier:   sql.NullString{"us-west-2", true},
-					IPAddress:          sql.NullString{"10.0.0.1", true},
-					ProviderTemplate: &host.ProviderTemplate{
+					ID:                        42,
+					ProviderIdentifier:        sql.NullString{"i-123456", true},
+					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
+					RegionIdentifier:          sql.NullString{"us-west-2", true},
+					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					ProviderTemplate: &providertemplate.ProviderTemplate{
+						Provider: "amazon",
 						Config: hstore.Hstore{
 							Map: map[string]sql.NullString{
-								"disable_eip": sql.NullString{"true", true},
+								"disable_eip":   sql.NullString{"true", true},
+								"instance_type": sql.NullString{"t2.micro", true},
+								"source_ami":    sql.NullString{"ami-zxcv", true},
+								"storage_size":  sql.NullString{"10", true},
 							},
 						},
 					},
 				}: hostbuilderclient.Config{
-					"id":          "i-123456",
-					"region_id":   "us-west-2",
-					"ip_address":  "10.0.0.1",
-					"disable_eip": true,
+					"id":            "i-123456",
+					"volume_id":     "vol-abcde",
+					"region_id":     "us-west-2",
+					"ip_address":    "10.0.0.1",
+					"name":          "userhost-{{env}}-42",
+					"disable_eip":   true,
+					"instance_type": "t2.micro",
+					"source_ami":    "ami-zxcv",
+					"storage_size":  10,
 				},
 			}
 

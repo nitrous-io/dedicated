@@ -65,18 +65,17 @@ func (hb *Hostbuilder) defaultRequestHandler(path string, provider string, confi
 
 	switch response.StatusCode {
 	case http.StatusOK, http.StatusCreated:
-		m := &hostbuilder.Response{}
-		err = json.NewDecoder(response.Body).Decode(m)
-		if err != nil {
+		r := &hostbuilder.Response{}
+		if err := json.NewDecoder(response.Body).Decode(r); err != nil {
 			return nil, fmt.Errorf("hostbuilder failed to decode: %s response, err: %s", endpoint, err)
 		}
-		return m, nil
+		return r, nil
 	default:
-		e, err := ioutil.ReadAll(response.Body)
+		b, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, err)
 		}
-		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, e)
+		return nil, fmt.Errorf("hostbuilder error response %s, err: %s", endpoint, b)
 	}
 }
 

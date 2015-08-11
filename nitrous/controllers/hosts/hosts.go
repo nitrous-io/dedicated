@@ -277,6 +277,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	}
 
 	h.State = host.StateRunning
+	h.ProviderIdentifier = sql.NullString{info.ID, true}
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
@@ -456,25 +457,10 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 		return err
 	}
 
-	cfg := h.MachineConfig()
-	for k, v := range pt.Config.Map {
-		if v.Valid {
-			cfg[k] = v.String
-		} else {
-			cfg[k] = ""
-		}
-	}
+	h.ProviderTemplate = pt // So that MachineConfig() returns config with the new provider template.
+	config := h.MachineConfig()
 
-	// Apply provider-specific configuration.
-	prov := env.Provisioner
-	cfg, err = prov.ApplyProviderConfig(cfg, pt, h)
-	if err != nil {
-		logrus.Errorf("failed to apply provider-specific config, err: %v", err)
-		return err
-	}
-
-	_, err = HostbuilderClient.Respec(h.Provider, cfg, hostbuilderHeaders(env), host.URLArgsFromHost(h))
-	if err != nil {
+	if _, err := HostbuilderClient.Respec(h.Provider, config, hostbuilderHeaders(env), host.URLArgsFromHost(h)); err != nil {
 		return err
 	}
 

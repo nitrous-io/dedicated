@@ -110,6 +110,8 @@ type Host interface {
 	Settings() *Settings
 	// SSHConfig returns the configuration to login to the remote host
 	SSHConfig() *SSHConfig
+
+	SetRequestID(id string)
 }
 
 type Logger interface {
@@ -139,7 +141,7 @@ type Executor interface {
 }
 
 type RegisteredDriver struct {
-	New func(driverOptions map[string]string, hostOptions string) (Host, error)
+	New func(driverOptions string, hostOptions string) (Host, error)
 }
 
 var drivers map[string]*RegisteredDriver
@@ -161,7 +163,9 @@ func Register(name string, registeredDriver *RegisteredDriver) error {
 // with options for the driver and host.
 // Driver options are things like AWS access/secret keys.
 // Host options are things like instance type, storage size.
-func NewDriver(name string, driverOptions map[string]string, hostOptions string) (Host, error) {
+// TODO Refactor how we configure driver and host options - parsing JSON strings
+// is not exactly nice.
+func NewDriver(name string, driverOptions string, hostOptions string) (Host, error) {
 	driver, ok := drivers[name]
 	if !ok {
 		return nil, fmt.Errorf("Unknown driver %q", name)

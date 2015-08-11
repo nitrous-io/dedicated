@@ -19,7 +19,7 @@ func init() {
 	var err error
 	CIDRBlacklist, err = importBlacklist()
 	if err != nil {
-		logrus.Warnf("Failed to initalize CIDR blacklist: %v", err)
+		logrus.Warnf("Failed to initialize CIDR blacklist: %v", err)
 	}
 }
 

@@ -72,14 +72,16 @@ var _ = Describe("host/docker", func() {
 			var err error
 
 			h, err = docker.New(
-				map[string]string{
-					"uuid":                "uuid-111",
-					"endpoint":            server.URL(),
-					"freighterd_location": "/bin/true",
-				},
+				fmt.Sprintf(`{
+					"endpoint":            "%s",
+					"freighterd_location": "/bin/true"
+				}`, server.URL()),
 				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
 			Expect(err).To(BeNil())
+
+			h.SetRequestID("uuid-111")
+
 			queueInfo = &host.QueueInfo{
 				ID:     123,
 				Slug:   "go-124",
@@ -145,11 +147,11 @@ var _ = Describe("host/docker", func() {
 		Context("With docker location", func() {
 			BeforeEach(func() {
 				h, err = docker.New(
-					map[string]string{
-						"endpoint":            server.URL(),
+					fmt.Sprintf(`{
+						"endpoint":            "%s",
 						"freighterd_location": "/bin/true",
-						"docker_location":     "/bin/true",
-					},
+						"docker_location":     "/bin/true"
+					}`, server.URL()),
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
@@ -180,10 +182,10 @@ var _ = Describe("host/docker", func() {
 		Context("Without docker location", func() {
 			BeforeEach(func() {
 				h, err = docker.New(
-					map[string]string{
-						"endpoint":            server.URL(),
-						"freighterd_location": "/bin/true",
-					},
+					fmt.Sprintf(`{
+						"endpoint":            "%s",
+						"freighterd_location": "/bin/true"
+					}`, server.URL()),
 					`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 				)
 				Expect(err).To(BeNil())
@@ -218,15 +220,16 @@ var _ = Describe("host/docker", func() {
 			var err error
 
 			h, err = docker.New(
-				map[string]string{
-					"uuid":                "uuid-111",
-					"endpoint":            server.URL(),
-					"freighterd_location": "/bin/true",
-				},
+				fmt.Sprintf(`{
+					"endpoint":            "%s",
+					"freighterd_location": "/bin/true"
+				}`, server.URL()),
 				`{"name":"test-123","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
-
 			Expect(err).To(BeNil())
+
+			h.SetRequestID("uuid-111")
+
 			queueInfo = &host.QueueInfo{
 				ID:     123,
 				Slug:   "go-124",
@@ -295,10 +298,10 @@ var _ = Describe("host/docker", func() {
 
 		BeforeEach(func() {
 			h, err := docker.New(
-				map[string]string{
-					"endpoint":            server.URL(),
-					"freighterd_location": "/bin/true",
-				},
+				fmt.Sprintf(`{
+					"endpoint":            "%s",
+					"freighterd_location": "/bin/true"
+				}`, server.URL()),
 				`{"name":"original-name","image":"ubuntu","public_keys":["ssh-rsa 3456"]}`,
 			)
 			Expect(err).To(BeNil())
@@ -315,10 +318,10 @@ var _ = Describe("host/docker", func() {
 			Expect(info.Name).To(Equal("original-name"))
 
 			h, err := docker.New(
-				map[string]string{
-					"endpoint":            server.URL(),
-					"freighterd_location": "/bin/true",
-				},
+				fmt.Sprintf(`{
+					"endpoint":            "%s",
+					"freighterd_location": "/bin/true"
+				}`, server.URL()),
 				fmt.Sprintf(`{"id": "%s", "name":"new-name"}`, info.ID),
 			)
 			Expect(err).To(BeNil())

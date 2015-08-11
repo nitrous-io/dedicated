@@ -26,8 +26,9 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	from := (&mail.Address{Name: "Nitrous Pro", Address: "mailer@nitrous.io"}).String()
-	to := (&mail.Address{Name: "Nitrous Feedback", Address: "support@nitrous.io"}).String()
+	from := (&mail.Address{Name: "Nitrous", Address: "mailer@nitrous.io"}).String()
+
+	to := envvars.SupportEmail
 	replyTo := (&mail.Address{Name: env.User.Name, Address: env.User.Email}).String()
 
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)

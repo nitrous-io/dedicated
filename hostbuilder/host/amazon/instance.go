@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/mitchellh/goamz/ec2"
 )
@@ -10,6 +11,7 @@ type instanceProvider interface {
 	Instances(ids []string, filter *ec2.Filter) (*ec2.InstancesResp, error)
 	ModifyInstance(id string, options *ec2.ModifyInstance) (*ec2.ModifyInstanceResp, error)
 	CreateTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
+	DeleteTags(ids []string, tags []ec2.Tag) (*ec2.SimpleResp, error)
 }
 
 func getInstance(provider instanceProvider, id string, h *Host) error {
@@ -37,13 +39,20 @@ func modifyInstanceType(provider instanceProvider, h *Host, instanceType string)
 	return nil
 }
 
-func setTags(provider instanceProvider, h *Host) {
+func setTags(provider instanceProvider, h *Host) error {
 	tags := []ec2.Tag{{"Name", h.Name()}}
-	if h.env != "" {
-		tags = append(tags, ec2.Tag{"dedicated", h.env})
+	if h.driverConfig.Env != "" {
+		tags = append(tags, ec2.Tag{"dedicated", h.driverConfig.Env})
 	}
+	if h.driverConfig.HostVersion != "" {
+		tags = append(tags, ec2.Tag{"dedicated:version", h.driverConfig.HostVersion})
+	}
+
+	h.Printf("setting tags on %s to %#v", h.instance.InstanceId, tags)
 	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {
-		h.Printf("Failed to set name for instance %s", h.instance.InstanceId)
+		return fmt.Errorf("failed to set tags on instance %s", h.instance.InstanceId)
 	}
+
+	return nil
 }

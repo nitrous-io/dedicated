@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -30,11 +30,6 @@ var (
 	ErrSlugTooLong  = errors.New("slug is too long (maximum is 63 characters)")
 	ErrUpdateFailed = errors.New("failed to update host with stale original state")
 )
-
-type ProviderTemplate struct {
-	Provider string        `db:"provider"`
-	Config   hstore.Hstore `db:"config"`
-}
 
 const (
 	StateBorn         = "born"
@@ -117,7 +112,7 @@ type Host struct {
 	// this is populated via a join
 	SubscriptionSlug sql.NullString `db:"subscription_slug"`
 
-	*ProviderTemplate
+	*providertemplate.ProviderTemplate
 
 	// Optional username field
 	Username sql.NullString `db:"username"`
@@ -177,6 +172,23 @@ func FindAllByUser(db db.QueryReceiver, userID int64) ([]*Host, error) {
 func FindAllWithTerminated(db *db.Database, userID int64) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, "SELECT * FROM hosts WHERE user_id = $1 AND preprovisioned = FALSE ORDER BY id;", userID)
+	if err != nil {
+		return nil, err
+	}
+	return hosts, nil
+}
+
+func FindAllForTermination(db *db.Database) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug
+			FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+                        INNER JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
+                        WHERE sub.state = $1
+                        AND sub.cancel_pending IS FALSE
+                        AND hosts.terminated_at IS NULL
+                        AND sub.cancelled_at < (now() - interval '48 hours');`, // 48hrs gives a grace period in case of any bugs (so we don't immediately term)
+		subscription.StateDeleted)
 	if err != nil {
 		return nil, err
 	}
@@ -399,8 +411,10 @@ func (h *Host) UpdateWithPrice(d db.QueryReceiver) error {
 
 func (h *Host) UpdateAfterRespec(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE hosts
-		SET (provider_template_id, state, ip_address, updated_at)
-		= (:provider_template_id, :state, :ip_address, now())
+		SET (provider_identifier, provider_storage_identifier,
+			provider_template_id, state, ip_address, updated_at)
+		= (:provider_identifier, :provider_storage_identifier,
+			:provider_template_id, :state, :ip_address, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
@@ -472,20 +486,41 @@ func (h *Host) Validate() error {
 // MachineConfig returns the configuration that hostbuilder can use to
 // identify the host and manipulate it.
 func (h *Host) MachineConfig() hostbuilderclient.Config {
-	var disableEIP bool
-	// if the host's provider template set disable_eip
-	// then we can use that value. Otherwise we assume that disableEIP is false
-	if h.ProviderTemplate != nil {
-		if val, ok := h.ProviderTemplate.Config.Map["disable_eip"]; ok {
-			disableEIP, _ = strconv.ParseBool(val.String)
+	cfg := hostbuilderclient.Config{
+		"id":         h.ProviderIdentifier.String,
+		"volume_id":  h.ProviderStorageIdentifier.String,
+		"region_id":  h.RegionIdentifier.String,
+		"ip_address": h.IPAddress.String,
+	}
+
+	if pt := h.ProviderTemplate; pt != nil {
+		for k, v := range pt.Config.Map {
+			if v.Valid {
+				cfg[k] = v.String
+			}
+		}
+
+		switch pt.Provider {
+		case "amazon":
+			// hostbuilder will replace the {{env}} with the hostbuilder environment
+			cfg["name"] = fmt.Sprintf("userhost-{{env}}-%d", h.ID)
+
+			size, err := strconv.Atoi(cfg["storage_size"].(string))
+			if err == nil {
+				cfg["storage_size"] = size
+			}
+
+			var disableEIP bool
+			if v, ok := pt.Config.Map["disable_eip"]; ok {
+				disableEIP, _ = strconv.ParseBool(v.String)
+			}
+			cfg["disable_eip"] = disableEIP
+		default:
+			// Don't care about other providers.
 		}
 	}
-	return hostbuilderclient.Config{
-		"id":          h.ProviderIdentifier.String,
-		"region_id":   h.RegionIdentifier.String,
-		"ip_address":  h.IPAddress.String,
-		"disable_eip": disableEIP,
-	}
+
+	return cfg
 }
 
 // Hostname returns the public domain that the host can be reached. This should be the

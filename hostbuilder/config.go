@@ -25,7 +25,6 @@ type Config struct {
 	QueueType    string `json:"queue_type"`
 	RabbitMQAddr string `json:"rabbitmq_addr"`
 
-	// redis setting
 	RedisConfig redisConfig `json:"redis"`
 
 	// whether partial provider List() calls are considered an error
@@ -35,7 +34,7 @@ type Config struct {
 	ProfileDumpFolder string `json:"profile_dump_folder"`
 }
 
-type providerConfig map[string]string
+type providerConfig map[string]interface{}
 
 type redisConfig struct {
 	Host string `json:"host"`
