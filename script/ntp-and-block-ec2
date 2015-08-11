@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -e
+
+# Install ntp. It will sync in max 30 minutes since first execution
+sudo apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" ntp
+
+# Forced sync
+sudo ntpdate -u 0.ubuntu.pool.ntp.org
+
+# We don't want to use docker-save-restore to not mess up with docker iptables rules when restarting the instance.
+# Enable for next reboot
+script='#!/bin/sh\n
+/sbin/iptables -C FORWARD -i docker0 -d 169.254.169.254 -j REJECT\n
+if [ 0 -eq $? ]; then\n
+  /sbin/iptables -D FORWARD -i docker0 -d 169.254.169.254 -j REJECT\n
+fi\n
+/sbin/iptables -I FORWARD -i docker0 -d 169.254.169.254 -j REJECT\n'
+
+echo -e $script > /tmp/block-ec2
+sudo mv /tmp/block-ec2 /etc/network/if-up.d/block-ec2
+sudo chmod +x /etc/network/if-up.d/block-ec2
+
+# Enable rules right now
+sudo /etc/network/if-up.d/block-ec2
+
