@@ -189,12 +189,16 @@ func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 		}
 
 	case liveHost != nil && dbHost == nil:
-		if liveHost.State != "Terminated" {
-			if liveHost.LaunchTime == nil || time.Since(*liveHost.LaunchTime) > defaultGracePeriod {
-				list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
-			}
+		if liveHost.State == "Terminated" {
+			break
 		}
-
+		if liveHost.Name == "userhost-pool" { // TODO: use common constant
+			break
+		}
+		if liveHost.LaunchTime != nil && time.Since(*liveHost.LaunchTime) <= defaultGracePeriod {
+			break
+		}
+		list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
 	case liveHost == nil && dbHost != nil:
 		list.DanglingHosts = append(list.DanglingHosts, dbHost)
 	}
