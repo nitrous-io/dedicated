@@ -59,19 +59,10 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
       lastStatus = ev.status
 
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('select[name=hosts-new-owner]').on 'change.hosts-new', (e) =>
-        selected = $(e.target).val()
-        selected = null if selected == '(user)'
-        @set 'controller.selectedOrgSlug', selected
-
       @injectTerminalIframe()
       Em.run.later(this, ->
         @$('[autofocus]').focus()
       , 200)
-
-  willDestroyElement: ->
-    @_super()
-    @$('select[name=hosts-new-owner]').off 'change.hosts-new'
 
   selectRegionDidChange: (->
     if App.get('onboardingScreen') == 'select-region'

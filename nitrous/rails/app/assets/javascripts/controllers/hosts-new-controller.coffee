@@ -79,12 +79,16 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       countryDict: null
       freePlanNotAllowed: false
 
-    @set('selectedPlan', @get('paidPlans.firstObject'))
-
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
-    plans?.reload()
+    plans?.reload().then =>
+      # if user belongs to an org, choose org owner by default
+      if @get('orgs.length') > 0
+        @set 'selectedPlan', @get('orgPlans.firstObject')
+        @set 'selectedOrgSlug', @get('orgs.firstObject.slug')
+      else
+        @set 'selectedPlan', @get('paidPlans.firstObject')
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')

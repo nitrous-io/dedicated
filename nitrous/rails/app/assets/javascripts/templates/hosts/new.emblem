@@ -22,15 +22,7 @@
             label.field-label for='hosts-owner'
               | Owner
 
-            .ui.select
-              select name='hosts-new-owner' disabled=saving
-                optgroup label='Personal'
-                  option value='(user)'
-                    | #{App.user.displayName} (You)
-                optgroup label='Organization'
-                  each org in orgs
-                    option value=org.slug
-                      = org.name
+            = hosts-select-owner name='hosts-new-owner' disabled=saving value=selectedOrgSlug user=App.user orgs=orgs
 
         .ui.input-group
           label.field-label for='hosts-new-name'
