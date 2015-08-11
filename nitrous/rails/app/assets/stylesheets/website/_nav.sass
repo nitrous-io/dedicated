@@ -1,0 +1,78 @@
+@import 'website_variables'
+// --------------------------------------
+// Navigation
+nav
+  position: relative
+  display: flex
+  width: $innerWidth
+  padding-top: 4px
+  z-index: 4
+  -webkit-text-stroke: 0.35px
+
+  .left
+    flex-grow: 1
+
+  .right
+    flex-shrink: 0
+
+  li
+    float: left
+    line-height: 48px
+    &:not(:first-child)
+      margin-left: 30px
+
+  a
+    padding: 7px 0
+    font-weight: 300
+    color: rgba(255,255,255,.7)
+
+    &:hover
+      color: #FFF
+
+    &.primary
+      font-weight: 400
+      position: relative
+      overflow: hidden
+
+      &.btn
+        height: 32px
+        line-height: 32px
+        display: block
+        position: relative
+        margin-top: 7px
+        padding: 0 12px
+        border: 1px solid rgba(255,255,255,.3)
+        border-radius: 4px
+
+        &:hover
+          background: rgba(255,255,255,.05)
+
+    &.unread
+      position: relative
+      &:after
+        content: ''
+        width: 8px
+        height: 8px
+        position: absolute
+        top: 6px
+        right: -6px
+        display: block
+        background: $blue
+        border-radius: 10px
+
+    &.active
+      font-weight: 500
+      color: #FFF
+      cursor: default
+
+.logo
+  position: relative
+  a
+    width: 140px
+    height: 48px
+    display: block
+    text-indent: -999999px
+    padding: 0
+    position: relative
+    background: image_url('home/nitrous-pro-logo.svg') 0 50% no-repeat
+    background-size: 140px 14px

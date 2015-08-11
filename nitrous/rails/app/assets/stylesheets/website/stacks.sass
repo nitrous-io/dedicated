@@ -1,0 +1,276 @@
+@import 'website_variables'
+// --------------------------------------
+// Stacks pages
+// Note: see hero.sass for hero colors
+
+.stack-lang
+  width: 94px
+  height: 94px
+  position: relative
+  text-indent: -999999px
+  display: inline-block
+  background-image: image_url("home/lang-logos.png")
+  background-repeat: no-repeat
+  background-size: 94px 1504px
+
+  &.ruby
+    background-position: 0 0
+  &.ruby-on-rails
+    background-position: 0 -94px
+  &.python
+    background-position: 0 (-94px*2)
+  &.django
+    background-position: 0 (-94px*3)
+  &.nodejs
+    background-position: 0 (-94px*4)
+  &.meteor
+    background-position: 0 (-94px*5)
+  &.html5
+    background-position: 0 (-94px*6)
+  &.php
+    background-position: 0 (-94px*7)
+  &.golang
+    background-position: 0 (-94px*8)
+  &.wordpress
+    background-position: 0 (-94px*9)
+  &.laravel
+    background-position: 0 (-94px*10)
+  &.iojs
+    background-position: 0 (-94px*11)
+  &.java
+    background-position: 0 (-94px*12)
+  &.ubuntu
+    background-position: 0 (-94px*13)
+  &.docker
+    background-position: 0 (-94px*14)
+  &.rust
+    background-position: 0 (-94px*15)
+  &.nitrous
+    width: 206px
+    background-image: image_url("home/nitrous-logo.png")
+    background-size: 206px 24px
+    background-position: center center
+
+// --------------------------------------
+// Notice bar
+.stack-ruby
+  .notice .active
+    color: $ruby
+.stack-ruby-on-rails
+  .notice .active
+    color: $ruby-on-rails
+.stack-nodejs
+  .notice .active
+    color: $nodejs
+.stack-meteor
+  .notice .active
+    color: $meteor
+.stack-python
+  .notice .active
+    color: $python
+.stack-django
+  .notice .active
+    color: $django
+.stack-php
+  .notice .active
+    color: $php
+.stack-html5
+  .notice .active
+    color: $html5
+.stack-golang
+  .notice .active
+    color: $golang
+.stack-java
+  .notice .active
+    color: $java
+.stack-wordpress
+  .notice .active
+    color: $wordpress
+.stack-iojs
+  .notice .active
+    color: $iojs
+.stack-laravel
+  .notice .active
+    color: $laravel
+.stack-ubuntu
+  .notice .active
+    color: $ubuntu
+.stack-docker
+  .notice .active
+    color: $docker
+.stack-rust
+  .notice .active
+    color: $rust
+
+// --------------------------------------
+// Hero
+#stacks, #stack
+  .plus
+    position: relative
+    padding: 0 10px 0 20px
+    font-size: 48px
+    display: inline-block
+    top: 32px
+
+  .page-hero .django
+    width: 132px
+    background: image_url("home/django-page-hero.svg") center center no-repeat
+    background-size: 132px 48px
+    margin-left: 6px
+
+  .page-hero .iojs
+    top: -5px
+
+  .page-hero .java
+    top: -5px
+
+  .stack-resources
+    .box
+      img
+        width: 100%
+        height: auto
+        display: block
+        background: #FFF
+        margin-bottom: 20px
+      h3
+        margin-bottom: 6px
+
+      a:hover
+        h3
+          color: $blue
+
+    .grid-wrapper
+      .grid-item
+        text-align: left
+    
+    .featurette .one
+      width: 420px
+      margin: 0 auto
+      text-align: center
+
+      p
+        width: 100%
+
+  .stack-steps
+    ol
+      margin: 32px 0 0
+      padding: 20px 0
+      li
+        width: 100%
+        overflow: hidden
+        padding: 12px
+        border-radius: 4px
+        margin: 0 0 50px
+        &:last-child
+          margin-bottom: 0
+
+        h4
+          color: #5B666F
+          text-align: left
+          font-size: 16px
+          line-height: 24px
+          padding-bottom: 10px
+
+        .step-num
+          width: 24px
+          height: 24px
+          border: 1px solid #5B666F
+          display: inline-block
+          border-radius: 24px
+          font-size: 13px
+          text-align: center
+          margin-right: 16px
+
+        p + p
+          padding-top: 20px
+
+    .left, .right
+      width: 50%
+      position: relative
+
+    .left
+      float: left
+      img
+        width: 460px
+        height: auto
+        border-radius: 4px
+
+        &.callout
+          width: 160px
+          height: 160px
+          position: absolute
+          background: transparent
+          bottom: 90px
+          right: 100px
+          border-radius: 160px
+          box-shadow: 0 6px 20px rgba(0,0,0,.3)
+
+    .right
+      float: right
+
+    .did-you-know
+      width: 90%
+      padding: 26px 0 0 0
+      font-size: 13px
+      line-height: 24px
+      color: #A5B3BE
+
+      & + .did-you-know
+        padding-top: 14px
+
+      span
+        color: #5B666F
+        font-size: 14px
+        display: block
+        font-family: $boldFont
+
+  blockquote
+    p, strong
+      color: #000
+    cite
+      span
+        color: rgba(0,0,0,.6)
+
+.stacks
+  padding: 20px
+  text-align: center
+  user-select: none
+
+.stacks + .centered
+  margin-top: 20px
+
+.stack
+  display: inline-block
+  margin: 10px 16px 40px 16px
+  user-select: none
+  position: relative
+  +webkitFix
+  &, a
+    width: 94px
+    height: 94px
+  a
+    display: block
+    border: 0
+    user-select: none
+    border-radius: 3px
+    +transition(.2s ease-out)
+    +webkitFix
+
+    &:hover
+      box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
+
+    +stack-colors
+
+  span
+    width: 94px
+    text-align: center
+    position: absolute
+    top: 94px
+    display: block
+    line-height: 34px
+    font-family: $boldFont
+
+#features
+  .stacks
+    li:nth-child(n + 15)
+      display: none

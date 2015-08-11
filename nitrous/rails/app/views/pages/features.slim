@@ -8,49 +8,14 @@
 
 
 .page
-  .page-hero
+  .page-hero.no-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'features' }
       .hero-copy
         h2
-          | The future of development
+          | A full-featured IDE in your browser
         h3
-          | Get your team, students, or workshop all on the same page in seconds.
-
-
-  article.featurette.extra-padding.anywhere.darker
-    .container
-
-      .full-visual
-        = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
-
-      h3.big-title Work from anywhere
-      h4
-        | Be productive on any machine and any operating system – you're just
-        br
-        | a Web browser away from a predictable and consistent development box
-
-      .box-wrapper.four
-        .box
-          p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.osx OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
-
-
-  article.featurette.attached-bottom
-    .container
-
-      h3.big-title A full-featured IDE in your browser
-      h4
-        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
-        br
-        | Run web servers, databases, caches and more, right from your Web browser
-
-
+          | Be productive on any machine &amp; operating system
 
   article.featurette
     .container
@@ -65,7 +30,7 @@
           p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
 
         .box.containers
-          h3.with-icon Powerful Containers
+          h3.with-icon Powered by Docker
           p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
 
       .box-wrapper.three
@@ -79,7 +44,7 @@
 
         .box.snapshots
           h3.with-icon Snapshots
-          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot to preserve the state of your project's environment at any time.
+          p Preserve the state of any container and project environment, and stop worrying about breaking things.
 
       .box-wrapper.three
         .box.go-to-file
@@ -103,12 +68,11 @@
 
         .box.backup
           h3.with-icon Backup &amp; Redundancy
-          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your project resides in the cloud in military-grade secure facilities.
+          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your projects reside in the cloud, in military-grade secure facilities.
 
         .box.secure
           h3.with-icon Your data, secured
           p Every user operates within their own isolated environment and cannot interact with other applications or areas of the system.
-
 
   article.featurette.themes.darker
     .container

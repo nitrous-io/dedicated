@@ -1,0 +1,121 @@
+@import 'website_variables'
+// --------------------------------------
+// Company
+#company
+
+  .investors, .advisors
+    border-bottom: 0
+    
+    ul
+      width: 820px
+      margin: 0 auto
+      padding: 40px 0 20px 0
+      text-align: center
+
+      &.angels
+        width: 900px
+
+        li
+          min-width: 130px
+
+    li
+      display: inline-block
+      margin: 0 14px
+    a
+      display: block
+      text-align: center
+      color: #a5b3be
+      border: 0
+      &:hover
+        color: #FFF
+
+    span
+      display: block
+      clear: both
+      padding-top: 6px
+      font-size: 16px
+
+  .investors
+    ul.investor-logos
+      width: 100%
+
+      li
+        margin: 0 22px
+
+      a
+        display: block
+        background: image_url('home/investors-logos.png') 0 0 no-repeat
+        background-size: 635px 68px
+
+        &.bvp
+          width: 68px
+          height: 68px
+          background-position: 0 0
+        &.five-hundred-startups
+          width: 64px
+          height: 68px
+          background-position: -68px 0
+        &.goldengate-ventures
+          width: 116px
+          height: 68px
+          background-position: -135px 0
+        &.crunchfund
+          width: 170px
+          height: 68px
+          background-position: -253px 0
+        &.draper-associates
+          width: 93px
+          height: 68px
+          background-position: -425px 0
+        &.tibco
+          width: 116px
+          height: 68px
+          background-position: -520px 0
+
+  .advisors
+    padding-bottom: 80px
+    
+    li
+      min-width: 98px
+      margin: 0 28px
+    img
+      width: 62px
+      height: 62px
+      border-radius: 62px
+
+  // --------------------------------------
+  // Photos
+  .photos
+    height: 380px
+    padding: 0
+    overflow: hidden
+
+    .cover-photo
+      width: 50%
+      height: 380px
+      float: left
+
+    .cover-photo
+      background: image_url('home/outing-1.jpg') center center no-repeat
+      background-size: cover
+
+      & + .cover-photo
+        float: right
+        background: image_url('home/outing-2.jpg') center center no-repeat
+
+    img
+      width: 50%
+      min-height: 380px
+      float: left
+
+    img + img
+      float: right
+
+    & + article
+      padding-top: 100px
+  
+  // --------------------------------------
+  // Life at Nitrous
+  .life-at
+    padding-top: 84px
+    padding-bottom: 84px

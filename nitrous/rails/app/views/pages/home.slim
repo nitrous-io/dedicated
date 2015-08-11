@@ -37,12 +37,19 @@
 
         = render 'layouts/cta_form'
 
-      .shadows
-      .patternshadows
+      //.shadows
+      //.patternshadows
+      //.logo-pattern
+      //  .inner
 
-      .logo-pattern
-        .inner
-
+  .notice
+    .container
+      p
+        a href='/flatiron'
+          span.free Latest
+          | The Flatiron School has selected Nitrous Pro as its software development platform 
+          span.link Read more
+          i.fa.fa-chevron-right
 
   article.featurette.ide.attached-bottom
     .container
@@ -112,12 +119,12 @@
           = image_tag 'home/nitrous-desktop-icon.png', class: 'app-icon', alt: 'Nitrous Desktop'
 
         .pull-right
-          h3.section-title Nitrous Sync
+          h3.section-title Nitrous Desktop
 
           .item
             h4 Manage cloud environments
             p
-              | Nitrous Sync (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+              | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
 
           .item
             h4 Use your favorite editor

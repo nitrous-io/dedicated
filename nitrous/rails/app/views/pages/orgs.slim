@@ -1,0 +1,114 @@
+- @title = 'Orgs · Nitrous'
+- @html_class = 'light'
+- @body_id = 'orgs'
+- @body_class = 'story'
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+      
+      / INTRODUCING
+      /.hero-visual
+      /  = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
+      /
+      /.hero-tagline
+      /  h2 Nitrous for Orgs
+      /  h3 Software Development Without the Pain
+      /  = render 'layouts/cta_form'
+      
+      .hero-copy
+        h2
+          | Nitrous Orgs
+        h3
+          | Leverage Nitrous's cutting-edge cloud IDE to stay lean,
+          br 
+          | agile and productive, wherever you are
+        
+        a.btn.blue.submit href="/app/#/signup/?org=1" Register now
+
+
+  /article.featurette.offset-visual
+  article.featurette
+    .container
+
+      /.full-visual
+      /  = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+      
+      .box-wrapper.three.centered
+        .box
+          .visual
+            /= image_tag 'home/large-featurette-seconds.svg', class: 'visual', alt: 'Zero-to-Code in Seconds'
+          h3.section-title Centralized Billing
+          p Simplified billing for your team: team owner handles billing for all users
+        
+        .box
+          .visual
+          h3.section-title Team Administration
+          p Quickly add and remove team owners, admins, and members
+        
+        .box
+          .visual
+          h3.section-title Custom Templates
+          p Quickly add and remove team owners, admins, and members
+
+  article.used-by
+    .container
+      h3.section-title 
+       | Used by teams at startups and corporations alike
+      .logos
+        .row
+          = image_tag 'home/sendgrid-on-light.svg',   class: 'sendgrid on-light',   alt: 'Sendgrid'
+          = image_tag 'home/lampcamp-on-light.png',      class: 'lampcamp',      alt: 'LAMPCamp'
+          = image_tag 'home/thoughtbot-on-light.svg', class: 'thoughtbot on-light', alt: 'thoughtbot'
+          = image_tag 'home/zendesk-on-light.svg',    class: 'zendesk on-light',    alt: 'Zendesk'
+          = image_tag 'home/clearsight-on-light.png',      class: 'clearsight',      alt: 'Clearsight Studio'
+        .row
+          = image_tag 'home/heroku-on-light.svg',     class: 'heroku on-light',     alt: 'Heroku'
+          = image_tag 'home/tilde-on-light.png',      class: 'tilde on-light',      alt: 'Tilde'
+          = image_tag 'home/shopify-on-light.svg',    class: 'shopify on-light',    alt: 'Shopify'
+          = image_tag 'home/facebook-on-light.svg',      class: 'facebook on-light',      alt: 'Facebook'
+          = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
+          = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'  
+
+  /article.colored.tilde.quote
+  /  .container
+  /
+  /    blockquote
+  /      = image_tag 'home/quote-tilde-logo.svg', class: 'visual', alt: 'Tilde'
+  /
+  /      p
+  /        | Mostly, the ability to 
+  /        strong get a Unix session going on any machine
+  /        | with Chrome on it and get right back into my tmux session. I'm no longer afraid of forgetting to check something in before I go home or what might happen if my laptop got stolen. Nitrous.IO and ChromeOS are really 
+  /        strong a match made in heaven
+  /        |.
+  /      cite
+  /        | Yehuda Katz
+  /        span , Founder of Tilde
+
+  /article.colored.heroku.quote
+  /  .container
+  /
+  /    blockquote
+  /      = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
+  /
+  /      p
+  /        | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
+  /        strong the first solution that doesn't feel like a toy
+  /        |. I can use it to get work done, today.
+  /      cite
+  /        | Max Schoening
+  /        span , Software Designer at Heroku
+
+  article.cta.darker
+    .container
+      h3.section-title Nitrous Orgs
+      h4
+        | Leverage Nitrous's cutting-edge cloud IDE to stay lean, 
+        br
+        | agile and productive, wherever you are
+      a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up Now
+
+
+= render partial: 'layouts/footer', locals: { active: 'teams' }

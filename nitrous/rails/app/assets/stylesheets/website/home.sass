@@ -1,0 +1,203 @@
+@import 'website_variables'
+// --------------------------------------
+// Home
+#home
+  
+  // --------------------------------------
+  // IDE
+  .ide
+    border-bottom: 0
+    +webkitFix
+    
+    h3
+      padding-top: 40px
+
+    & + article
+      padding-bottom: 60px
+
+    .box-wrapper + .centered:last-of-type
+      padding-top: 60px
+
+    & + .features
+      .box-wrapper
+        padding: 0 20px
+  
+    .full-visual
+      width: 970px
+
+    .window-controls
+      width: 970px
+      height: 20px
+      background: #1C2227
+      text-align: left
+      border-radius: 4px 4px 0 0
+
+      span
+        width: 9px
+        height: 9px
+        background: #32393F
+        border-radius: 10px
+        float: left
+        margin: 6px 3px 5px 2px
+        display: block
+        position: relative
+
+        &:first-of-type
+          margin-left: 8px
+
+    video
+      display: block
+      width: 970px
+      height: 545px
+  
+  // --------------------------------------
+  // Blue dots
+  .annotation-dot
+    width: 10px
+    height: 10px
+    position: absolute
+    display: block
+    background: $blue
+    border-radius: 10px
+    border: 2px solid #FFF
+    cursor: pointer
+    z-index: 2
+    +webkitFix
+
+    &:before
+      content: ""
+      width: 30px
+      height: 30px
+      position: absolute
+      top: -15px
+      left: -15px
+      border-radius: 30px
+      background: $blue
+      border: 5px solid $blue
+      animation: pulse 2s infinite
+      z-index: 1
+      +webkitFix
+
+    &[data-id="1"]
+      top: 127px
+      left: 110px
+    &[data-id="2"]
+      top: 70px
+      left: 367px
+    &[data-id="3"]
+      top: 488px
+      left: 669px
+    &[data-id="4"]
+      top: 250px
+      left: 567px
+  
+  // --------------------------------------
+  // Nitrous Desktop
+  .nitrous-desktop
+    .pull-wrapper
+      width: 900px
+      padding-bottom: 0
+
+    .pull-left
+      border-radius: 3px
+      background: #1C2227
+
+      a
+        border: 0
+
+      img
+        width: 398px
+        height: 304px
+        display: block
+
+      img
+        box-shadow: 0 2px 20px rgba(0,0,0,.2)
+
+      .app-icon
+        width: 92px
+        height: 92px
+        background: transparent
+        position: absolute
+        bottom: -14px
+        right: -10px
+        border-radius: 92px
+
+    .pull-right
+      width: 428px
+
+      .item
+        padding-bottom: 0
+
+        h4
+          font-family: $boldFont
+          font-weight: 300
+
+    .download-btns
+      padding: 24px 0 0 0
+
+      a.download
+        height: 42px
+        line-height: 42px
+        padding: 0 14px 0 38px
+        margin: 0 10px 0 0
+        display: inline-block
+        background: #2A3239 image_url('home/download-btns.png') 0 0 no-repeat
+        background-size: 32px 256px
+        border: 0
+        border-radius: 4px
+
+        &.osx
+          background-position: 4px 5px
+        &.windows
+          background-position: 4px -28px
+        &.linux
+          background-position: 4px -92px
+
+        &:hover
+          color: #FFF
+          background-color: $blue
+          &.osx
+            background-position: 4px -123px
+          &.windows
+            background-position: 4px -156px
+          &.linux
+            background-position: 4px -220px
+
+  // --------------------------------------
+  // Pulled out
+  .pull-wrapper
+    width: 96%
+    margin: 0 auto
+    padding-bottom: 60px
+    +clearFix
+
+    .section-title
+      text-align: left
+      padding-bottom: 0
+
+    .item
+      padding: 20px 0
+
+    h3, h4, .big-title
+      text-align: left
+      display: block
+
+    h4
+      font-weight: 400
+      font-size: 14px
+      padding: 0 0 6px 0
+
+    h4, p
+      color: #a5b3be
+
+    .pull-left, .pull-right
+      position: relative
+
+    .pull-left
+      float: left
+
+    .pull-right
+      float: right
+
+      img
+        float: right

@@ -1,0 +1,76 @@
+@import 'website_variables'
+// --------------------------------------
+// Forms
+.form-wrapper
+  width: 420px
+  margin: 0 auto
+  padding-top: 46px
+
+  form
+    width: 412px
+    border-radius: 4px
+    margin: 0 auto
+    text-align: center
+    +transition(.2s ease-out)
+
+    &:hover, &.focused
+      box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15)
+
+    +clearFix
+
+    input[type="text"], input[type="email"], .btn.blue, input[type="submit"]
+      float: left
+      margin: 0
+      border-radius: 4px 0 0 4px
+
+    input[type="text"], input[type="email"]
+      width: 228px
+      height: 42px
+      padding: 0 22px
+      border: 0
+      background: #FFF
+      font-size: 16px
+      -webkit-appearance: none
+      outline: none
+
+    .btn.blue, input[type="submit"]
+      width: 140px
+      height: 42px
+      padding: 0
+      text-align: center
+      border: 0
+      font-size: 13px
+      line-height: 43px
+      border-radius: 0 4px 4px 0
+      outline: none
+      box-shadow: 0 0 0 transparent
+      &:hover
+        box-shadow: 0 0 0 transparent
+
+  &.bordered
+    .cta-get-started, .cta-get-started:hover, .cta-get-started.focus, form, form:hover, form.focus
+      border: 1px solid #FFF
+      background: #FFF
+      +transition(0 linear)
+
+    input[type="email"]
+      background: #FFF
+      color: $blue
+
+    input[type="submit"]
+      border: none
+      line-height: 42px
+      border-radius: 4px
+
+      &:hover
+        background: rgba($blue,.8)
+
+.light
+  .form-wrapper
+    form
+      border: 1px solid transparent
+      border-radius: 5px
+
+      &:hover, &.focused
+        box-shadow: 0 0 0 transparent
+        border: 1px solid $blue
