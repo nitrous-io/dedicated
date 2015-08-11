@@ -46,9 +46,9 @@ var _ = Describe("models/plan", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
-			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, stripe_plan_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
-			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true, "Sxcvv67SDx")
+			(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, most_popular, stripe_plan_id, org)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`,
+			"1gb", "Micro", 4, 1995, 500, "2", "1 GB", "20 GB", false, true, "Sxcvv67SDx", true)
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`INSERT INTO plans
@@ -108,6 +108,7 @@ var _ = Describe("models/plan", func() {
 				Expect(p.Storage).To(Equal("20 GB"))
 				Expect(p.MostPopular).To(BeTrue())
 				Expect(p.StripePlanID.String).To(Equal("Sxcvv67SDx"))
+				Expect(p.Org).To(BeTrue())
 			})
 		})
 

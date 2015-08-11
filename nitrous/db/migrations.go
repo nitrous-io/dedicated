@@ -1481,29 +1481,35 @@ func init() {
 			`,
 		},
 		{
-			Version: "1439318024",
-			Up: `
-				ALTER TABLE users ADD COLUMN suspicious text
-			`,
-		},
-		{
 			Version: "1438723458",
 			Up: `
-                                ALTER TABLE hosts ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
-                        `,
+				ALTER TABLE hosts ADD COLUMN org_id bigint REFERENCES orgs(id) DEFAULT NULL;
+			`,
 		},
 		{
 			Version: "1438806805",
 			Up: `
-                                ALTER TABLE orgs ADD COLUMN max_hosts bigint NOT NULL DEFAULT 10;
-                        `,
+				ALTER TABLE orgs ADD COLUMN max_hosts bigint NOT NULL DEFAULT 10;
+			`,
 		},
 		{
 			Version: "1438982623",
 			Up: `
-                                ALTER TABLE invoices ADD COLUMN billing_profile_id bigint REFERENCES billing_profiles(id) DEFAULT NULL;
-                                UPDATE invoices SET billing_profile_id = b.id FROM billing_profiles b WHERE invoices.user_id = b.user_id;
-                        `,
+				ALTER TABLE invoices ADD COLUMN billing_profile_id bigint REFERENCES billing_profiles(id) DEFAULT NULL;
+				UPDATE invoices SET billing_profile_id = b.id FROM billing_profiles b WHERE invoices.user_id = b.user_id;
+			`,
+		},
+		{
+			Version: "1439317245",
+			Up: `
+				ALTER TABLE plans ADD COLUMN org boolean DEFAULT false NOT NULL;
+			`,
+		},
+		{
+			Version: "1439318024",
+			Up: `
+				ALTER TABLE users ADD COLUMN suspicious text
+			`,
 		},
 	}
 }
