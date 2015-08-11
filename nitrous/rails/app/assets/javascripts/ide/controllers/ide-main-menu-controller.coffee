@@ -51,6 +51,14 @@ App.IdeMainMenuController = Em.Controller.extend
   findReplace: ->
     activeDocumentSet 'replaceTrigger', true
 
+  revealInSidebar: ->
+    if editorController = @get 'controllers.ideEditor'
+      path = editorController.get('activeTab.path')
+      return unless path
+
+      if sidebarController = App.get 'router.ideSidebarController'
+        sidebarController.reveal path
+
   editGoToLine: ->
     if controller = @get 'controllers.ideEditor'
       controller.showGoToLineDialog()

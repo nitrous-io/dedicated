@@ -10,6 +10,7 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
   new: false
   beingDeleted: false
   deleted: false
+  showInSidebar: false
 
   init: ->
     @set 'content', Em.A() unless @get 'content'
