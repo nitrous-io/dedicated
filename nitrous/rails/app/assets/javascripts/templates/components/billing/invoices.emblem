@@ -1,0 +1,63 @@
+.card-header.bordered
+  h2 Billing History
+
+.card-body
+  unless invoices.content
+    p.hint-text
+      i.fa.fa-exclamation-circle
+      | You don't have any invoices available.
+  = each invoice in invoices
+    if invoice.showInvoice
+      .billing-table
+        .heading
+          h4
+            if invoice.showSubscriptionEndHeading
+              = monthyear invoice.periodEnd
+            else
+              | #{simpledate invoice.periodStart} - #{simpledate invoice.periodEnd}
+          if invoice.showInvoiceState
+            .payment-status class={invoice.unpaid:unpaid}
+              if invoice.awaitingUpdate
+                i.spinner
+                | Verifying
+              else
+                if invoice.manuallyPayable
+                  .payment-pay-now-action
+                    button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
+                      if invoice.paying
+                        i.spinner
+                        | Processing
+                      else
+                        | Pay Now
+                else
+                  if invoice.successfulCharge
+                    | Paid
+                  else
+                    if invoice.deferred
+                      | Deferred
+                    else
+                      | Unpaid
+        table.ui.table.horizontal
+          tbody
+            = each group in invoice.groupedItems
+              = each item in group.items
+                = billing-invoice-item item=item
+
+          tr.divider
+            td
+              | Total usage this period
+            td.charge
+              | $
+              = currency invoice.totalUsageForPeriod
+          tr
+            td
+              | Credits applied
+              if invoice.creditAvailableDollars
+                | ($#{currency invoice.creditAvailableDollars} available)
+            td class={:charge invoice.hasCredit:credit}
+              | ($#{currency invoice.totalCreditDollars})
+          tr.total-charge
+            td
+              | Total Charge
+            td.charge
+              | $#{currency invoice.totalChargeDollars}

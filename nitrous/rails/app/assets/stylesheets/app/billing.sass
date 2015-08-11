@@ -43,82 +43,81 @@
     background-position: 8px center
     padding-left: 56px
 
-#billing-view
-  .invoice-item
-    .heading
-      display: table
-      width: 100%
+.billing-table
+  .heading
+    display: table
+    width: 100%
 
-      h4, .payment-status
-        display: table-cell
+    h4, .payment-status
+      display: table-cell
 
-      .payment-status
-        text-align: right
-
-        &.unpaid
-          color: $red400
-
-    td.compute
-      padding-bottom: 10px
-
-    td.charge
-      vertical-align: top
+    .payment-status
       text-align: right
-      &.credit
-        color: $green500
 
-    table.ui.table td
-      padding-bottom: 8px
+      &.unpaid
+        color: $red400
 
-    td.actions
-      a.btn.primary
-        margin-right: 8px
+  td.compute
+    padding-bottom: 10px
 
-    tr.divider
-      margin-top: 24px
+  td.charge
+    vertical-align: top
+    text-align: right
+    &.credit
+      color: $green500
 
-    .title
-      a
+  table.ui.table td
+    padding-bottom: 8px
+
+  td.actions
+    a.btn.primary
+      margin-right: 8px
+
+  tr.divider
+    margin-top: 24px
+
+  .title
+    a
+      color: $n2oGray100
+
+      &:link, &:visited, &:active
         color: $n2oGray100
 
-        &:link, &:visited, &:active
-          color: $n2oGray100
+      &:hover
+        color: $n2oGray50
 
-        &:hover
-          color: $n2oGray50
+  .items
+    max-height: 0
+    overflow: hidden
+    transition: max-height 0.5s ease-out
 
-    .items
-      max-height: 0
-      overflow: hidden
-      transition: max-height 0.5s ease-out
+    &.show
+      max-height: 100px
 
-      &.show
-        max-height: 100px
+    &.flow
+      overflow: auto
 
-      &.flow
-        overflow: auto
+    table
+      width: 100%
 
-      table
-        width: 100%
+      tr
+        height: 20px
+        line-height: 21px
+        color: $n2oGray200
 
-        tr
-          height: 20px
-          line-height: 21px
-          color: $n2oGray200
+  tr.total-charge
+    font-weight: bold
+    font-size: $fontSizeMedium
 
-    tr.total-charge
-      font-weight: bold
-      font-size: $fontSizeMedium
+  tr.cancelled
+    color: rgba($n2oGray200, .6)
 
-    tr.cancelled
-      color: rgba($n2oGray200, .6)
+  td.gap
+    padding-top: .5em
+    padding-bottom: .5em
 
-    td.gap
-      padding-top: .5em
-      padding-bottom: .5em
+  td.cancel-pending
+    color: $red200
 
-    td.cancel-pending
-      color: $red200
-
-    span.dash
-      color: $n2oGray300
+  span.dash
+    color: $n2oGray300

@@ -6,7 +6,7 @@
       | Subscription
 .card-body
   if subscriptions.length
-    .invoice-item
+    .billing-table
       table.ui.table.horizontal
         tbody
           = each subscription in subscriptions
@@ -79,9 +79,7 @@
         else
           | the plan &ldquo;#{subscription.plan.name}&rdquo;?
       p
-        ' Your subscription will end on
-        = simpledate subscription.currentPeriodEnd
-        '  after which your
+        ' Your subscription will end on #{simpledate subscription.currentPeriodEnd}, after which your
         if subscription.hostSlug
           | workspace &ldquo;
           if subscription.host.displayName

@@ -1,6 +1,6 @@
 App.BillingSubscriptionsComponent = Em.Component.extend
   layoutName: 'components/billing/subscriptions'
-  elementId: 'subscription-list'
+  elementId: 'billing-subscriptions'
 
   subscriptions: null
   subscription: null

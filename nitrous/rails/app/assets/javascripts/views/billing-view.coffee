@@ -10,4 +10,4 @@ App.BillingView = Em.View.extend
 
   actions:
     didClickShowInvoices: ->
-      $("body").scrollTop($("#invoices-list").offset().top)
+      $("body").scrollTop($("#billing-invoices").offset().top)
