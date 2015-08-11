@@ -17,29 +17,29 @@ type HelpScout interface {
 }
 
 type Conversation struct {
-	Customer Person
-	Subject  string
-	Mailbox  MailboxRef
-	Threads  []*Thread
+	Customer Person     `json:"customer"`
+	Subject  string     `json:"subject"`
+	Mailbox  MailboxRef `json:"mailbox"`
+	Threads  []*Thread  `json:"threads"`
 }
 
 type Thread struct {
 	Typ       string `json:"type"`
-	CreatedBy Person
-	Body      string
+	CreatedBy Person `json:"createdBy"`
+	Body      string `json:"body"`
 }
 
 type Person struct {
-	ID        int64
-	Email     string
-	Username  string
-	FirstName string
+	ID        int64  `json:"id,omitempty"`
+	Email     string `json:"email"`
+	Username  string `json:"username,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
 	Typ       string `json:"type"`
 }
 
 type MailboxRef struct {
-	ID   int
-	Name string
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func (c *Conversation) CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error {
@@ -62,7 +62,7 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 		return err
 	}
 
-	req.SetBasicAuth(envvars.HelpScoutAPIKey, "")
+	req.SetBasicAuth(envvars.HelpScoutAPIKey, envvars.HelpScoutPassword)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := http.DefaultClient
@@ -75,7 +75,7 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 		if err != nil {
 			return fmt.Errorf("CreateConversation: ioutil.ReadAll response body err: %v", err)
 		}
-		defer res.Body.Close()
+		res.Body.Close()
 		return fmt.Errorf("CreateConversation: Unable to create conversation: expected %d, got %d - %s", http.StatusCreated, res.StatusCode, body)
 	}
 

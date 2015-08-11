@@ -1,6 +1,7 @@
 package envvars
 
 import (
+	"fmt"
 	"net/mail"
 	"os"
 	"strconv"
@@ -53,6 +54,7 @@ var (
 
 	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
 	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
+	HelpScoutPassword    = os.Getenv("HELPSCOUT_PASSWORD")
 	HelpScoutMailboxID   int
 	HelpScoutUserID      int
 
@@ -121,7 +123,6 @@ func init() {
 		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
 	}
 
-	var err error
 	HelpScoutMailboxID, err = strconv.Atoi(os.Getenv("HELPSCOUT_MAILBOX_ID"))
 	if err != nil {
 		fmt.Printf("WARNING: HELPSCOUT_MAILBOX_ID set to 'disable'. ERROR: %v\n", err)

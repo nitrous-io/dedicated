@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,21 +124,24 @@ var _ = Describe("controllers/feedback", func() {
 
 				billingProfile, err := u.BillingProfile(db)
 				Expect(err).To(BeNil())
+
 				subject = fmt.Sprintf("[nitrous-pro] %s", subject)
+				body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n\n", username, name, email, body)
 
 				// FIXME: Get proper values for workspace
-				body = fmt.Sprintf("Username: %s\nName: %s\nEmail: %s\n%s", username, name, email, body)
-				metadata := fmt.Sprintf("User Agent: %s\nPlatform: %s\nCurrent URL: %s\nUser Info:\n\tID: %v\n\tUsername: %s\n\tEmail: %s\n\tConfirmed At: %v, Phone Authed: %t\n\tBilling Profile State: %s\nWorkspace(s) Info: %s\n",
-					userAgent,
-					platform,
-					currentURL,
-					u.ID,
-					username,
-					email,
-					createdAt,
-					false,
-					billingProfile.State,
-					"")
+				metadata := strings.Join([]string{
+					fmt.Sprintf("<strong>User Agent</strong>: %s", userAgent),
+					fmt.Sprintf("<strong>Platform</strong>: %s", platform),
+					fmt.Sprintf("<strong>Current URL</strong>: %s", currentURL),
+					fmt.Sprintf("<strong>User Info:</strong><br>ID: %v<br>Username: %s<br>Email: %s<br>Confirmed At: %v<br>Phone Authed: %t<br>Billing Profile State: %s",
+						u.ID,
+						username,
+						email,
+						createdAt,
+						false,
+						billingProfile.State),
+					fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", ""),
+				}, "<br>")
 
 				customer := helpscout.Person{
 					ID:        0,

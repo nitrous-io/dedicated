@@ -15,6 +15,10 @@ import (
 
 var HelpScout helpscout.HelpScout
 
+func init() {
+	HelpScout = &helpscout.Conversation{}
+}
+
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	subject := r.FormValue("subject")
 	body := r.FormValue("body")
@@ -44,15 +48,16 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		hostInfo := fmt.Sprintf("\n\tSlug: %s\n\tRegion Identifier: %s\n\tState: %v\n\tPlan Name: %s\n\tSubscription State: %s",
-			&host.Slug,
-			&host.RegionIdentifier.String,
-			&host.State, &plan.Name,
-			&subscription.State)
+		hostInfo := fmt.Sprintf("<br>Slug: %s<br>Region Identifier: %s<br>State: %v<br>Plan Name: %s<br>Subscription State: %s",
+			host.Slug,
+			host.RegionIdentifier.String,
+			host.State,
+			plan.Name,
+			subscription.State)
 
 		hostsInfo = append(hostsInfo, hostInfo)
 	}
-	workspaceInfo := strings.Join(hostsInfo, "\n")
+	workspaceInfo := strings.Join(hostsInfo, "<br>")
 
 	billingProfile, err := env.User.BillingProfile(env.DB)
 	if err != nil {
@@ -64,20 +69,20 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := env.User.Username
 
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	body = fmt.Sprintf("Username: %s\nName: %s\nEmail: %s\n%s", username, name, email, body)
+	body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n\n", username, name, email, body)
 	metadata := strings.Join([]string{
-		fmt.Sprintf("User Agent: %s", userAgent),
-		fmt.Sprintf("Platform: %s", platform),
-		fmt.Sprintf("Current URL: %s", currentURL),
-		fmt.Sprintf("User Info:\n\tID: %v\n\tUsername: %s\n\tEmail: %s\n\tConfirmed At: %v, Phone Authed: %t\n\tBilling Profile State: %s",
+		fmt.Sprintf("<strong>User Agent</strong>: %s", userAgent),
+		fmt.Sprintf("<strong>Platform</strong>: %s", platform),
+		fmt.Sprintf("<strong>Current URL</strong>: %s", currentURL),
+		fmt.Sprintf("<strong>User Info:</strong><br>ID: %v<br>Username: %s<br>Email: %s<br>Confirmed At: %v<br>Phone Authed: %t<br>Billing Profile State: %s",
 			env.User.ID,
 			username,
 			email,
 			env.User.ConfirmedAt.Time,
 			env.User.PhoneAuthed,
 			billingProfile.State),
-		fmt.Sprintf("Workspace(s) Info: %s\n", workspaceInfo),
-	}, "\n")
+		fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", workspaceInfo),
+	}, "<br>")
 
 	customer := helpscout.Person{
 		Email:     email,
@@ -103,9 +108,8 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		&helpscout.Thread{
 			Typ: "note",
 			CreatedBy: helpscout.Person{
-				Typ:       "user",
-				ID:        int64(envvars.HelpScoutUserID),
-				FirstName: "", // Optional
+				Typ: "user",
+				ID:  int64(envvars.HelpScoutUserID),
 			},
 			Body: metadata,
 		},
@@ -120,5 +124,3 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Data = map[string]interface{}{"status": "ok"}
 	return nil
 }
-
-// TODO: Add tags field?
