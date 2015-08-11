@@ -247,18 +247,16 @@ var _ = Describe("controllers/billingprofiles", func() {
 			})
 		})
 
-		Context("when credit card is valid but CIDR is blocked", func() {
+		Context("when credit card is valid but user is suspicious", func() {
 			var oldDoRequest func(*url.Values) *httptest.ResponseRecorder
 
 			BeforeEach(func() {
 				oldDoRequest = doRequest
 				doRequest = func(params *url.Values) *httptest.ResponseRecorder {
-					req, err := test.NewAuthedRequest(t, "POST", "/api/v0/user/billing_profile", params)
-					req.RemoteAddr = "1.2.3.4" // trigger CIDR block
+					_, err := db.Exec(`UPDATE users SET suspicious = true WHERE id = $1;`, u.ID)
 					Expect(err).To(BeNil())
-					res := httptest.NewRecorder()
-					handler.ServeHTTP(res, req)
-					return res
+
+					return oldDoRequest(params)
 				}
 			})
 
