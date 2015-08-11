@@ -1,6 +1,7 @@
 @import 'website_variables'
 // --------------------------------------
 // Hero section
+// Used on all pages using .hero and .page-hero
 .page
   
   .hero, .page-hero
@@ -14,14 +15,13 @@
       align-items: center
     
     .featurette
-      padding-top: 84px
-      margin-bottom: 0
+      padding-top: 92px
       padding-bottom: 0
+      margin-bottom: 0
       border-bottom: 0
       
       p
         color: rgba(255,255,255,.4)
-      
 
   .hero-copy
     position: relative
@@ -79,69 +79,68 @@
 
 // --------------------------------------
 // Full height
-.full-height
-  .page-hero
-    height: 760px
-    height: 100vh
-    min-height: 760px
-    user-select: none
+.page-hero.full-height
+  height: 680px
+  height: 100vh
+  min-height: 680px
+  user-select: none
 
-    .hero-tagline, .hero-visual
-      top: 50%
-      position: absolute
-      transform: translate3d(0,-45%,0)
-      -webkit-perspective: 1000
-      backface-visibility: hidden
+  .hero-tagline, .hero-visual
+    top: 50%
+    position: absolute
+    transform: translate3d(0,-45%,0)
+    -webkit-perspective: 1000
+    backface-visibility: hidden
 
-    .hero-tagline
-      width: 52%
-      right: 0
-      text-align: center
-      animation: .8s ease 1 hero-tagline-in
-      transition: .25s opacity
-      z-index: 5
+  .hero-tagline
+    width: 52%
+    right: 0
+    text-align: center
+    animation: .8s ease 1 hero-tagline-in
+    transition: .25s opacity
+    z-index: 5
 
-      h2
-        font-size: 35px
-        font-family: $boldFont
-        padding-bottom: 4px
-        font-weight: 400
+    h2
+      font-size: 35px
+      font-family: $boldFont
+      padding-bottom: 4px
+      font-weight: 400
 
-      h3
-        font-size: 20px
-        color: rgba(255,255,255,.8)
+    h3
+      font-size: 20px
+      color: rgba(255,255,255,.8)
 
-      .cta-get-started
-        border: 1px solid #FFF
-        background: #FFF
+    .cta-get-started
+      border: 1px solid #FFF
+      background: #FFF
 
-      input[type="email"]
-        background: #FFF
-        color: $blue
+    input[type="email"]
+      background: #FFF
+      color: $blue
 
-      input[type="submit"]
-        border: none
-        line-height: 42px
-        border-radius: 4px
+    input[type="submit"]
+      border: none
+      line-height: 42px
+      border-radius: 4px
 
-        &:hover
-          background: rgba($blue,.8)
+      &:hover
+        background: rgba($blue,.8)
 
-    .hero-visual
-      width: 47%
-      min-height: 571px
-      left: 0
-      animation: .8s ease 1 hero-visual-in
-      transition: .4s cubic-bezier(.2,.6,.2,1.2)
-      z-index: 10
+  .hero-visual
+    width: 47%
+    min-height: 571px
+    left: 0
+    animation: .8s ease 1 hero-visual-in
+    transition: .4s cubic-bezier(.2,.6,.2,1.2)
+    z-index: 10
 
-      img
-        position: relative
-        margin: 0 auto
-        right: -100%
-        transform: translateX(-100%)
-        border-radius: 2px
-        box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 16px 20px rgba(0,0,0,.1)
+    img
+      position: relative
+      margin: 0 auto
+      right: -100%
+      transform: translateX(-100%)
+      border-radius: 2px
+      box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 16px 20px rgba(0,0,0,.1)
 
 // --------------------------------------
 // Dark-themed pages only

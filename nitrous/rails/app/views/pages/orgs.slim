@@ -1,22 +1,13 @@
 - @title = 'Orgs · Nitrous'
 - @html_class = 'light'
 - @body_id = 'orgs'
-- @body_class = 'story full-height'
+- @body_class = 'story'
 
 .page
-  .page-hero
+  .page-hero.full-height
     .container
       = render partial: 'layouts/webnav', locals: { active: 'education' }
-      
-      / INTRODUCING
-      /.hero-visual
-      /  = image_tag 'home/nitrous-pro-chrome.png', width: '970px', alt: 'Nitrous Pro'
-      /
-      /.hero-tagline
-      /  h2 Nitrous for Orgs
-      /  h3 Software Development Without the Pain
-      /  = render 'layouts/cta_form'
-      
+
       .hero-copy
         h2
           | Nitrous Orgs
@@ -25,23 +16,23 @@
           br 
           | agile and productive, wherever you are
         
-        a.btn.blue.submit href="/app/#/signup/?org=1" Register now
+        a.btn.white-outline.submit href="/app/#/signup/?org=1" Sign Up Now
         
         article.featurette
           .container
             .box-wrapper.three.centered
               .box
-                .visual
+                .visual.billing
                 h3.section-title Centralized Billing
                 p Simplified billing for your team: team owner handles billing for all users
 
               .box
-                .visual
+                .visual.team-administration
                 h3.section-title Team Administration
                 p Quickly add and remove team owners, admins, and members
 
               .box
-                .visual
+                .visual.custom-templates
                 h3.section-title Custom Templates
                 p Setup and deploy your own Docker images inside Nitrous
 
@@ -89,8 +80,11 @@
         .box.ssh
           h3.with-icon Full SSH access
           p
-            | Access your development container directly with SSH&sup1;.
-            sup &sup1;Only available on paid plans
+            | Access your development environment directly with SSH
+      
+      .centered
+        a class="btn grey-outline" href="/features"
+          | Learn more
 
   article.used-by
     .container
@@ -133,4 +127,4 @@
       a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up for Orgs
 
 
-= render partial: 'layouts/footer', locals: { active: 'teams' }
+= render partial: 'layouts/footer', locals: { active: 'orgs' }
