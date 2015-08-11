@@ -33,6 +33,8 @@ App.IdeDocumentView = Em.View.extend
 
   shouldReloadDocument: false # set to true to reload doc and restart collab session
 
+  activeLineWidgets: Em.A([])
+
   didInsertElement: ->
     @_super()
     @insertEditor()
@@ -120,6 +122,17 @@ App.IdeDocumentView = Em.View.extend
       editor.splitSelectionIntoLines()
     @set 'document.splitSelectionIntoLinesTrigger', false
   ).observes 'document.splitSelectionIntoLinesTrigger'
+
+  addLineWidgets: (->
+    @get('activeLineWidgets').forEach (line)->
+      line.clear()
+    @get('activeLineWidgets').clear()
+    if (editor = @get('editor')) && (lineWidgets = @get('document.lineWidgets'))
+      lineWidgets.forEach (w)=>
+        obj = editor.addLineWidget w.line, w.node, (w.options || {})
+        if obj
+          @get('activeLineWidgets').pushObject obj
+  ).observes 'document.lineWidgets.@each'
 
   insertEditor: ->
     $codeEditor = @$('.code-editor')

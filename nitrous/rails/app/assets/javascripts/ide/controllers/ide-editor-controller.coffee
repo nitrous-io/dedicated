@@ -85,6 +85,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     cwd = ''
     env = []
     opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+      doc.processErrMessage stderr
       if err || cmdErr
         doc.set 'clean', true
         return

@@ -169,6 +169,10 @@ App.Editor = klass = Em.Object.extend
     if cm = @get('codeMirror')
       cm.swapLineUp()
 
+  addLineWidget: (line, node, options)->
+    if cm = @get('codeMirror')
+      return cm.addLineWidget(line, node, options)
+
   readOnlyDidChange: (->
     if cm = @get 'codeMirror'
       ro = @get 'readOnly'
