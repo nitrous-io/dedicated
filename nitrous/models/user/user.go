@@ -63,7 +63,8 @@ type User struct {
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 
-	FirstTime bool `db:"first_time"`
+	FirstTime  bool           `db:"first_time"`
+	Suspicious sql.NullString `db:"suspicious"`
 
 	Password          string
 	EncryptedPassword string `db:"encrypted_password"`
@@ -211,8 +212,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	}
 
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name, promo_code)
-		VALUES (:email, :username, :encrypted_password, :name, :promo_code)
+		(email, username, encrypted_password, name, promo_code, suspicious)
+		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious)
 		RETURNING *;`)
 	if err != nil {
 		return err
