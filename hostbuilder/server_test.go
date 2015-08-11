@@ -160,7 +160,6 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.State).To(Equal(state.Running.String()))
 
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
-			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
 			qp.Delete()
 		})
@@ -199,7 +198,6 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.Error).NotTo(BeZero())
 
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
-			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeZero())
 			qp.Delete()
 		})
@@ -289,7 +287,6 @@ var _ = Describe("hostbuilder", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
-			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
 			qp.Delete()
 		})
@@ -365,7 +362,6 @@ var _ = Describe("hostbuilder", func() {
 			Expect(info.FreighterdPort).To(Equal(uint16(h.FreighterdPort)))
 
 			qp := queue.NewQueue(test.RedisHost, test.RedisPort, test.RedisTestDb, "v1.host")
-			Expect(err).To(BeNil())
 			Expect(qp.GetInputLength()).To(BeNumerically(">", 0))
 			qp.Delete()
 		})
