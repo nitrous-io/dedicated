@@ -24,7 +24,7 @@
         label#select-plan.field-label
           | Available Plans
         ul.ui.selectable-list.plans.paid
-          each plan in paidPlans
+          each plan in availablePlans
             App.PlanListItemView content=plan selected=selectedPlan
 
 .card-footer.bordered

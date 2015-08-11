@@ -40,9 +40,9 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   ).property 'plan'
 
   canUpgrade: (->
-    return true unless @get 'plan'
+    return true unless curPlan = @get('plan')
     App.get('eligiblePlans').any (plan) =>
-      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > @get('plan.price'))
+      plan.get('isPaidPlan') && !plan.get('hidden') && (curPlan.get('org') == plan.get('org')) && (plan.get('price') > @get('plan.price'))
   ).property 'App.eligiblePlans.@each', 'plan'
 
   cancel: ->
