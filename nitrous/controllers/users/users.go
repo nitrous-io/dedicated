@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -106,6 +107,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	if banned {
 		return bannedEmailAddress
+	}
+
+	// if user is in CIDR blacklist, they are suspicious
+	if err := cidrblacklist.Contains(env.RemoteAddr); err != nil {
+		u.Suspicious = sql.NullString{String: err.Error(), Valid: true}
 	}
 
 	tx, err := db.Beginx()
