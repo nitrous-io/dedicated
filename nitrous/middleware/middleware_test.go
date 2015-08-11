@@ -417,7 +417,18 @@ var _ = Describe("middleware", func() {
 			VerifyDelinquentUserResponse(res)
 		})
 
-		It("rejects the allows a non protected request even if the billing information is invalid", func() {
+		It("returns a vague error if user is suspicious", func() {
+			env.User.Suspicious.Valid = true
+
+			req, err := NewRequest("GET", "/protected", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+			errType, errDesc := ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("unexpected error"))
+		})
+
+		It("allows a non-protected request even if the billing information is invalid", func() {
 			MarkDelinquentUser(db, u)
 			req, err := NewRequest("GET", "/allowed", nil)
 			Expect(err).To(BeNil())

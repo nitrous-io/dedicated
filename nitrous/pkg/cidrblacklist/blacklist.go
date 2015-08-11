@@ -1,4 +1,4 @@
-package billingprofile
+package cidrblacklist
 
 import (
 	"bufio"
@@ -17,13 +17,13 @@ var (
 
 func init() {
 	var err error
-	CIDRBlacklist, err = importBlacklist()
+	CIDRBlacklist, err = load()
 	if err != nil {
 		logrus.Warnf("Failed to initialize CIDR blacklist: %v", err)
 	}
 }
 
-func importBlacklist() ([]*net.IPNet, error) {
+func load() ([]*net.IPNet, error) {
 	f, err := os.Open(envvars.CIDRBlacklistPath)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func importBlacklist() ([]*net.IPNet, error) {
 	return networks, nil
 }
 
-func CIDRBlacklisted(ip string) error {
+func Contains(ip string) error {
 	source := net.ParseIP(ip)
 	for _, n := range CIDRBlacklist {
 		if ip := source.Mask(n.Mask); n.Contains(ip) {

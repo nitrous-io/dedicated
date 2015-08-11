@@ -155,6 +155,7 @@ var _ = Describe("controllers/users", func() {
 				Expect(u.Username).To(Equal("foo"))
 				Expect(u.Name).To(Equal("Foo Bar"))
 				Expect(u.CreatedAt).NotTo(BeNil())
+				Expect(u.Suspicious.Valid).To(BeFalse())
 
 				Expect(ft.ProfileCreated).ToNot(BeNil())
 				Expect(ft.ProfileCreated.ID).To(Equal(u.ID))
@@ -175,6 +176,29 @@ var _ = Describe("controllers/users", func() {
 				Expect(err).To(BeNil())
 				Expect(j.User.Username).To(Equal("foo"))
 				Expect(j.User.Email).To(Equal("foo@example.com"))
+			})
+		})
+
+		Context("when remote address is in CIDR", func() {
+			It("marks the user as suspicious if remote address is in CIDR", func() {
+				params = &url.Values{}
+				params.Set("email", "foo@example.com")
+				params.Set("username", "foo")
+				params.Set("password", "123456")
+				params.Set("name", "Foo Bar")
+				params.Set("promo_code", "")
+
+				var err error
+				req, err = test.NewFormRequest("POST", "/api/v0/users", params)
+				req.RemoteAddr = "1.2.3.4" // trigger CIDR block
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.Suspicious.String).To(Equal("blocked by CIDR 1.2.3.0/24"))
 			})
 		})
 
