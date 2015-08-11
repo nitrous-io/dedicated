@@ -43,32 +43,54 @@
               .box
                 .visual
                 h3.section-title Custom Templates
-                p Quickly add and remove team owners, admins, and members
+                p Setup and deploy your own Docker images inside Nitrous
 
 
-  /article.featurette.offset-visual
   article.featurette
     .container
-
-      /.full-visual
-      /  = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
       
-      .box-wrapper.three.centered
-        .box
-          .visual
-            /= image_tag 'home/large-featurette-seconds.svg', class: 'visual', alt: 'Zero-to-Code in Seconds'
-          h3.section-title Centralized Billing
-          p Simplified billing for your team: team owner handles billing for all users
+      h3.big-title The Best of Nitrous
         
-        .box
-          .visual
-          h3.section-title Team Administration
-          p Quickly add and remove team owners, admins, and members
-        
-        .box
-          .visual
-          h3.section-title Custom Templates
-          p Quickly add and remove team owners, admins, and members
+      .box-wrapper.three
+        .box.terminal
+          h3.with-icon Built-in Terminal
+          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+
+        .box.code
+          h3.with-icon Zero-to-code in seconds
+          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+
+        .box.containers
+          h3.with-icon Powered by Docker
+          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+
+      .box-wrapper.three
+        .box.collaboration
+          h3.with-icon Collaboration
+          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+
+        .box.github
+          h3.with-icon GitHub integration
+          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+
+        .box.snapshots
+          h3.with-icon Snapshots
+          p Preserve the state of any container and project environment, and stop worrying about breaking things.
+
+      .box-wrapper.three
+        .box.go-to-file
+          h3.with-icon Go to file
+          p Quickly jump between files with only a few keystrokes, just like your favorite desktop editor.
+
+        .box.split-editing
+          h3.with-icon Split Editing
+          p Get the most out of your screen real-estate with split editing support. Edit files side by side.
+
+        .box.ssh
+          h3.with-icon Full SSH access
+          p
+            | Access your development container directly with SSH&sup1;.
+            sup &sup1;Only available on paid plans
 
   article.used-by
     .container
@@ -89,35 +111,21 @@
           = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
           = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'  
 
-  /article.colored.tilde.quote
-  /  .container
-  /
-  /    blockquote
-  /      = image_tag 'home/quote-tilde-logo.svg', class: 'visual', alt: 'Tilde'
-  /
-  /      p
-  /        | Mostly, the ability to 
-  /        strong get a Unix session going on any machine
-  /        | with Chrome on it and get right back into my tmux session. I'm no longer afraid of forgetting to check something in before I go home or what might happen if my laptop got stolen. Nitrous.IO and ChromeOS are really 
-  /        strong a match made in heaven
-  /        |.
-  /      cite
-  /        | Yehuda Katz
-  /        span , Founder of Tilde
 
-  /article.colored.heroku.quote
-  /  .container
-  /
-  /    blockquote
-  /      = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
-  /
-  /      p
-  /        | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
-  /        strong the first solution that doesn't feel like a toy
-  /        |. I can use it to get work done, today.
-  /      cite
-  /        | Max Schoening
-  /        span , Software Designer at Heroku
+
+  article.colored.heroku.quote
+    .container
+  
+      blockquote
+        = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
+  
+        p
+          | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
+          strong the first solution that doesn't feel like a toy
+          |. I can use it to get work done, today.
+        cite
+          | Max Schoening
+          span , Software Designer at Heroku
 
   article.cta.darker
     .container
