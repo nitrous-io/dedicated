@@ -73,6 +73,9 @@ func (p *Plan) CanUpgradeToPlan(newPlan *Plan) bool {
 	if newPlan == nil {
 		return false
 	}
+	if p.Org != newPlan.Org {
+		return false
+	}
 
 	return newPlan.Price > p.Price
 }

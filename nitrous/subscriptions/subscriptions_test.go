@@ -677,6 +677,13 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))
 		})
 
+		It("returns an error if new plan is not of the same type", func() {
+			newPlan.Org = true
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))
+		})
+
 		It("submits a request to Stripe to update subscription", func() {
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(BeNil())

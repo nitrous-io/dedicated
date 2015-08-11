@@ -473,5 +473,23 @@ var _ = Describe("models/plan", func() {
 			p2 := &plan.Plan{Price: 2500}
 			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
 		})
+
+		It("should be false if current plan is org plan and target plan is personal plan", func() {
+			p := &plan.Plan{Price: 2000, Org: true}
+			p2 := &plan.Plan{Price: 2500}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
+		It("should be false if current plan is personal plan and target plan is org plan", func() {
+			p := &plan.Plan{Price: 2000}
+			p2 := &plan.Plan{Price: 2500, Org: true}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
+		It("should be true both current plan and target plan are org plans", func() {
+			p := &plan.Plan{Price: 2000, Org: true}
+			p2 := &plan.Plan{Price: 2500, Org: true}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeTrue())
+		})
 	})
 })
