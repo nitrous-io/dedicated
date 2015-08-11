@@ -47,7 +47,8 @@ var (
 	errSuspiciousUser      = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden",
 		"You do not have access to this organization")
-	errOrgNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching org found")
+	errOrgNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
+	errNotOrgPlan  = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -130,6 +131,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 				return errOrgNotFound
 			}
 			return err
+		}
+		if !pl.Org {
+			return errNotOrgPlan
 		}
 		bp, err = billingprofile.FindForOrg(db, o.ID)
 		if err != nil {
