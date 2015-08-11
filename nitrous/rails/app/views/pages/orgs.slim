@@ -1,7 +1,7 @@
 - @title = 'Orgs · Nitrous'
 - @html_class = 'light'
 - @body_id = 'orgs'
-- @body_class = 'story'
+- @body_class = 'story full-height'
 
 .page
   .page-hero
@@ -26,6 +26,24 @@
           | agile and productive, wherever you are
         
         a.btn.blue.submit href="/app/#/signup/?org=1" Register now
+        
+        article.featurette
+          .container
+            .box-wrapper.three.centered
+              .box
+                .visual
+                h3.section-title Centralized Billing
+                p Simplified billing for your team: team owner handles billing for all users
+
+              .box
+                .visual
+                h3.section-title Team Administration
+                p Quickly add and remove team owners, admins, and members
+
+              .box
+                .visual
+                h3.section-title Custom Templates
+                p Quickly add and remove team owners, admins, and members
 
 
   /article.featurette.offset-visual
@@ -103,12 +121,8 @@
 
   article.cta.darker
     .container
-      h3.section-title Nitrous Orgs
-      h4
-        | Leverage Nitrous's cutting-edge cloud IDE to stay lean, 
-        br
-        | agile and productive, wherever you are
-      a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up Now
+      h3.section-title Let's get started
+      a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up for Orgs
 
 
 = render partial: 'layouts/footer', locals: { active: 'teams' }
