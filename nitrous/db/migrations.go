@@ -1437,5 +1437,11 @@ func init() {
 				ALTER TABLE containers ADD COLUMN port_mappings text DEFAULT '{}' NOT NULL
 			`,
 		},
+		{
+			Version: "1439318024",
+			Up: `
+				ALTER TABLE users ADD COLUMN suspicious text
+			`,
+		},
 	}
 }
