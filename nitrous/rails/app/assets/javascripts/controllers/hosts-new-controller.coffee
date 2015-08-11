@@ -31,13 +31,31 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   paidPlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isPaidPlan') && !plan.get('hidden')
+      plan.get('isPaidPlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
 
   freePlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isFreePlan') && !plan.get('hidden')
+      plan.get('isFreePlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
+
+  orgPlans: (->
+    @get('sortedPlans').filter (plan) ->
+      plan.get('isPaidPlan') && !plan.get('hidden') && plan.get('org')
+  ).property 'sortedPlans.@each'
+
+  selectedOrgSlugDidChange: (->
+    if @get('selectedOrgSlug')
+      # if user wants to create a host under an org and currently selected plan isn't an org plan
+      unless @get 'selectedPlan.org'
+        # select an org plan
+        @set 'selectedPlan', @get('orgPlans.firstObject')
+    else
+      # if user wants to create a host personally and currently selected plan is an org plan
+      if @get 'selectedPlan.org'
+        # select a personal plan
+        @set 'selectedPlan', @get('paidPlans.firstObject')
+  ).observes 'selectedOrgSlug'
 
   clear: ->
     plans = @get 'plans'
