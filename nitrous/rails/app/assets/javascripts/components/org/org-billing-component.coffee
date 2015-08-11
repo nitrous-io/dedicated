@@ -19,11 +19,18 @@ App.OrgBillingComponent = Em.Component.extend App.OrgMembersMixin,
     @_super()
     @fetchMembers()
     @reloadSubscriptions()
+    @reloadInvoices()
 
   reloadSubscriptions: (->
     subscriptions = @get 'org.subscriptions'
     if subscriptions && subscriptions.get('loaded')
       subscriptions.reload()
+  ).observes 'org'
+
+  reloadInvoices: (->
+    invoices = @get 'org.invoices'
+    if invoices && invoices.get('loaded')
+      invoices.reload()
   ).observes 'org'
 
   actions:

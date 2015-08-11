@@ -1,4 +1,4 @@
-.card-header.bordered
+.card-header.tab-bar-title
   h2
     if org
       link-to 'org.index' org.slug

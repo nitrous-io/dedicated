@@ -39,6 +39,11 @@ App.Org = klass = App.NewModel.extend
       App.OrgSubscription.fetch(orgSlug: slug).value
   ).property 'slug'
 
+  invoices: (->
+    if slug = @get('slug')
+      App.OrgInvoice.fetch(orgSlug: slug).value
+  ).property 'slug'
+
 klass.reopenClass
   collectionUrl: '/api/v0/orgs'
   collectionRoot: 'orgs'
