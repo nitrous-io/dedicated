@@ -10,7 +10,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 )
 
-var baseURL = "https://api.helpscout.net/v1"
+var BaseURL = "https://api.helpscout.net/v1"
 
 type HelpScout interface {
 	CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error
@@ -24,7 +24,7 @@ type Conversation struct {
 }
 
 type Thread struct {
-	Typ       string `json:"type"`
+	Type      string `json:"type"`
 	CreatedBy Person `json:"createdBy"`
 	Body      string `json:"body"`
 }
@@ -34,7 +34,7 @@ type Person struct {
 	Email     string `json:"email"`
 	Username  string `json:"username,omitempty"`
 	FirstName string `json:"firstName,omitempty"`
-	Typ       string `json:"type"`
+	Type      string `json:"type"`
 }
 
 type MailboxRef struct {
@@ -43,7 +43,7 @@ type MailboxRef struct {
 }
 
 func (c *Conversation) CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error {
-	reqURL := fmt.Sprintf("%s/conversations.json", baseURL)
+	reqURL := fmt.Sprintf("%s/conversations.json", BaseURL)
 
 	c = &Conversation{
 		Customer: customer,

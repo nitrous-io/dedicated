@@ -1,7 +1,6 @@
 package envvars
 
 import (
-	"fmt"
 	"net/mail"
 	"os"
 	"strconv"
@@ -125,11 +124,11 @@ func init() {
 
 	HelpScoutMailboxID, err = strconv.Atoi(os.Getenv("HELPSCOUT_MAILBOX_ID"))
 	if err != nil {
-		fmt.Printf("WARNING: HELPSCOUT_MAILBOX_ID set to 'disable'. ERROR: %v\n", err)
+		logrus.Fatalf("HELPSCOUT_MAILBOX_ID not set: %v: ", err)
 	}
 	HelpScoutUserID, err = strconv.Atoi(os.Getenv("HELPSCOUT_USER_ID"))
 	if err != nil {
-		fmt.Printf("WARNING: HELPSCOUT_USER_ID set to 'disable'. ERROR: %v\n", err)
+		logrus.Fatalf("HELPSCOUT_USER_ID not set: %v: ", err)
 	}
 }
 
