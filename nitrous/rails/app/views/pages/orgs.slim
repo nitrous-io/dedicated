@@ -85,7 +85,38 @@
       .centered
         a class="btn grey-outline" href="/features"
           | Learn more
+  
+  article
+    .container
+      .box-wrapper
+        .box.auto
+          blockquote
+            = image_tag 'home/quote-heroku-visual.png'
+            p
+              | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
+              strong the first solution that doesn't feel like a toy
+              |. I can use it to get work done, today.
+            cite
+              | Max Schoening
+              span Software Designer at Heroku
 
+        .box.auto
+          blockquote
+            = image_tag 'home/quote-flatiron-visual.png'
+            p
+              | Flatiron is growing rapidly, and to offer our summer courses in multiple locations around the country, we need a 
+              strong zero-install solution
+              |  for students with limited time and much enthusiasm to learn. Nitrous allows Flatiron's students to have 
+              strong the flexibility of using any device
+              |  — Windows, Mac, Linux or Chromebook — and begin coding from day one.
+            cite
+              | Avi Flombaum
+              span Dean and Co-Founder of The Flatiron School
+      
+      .centered
+        a class="btn grey-outline" href="/flatiron"
+          | Flatiron Case Study
+  
   article.used-by
     .container
       h3.section-title 
@@ -107,21 +138,21 @@
 
 
 
-  article.colored.heroku.quote
-    .container
-  
-      blockquote
-        = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
-  
-        p
-          | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
-          strong the first solution that doesn't feel like a toy
-          |. I can use it to get work done, today.
-        cite
-          | Max Schoening
-          span , Software Designer at Heroku
+  /article.colored.heroku.quote
+  /  .container
+  /
+  /    blockquote
+  /      = image_tag 'home/quote-heroku-logo.svg', class: 'visual', alt: 'Heroku'
+  /
+  /      p
+  /        | Many companies — including Heroku — have attempted to move development to the cloud. Nitrous.io is 
+  /        strong the first solution that doesn't feel like a toy
+  /        |. I can use it to get work done, today.
+  /      cite
+  /        | Max Schoening
+  /        span , Software Designer at Heroku
 
-  article.cta.darker
+  article.cta
     .container
       h3.section-title Let's get started
       a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up for Orgs

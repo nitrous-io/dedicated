@@ -74,7 +74,7 @@
       color: rgba(255,255,255,.8)
     
     .hero-copy .btn.submit
-      width: 100px
+      width: 112px
       margin: 30px auto 0 auto
 
 // --------------------------------------
@@ -84,6 +84,12 @@
   height: 100vh
   min-height: 680px
   user-select: none
+
+  .hero-copy
+    margin-top: 0
+    
+    a.btn.submit
+      margin-top: 40px
 
   .hero-tagline, .hero-visual
     top: 50%
@@ -304,8 +310,11 @@
 
 #orgs
   .page-hero
-    //background: $n2oGray700
-    background: $greyBlue
+    background-color: #8A9FAE
+    background-image: linear-gradient(10deg, rgba(0,154,237,.1) 40%, rgba(0,154,237,.45) 100%), image_url('home/orgs-hero-bg.png')
+    background-position: top center
+    background-repeat: no-repeat
+    background-size: cover
     
     .hero-copy
       padding-bottom: 0

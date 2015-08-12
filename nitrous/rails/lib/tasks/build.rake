@@ -11,7 +11,7 @@ namespace :build do
       '/templates/oauth_authorize.html.tmpl' => {layout: 'layouts/bare', template: 'templates/oauth_authorize'}
     }
 
-    %w(pricing features company plan_changes stacks press flatiron education teams agencies enterprises vpc whatsnew teams-pricing education-pricing jobs).each do |page|
+    %w(pricing features company stacks press flatiron education teams agencies enterprises orgs vpc teams-pricing education-pricing jobs).each do |page|
       locations["/public/#{page}/index.html"] = { layout: 'layouts/pages', template: "pages/#{page.underscore}"}
     end
 
