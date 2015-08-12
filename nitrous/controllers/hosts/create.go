@@ -42,6 +42,7 @@ var (
 		"You can't create any more free workspaces")
 	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
 		"You need to verify your phone before creating free workspace")
+	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -129,6 +130,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		default:
 			return err
 		}
+	}
+
+	// suspicious users cannot create free workspaces
+	if u.Suspicious.Valid && pl.Price == 0 {
+		return errSuspiciousUser
 	}
 
 	// Progress data from host provisioning is written to the events stream.
