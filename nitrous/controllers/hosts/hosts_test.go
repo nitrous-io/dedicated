@@ -1469,6 +1469,13 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
 
+			It("updates the host's provider identifier with the ID in hostbuilder's response", func() {
+				doRequest(hs.H.Slug)
+				h, err := host.Find(db, hs.U, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.ProviderIdentifier.String).To(Equal("i-abcde"))
+			})
+
 			It("responds with the host and status OK", func() {
 				doRequest(hs.H.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
@@ -3002,7 +3009,7 @@ var _ = Describe("controllers/hosts", func() {
 
 var (
 	stopOkResponse = `{"state": "stopped", "ip_address": ""}`
-	okResponse     = `{"freighterd_port":65333,"ip_address":"127.0.0.1"}`
+	okResponse     = `{"freighterd_port":65333,"ip_address":"127.0.0.1","id":"i-abcde"}`
 	errorResponse  = `{"error":"some error occurred"}`
 )
 
