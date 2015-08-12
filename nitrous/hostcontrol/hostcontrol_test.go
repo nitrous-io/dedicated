@@ -76,10 +76,11 @@ var _ = Describe("hostcontrol", func() {
 			var err error
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
-					State:            host.StateRunning,
-					IPAddress:        sql.NullString{"127.0.0.1", true},
-					FreighterdPort:   sql.NullInt64{65333, true},
-					RegionIdentifier: sql.NullString{"us-east-1", true},
+					State:              host.StateRunning,
+					IPAddress:          sql.NullString{"127.0.0.1", true},
+					FreighterdPort:     sql.NullInt64{65333, true},
+					RegionIdentifier:   sql.NullString{"us-east-1", true},
+					ProviderIdentifier: sql.NullString{"i-abcde", true},
 				},
 				U: u,
 			})
@@ -89,7 +90,7 @@ var _ = Describe("hostcontrol", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should send the UUID headers", func() {
+		It("should send the UUID header", func() {
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
 			rt := &test.FakeRoundTripper{
 				Message: stopOkResponse,
@@ -123,9 +124,9 @@ var _ = Describe("hostcontrol", func() {
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
-			Expect(payload.ID).To(Equal(h.ProviderIdentifier.String), "invalid id")
-			Expect(payload.IPAddress).To(Equal(h.IPAddress.String), "invalid ip_address")
-			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(payload.ID).To(Equal("i-abcde"))
+			Expect(payload.IPAddress).To(Equal("127.0.0.1"))
+			Expect(payload.Region).To(Equal("us-east-1"))
 			Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
 		})
 
@@ -143,11 +144,23 @@ var _ = Describe("hostcontrol", func() {
 			It("updates the host state to stopped", func() {
 				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
 
-				var err error
-				h, err = host.Find(db, u, h.Slug)
+				h, err := host.Find(db, u, h.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateStopped))
 				Expect(events).To(ConsistOf(hostcontrol.EventHostStopping, hostcontrol.EventHostStopped))
+			})
+
+			It("updates the host's provider identifier with the ID in hostbuilder's response", func() {
+				Expect(h.ProviderIdentifier.String).To(Equal("i-abcde"))
+
+				Expect(hostcontrol.Stop(db, h, hbHeaders(), evCallback, u.ID)).To(BeNil())
+
+				h, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				// Because hostbuilder responded with an empty ID, we check that
+				// the provider identifier is cleared.
+				Expect(h.ProviderIdentifier.String).To(Equal(""))
 			})
 
 			It("logs transitions for the host", func() {

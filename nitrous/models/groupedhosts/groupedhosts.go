@@ -33,16 +33,6 @@ type hostEntriesByID []*HostEntry
 type dbHostsByID []*host.Host
 type liveHostsByID []*hostbuilder.Response
 
-type HostIndex map[string](*HostEntry)
-
-type HostList struct {
-	AllHosts          []*HostEntry
-	HealthyHosts      []*HostEntry
-	DanglingHosts     []*host.Host
-	UnaccountedHosts  []*hostbuilder.Response
-	InconsistentHosts []*HostEntry
-}
-
 func (entries hostEntriesByID) Len() int {
 	return len(entries)
 }
@@ -96,6 +86,14 @@ func (entries liveHostsByID) Swap(i, j int) {
 	entries[i], entries[j] = entries[j], entries[i]
 }
 
+type HostList struct {
+	AllHosts          []*HostEntry
+	HealthyHosts      []*HostEntry
+	DanglingHosts     []*host.Host
+	UnaccountedHosts  []*hostbuilder.Response
+	InconsistentHosts []*HostEntry
+}
+
 func (list *HostList) sort() {
 	sort.Sort(hostEntriesByID(list.AllHosts))
 	sort.Sort(hostEntriesByID(list.HealthyHosts))
@@ -104,11 +102,16 @@ func (list *HostList) sort() {
 	sort.Sort(hostEntriesByID(list.InconsistentHosts))
 }
 
-func (index HostIndex) getEntry(id string) *HostEntry {
-	entry, ok := index[id]
+// ProviderIdentifier -> HostEntry map.
+type HostIndex map[string](*HostEntry)
+
+// getEntry returns the HostEntry with the given key. It initializes and returns
+// a pointer to a zero-value HostEntry if no entry exists.
+func (index HostIndex) getEntry(key string) *HostEntry {
+	entry, ok := index[key]
 	if !ok {
 		entry = &HostEntry{}
-		index[id] = entry
+		index[key] = entry
 	}
 	return entry
 }
@@ -117,20 +120,26 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	index := HostIndex{}
 	danglingHosts := []*host.Host{}
 
-	for _, liveHost := range liveHosts {
-		id := liveHost.ID
-
-		entry := index.getEntry(id)
-		entry.LiveHost = liveHost
+	for _, h := range liveHosts {
+		entry := index.getEntry(h.ID)
+		entry.LiveHost = h
 	}
 
 	for _, dbHost := range dbHosts {
 		pid := dbHost.ProviderIdentifier
-		if pid.Valid {
+		if pid.String != "" {
 			entry := index.getEntry(pid.String)
 			entry.DBHost = dbHost
 			continue
 		}
+
+		// A host that is stopped and missing a provider identifier is a hotswap
+		// host whose instance has been released to an instance pool, and so
+		// can be regarded as healthy.
+		if dbHost.State == host.StateStopped && dbHost.ProviderIdentifier.String == "" {
+			continue
+		}
+
 		if dbHost.State == host.StateBorn && time.Since(*dbHost.CreatedAt) < defaultGracePeriod {
 			continue // allow some time for provider to build host
 		}
@@ -147,6 +156,7 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 	if liveState == strings.ToLower(dbHost.State) {
 		return true
 	}
+
 	// Note: if doing lookup for each host turns out to be too slow,
 	// we'll have to rework it to grab more transitions in one go
 	transition, err := hosttransition.FindMostRecentForHost(db, dbHost.ID)
