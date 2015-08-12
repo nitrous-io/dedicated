@@ -188,6 +188,11 @@ func attachNewUserVolume(ctx *host.HostContext) error {
 		return err
 	}
 
+	// Tag volume so it has useful metadata.
+	if err := h.tagVolume(vol.VolumeId); err != nil {
+		return err
+	}
+
 	h.Printf("attaching new user volume %s to instance %s", vol.VolumeId, h.instance.InstanceId)
 
 	// Attach volume to instance.
