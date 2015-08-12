@@ -168,6 +168,9 @@
     border-bottom: 1px solid rgba(0,0,0,.3)
 
   .no-hero
+    .hero-copy
+      margin-top: -8px
+      
     border: 0
     
 // --------------------------------------
@@ -185,6 +188,12 @@
 // Home
 #home
   .hero
+    background-color: #2C3944
+    background-image: linear-gradient(10deg, rgba(44,57,68,.3) 40%, rgba(44,57,68,.9) 100%), image_url('home/home-hero-bg.jpg')
+    background-position: top center
+    background-repeat: no-repeat
+    background-size: cover
+    
     .shadows, .patternshadows
       position: absolute
       top: 0
@@ -195,7 +204,7 @@
       z-index: 1
 
     .shadows
-      background-image: linear-gradient(0deg, rgba(42,50,57,0.00) 47%, rgba(42,50,57,0.80) 90%)
+      background-image: linear-gradient(0deg, rgba(42,50,57,0) 47%, rgba(42,50,57,0.30) 90%)
       opacity: 1
       animation: fadeIn 3.15s
       animation-iteration-count: 1
