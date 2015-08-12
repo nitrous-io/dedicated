@@ -12,8 +12,8 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
-// List returns all instances in the current region. To perform list of
-// multiple regions, use one List() request for each region.
+// List returns all instances in all known regions, except instances that are
+// in an instance pool.
 func (h *Host) List() ([]*host.Info, error) {
 	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
@@ -50,7 +50,6 @@ func (h *Host) List() ([]*host.Info, error) {
 				}
 
 				instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
-
 				if err != nil {
 					errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
 					h.Printf(errmsg)
@@ -65,20 +64,21 @@ func (h *Host) List() ([]*host.Info, error) {
 
 				for _, reservation := range instancesResp.Reservations {
 					for _, instance := range reservation.Instances {
-						checkInstance := false
-						// Tags is array of Tag. There is no way to check tag by key
-						for _, tag := range instance.Tags {
-							if tag.Key == "dedicated" && tag.Value == h.driverConfig.Env {
-								checkInstance = true
-								break
-							}
+						// We only care about instances that are tagged with
+						// "dedicated=<driverConfig.Env>"
+						env := tagValue("dedicated", instance.Tags)
+						if env != h.driverConfig.Env {
+							continue
 						}
 
-						if !checkInstance {
+						// Don't return instances that are in an instance pool.
+						inPool := tagValue(poolTag, instance.Tags)
+						if inPool == "true" {
 							continue
 						}
 
 						info := &host.Info{
+							Name:           tagValue("Name", instance.Tags),
 							Provider:       h.DriverName(),
 							ID:             instance.InstanceId,
 							IPAddress:      instance.PublicIpAddress,
@@ -86,14 +86,6 @@ func (h *Host) List() ([]*host.Info, error) {
 							State:          getState(&instance),
 							Region:         region.Name,
 							LaunchTime:     &instance.LaunchTime,
-						}
-
-						// Get EC2 instance name
-						for _, tag := range instance.Tags {
-							if tag.Key == "Name" {
-								info.Name = tag.Value
-								break
-							}
 						}
 
 						regionInfos = append(regionInfos, info)
@@ -112,4 +104,13 @@ func (h *Host) List() ([]*host.Info, error) {
 		err = fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))
 	}
 	return infos, err
+}
+
+func tagValue(key string, tags []ec2.Tag) string {
+	for _, tag := range tags {
+		if tag.Key == key {
+			return tag.Value
+		}
+	}
+	return ""
 }
