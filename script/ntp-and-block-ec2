@@ -2,8 +2,8 @@
 set -e
 
 # Install ntp. It will sync in max 30 minutes since first execution
-sudo apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" ntp
+sudo apt-get update -qq
+DEBIAN_FRONTEND=noninteractive apt-get install -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" ntp
 
 # Forced sync
 sudo ntpdate -u 0.ubuntu.pool.ntp.org
