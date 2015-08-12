@@ -1,1 +1,2 @@
-App.SidebarController = Em.Controller.extend()
+App.SidebarController = Em.Controller.extend
+  needs: ['orgs', 'org']

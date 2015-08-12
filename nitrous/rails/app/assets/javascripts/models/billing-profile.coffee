@@ -5,6 +5,7 @@ App.BillingProfile = klass = App.Model.extend
   id: attr('number', serialize: false)
   state: attr()
   userId: attr('number', as: 'user_id', serialize: false)
+  orgId: attr('number', as: 'org_id', serialize: false)
   lastFour: attr(as: 'last_four', serialize: false)
   cardType: attr(as: 'card_type', serialize: false)
   expMonth: attr(as: 'exp_month', serialize: false)

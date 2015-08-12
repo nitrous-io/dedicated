@@ -50,6 +50,7 @@ type Plan struct {
 	SSH             bool  `db:"ssh"`
 	CustomDomain    bool  `db:"custom_domain"`
 	CustomTemplates bool  `db:"custom_templates"`
+	Org             bool  `db:"org"`
 }
 
 type PlanPricing struct {
@@ -70,6 +71,9 @@ func (p *Plan) CanUpgradeToPlan(newPlan *Plan) bool {
 		return false
 	}
 	if newPlan == nil {
+		return false
+	}
+	if p.Org != newPlan.Org {
 		return false
 	}
 
@@ -184,8 +188,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org)
 		RETURNING *;`)
 	if err != nil {
 		return err

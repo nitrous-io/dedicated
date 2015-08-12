@@ -1,0 +1,28 @@
+.card-body
+  if org.members
+    ul.ui.list.item-1-line.with-margins
+      each member in org.members
+        = org-member-row member=member user=user org=org allowedRoles=allowedRoles
+  else
+    if loading
+      p.hint-text
+        i.spinner
+        | Loading...
+
+  if canAddMember
+    .form-wrapper
+      form.container-config submit='add'
+        .ui.input-group.container-config-form
+          table.ui.table
+            thead
+              tr
+                th Add new member
+            tbody
+              tr
+                td
+                  = input type='text' placeholder='Username or Email' required=true value=newMemberUsername disabled=saving
+                td
+                  .ui.select
+                    Ember.Select content=allowedRoles value=newMemberRole name='new_member_role' disabled=saving
+                td
+                  input.ui.btn.raised type='submit' value='Add' disabled=saving

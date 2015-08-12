@@ -40,6 +40,14 @@ App.Router.map ->
       @route 'new'
       @route 'pull'
 
+    @resource 'orgs', path: '/orgs', ->
+      @route 'new'
+
+    @resource 'org', path: '/orgs/:orgSlug', ->
+      @route 'members'
+      @route 'billing'
+      @route 'add-card', path: '/billing/add-card'
+
     @resource 'account'
     @resource 'add-phone'
     @resource 'billing'

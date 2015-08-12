@@ -7,6 +7,9 @@ import (
 )
 
 type BillingProfile struct {
+	ID        int64      `json:"id"`
+	UserID    int64      `json:"user_id"`
+	OrgID     *int64     `json:"org_id"` // can be null
 	LastFour  string     `json:"last_four"`
 	CardType  string     `json:"card_type"`
 	ExpMonth  int64      `json:"exp_month"`
@@ -25,7 +28,9 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 	if b == nil {
 		return nil
 	}
-	return &BillingProfile{
+	serialized := &BillingProfile{
+		ID:               b.ID,
+		UserID:           b.UserID,
 		LastFour:         b.LastFour.String,
 		CardType:         b.CardType.String,
 		ExpMonth:         b.ExpMonth.Int64,
@@ -36,4 +41,10 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		CardRequired:     b.IsCardRequired(),
 		HasBillingIssues: b.HasBillingIssues(),
 	}
+	if b.OrgID.Valid {
+		serialized.OrgID = &b.OrgID.Int64
+	} else {
+		serialized.OrgID = nil
+	}
+	return serialized
 }

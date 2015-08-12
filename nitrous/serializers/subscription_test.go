@@ -71,5 +71,24 @@ var _ = Describe("subscription serializer", func() {
 				"host_slug": "abc"
 			}`))
 		})
+
+		It("includes the org ID if present", func() {
+			model.OrgID = sql.NullInt64{23, true}
+			b := serializers.SerializeSubscription(model)
+			o, err := json.Marshal(b)
+			Expect(err).To(BeNil())
+			Expect(o).To(MatchJSON(`{
+				"slug": "xcv4xa",
+				"billing_profile_id": 2,
+				"plan_id": 3,
+				"state": "activate",
+				"current_period_start": "2015-06-01T00:00:00Z",
+				"current_period_end": "2015-07-01T00:00:00Z",
+				"created_at": "2014-11-01T00:00:00Z",
+				"updated_at": "2014-11-01T00:00:00Z",
+				"cancel_pending": false,
+				"org_id": 23
+			}`))
+		})
 	})
 })

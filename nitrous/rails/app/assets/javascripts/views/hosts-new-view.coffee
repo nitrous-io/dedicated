@@ -64,9 +64,6 @@ App.HostsNewView = Em.View.extend App.InjectTerminalIframeMixin,
         @$('[autofocus]').focus()
       , 200)
 
-  willDestroyElement: ->
-    @_super()
-
   selectRegionDidChange: (->
     if App.get('onboardingScreen') == 'select-region'
       App.trigger 'next-onboarding'

@@ -476,7 +476,7 @@ var _ = Describe("models/user", func() {
 		})
 
 		Context("when some error occurrs during the transaction", func() {
-			It("returns an the error", func() {
+			It("returns the error", func() {
 				tx, err := db.Beginx()
 				Expect(err).To(BeNil())
 
@@ -1393,6 +1393,7 @@ var _ = Describe("models/user", func() {
 		It("sends a request to Stripe to create a customer", func() {
 			u.ActivateBillingProfile(db, "token")
 
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method":             "POST",
 				"path":               "/customers",
@@ -1407,6 +1408,7 @@ var _ = Describe("models/user", func() {
 		It("should send a request if a token is not provided", func() {
 			u.ActivateBillingProfile(db, "")
 
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
 				"method":             "POST",
 				"path":               "/customers",
@@ -1425,6 +1427,8 @@ var _ = Describe("models/user", func() {
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())
 
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
 				Expect(b.ID).NotTo(BeNil())
 				Expect(b.UserID).To(Equal(u.ID))
 				Expect(b.StripeID.String).To(Equal("sc_01"))
@@ -1435,7 +1439,7 @@ var _ = Describe("models/user", func() {
 				Expect(b.PendingActivation).To(BeFalse())
 			})
 
-			It("should create a record without a card", func() {
+			It("should create a record if no card is provided", func() {
 				resp := `{
 					"id": "sc_01",
 					"email": "user@example.com",
@@ -1447,6 +1451,8 @@ var _ = Describe("models/user", func() {
 				b, err := u.ActivateBillingProfile(db, "token")
 				Expect(err).To(BeNil())
 
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
 				Expect(b.ID).NotTo(BeNil())
 				Expect(b.UserID).To(Equal(u.ID))
 				Expect(b.StripeID.String).To(Equal("sc_01"))
@@ -1456,6 +1462,7 @@ var _ = Describe("models/user", func() {
 				Expect(b.ExpYear.Int64).To(BeZero())
 				Expect(b.State).To(Equal("no_card"))
 				Expect(b.PendingActivation).To(BeFalse())
+
 			})
 
 			It("should not allow a banned card", func() {
@@ -1486,6 +1493,11 @@ var _ = Describe("models/user", func() {
 
 				_, err = u.ActivateBillingProfile(db, "token")
 				Expect(err).To(Equal(user.ErrCardBanned))
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(2))
+				delReq := fakeStripe.ReceivedRequests[1]
+				Expect(delReq["method"]).To(Equal("DELETE"))
+				Expect(delReq["path"]).To(Equal("/customers/sc_01"))
 			})
 		})
 

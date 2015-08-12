@@ -11,6 +11,7 @@ type Host struct {
 	UserID             int64  `json:"user_id"`
 	RegionID           int64  `json:"region_id"`
 	PlanID             int64  `json:"plan_id"`
+	OrgID              *int64 `json:"org_id"`
 	Slug               string `json:"slug"`
 	Name               string `json:"name"`
 	IPAddress          string `json:"ip_address"`
@@ -89,6 +90,11 @@ func SerializeHost(h *host.Host) *Host {
 	}
 	if h.LastPingedAt.Valid {
 		serialized.LastPingedAt = &(h.LastPingedAt.Time)
+	}
+	if h.OrgID.Valid {
+		serialized.OrgID = &h.OrgID.Int64
+	} else {
+		serialized.OrgID = nil
 	}
 	return serialized
 }

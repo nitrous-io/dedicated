@@ -11,9 +11,12 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -55,7 +58,6 @@ var _ = Describe("controllers/subscriptions", func() {
 		}
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
-		Expect(u.ID).NotTo(BeZero())
 
 		t = &token.Token{
 			UserID: u.ID,
@@ -135,6 +137,120 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(subs[0].UpdatedAt).NotTo(BeNil())
 			Expect(subs[0].Plan).ToNot(BeNil())
 			Expect(subs[0].Plan.Slug).To(Equal("plan-a"))
+		})
+	})
+
+	Describe("GET /api/v0/orgs/{org_slug}/subscriptions", func() {
+		var (
+			s  *subscription.Subscription
+			bp *billingprofile.BillingProfile
+			o  *org.Org
+		)
+
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/orgs/foobar/subscriptions", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+
+			// Insert plan
+			p := &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+				Hidden:        true,
+			}
+			p.Insert(db)
+
+			// Insert user subscriptions
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			uS := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_2xx", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, uS.Insert)
+			Expect(err).To(BeNil())
+
+			// Insert org subscriptions
+			bp, err = billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_1x22", true},
+				Slug:             "orgSub",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("should return subscriptions", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("responds with subscriptions", func() {
+			res := doRequest()
+			var subscriptions struct {
+				Subscriptions []*serializers.Subscription `json:"subscriptions"`
+			}
+
+			err := json.NewDecoder(res.Body).Decode(&subscriptions)
+			Expect(err).To(BeNil())
+			subs := subscriptions.Subscriptions
+			Expect(subs).To(HaveLen(1))
+			Expect(subs[0].Slug).To(Equal(s.Slug))
+			Expect(subs[0].PlanID).To(Equal(s.PlanID))
+			Expect(subs[0].State).To(Equal(s.State))
+			Expect(subs[0].BillingProfileID).To(Equal(bp.ID))
+			Expect(subs[0].CreatedAt).NotTo(BeNil())
+			Expect(subs[0].UpdatedAt).NotTo(BeNil())
+			Expect(subs[0].Plan).ToNot(BeNil())
+			Expect(subs[0].Plan.Slug).To(Equal("plan-a"))
+		})
+
+		It("should return forbidden if the user is not the BP owner", func() {
+			_, err := db.Exec("UPDATE org_memberships SET role = $1 WHERE user_id = $2;", orgmembership.RoleAdmin, u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("should return forbidden if the org does not exist", func() {
+			_, err := db.Exec("UPDATE orgs SET slug = 'not_here' WHERE id = $1;", o.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 		})
 	})
 

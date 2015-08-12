@@ -62,6 +62,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -99,6 +100,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -136,6 +138,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -172,6 +175,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -206,6 +210,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",
@@ -233,6 +238,42 @@ var _ = Describe("host serializer", func() {
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
+		It("includes OrgSlug if present", func() {
+			model.OrgID = sql.NullInt64{14, true}
+			b, err := json.Marshal(serializers.SerializeHost(model))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 10,
+				"user_id": 11,
+				"region_id": 12,
+				"plan_id": 13,
+				"org_id": 14,
+				"slug": "wild-rocket-23",
+				"name": "wildrocket.xxx",
+				"ip_address": "1.2.3.4",
+				"static_ip": false,
+				"freighterd_port": 65000,
+				"freighterd_version": "1.0.69-bed0c-88",
+				"docker_version": "1.4.1-nitrous",
+				"provider_identifier": "digitalocean",
+				"hostname": "%s",
+				"proxy_hostname": "%s",
+				"size": "micro",
+				"state": "running",
+				"terminated_at": "2013-11-03T00:00:00Z",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z",
+				"last_pinged_at": "2013-11-02T01:00:00Z",
+				"auto_shutdown": true,
+				"live_docker_version": "1.2-docker",
+				"live_freighterd_version": "2.3-freighterd",
+				"update_available": "hard",
+				"max_containers": 3,
+				"pending_respec": true,
+				"free": true
+			}`, model.Hostname(), model.ProxyHostname())))
+		})
+
 		It("serializes to null JSON when host is nil", func() {
 			b, err := json.Marshal(serializers.SerializeHost(nil))
 			Expect(err).To(BeNil())
@@ -253,6 +294,7 @@ var _ = Describe("host serializer", func() {
 				"user_id": 11,
 				"region_id": 12,
 				"plan_id": 13,
+				"org_id": null,
 				"slug": "wild-rocket-23",
 				"name": "wildrocket.xxx",
 				"ip_address": "1.2.3.4",

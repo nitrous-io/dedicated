@@ -2,15 +2,16 @@ package billingprofiles
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -23,11 +24,11 @@ var (
 	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
 	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
 	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
-	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card has been banned.")
+	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card is banned.")
 )
 
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	bp, err := billingprofile.Find(env.DB, env.User.ID)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -58,7 +59,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingprofile.Find(db, u.ID)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}
@@ -69,11 +70,19 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	if bp.StripeID.Valid {
 		err = bp.UpdateCard(db, cardToken)
 		if err != nil {
-			fmt.Printf("Err: %+v\n", err)
 			return handleBillingError(err)
 		}
 	} else {
-		bp, err = u.ActivateBillingProfile(db, cardToken)
+		if bp.OrgID.Valid {
+			var o *org.Org
+			o, err = org.Find(db, bp.OrgID.Int64)
+			if err != nil {
+				return err
+			}
+			err = o.ActivateBillingProfile(db, bp, cardToken)
+		} else {
+			bp, err = u.ActivateBillingProfile(db, cardToken)
+		}
 		if err != nil {
 			return handleBillingError(err)
 		}
@@ -88,15 +97,27 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		}
 	}
 
+	ser := serializers.SerializeBillingProfile(bp)
+	defer func() {
+		env.Status = http.StatusCreated
+		env.Data = map[string]interface{}{
+			"billing_profile": ser,
+		}
+	}()
+
+	// all other operates are user focused, we skip these if for a Organisation
+	if bp.OrgID.Valid {
+		return nil
+	}
+
 	// determine if this user gets a credit
-	var credited int64
 	if previousPendingActivation && !bp.PendingActivation && bp.StripeFingerprint.String != "" {
 		var count int
 		err = db.QueryRow("SELECT COUNT(*) FROM billing_profiles WHERE stripe_fingerprint = $1;", bp.StripeFingerprint).Scan(&count)
 		if err != nil {
 			logrus.Errorf("Error locating similar Stripe fingerprints, err: %v", err)
 		} else if count <= 1 {
-			credited = awardCredits(db, u)
+			ser.AmountCredited = awardCredits(db, u)
 		}
 	}
 
@@ -111,13 +132,6 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 		env.AddEventData(map[string]interface{}{"upgraded_to_paid_from": previousState})
 	}
 
-	ser := serializers.SerializeBillingProfile(bp)
-	ser.AmountCredited = credited
-
-	env.Status = http.StatusCreated
-	env.Data = map[string]interface{}{
-		"billing_profile": ser,
-	}
 	return nil
 }
 
@@ -129,7 +143,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
 	}
 
-	bp, err := billingprofile.Find(db, env.User.ID)
+	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
 	}

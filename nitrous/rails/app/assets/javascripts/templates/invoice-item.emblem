@@ -1,7 +1,7 @@
 td class={item.isCompute:compute}
   if item.isCompute
     .title
-      a href="#" click='toggleItems target="view"'
+      a href="#" click='toggleItems'
         = item.description
     .items
       table
@@ -9,20 +9,11 @@ td class={item.isCompute:compute}
           = each usage in item.usage
             tr
               td.hours
-                | Running (
-                = toFixed usage.hours 2
-                '
-                = plural usage.hours 'hour' 'hours'
-                | )
+                | Running (#{toFixed usage.hours 2} #{plural usage.hours 'hour' 'hours'})
               td.time
-                = basicdatetime usage.startAt
-                '
-                | -
-                '
-                = basicdatetime usage.endAt
+                | #{basicdatetime usage.startAt} - #{basicdatetime usage.endAt}
   else
     .title
       = item.description
 td.charge
-  | $
-  = currency item.totalChargeDollars
+  | $#{currency item.totalChargeDollars}

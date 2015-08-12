@@ -6,6 +6,7 @@ attr = SM.attr
 App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   slug: attr('string')
   planId: attr('number', as: 'plan_id')
+  orgId: attr('number', as: 'org_id')
   billingProfileId: attr('number', as: 'billing_profile_id')
   state: attr('string', as: 'state')
   currentPeriodStart: attr('date', as: 'current_period_start')
@@ -23,51 +24,41 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     p
   ).property '_plan'
 
+  host: (->
+    if hostSlug = @get('hostSlug')
+      App.get('hosts').findBy('slug', hostSlug)
+  ).property 'hostSlug', 'App.hosts.@each'
+
   totalPriceInDollars: (->
     return unless @get 'plan'
     @get('plan.price') / 100.0
   ).property 'plan'
 
   canUpgrade: (->
-    return true unless @get 'plan'
+    return true unless curPlan = @get('plan')
     App.get('eligiblePlans').any (plan) =>
-      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > @get('plan.price'))
+      plan.get('isPaidPlan') && !plan.get('hidden') && (curPlan.get('org') == plan.get('org')) && (plan.get('price') > @get('plan.price'))
   ).property 'App.eligiblePlans.@each', 'plan'
 
   cancel: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'DELETE',
-        url: "/api/v0/subscriptions/#{@get 'slug'}/cancel",
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-      ).done((retData, status, jqxhr) =>
-        resolve(retData)
-      ).fail (jqxhr) =>
-        reject(jqxhr)
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'DELETE',
+      url: "/api/v0/subscriptions/#{@get 'slug'}/cancel",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
 
   upgrade: (plan_id)->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'POST',
-        url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-        data: { plan_id: plan_id }
-      ).done((retData, status, jqxhr) =>
-        resolve(retData)
-      ).fail (jqxhr) =>
-        reject(jqxhr)
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'POST',
+      url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      data: { plan_id: plan_id }
 
   upgradeEstimate: (plan_id)->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'GET',
-        url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-        data: { plan_id: plan_id }
-      ).done((retData, status, jqxhr) =>
-        resolve(retData)
-      ).fail (jqxhr) =>
-        reject(jqxhr)
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'GET',
+      url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      data: { plan_id: plan_id }
 
 klass.reopenClass
   url: '/subscriptions'

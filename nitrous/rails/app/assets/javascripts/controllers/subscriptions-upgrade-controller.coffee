@@ -1,4 +1,5 @@
 App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActionMixin,
+  needs: ['orgs']
   queryParams: ['planId', 'exceededContainerLimit', 'selectedTemplate', 'containerName']
   planId: null # when being transferred from successful add-card
   exceededContainerLimit: false
@@ -12,12 +13,11 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
   hostsUpgrading: null
   manyHostsUpgrading: false
 
-  paidPlans: (->
+  availablePlans: (->
     return [] unless @get 'model.plan'
-
     curPlan = @get('model.plan')
     App.get('eligiblePlans').filter (plan) ->
-      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > curPlan.get('price'))
+      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('org') == curPlan.get('org')) && (plan.get('price') > curPlan.get('price'))
   ).property 'App.eligiblePlans.@each', 'model.plan'
 
   upgradeSubscriptionDisabled: (->
@@ -49,7 +49,7 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
     selectedPlan = @get('model.plan')
     if (pl = @get 'planId')
       automateUpgrade = true
-      selectedPlan = @get('paidPlans').findBy('id', parseInt(pl))
+      selectedPlan = @get('availablePlans').findBy('id', parseInt(pl))
 
     @set 'selectedPlan', selectedPlan
 
@@ -111,4 +111,7 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
         @set 'upgrading', false
 
     cancel: ->
-      @transitionToRoute 'billing'
+      if orgId = @get('model.orgId')
+        @transitionToRoute 'org.billing', @get('controllers.orgs.collection').findBy('id', orgId).get('slug')
+      else
+        @transitionToRoute 'billing'

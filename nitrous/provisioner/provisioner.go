@@ -25,6 +25,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -56,6 +58,7 @@ var (
 	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrHostCreationNotAllowed         = errors.New("not allowed to create more hosts")
+	ErrOrgPermissionDenied            = errors.New("you do not have access to this organization")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
 	ErrUnknownProvider                = errors.New("unknown provider")
 
@@ -103,6 +106,7 @@ type ProvisionOptions struct {
 	Region   *region.Region
 	Plan     *plan.Plan
 	Template *providertemplate.ProviderTemplate
+	Org      *org.Org
 
 	UUID string
 
@@ -111,6 +115,13 @@ type ProvisionOptions struct {
 
 	ProvisionSucceededFn func(*host.Host)
 	ProvisionFailedFn    func(*host.Host, error)
+}
+
+func (o *ProvisionOptions) OrgID() sql.NullInt64 {
+	if o.Org == nil {
+		return sql.NullInt64{Valid: false}
+	}
+	return sql.NullInt64{o.Org.ID, true}
 }
 
 // job is a request to pre-provision a single host.
@@ -338,14 +349,19 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		opts.AptDist = defaultAPTDist
 	}
 
-	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(p.db)
-	if err != nil {
-		return nil, err
+	if opts.Org != nil {
+		_, err := orgmembership.FindByUsernameAndOrgSlug(p.db, opts.User.Username, opts.Org.Slug)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, ErrOrgPermissionDenied
+			}
+			return nil, err
+		}
 	}
 
-	if !canCreateHosts {
-		return nil, ErrHostCreationNotAllowed
+	// Make sure user is allowed to create more hosts.
+	if err := p.canCreateHosts(opts); err != nil {
+		return nil, err
 	}
 
 	if !opts.BypassPreprovision {
@@ -456,6 +472,7 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 	h.HourlyPrice = opts.Plan.HourlyPrice()
 	h.Free = opts.Plan.IsFree()
 	h.AutoShutdown = opts.Plan.AutoShutdown
+	h.OrgID = opts.OrgID()
 	h.Preprovisioned = false
 	if err = h.UpdateWithPrice(p.db); err != nil {
 		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
@@ -500,6 +517,7 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		AutoShutdown:       opts.Plan.AutoShutdown,
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
+		OrgID:              opts.OrgID(),
 		Preprovisioned:     opts.Preprovision,
 		FreighterdVersion:  fv,
 		DockerVersion:      dv,
@@ -531,15 +549,8 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		}
 	}
 
-	// Make sure user is allowed to create more hosts.
-	canCreateHosts, err := opts.User.CanCreateHosts(tx)
-	if err != nil {
-		tx.Rollback()
+	if err := p.canCreateHosts(opts); err != nil {
 		return nil, err
-	}
-	if !canCreateHosts {
-		tx.Rollback()
-		return nil, ErrHostCreationNotAllowed
 	}
 
 	if err := h.Insert(tx); err != nil {
@@ -734,6 +745,30 @@ func (p *Provisioner) updateProviderDetails(h *host.Host) error {
 		return err
 	}
 	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (p *Provisioner) canCreateHosts(opts ProvisionOptions) error {
+	var (
+		canCreateHosts = false
+		err            error
+	)
+	if opts.Org != nil {
+		canCreateHosts, err = opts.Org.CanCreateHosts(p.db)
+		if err != nil {
+			return err
+		}
+	} else {
+		canCreateHosts, err = opts.User.CanCreateHosts(p.db)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !canCreateHosts {
+		return ErrHostCreationNotAllowed
+	}
+
+	return nil
 }
 
 // generateKey generates and returns a private key together with its public key.

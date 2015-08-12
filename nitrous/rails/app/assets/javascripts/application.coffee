@@ -4,7 +4,9 @@
 #= require pointer_events_polyfill
 #= require jquery.autosize
 #= require jquery.timeago-1.4.1
+#= require jquery.payment
 #= require async-0.2.5
+#= require pubsub-1.5.2
 #= require ui
 #= require_self
 

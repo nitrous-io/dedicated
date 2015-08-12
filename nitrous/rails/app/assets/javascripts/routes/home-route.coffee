@@ -7,11 +7,12 @@ App.HomeRoute = App.AuthedRoute.extend
     hFetch = App.Host.fetch()
     cFetch = App.Container.fetch()
     sFetch = App.SharedContainer.fetch()
+    oFetch = @controllerFor('orgs').reload()
     App.set 'hosts', hFetch.value
     App.set 'containers', cFetch.value
     App.set 'sharedContainers', sFetch.value
 
-    Ember.RSVP.Promise.all [hFetch, sFetch, cFetch]
+    Ember.RSVP.Promise.all [hFetch, sFetch, cFetch, oFetch]
 
   renderTemplate: ->
     @_super()

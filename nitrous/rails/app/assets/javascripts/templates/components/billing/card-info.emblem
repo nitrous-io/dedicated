@@ -1,0 +1,19 @@
+if billingProfile.hasCard
+  table.ui.table.horizontal
+    tr
+      th Card Type
+      td.card-type style=cardImageCss
+        = billingProfile.cardType
+    tr
+      th Last Four Digits
+      td
+        = billingProfile.lastFour
+    tr
+      th Expiry
+      td
+        = billingProfile.expiry
+else
+  table.ui.table.horizontal
+    tr
+      th Card Type
+      td No credit card on file

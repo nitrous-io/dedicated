@@ -25,6 +25,10 @@ App.User = klass = App.Model.extend
 
   advancedBinding: 'App.userProfile.advanced'
 
+  displayName: (->
+    @get('name') || @get('username')
+  ).property 'name', 'username'
+
   gravatar: (->
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=48"
   ).property 'email'

@@ -1,5 +1,4 @@
 App.SubscriptionsUpgradeRoute = App.AuthedRoute.extend
-
   activate: ->
     App.set 'title', 'Upgrade Subscription'
 

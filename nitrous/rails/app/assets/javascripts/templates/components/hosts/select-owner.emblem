@@ -1,0 +1,8 @@
+select name=name value=_initialValue disabled=disabled
+  optgroup label='Personal'
+    option value='(user)'
+      | #{user.displayName} (You)
+  optgroup label='Organization'
+    each org in orgs
+      option value=org.slug
+        = org.name

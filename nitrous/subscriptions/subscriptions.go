@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -35,7 +36,7 @@ import (
 )
 
 type Provider interface {
-	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (*subscription.Subscription, error)
+	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 
@@ -87,19 +88,27 @@ func NewProvider() *SubscriptionProvider {
 	return s
 }
 
-func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User) (sub *subscription.Subscription, err error) {
+func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (sub *subscription.Subscription, err error) {
 	if !p.IsSubscription() {
 		err = ErrNotSubscribablePlan
 		return
 	}
-
-	bp, err := u.BillingProfile(d)
+	var bp *billingprofile.BillingProfile
+	if o != nil {
+		bp, err = billingprofile.FindForOrg(d, o.ID)
+	} else {
+		bp, err = u.BillingProfile(d)
+	}
 	if err != nil {
 		return
 	}
 
 	if !bp.StripeID.Valid {
-		bp, err = u.ActivateBillingProfile(d, "")
+		if o != nil {
+			err = o.ActivateBillingProfile(d, bp, "")
+		} else {
+			bp, err = u.ActivateBillingProfile(d, "")
+		}
 		if err != nil {
 			return
 		}
@@ -234,7 +243,7 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 }
 
 func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {
-	bp, err := u.BillingProfile(d)
+	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
 	if err != nil {
 		return err
 	}
