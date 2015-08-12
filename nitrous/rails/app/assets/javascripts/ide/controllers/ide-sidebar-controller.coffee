@@ -144,6 +144,19 @@ App.IdeSidebarController = Em.ArrayController.extend
     opsSocket = @get 'opsSocket'
     opsSocket.unwatchDir path.get('absolutePath')
 
+  reveal: (path) ->
+    return unless path.get
+    origPath = path
+    while parent = path.get 'parentAbsolutePath'
+      path = App.Path.create absolutePath: parent, directory: true
+      unless path.get 'expanded'
+        @openPath path
+    origPath.set 'showInSidebar', true
+    if previouslySelectedPath = @get 'currentlySelectedPath'
+      previouslySelectedPath.set 'selected', false
+    origPath.set 'selected', true
+    @set 'currentlySelectedPath', origPath
+
   fetchFileList: (path) ->
     opsSocket = @get 'opsSocket'
     path.incrementProperty 'loadCount'

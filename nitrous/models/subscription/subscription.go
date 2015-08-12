@@ -44,6 +44,7 @@ type Subscription struct {
 type SubscriptionWithHostSlug struct {
 	*Subscription
 	HostSlug sql.NullString `db:"host_slug"`
+	OrgID    sql.NullInt64  `db:"org_id"`
 }
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
@@ -80,10 +81,14 @@ func Find(d db.QueryReceiver, id int64) (*Subscription, error) {
 
 func FindBySlug(d db.QueryReceiver, slug string, userID int64) (*Subscription, error) {
 	sub := &Subscription{}
-	err := d.Get(sub, `SELECT subscriptions.* FROM subscriptions
-		INNER JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
-		WHERE subscriptions.slug = $1 AND billing_profiles.user_id = $2;`,
-		slug, userID)
+	err := d.Get(sub, `SELECT s.* FROM subscriptions s
+		INNER JOIN billing_profiles ON billing_profiles.id = s.billing_profile_id
+                LEFT JOIN hosts ON hosts.subscription_id = s.id
+		WHERE s.slug = $1 AND
+                (
+                        (billing_profiles.user_id = $2) OR
+                        (hosts.user_id = $2 AND billing_profiles.org_id IS NOT NULL)
+                );`, slug, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -102,12 +107,29 @@ func FindByUserID(d db.QueryReceiver, id, userID int64) (*Subscription, error) {
 	return sub, nil
 }
 
+func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHostSlug, error) {
+	subscriptions := []*SubscriptionWithHostSlug{}
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
+                JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+                LEFT JOIN hosts ON hosts.subscription_id = s.id
+                WHERE bp.org_id = $1 AND s.cancelled_at IS NULL
+                ORDER BY s.created_at ASC;`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return subscriptions, nil
+}
+
 func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWithHostSlug, error) {
 	subscriptions := []*SubscriptionWithHostSlug{}
-	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug FROM subscriptions s
-			JOIN billing_profiles bp ON bp.id = s.billing_profile_id
-			LEFT JOIN hosts ON hosts.subscription_id = s.id
-			WHERE bp.user_id = $1 AND s.cancelled_at IS NULL ORDER BY s.created_at ASC;`, userID)
+	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
+                JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+                LEFT JOIN hosts ON hosts.subscription_id = s.id
+                WHERE (
+                        (bp.user_id = $1 AND bp.org_id IS NULL) OR
+                        (bp.org_id IS NOT NULL AND hosts.user_id = $1)
+                ) AND s.cancelled_at IS NULL
+                ORDER BY s.created_at ASC;`, userID)
 	if err != nil {
 		return nil, err
 	}

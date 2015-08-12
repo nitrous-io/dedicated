@@ -4,6 +4,31 @@ class Users < Thor
     puts User.find(ident)
   end
 
+  desc "to_ban", "Lists suspicious users that are not banned"
+  def to_ban
+    results = User.query.
+      exclude(suspicious: nil).where(banned_at: nil).
+      order(Sequel.desc(:users__id))
+    puts "Too many results (#{results.count}). Displaying most recent 5" if results.count > 5
+    results.to_a.take(5).each do |r|
+      puts "-" * 20
+      puts User.new(r)
+    end
+  end
+
+  desc "forgive IDENT", "Makes user IDENT no longer suspicious"
+  def forgive(ident)
+    u = User.find(ident) {|ds| ds.where(users__deleted_at: nil) }
+    halt "User #{u.username} is not suspicious" if !u.suspicious
+    old_suspicious = u.suspicious
+    DB.transaction do
+      r = DB[:users].where(id: u.uid).update(suspicious: nil)
+      rows_expected!(r, 1)
+    end
+
+    puts "#{u.summary}: suspicious '#{old_suspicious}' => null"
+  end
+
   desc "search TERM", "Searches user usernames and e-mails for TERM"
   def search(term)
     term = term.gsub('_', '\_') # escape for LIKE
@@ -32,7 +57,7 @@ class Users < Thor
       rows_expected!(r, 1)
     end
 
-    puts "User #{u.uid} #{u.username} <#{u.email}>:  phone_authed #{old_authed} => true, bp_state #{old_bp_state} => 'free'"
+    puts "#{u.summary}: phone_authed #{old_authed} => true, bp_state #{old_bp_state} => 'free'"
   end
 end
 

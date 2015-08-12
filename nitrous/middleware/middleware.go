@@ -30,7 +30,6 @@ var (
 	ErrHostNotFound        = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
 	ErrOutstandingInvoices = httperror.New(http.StatusBadRequest, "outstanding_invoices", "you have outstanding invoices, please check your billing settings")
 	ErrNotFound            = httperror.New(http.StatusNotFound, "not_found", "not found")
-	ErrSuspiciousUser      = httperror.New(http.StatusForbidden, "invalid_request", "unexpected error")
 
 	splitIPRe   = regexp.MustCompile(`[,\s]+`)
 	trustedIPRe = regexp.MustCompile(`\A127\.0\.0\.1\z|\A(10|172\.(1[6-9]|2[0-9]|30|31)|192\.168)\.|\A::1\z|\Afd[0-9a-f]{2}:.+|\Alocalhost\z|\Aunix\z|\Aunix:`)
@@ -181,9 +180,6 @@ func VerifyUserBilling(resource string, mw Middleware) Middleware {
 		_, allowed := allowedUnpaidResources[resource]
 
 		if !allowed {
-			if env.User.Suspicious.Valid {
-				return ErrSuspiciousUser
-			}
 			bp, err := env.User.BillingProfile(env.DB)
 			if err != nil {
 				logrus.Errorf("BlockDelinquentUser: error locating billingprofile for %+v err: %+v", env.User, err)

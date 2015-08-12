@@ -1,17 +1,17 @@
 monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
+  "January"
+  "February"
+  "March"
+  "April"
+  "May"
+  "June"
+  "July"
+  "August"
+  "September"
+  "October"
+  "November"
   "December"
-];
+]
 
 Em.Handlebars.helper 'ago', (date) ->
   if date instanceof Date
@@ -21,9 +21,15 @@ Em.Handlebars.helper 'utc', (date) ->
   if date instanceof Date
     date.toUTCString()
 
+Em.Handlebars.helper 'monDayYear', (date) ->
+  if date instanceof Date
+    month = monthNames[date.getMonth()].slice(0, 3)
+    "#{month} #{date.getDate()}, #{date.getFullYear()}"
+
 Em.Handlebars.helper 'simpledate', (date) ->
   if date instanceof Date
-    date.toDateString()
+    month = monthNames[date.getMonth()]
+    "#{month} #{date.getDate()}, #{date.getFullYear()}"
 
 Em.Handlebars.helper 'daymonth', (date) ->
   if date instanceof Date

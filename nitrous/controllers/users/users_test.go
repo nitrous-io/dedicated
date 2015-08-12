@@ -354,7 +354,7 @@ var _ = Describe("controllers/users", func() {
 			err = json.Unmarshal(res.Body.Bytes(), &j)
 			Expect(err).To(BeNil())
 			Expect(j["error"]).To(Equal("email_banned"))
-			Expect(j["error_description"]).To(Equal("this email address has been banned"))
+			Expect(j["error_description"]).To(Equal("this email address is banned"))
 		})
 
 		Context("invited by container collaborator", func() {
@@ -728,7 +728,7 @@ var _ = Describe("controllers/users", func() {
 			Expect(errType).To(Equal("validation_failed"))
 		})
 
-		It("responds with HTTP 400 Bad Request when phone & country code has been banned", func() {
+		It("responds with HTTP 400 Bad Request when phone & country code are banned", func() {
 			b := &user.User{
 				Username: "banner",
 				Password: "123456",
@@ -759,7 +759,7 @@ var _ = Describe("controllers/users", func() {
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("phone_banned"))
-			Expect(errDesc).To(Equal("this phone number has been banned"))
+			Expect(errDesc).To(Equal("this phone number is banned"))
 		})
 
 		It("responds with HTTP 400 Bad Request when phone number is already in the database", func() {

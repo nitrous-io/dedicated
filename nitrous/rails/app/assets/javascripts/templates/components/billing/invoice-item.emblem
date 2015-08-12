@@ -1,0 +1,18 @@
+td class={item.isCompute:compute}
+  if item.isCompute
+    .title
+      = item.description
+    .items
+      table
+        tbody
+          = each usage in item.usage
+            tr
+              td.hours
+                | Running (#{toFixed usage.hours 2} #{plural usage.hours 'hour' 'hours'})
+              td.time
+                | #{basicdatetime usage.startAt} - #{basicdatetime usage.endAt}
+  else
+    .title
+      = item.description
+td.charge
+  | $#{currency item.totalChargeDollars}

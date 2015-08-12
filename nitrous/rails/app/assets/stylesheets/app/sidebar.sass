@@ -12,16 +12,15 @@
     text-transform: uppercase
     color: $n2oGray500
 
-  ul.hosts, ul.containers, ul.apps
-    list-style: none
-    padding: 0
-    margin: 0
-
   li
     position: relative
     line-height: $lineItemHeight
 
-  ul.hosts, ul.containers, ul.apps
+  ul.sidebar-list, ul.containers
+    list-style: none
+    padding: 0
+    margin: 0
+
     > li
       > a
         display: block
@@ -43,7 +42,7 @@
           &:hover
             background: transparent
 
-  ul.hosts
+  ul.sidebar-list
     margin-bottom: 16px
 
     > li
@@ -54,10 +53,6 @@
         padding-bottom: 0
         margin-bottom: 0
 
-  ul.apps
-    margin-bottom: 16px
-
-  ul.hosts, ul.apps
     h3, h4
       color: $n2oGray300
       margin: 0
@@ -85,6 +80,11 @@
         line-height: normal
         padding: 0 0 8px 0
 
+  ul.orgs
+    > li
+      padding-bottom: 0
+      margin-bottom: 0
+
   .state-indicator
     position: absolute
     right: 0
@@ -93,16 +93,14 @@
     width: 10px
     height: 10px
 
-  .sharer-image
-    width: initial
-    height: initial
-    padding: 0
-    margin: 0
-    top: 5px
-    position: absolute
-    right: 5px
+  .gravatar
     width: 20px
     height: 20px
+    padding: 0
+    margin: 0
+    top: 6px
+    position: absolute
+    right: 5px
     border-radius: 1px
 
   .app-download

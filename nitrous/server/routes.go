@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
@@ -162,6 +163,12 @@ func (s *Server) drawRoutes() {
 				"/admin/template/{slug}":              r("admin.TemplateShow", admin.TemplateShow),
 				"/admin/credit_types":                 r("admin.CreditTypes", admin.CreditTypes),
 				"/admin/users/{username}":             r("admin.ShowUser", admin.ShowUser),
+				"/orgs":                               r("orgs.Index", orgs.Index),
+				"/orgs/{slug}":                        r("orgs.Show", orgs.Show),
+				"/orgs/{slug}/members":                r("orgs.Show", orgs.ShowMembers),
+				"/orgs/{org_slug}/billing_profile":    r("billingprofiles.Show", billingprofiles.Show),
+				"/orgs/{org_slug}/subscriptions":      r("subscriptions.Index", subscriptions.Index),
+				"/orgs/{org_slug}/invoices":           r("billing.Invoices", billing.Invoices),
 			},
 			"POST": {
 				"/oauth/authorize":                         r("oauth.PostAuthorize", oauth.PostAuthorize),
@@ -208,17 +215,22 @@ func (s *Server) drawRoutes() {
 				"/admin/change_host_state":                 r("admin.ChangeHostState", admin.ChangeHostState),
 				"/admin/amazon/fix_born/{id}":              r("amazon.FixFromBorn", amazon.FixFromBorn),
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
+				"/orgs":                                    r("orgs.Create", orgs.Create, EventOrgCreated),
+				"/orgs/{org_slug}/billing_profile": r("billingprofiles.Activate", billingprofiles.Activate, EventBillingProfileActivated),
 			},
 			"PUT": {
-				"/users":                       r("users.Update", users.Update, EventUserUpdatedProfile),
-				"/hosts/{slug}":                r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
-				"/hosts/{slug}/versions":       r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
-				"/containers/{slug}/keys":      r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
-				"/user/billing_profile":        r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
-				"/containers/{slug}/metadata":  rNoLog("containers.Metadata", containers.Metadata),
-				"/containers/{slug}/user_data": rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
-				"/admin/host/{slug}":           r("admin.UpdateHost", admin.UpdateHost),
-				"/admin/template/{slug}":       r("admin.TemplateUpdate", admin.TemplateUpdate),
+				"/users":                           r("users.Update", users.Update, EventUserUpdatedProfile),
+				"/hosts/{slug}":                    r("hosts.Update", mw.HostViaPath("slug", hosts.Update)),
+				"/hosts/{slug}/versions":           r("hosts.UpdateVersions", mw.HostViaPath("slug", hosts.UpdateVersions)),
+				"/containers/{slug}/keys":          r("userkeys.Create", userkeys.Create, EventContainerKeyAdded),
+				"/user/billing_profile":            r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
+				"/containers/{slug}/metadata":      rNoLog("containers.Metadata", containers.Metadata),
+				"/containers/{slug}/user_data":     rNoLog("usercontainerdata.SetData", usercontainerdata.SetData),
+				"/admin/host/{slug}":               r("admin.UpdateHost", admin.UpdateHost),
+				"/admin/template/{slug}":           r("admin.TemplateUpdate", admin.TemplateUpdate),
+				"/orgs/{slug}/members":             r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
+				"/orgs/{slug}/members/{username}":  r("orgs.PutMember", orgs.PutMember, EventOrgMemberUpdated),
+				"/orgs/{org_slug}/billing_profile": r("billingprofiles.Update", billingprofiles.Update, EventUserUpdatedBillingProfile),
 			},
 			"DELETE": {
 				"/hosts/{slug}":                           r("hosts.Destroy", mw.HostViaPath("slug", hosts.Destroy), EventHostTerminated),
@@ -233,6 +245,7 @@ func (s *Server) drawRoutes() {
 				"/logout":                                 r("oauth.Logout", oauth.Logout),
 				"/user":                                   r("users.Delete", users.Delete, EventUserDeleted),
 				"/admin/users/{id}/ban":                   r("admin.BanUser", admin.BanUser),
+				"/orgs/{slug}/members/{username}":         r("orgs.RemoveMember", orgs.RemoveMember, EventOrgMemberRemoved),
 			},
 		}
 

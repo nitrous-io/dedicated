@@ -254,6 +254,13 @@ App.IdeMainMenuView = Em.View.extend
           disabled: true
           callback: (controller) ->
             controller.findFindInFiles()
+        separator
+        menuItem 'Reveal in sidebar',
+          macKey: 'shift+ctrl+j', pcKey: 'ctrl+alt+j'
+          chromeMacKey: ['shift+command+j', 'shift+ctrl+j'],     chromePcKey: ['shift+ctrl+j', 'ctrl+alt+j']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.revealInSidebar()
       ]
       menu 'View', [
         menuItem 'Split Editor Pane Vertically',

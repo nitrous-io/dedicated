@@ -226,14 +226,15 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 		pStart := time.Unix(sInv.Start, 0)
 		pEnd := time.Unix(sInv.End, 0)
 		inv := &invoice.Invoice{
-			SubscriptionID: sql.NullInt64{sub.ID, true},
-			TotalCharge:    sInv.Amount,
-			PeriodStart:    &pStart,
-			PeriodEnd:      &pEnd,
-			Attempts:       int(sInv.Attempts),
-			StripeID:       sql.NullString{sInv.ID, true},
-			UserID:         bp.UserID,
-			State:          invoice.StatePaid,
+			SubscriptionID:   sql.NullInt64{sub.ID, true},
+			TotalCharge:      sInv.Amount,
+			PeriodStart:      &pStart,
+			PeriodEnd:        &pEnd,
+			Attempts:         int(sInv.Attempts),
+			StripeID:         sql.NullString{sInv.ID, true},
+			UserID:           bp.UserID,
+			BillingProfileID: sql.NullInt64{bp.ID, true},
+			State:            invoice.StatePaid,
 		}
 		if err := inv.Insert(tx); err != nil {
 			return nil, err
@@ -295,13 +296,14 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, 
 	pStart := time.Unix(sInv.Start, 0)
 	pEnd := time.Unix(sInv.End, 0)
 	inv = &invoice.Invoice{
-		SubscriptionID: sql.NullInt64{sub.ID, true},
-		TotalCharge:    sInv.Amount,
-		PeriodStart:    &pStart,
-		PeriodEnd:      &pEnd,
-		Attempts:       int(sInv.Attempts),
-		StripeID:       sql.NullString{sInv.ID, true},
-		UserID:         bp.UserID,
+		SubscriptionID:   sql.NullInt64{sub.ID, true},
+		TotalCharge:      sInv.Amount,
+		PeriodStart:      &pStart,
+		PeriodEnd:        &pEnd,
+		Attempts:         int(sInv.Attempts),
+		StripeID:         sql.NullString{sInv.ID, true},
+		UserID:           bp.UserID,
+		BillingProfileID: sql.NullInt64{bp.ID, true},
 	}
 	if sInv.Paid {
 		if bp.IsFreeTier() || bp.IsExempt() {
@@ -435,7 +437,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 				return err
 			}
 		} else {
-			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1 FOR UPDATE", inv.UserID)
+			err = tx.Get(bp, "SELECT * FROM billing_profiles WHERE user_id = $1 AND org_id IS NULL FOR UPDATE", inv.UserID)
 			if err != nil {
 				return err
 			}

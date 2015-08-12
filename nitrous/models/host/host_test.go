@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -229,11 +230,18 @@ var _ = Describe("models/host", func() {
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
 
+			o := &org.Org{
+				Slug:  "my-org",
+				Name:  "MyOrg",
+				Email: "org@example.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
 			// insert a valid running host
 			_, err = db.Exec(`INSERT INTO hosts
-				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID)
+				(user_id, slug, region_id, plan_id, provider_template_id, freighterd_version, docker_version, subscription_id, org_id)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				u1.ID, "my-host-1", hs.R.ID, hs.P.ID, hs.PT.ID, fv, dv, s.ID, o.ID)
 			Expect(err).To(BeNil())
 
 			// insert a terminated host
@@ -268,6 +276,7 @@ var _ = Describe("models/host", func() {
 				Expect(hosts[0].UserID).To(Equal(u1.ID))
 				Expect(hosts[0].Slug).To(Equal("my-host-1"))
 				Expect(hosts[0].SubscriptionSlug.String).To(Equal("subslug"))
+				Expect(hosts[0].OrgSlug.String).To(Equal("my-org"))
 			})
 		})
 
@@ -1473,7 +1482,7 @@ var _ = Describe("models/host", func() {
 			Expect(h.Validate()).To(BeNil())
 		})
 
-		It("validates name", func() {
+		It("validates slug", func() {
 			buf := make([]byte, 64)
 			for i := range buf {
 				buf[i] = 'f'

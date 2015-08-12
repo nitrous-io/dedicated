@@ -6,6 +6,22 @@ App.IdePathView = Em.View.extend App.IdeDragDropViewMixin,
   classNameBindings: ['path.selected', 'path.expanded', 'droppable']
   attributeBindings: 'draggable'
 
+  didInsertElement: ->
+    @_super()
+    @showInSidebar()
+
+  showInSidebar: (->
+    return unless @get('path.showInSidebar')
+    @set 'path.showInSidebar', false
+    $this = @$()
+    topPos = $this.position().top
+    par = $this.parents(".tree")
+    parHeight = par.height() / 2
+    targetTop = topPos-parHeight
+    return if par.scrollTop >= targetTop
+    par.scrollTop(targetTop)
+  ).observes 'path.showInSidebar'
+
   click: (event) ->
     this._selectFile event
     controller = @get 'controller'

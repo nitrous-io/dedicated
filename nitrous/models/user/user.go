@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -17,10 +18,11 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
 )
 
@@ -230,7 +232,7 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 		return err
 	}
 
-	return billingprofile.Create(tx, u.ID)
+	return billingprofile.Create(tx, u.ID, sql.NullInt64{Valid: false})
 }
 
 func (u *User) Update(d db.QueryReceiver) error {
@@ -285,7 +287,7 @@ func (u *User) Validate() error {
 	if !emailRe.MatchString(u.Email) {
 		return ErrEmailInvalid
 	}
-	if IsBlacklisted(u.Email) {
+	if blacklist.Check(u.Email) {
 		return ErrEmailBlacklisted
 	}
 
@@ -348,18 +350,7 @@ func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
 		return false, err
 	}
 
-	switch bp.State {
-	// noop for these cases
-	case billingprofile.StatePaid:
-	case billingprofile.StatePaymentDue:
-	case billingprofile.StateExempt:
-
-	case billingprofile.StateFree:
-		// actual checking against allowed quota & plan
-		// is done by models/freetier
-
-	default:
-		// return disallowed if not in any of previous state
+	if !bp.CanCreateHosts() {
 		return false, nil
 	}
 
@@ -587,7 +578,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 }
 
 // ActivateBillingProfile will create a new customer in Stripe and return the updated billing profile.
-func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingprofile.BillingProfile, error) {
+func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billingprofile.BillingProfile, err error) {
 	params := &stripe.CustomerParams{
 		Email: u.Email,
 		Desc:  fmt.Sprintf("Name: %s, Username: %s", u.Name, u.Username),
@@ -603,65 +594,31 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (*billingpro
 	}
 	c, err := customer.New(params)
 	if err != nil {
-		return nil, billingprofile.HandleStripeError(err)
+		err = billingprofile.HandleStripeError(err)
+		return
 	}
 
-	existing, err := u.BillingProfile(d)
-	if err != nil {
-		return nil, err
-	}
-
-	b := &billingprofile.BillingProfile{
-		UserID:            u.ID,
-		StripeID:          sql.NullString{c.ID, true},
-		PendingActivation: false,
-		State:             existing.State,
-	}
-
-	if c.Cards != nil && len(c.Cards.Values) >= 1 {
-		// update the profile with details returned from Stripe
-		crd := c.Cards.Values[0]
-
-		var banned bool
-		err = d.Get(&banned, `SELECT COUNT(*) > 0
-		FROM billing_profiles
-		INNER JOIN users ON users.id = billing_profiles.user_id
-		WHERE banned_at IS NOT NULL AND stripe_fingerprint = $1 LIMIT 1;`, crd.Fingerprint)
+	// remove the Stripe profile to prevent junk in the Stripe dashboard
+	defer func() {
 		if err != nil {
-			return nil, err
+			if err := customer.Del(c.ID); err != nil {
+				logrus.Errorf("Unable to delete customer %s, err: %v", c.ID, err)
+			}
 		}
-		if banned {
-			return nil, ErrCardBanned
+	}()
+
+	bp, err = u.BillingProfile(d)
+	if err != nil {
+		return
+	}
+
+	if err = bp.Activate(d, c); err != nil {
+		if err == billingprofile.ErrCardBanned {
+			err = ErrCardBanned
 		}
-
-		b.LastFour = sql.NullString{crd.LastFour, true}
-		b.CardType = sql.NullString{string(crd.Brand), true}
-		b.ExpMonth = sql.NullInt64{int64(crd.Month), true}
-		b.ExpYear = sql.NullInt64{int64(crd.Year), true}
-		b.StripeFingerprint = sql.NullString{crd.Fingerprint, true}
-		b.State = billingprofile.StatePaid
+		return
 	}
 
-	tx, err := d.Beginx()
-	if err != nil {
-		return nil, err
-	}
-
-	err = b.Update(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("Billing profile update failed for user %s. Reason - %s", u.Username, err)
-	}
-
-	err = u.Update(tx)
-	if err != nil {
-		tx.Rollback()
-		return nil, fmt.Errorf("Update failed for user %s. Reason - %s", u.Username, err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	err = nil
+	return
 }

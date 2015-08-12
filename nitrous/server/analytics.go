@@ -43,7 +43,12 @@ const (
 
 	EventBillingProfileActivated = "Billing Profile Activated"
 
-	EventInvoiceManuallyPaid = "Invoice Manually Paid"
+	EventInvoiceManuallyPaid    = "Invoice Manually Paid"
+	EventOrgInvoiceManuallyPaid = "Org Invoice Manually Paid"
 
 	EventUserDeleted = "User Deleted"
+
+	EventOrgCreated       = "Org Created"
+	EventOrgMemberUpdated = "Org Member Updated"
+	EventOrgMemberRemoved = "Org Member Removed"
 )

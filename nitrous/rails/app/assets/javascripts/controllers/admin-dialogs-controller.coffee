@@ -80,13 +80,14 @@ App.AdminDialogsController = Em.Controller.extend
 
       if hostsToUpdate && freighterdVersion
         reqs = hostsToUpdate.map (host) ->
-          Em.$.ajax
+          Em.RSVP.Promise.cast(Em.$.ajax(
             type: 'PUT'
             url: "/api/v0/admin/host/#{host.get('slug')}"
             cache: false
             data: { freighterd_version: freighterdVersion }
             headers: { Authorization: "Bearer #{App.get 'token'}" }
-        Promise.all(reqs).then ->
+          ))
+        Em.RSVP.Promise.all(reqs).then ->
           App.trigger 'hide-update-hosts'
           App.snackbar.post('Updated given hosts.')
         , (jqxhr) =>

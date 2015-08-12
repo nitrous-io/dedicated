@@ -19,10 +19,11 @@ App.HostsNewRoute = App.AuthedRoute.extend
 
     unless controller.get 'saving'
       controller.clear()
+
     Mp.track Mp.EventDashboardViewedNewHost
 
     # FIXME duplication with add-phone-route, and this may not be the best place
-    # to define 
+    # to define
     # leaving the whitelisted countries inside for consistency with list in add-phone-route
     countryDict = {
        "1": "United States (+1)",

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
@@ -23,6 +24,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -50,10 +53,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		mockClient *freighterclient.MockClient
 
-		u  *user.User
-		t  *token.Token
-		ft *test.FakeTracker
-		hs *test.HostStack
+		u     *user.User
+		t     *token.Token
+		ft    *test.FakeTracker
+		hs    *test.HostStack
+		orgHs *test.HostStack
+		o     *org.Org
 
 		// save the original hostbuilderclient value to be restored later
 		origHostbuilderClient = *hosts.HostbuilderClient
@@ -116,6 +121,20 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 		Expect(err).To(BeNil())
 
+		orgHs, err = test.CreateHostStack(db, &test.HostStack{
+			R: &region.Region{Slug: "use2"},
+			P: &plan.Plan{Name: "OrgLarge", Slug: "org-large", Price: 10000, Org: true},
+		})
+		Expect(err).To(BeNil())
+
+		o = &org.Org{
+			Name:  "Foo Bar, Inc.",
+			Slug:  "foobar",
+			Email: "eng@foobar.com",
+		}
+		err = o.Insert(db)
+		Expect(err).To(BeNil())
+
 		params = &url.Values{}
 		params.Set("name", "rails-host")
 		params.Set("size", hs.P.Slug)
@@ -146,6 +165,28 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		test.MarkDelinquentUser(db, u)
 		res := doRequest(params)
 		test.VerifyDelinquentUserResponse(res)
+	})
+
+	It("should return vague error if user is suspicious and plan is free", func() {
+		_, err := db.Exec(`
+			UPDATE users SET
+				suspicious = 'bad email',
+				phone_authed = true
+			WHERE id = $1
+		`, u.ID)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateFree, u.ID)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec("UPDATE plans SET price = 0 WHERE id = $1", hs.P.ID)
+		Expect(err).To(BeNil())
+
+		res := doRequest(params)
+
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("Unexpected error"))
 	})
 
 	// tests for required params
@@ -208,6 +249,52 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		errType, errDesc := test.ErrorSlug(res.Body)
 		Expect(errType).To(Equal("invalid_request"))
 		Expect(errDesc).To(Equal("no matching plan found"))
+	})
+
+	Context("with an org", func() {
+		BeforeEach(func() {
+			params.Set("size", orgHs.P.Slug)
+			params.Set("region", orgHs.R.Slug)
+			params.Set("org", o.Slug)
+		})
+
+		It("responds with an error if the org could not be found", func() {
+			params.Set("org", "someorg")
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("No matching org found"))
+		})
+
+		It("responds with an error if org is specified and plan selected is not an org plan", func() {
+			params.Set("size", hs.P.Slug)
+			params.Set("region", hs.R.Slug)
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("Not an org plan"))
+		})
+
+		It("responds with an error if the user is not a member of the org", func() {
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("org_forbidden"))
+			Expect(errDesc).To(Equal("You do not have access to this organization"))
+		})
 	})
 
 	It("responds with region disabled when a disabled region is specified", func() {
@@ -371,6 +458,37 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 			h := hosts[0]
 			Expect(h.AutoShutdown).To(BeTrue())
+		})
+
+		Context("if org is speicifed", func() {
+			It("sets the org_id on the host", func() {
+				err := db.WithTransaction(func(t *sqlx.Tx) error {
+					return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
+				})
+				Expect(err).To(BeNil())
+				err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				bp, err := billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+				bp.State = billingprofile.StatePaid
+				Expect(bp.Update(db)).To(BeNil())
+
+				params.Set("org", o.Slug)
+				params.Set("size", orgHs.P.Slug)
+				params.Set("region", orgHs.R.Slug)
+
+				res := doRequest(params)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+
+				h := hosts[0]
+				Expect(h.OrgID.Int64).To(Equal(o.ID))
+			})
 		})
 
 		It("creates a host record for the user when JSON is sent by the client", func() {
@@ -872,22 +990,46 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
-	Context("when user has reached the max hosts limit", func() {
-		It("responds with hosts limit reached", func() {
-			_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 1 WHERE user_id = $1;`, u.ID)
-			Expect(err).To(BeNil())
+	It("responds with hosts limit reached when a user has hit a limit ", func() {
+		_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 1 WHERE user_id = $1;`, u.ID)
+		Expect(err).To(BeNil())
 
-			_, err = test.CreateHostStack(db, &test.HostStack{U: u})
-			Expect(err).To(BeNil())
+		_, err = test.CreateHostStack(db, &test.HostStack{U: u})
+		Expect(err).To(BeNil())
 
-			res := doRequest(params)
+		res := doRequest(params)
 
-			Expect(res.Code).To(Equal(http.StatusForbidden))
+		Expect(res.Code).To(Equal(http.StatusForbidden))
 
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("request_not_allowed"))
-			Expect(errDesc).To(ContainSubstring("not allowed"))
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("request_not_allowed"))
+		Expect(errDesc).To(ContainSubstring("not allowed"))
+	})
+
+	It("does not allow orgs to create a free host", func() {
+		err := db.WithTransaction(func(t *sqlx.Tx) error {
+			return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
 		})
+		Expect(err).To(BeNil())
+		err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+		Expect(err).To(BeNil())
+
+		bp, err := billingprofile.FindForOrg(db, o.ID)
+		Expect(err).To(BeNil())
+		bp.State = billingprofile.StateFree
+		Expect(bp.Update(db)).To(BeNil())
+
+		_, err = db.Exec(`UPDATE plans SET price=0, org=true;`)
+		Expect(err).To(BeNil())
+
+		params.Set("org", o.Slug)
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusForbidden))
+
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("free_plan_not_allowed"))
+		Expect(errDesc).To(ContainSubstring("not allowed"))
 	})
 
 	Context("oauth token failure modes", func() {

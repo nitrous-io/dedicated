@@ -46,6 +46,20 @@ func main() {
 			Amount:   7900,
 			Interval: stripe.PlanInterval("month"),
 		},
+		{
+			ID:       "org-plus",
+			Name:     "Org Plus",
+			Currency: "USD",
+			Amount:   11900,
+			Interval: stripe.PlanInterval("month"),
+		},
+		{
+			ID:       "org-pro",
+			Name:     "Org Pro",
+			Currency: "USD",
+			Amount:   24900,
+			Interval: stripe.PlanInterval("month"),
+		},
 	}
 
 	for _, p := range plans {

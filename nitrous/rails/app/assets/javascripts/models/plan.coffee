@@ -17,7 +17,7 @@ App.Plan = klass = App.Model.extend
   storage: attr()
   mostPopular: attr('boolean', as: 'most_popular')
   subscription: attr('boolean')
-
+  org: attr('boolean')
   hidden: attr('boolean')
 
   maxContainers: attr('number', as: 'max_containers')

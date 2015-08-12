@@ -412,6 +412,20 @@ func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
 	return &resp.Volumes[0], nil
 }
 
+func (h *Host) tagVolume(volumeID string) error {
+	tags := []ec2.Tag{
+		{Key: "dedicated", Value: h.driverConfig.Env},
+		{Key: "dedicated:host_id", Value: strconv.FormatInt(h.Config.HostID, 10)},
+	}
+
+	h.Printf("tagging user volume %s with tags %#v", volumeID, tags)
+	if _, err := h.provider.CreateTags([]string{volumeID}, tags); err != nil {
+		return fmt.Errorf("amazon: failed to tag user volume %s with tags %#v, err: %v", volumeID, tags, err)
+	}
+
+	return nil
+}
+
 // supportsEBSHotswapping returns true if:
 // 1. the configured volume is not attached to an instance.
 // 2. the configured volume is attached to the configured instance as its user
@@ -519,6 +533,14 @@ func createInstance(ctx *host.HostContext) error {
 
 	if h.instance.PublicIpAddress == "" {
 		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceId)
+	}
+
+	// Tag user volume, if instance has one.
+	userDevice := blockDevice(h.instance, userDeviceName)
+	if userDevice != nil {
+		if err := h.tagVolume(userDevice.VolumeId); err != nil {
+			return err
+		}
 	}
 
 	return nil

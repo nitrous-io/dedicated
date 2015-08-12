@@ -7,6 +7,8 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -87,6 +89,27 @@ var _ = Describe("models/billingprofile", func() {
 			Expect(p.UpdatedAt).NotTo(BeNil())
 		})
 
+		It("does not return the billing profile for the given user ID if it belongs to an org", func() {
+			_, err := db.Exec(`DELETE FROM billing_profiles WHERE user_id=$1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			org := &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(org.Insert(db)).To(BeNil())
+
+			_, err = db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state)
+                                VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+
+			p, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(p).To(BeNil())
+		})
+
 		It("billing profile should be cached when called with user.BillingProfile()", func() {
 			bp, err := u.BillingProfile(db)
 			Expect(err).To(BeNil())
@@ -131,6 +154,36 @@ var _ = Describe("models/billingprofile", func() {
 			b, err := billingprofile.FindByID(db, p.ID)
 			Expect(err).To(BeNil())
 			Expect(b).To(Equal(p))
+		})
+	})
+
+	Describe("FindForOrg()", func() {
+		It("returns the billing profile for a given organisation", func() {
+			org := &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(org.Insert(db)).To(BeNil())
+
+			_, err := db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state)
+                                VALUES ($1, $2, $3);`, u.ID, org.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+
+			p, err := billingprofile.FindForOrg(db, org.ID)
+			Expect(err).To(BeNil())
+			Expect(p.State).To(Equal(billingprofile.StateNoCard))
+
+			u, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u.ID).ToNot(Equal(p.ID))
+		})
+
+		It("returns error if there is no given BP for the organisation", func() {
+			p, err := billingprofile.FindForOrg(db, 9999)
+			Expect(p).To(BeNil())
+			Expect(err).To(MatchError(sql.ErrNoRows))
 		})
 	})
 
@@ -318,6 +371,120 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
+	Describe("SetCard()", func() {
+		var (
+			bp *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+		})
+		It("should return an error if the card is banned", func() {
+			u2 := &user.User{
+				Username: "bad",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "bad@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET deleted_at = now(), banned_at = now(), banned_by_id = $1 WHERE id = $2;`, u.ID, u2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
+			Expect(err).To(BeNil())
+
+			strCard := &stripe.Card{
+				Fingerprint: "H0SJieNrXmTdq3qs",
+			}
+			Expect(bp.SetCard(db, strCard)).To(Equal(billingprofile.ErrCardBanned))
+
+			Expect(bp.StripeFingerprint).ToNot(Equal("H0SJieNrXmTdq3qs"))
+		})
+
+		It("set the properties on the card", func() {
+			strCard := &stripe.Card{
+				Fingerprint: "H0SJieNrXmTdq3qs",
+				LastFour:    "1901",
+				Brand:       "AMEX",
+				Month:       8,
+				Year:        2019,
+			}
+			Expect(bp.SetCard(db, strCard)).To(BeNil())
+
+			Expect(bp.PendingActivation).To(BeFalse())
+			Expect(bp.LastFour.String).To(Equal("1901"))
+			Expect(bp.CardType.String).To(Equal("AMEX"))
+			Expect(bp.ExpMonth.Int64).To(Equal(int64(8)))
+			Expect(bp.ExpYear.Int64).To(Equal(int64(2019)))
+			Expect(bp.StripeFingerprint.String).To(Equal("H0SJieNrXmTdq3qs"))
+			Expect(bp.State).To(Equal(billingprofile.StatePaid))
+			Expect(bp.PendingActivation).To(BeFalse())
+		})
+	})
+
+	Describe("Activate", func() {
+		It("should set the BP with a StripeID", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			cus := &stripe.Customer{
+				ID: "cus_12xx35z",
+			}
+			Expect(b.Activate(db, cus)).To(BeNil())
+
+			b1, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(b1.StripeID.String).To(Equal("cus_12xx35z"))
+			Expect(b1.PendingActivation).To(BeFalse())
+			Expect(b1.LastFour.String).To(Equal("2344"))
+		})
+
+		It("should set the BP with card data", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'no_card', pending_activation = TRUE, last_four = '2344' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			b, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			cus := &stripe.Customer{
+				ID: "cus_12xx35z",
+				Cards: &stripe.CardList{
+					Values: []*stripe.Card{
+						&stripe.Card{
+							LastFour:    "1901",
+							Brand:       "AMEX",
+							Month:       8,
+							Year:        2019,
+							Fingerprint: "xcv22sx3",
+						},
+					},
+				},
+			}
+			Expect(b.Activate(db, cus)).To(BeNil())
+
+			b1, err := billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(b1.StripeID.String).To(Equal("cus_12xx35z"))
+			Expect(b1.PendingActivation).To(BeFalse())
+			Expect(b1.LastFour.String).To(Equal("1901"))
+			Expect(b1.CardType.String).To(Equal("AMEX"))
+			Expect(b1.ExpMonth.Int64).To(Equal(int64(8)))
+			Expect(b1.ExpYear.Int64).To(Equal(int64(2019)))
+			Expect(b1.StripeFingerprint.String).To(Equal("xcv22sx3"))
+			Expect(b1.State).To(Equal(billingprofile.StatePaid))
+			Expect(b1.PendingActivation).To(BeFalse())
+		})
+	})
+
 	Describe("UpdateEmail()", func() {
 		var (
 			bp         *billingprofile.BillingProfile
@@ -429,6 +596,102 @@ var _ = Describe("models/billingprofile", func() {
 				State: billingprofile.StatePaid,
 			}
 			Expect(bp.IsFreeOrCardRequired()).To(BeFalse())
+		})
+	})
+
+	Describe("FindForOrgs()", func() {
+		var (
+			o *org.Org
+		)
+		BeforeEach(func() {
+			o = &org.Org{
+				Slug:  "some-org",
+				Name:  "Org",
+				Email: "email@callumj.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
+			_, err := db.Exec(`
+                                INSERT INTO billing_profiles (user_id, org_id, state)
+                                VALUES ($1, $2, $3);`, u.ID, o.ID, billingprofile.StateNoCard)
+			Expect(err).To(BeNil())
+		})
+
+		It("should return orgs for the billing profile owner", func() {
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should return orgs for the org admin", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleAdmin)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should return orgs for the org owner", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleOwner)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(1))
+			Expect(orgs[0].OrgID.Int64).To(Equal(o.ID))
+		})
+
+		It("should not return orgs for the org member", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			Expect(orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleMember)).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
+		})
+
+		It("should not return orgs for non members", func() {
+			u2 := &user.User{
+				Username: "bar",
+				Password: "123456",
+				Email:    "bar@example.com",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			orgs, err := billingprofile.FindForOrgs(db, []int64{o.ID}, u2.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
+		})
+
+		It("should return empty if not given any IDs", func() {
+			orgs, err := billingprofile.FindForOrgs(db, []int64{}, u.ID)
+			Expect(err).To(BeNil())
+			Expect(orgs).To(HaveLen(0))
 		})
 	})
 })

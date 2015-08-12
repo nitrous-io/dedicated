@@ -1,4 +1,5 @@
 App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
+  needs: ['orgs']
   queryParams: ['pendingContainer']
   pendingContainer: false
 
@@ -6,6 +7,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   name: null
   selectedRegion: null
   selectedPlan: null
+  selectedOrgSlug: null
   error: null
   invalidField: null
   host: null
@@ -20,15 +22,40 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   nameFieldEdited: false
 
+  orgs: Em.computed.alias 'controllers.orgs.collection'
+
+  selectedOrg: (->
+    if slug = @get 'selectedOrgSlug'
+      @get('orgs')?.findBy('slug', slug)
+  ).property 'orgs.@each', 'selectedOrgSlug'
+
   paidPlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isPaidPlan') && !plan.get('hidden')
+      plan.get('isPaidPlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
 
   freePlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isFreePlan') && !plan.get('hidden')
+      plan.get('isFreePlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
+
+  orgPlans: (->
+    @get('sortedPlans').filter (plan) ->
+      plan.get('isPaidPlan') && !plan.get('hidden') && plan.get('org')
+  ).property 'sortedPlans.@each'
+
+  selectedOrgSlugDidChange: (->
+    if @get('selectedOrgSlug')
+      # if user wants to create a host under an org and currently selected plan isn't an org plan
+      unless @get 'selectedPlan.org'
+        # select an org plan
+        @set 'selectedPlan', @get('orgPlans.firstObject')
+    else
+      # if user wants to create a host personally and currently selected plan is an org plan
+      if @get 'selectedPlan.org'
+        # select a personal plan
+        @set 'selectedPlan', @get('paidPlans.firstObject')
+  ).observes 'selectedOrgSlug'
 
   clear: ->
     plans = @get 'plans'
@@ -41,6 +68,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       name: null
       sortedPlans: sortedPlans
       selectedRegion: App.get('regions.firstObject')
+      selectedOrgSlug: null
       error: null
       invalidField: null
       host: null
@@ -51,12 +79,16 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       countryDict: null
       freePlanNotAllowed: false
 
-    @set('selectedPlan', @get('paidPlans.firstObject'))
-
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
 
-    plans?.reload()
+    plans?.reload().then =>
+      # if user belongs to an org, choose org owner by default
+      if @get('orgs.length') > 0
+        @set 'selectedPlan', @get('orgPlans.firstObject')
+        @set 'selectedOrgSlug', @get('orgs.firstObject.slug')
+      else
+        @set 'selectedPlan', @get('paidPlans.firstObject')
 
   hasPendingContainer: (->
     @get('pendingContainer') && App.get('pendingContainerData')
@@ -72,6 +104,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).observes 'App.regions.@each'
 
   cardRequired: (->
+    return false if @get('selectedOrg')
     if App.get('billingProfile.exempt')
       return false
 
@@ -80,7 +113,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       return !App.get('billingProfile.hasCard')
 
     false
-  ).property 'App.billingProfile.hasCard', 'selectedPlan.isPaidPlan'
+  ).property 'App.billingProfile.hasCard', 'selectedPlan.isPaidPlan', 'selectedOrg'
 
   hasNextStep: (->
     @get('cardRequired')
@@ -108,6 +141,8 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
           regionId: @get('selectedRegion.id')
           planSlug: @get('selectedPlan.slug')
           planId: @get('selectedPlan.id')
+          orgId: @get('selectedOrg.id')
+          orgSlug: @get('selectedOrg.slug')
           name: @get 'name'
       @set 'host', host
 

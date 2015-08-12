@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
@@ -158,7 +159,7 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 }
 
 func handleNoUser(cn *container.Container, env *middleware.Env, email string) error {
-	if !strings.Contains(email, "@") || user.IsBlacklisted(email) {
+	if !strings.Contains(email, "@") || blacklist.Check(email) {
 		return errUserNotFound
 	}
 

@@ -1,0 +1,20 @@
+.card-header.tab-bar-title
+  h2
+    link-to 'org.index' org.slug
+      = org.displayName
+
+ul.ui.tab-bar.org-tab-bar
+  li class={membersSelected:selected}
+    link-to 'org.members' | Members
+  if canSeeBillingTab
+    li class={billingOrAddCardSelected:selected}
+      link-to 'org.billing' | Billing
+
+if membersSelected
+  = org-members org=org
+else
+  if billingSelected
+     = org-billing org=org
+  else
+    if addCardSelected
+      = org-add-card org=org

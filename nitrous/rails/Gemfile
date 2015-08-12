@@ -7,6 +7,7 @@ gem 'bcrypt', '~> 3.1.10'
 
 gem 'thin', '~> 1.6.3'
 gem 'rack-proxy', '~> 0.5.17'
+gem 'font_assets', '~> 0.1.11'
 
 gem 'jquery-rails', '~> 3.1.2'
 gem 'slim-rails', '~> 3.0.1'

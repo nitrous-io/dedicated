@@ -30,8 +30,9 @@ func init() {
 }
 
 type Invoice struct {
-	ID     int64 `db:"id"`
-	UserID int64 `db:"user_id"`
+	ID               int64         `db:"id"`
+	UserID           int64         `db:"user_id"`
+	BillingProfileID sql.NullInt64 `db:"billing_profile_id"` // temporary NULL will be primary foreign
 
 	SubscriptionID sql.NullInt64 `db:"subscription_id"`
 
@@ -94,9 +95,9 @@ func (i *Invoice) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	nstmt, err := d.PrepareNamed(`INSERT INTO invoices
-    (user_id, subscription_id, total_charge, credit_amount, period_start, period_end, state,
+    (user_id, subscription_id, billing_profile_id, total_charge, credit_amount, period_start, period_end, state,
       available_credit, first_attempt_at, last_attempt_at, attempts, stripe_id, covered_by)
-    VALUES (:user_id, :subscription_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
+VALUES (:user_id, :subscription_id, :billing_profile_id, :total_charge, :credit_amount, :period_start, :period_end, :state,
       :available_credit, :first_attempt_at, :last_attempt_at, :attempts, :stripe_id, :covered_by)
     RETURNING *;`)
 	if err != nil {
@@ -160,6 +161,7 @@ func (i *Invoice) PaymentSucceeded(d *db.Database) error {
 	_, err = tx.Exec(`UPDATE billing_profiles
 		SET state = $1
 		WHERE user_id = $2
+                AND org_id IS NULL
 		AND state NOT IN ($3, $4)
 		AND NOT EXISTS (
 			SELECT id FROM invoices
