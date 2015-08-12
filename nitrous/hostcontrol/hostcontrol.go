@@ -1,6 +1,7 @@
 package hostcontrol
 
 import (
+	"database/sql"
 	"net"
 	"net/http"
 	"strconv"
@@ -19,6 +20,10 @@ import (
 
 type EventType int64
 type EventFunc func(ev EventType)
+
+type HostInfo struct {
+	ID string
+}
 
 const (
 	EventHostStopping EventType = iota + 1
@@ -39,8 +44,9 @@ func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, init
 	}
 
 	urlArgs := host.URLArgsFromHost(h)
-	if _, stopErr := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs); stopErr != nil {
-		if e, ok := stopErr.(net.Error); ok && e.Timeout() {
+	resp, err := HostbuilderClient.Stop(h.Provider, h.MachineConfig(), headers, urlArgs)
+	if err != nil {
+		if e, ok := err.(net.Error); ok && e.Timeout() {
 			logrus.Errorf("hostbuilder timeout stopping host: %v", e)
 		}
 
@@ -52,10 +58,10 @@ func Stop(db *db.Database, h *host.Host, headers http.Header, ev EventFunc, init
 			ev(EventHostUpdated)
 		}
 
-		return stopErr
+		return err
 	}
 
-	if err := OnStopped(db, h, initiatorID); err != nil {
+	if err := OnStopped(db, h, &HostInfo{ID: resp.ID}, initiatorID); err != nil {
 		return err
 	}
 
@@ -102,8 +108,17 @@ func OnStopFailed(db *db.Database, h *host.Host, initiatorID int64, origState st
 	return err
 }
 
-func OnStopped(db *db.Database, h *host.Host, initiatorID int64) error {
-	return RecordNewState(db, h, host.StateStopped, initiatorID)
+func OnStopped(db *db.Database, h *host.Host, info *HostInfo, initiatorID int64) error {
+	origState := h.State
+	h.State = host.StateStopped
+	h.ProviderIdentifier = sql.NullString{info.ID, true}
+
+	return db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := h.Update(tx); err != nil {
+			return err
+		}
+		return hosttransition.Record(tx, h, origState, *h.UpdatedAt, initiatorID)
+	})
 }
 
 func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {

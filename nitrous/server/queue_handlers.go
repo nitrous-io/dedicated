@@ -356,7 +356,8 @@ func (s *Server) handleStopMessage(m *queue.Message) error {
 			return err
 		}
 
-		if err := hostcontrol.OnStopped(s.db, h, queueInfo.RequesterID); err != nil {
+		info := &hostcontrol.HostInfo{ID: queueInfo.Host.ID}
+		if err := hostcontrol.OnStopped(s.db, h, info, queueInfo.RequesterID); err != nil {
 			return err
 		}
 

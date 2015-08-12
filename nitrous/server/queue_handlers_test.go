@@ -721,7 +721,7 @@ var _ = Describe("HostQueueHandler", func() {
 					RequesterID: requester.ID,
 					Host: &hh.Info{
 						Provider:       "docker",
-						ID:             "host-1234",
+						ID:             "", // Host ID is cleared when host is stopped.
 						Region:         "somewhere",
 						Name:           "hostname-1234",
 						IPAddress:      "1.2.3.4",
@@ -750,6 +750,18 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(err).To(BeNil())
 
 				Expect(updatedHost.State).To(Equal(host.StateStopped))
+			})
+
+			It("updates the host's provider identifier", func() {
+				Expect(h.ProviderIdentifier.String).ToNot(BeEmpty())
+
+				err := handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.ProviderIdentifier.String).To(Equal(""))
 			})
 
 			It("logs transitions for the host", func() {
