@@ -148,6 +148,28 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		test.VerifyDelinquentUserResponse(res)
 	})
 
+	It("should return vague error if user is suspicious and plan is free", func() {
+		_, err := db.Exec(`
+			UPDATE users SET
+				suspicious = 'bad email',
+				phone_authed = true
+			WHERE id = $1
+		`, u.ID)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateFree, u.ID)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec("UPDATE plans SET price = 0 WHERE id = $1", hs.P.ID)
+		Expect(err).To(BeNil())
+
+		res := doRequest(params)
+
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("invalid_request"))
+		Expect(errDesc).To(Equal("Unexpected error"))
+	})
+
 	// tests for required params
 	for _, param := range []string{"size", "region", "name"} {
 		p := param

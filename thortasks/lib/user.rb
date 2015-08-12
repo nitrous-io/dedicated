@@ -1,6 +1,6 @@
 class User
   ATTRS = %i(uid username email confirmed_at phone_authed
-    deleted_at banned_at bp_state sub_state)
+    deleted_at banned_at suspicious bp_state sub_state)
 
   attr_reader *ATTRS
 
@@ -21,6 +21,10 @@ class User
     lines << "Can create free? #{can_create_free?}"
 
     lines.join("\n")
+  end
+
+  def summary
+    "User #{uid} #{username} <#{email}>"
   end
 
   def can_create_free?
