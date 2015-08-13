@@ -17,21 +17,22 @@ var _ = Describe("usersettings serializer", func() {
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
 		model = &user.Settings{
-			ID:                1,
-			UserID:            2,
-			AutoCloseBrackets: true,
-			HighlightLine:     true,
-			Keybindings:       "vim",
-			MatchBrackets:     false,
-			RulerColumn:       80,
-			ShowLineNumbers:   true,
-			ShowTrailingSpace: true,
-			SoftTabs:          true,
-			TabSize:           4,
-			Theme:             "base16-dark",
-			WrapLines:         true,
-			CreatedAt:         pq.NullTime{createdAt, true}, // Not serialized.
-			UpdatedAt:         pq.NullTime{updatedAt, true}, // Not serialized.
+			ID:                             1,
+			UserID:                         2,
+			AutoCloseBrackets:              true,
+			HighlightLine:                  true,
+			Keybindings:                    "vim",
+			MatchBrackets:                  false,
+			RulerColumn:                    80,
+			ShowLineNumbers:                true,
+			ShowTrailingSpace:              true,
+			SoftTabs:                       true,
+			TabSize:                        4,
+			Theme:                          "base16-dark",
+			WrapLines:                      true,
+			RemoveTrailingWhitespaceOnSave: true,
+			CreatedAt:                      pq.NullTime{createdAt, true}, // Not serialized.
+			UpdatedAt:                      pq.NullTime{updatedAt, true}, // Not serialized.
 		}
 	)
 
@@ -53,7 +54,8 @@ var _ = Describe("usersettings serializer", func() {
 				"soft_tabs": true,
 				"tab_size": 4,
 				"theme": "base16-dark",
-				"wrap_lines": true
+				"wrap_lines": true,
+				"remove_trailing_whitespace_on_save": true
 			}`))
 		})
 	})

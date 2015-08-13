@@ -200,8 +200,12 @@ App.IdeMainMenuView = Em.View.extend
         separator
         menuItem 'Auto-close Brackets & Quotes',
           callback: (controller) ->
-            controller.toggleAutoCloseBrackets()
+            controller.editToggleAutoCloseBrackets()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCloseBrackets')
+        menuItem 'Remove Trailing Whitespace on Save',
+          callback: (controller) ->
+            controller.editToggleRemoveTrailingWhitespaceOnSave()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.removeTrailingWhitespaceOnSave')
         separator
         menuItem 'Use Vim Key Bindings',
           callback: (controller) ->
