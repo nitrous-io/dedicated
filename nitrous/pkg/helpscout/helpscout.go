@@ -55,10 +55,10 @@ func init() {
 		if envvars.HelpScoutMailboxName == "" || envvars.HelpScoutMailboxName == "disable" {
 			return fmt.Errorf("Helpscout Mailbox ID not set")
 		}
-		if envvars.HelpScoutUserID == -1 {
+		if envvars.HelpScoutUserID == 0 {
 			return fmt.Errorf("Helpscout User ID not set")
 		}
-		if envvars.HelpScoutMailboxID == -1 {
+		if envvars.HelpScoutMailboxID == 0 {
 			return fmt.Errorf("Helpscout Mailbox ID not set")
 		}
 
@@ -82,7 +82,7 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 	}
 
 	if err := validSettings(); err != nil {
-		return fmt.Errorf("HelpScout settings errors: %v.  Did not send %+v", err, string(conversationParam))
+		return fmt.Errorf("HelpScout settings errors: %v.  Did not send", err)
 	}
 
 	req, err := http.NewRequest("POST", reqURL, bytes.NewBuffer(conversationParam))
