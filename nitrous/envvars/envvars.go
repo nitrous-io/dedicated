@@ -53,9 +53,8 @@ var (
 
 	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
 	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
-	HelpScoutPassword    = os.Getenv("HELPSCOUT_PASSWORD")
-	HelpScoutMailboxID   int
-	HelpScoutUserID      int
+	HelpScoutMailboxID   = parseInt("HELPSCOUT_MAILBOX_ID")
+	HelpScoutUserID      = parseInt("HELPSCOUT_USER_ID")
 
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
@@ -121,15 +120,20 @@ func init() {
 	if err != nil {
 		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
 	}
+}
 
-	HelpScoutMailboxID, err = strconv.Atoi(os.Getenv("HELPSCOUT_MAILBOX_ID"))
-	if err != nil {
-		logrus.Fatalf("HELPSCOUT_MAILBOX_ID not set: %v: ", err)
+func parseInt(envvar string) int {
+	v := os.Getenv(envvar)
+	if v == "" || v == "-1" {
+		logrus.Warnf("%s not set", envvar)
+		return -1
 	}
-	HelpScoutUserID, err = strconv.Atoi(os.Getenv("HELPSCOUT_USER_ID"))
+
+	i, err := strconv.Atoi(v)
 	if err != nil {
-		logrus.Fatalf("HELPSCOUT_USER_ID not set: %v: ", err)
+		logrus.Fatalf("Error converting %s=%s to int: %v", envvar, v, err)
 	}
+	return i
 }
 
 func parseBoolWithDefault(s string, def bool) bool {
