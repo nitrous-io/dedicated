@@ -1,19 +1,27 @@
 package feedback_test
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -27,25 +35,30 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/feedback", func() {
 	var (
-		origMailer mailer.Mailer
-		fakeMailer *FakeMailer
-		db         *db.Database
-		svr        *server.Server
-		handler    *mux.Router
-		res        *httptest.ResponseRecorder
+		origHelpScout helpscout.HelpScout
+		fakeHelpScout *FakeHelpScout
+		db            *db.Database
+		svr           *server.Server
+		handler       *mux.Router
+		res           *httptest.ResponseRecorder
 
 		authTokenInputs AuthTokenInputs
 
-		u *user.User
-		t *token.Token
+		bp *billingprofile.BillingProfile
+
+		u  *user.User
+		t  *token.Token
+		p  *plan.Plan
+		s  *subscription.Subscription
+		hs *HostStack
 	)
 
 	BeforeEach(func() {
 		var err error
 
-		origMailer = feedback.Mailer
-		fakeMailer = &FakeMailer{}
-		feedback.Mailer = fakeMailer
+		origHelpScout = feedback.HelpScout
+		fakeHelpScout = &FakeHelpScout{}
+		feedback.HelpScout = fakeHelpScout
 
 		db, err = TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -70,10 +83,56 @@ var _ = Describe("controllers/feedback", func() {
 		}
 		err = t.Insert(db)
 		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`UPDATE billing_profiles SET state = 'delinquent'  WHERE user_id = $1;`, u.ID)
+		Expect(err).To(BeNil())
+
+		hs, err = CreateHostStack(db, &HostStack{
+			PT: &providertemplate.ProviderTemplate{
+				Name:     "default-1",
+				Provider: "amazon",
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"disable_eip": sql.NullString{"true", true},
+					},
+				},
+			},
+		})
+		Expect(err).To(BeNil())
+
+		bp, err = u.BillingProfile(db)
+		Expect(err).To(BeNil())
+
+		p = &plan.Plan{
+			Slug:          "plan-a",
+			Name:          "cozy-workplace",
+			MaxContainers: 16,
+			Storage:       "1024 GB",
+			Price:         1024,
+			Memory:        "68 GB",
+		}
+		err = p.Insert(db)
+		Expect(err).To(BeNil())
+
+		s = &subscription.Subscription{
+			PlanID:           p.ID,
+			BillingProfileID: bp.ID,
+			State:            "active",
+			StripeID:         sql.NullString{"sub_ABC", true},
+			Slug:             "Sub1",
+		}
+		err = WrapInTransaction(db, s.Insert)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`INSERT INTO hosts 
+(user_id, plan_id, region_id, subscription_id, state, slug, provider_template_id, freighterd_version, docker_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			u.ID, p.ID, hs.R.ID, s.ID, host.StateRunning, "abc", hs.PT.ID, "xyz", "abc")
+		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
-		feedback.Mailer = origMailer
+		feedback.HelpScout = origHelpScout
 		if db != nil {
 			db.Close()
 		}
@@ -96,31 +155,74 @@ var _ = Describe("controllers/feedback", func() {
 			It("sends successfully", func() {
 				subject := "All your server are belong to us"
 				body := "You have no chance to survive make your time."
+				userAgent := "Mozilla"
+				platform := "MacIntel"
+				currentURL := "https://nitrous.io"
 
 				params := &url.Values{}
 				params.Set("subject", subject)
 				params.Set("body", body)
+				params.Set("userAgent", userAgent)
+				params.Set("platform", platform)
+				params.Set("currentURL", currentURL)
 
 				doRequest("valid-token", params)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				Expect(fakeMailer.SendMailCalled).To(BeTrue())
-				Expect(fakeMailer.From).To(Equal(`"Nitrous" <mailer@nitrous.io>`))
-				Expect(fakeMailer.Tos).To(Equal([]string{envvars.SupportEmail}))
-				Expect(fakeMailer.Ccs).To(Equal([]string{`"CATS" <cats@example.com>`}))
-				Expect(fakeMailer.Bccs).To(BeNil())
-				Expect(fakeMailer.ReplyTo).To(Equal(`"CATS" <cats@example.com>`))
-				Expect(fakeMailer.Subject).To(Equal("[nitrous-pro] " + subject))
-				Expect(fakeMailer.Body).To(Equal("Username: cats\nName: CATS\nEmail: cats@example.com\n" + body))
+				Eventually(func() int {
+					return fakeHelpScout.CreateConversationCalled
+				}).Should(Equal(1))
+
+				Eventually(func() helpscout.Person {
+					return fakeHelpScout.Customer
+				}).Should(Equal(helpscout.Person{ID: 0, Email: "cats@example.com", Username: "cats", FirstName: "CATS", Type: "customer"}))
+
+				Eventually(func() string {
+					return fakeHelpScout.Subject
+				}).Should(Equal("[nitrous-pro] All your server are belong to us"))
+
+				Eventually(func() helpscout.MailboxRef {
+					return fakeHelpScout.Mailbox
+				}).Should(Equal(helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}))
+
+				Eventually(func() string {
+					return fakeHelpScout.Threads[0].Body
+				}).Should(Equal("<strong>Username</strong>: cats\n<strong>Name</strong>: CATS\n<strong>Email</strong>: cats@example.com\nYou have no chance to survive make your time.\n"))
+
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring(fmt.Sprintf("<strong>User Info:</strong><br>ID: %v", u.ID)))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<br>Username: cats<br>Email: cats@example.com<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("Phone Authed: false<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("Billing Profile State: delinquent<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Workspace(s) Info</strong>: <br>Slug: abc<br>Region Identifier: <br>State: running<br>Plan Name: cozy-workplace<br>Subscription State: active<br>"))
 
 				j := map[string]interface{}{}
+
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["status"].(string)).To(Equal("ok"))
 			})
 		}
 
-		Context("when subject and body are provided", func() {
+		Context("when customer, subject, mailbox and body are provided", func() {
 			ItSendsSuccessfully()
 		})
 
@@ -137,7 +239,7 @@ var _ = Describe("controllers/feedback", func() {
 				doRequest("valid-token", nil)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
-				Expect(fakeMailer.SendMailCalled).To(BeFalse())
+				Expect(fakeHelpScout.CreateConversationCalled).To(Equal(0))
 
 				j := map[string]interface{}{}
 				err := json.Unmarshal(res.Body.Bytes(), &j)
