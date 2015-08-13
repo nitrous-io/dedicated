@@ -3,9 +3,13 @@
 // Features
 #features
   
+  .featurette .full-visual
+    width: auto
+
   .featurette:first-of-type
     padding-top: 20px
-    
+    padding-bottom: 70px
+
   .dashboard .full-visual
     width: 860px
     height: 502px
@@ -19,7 +23,7 @@
     &, img
       background: transparent
       box-shadow: 0 0 0 transparent
-  
+
   .anywhere .box-wrapper
     padding-top: 10px
     padding-bottom: 20px
@@ -29,3 +33,110 @@
     height: 565px
     overflow: hidden
     border-radius: 4px 4px 1px 1px
+
+  // --------------------------------------
+  // Nitrous Desktop
+  .nitrous-desktop
+    .pull-wrapper
+      width: 900px
+      padding-bottom: 0
+
+    .pull-left
+      border-radius: 3px
+      background: #1C2227
+
+      a
+        border: 0
+
+      img
+        width: 398px
+        height: 394px
+        display: block
+
+    .pull-right
+      width: 428px
+      margin-top: 54px
+      
+      h3
+        font-size: 26px
+
+      .item
+        padding-bottom: 0
+
+        h4
+          font-family: $boldFont
+          font-weight: 300
+
+    .download-btns
+      padding: 24px 0 0 0
+
+      a.download
+        height: 42px
+        line-height: 42px
+        padding: 0 14px 0 38px
+        margin: 0 10px 0 0
+        display: inline-block
+        background: #2A3239 image_url('home/download-btns.png') 0 0 no-repeat
+        background-size: 32px 256px
+        border: 0
+        border-radius: 4px
+        transition: background-color .14s ease-in-out
+
+        &.osx
+          background-position: 4px 5px
+        &.windows
+          background-position: 4px -28px
+        &.linux
+          background-position: 4px -92px
+
+        &:hover
+          color: #FFF
+          background-color: $blue
+          &.osx
+            background-position: 4px -123px
+          &.windows
+            background-position: 4px -156px
+          &.linux
+            background-position: 4px -220px
+
+  // --------------------------------------
+  // Pulled out
+  .pull-wrapper
+    width: 96%
+    margin: 0 auto
+    padding-bottom: 60px
+    +clearFix
+    
+    .full-visual
+      margin: 0
+
+    .section-title
+      text-align: left
+      padding-bottom: 0
+
+    .item
+      padding: 20px 0
+
+    h3, h4, .big-title
+      text-align: left
+      display: block
+
+    h4
+      font-weight: 400
+      font-size: 14px
+      padding: 0 0 6px 0
+
+    h4, p
+      color: #a5b3be
+
+    .pull-left, .pull-right
+      position: relative
+
+    .pull-left
+      float: left
+
+    .pull-right
+      float: right
+
+      img
+        float: right
