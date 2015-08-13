@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -13,10 +14,18 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 )
 
-var HelpScout helpscout.HelpScout
+var (
+	HelpScout helpscout.HelpScout
+
+	nitrousMailbox helpscout.MailboxRef
+	nitrousUser    helpscout.Person
+)
 
 func init() {
 	HelpScout = &helpscout.Conversation{}
+
+	nitrousMailbox = helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}
+	nitrousUser = helpscout.Person{Type: "user", ID: int64(envvars.HelpScoutUserID)}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -29,93 +38,21 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	userAgent := r.FormValue("userAgent")
-	platform := r.FormValue("platform")
-	currentURL := r.FormValue("currentURL")
-
-	hosts, err := host.FindAllByUser(env.DB, env.User.ID)
-	if err != nil {
-		return err
-	}
-
-	var hostsInfo []string
-	for _, host := range hosts {
-		plan, err := plan.FindByID(env.DB, host.PlanID)
-		if err != nil {
-			return err
-		}
-		subscription, err := subscription.Find(env.DB, host.SubscriptionID.Int64)
-		if err != nil {
-			return err
-		}
-		hostInfo := fmt.Sprintf("<br>Slug: %s<br>Region Identifier: %s<br>State: %v<br>Plan Name: %s<br>Subscription State: %s",
-			host.Slug,
-			host.RegionIdentifier.String,
-			host.State,
-			plan.Name,
-			subscription.State)
-
-		hostsInfo = append(hostsInfo, hostInfo)
-	}
-	workspaceInfo := strings.Join(hostsInfo, "<br>")
-
-	billingProfile, err := env.User.BillingProfile(env.DB)
-	if err != nil {
-		return err
-	}
-
-	email := env.User.Email
-	name := env.User.Name
-	username := env.User.Username
-
+	// Format email data.
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n", username, name, email, body)
-	metadata := strings.Join([]string{
-		fmt.Sprintf("<strong>User Agent</strong>: %s", userAgent),
-		fmt.Sprintf("<strong>Platform</strong>: %s", platform),
-		fmt.Sprintf("<strong>Current URL</strong>: %s", currentURL),
-		fmt.Sprintf("<strong>User Info:</strong><br>ID: %v<br>Username: %s<br>Email: %s<br>Confirmed At: %v<br>Phone Authed: %t<br>Billing Profile State: %s",
-			env.User.ID,
-			username,
-			email,
-			env.User.ConfirmedAt.Time,
-			env.User.PhoneAuthed,
-			billingProfile.State),
-		fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", workspaceInfo),
-	}, "<br>")
-
-	customer := helpscout.Person{
-		Email:     email,
-		Username:  username,   // Optional
-		FirstName: name,       // Optional
-		Type:      "customer", // Optional
-	}
-	mailbox := helpscout.MailboxRef{
-		ID:   envvars.HelpScoutMailboxID,
-		Name: envvars.HelpScoutMailboxName, // Optional
-	}
-	threads := []*helpscout.Thread{
-		&helpscout.Thread{
-			Type: "customer",
-			CreatedBy: helpscout.Person{
-				Type:      "customer",
-				Email:     email,
-				Username:  username, // Optional
-				FirstName: name,     // Optional
-			},
-			Body: body,
-		},
-		&helpscout.Thread{
-			Type: "note",
-			CreatedBy: helpscout.Person{
-				Type: "user",
-				ID:   int64(envvars.HelpScoutUserID),
-			},
-			Body: metadata,
-		},
+	body = prepareCustomerMessage(env, body)
+	metadata, err := prepareNitrousNote(env, r)
+	if err != nil {
+		return err
 	}
 
-	err = HelpScout.CreateConversation(customer, subject, mailbox, threads)
+	// Prepare HelpScout API arguments.
+	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
+	customerMessage := helpscout.NewThread("customer", customer, body)
+	nitrousNote := helpscout.NewThread("user", nitrousUser, metadata)
+	threads := []*helpscout.Thread{customerMessage, nitrousNote}
+
+	err = HelpScout.CreateConversation(customer, subject, nitrousMailbox, threads)
 	if err != nil {
 		return err
 	}
@@ -123,4 +60,71 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{"status": "ok"}
 	return nil
+}
+
+func prepareCustomerMessage(env *middleware.Env, body string) string {
+	body = strings.Join([]string{
+		"<strong>Username</strong>: " + env.User.Username,
+		"<strong>Name</strong>: " + env.User.Name,
+		"<strong>Email</strong>: " + env.User.Email,
+		body + "\n",
+	}, "\n")
+	return body
+}
+
+func prepareNitrousNote(env *middleware.Env, r *http.Request) (string, error) {
+	workspaceInfo, err := getWorkspaceInfo(env.DB, env.User.ID)
+	if err != nil {
+		return "", err
+	}
+	billingProfile, err := env.User.BillingProfile(env.DB)
+	if err != nil {
+		return "", err
+	}
+
+	metadata := strings.Join([]string{
+		fmt.Sprintf("<strong>User Agent</strong>: %s", r.FormValue("userAgent")),
+		fmt.Sprintf("<strong>Platform</strong>: %s", r.FormValue("platform")),
+		fmt.Sprintf("<strong>Current URL</strong>: %s", r.FormValue("currentURL")),
+		fmt.Sprintf("<strong>User Info:</strong>"),
+		fmt.Sprintf("ID: %v", env.User.ID),
+		fmt.Sprintf("Username: %s", env.User.Username),
+		fmt.Sprintf("Email: %s", env.User.Email),
+		fmt.Sprintf("Confirmed At: %s", env.User.ConfirmedAt.Time),
+		fmt.Sprintf("Phone Authed: %t", env.User.PhoneAuthed),
+		fmt.Sprintf("Billing Profile State: %s", billingProfile.State),
+		fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", workspaceInfo),
+	}, "<br>")
+	return metadata, nil
+}
+
+func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
+	hosts, err := host.FindAllByUser(db, userID)
+	if err != nil {
+		return "", err
+	}
+
+	var hostsInfo []string
+	for _, host := range hosts {
+		plan, err := plan.FindByID(db, host.PlanID)
+		if err != nil {
+			return "", err
+		}
+		subscription, err := subscription.Find(db, host.SubscriptionID.Int64)
+		if err != nil {
+			return "", err
+		}
+
+		hostInfo := strings.Join([]string{
+			fmt.Sprintf("<br>Slug: %s", host.Slug),
+			fmt.Sprintf("Region Identifier: %s", host.RegionIdentifier.String),
+			fmt.Sprintf("State: %v", host.State),
+			fmt.Sprintf("Plan Name: %s", plan.Name),
+			fmt.Sprintf("Subscription State: %s", subscription.State),
+		}, "<br>")
+		hostsInfo = append(hostsInfo, hostInfo)
+	}
+	workspaceInfo := strings.Join(hostsInfo, "<br>")
+
+	return workspaceInfo, nil
 }

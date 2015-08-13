@@ -39,7 +39,7 @@ type Person struct {
 
 type MailboxRef struct {
 	ID   int    `json:"id"`
-	Name string `json:"name"`
+	Name string `json:"name"` // Optional
 }
 
 func (c *Conversation) CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error {
@@ -80,4 +80,23 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 	}
 
 	return nil
+}
+
+func NewCustomer(email, username, name string) Person {
+	person := Person{
+		Type:      "customer",
+		Email:     email,
+		Username:  username, // Optional
+		FirstName: name,     // Optional
+	}
+	return person
+}
+
+func NewThread(typ string, author Person, body string) *Thread {
+	thread := &Thread{
+		Type:      typ,
+		CreatedBy: author,
+		Body:      body,
+	}
+	return thread
 }
