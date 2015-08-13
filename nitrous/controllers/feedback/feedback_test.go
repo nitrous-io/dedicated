@@ -183,7 +183,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 
 				Eventually(func() helpscout.MailboxRef {
 					return fakeHelpScout.Mailbox
-				}).Should(Equal(helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}))
+				}).Should(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}))
 
 				Eventually(func() string {
 					return fakeHelpScout.Threads[0].Body

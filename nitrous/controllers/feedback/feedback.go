@@ -25,8 +25,8 @@ var (
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
-	nitrousMailbox = helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}
-	nitrousUser = helpscout.Person{Type: "user", ID: int64(envvars.HelpScoutUserID)}
+	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
+	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {

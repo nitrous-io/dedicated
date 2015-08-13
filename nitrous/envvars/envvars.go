@@ -53,8 +53,8 @@ var (
 
 	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
 	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
-	HelpScoutMailboxID   = parseInt("HELPSCOUT_MAILBOX_ID")
-	HelpScoutUserID      = parseInt("HELPSCOUT_USER_ID")
+	HelpScoutMailboxID   = parseInt64(os.Getenv("HELPSCOUT_MAILBOX_ID"))
+	HelpScoutUserID      = parseInt64(os.Getenv("HELPSCOUT_USER_ID"))
 
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
@@ -122,20 +122,6 @@ func init() {
 	}
 }
 
-func parseInt(envvar string) int {
-	v := os.Getenv(envvar)
-	if v == "" || v == "-1" {
-		logrus.Warnf("%s not set", envvar)
-		return -1
-	}
-
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		logrus.Fatalf("Error converting %s=%s to int: %v", envvar, v, err)
-	}
-	return i
-}
-
 func parseBoolWithDefault(s string, def bool) bool {
 	b, err := strconv.ParseBool(s)
 	if err != nil {
@@ -201,6 +187,21 @@ func CheckHostnames() {
 	}
 	if PreviewHostname == "" {
 		logrus.Fatal("PREVIEW_HOSTNAME not set")
+	}
+}
+
+func CheckHelpScout() {
+	if HelpScoutAPIKey == "" || HelpScoutAPIKey == "disable" {
+		logrus.Warn("HELPSCOUT_API_KEY not set")
+	}
+	if HelpScoutMailboxName == "" || HelpScoutMailboxName == "disable" {
+		logrus.Warn("HELPSCOUT_MAILBOX_NAME not set")
+	}
+	if HelpScoutMailboxID == 0 {
+		logrus.Warn("HELPSCOUT_MAILBOX_ID not set")
+	}
+	if HelpScoutUserID == 0 {
+		logrus.Warn("HELPSCOUT_USER_ID not set")
 	}
 }
 
