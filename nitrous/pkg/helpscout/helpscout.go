@@ -12,6 +12,11 @@ import (
 
 var BaseURL = "https://api.helpscout.net/v1"
 
+var (
+	// override in tests
+	validSettings func() error
+)
+
 type HelpScout interface {
 	CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error
 }
@@ -42,6 +47,25 @@ type MailboxRef struct {
 	Name string `json:"name"` // Optional
 }
 
+func init() {
+	validSettings = func() error {
+		if envvars.HelpScoutAPIKey == "" || envvars.HelpScoutAPIKey == "disable" {
+			return fmt.Errorf("Helpscout API key not set")
+		}
+		if envvars.HelpScoutMailboxName == "" || envvars.HelpScoutMailboxName == "disable" {
+			return fmt.Errorf("Helpscout Mailbox ID not set")
+		}
+		if envvars.HelpScoutUserID == -1 {
+			return fmt.Errorf("Helpscout User ID not set")
+		}
+		if envvars.HelpScoutMailboxID == -1 {
+			return fmt.Errorf("Helpscout Mailbox ID not set")
+		}
+
+		return nil
+	}
+}
+
 func (c *Conversation) CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error {
 	reqURL := fmt.Sprintf("%s/conversations.json", BaseURL)
 
@@ -55,6 +79,10 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 	conversationParam, err := json.Marshal(c)
 	if err != nil {
 		return err
+	}
+
+	if err := validSettings(); err != nil {
+		return fmt.Errorf("HelpScout settings errors: %v.  Did not send %+v", err, string(conversationParam))
 	}
 
 	req, err := http.NewRequest("POST", reqURL, bytes.NewBuffer(conversationParam))

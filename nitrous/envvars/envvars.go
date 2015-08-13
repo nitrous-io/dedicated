@@ -53,8 +53,8 @@ var (
 
 	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
 	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
-	HelpScoutMailboxID   int
-	HelpScoutUserID      int
+	HelpScoutMailboxID   = parseInt("HELPSCOUT_MAILBOX_ID")
+	HelpScoutUserID      = parseInt("HELPSCOUT_USER_ID")
 
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
@@ -120,23 +120,20 @@ func init() {
 	if err != nil {
 		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
 	}
-
-	HelpScoutMailboxID = convertVarStringToInt("HELPSCOUT_MAILBOX_ID")
-	HelpScoutUserID = convertVarStringToInt("HELPSCOUT_USER_ID")
 }
 
-func convertVarStringToInt(varString string) int {
-	var varInt int
-	var err error
-	if os.Getenv(varString) == "" || os.Getenv(varString) == "disable" {
-		logrus.Warnf("%s not set", varString)
-	} else {
-		varInt, err = strconv.Atoi(os.Getenv(varString))
-		if err != nil {
-			logrus.Fatalf("Error converting %s to int: %v", varString, err)
-		}
+func parseInt(envvar string) int {
+	v := os.Getenv(envvar)
+	if v == "" || v == "-1" {
+		logrus.Warnf("%s not set", envvar)
+		return -1
 	}
-	return varInt
+
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		logrus.Fatalf("Error converting %s=%s to int: %v", envvar, v, err)
+	}
+	return i
 }
 
 func parseBoolWithDefault(s string, def bool) bool {
