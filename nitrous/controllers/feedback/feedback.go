@@ -69,7 +69,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := env.User.Username
 
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n\n", username, name, email, body)
+	body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n", username, name, email, body)
 	metadata := strings.Join([]string{
 		fmt.Sprintf("<strong>User Agent</strong>: %s", userAgent),
 		fmt.Sprintf("<strong>Platform</strong>: %s", platform),
@@ -88,7 +88,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Email:     email,
 		Username:  username,   // Optional
 		FirstName: name,       // Optional
-		Typ:       "customer", // Optional
+		Type:      "customer", // Optional
 	}
 	mailbox := helpscout.MailboxRef{
 		ID:   envvars.HelpScoutMailboxID,
@@ -96,9 +96,9 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	threads := []*helpscout.Thread{
 		&helpscout.Thread{
-			Typ: "customer",
+			Type: "customer",
 			CreatedBy: helpscout.Person{
-				Typ:       "customer",
+				Type:      "customer",
 				Email:     email,
 				Username:  username, // Optional
 				FirstName: name,     // Optional
@@ -106,10 +106,10 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			Body: body,
 		},
 		&helpscout.Thread{
-			Typ: "note",
+			Type: "note",
 			CreatedBy: helpscout.Person{
-				Typ: "user",
-				ID:  int64(envvars.HelpScoutUserID),
+				Type: "user",
+				ID:   int64(envvars.HelpScoutUserID),
 			},
 			Body: metadata,
 		},

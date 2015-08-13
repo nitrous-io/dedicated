@@ -1,19 +1,24 @@
 package feedback_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/lib/pq/hstore"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/feedback"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
@@ -39,12 +44,13 @@ var _ = Describe("controllers/feedback", func() {
 
 		authTokenInputs AuthTokenInputs
 
-		u *user.User
-		t *token.Token
+		bp *billingprofile.BillingProfile
 
-		username = "cats"
-		name     = "CATS"
-		email    = "cats@example.com"
+		u  *user.User
+		t  *token.Token
+		p  *plan.Plan
+		s  *subscription.Subscription
+		hs *HostStack
 	)
 
 	BeforeEach(func() {
@@ -63,10 +69,10 @@ var _ = Describe("controllers/feedback", func() {
 		res = httptest.NewRecorder()
 
 		u = &user.User{
-			Username: username,
+			Username: "cats",
 			Password: "123456",
-			Name:     name,
-			Email:    email,
+			Name:     "CATS",
+			Email:    "cats@example.com",
 		}
 		err = WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -79,6 +85,49 @@ var _ = Describe("controllers/feedback", func() {
 		Expect(err).To(BeNil())
 
 		_, err = db.Exec(`UPDATE billing_profiles SET state = 'delinquent'  WHERE user_id = $1;`, u.ID)
+		Expect(err).To(BeNil())
+
+		hs, err = CreateHostStack(db, &HostStack{
+			PT: &providertemplate.ProviderTemplate{
+				Name:     "default-1",
+				Provider: "amazon",
+				Config: hstore.Hstore{
+					Map: map[string]sql.NullString{
+						"disable_eip": sql.NullString{"true", true},
+					},
+				},
+			},
+		})
+		Expect(err).To(BeNil())
+
+		bp, err = u.BillingProfile(db)
+		Expect(err).To(BeNil())
+
+		p = &plan.Plan{
+			Slug:          "plan-a",
+			Name:          "cozy-workplace",
+			MaxContainers: 16,
+			Storage:       "1024 GB",
+			Price:         1024,
+			Memory:        "68 GB",
+		}
+		err = p.Insert(db)
+		Expect(err).To(BeNil())
+
+		s = &subscription.Subscription{
+			PlanID:           p.ID,
+			BillingProfileID: bp.ID,
+			State:            "active",
+			StripeID:         sql.NullString{"sub_ABC", true},
+			Slug:             "Sub1",
+		}
+		err = WrapInTransaction(db, s.Insert)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec(`INSERT INTO hosts 
+(user_id, plan_id, region_id, subscription_id, state, slug, provider_template_id, freighterd_version, docker_version)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+			u.ID, p.ID, hs.R.ID, s.ID, host.StateRunning, "abc", hs.PT.ID, "xyz", "abc")
 		Expect(err).To(BeNil())
 	})
 
@@ -108,7 +157,7 @@ var _ = Describe("controllers/feedback", func() {
 				body := "You have no chance to survive make your time."
 				userAgent := "Mozilla"
 				platform := "MacIntel"
-				currentURL := "https://nitrous.com"
+				currentURL := "https://nitrous.io"
 
 				params := &url.Values{}
 				params.Set("subject", subject)
@@ -120,72 +169,23 @@ var _ = Describe("controllers/feedback", func() {
 				doRequest("valid-token", params)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				var createdAt time.Time
-
-				billingProfile, err := u.BillingProfile(db)
-				Expect(err).To(BeNil())
-
-				subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-				body = fmt.Sprintf("<strong>Username</strong>: %s\n<strong>Name</strong>: %s\n<strong>Email</strong>: %s\n%s\n\n", username, name, email, body)
-
-				// FIXME: Get proper values for workspace
-				metadata := strings.Join([]string{
-					fmt.Sprintf("<strong>User Agent</strong>: %s", userAgent),
-					fmt.Sprintf("<strong>Platform</strong>: %s", platform),
-					fmt.Sprintf("<strong>Current URL</strong>: %s", currentURL),
-					fmt.Sprintf("<strong>User Info:</strong><br>ID: %v<br>Username: %s<br>Email: %s<br>Confirmed At: %v<br>Phone Authed: %t<br>Billing Profile State: %s",
-						u.ID,
-						username,
-						email,
-						createdAt,
-						false,
-						billingProfile.State),
-					fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", ""),
-				}, "<br>")
-
-				customer := helpscout.Person{
-					ID:        0,
-					Email:     email,
-					Username:  username,
-					FirstName: name,
-					Typ:       "customer",
-				}
-
-				mailbox := helpscout.MailboxRef{
-					ID:   envvars.HelpScoutMailboxID,
-					Name: envvars.HelpScoutMailboxName,
-				}
-
-				threads := []*helpscout.Thread{
-					&helpscout.Thread{
-						Typ: "customer",
-						CreatedBy: helpscout.Person{
-							Email:     email,
-							Username:  username,
-							FirstName: name,
-							Typ:       "customer",
-						},
-						Body: body,
-					},
-					&helpscout.Thread{
-						Typ: "note",
-						CreatedBy: helpscout.Person{
-							ID:  int64(envvars.HelpScoutUserID),
-							Typ: "user",
-						},
-						Body: metadata,
-					},
-				}
-
 				Expect(fakeHelpScout.CreateConversationCalled).To(Equal(1))
-				Expect(fakeHelpScout.Customer).To(Equal(customer))
-				Expect(fakeHelpScout.Subject).To(Equal(subject))
-				Expect(fakeHelpScout.Mailbox).To(Equal(mailbox))
-				Expect(fakeHelpScout.Threads).To(Equal(threads))
+				Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{ID: 0, Email: "cats@example.com", Username: "cats", FirstName: "CATS", Type: "customer"}))
+				Expect(fakeHelpScout.Subject).To(Equal("[nitrous-pro] All your server are belong to us"))
+				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}))
+				Expect(fakeHelpScout.Threads[0].Body).To(Equal("<strong>Username</strong>: cats\n<strong>Name</strong>: CATS\n<strong>Email</strong>: cats@example.com\nYou have no chance to survive make your time.\n"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring(fmt.Sprintf("<strong>User Info:</strong><br>ID: %v", u.ID)))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<br>Username: cats<br>Email: cats@example.com<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Billing Profile State: delinquent<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: <br>Slug: abc<br>Region Identifier: <br>State: running<br>Plan Name: cozy-workplace<br>Subscription State: active<br>"))
 
 				j := map[string]interface{}{}
 
-				err = json.Unmarshal(res.Body.Bytes(), &j)
+				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["status"].(string)).To(Equal("ok"))
 			})
