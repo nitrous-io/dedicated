@@ -53,7 +53,6 @@ var (
 
 	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
 	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
-	HelpScoutPassword    = os.Getenv("HELPSCOUT_PASSWORD")
 	HelpScoutMailboxID   int
 	HelpScoutUserID      int
 

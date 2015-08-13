@@ -48,7 +48,7 @@ var _ = Describe("pkg/helpscout", func() {
 			server.AppendHandlers(ghttp.CombineHandlers(
 				ghttp.VerifyRequest("POST", "/conversations.json"),
 				ghttp.VerifyContentType("application/json"),
-				ghttp.VerifyBasicAuth(envvars.HelpScoutAPIKey, envvars.HelpScoutPassword),
+				ghttp.VerifyBasicAuth(envvars.HelpScoutAPIKey, "ignored"),
 				ghttp.RespondWithPtr(&statusCode, &responseBody),
 			))
 		})

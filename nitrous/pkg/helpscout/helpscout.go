@@ -62,7 +62,8 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 		return err
 	}
 
-	req.SetBasicAuth(envvars.HelpScoutAPIKey, envvars.HelpScoutPassword)
+	// HelpScout ignores password field
+	req.SetBasicAuth(envvars.HelpScoutAPIKey, "ignored")
 	req.Header.Set("Content-Type", "application/json")
 
 	client := http.DefaultClient
