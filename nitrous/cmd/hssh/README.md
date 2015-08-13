@@ -15,7 +15,7 @@ hssh shell awesome-host
 hssh info awesome-host
 
 # upload a file to remote awesome-host.
-hssh upload awesome-host file:/remotepath ...
+hssh upload awesome-host /path/to/local-file:/remotepath ...
 
 # run a command on remote awesome-host
 hssh run awesome-host command
