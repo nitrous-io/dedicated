@@ -122,14 +122,22 @@ func init() {
 		logrus.Fatalf("Error parsing e-mail address %s: %v", SupportEmail, err)
 	}
 
-	HelpScoutMailboxID, err = strconv.Atoi(os.Getenv("HELPSCOUT_MAILBOX_ID"))
-	if err != nil {
-		logrus.Fatalf("HELPSCOUT_MAILBOX_ID not set: %v: ", err)
+	HelpScoutMailboxID = convertVarStringToInt("HELPSCOUT_MAILBOX_ID")
+	HelpScoutUserID = convertVarStringToInt("HELPSCOUT_USER_ID")
+}
+
+func convertVarStringToInt(varString string) int {
+	var varInt int
+	var err error
+	if os.Getenv(varString) == "" || os.Getenv(varString) == "disable" {
+		logrus.Warnf("%s not set", varString)
+	} else {
+		varInt, err = strconv.Atoi(os.Getenv(varString))
+		if err != nil {
+			logrus.Fatalf("Error converting %s to int: %v", varString, err)
+		}
 	}
-	HelpScoutUserID, err = strconv.Atoi(os.Getenv("HELPSCOUT_USER_ID"))
-	if err != nil {
-		logrus.Fatalf("HELPSCOUT_USER_ID not set: %v: ", err)
-	}
+	return varInt
 }
 
 func parseBoolWithDefault(s string, def bool) bool {
