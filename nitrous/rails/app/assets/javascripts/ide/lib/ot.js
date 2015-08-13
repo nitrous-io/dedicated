@@ -1308,6 +1308,9 @@ ot.CodeMirrorAdapter = (function (global) {
   };
 
   CodeMirrorAdapter.prototype.setSelection = function (selection) {
+    if (!selection) {
+      return;
+    }
     var ranges = [];
     for (var i = 0; i < selection.ranges.length; i++) {
       var range = selection.ranges[i];
