@@ -26,6 +26,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   showTrailingSpace: false
   matchBrackets: true
   autoCloseBrackets: true
+  removeTrailingWhitespaceOnSave: true
   keybindings: 'default'
 
   initialize: ->
@@ -101,6 +102,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     if path = doc.get 'path'
       path.incrementProperty 'loadCount'
       doc.set 'readOnly', true
+      if @get 'removeTrailingWhitespaceOnSave'
+        doc.set 'removeTrailingWhitespaceTrigger', true
       opsSocket.writeFile path.get('absolutePath'), doc.get('content'), (err, absolutePath) =>
         path.decrementProperty 'loadCount'
         doc.setProperties

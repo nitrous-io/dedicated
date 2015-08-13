@@ -161,6 +161,17 @@ App.Editor = klass = Em.Object.extend
     if cm = @get 'codeMirror'
       cm.execCommand('splitSelectionByLine')
 
+  removeTrailingWhitespace: ->
+    if cm = @get 'codeMirror'
+      cm.operation ->
+        l = 0
+        cm.eachLine (line) ->
+          i = line.text.search /\s+$/
+          if i != -1
+            cm.replaceRange '', { line: l, ch: i }, { line: l, ch: line.text.length }
+          l++
+          false # needed to continue looping
+
   swapLineDown: ->
     if cm = @get('codeMirror')
       cm.swapLineDown()
@@ -354,4 +365,5 @@ klass.reopenClass
     'matchBrackets'
     'autoCloseBrackets'
     'keybindings'
+    'removeTrailingWhitespaceOnSave'
   ]

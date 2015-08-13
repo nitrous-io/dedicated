@@ -1508,7 +1508,13 @@ func init() {
 		{
 			Version: "1439318024",
 			Up: `
-				ALTER TABLE users ADD COLUMN suspicious text
+				ALTER TABLE users ADD COLUMN suspicious text;
+			`,
+		},
+		{
+			Version: "1439488844",
+			Up: `
+				ALTER TABLE user_settings ADD COLUMN remove_trailing_whitespace_on_save bool DEFAULT true NOT NULL;
 			`,
 		},
 	}

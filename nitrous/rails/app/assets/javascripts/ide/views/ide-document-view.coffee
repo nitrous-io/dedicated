@@ -106,6 +106,18 @@ App.IdeDocumentView = Em.View.extend
       @set 'document.toggleCommentTrigger', false
   ).observes 'document.toggleCommentTrigger'
 
+  triggerSplitSelectionIntoLines: (->
+    if @get('document.splitSelectionIntoLinesTrigger') && (editor = @get 'editor')
+      editor.splitSelectionIntoLines()
+      @set 'document.splitSelectionIntoLinesTrigger', false
+  ).observes 'document.splitSelectionIntoLinesTrigger'
+
+  triggerRemoveTrailingWhitespace: (->
+    if @get('document.removeTrailingWhitespaceTrigger') && (editor = @get 'editor')
+      editor.removeTrailingWhitespace()
+      @set 'document.removeTrailingWhitespaceTrigger', false
+  ).observes 'document.removeTrailingWhitespaceTrigger'
+
   closeDocument: (->
     if @get 'document.path.deleted'
       this.remove()
@@ -116,12 +128,6 @@ App.IdeDocumentView = Em.View.extend
       @set 'document.goToLine', null
       @get('editor')?.goToLine(line)
   ).observes 'document.goToLine'
-
-  splitSelectionIntoLines: (->
-    if editor = @get('editor')
-      editor.splitSelectionIntoLines()
-    @set 'document.splitSelectionIntoLinesTrigger', false
-  ).observes 'document.splitSelectionIntoLinesTrigger'
 
   addLineWidgets: (->
     @get('activeLineWidgets').forEach (line)->
