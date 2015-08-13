@@ -352,18 +352,19 @@ App.IdeDocumentView = Em.View.extend
     @optimizePatch patch
     start = patch.start1
     end = start + patch.length1
-    @cmDelete cm, start, end
-    patch.diffs.forEach (diff) =>
-      type = diff[0] # 0 : DIFF_EQUAL, 1 : DIFF_INSERT, -1 : DIFF_DELETE
-      text = diff[1]
-      # DIFF_DELETE is a no-op because it got deleted with
-      # the first cmDelete()
-      if type == DIFF_EQUAL
-        @cmInsert cm, start, text
-        start += text.length
-      else if type == DIFF_INSERT
-        @cmInsert cm, start, text
-        start += text.length
+    cm.operation =>
+      @cmDelete cm, start, end
+      patch.diffs.forEach (diff) =>
+        type = diff[0] # 0 : DIFF_EQUAL, 1 : DIFF_INSERT, -1 : DIFF_DELETE
+        text = diff[1]
+        # DIFF_DELETE is a no-op because it got deleted with
+        # the first cmDelete()
+        if type == DIFF_EQUAL
+          @cmInsert cm, start, text
+          start += text.length
+        else if type == DIFF_INSERT
+          @cmInsert cm, start, text
+          start += text.length
 
   # a hack but the best we could come up with
   # if we want to replace content of the editor and preserve current line etc.
