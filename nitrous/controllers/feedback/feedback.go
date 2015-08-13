@@ -50,7 +50,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// Prepare HelpScout API arguments.
 	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
 	customerMessage := helpscout.NewThread("customer", customer, body)
-	nitrousNote := helpscout.NewThread("user", nitrousUser, metadata)
+	nitrousNote := helpscout.NewThread("note", nitrousUser, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
 	go func() {
