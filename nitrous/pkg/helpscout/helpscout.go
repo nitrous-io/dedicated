@@ -75,7 +75,7 @@ func (c *Conversation) CreateConversation(customer Person, subject string, mailb
 		if err != nil {
 			return fmt.Errorf("CreateConversation: ioutil.ReadAll response body err: %v", err)
 		}
-		res.Body.Close()
+		defer res.Body.Close()
 		return fmt.Errorf("CreateConversation: Unable to create conversation: expected %d, got %d - %s", http.StatusCreated, res.StatusCode, body)
 	}
 

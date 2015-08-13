@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -52,10 +53,12 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	nitrousNote := helpscout.NewThread("user", nitrousUser, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
-	err = HelpScout.CreateConversation(customer, subject, nitrousMailbox, threads)
-	if err != nil {
-		return err
-	}
+	go func() {
+		err := HelpScout.CreateConversation(customer, subject, nitrousMailbox, threads)
+		if err != nil {
+			logrus.Errorf("helpscout: failed to create conversation: customer: %s, subject: %s, mailbox: %s, threads: %s. err: %v", customer, subject, nitrousMailbox, threads, err)
+		}
+	}()
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{"status": "ok"}

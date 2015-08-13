@@ -169,19 +169,50 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				doRequest("valid-token", params)
 				Expect(res.Code).To(Equal(http.StatusOK))
 
-				Expect(fakeHelpScout.CreateConversationCalled).To(Equal(1))
-				Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{ID: 0, Email: "cats@example.com", Username: "cats", FirstName: "CATS", Type: "customer"}))
-				Expect(fakeHelpScout.Subject).To(Equal("[nitrous-pro] All your server are belong to us"))
-				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}))
-				Expect(fakeHelpScout.Threads[0].Body).To(Equal("<strong>Username</strong>: cats\n<strong>Name</strong>: CATS\n<strong>Email</strong>: cats@example.com\nYou have no chance to survive make your time.\n"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring(fmt.Sprintf("<strong>User Info:</strong><br>ID: %v", u.ID)))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<br>Username: cats<br>Email: cats@example.com<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Billing Profile State: delinquent<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: <br>Slug: abc<br>Region Identifier: <br>State: running<br>Plan Name: cozy-workplace<br>Subscription State: active<br>"))
+				Eventually(func() int {
+					return fakeHelpScout.CreateConversationCalled
+				}).Should(Equal(1))
+
+				Eventually(func() helpscout.Person {
+					return fakeHelpScout.Customer
+				}).Should(Equal(helpscout.Person{ID: 0, Email: "cats@example.com", Username: "cats", FirstName: "CATS", Type: "customer"}))
+
+				Eventually(func() string {
+					return fakeHelpScout.Subject
+				}).Should(Equal("[nitrous-pro] All your server are belong to us"))
+
+				Eventually(func() helpscout.MailboxRef {
+					return fakeHelpScout.Mailbox
+				}).Should(Equal(helpscout.MailboxRef{ID: envvars.HelpScoutMailboxID, Name: envvars.HelpScoutMailboxName}))
+
+				Eventually(func() string {
+					return fakeHelpScout.Threads[0].Body
+				}).Should(Equal("<strong>Username</strong>: cats\n<strong>Name</strong>: CATS\n<strong>Email</strong>: cats@example.com\nYou have no chance to survive make your time.\n"))
+
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring(fmt.Sprintf("<strong>User Info:</strong><br>ID: %v", u.ID)))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<br>Username: cats<br>Email: cats@example.com<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("Phone Authed: false<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("Billing Profile State: delinquent<br>"))
+				Eventually(func() string {
+					return fakeHelpScout.Threads[1].Body
+				}).Should(ContainSubstring("<strong>Workspace(s) Info</strong>: <br>Slug: abc<br>Region Identifier: <br>State: running<br>Plan Name: cozy-workplace<br>Subscription State: active<br>"))
 
 				j := map[string]interface{}{}
 
@@ -191,7 +222,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 			})
 		}
 
-		Context("when subject and body are provided", func() {
+		Context("when customer, subject, mailbox and body are provided", func() {
 			ItSendsSuccessfully()
 		})
 
