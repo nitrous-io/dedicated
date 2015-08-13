@@ -76,6 +76,12 @@ App.IdeMainMenuController = Em.Controller.extend
     if editorController = @get 'controllers.ideEditor'
       editorController.set 'keybindings', type
 
+  editToggleAutoCloseBrackets: ->
+    @_toggleEditorProperty 'autoCloseBrackets'
+
+  editToggleRemoveTrailingWhitespaceOnSave: ->
+    @_toggleEditorProperty 'removeTrailingWhitespaceOnSave'
+
   editSplitSelectionIntoLines: (type) ->
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
 
@@ -159,9 +165,6 @@ App.IdeMainMenuController = Em.Controller.extend
 
   viewToggleMatchBrackets: ->
     @_toggleEditorProperty 'matchBrackets'
-
-  toggleAutoCloseBrackets: ->
-    @_toggleEditorProperty 'autoCloseBrackets'
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'

@@ -106,6 +106,18 @@ App.IdeDocumentView = Em.View.extend
       @set 'document.toggleCommentTrigger', false
   ).observes 'document.toggleCommentTrigger'
 
+  triggerSplitSelectionIntoLines: (->
+    if @get('document.splitSelectionIntoLinesTrigger') && (editor = @get 'editor')
+      editor.splitSelectionIntoLines()
+      @set 'document.splitSelectionIntoLinesTrigger', false
+  ).observes 'document.splitSelectionIntoLinesTrigger'
+
+  triggerRemoveTrailingWhitespace: (->
+    if @get('document.removeTrailingWhitespaceTrigger') && (editor = @get 'editor')
+      editor.removeTrailingWhitespace()
+      @set 'document.removeTrailingWhitespaceTrigger', false
+  ).observes 'document.removeTrailingWhitespaceTrigger'
+
   closeDocument: (->
     if @get 'document.path.deleted'
       this.remove()
@@ -116,12 +128,6 @@ App.IdeDocumentView = Em.View.extend
       @set 'document.goToLine', null
       @get('editor')?.goToLine(line)
   ).observes 'document.goToLine'
-
-  splitSelectionIntoLines: (->
-    if editor = @get('editor')
-      editor.splitSelectionIntoLines()
-    @set 'document.splitSelectionIntoLinesTrigger', false
-  ).observes 'document.splitSelectionIntoLinesTrigger'
 
   addLineWidgets: (->
     @get('activeLineWidgets').forEach (line)->
@@ -352,18 +358,19 @@ App.IdeDocumentView = Em.View.extend
     @optimizePatch patch
     start = patch.start1
     end = start + patch.length1
-    @cmDelete cm, start, end
-    patch.diffs.forEach (diff) =>
-      type = diff[0] # 0 : DIFF_EQUAL, 1 : DIFF_INSERT, -1 : DIFF_DELETE
-      text = diff[1]
-      # DIFF_DELETE is a no-op because it got deleted with
-      # the first cmDelete()
-      if type == DIFF_EQUAL
-        @cmInsert cm, start, text
-        start += text.length
-      else if type == DIFF_INSERT
-        @cmInsert cm, start, text
-        start += text.length
+    cm.operation =>
+      @cmDelete cm, start, end
+      patch.diffs.forEach (diff) =>
+        type = diff[0] # 0 : DIFF_EQUAL, 1 : DIFF_INSERT, -1 : DIFF_DELETE
+        text = diff[1]
+        # DIFF_DELETE is a no-op because it got deleted with
+        # the first cmDelete()
+        if type == DIFF_EQUAL
+          @cmInsert cm, start, text
+          start += text.length
+        else if type == DIFF_INSERT
+          @cmInsert cm, start, text
+          start += text.length
 
   # a hack but the best we could come up with
   # if we want to replace content of the editor and preserve current line etc.

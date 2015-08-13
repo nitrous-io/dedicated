@@ -44,12 +44,14 @@ var _ = Describe("models/user settings", func() {
 			Expect(settings.Keybindings).To(Equal("default"))
 			Expect(settings.RulerColumn).To(Equal(int64(0)))
 			Expect(settings.Theme).To(Equal("solarized dark"))
+			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeTrue())
 			origUpdatedAt := settings.UpdatedAt
 
 			settings.AutoCloseBrackets = false
 			settings.Keybindings = "vim"
 			settings.RulerColumn = 120
 			settings.Theme = "vibrant-ink"
+			settings.RemoveTrailingWhitespaceOnSave = false
 
 			err = settings.Update(db)
 			Expect(err).To(BeNil())
@@ -59,6 +61,7 @@ var _ = Describe("models/user settings", func() {
 			Expect(settings.RulerColumn).To(Equal(int64(120)))
 			Expect(settings.Theme).To(Equal("vibrant-ink"))
 			Expect(settings.UpdatedAt.Time).To(BeTemporally(">", origUpdatedAt.Time))
+			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeFalse())
 		})
 	})
 
@@ -79,6 +82,7 @@ var _ = Describe("models/user settings", func() {
 			Expect(settings.UserID).To(Equal(u.ID))
 			Expect(settings.AutoCloseBrackets).To(BeTrue())
 			Expect(settings.RulerColumn).To(Equal(int64(0)))
+			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeTrue())
 			Expect(settings.CreatedAt).NotTo(BeNil())
 			Expect(settings.UpdatedAt).NotTo(BeNil())
 		})

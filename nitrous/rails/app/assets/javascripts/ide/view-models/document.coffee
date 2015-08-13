@@ -22,6 +22,7 @@ App.Document = App.TabContent.extend
   unfoldCodeTrigger: null
   toggleCommentTrigger: null
   splitSelectionIntoLinesTrigger: null
+  removeTrailingWhitespaceTrigger: null
 
   goToLine: null
   selections: null

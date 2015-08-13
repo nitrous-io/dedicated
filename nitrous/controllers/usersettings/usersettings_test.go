@@ -110,6 +110,7 @@ var _ = Describe("controllers/userprofiles", func() {
 
 			params := &url.Values{}
 			params.Set("auto_close_brackets", "false")
+			params.Set("remove_trailing_whitespace_on_save", "false")
 			params.Set("keybindings", "vim")
 			params.Set("ruler_column", "120")
 			params.Set("theme", "solarized light")
@@ -125,6 +126,7 @@ var _ = Describe("controllers/userprofiles", func() {
 			serialized := j.UserSettings
 			Expect(serialized.UserID).To(Equal(u.ID))
 			Expect(serialized.AutoCloseBrackets).To(BeFalse())
+			Expect(serialized.RemoveTrailingWhitespaceOnSave).To(BeFalse())
 			Expect(serialized.Keybindings).To(Equal("vim"))
 			Expect(serialized.RulerColumn).To(Equal(int64(120)))
 			Expect(serialized.Theme).To(Equal("solarized light"))
@@ -132,6 +134,7 @@ var _ = Describe("controllers/userprofiles", func() {
 			settings, err = u.Settings(db)
 			Expect(err).To(BeNil())
 			Expect(settings.AutoCloseBrackets).To(BeFalse())
+			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeFalse())
 			Expect(settings.Keybindings).To(Equal("vim"))
 			Expect(settings.RulerColumn).To(Equal(int64(120)))
 			Expect(settings.Theme).To(Equal("solarized light"))

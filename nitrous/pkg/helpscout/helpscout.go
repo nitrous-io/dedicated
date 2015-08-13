@@ -1,0 +1,131 @@
+package helpscout
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
+)
+
+var BaseURL = "https://api.helpscout.net/v1"
+
+var (
+	// override in tests
+	validSettings func() error
+)
+
+type HelpScout interface {
+	CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error
+}
+
+type Conversation struct {
+	Customer Person     `json:"customer"`
+	Subject  string     `json:"subject"`
+	Mailbox  MailboxRef `json:"mailbox"`
+	Threads  []*Thread  `json:"threads"`
+}
+
+type Thread struct {
+	Type      string `json:"type"`
+	CreatedBy Person `json:"createdBy"`
+	Body      string `json:"body"`
+}
+
+type Person struct {
+	ID        int64  `json:"id,omitempty"`
+	Email     string `json:"email"`
+	Username  string `json:"username,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
+	Type      string `json:"type"`
+}
+
+type MailboxRef struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"` // Optional
+}
+
+func init() {
+	validSettings = func() error {
+		if envvars.HelpScoutAPIKey == "" || envvars.HelpScoutAPIKey == "disable" {
+			return fmt.Errorf("Helpscout API key not set")
+		}
+		if envvars.HelpScoutMailboxName == "" || envvars.HelpScoutMailboxName == "disable" {
+			return fmt.Errorf("Helpscout Mailbox ID not set")
+		}
+		if envvars.HelpScoutUserID == 0 {
+			return fmt.Errorf("Helpscout User ID not set")
+		}
+		if envvars.HelpScoutMailboxID == 0 {
+			return fmt.Errorf("Helpscout Mailbox ID not set")
+		}
+
+		return nil
+	}
+}
+
+func (c *Conversation) CreateConversation(customer Person, subject string, mailbox MailboxRef, threads []*Thread) error {
+	reqURL := fmt.Sprintf("%s/conversations.json", BaseURL)
+
+	c = &Conversation{
+		Customer: customer,
+		Subject:  subject,
+		Mailbox:  mailbox,
+		Threads:  threads,
+	}
+
+	conversationParam, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	if err := validSettings(); err != nil {
+		return fmt.Errorf("HelpScout settings errors: %v.  Did not send", err)
+	}
+
+	req, err := http.NewRequest("POST", reqURL, bytes.NewBuffer(conversationParam))
+	if err != nil {
+		return err
+	}
+
+	// HelpScout ignores password field
+	req.SetBasicAuth(envvars.HelpScoutAPIKey, "ignored")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := http.DefaultClient
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusCreated {
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return fmt.Errorf("CreateConversation: ioutil.ReadAll response body err: %v", err)
+		}
+		defer res.Body.Close()
+		return fmt.Errorf("CreateConversation: Unable to create conversation: expected %d, got %d - %s", http.StatusCreated, res.StatusCode, body)
+	}
+
+	return nil
+}
+
+func NewCustomer(email, username, name string) Person {
+	person := Person{
+		Type:      "customer",
+		Email:     email,
+		Username:  username, // Optional
+		FirstName: name,     // Optional
+	}
+	return person
+}
+
+func NewThread(typ string, author Person, body string) *Thread {
+	thread := &Thread{
+		Type:      typ,
+		CreatedBy: author,
+		Body:      body,
+	}
+	return thread
+}

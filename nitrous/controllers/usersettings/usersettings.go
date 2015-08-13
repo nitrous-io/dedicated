@@ -31,6 +31,11 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			settings.AutoCloseBrackets = v
 		}
 	}
+	if val := r.PostFormValue("remove_trailing_whitespace_on_save"); val != "" {
+		if v, err := strconv.ParseBool(val); err == nil {
+			settings.RemoveTrailingWhitespaceOnSave = v
+		}
+	}
 	if val := r.PostFormValue("highlight_line"); val != "" {
 		if v, err := strconv.ParseBool(val); err == nil {
 			settings.HighlightLine = v

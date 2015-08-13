@@ -59,6 +59,7 @@ func main() {
 	envvars.CheckHostnames()
 	envvars.CheckGitHubOAuth()
 	envvars.CheckSecretToken()
+	envvars.CheckHelpScout()
 
 	envvars.CheckStripe()
 	stripe.Key = envvars.StripeSecretKey

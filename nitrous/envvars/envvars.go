@@ -51,6 +51,11 @@ var (
 	SendgridUsername = os.Getenv("SENDGRID_USERNAME")
 	SendgridPassword = os.Getenv("SENDGRID_PASSWORD")
 
+	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
+	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
+	HelpScoutMailboxID   = parseInt64(os.Getenv("HELPSCOUT_MAILBOX_ID"))
+	HelpScoutUserID      = parseInt64(os.Getenv("HELPSCOUT_USER_ID"))
+
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")
 
@@ -182,6 +187,21 @@ func CheckHostnames() {
 	}
 	if PreviewHostname == "" {
 		logrus.Fatal("PREVIEW_HOSTNAME not set")
+	}
+}
+
+func CheckHelpScout() {
+	if HelpScoutAPIKey == "" || HelpScoutAPIKey == "disable" {
+		logrus.Warn("HELPSCOUT_API_KEY not set")
+	}
+	if HelpScoutMailboxName == "" || HelpScoutMailboxName == "disable" {
+		logrus.Warn("HELPSCOUT_MAILBOX_NAME not set")
+	}
+	if HelpScoutMailboxID == 0 {
+		logrus.Warn("HELPSCOUT_MAILBOX_ID not set")
+	}
+	if HelpScoutUserID == 0 {
+		logrus.Warn("HELPSCOUT_USER_ID not set")
 	}
 }
 
