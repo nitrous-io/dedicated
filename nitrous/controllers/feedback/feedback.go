@@ -44,7 +44,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	body = prepareCustomerMessage(env, body)
 	metadata, err := prepareNitrousNote(env, r)
 	if err != nil {
-		return err
+		logrus.Errorf("helpscout: failed to prepare NitrousNote for new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
 	}
 
 	// Prepare HelpScout API arguments.
