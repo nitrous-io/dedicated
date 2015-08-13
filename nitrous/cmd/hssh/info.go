@@ -13,8 +13,7 @@ import (
 	"github.com/mitchellh/cli"
 )
 
-type infoCmd struct {
-}
+type infoCmd struct{}
 
 func newInfoCommand() cli.CommandFactory {
 	return func() (cli.Command, error) {

@@ -17,7 +17,13 @@ var (
 	termMode = "xterm-256color"
 )
 
-type shellCmd struct {
+type shellCmd struct{}
+
+type resizeRequest struct {
+	Columns uint32
+	Rows    uint32
+	Width   uint32
+	Height  uint32
 }
 
 func newShellCommand() cli.CommandFactory {
