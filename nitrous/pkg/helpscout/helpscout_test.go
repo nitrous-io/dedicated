@@ -64,7 +64,7 @@ var _ = Describe("pkg/helpscout", func() {
 				Type:      "customer",
 			}
 			mailbox := helpscout.MailboxRef{
-				ID:   envvars.HelpScoutMailboxID,
+				ID:   int(envvars.HelpScoutMailboxID),
 				Name: envvars.HelpScoutMailboxName,
 			}
 			threads := []*helpscout.Thread{
@@ -81,7 +81,7 @@ var _ = Describe("pkg/helpscout", func() {
 				&helpscout.Thread{
 					Type: "note",
 					CreatedBy: helpscout.Person{
-						ID:   int64(envvars.HelpScoutUserID),
+						ID:   envvars.HelpScoutUserID,
 						Type: "user",
 					},
 					Body: metadata,
@@ -145,7 +145,7 @@ var _ = Describe("pkg/helpscout", func() {
 				Type:      "customer",
 			}
 			mailbox := helpscout.MailboxRef{
-				ID:   envvars.HelpScoutMailboxID,
+				ID:   int(envvars.HelpScoutMailboxID),
 				Name: envvars.HelpScoutMailboxName,
 			}
 			threads := []*helpscout.Thread{
@@ -162,7 +162,7 @@ var _ = Describe("pkg/helpscout", func() {
 				&helpscout.Thread{
 					Type: "note",
 					CreatedBy: helpscout.Person{
-						ID:   int64(envvars.HelpScoutUserID),
+						ID:   envvars.HelpScoutUserID,
 						Type: "user",
 					},
 					Body: metadata,
@@ -188,7 +188,7 @@ var _ = Describe("pkg/helpscout", func() {
 				Type:      "customer",
 			}
 			mailbox := helpscout.MailboxRef{
-				ID:   envvars.HelpScoutMailboxID,
+				ID:   int(envvars.HelpScoutMailboxID),
 				Name: envvars.HelpScoutMailboxName,
 			}
 			// Invalid Param: Empty Thread
