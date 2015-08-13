@@ -1085,6 +1085,11 @@ type authconfig struct {
 	Email string `json:"email"`
 }
 
+// from docker >= 1.7.0, authconfig is wrapped within an outer "auths" key
+type wrappedAuthconfig struct {
+	Auths map[string]authconfig `json:"auths"`
+}
+
 func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dockerclient.AuthConfiguration, error) {
 	if registry == "" {
 		registry = "index.docker.io"
@@ -1103,11 +1108,22 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 		return dockerclient.AuthConfiguration{}, nil
 	}
 
-	// got the auth contents here, parse it and get the correct configuration
-	// out
+	var wrappedConfig wrappedAuthconfig
 	var endpointMap map[string]authconfig
-	err = json.Unmarshal(fileContents, &endpointMap)
+
+	// try to unmarshal for docker 1.7.0 format first, otherwise attempt previous format
+	err = json.Unmarshal(fileContents, &wrappedConfig)
+	if err == nil && len(wrappedConfig.Auths) > 0 {
+		endpointMap = wrappedConfig.Auths
+	} else {
+		if err2 := json.Unmarshal(fileContents, &endpointMap); err2 != nil {
+			err = fmt.Errorf("Error unmarshalling. New format: %v, Old format: %v", err, err2)
+		}
+	}
 	if err != nil {
+		logrus.Warnf("failed to unmarshal authentication details, err: %v", err)
+	}
+	if len(endpointMap) == 0 {
 		return dockerclient.AuthConfiguration{}, err
 	}
 
@@ -1137,19 +1153,24 @@ func (p *DockerProvider) fetchAuthenticationInfoBestMatch(registry string) (dock
 }
 
 func (p *DockerProvider) dockerConfigLocation() (string, error) {
+	// FIXME: this is used purely by tests; there is no live code that sets this var
 	if len(p.DockerConfigLocation) != 0 {
 		return p.DockerConfigLocation, nil
 	}
 
-	// Use $HOME as the root path when fetching .dockercfg file.
-	// As suggested in - https://github.com/nitrous-io/nitrous/issues/134
-	configPath := path.Join(os.Getenv("HOME"), ".dockercfg")
-
-	_, err := os.Stat(configPath)
-	if err != nil {
-		return "", err
+	// order is significant! test for presence of new format first
+	possibles := []string{
+		path.Join(os.Getenv("HOME"), ".docker", "config.json"), // >= 1.7.0
+		path.Join(os.Getenv("HOME"), ".dockercfg"),
 	}
-	return configPath, nil
+
+	for _, f := range possibles {
+		if _, err := os.Stat(f); err == nil {
+			return f, nil
+		}
+	}
+
+	return "", fmt.Errorf("File not found in locations %+v", possibles)
 }
 
 func (p *DockerProvider) lookupImage(imageIDOrName string) (lookupImageResult, error) {

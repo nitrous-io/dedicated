@@ -1040,6 +1040,7 @@ var _ = Describe("provider/docker", func() {
 	Describe(".PullImage()", func() {
 		var (
 			tempAuthFile *os.File
+			authFileSrc  string
 		)
 
 		BeforeEach(func() {
@@ -1052,7 +1053,7 @@ var _ = Describe("provider/docker", func() {
 			testo:Password1
 			magic:abc34x1
 			*/
-			authFileSrc := `
+			authFileSrc = `
 			{
 				"https://index.docker.io/v1/": { "auth": "dGVzdDoxMjM0eHhjYwo=", "email": "docker@callumj.com" },
 				"quay.io": { "auth": "dGVzdG86UGFzc3dvcmQxCg==", "email": "quay@callumj.com" },
@@ -1077,6 +1078,34 @@ var _ = Describe("provider/docker", func() {
 
 		AfterEach(func() {
 			os.Remove(tempAuthFile.Name())
+		})
+
+		It("handles the new docker config.json registry auth format", func() {
+			txt := fmt.Sprintf(`{ "auths": %s }`, authFileSrc)
+			newAuthFile, err := ioutil.TempFile("", "newcfg")
+			Expect(err).To(BeNil())
+			_, err = newAuthFile.WriteString(txt)
+			Expect(err).To(BeNil())
+			err = newAuthFile.Close()
+			Expect(err).To(BeNil())
+			prov.DockerConfigLocation = newAuthFile.Name()
+
+			rt := &FakeRoundTripper{message: "", status: http.StatusOK}
+			cl := prov.Client()
+			cl.HTTPClient = &http.Client{Transport: rt}
+
+			err = prov.PullImage("nitrousio/nodejs", ioutil.Discard, true)
+			Expect(err).To(BeNil())
+
+			r := rt.requests[0]
+			assertPullOptions(r, dockerclient.PullImageOptions{
+				Repository: "nitrousio/nodejs",
+			})
+			assertRegistryAuth(r, dockerclient.AuthConfiguration{
+				Username: "test",
+				Password: "1234xxcc\n",
+				Email:    "docker@callumj.com",
+			})
 		})
 
 		It("streams the docker output", func() {
