@@ -326,7 +326,7 @@ func (h *Host) createContainer(imageName string) (*host.Info, error) {
 func New(driverOptions string, hostOptions string) (host.Host, error) {
 	driverCfg := driverConfig{}
 	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
-		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
+		logrus.Errorf("docker: invalid driver config: %s", driverOptions)
 		return nil, err
 	}
 

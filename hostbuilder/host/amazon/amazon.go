@@ -104,13 +104,13 @@ func init() {
 func New(driverOptions string, hostOptions string) (host.Host, error) {
 	driverCfg := driverConfig{}
 	if err := json.Unmarshal([]byte(driverOptions), &driverCfg); err != nil {
-		logrus.Errorf("amazon: invalid driver config: %s", driverOptions)
+		logrus.Errorf("amazon: invalid driver config, err: %v", err)
 		return nil, err
 	}
 
 	hostCfg := &hostConfig{}
 	if err := json.Unmarshal([]byte(hostOptions), hostCfg); err != nil {
-		logrus.Errorf("amazon: invalid host config: %s", hostOptions)
+		logrus.Errorf("amazon: invalid host config, err: %v", err)
 		return nil, err
 	}
 
