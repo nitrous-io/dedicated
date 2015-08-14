@@ -248,10 +248,7 @@ func (t *Target) sendWarning(db *ndb.Database, opt *warningOpts) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		// purely for advisory lock
-		tx.Rollback()
-	}()
+	defer tx.Rollback()
 
 	var obtained bool
 	obtained, err = ndb.TransactionLock(tx, ndb.IDLE_HOST_LOCK, int(t.HostID))
