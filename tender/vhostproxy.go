@@ -19,6 +19,8 @@ func (s *VhostServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.FreighterProxyServer.ServeHTTP(w, r)
 	} else if sameRootDomain(r.Host, s.PreviewBaseDomain) {
 		s.PreviewProxyServer.ServeHTTP(w, r)
+	} else {
+		http.Error(w, "cannot handle this request", http.StatusForbidden)
 	}
 }
 
