@@ -114,6 +114,22 @@ func TestFindFiles(t *testing.T) {
 	testMatches(t, root, "daa", []string{})
 	testMatches(t, root, "bar xyz lo", []string{})
 	testCachedDir(t, root)
+
+	// Test that it works the same when given a symlink to a directory.
+	symlinkPath := filepath.Join("/tmp", "a-symlink")
+	if err := os.Symlink(root, symlinkPath); err != nil {
+		t.Errorf("failed to create symlink to %s at %s, err: %v", root, symlinkPath, err)
+	}
+
+	testMatches(t, symlinkPath, "st/no", []string{"dist/nomatching"})
+	testMatches(t, root, "glam", []string{"GLAM.cpp"})
+	testMatches(t, root, "daem", []string{"daemon/container.go"})
+	testMatches(t, root, "DAem", []string{"daemon/container.go"})
+	testCachedDir(t, symlinkPath)
+
+	if err := os.Remove(symlinkPath); err != nil {
+		t.Errorf("failed to cleanup symlink at %s, err: %v", symlinkPath, err)
+	}
 }
 
 func TestMergeRegions(t *testing.T) {
