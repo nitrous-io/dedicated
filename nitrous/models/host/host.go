@@ -49,6 +49,12 @@ const (
 	UpdateAvailableSoft = "soft"
 )
 
+const (
+	IDLE_NOTICES_NO_WARNING = iota
+	IDLE_NOTICES_FIRST_WARNING
+	IDLE_NOTICES_FINAL_WARNING
+)
+
 type Host struct {
 	ID                 int64 `db:"id"`
 	UserID             int64 `db:"user_id"`
@@ -122,6 +128,9 @@ type Host struct {
 	ScanExempted  bool        `db:"scan_exempted"`
 	NextScan      pq.NullTime `db:"next_scan"`
 	TerminatingAt pq.NullTime `db:"terminating_at"`
+
+	IdleNoticesSent int         `db:"idle_notices_sent"`
+	IdleNextCheck   pq.NullTime `db:"idle_next_check"`
 
 	// not the ideal but convenient place so that it's easy to construct
 	// serializers.Host out of it. Data comes from freighterd, not database

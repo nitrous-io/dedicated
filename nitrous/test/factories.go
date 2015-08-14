@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
@@ -23,6 +24,7 @@ type HostStack struct {
 	H    *host.Host
 	U    *user.User
 	O    *org.Org
+	S    *subscription.Subscription
 	Cert *cert.Cert
 }
 
@@ -81,7 +83,7 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		}
 	}
 	if hs.U.ID == 0 {
-		err = WrapInTransaction(db, hs.U.Insert)
+		err = hs.U.Insert(tx)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -129,6 +131,26 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.PT.ID == 0 {
 		err = hs.PT.Insert(tx)
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	if hs.S != nil && hs.S.ID == 0 {
+		hs.S.PlanID = hs.P.ID
+		if hs.S.State == "" {
+			hs.S.State = "active"
+		}
+		if hs.S.BillingProfileID == 0 {
+			bp, err := hs.U.BillingProfile(tx)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+			hs.S.BillingProfileID = bp.ID
+		}
+		err = hs.S.Insert(tx)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -183,6 +205,13 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 		return nil, err
 	}
 	hs.Cert = crt
+
+	if hs.S != nil {
+		if err := hs.H.UpdateColumn(tx, "subscription_id", sql.NullInt64{hs.S.ID, true}); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
 
 	err = tx.Commit()
 	if err != nil {

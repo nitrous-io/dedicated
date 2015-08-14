@@ -130,6 +130,28 @@ var _ = Describe("models/hosttransition", func() {
 				Expect(h.LastRunningAt.Valid).To(BeTrue())
 			})
 
+			It("should flush out idle_notices_sent and idle_next_check if the state becomes running", func() {
+				_, err := db.Exec("UPDATE hosts SET idle_next_check = now(), idle_notices_sent = 2 WHERE id = $1", h1.ID)
+				Expect(err).To(BeNil())
+
+				h1, err = host.FindByIdentifier(db, "my-host-1")
+				Expect(h1.IdleNextCheck.Valid).To(BeTrue())
+				Expect(h1.IdleNoticesSent).To(Equal(2))
+
+				tx, err := db.Beginx()
+				Expect(err).To(BeNil())
+				t := time.Now()
+				h1.State = "running"
+				err = hosttransition.Record(tx, h1, "born", t, u.ID)
+				Expect(err).To(BeNil())
+				Expect(tx.Commit()).To(BeNil())
+
+				h, err := host.FindByIdentifier(db, "my-host-1")
+				Expect(err).To(BeNil())
+				Expect(h.IdleNextCheck.Valid).To(BeFalse())
+				Expect(h.IdleNoticesSent).To(BeZero())
+			})
+
 			It("should not update the host running if the state becomes running", func() {
 				Expect(h1.LastRunningAt.Valid).To(BeFalse())
 				tx, err := db.Beginx()

@@ -199,7 +199,10 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			return err
 		}
 
-		return h.UpdateColumn(tx, "subscription_id", sql.NullInt64{sub.ID, true})
+		return tx.QueryRowx(`UPDATE hosts
+                SET (subscription_id, idle_notices_sent, idle_next_check, updated_at) =
+                ($1, $2, NULL, now())
+                WHERE id = $3 RETURNING *;`, sql.NullInt64{sub.ID, true}, host.IDLE_NOTICES_NO_WARNING, h.ID).StructScan(h)
 	})
 
 	if err != nil {
