@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -32,6 +34,7 @@ var _ = Describe("controllers/users", func() {
 		req     *http.Request
 		svr     *server.Server
 		ft      *test.FakeTracker
+		f       *test.FakeMailChimp
 	)
 
 	BeforeEach(func() {
@@ -67,6 +70,12 @@ var _ = Describe("controllers/users", func() {
 			U: u,
 		})
 		Expect(err).To(BeNil())
+
+		f = test.NewFakeMailChimp()
+		users.MailChimp = f
+
+		envvars.MailChimpIDNewsletter = "newsletters"
+		envvars.MailChimpIDAnnouncements = "announcements"
 	})
 
 	AfterEach(func() {
@@ -333,6 +342,36 @@ var _ = Describe("controllers/users", func() {
 				Expect(pc.UserID).To(Equal(u.ID))
 				Expect(pc.Mode).To(Equal("set"))
 				Expect(pc.PropsSet["deleted_date"]).To(BeTemporally("~", time.Now(), time.Minute))
+			})
+
+			It("should unsubscribe the user from MailChimp", func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Eventually(func() int {
+					return f.UnsubscribeCalled
+				}).Should(Equal(2))
+
+				Expect(f.SubscribeCalled).To(BeZero())
+				Expect(f.UnsubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
+				Expect(f.UnsubscribeEmails).To(Equal([]string{"tokenuser@example.com", "tokenuser@example.com"}))
+			})
+
+			It("should not unsubscribe if the user has not confirmed", func() {
+				_, err := db.Exec(`UPDATE users SET confirmed_at = NULL WHERE id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				Eventually(func() int {
+					return f.UnsubscribeCalled
+				}).Should(BeZero())
+
+				Expect(f.SubscribeCalled).To(BeZero())
 			})
 
 			It("should disallow delete if token holder is not full scope", func() {

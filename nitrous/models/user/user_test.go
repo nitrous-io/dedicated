@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailchimp"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -1164,7 +1166,10 @@ var _ = Describe("models/user", func() {
 	})
 
 	Describe("ConfirmEmail", func() {
-		var u *user.User
+		var (
+			u *user.User
+			f *test.FakeMailChimp
+		)
 		curTime := time.Now()
 
 		BeforeEach(func() {
@@ -1176,6 +1181,12 @@ var _ = Describe("models/user", func() {
 			}
 			err := test.WrapInTransaction(db, u.Insert)
 			Expect(err).To(BeNil())
+
+			f = test.NewFakeMailChimp()
+			user.MailChimp = f
+
+			envvars.MailChimpIDNewsletter = "newsletters"
+			envvars.MailChimpIDAnnouncements = "announcements"
 		})
 
 		It("should successfully confirm when the time is within range", func() {
@@ -1195,6 +1206,48 @@ var _ = Describe("models/user", func() {
 			Expect(u.ConfirmedAt.Time).To(BeTemporally(">=", now))
 			Expect(u.ConfirmationSentAt.Valid).To(BeFalse())
 			Expect(u.Email).To(Equal("qux@example.com"))
+		})
+
+		It("should subscribe to the MailChimp newsletters", func() {
+			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				return f.SubscribeCalled
+			}).Should(Equal(2))
+
+			Expect(f.UnsubscribeCalled).To(BeZero())
+			Expect(f.SubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
+			opt := &mailchimp.SubscribeOptions{
+				Email: "qux@example.com",
+				MergeFields: map[string]interface{}{
+					"USERNAME": "qux",
+					"FNAME":    "quxboy",
+				},
+			}
+			Expect(f.SubscribeOpts).To(Equal([]*mailchimp.SubscribeOptions{opt, opt}))
+		})
+
+		It("should subscribe to MailChimp even if one fails", func() {
+			f.SubscribeErrs = []error{errors.New("Sorry!")}
+			_, err := db.Exec(`UPDATE users SET confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				return f.SubscribeCalled
+			}).Should(Equal(2))
 		})
 
 		It("should return an error if the user has already confirmed", func() {
@@ -1234,6 +1287,51 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 			Expect(u.Email).To(Equal("buddy@hotmail.com"))
 			Expect(u.UnconfirmedEmail.String).To(BeEmpty())
+		})
+
+		It("should unsubscribe the user when the email changes", func() {
+			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@hotmail.com', confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				return f.UnsubscribeCalled
+			}).Should(Equal(2))
+
+			Expect(f.SubscribeCalled).To(Equal(2))
+			Expect(f.UnsubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
+			Expect(f.UnsubscribeEmails).To(Equal([]string{"qux@example.com", "qux@example.com"}))
+		})
+
+		It("should subscribe the user to their new email when the email changes", func() {
+			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@hotmail.com', confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				return f.UnsubscribeCalled
+			}).Should(Equal(2))
+
+			Expect(f.SubscribeCalled).To(Equal(2))
+			Expect(f.SubscribeListIDs).To(Equal([]string{"newsletters", "announcements"}))
+			opt := &mailchimp.SubscribeOptions{
+				Email: "buddy@hotmail.com",
+				MergeFields: map[string]interface{}{
+					"USERNAME": "qux",
+					"FNAME":    "quxboy",
+				},
+			}
+			Expect(f.SubscribeOpts).To(Equal([]*mailchimp.SubscribeOptions{opt, opt}))
 		})
 
 		It("should update all outstanding container collabs to user IDs", func() {
