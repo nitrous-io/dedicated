@@ -19,14 +19,14 @@ var (
 	HelpScout helpscout.HelpScout
 
 	nitrousMailbox helpscout.MailboxRef
-	nitrousUser    helpscout.Person
+	nitrousPerson  helpscout.Person
 )
 
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
 	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
-	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+	nitrousPerson = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -41,15 +41,15 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	// Format email data.
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	metadata, err := prepareNitrousNote(env, r)
+	metadata, err := prepareMetadata(env, r)
 	if err != nil {
-		logrus.Errorf("helpscout: failed to prepare NitrousNote for new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
+		logrus.Errorf("helpscout: failed to prepare metadata for nitrous note in new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
 	}
 
 	// Prepare HelpScout API arguments.
 	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
 	customerMessage := helpscout.NewThread("customer", customer, body)
-	nitrousNote := helpscout.NewThread("note", nitrousUser, metadata)
+	nitrousNote := helpscout.NewThread("note", nitrousPerson, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
 	go func() {
@@ -64,7 +64,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func prepareNitrousNote(env *middleware.Env, r *http.Request) (string, error) {
+func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 	workspaceInfo, err := getWorkspaceInfo(env.DB, env.User.ID)
 	if err != nil {
 		return "", err
