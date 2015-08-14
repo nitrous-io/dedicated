@@ -36,7 +36,7 @@ App.FeedbackController = Em.Controller.extend
         body: @get 'body'
         userAgent: navigator.userAgent 
         platform: navigator.platform
-        currentURL: navigator.currentURL 
+        currentURL: window.location.href 
 
       Em.$.ajax(
         type: 'POST',
