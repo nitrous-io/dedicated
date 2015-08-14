@@ -154,7 +154,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 		ItSendsSuccessfully := func() {
 			It("sends successfully", func() {
 				subject := "All your server are belong to us"
-				body := "You have no chance to survive make your time."
+				body := "You have no <b>chance</b> to survive make your time."
 				userAgent := "Mozilla"
 				platform := "MacIntel"
 				currentURL := "https://nitrous.io"
@@ -176,7 +176,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{ID: 0, Email: "cats@example.com", Username: "cats", FirstName: "CATS", Type: "customer"}))
 				Expect(fakeHelpScout.Subject).To(Equal("[nitrous-pro] All your server are belong to us"))
 				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
-				Expect(fakeHelpScout.Threads[0].Body).To(Equal("You have no chance to survive make your time."))
+				Expect(fakeHelpScout.Threads[0].Body).To(Equal("You have no &lt;b&gt;chance&lt;/b&gt; to survive make your time."))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))

@@ -2,6 +2,7 @@ package feedback
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"strings"
 
@@ -39,8 +40,9 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// Format email data.
+	// Format email data and escape HTML in message body.
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
+	body = html.EscapeString(body)
 	metadata, err := prepareMetadata(env, r)
 	if err != nil {
 		logrus.Errorf("helpscout: failed to prepare metadata for nitrous note in new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
