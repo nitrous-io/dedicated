@@ -53,6 +53,21 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 
 11. Open the IDE, follow the instructions in the Readme.
 
+12. Setup Stripe
+
+All hosts created on Nitrous must have a Stripe subscription, for this work locally you will need to setup a Stripe account for testing.
+
+* Go to http://stripe.com and signup for a account
+* Go to Account Settings and copy the Test Secret Key and Test Publishable Key into the `.env` file
+* For each plan in the `plans` table you will need to create 2 plans in Stripe: one with an `ID` that matches the `plans.slug` and one where the ID matches `plans.slug`-exempt. Example: if the slug of plan matches `basic` in the table then you would create a Stripe plan with an ID of `basic` and another plan with an ID of `basic-exempt` that has a price of 0.
+* You can now use the test cards provided by Stripe when you are required to add a card: https://stripe.com/docs/testing#cards
+* Otherwise you can set your billing profile in the database to the `state` of `exempt`.
+* For the complete development flow it is recommended you setup Stripe webhooks. To achieve this you will need to do the following:
+  * WARNING: this makes your development environment publicly accessible. You wish to consider Nginx serving a second virtual server and allowing only `/api/v0/stripe_hook`.
+  * Expose your Nitrous container over the preview address
+  * Configure Nginx to also listen for non SSL requests (otherwise Stripe will have cert issues accessing your SSL)
+  * Under Account Settings > Webhook specify the address of the container, e.g: `http://HOST:PORT/api/v0/stripe_hook`
+
 ### Commands
 
 ```
