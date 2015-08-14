@@ -53,14 +53,6 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 
 11. Open the IDE, follow the instructions in the Readme.
 
-12. Setup Rabbitmq. Replace the ports if necessary.
-
-```
-docker run -d -e RABBITMQ_NODENAME=my-rabbit \
-  --name some-rabbit \
-  -p 127.0.0.1:5672:5672 -p 8081:15672 rabbitmq:3-management
-```
-
 ### Commands
 
 ```
