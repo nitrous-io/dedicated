@@ -41,7 +41,6 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	// Format email data.
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	body = prepareCustomerMessage(env, body)
 	metadata, err := prepareNitrousNote(env, r)
 	if err != nil {
 		logrus.Errorf("helpscout: failed to prepare NitrousNote for new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
@@ -63,16 +62,6 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{"status": "ok"}
 	return nil
-}
-
-func prepareCustomerMessage(env *middleware.Env, body string) string {
-	body = strings.Join([]string{
-		"<strong>Username</strong>: " + env.User.Username,
-		"<strong>Name</strong>: " + env.User.Name,
-		"<strong>Email</strong>: " + env.User.Email,
-		body + "\n",
-	}, "\n")
-	return body
 }
 
 func prepareNitrousNote(env *middleware.Env, r *http.Request) (string, error) {
