@@ -68,7 +68,7 @@
 
         .box.backup
           h3.with-icon Backup &amp; Redundancy
-          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your projects reside in the cloud, in military-grade secure facilities.
+          p Never worry about losing your work because of a coffee spill or stolen laptop. Your projects are in the cloud, in military-grade secure facilities.
 
         .box.secure
           h3.with-icon Your data, secured
@@ -140,7 +140,7 @@
   article.featurette
     .container
       h3.big-title A feature-packed IDE
-      h4 With layouts, themes, and power-tools that will put your desktop code editor to shame
+      h4 With themes, layouts, and power-tools that will put your desktop code editor to shame
       
       .full-visual.window.centered
         .window-controls.osx
@@ -179,42 +179,52 @@
           span
         = image_tag 'home/dashboard-featurette-1.png', width: '808px', height: '460px', alt: 'Self-service Dashboard'
 
-  article.nitrous-desktop.lighter
+  article.lighter
     .container
-      .pull-wrapper
-        .pull-left
-          .full-visual
-            .window-controls.osx
-              span
-              span
-              span
-            = image_tag 'home/nitrous-desktop-featurette.png', class: 'app-window', alt: 'Nitrous Desktop'
+      .box-wrapper
 
-        .pull-right
-          //= image_tag 'home/nitrous-desktop-icon.png', width: '92px', height: '92px', class: 'app-icon', alt: 'Nitrous Desktop'
+        .box.auto.nitrous-desktop
+          .content
+            h3.section-title Nitrous Desktop
+
+            .item
+              h4 Manage your cloud environments
+              p
+                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+
+            .item
+              h4 Sync files, use your favorite editor
+              p
+                ' Sync files between Nitrous and desktop computer, allowing you to edit files using
+                a href="https://atom.io/" target="_blank" Atom
+                ' ,
+                a href="http://www.sublimetext.com/" target="_blank" Sublime Text
+                | &nbsp;or your text editor of choice.
+
+              .download-btns
+                a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
+                a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
+                a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
+
+        .box.auto.nitrous-chrome
+          .content
+            h3.section-title Nitrous for Chrome
+
+            .item
+              h4 Lightning fast, works everywhere
+              p
+                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+
+            .item
+              h4 Native keyboard shortcuts
+              p
+                ' Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+                a href="https://community.nitrous.io/posts/nitrous-pro-chrome-app-now-available" target="_blank" Learn more
+                | .
+
+              .download-btns
+                a.btn.download.chrome href="https://chrome.google.com/webstore/detail/nitrous/efdcneeepllhjlbejkfnaolelbpdacai?hl=en" target="_blank" Chrome Web Store
           
-          h3.section-title Nitrous Desktop
-
-          .item
-            h4 Manage cloud environments
-            p
-              | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
-
-          .item
-            h4 Use your favorite editor
-            p
-              ' Sync files between your Nitrous workspaces and desktop computer, allowing you to edit code using
-              a href="https://atom.io/" target="_blank" Atom
-              ' ,
-              a href="http://www.sublimetext.com/" target="_blank" Sublime Text
-              ' ,
-              a href="http://macromates.com/" target="_blank" Textmate
-              | &nbsp;or your favorite desktop text editor.
-
-            .download-btns
-              a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
-              a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
-              a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
 
   = render partial: 'layouts/stacks', locals: { theme: 'darker' }
 

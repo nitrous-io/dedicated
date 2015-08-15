@@ -47,7 +47,7 @@
       p
         a href='/flatiron'
           span.new Latest
-          | The Flatiron School has selected Nitrous Pro as its software development platform 
+          | The Flatiron School has selected Nitrous Pro as its software development platform
           span.link Read more
           i.fa.fa-chevron-right
 
@@ -163,42 +163,57 @@
         input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
         .carousel-item
           .container
-            .box-wrapper.three
-              .box
-                blockquote
-                  p
-                    | You don't have to install anything so&nbsp;
-                    strong you save time
-                    |. Plus the students have a text editor and terminal in the same screen, and don't have to switch all the time, which also makes it less confusing.
-                  cite
-                    | Andreas Tiefenthaler
-                    span , Rails Girls Instructor
-              .box
-                blockquote
-                  p
-                    | The online code editor is the bees knees. It provides me a simple interface into my app's code&nbsp;
-                    strong from anywhere
-                    | &nbsp;I have an internet connection.
-                  cite
-                    | Miles Smith
-                    span , Freelance Ruby/JS Developer
-              .box
-                blockquote
-                  p
-                    | I love that I can spin up a new box in seconds and start developing proof of concepts in minutes. Another sweet feature that I've used a lot is the ability to provide a&nbsp;
-                    strong public preview link
-                    | &nbsp;of my app.
-                  cite
-                    | Shaun McAvinney
-                    span , Engineer at RJMetrics
+            .box-wrapper.one
+              blockquote
+                p
+                  | You don't have to install anything so&nbsp;
+                  strong you save time
+                  |. Plus the students have a text editor and terminal in the same screen, and don't have to switch all the time, which also makes it less confusing.
+                cite
+                  | Andreas Tiefenthaler
+                  span , Rails Girls Instructor
 
-        label.carousel-control.prev.control-1 for="carousel-2"
+        input#carousel-3.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
+                p
+                  | The online code editor is the bees knees. It provides me a simple interface into my app's code&nbsp;
+                  strong from anywhere
+                  | &nbsp;I have an internet connection.
+                cite
+                  | Miles Smith
+                  span , Freelance Ruby/JS Developer
+
+        input#carousel-4.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
+                p
+                  | I love that I can spin up a new box in seconds and start developing proof of concepts in minutes. Another sweet feature that I've used a lot is the ability to provide a&nbsp;
+                  strong public preview link
+                  | &nbsp;of my app.
+                cite
+                  | Shaun McAvinney
+                  span , Engineer at RJMetrics
+
+        label.carousel-control.prev.control-1 for="carousel-4"
           i.fa.fa-chevron-left
         label.carousel-control.next.control-1 for="carousel-2"
           i.fa.fa-chevron-right
         label.carousel-control.prev.control-2 for="carousel-1"
           i.fa.fa-chevron-left
-        label.carousel-control.next.control-2 for="carousel-1"
+        label.carousel-control.next.control-2 for="carousel-3"
+          i.fa.fa-chevron-right
+        label.carousel-control.prev.control-3 for="carousel-2"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-3 for="carousel-4"
+          i.fa.fa-chevron-right
+        label.carousel-control.prev.control-4 for="carousel-3"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-4 for="carousel-1"
           i.fa.fa-chevron-right
 
   article.for-everyone.lighter

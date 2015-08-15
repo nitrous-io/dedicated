@@ -3,7 +3,7 @@
 // Hero section
 // Used on all pages using .hero and .page-hero
 .page
-  
+
   .hero, .page-hero
     position: relative
     display: flex
@@ -13,15 +13,15 @@
       flex-direction: column
       flex-grow: 1
       align-items: center
-    
+
     .featurette
       padding-top: 92px
       padding-bottom: 0
       margin-bottom: 0
       border-bottom: 0
-      
+
       p
-        color: rgba(255,255,255,.4)
+        color: rgba(255,255,255,.6)
 
   .hero-copy
     position: relative
@@ -39,12 +39,12 @@
       padding-bottom: 2px
       font-weight: 400
       font-family: $boldFont
-      
+
     h3
       font-size: 22px
       color: #A5B3BE
       font-weight: 300
-  
+
   .hero
     height: 460px
 
@@ -72,7 +72,12 @@
 
     .hero-copy h3
       color: rgba(255,255,255,.8)
-    
+
+    article
+      h3, .section-title
+        font-family: $boldFont
+        color: #FFF
+
     .hero-copy .btn.submit
       width: 112px
       margin: 30px auto 0 auto
@@ -83,11 +88,12 @@
   height: 680px
   height: 100vh
   min-height: 680px
+  max-height: 860px
   user-select: none
 
   .hero-copy
     margin-top: 0
-    
+
     a.btn.submit
       margin-top: 40px
 
@@ -155,7 +161,7 @@
     background: #2C3944
     background: linear-gradient(to bottom, rgba(40,50,58,1) 0%,rgba(49,62,73,1) 47%,rgba(54,69,80,1) 100%)
     background-size: cover
-  
+
   #company .page-hero
     background: #2C3944 image_url('home/office-hero-bg.jpg') center center no-repeat
     background-size: cover
@@ -170,16 +176,16 @@
   .no-hero
     .hero-copy
       margin-top: -8px
-      
+
     border: 0
-    
+
 // --------------------------------------
 // Light-themed pages only
 .light
   .page-hero
     h3
       color: rgba(255,255,255,.8)
-    
+
   .full-height
     .page-hero
       background: #0099ED
@@ -193,7 +199,7 @@
     background-position: top center
     background-repeat: no-repeat
     background-size: cover
-    
+
     .shadows, .patternshadows
       position: absolute
       top: 0
@@ -324,10 +330,10 @@
     background-position: top center
     background-repeat: no-repeat
     background-size: cover
-    
+
     .hero-copy
       padding-bottom: 0
-  
+
 #vpc
   .page-hero
     background: #8696A0 image_url('home/vpc-hero.jpg') center center no-repeat

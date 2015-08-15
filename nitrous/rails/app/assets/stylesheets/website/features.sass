@@ -2,7 +2,7 @@
 // --------------------------------------
 // Features
 #features
-  
+
   .featurette .full-visual
     width: auto
 
@@ -34,6 +34,48 @@
     overflow: hidden
     border-radius: 4px 4px 1px 1px
 
+  .box.auto
+
+    .content
+      width: 460px
+      padding: 10px 0
+      display: flex
+      flex-direction: column
+
+      .item
+        padding: 10px 0
+
+      h3.section-title, h4
+        text-align: left
+
+      h3.section-title
+        font-size: 26px
+        line-height: 44px
+        padding-left: 58px
+        padding-bottom: 20px
+
+      h4
+        font-family: $boldFont
+        font-weight: 400
+        font-size: 14px
+        padding: 0 0 6px 0
+
+      h4, p
+        color: #a5b3be
+
+    .download-btns
+      align-self: flex-end
+
+    &.nitrous-desktop
+      h3
+        background: image_url('home/nitrous-desktop-icon.png') 0 0 no-repeat
+        background-size: 44px 44px
+
+    &.nitrous-chrome
+      h3
+        background: image_url('home/nitrous-chrome-icon.png') 0 0 no-repeat
+        background-size: 44px 44px
+
   // --------------------------------------
   // Nitrous Desktop
   .nitrous-desktop
@@ -56,48 +98,9 @@
     .pull-right
       width: 428px
       margin-top: 54px
-      
-      h3
-        font-size: 26px
 
       .item
         padding-bottom: 0
-
-        h4
-          font-family: $boldFont
-          font-weight: 300
-
-    .download-btns
-      padding: 24px 0 0 0
-
-      a.download
-        height: 42px
-        line-height: 42px
-        padding: 0 14px 0 38px
-        margin: 0 10px 0 0
-        display: inline-block
-        background: #2A3239 image_url('home/download-btns.png') 0 0 no-repeat
-        background-size: 32px 256px
-        border: 0
-        border-radius: 4px
-        transition: background-color .14s ease-in-out
-
-        &.osx
-          background-position: 4px 5px
-        &.windows
-          background-position: 4px -28px
-        &.linux
-          background-position: 4px -92px
-
-        &:hover
-          color: #FFF
-          background-color: $blue
-          &.osx
-            background-position: 4px -123px
-          &.windows
-            background-position: 4px -156px
-          &.linux
-            background-position: 4px -220px
 
   // --------------------------------------
   // Pulled out
@@ -106,28 +109,9 @@
     margin: 0 auto
     padding-bottom: 60px
     +clearFix
-    
+
     .full-visual
       margin: 0
-
-    .section-title
-      text-align: left
-      padding-bottom: 0
-
-    .item
-      padding: 20px 0
-
-    h3, h4, .big-title
-      text-align: left
-      display: block
-
-    h4
-      font-weight: 400
-      font-size: 14px
-      padding: 0 0 6px 0
-
-    h4, p
-      color: #a5b3be
 
     .pull-left, .pull-right
       position: relative
