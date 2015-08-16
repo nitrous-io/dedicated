@@ -177,14 +177,15 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
 				Expect(fakeHelpScout.Subject).To(Equal("[nitrous-pro] All your server are belong to us"))
 				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
 				Expect(fakeHelpScout.Threads[0].Body).To(Equal("You have no &lt;b&gt;chance&lt;/b&gt; to survive make your time."))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Billing Profile State</strong>: delinquent"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>User Agent</strong>: Mozilla<br>"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Platform</strong>: MacIntel<br>"))
 				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Current URL</strong>: https://nitrous.io<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring(fmt.Sprintf("<strong>User Info:</strong><br>ID: %v", u.ID)))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<br>Username: cats<br>Email: cats@example.com<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Billing Profile State: delinquent<br>"))
-				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: <br>Slug: abc<br>Region Identifier: <br>State: running<br>Plan Name: cozy-workplace<br>Subscription State: active<br>"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring(fmt.Sprintf("<strong>User Info</strong>: ID: %v,", u.ID)))
+
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Username: cats, Email: cats@example.com"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("Phone Authed: false"))
+				Expect(fakeHelpScout.Threads[1].Body).To(ContainSubstring("<strong>Workspace(s) Info</strong>: 1. Slug: abc, Region Identifier: , State: running, Plan Name: cozy-workplace, Subscription State: active"))
 
 				j := map[string]interface{}{}
 

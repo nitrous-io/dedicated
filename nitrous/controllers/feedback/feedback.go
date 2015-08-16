@@ -77,18 +77,18 @@ func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 	}
 
 	metadata := strings.Join([]string{
-		fmt.Sprintf("<strong>User Agent</strong>: %s", r.FormValue("userAgent")),
-		fmt.Sprintf("<strong>Platform</strong>: %s", r.FormValue("platform")),
-		fmt.Sprintf("<strong>Current URL</strong>: %s", r.FormValue("currentURL")),
-		fmt.Sprintf("<strong>User Info:</strong>"),
-		fmt.Sprintf("ID: %v", env.User.ID),
-		fmt.Sprintf("Username: %s", env.User.Username),
-		fmt.Sprintf("Email: %s", env.User.Email),
-		fmt.Sprintf("Confirmed At: %s", env.User.ConfirmedAt.Time),
-		fmt.Sprintf("Phone Authed: %t", env.User.PhoneAuthed),
-		fmt.Sprintf("Billing Profile State: %s", billingProfile.State),
-		fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", workspaceInfo),
-	}, "<br>")
+		fmt.Sprintf("<strong>Billing Profile State</strong>: %s", billingProfile.State),
+		fmt.Sprintf("<br><strong>User Agent</strong>: %s", r.FormValue("userAgent")),
+		fmt.Sprintf("<br><strong>Platform</strong>: %s", r.FormValue("platform")),
+		fmt.Sprintf("<br><strong>Current URL</strong>: %s", r.FormValue("currentURL")),
+		fmt.Sprintf("<br><strong>User Info</strong>: "),
+		fmt.Sprintf("ID: %v, ", env.User.ID),
+		fmt.Sprintf("Username: %s, ", env.User.Username),
+		fmt.Sprintf("Email: %s, ", env.User.Email),
+		fmt.Sprintf("Confirmed At: %s, ", env.User.ConfirmedAt.Time),
+		fmt.Sprintf("Phone Authed: %t ", env.User.PhoneAuthed),
+		fmt.Sprintf("<br><strong>Workspace(s) Info</strong>: %s", workspaceInfo),
+	}, "")
 	return metadata, nil
 }
 
@@ -99,7 +99,7 @@ func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
 	}
 
 	var hostsInfo []string
-	for _, host := range hosts {
+	for i, host := range hosts {
 		plan, err := plan.FindByID(db, host.PlanID)
 		if err != nil {
 			return "", err
@@ -110,12 +110,13 @@ func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
 		}
 
 		hostInfo := strings.Join([]string{
-			fmt.Sprintf("<br>Slug: %s", host.Slug),
-			fmt.Sprintf("Region Identifier: %s", host.RegionIdentifier.String),
-			fmt.Sprintf("State: %v", host.State),
-			fmt.Sprintf("Plan Name: %s", plan.Name),
+			fmt.Sprintf("%v.", i+1),
+			fmt.Sprintf("Slug: %s,", host.Slug),
+			fmt.Sprintf("Region Identifier: %s,", host.RegionIdentifier.String),
+			fmt.Sprintf("State: %v,", host.State),
+			fmt.Sprintf("Plan Name: %s,", plan.Name),
 			fmt.Sprintf("Subscription State: %s", subscription.State),
-		}, "<br>")
+		}, " ")
 		hostsInfo = append(hostsInfo, hostInfo)
 	}
 	workspaceInfo := strings.Join(hostsInfo, "<br>")
