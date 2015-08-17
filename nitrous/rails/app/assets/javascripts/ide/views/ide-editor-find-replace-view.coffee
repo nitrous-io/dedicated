@@ -72,7 +72,11 @@ App.IdeEditorFindReplaceView = Em.View.extend
     matchCase = @get 'matchCase'
     useRegex = @get 'useRegex'
     if query = @get 'searchText'
-      @get('editor')?.find(query, reverse, matchCase, useRegex)
+      found = @get('editor')?.find(query, reverse, matchCase, useRegex)
+      if found
+        @set('document.findError', null)
+      else
+        @set('document.findError', "No matches for #{query}")
 
   replace: (all) ->
     matchCase = @get 'matchCase'
@@ -87,6 +91,7 @@ App.IdeEditorFindReplaceView = Em.View.extend
       return unless editor = @get('editor')
       editor.clearSearch()
       editor.focus()
+      @set('document.findError', null)
 
     findNext: ->
       @focus(false)

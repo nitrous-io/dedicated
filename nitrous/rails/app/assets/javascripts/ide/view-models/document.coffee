@@ -14,6 +14,8 @@ App.Document = App.TabContent.extend
   findTrigger: null
   findNextTrigger: null
   findPrevTrigger: null
+  findError: null
+
   replaceTrigger: null
   replaceAllTrigger: null
   selectNextTrigger: null

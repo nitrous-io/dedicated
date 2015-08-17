@@ -114,7 +114,7 @@ App.Editor = klass = Em.Object.extend
 
   find: (query, reverse, matchCase, useRegex) ->
     if cm = @get 'codeMirror'
-      cm.find(query, reverse, matchCase, useRegex)
+      return cm.find(query, reverse, matchCase, useRegex)
 
   replace: (query, text, all, matchCase, useRegex) ->
     if cm = @get 'codeMirror'
