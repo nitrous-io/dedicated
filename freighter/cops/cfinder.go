@@ -75,7 +75,7 @@ type SearchResponse struct {
 // <-- d|{"event": "file_find", "cid": 1, ...} // this signal that we are processing it
 // <-- d|{"event": "file_find.output", args: [{"paths": ["container.go"], ..}], ...}
 //
-// the client should catch `{{event}}.output` content and pring output
+// the client should catch `{{event}}.output` content and print output
 // accordingly
 type Finder struct {
 }
