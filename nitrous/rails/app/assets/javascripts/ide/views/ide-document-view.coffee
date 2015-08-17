@@ -42,6 +42,9 @@ App.IdeDocumentView = Em.View.extend
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void
+    $(window).on "focus.#{@get('elementId')}", =>
+      # Restore document focus when browser tab gains focus.
+      @get('editor').focus()
     @focusedDidChange()
 
   willDestroyElement: ->
@@ -49,6 +52,7 @@ App.IdeDocumentView = Em.View.extend
     @destroyEditor()
     @leaveCollab()
     $(window).off "unload.#{@get('elementId')}"
+    $(window).off "focus.#{@get('elementId')}"
 
   collabNamespace: (->
     containerSlug = App.get 'container.slug'
