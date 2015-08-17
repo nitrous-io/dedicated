@@ -112,6 +112,21 @@ App.IdeEditorFindReplaceTextField = Em.TextField.extend
 
   keyDown: (evt) ->
     parentView = @get 'parentView'
-    if parentView && evt && evt.keyCode == 27
-      parentView.send('close')
-    true
+    return true unless parentView && evt
+    switch
+      when evt.keyCode == 27 # Esc
+        parentView.send('close')
+      # Keyboard shortcuts below replicate those of the IDE's Find Next/Prev.
+      when evt.keyCode == 71 && evt.metaKey && evt.shiftKey # Cmd-Shift-g
+        parentView.send('findPrev')
+      when evt.keyCode == 71 && evt.metaKey # Cmd-g
+        parentView.send('findNext')
+      when evt.keyCode == 114 && evt.shiftKey # Shift-F3
+        if !App.util.IsMac
+          parentView.send('findPrev')
+      when evt.keyCode == 114 # F3
+        if !App.util.IsMac
+          parentView.send('findNext')
+      else
+        return true
+    false
