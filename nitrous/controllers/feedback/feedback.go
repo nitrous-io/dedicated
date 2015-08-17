@@ -85,7 +85,7 @@ func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 		fmt.Sprintf("ID: %v, ", env.User.ID),
 		fmt.Sprintf("Username: %s, ", env.User.Username),
 		fmt.Sprintf("Email: %s, ", env.User.Email),
-		fmt.Sprintf("Confirmed At: %s, ", env.User.ConfirmedAt.Time),
+		fmt.Sprintf("Confirmed At: %s, ", env.User.ConfirmedAt.Time.Format("Mon Jan _2 15:04:05 2006")),
 		fmt.Sprintf("Phone Authed: %t ", env.User.PhoneAuthed),
 		fmt.Sprintf("<br><strong>Workspace(s) Info</strong>: %s", workspaceInfo),
 	}, "")
