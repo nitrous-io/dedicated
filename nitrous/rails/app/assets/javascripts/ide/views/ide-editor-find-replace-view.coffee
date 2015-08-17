@@ -1,4 +1,4 @@
-App.IdeEditorFindReplaceView = klass = Em.View.extend
+App.IdeEditorFindReplaceView = Em.View.extend
   templateName: 'ide/editor-find-replace'
   classNames: ['ide-editor-find-replace-view']
   classNameBindings: ['hidden']
@@ -22,29 +22,29 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
         showReplace: false
         hidden: false
       @set 'document.findTrigger', false
-      @focus()
+      @focus(true)
     @refreshEditor()
   ).observes 'document.findTrigger'
 
   documentFindNextTriggerDidChange: (->
-    if @get 'document.findNextTrigger'
-      @setProperties
-        showReplace: false
-        hidden: false
-      @set 'document.findNextTrigger', false
+    return unless @get 'document.findNextTrigger'
+    return if @get('searchText') == ''
+    @setProperties
+      showReplace: false
+      hidden: false
+    @set 'document.findNextTrigger', false
     @refreshEditor()
-    @focus()
     @find(false)
   ).observes 'document.findNextTrigger'
 
   documentFindPrevTriggerDidChange: (->
-    if @get 'document.findPrevTrigger'
-      @setProperties
-        showReplace: false
-        hidden: false
-      @set 'document.findPrevTrigger', false
+    return unless @get 'document.findPrevTrigger'
+    return if @get('searchText') == ''
+    @setProperties
+      showReplace: false
+      hidden: false
+    @set 'document.findPrevTrigger', false
     @refreshEditor()
-    @focus()
     @find(true)
   ).observes 'document.findPrevTrigger'
 
@@ -54,13 +54,15 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
         showReplace: true
         hidden: false
       @set 'document.replaceTrigger', false
-      @focus()
+      @focus(true)
     @refreshEditor()
   ).observes 'document.replaceTrigger'
 
-  focus: ->
+  focus: (selectText) ->
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('.search-text').select().focus()
+      @$('.search-text').focus()
+      if selectText
+        @$('.search-text').select()
 
   refreshEditor: ->
     Em.run.scheduleOnce 'afterRender', =>
@@ -87,9 +89,11 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
       editor.focus()
 
     findNext: ->
+      @focus(false)
       @find(false)
 
     findPrev: ->
+      @focus(false)
       @find(true)
 
     replace: ->
@@ -98,7 +102,7 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
     replaceAll: ->
       @replace(true)
 
-App.IdeEditorFindReplaceTextField = klass = Em.TextField.extend
+App.IdeEditorFindReplaceTextField = Em.TextField.extend
   insertNewline: (evt) ->
     if parentView = @get 'parentView'
       if evt.shiftKey
