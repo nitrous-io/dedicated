@@ -57,6 +57,7 @@ var (
 		"subscriptions.Index":        1,
 		"oauth.Logout":               1,
 		"feedback.Send":              1,
+		"orgs.Index":                 1,
 	}
 )
 
