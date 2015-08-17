@@ -5,17 +5,21 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jinzhu/now"
 	"github.com/nitrous-io/dedicated/nitrous/biller"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credit"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailchimp"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/card"
 )
@@ -26,6 +30,10 @@ var (
 	outstandingInvoicesErr  = httperror.New(http.StatusBadRequest, "outstanding_invoices", "your invoices must be paid before deleting your account")
 	outstandingUsageErr     = httperror.New(http.StatusBadRequest, "outstanding_usage", "you have outstanding usage for the month, please delete your account after your invoice has been issued")
 	deleteForbiddenErr      = httperror.New(http.StatusForbidden, "delete_forbidden", "You do not have permission to delete the user account")
+)
+
+var (
+	MailChimp mailchimp.MailChimpProvider
 )
 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -69,6 +77,11 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	profile, err := userprofile.Find(env.DB, env.User.ID)
+	if err != nil {
+		return err
+	}
+
 	_, err = tx.Exec(`UPDATE billing_profiles
 		SET last_four = NULL,
 		card_type = NULL,
@@ -102,6 +115,29 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+
+	// unsubscribe user from MailChimp newsletters
+	go func() {
+		if !env.User.ConfirmedAt.Valid && !env.User.UnconfirmedEmail.Valid {
+			// user never confirmed original email
+			return
+		}
+
+		listIDs := []string{}
+		if profile.SubscribeNewsletter {
+			listIDs = append(listIDs, envvars.MailChimpIDNewsletter)
+		}
+		if profile.SubscribeAnnouncements {
+			listIDs = append(listIDs, envvars.MailChimpIDAnnouncements)
+		}
+
+		for _, id := range listIDs {
+
+			if err := MailChimp.Unsubscribe(id, env.User.Email); err != nil {
+				logrus.Errorf("MailChimp unsubscribe failed for user %d, err: %v", env.User.ID, err)
+			}
+		}
+	}()
 
 	env.Tracker.SetProfileProps("set", env.User.ID, map[string]interface{}{
 		"deleted_date": time.Now(),

@@ -97,6 +97,9 @@ var _ = Describe("subscriptions", func() {
 		})
 		Expect(err).To(BeNil())
 
+		_, err = db.Exec("UPDATE hosts SET idle_notices_sent = $1, idle_next_check = NULL WHERE id = $2", host.IDLE_NOTICES_FIRST_WARNING, hs.H.ID)
+		Expect(err).To(BeNil())
+
 		fakeMailer = &test.FakeMailer{}
 		subProvider = &subscriptions.SubscriptionProvider{
 			Mailer: fakeMailer,
@@ -179,6 +182,8 @@ var _ = Describe("subscriptions", func() {
 				h, err := host.Find(db, u, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.SubscriptionID.Int64).To(Equal(s.ID))
+				Expect(h.IdleNoticesSent).To(Equal(host.IDLE_NOTICES_NO_WARNING))
+				Expect(h.IdleNextCheck.Valid).To(BeFalse())
 			})
 
 			It("should roll back the credit invoice item if it was unable to submit the Subscription", func() {

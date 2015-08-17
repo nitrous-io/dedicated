@@ -218,7 +218,12 @@ func Record(tx *sqlx.Tx, h *host.Host, previousState string, enactedAt time.Time
 
 	if h.State == host.StateRunning {
 		h.LastRunningAt = pq.NullTime{time.Now(), true}
-		nstmt, err := tx.PrepareNamed(`UPDATE hosts SET last_running_at = :last_running_at
+		h.IdleNoticesSent = host.IDLE_NOTICES_NO_WARNING
+		h.IdleNextCheck = pq.NullTime{Valid: false}
+		nstmt, err := tx.PrepareNamed(`UPDATE hosts
+                        SET last_running_at = :last_running_at,
+                        idle_notices_sent = :idle_notices_sent,
+                        idle_next_check = :idle_next_check
 			WHERE id = :id RETURNING last_running_at;`)
 		if err != nil {
 			return err

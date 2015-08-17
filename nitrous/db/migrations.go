@@ -1517,5 +1517,19 @@ func init() {
 				ALTER TABLE user_settings ADD COLUMN remove_trailing_whitespace_on_save bool DEFAULT true NOT NULL;
 			`,
 		},
+		{
+			Version: "1439322742",
+			Up: `
+				ALTER TABLE hosts ADD COLUMN idle_notices_sent int DEFAULT 0 NOT NULL;
+                                ALTER TABLE hosts ADD COLUMN idle_next_check timestamp without time zone DEFAULT NULL;
+                        `,
+		},
+		{
+			Version: "1439512018",
+			Up: `
+				ALTER TABLE user_profiles ADD COLUMN subscribe_newsletter bool DEFAULT true NOT NULL;
+                                ALTER TABLE user_profiles ADD COLUMN subscribe_announcements bool DEFAULT true NOT NULL;
+			`,
+		},
 	}
 }

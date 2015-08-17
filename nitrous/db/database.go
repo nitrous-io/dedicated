@@ -23,6 +23,7 @@ const (
 	INVOICE_USER_LOCK
 	INVOICE_USER_PAY_LOCK
 	HOST_SHUTDOWN_LOCK
+	IDLE_HOST_LOCK
 )
 
 func (d *Database) WithTransaction(body func(*sqlx.Tx) error) (err error) {

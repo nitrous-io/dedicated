@@ -15,17 +15,11 @@ App.FeedbackController = Em.Controller.extend
       titleOverride: null
       onSuccessMessage: null
 
-  body: (->
-    title = @get 'title'
-    message = @get 'message'
-    "Form type: #{title}\n\n#{message}"
-  ).property 'title', 'message'
-
-  title: (->
-    if t = @get 'titleOverride'
-      return t
-    'Send Feedback'
-  ).property 'titleOverride'
+  title: (->   
+    if t = @get 'titleOverride'   
+      return t    
+    'Send Feedback'   
+  ).property 'titleOverride'    
 
   actions:
     send: ->
@@ -33,10 +27,10 @@ App.FeedbackController = Em.Controller.extend
 
       data =
         subject: @get 'subject'
-        body: @get 'body'
+        body: @get 'message'
         userAgent: navigator.userAgent 
         platform: navigator.platform
-        currentURL: navigator.currentURL 
+        currentURL: window.location.href 
 
       Em.$.ajax(
         type: 'POST',

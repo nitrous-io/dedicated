@@ -72,6 +72,10 @@ run-hostbuilder: hostbuilder
 	@./build/hostbuilder -config hostbuilder/config.json
 .PHONY: run-hostbuilder
 
+run-tender: tender
+	@sudo env "PATH=$(PATH)" forego run -e tender/.env build/tender
+.PHONY: run-tender
+
 image:
 	@./script/image
 .PHONY: image

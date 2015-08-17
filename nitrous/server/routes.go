@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/home"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/hosts"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/images"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/mailchimphooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/maintenance"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
@@ -104,6 +105,7 @@ func (s *Server) drawRoutes() {
 				"/app_settings":             r("appsettings.Index", appsettings.Index),
 				"/promo_codes/{code}":       r("promocodes.Show", promocodes.Show),
 				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
+				"/mailchimp_hook":           r("mailchimphooks.VerifyWebhook", mailchimphooks.VerifyWebhook),
 			},
 			"POST": {
 				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
@@ -115,6 +117,7 @@ func (s *Server) drawRoutes() {
 				"/reset_password":               r("passwords.ResetPassword", passwords.ResetPassword),
 				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
 				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
+				"/mailchimp_hook":               r("mailchimphooks.ReceiveHook", mailchimphooks.ReceiveHook),
 			},
 		}
 

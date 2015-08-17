@@ -136,7 +136,7 @@ func shouldIgnoreDir(fi os.FileInfo) bool {
 }
 
 func getDirInfo(path string) (*DirInfo, error) {
-	fi, err := os.Lstat(path)
+	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/mailchimp"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
@@ -34,6 +35,7 @@ var (
 	usernameRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*\z`)
 	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
 	Mailer     mailer.Mailer
+	MailChimp  mailchimp.MailChimpProvider
 )
 
 var (
@@ -55,6 +57,7 @@ var (
 
 func init() {
 	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+	MailChimp = &mailchimp.MailChimp{}
 }
 
 type User struct {
@@ -515,7 +518,9 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 		return ErrConfirmationLapsed
 	}
 
+	previousEmail := ""
 	if u.UnconfirmedEmail.String != "" {
+		previousEmail = u.Email
 		u.Email = u.UnconfirmedEmail.String
 		u.UnconfirmedEmail.String = ""
 	}
@@ -532,8 +537,48 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 		return err
 	}
 
+	go func() {
+		if err := u.updateMailSubscriptions(d, u.Email, previousEmail); err != nil {
+			logrus.Errorf("Error called updateMailSubscriptions for user %d, err: %v", u.ID, err)
+		}
+	}()
+
 	_, err = d.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
 	return err
+}
+
+func (u *User) updateMailSubscriptions(d db.QueryReceiver, email, previousEmail string) error {
+	profile, err := userprofile.Find(d, u.ID)
+	if err != nil {
+		return err
+	}
+
+	listIDs := []string{}
+	if profile.SubscribeNewsletter {
+		listIDs = append(listIDs, envvars.MailChimpIDNewsletter)
+	}
+	if profile.SubscribeAnnouncements {
+		listIDs = append(listIDs, envvars.MailChimpIDAnnouncements)
+	}
+
+	for _, id := range listIDs {
+		if previousEmail != "" {
+			if err := MailChimp.Unsubscribe(id, previousEmail); err != nil {
+				logrus.Errorf("MailChimp unsubscribe failed for user %d, err: %v", u.ID, err)
+			}
+		}
+		opts := &mailchimp.SubscribeOptions{
+			Email: email,
+			MergeFields: map[string]interface{}{
+				"FNAME":    u.DisplayName(),
+				"USERNAME": u.Username,
+			},
+		}
+		if err := MailChimp.Subscribe(id, opts); err != nil {
+			logrus.Errorf("MailChimp subscribe failed for user %d, err: %v", u.ID, err)
+		}
+	}
+	return nil
 }
 
 func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
