@@ -21,6 +21,9 @@ type UserProfile struct {
 	StarterCreditEmailSendCount  int        `db:"starter_credit_email_send_count"`
 	StarterCreditEmailLastSentAt *time.Time `db:"starter_credit_email_last_sent_at"`
 
+	SubscribeNewsletter    bool `db:"subscribe_newsletter"`
+	SubscribeAnnouncements bool `db:"subscribe_announcements"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }

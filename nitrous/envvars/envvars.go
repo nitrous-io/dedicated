@@ -105,6 +105,11 @@ var (
 
 	SupportEmail     = os.Getenv("SUPPORT_EMAIL_ADDRESS")
 	SupportEmailAddr *mail.Address
+
+	MailChimpAPIUrl          = os.Getenv("MAILCHIMP_API_URL")
+	MailChimpAPIKey          = os.Getenv("MAILCHIMP_API_KEY")
+	MailChimpIDNewsletter    = os.Getenv("MAILCHIMP_ID_NEWSLETTER")
+	MailChimpIDAnnouncements = os.Getenv("MAILCHIMP_ID_ANNOUNCEMENTS")
 )
 
 func init() {
