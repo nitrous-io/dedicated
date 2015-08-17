@@ -2,6 +2,7 @@ package feedback
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"strings"
 
@@ -19,14 +20,14 @@ var (
 	HelpScout helpscout.HelpScout
 
 	nitrousMailbox helpscout.MailboxRef
-	nitrousUser    helpscout.Person
+	nitrousPerson  helpscout.Person
 )
 
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
 	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
-	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+	nitrousPerson = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -39,18 +40,18 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// Format email data.
+	// Format email data and escape HTML in message body.
 	subject = fmt.Sprintf("[nitrous-pro] %s", subject)
-	body = prepareCustomerMessage(env, body)
-	metadata, err := prepareNitrousNote(env, r)
+	body = html.EscapeString(body)
+	metadata, err := prepareMetadata(env, r)
 	if err != nil {
-		logrus.Errorf("helpscout: failed to prepare NitrousNote for new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
+		logrus.Errorf("helpscout: failed to prepare metadata for nitrous note in new conversation: customer: %v, %s, %s, subject: %s, mailbox %s, customer message: %s, : err: %v", env.User.ID, env.User.Email, env.User.Username, subject, nitrousMailbox, body, err)
 	}
 
 	// Prepare HelpScout API arguments.
 	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
 	customerMessage := helpscout.NewThread("customer", customer, body)
-	nitrousNote := helpscout.NewThread("note", nitrousUser, metadata)
+	nitrousNote := helpscout.NewThread("note", nitrousPerson, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
 	go func() {
@@ -65,17 +66,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func prepareCustomerMessage(env *middleware.Env, body string) string {
-	body = strings.Join([]string{
-		"<strong>Username</strong>: " + env.User.Username,
-		"<strong>Name</strong>: " + env.User.Name,
-		"<strong>Email</strong>: " + env.User.Email,
-		body + "\n",
-	}, "\n")
-	return body
-}
-
-func prepareNitrousNote(env *middleware.Env, r *http.Request) (string, error) {
+func prepareMetadata(env *middleware.Env, r *http.Request) (string, error) {
 	workspaceInfo, err := getWorkspaceInfo(env.DB, env.User.ID)
 	if err != nil {
 		return "", err
@@ -86,18 +77,18 @@ func prepareNitrousNote(env *middleware.Env, r *http.Request) (string, error) {
 	}
 
 	metadata := strings.Join([]string{
-		fmt.Sprintf("<strong>User Agent</strong>: %s", r.FormValue("userAgent")),
-		fmt.Sprintf("<strong>Platform</strong>: %s", r.FormValue("platform")),
-		fmt.Sprintf("<strong>Current URL</strong>: %s", r.FormValue("currentURL")),
-		fmt.Sprintf("<strong>User Info:</strong>"),
-		fmt.Sprintf("ID: %v", env.User.ID),
-		fmt.Sprintf("Username: %s", env.User.Username),
-		fmt.Sprintf("Email: %s", env.User.Email),
-		fmt.Sprintf("Confirmed At: %s", env.User.ConfirmedAt.Time),
-		fmt.Sprintf("Phone Authed: %t", env.User.PhoneAuthed),
-		fmt.Sprintf("Billing Profile State: %s", billingProfile.State),
-		fmt.Sprintf("<strong>Workspace(s) Info</strong>: %s<br>", workspaceInfo),
-	}, "<br>")
+		fmt.Sprintf("<strong>Billing Profile State</strong>: %s", billingProfile.State),
+		fmt.Sprintf("<br><strong>User Agent</strong>: %s", r.FormValue("userAgent")),
+		fmt.Sprintf("<br><strong>Platform</strong>: %s", r.FormValue("platform")),
+		fmt.Sprintf("<br><strong>Current URL</strong>: %s", r.FormValue("currentURL")),
+		fmt.Sprintf("<br><strong>User Info</strong>: "),
+		fmt.Sprintf("ID: %v, ", env.User.ID),
+		fmt.Sprintf("Username: %s, ", env.User.Username),
+		fmt.Sprintf("Email: %s, ", env.User.Email),
+		fmt.Sprintf("Confirmed At: %s, ", env.User.ConfirmedAt.Time.Format("Mon Jan _2 15:04:05 2006")),
+		fmt.Sprintf("Phone Authed: %t ", env.User.PhoneAuthed),
+		fmt.Sprintf("<br><strong>Workspace(s) Info</strong>: %s", workspaceInfo),
+	}, "")
 	return metadata, nil
 }
 
@@ -108,7 +99,7 @@ func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
 	}
 
 	var hostsInfo []string
-	for _, host := range hosts {
+	for i, host := range hosts {
 		plan, err := plan.FindByID(db, host.PlanID)
 		if err != nil {
 			return "", err
@@ -119,12 +110,13 @@ func getWorkspaceInfo(db db.QueryReceiver, userID int64) (string, error) {
 		}
 
 		hostInfo := strings.Join([]string{
-			fmt.Sprintf("<br>Slug: %s", host.Slug),
-			fmt.Sprintf("Region Identifier: %s", host.RegionIdentifier.String),
-			fmt.Sprintf("State: %v", host.State),
-			fmt.Sprintf("Plan Name: %s", plan.Name),
+			fmt.Sprintf("%v.", i+1),
+			fmt.Sprintf("Slug: %s,", host.Slug),
+			fmt.Sprintf("Region Identifier: %s,", host.RegionIdentifier.String),
+			fmt.Sprintf("State: %v,", host.State),
+			fmt.Sprintf("Plan Name: %s,", plan.Name),
 			fmt.Sprintf("Subscription State: %s", subscription.State),
-		}, "<br>")
+		}, " ")
 		hostsInfo = append(hostsInfo, hostInfo)
 	}
 	workspaceInfo := strings.Join(hostsInfo, "<br>")
