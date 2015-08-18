@@ -54,8 +54,8 @@
   function doSearch(cm, reverse, query, matchCase, useRegex) {
     var state = getSearchState(cm);
     if (state.query) return findNext(cm, reverse);
-    cm.operation(function() {
-      if (!query || state.query) return;
+    return cm.operation(function() {
+      if (!query || state.query) return false;
       state.query = parseQuery(query, useRegex);
       state.matchCase = matchCase;
       cm.removeOverlay(state.overlay, !matchCase);
@@ -69,19 +69,20 @@
         cm.execCommand('goCharLeft');
       }
       state.posFrom = state.posTo = cm.getCursor();
-      findNext(cm, reverse);
+      return findNext(cm, reverse);
     });
   }
-  function findNext(cm, reverse) {cm.operation(function() {
+  function findNext(cm, reverse) {return cm.operation(function() {
     var state = getSearchState(cm);
     var cursor = getSearchCursor(cm, state.query, reverse ? state.posFrom : state.posTo, state.matchCase);
     if (!cursor.find(reverse)) {
       cursor = getSearchCursor(cm, state.query, reverse ? CodeMirror.Pos(cm.lastLine()) : CodeMirror.Pos(cm.firstLine(), 0), state.matchCase);
-      if (!cursor.find(reverse)) return;
+      if (!cursor.find(reverse)) return false;
     }
     cm.setSelection(cursor.from(), cursor.to());
     cm.scrollIntoView({from: cursor.from(), to: cursor.to()});
     state.posFrom = cursor.from(); state.posTo = cursor.to();
+    return true;
   });}
   function clearSearch(cm) {cm.operation(function() {
     var state = getSearchState(cm);
@@ -111,10 +112,8 @@
       var advance = function(replace) {
         var start = cursor.from(), match;
         console.log(start, match);
-        console.log('findingNext', cursor);
         if (!(match = cursor.findNext())) {
           cursor = getSearchCursor(cm, query, 0, matchCase);
-          console.log(cursor);
           if (!(match = cursor.findNext()) ||
               (start && cursor.from().line == start.line && cursor.from().ch == start.ch)) return;
         }
@@ -135,7 +134,7 @@
 
   CodeMirror.prototype.find = function(query, reverse, matchCase, useRegex) {
     clearSearch(this);
-    doSearch(this, reverse, query, matchCase, useRegex);
+    return doSearch(this, reverse, query, matchCase, useRegex);
   };
   CodeMirror.prototype.findNext = function() {
     doSearch(this, false);

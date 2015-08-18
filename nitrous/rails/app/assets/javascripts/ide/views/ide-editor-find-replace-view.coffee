@@ -1,4 +1,4 @@
-App.IdeEditorFindReplaceView = klass = Em.View.extend
+App.IdeEditorFindReplaceView = Em.View.extend
   templateName: 'ide/editor-find-replace'
   classNames: ['ide-editor-find-replace-view']
   classNameBindings: ['hidden']
@@ -22,29 +22,29 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
         showReplace: false
         hidden: false
       @set 'document.findTrigger', false
-      @focus()
+      @focus(true)
     @refreshEditor()
   ).observes 'document.findTrigger'
 
   documentFindNextTriggerDidChange: (->
-    if @get 'document.findNextTrigger'
-      @setProperties
-        showReplace: false
-        hidden: false
-      @set 'document.findNextTrigger', false
+    return unless @get 'document.findNextTrigger'
+    return if @get('searchText') == ''
+    @setProperties
+      showReplace: false
+      hidden: false
+    @set 'document.findNextTrigger', false
     @refreshEditor()
-    @focus()
     @find(false)
   ).observes 'document.findNextTrigger'
 
   documentFindPrevTriggerDidChange: (->
-    if @get 'document.findPrevTrigger'
-      @setProperties
-        showReplace: false
-        hidden: false
-      @set 'document.findPrevTrigger', false
+    return unless @get 'document.findPrevTrigger'
+    return if @get('searchText') == ''
+    @setProperties
+      showReplace: false
+      hidden: false
+    @set 'document.findPrevTrigger', false
     @refreshEditor()
-    @focus()
     @find(true)
   ).observes 'document.findPrevTrigger'
 
@@ -54,13 +54,15 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
         showReplace: true
         hidden: false
       @set 'document.replaceTrigger', false
-      @focus()
+      @focus(true)
     @refreshEditor()
   ).observes 'document.replaceTrigger'
 
-  focus: ->
+  focus: (selectText) ->
     Em.run.scheduleOnce 'afterRender', this, ->
-      @$('.search-text').select().focus()
+      @$('.search-text').focus()
+      if selectText
+        @$('.search-text').select()
 
   refreshEditor: ->
     Em.run.scheduleOnce 'afterRender', =>
@@ -70,7 +72,11 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
     matchCase = @get 'matchCase'
     useRegex = @get 'useRegex'
     if query = @get 'searchText'
-      @get('editor')?.find(query, reverse, matchCase, useRegex)
+      found = @get('editor')?.find(query, reverse, matchCase, useRegex)
+      if found
+        @set('document.findError', null)
+      else
+        @set('document.findError', "No matches for #{query}")
 
   replace: (all) ->
     matchCase = @get 'matchCase'
@@ -85,11 +91,14 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
       return unless editor = @get('editor')
       editor.clearSearch()
       editor.focus()
+      @set('document.findError', null)
 
     findNext: ->
+      @focus(false)
       @find(false)
 
     findPrev: ->
+      @focus(false)
       @find(true)
 
     replace: ->
@@ -98,7 +107,7 @@ App.IdeEditorFindReplaceView = klass = Em.View.extend
     replaceAll: ->
       @replace(true)
 
-App.IdeEditorFindReplaceTextField = klass = Em.TextField.extend
+App.IdeEditorFindReplaceTextField = Em.TextField.extend
   insertNewline: (evt) ->
     if parentView = @get 'parentView'
       if evt.shiftKey
@@ -108,6 +117,21 @@ App.IdeEditorFindReplaceTextField = klass = Em.TextField.extend
 
   keyDown: (evt) ->
     parentView = @get 'parentView'
-    if parentView && evt && evt.keyCode == 27
-      parentView.send('close')
-    true
+    return true unless parentView && evt
+    switch
+      when evt.keyCode == 27 # Esc
+        parentView.send('close')
+      # Keyboard shortcuts below replicate those of the IDE's Find Next/Prev.
+      when evt.keyCode == 71 && evt.metaKey && evt.shiftKey # Cmd-Shift-g
+        parentView.send('findPrev')
+      when evt.keyCode == 71 && evt.metaKey # Cmd-g
+        parentView.send('findNext')
+      when evt.keyCode == 114 && evt.shiftKey # Shift-F3
+        if !App.util.IsMac
+          parentView.send('findPrev')
+      when evt.keyCode == 114 # F3
+        if !App.util.IsMac
+          parentView.send('findNext')
+      else
+        return true
+    false
