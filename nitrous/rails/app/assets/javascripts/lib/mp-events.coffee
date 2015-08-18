@@ -17,6 +17,7 @@ Object.assign window.Mp,
   EventDashboardViewedNewHost: "Dashboard Viewed New Host"
   EventDashboardViewedNewImage: "Dashboard Viewed New Image"
   EventIDEStarted: "IDE Started"
+  EventIDEDeparted: "IDE Departed"
   EventIDEUserClickedConfigurePorts: "IDE User Clicked Configure Ports"
   EventIDEUserClickedPreviewLink: "IDE User Clicked Preview Link"
   EventIDEUserOpenedConsole: "IDE User Opened Console"
@@ -37,6 +38,7 @@ Object.assign window.Mp,
   # _list : array/list
   PropertyIDEFileSaveCount: "ide_file_save_count"
   PropertyIDEStartCount: "ide_start_count"
+  PropertyIDEUseTime: "ide_use_time"
   PropertyConfirmedEmail: "confirmed_email_date" # backend
   PropertyImagesList: "images_list"
   PropertyPhoneNumberSaved: "phone_number_date"
