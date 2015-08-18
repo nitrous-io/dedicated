@@ -3,6 +3,7 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
   expanded: false
   selected: false
   absolutePath: ''
+  realPath: ''
   loadCount: 0
   directory: false
   size: 0
@@ -29,6 +30,12 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
     else
       '~'
   ).property 'absolutePath'
+
+  collabPath: (->
+    if realPath = @get('realPath')
+      return realPath
+    @get('absolutePath')
+  ).property 'absolutePath', 'realPath'
 
   lowerCaseName: (->
     if name = @get 'name'
@@ -86,17 +93,21 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
       name = item[0]
       isDir = item[1]
       size = item[2]
+      realPath = item[3]
+
       absolutePathForItem = _getAbsolutePathForItem(name)
       if existingContentPaths.contains absolutePathForItem
         path = this.findByRelativePath name
         if !isDir && path.get 'directory'
           path.set 'content', Em.A()
       else
-        path = App.Path.create absolutePath: absolutePathForItem
+        path = App.Path.create
+          absolutePath: absolutePathForItem
         addedContent.push path
       path.setProperties
         directory: isDir
         size: size
+        realPath: realPath
 
     newContentPaths = newContent.map (item) -> _getAbsolutePathForItem(item[0])
     content.forEach (path) ->
