@@ -1,7 +1,7 @@
 @import 'website_variables'
-
+// --------------------------------------
+// Jobs
 #jobs
-  
   article.job-listing
     .container
       display: flex
@@ -86,7 +86,6 @@
       &:nth-child(3n), &:nth-child(4n)
         &:after
           border-top: 0
-        
 
   .opening
     height: 260px
@@ -101,29 +100,29 @@
     justify-content: center
     align-items: center
     flex-wrap: wrap
-    
+
     &:hover
       &:after
         background: rgba(0,0,0,.08)
-    
+
     span
       display: block
-      
+
       &.title
         font-family: $boldFont
         font-size: 20px
         padding-bottom: 4px
-        
+
       &.location
         color: $greyLighter
-    
+
     .icon
       width: 42px
       height: 43px
       margin-bottom: 14px
       background: image_url('home/jobs-default.png') center center no-repeat
       background-size: 40px 31px
-  
+
     /* Engineering */
     &.job-eng .icon
       background: image_url('home/jobs-engineering.png') center center no-repeat

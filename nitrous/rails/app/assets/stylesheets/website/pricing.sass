@@ -1,0 +1,362 @@
+@import 'website_variables'
+// --------------------------------------
+// Pricing
+#pricing
+  .pricing-toggle
+    display: none
+    position: relative
+    top: -30px
+    z-index: 5
+    text-align: center
+    user-select: none
+
+    label
+      display: inline-block
+      line-height: 40px
+      font-size: 14px
+      margin: 0 10px
+      cursor: pointer
+      transition: .2s color
+      font-family: $boldFont
+      text-transform: uppercase
+
+      &.monthly
+        color: lighten(#a5b3be, 20%)
+
+      &.hourly
+        color: darken(#a5b3be, 10%)
+
+    .toggle-btn
+      position: relative
+      display: inline-block
+      width: 59px
+      height: 36px
+      border-radius: 21px
+      border: 2px solid $n2oGray700
+      transition: .2s border-color, .2s background-color
+      cursor: pointer
+      vertical-align: bottom
+
+      &:before
+        position: absolute
+        content: ''
+        top: 4px
+        left: 4px
+        width: 28px
+        height: 28px
+        border-radius: 14px
+        transition: .2s left, .2s background-color
+        background: $n2oGray300
+
+    &.hourly
+      .toggle-btn:before
+        left: 27px
+
+      label
+        &.monthly
+          color: darken(#a5b3be, 20%)
+
+        &.hourly
+          color: lighten(#a5b3be, 10%)
+
+    &:hover
+      .toggle-btn
+        background: $n2oGray850
+        border-color: $lightBlue800
+
+        &:before
+          background: #0095f2
+
+  article.pricing
+    padding-top: 0
+
+    .box
+      h3.small-title
+        padding: 20px 0
+        font-size: 14px
+        font-family: $opensans
+        font-weight: 300
+        color: #A5B3BE
+
+        .fa
+          padding-right: 6px
+
+    .pricing-container
+      position: relative
+      padding-bottom: 60px
+      +clearFix
+
+      & + p
+        padding-bottom: 40px
+
+      & + .box-wrapper
+        width: 800px
+        margin: 0 auto
+        padding-top: 0
+        padding-bottom: 60px
+        display: flex
+
+        h3
+          font-family: $boldFont
+          text-align: center
+          display: block
+          padding-bottom: 10px
+
+    .pricing-block
+      > ul
+        width: 100%
+        padding: 0
+        margin: 0
+        display: flex
+        flex-direction: row
+        flex-wrap: nowrap
+        justify-content: center
+        align-content: flex-start
+        align-items: flex-start
+        user-select: none
+        +clearFix
+
+        > li
+          width: 150px
+          padding: 20px 0
+          margin: 0 8px
+          display: block
+          border: 1px solid #434D55
+          border-radius: 4px
+          position: relative
+          cursor: pointer
+          text-align: center
+          flex-grow: 1
+          border-radius: 4px
+
+          &:first-of-type
+            margin-left: 0
+
+          &:last-of-type
+            margin-right: 0
+
+          &.free-plan
+            margin-right: 20px
+
+          a
+            display: block
+            color: #A5B3BE
+
+      .price
+        position: relative
+        height: 80px
+        margin-top: 10px
+        padding-bottom: 4px
+
+        & > div
+          position: relative
+          top: 20px
+
+      .plan-price
+        position: relative
+        transition: opacity .1s
+        height: 80px
+        margin-top: 10px
+        padding-bottom: 4px
+
+        > div
+          position: absolute
+          top: 0
+          left: 0
+          width: 100%
+
+        sup
+          display: inline
+
+        .hourly
+          top: 6px
+
+        .monthly
+          top: 20px
+
+      .most-popular
+        overflow: hidden
+        position: absolute
+        top: -1px
+        right: -1px
+        height: 110px
+
+        .ribbon
+          transform: rotateZ(45deg) translateX(42px) translateY(-10px)
+          background: $n2oGray200
+          text-transform: uppercase
+          white-space: nowrap
+          padding: 2px 30px
+          color: black !important
+          font-size: 10px
+          font-weight: 400
+
+      .title
+        color: #A5B3BE
+        text-transform: uppercase
+        font-family: $boldFont
+        font-size: 18px
+
+      .desc
+        color: #6C767E
+        margin: 12px 0 0 0
+        font-size: 13px
+
+      .spec
+        cursor: help
+
+      .focus
+        font-size: 20px
+        color: rgba(255,255,255,.5)
+        display: inline-block
+
+        span.price
+          font-family: $boldFont
+          font-size: 32px
+          font-weight: 500
+          padding: 0 4px
+          color: rgba(255,255,255,1)
+
+        small
+          font-size: 14px
+
+        small.base
+          display: block
+          font-size: 14px
+          color: #6C767E
+
+          strong
+            color: #A5B3BE
+
+      .range
+        height: 24px
+        margin: 6px 0 16px 0
+
+      ul.details
+        margin: 0
+        padding: 0
+
+        li
+          color: #6C767E
+          line-height: 44px
+
+          strong
+            color: #A5B3BE
+            font-size: 18px
+            font-weight: 300
+
+          &:nth-of-type(odd)
+            background: rgba(0,0,0,.1)
+
+      .ticked
+        i
+          margin-right: 6px
+
+      .selectable
+
+        .btn.blue
+          width: 40%
+          margin: 30px auto 0 auto
+          color: #FFF
+          cursor: pointer
+          z-index: 20
+
+        &:hover
+          background: rgba(255,255,255,.02)
+          box-shadow: 0 2px 10px rgba(0,0,0,.2)
+          border-color: #0099ED
+          z-index: 2
+          a
+            color: #FFF
+
+        &.popular
+          z-index: 1
+
+        &.active
+          z-index: 2
+          .text
+            border-color: rgba(255,255,255,.4)
+
+          .ribbon
+            background: white
+
+          .workspaces, .compute
+            background-position: bottom left
+
+          .btn.blue
+            background: #FFF
+            color: $blue
+
+          small, strong
+            color: #FFF !important
+
+          ul.details li:nth-of-type(odd)
+            background: rgba(0,0,0,.05)
+
+        &.active, &.active a
+          cursor: default
+
+        &.active, &.active:hover
+          background: #0099ED
+          border-color: #0099ED
+          *, strong
+            color: #FFF
+
+      .horizontal
+        margin: 60px 8px 0 8px
+        padding: 0
+        text-align: left
+        transition: all .2s
+
+        & > a
+          display: block
+          padding: 16px 100px 14px 20px
+          border: 0
+
+        h3
+          color: #FFF
+          text-transform: uppercase
+          font-family: $boldFont
+          font-size: 15px
+          padding-bottom: 10px
+
+        &.with-arrow
+          a:after
+            content: "\f105"
+            font-family: "FontAwesome"
+            position: absolute
+            display: block
+            top: 50%
+            right: 20px
+            bottom: 0
+            margin-top: -16px
+            font-size: 32px
+            color: #434D55
+
+          &:hover
+            border-color: #0099ED
+
+            a:after
+              color: #A5B3BE
+
+      .pricing-details
+        > .box
+          border-top: 1px solid #434D55
+          padding-top: 1px
+          transition: opacity .15s ease-in-out, border-color .15s ease-in-out
+          opacity: .6
+
+          .ticked i
+            color: #a5b3be
+
+          &.active
+            opacity: 1
+            border-top: 2px solid #0099ED
+            padding-top: 0
+
+            .ticked i
+              color: #85D966
+
+    .paid, .selectable
+      +transition(.2s ease-out)
+      +webkitFix

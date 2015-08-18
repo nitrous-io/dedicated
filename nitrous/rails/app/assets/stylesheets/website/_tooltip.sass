@@ -1,0 +1,55 @@
+@import 'website_variables'
+// --------------------------------------
+// Tooltip
+// Used on /home and /company
+.tooltip
+  .target
+    position: absolute
+    top: -60px
+    right: -60px
+    bottom: -60px
+    left: -60px
+    background: transparent
+
+  &:hover
+    z-index: 20
+
+  &:hover:after
+    content: attr(data-tooltip)
+    width: 245px
+    position: absolute
+    top: -62px
+    left: -123px
+    border-radius: 4px
+    font-size: 13px
+    display: block
+    color: #FFF
+    color: rgba(255,255,255,.6)
+    padding: 11px 10px 10px
+    z-index: 40
+    box-shadow: 0 2px 20px rgba(0,0,0,.2)
+    +webkitFix
+
+  &.blue
+    &:hover:after
+      background: $blue
+
+  &.team
+    &:before
+      z-index: 40
+    &:hover:after
+      width: 245px
+      left: -92px
+      top: -2%
+      transform: translateY(-100%)
+    &:hover:before
+      content: ""
+      position: absolute
+      top: 0
+      left: 0
+      right: 0
+      bottom: 0
+      display: block
+      border: 2px solid $blue
+      border-radius: 100%
+      z-index: 40

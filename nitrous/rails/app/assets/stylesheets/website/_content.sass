@@ -1,0 +1,1011 @@
+@import 'website_variables'
+// --------------------------------------
+// Pages Content
+body
+  font-family: $opensans
+  font-size: 14px
+  font-weight: 300
+  cursor: default
+  min-width: 1080px
+
+::-webkit-input-placeholder
+  color: $placeholder
+
+\:-moz-placeholder
+  color: $placeholder
+
+::-moz-placeholder
+  color: $placeholder
+
+\:-ms-input-placeholder
+  color: $placeholder
+
+strong
+  font-weight: 500
+
+i.fa-chevron-right
+  position: relative
+  font-size: 11px
+  padding-left: 4px
+
+blockquote
+  p
+    text-align: left
+    font-size: 16px
+
+  cite
+    padding-top: 10px
+    font-weight: bold
+
+    span
+      font-weight: normal
+      font-style: italic
+      padding-left: 4px
+
+    a
+      color: rgba(0,0,0,.6)
+
+    img
+      width: 36px
+      height: 36px
+      position: relative
+      top: 10px
+      display: inline-block
+      margin-right: 10px
+      background: transparent
+
+  strong
+    padding: 0 1px
+    background: rgba(255,255,255,.08)
+
+  span
+    color: rgba(255,255,255,.4)
+
+hr
+  height: 1px
+  border: 0
+  margin: 40px 20px
+  background: #252C33
+
+a
+  text-decoration: none
+  cursor: pointer
+  outline: 0
+
+input, input[type="submit"]
+  -webkit-appearance: none
+
+.container
+  width: $innerWidth
+  margin: 0 auto
+
+.page
+
+  h1, h2, h3, h4
+    font-weight: 200
+    color: #FFF
+
+  h4
+    font-size: 18px
+    line-height: 21px
+
+.section-title
+  text-align: center
+  font-size: 20px
+  color: #FFF
+  padding-bottom: 30px
+  font-family: $boldFont
+  font-weight: 400
+
+article
+  padding: 50px 0
+
+  &.attached-top
+    padding-top: 0
+
+  &.attached-bottom
+    padding-bottom: 10px
+    border-bottom: 0
+
+  &.extra-padding
+    padding-top: 100px
+
+  &.darker
+    background: rgba(0,0,0,.08)
+
+  &.lighter
+    background: rgba(255,255,255,.04)
+
+  .section-title
+    padding-bottom: 10px
+
+    .fa-chevron-right
+      top: -2px
+      margin-left: 4px
+
+  h4
+    color: $greyLighter
+    font-size: 16px
+    line-height: 24px
+    text-align: center
+
+  a
+    color: #FFF
+    border-bottom: 1px solid rgba(255,255,255,.1)
+    &:hover
+      color: $blue
+
+  p
+    line-height: 23px
+
+    &.solo
+      font-size: 16px
+
+  sup
+    font-size: 9px
+    vertical-align: super
+    display: block
+
+  .big
+    width: 580px
+    display: block
+    margin: 0 auto
+    padding: 60px 0 30px 0
+    font-size: 20px
+    line-height: 34px
+
+  &.featurette p.small
+    width: 580px
+    display: block
+    margin: 0 auto
+    padding: 60px 0 0 0
+    font-size: 13px
+    line-height: 20px
+    color: rgba(255,255,255,.4)
+
+// --------------------------------------
+// Glyphs
+i.chevron-right
+  display: inline-block
+  line-height: 1
+  font-family: FontAwesome
+  font-weight: normal
+  font-style: normal
+  text-decoration: none
+  +grayscale-font-smoothing
+
+  &:before
+    content: "\f054"
+
+// --------------------------------------
+// Material
+.ripple
+  position: relative
+  overflow: hidden
+
+.ripple-effect
+  width: 50px
+  height: 50px
+  position: absolute
+  border-radius: 50%
+  background: white
+  animation: ripple-animation 2s
+
+// --------------------------------------
+// Zoom
+.zoom
+  transform: scale(.96)
+  transition: .3s cubic-bezier(.3,.6,.2,1.4)
+  &:hover
+    transform: scale(1)
+    box-shadow: 0 15px 30px rgba(0,0,0,.1)
+
+// --------------------------------------
+// Centered list
+.centered-list
+  width: 80%
+  margin: 0 auto
+  padding-top: 20px
+  padding-bottom: 0
+
+  .item
+    width: 100%
+    overflow: hidden
+    margin-top: 30px
+    margin-bottom: 30px
+
+    span.date
+      width: 150px
+      text-align: right
+      display: inline-block
+      float: left
+
+    h3
+      font-size: 18px
+      line-height: 22px
+
+    a:hover h3
+      color: $blue
+
+    .item-content
+      width: 75%
+      float: left
+      margin-left: 20px
+
+// --------------------------------------
+// Grid
+.grid-wrapper
+  display: flex
+  align-items: flex-start
+  justify-content: center
+  flex-wrap: wrap
+  padding: 20px 0
+
+  .grid-item
+    width: 280px
+    margin: 20px 30px
+    text-align: center
+
+    h3
+      font-size: 18px
+      line-height: 22px
+
+    img
+      max-width: 280px
+      margin-bottom: 18px
+
+    a:hover h3
+      color: $blue
+
+// --------------------------------------
+// Box
+.box-wrapper
+  display: flex
+  justify-content: space-between
+  padding: 0 10px
+  box-sizing: border-box
+
+  &+.box-wrapper
+    margin-top: 50px
+
+  &+.centered
+    padding-top: 40px
+
+  &.left-aligned
+    h3, h4, p
+      text-align: left
+
+  &.text-on-right
+    justify-content: flex-end
+
+    .text
+      margin-left: 60px
+      margin-right: 20px
+
+  &.text-on-left
+    justify-content: flex-start
+
+    .text
+      margin-right: 60px
+      margin-left: 20px
+
+  &.auto
+    display: flex
+    align-items: stretch
+    flex-direction: row
+    margin-top: 30px
+    padding: 0
+
+    .box
+      margin: 0 8px
+
+      h3
+        display: block
+        padding: 0 56px 20px 56px
+
+      &:first-of-type
+        margin-left: 0
+
+      &:last-of-type
+        margin-right: 0
+
+      &.free-plan
+        width: 240px
+        margin-right: 22px
+
+      ul
+        padding-top: 20px
+        padding-left: 50px
+
+      li
+        padding: 4px 0 6px 0
+
+      .box-wrapper
+        padding: 0 60px
+        margin-left: -10px
+        color: #A5B3BE
+
+        .box
+          padding: 0
+
+    .grow-2
+      flex-grow: 2
+      ul
+        padding-top: 20px
+        padding-left: 0
+
+  &.visual-on-left
+    .content
+      justify-content: flex-end
+
+h4 + .box-wrapper
+  padding-top: 40px
+
+.features
+  .box-wrapper + .box-wrapper
+    padding-top: 10px
+
+.box
+  h3
+    font-size: 18px
+    line-height: 22px
+    color: #FFF
+    margin-bottom: 0
+    font-family: $boldFont
+    font-weight: bold
+
+    &.larger
+      font-size: 24px
+      line-height: 30px
+      color: #FFF
+      margin-bottom: 10px
+      font-weight: 400
+
+    &.with-icon
+      line-height: 32px
+      margin-bottom: 20px
+      padding-left: 42px
+
+    &.no-icon
+      margin-bottom: 10px
+
+  p
+    color: #A5B3BE
+
+  p.version
+    font-size: 12px
+    line-height: 16px
+
+  p
+    span.strikethrough
+      text-decoration: line-through
+      color: #f36c60
+    span.new-plan
+      color: #259b24
+
+  .anywhere-logo
+    height: 32px
+    background: transparent image_url('home/anywhere-logos.png') 0 0 no-repeat
+    background-size: 32px 128px
+    padding-left: 40px
+
+    &.osx
+      background-position: 0 0
+    &.windows
+      background-position: 0 -32px
+    &.chrome
+      background-position: 0 (-32px*2)
+    &.ubuntu
+      background-position: 0 (-32px*3)
+
+  &.press-asset
+    img
+      width: 100%
+      height: 250px
+      display: block
+      margin-bottom: 10px
+      border: 1px solid rgba(0,0,0,.1)
+      border-radius: 2px
+
+    .download
+      padding-left: 6px
+      font-weight: bold
+
+.with-icon
+  background: transparent image_url('home/small-featurettes.png') 0 0 no-repeat
+  background-size: 32px 384px
+
+.terminal h3
+  background-position: 0 0
+.code h3
+  background-position: 0 -32px
+.containers h3
+  background-position: 0 (-32px*2)
+.collaboration h3
+  background-position: 0 (-32px*3)
+.github h3
+  background-position: 0 (-32px*4)
+.snapshots h3
+  background-position: 0 (-32px*5)
+.go-to-file h3
+  background-position: 0 (-32px*6)
+.split-editing h3
+  background-position: 0 (-32px*7)
+.ssh h3
+  background-position: 0 (-32px*8)
+.ssl h3
+  background-position: 0 (-32px*9)
+.backup h3
+  background-position: 0 (-32px*10)
+.secure h3
+  background-position: 0 (-32px*11)
+
+.big-title + .box-wrapper
+  margin-top: 40px
+
+.one
+  padding: 20px 0 0 0
+  text-align: center
+  p
+    width: 580px
+    margin: 0 auto
+
+  blockquote
+    width: 860px
+    margin: 0 auto
+
+    p
+      width: 100%
+      font-size: 25px
+      line-height: 42px
+
+    cite
+      width: 100%
+      text-align: left
+      font-size: 20px
+      padding-top: 10px
+
+      span
+        font-size: 16px
+
+      a
+        color: rgba(0,0,0,.6)
+
+        &:hover
+          color: $blue
+          span
+            color: rgba(0,0,0,.6)
+
+.two
+  padding: 0 60px
+  .box
+    width: 400px
+
+  &.grid
+    padding: 0 210px
+    .box
+      width: 240px
+
+.three
+  padding: 0 10px
+  .box
+    width: 280px
+
+.four .box
+  width: 220px
+
+.centered
+  text-align: center
+
+.profiles
+  .two
+    padding: 0 10px
+    .box
+      width: 480px
+
+.big-title, .page .big-title
+  font-size: 26px
+  text-align: center
+  padding-bottom: 10px
+  font-family: $boldFont
+  font-weight: 400
+
+.box-wrapper
+  .learn-more
+    display: inline-block
+    margin-top: 10px
+
+article.with-pulled-visual
+  overflow: hidden
+
+.visual-wrapper
+  position: relative
+
+  .full-visual
+    position: absolute
+
+
+// --------------------------------------
+// Columns
+.columns
+  width: 100%
+  max-width: 1000px
+  column-width: 445px
+  column-gap: 100px
+  margin: 40px auto 0 auto
+
+  .item
+    -webkit-column-break-inside: avoid
+    page-break-inside: avoid
+    column-break-inside: avoid
+    break-inside: avoid
+    margin-bottom: 60px
+    h4
+      margin-bottom: 8px
+    h4, p
+      text-align: left
+
+  & + .centered
+    padding-top: 40px
+
+// --------------------------------------
+// Featurette
+.featurette
+  h4
+    color: #A5B3BE
+    font-size: 16px
+    line-height: 26px
+    padding-bottom: 40px
+
+  p
+    font-size: 16px
+    line-height: 26px
+    color: #A5B3BE
+
+.visual
+  height: 58px
+  padding-bottom: 20px
+  text-align: center
+
+  &.bigger, &.bigger img
+    height: 100px
+
+.full-visual
+  position: relative
+  margin: 0 auto 30px
+  padding: 0
+  text-align: center
+  box-shadow: 0 2px 20px rgba(0,0,0,.2)
+  border-radius: 3px
+
+  &, img
+    background: #1C2227
+
+  img
+    box-shadow: 0 2px 20px rgba(0,0,0,.2)
+
+// --------------------------------------
+// CTA
+.cta
+  text-align: center
+
+  h3
+    font-size: 26px
+
+  h3 + h4
+    color: #A5B3BE
+    line-height: 26px
+
+// --------------------------------------
+// Quotes
+.quotes
+  padding-bottom: 64px
+
+  .one p, .three p
+    position: relative
+
+  .one p
+    text-indent: 56px
+    &:before
+      +quoteVisual(#94A0AA,14px,-58px,80px)
+
+  .three p
+    text-indent: 28px
+    &:before
+      +quoteVisual(#94A0AA,6px,-28px,32px)
+
+// --------------------------------------
+// Q&A
+.qa
+  h4
+    font-family: $boldFont
+    font-weight: 500
+
+  p
+    color: #A5B3BE
+
+  .item
+    border-left: 2px solid rgba(255,255,255,.2)
+    padding-left: 16px
+
+
+// --------------------------------------
+// Dark-themed pages only
+.dark
+  background: $n2oGray900
+  color: $n2oGray100
+
+  .page
+    h1, h2, h3, h4
+      font-weight: 400
+
+  .notice
+    background: rgba(255,255,255,.9)
+
+  .unread
+    &:after
+      border: 1px solid #263036
+
+  article
+    border-bottom: 1px solid #252C33
+    border-bottom: 1px solid rgba(0,0,0,.2)
+
+    &.no-border
+      border-bottom: 0
+
+  //.quotes .one
+  //  blockquote
+  //    p
+  //      &:before
+  //        color: $blue
+
+  //  cite
+  //    img
+  //      border: 2px solid $blue
+  //      border-radius: 36px
+
+// --------------------------------------
+// Light-themed pages only
+.light
+  body
+    background: #FFF
+
+  blockquote
+    p
+      &:before
+        color: #cfcfcf
+
+    strong
+      color: #000
+      background: rgba(0,0,0,.04)
+
+    cite
+      color: rgba(0,0,0,.8)
+      font-weight: 400
+
+      span
+        color: rgba(0,0,0,.6)
+
+  .colored
+    blockquote
+      strong
+        color: #FFF
+        background: rgba(0,0,0,.04)
+
+  .page-hero
+    background: #8696A0
+    overflow: hidden
+
+  .hero-copy h3
+    color: rgba(255,255,255,.6)
+
+  .big
+    color: #5b666f
+
+  .notice.darker
+    background: rgba(0,0,0,.03)
+    border-bottom: 1px solid rgba(0,0,0,.05)
+
+  .stacks-home
+    .big
+      display: none
+
+  .quotes
+    .one p
+      &:before
+        color: #cfcfcf
+
+  article h4 a
+    color: #a5b3be
+
+  article h4 a.blue
+    color: $blue
+
+  span.date
+    display: block
+    margin: 4px 0
+    color: rgba(0,0,0,.2)
+    font-family: $boldFont
+
+  article .article a
+    padding-top: 120px
+    display: block
+
+    &:hover
+      h3
+        color: $blue
+
+  article a, article p a
+    color: $blue
+
+  article .article a
+    background-size: 560px 120px
+    background-position: 0 0
+    background-repeat: no-repeat
+
+  article .article:hover a
+    background-position: top right
+
+  article .readwrite a
+    background-image: image_url('home/press-readwrite.png')
+
+  article .tnw a
+    background-image: image_url('home/press-tnw.png')
+
+  article .article.gigaom a
+    background-image: image_url('home/press-gigaom.png')
+
+  article .article.techcrunch a
+    background-image: image_url('home/press-techcrunch.png')
+
+  article .article.techinasia a
+    background-image: image_url('home/press-techinasia.png')
+
+  article .article.techco a
+    background-image: image_url('home/press-techco.png')
+
+  article .article.thebridge a
+    background-image: image_url('home/press-thebridge.png')
+
+  article .article.techrepublic a
+    background-image: image_url('home/press-techrepublic.png')
+
+  article .article.venturebeat a
+    background-image: image_url('home/press-venturebeat.png')
+
+  article .press-release
+    h3
+      font-family: $boldFont
+      font-weight: 400
+      padding-bottom: 4px
+
+    .date
+      padding-bottom: 10px
+
+    p
+      color: rgba(0,0,0,.6)
+      font-size: 14px
+
+  .unread
+    &:after
+      border: 1px solid rgba(255,255,255,.7)
+
+  article
+    border-bottom: 1px solid rgba(0,0,0,.05)
+    &.darker
+      background: rgba(0,0,0,.03)
+      border-bottom: 0
+    p
+      color: #000
+
+    h3, .big-title, .section-title
+      font-family: $opensans
+      font-weight: 200
+
+    h3, .box h3.larger
+      color: rgba(0,0,0,.6)
+      padding-bottom: 10px
+
+      &.with-icon
+        padding-bottom: 0
+
+  .stack
+    span
+      font-weight: 400
+      font-family: $opensans
+      color: rgba(0,0,0,.6)
+
+  .ripple:hover
+    box-shadow: 0 0 0 transparent
+
+  .qa
+    h4
+      color: rgba(0,0,0,.6)
+
+    p
+      color: rgba(0,0,0,.8)
+
+    .item
+      border-left: 2px solid rgba(0,0,0,.05)
+
+  .featurette
+    h4
+      color: #A5B3BE
+
+// --------------------------------------
+// Story
+.story
+  article
+    position: relative
+
+    &.offset-visual
+      .box-wrapper
+        padding-top: 480px
+
+      .full-visual
+        position: absolute
+        top: -84px
+        left: 50%
+        margin-left: -485px
+
+  .full-visual, .full-visual img
+    background: transparent
+
+  .full-visual
+    overflow: hidden
+
+  .full-visual img
+    height: 100%
+    display: block
+
+  .visual
+    margin-bottom: 10px
+
+    &, img
+      height: 76px
+
+  .visual + h3
+    color: $blue
+
+  .page-hero + article
+    padding: 90px 0 60px 0
+
+  .quote .container
+    min-height: 300px
+    padding: 40px 0
+    display: flex
+    align-items: center
+    justify-content: center
+
+  blockquote
+    width: 560px
+
+    .visual
+      margin: 0 auto 10px auto
+      display: block
+      opacity: .6
+
+    p
+      position: relative
+      font-size: 20px
+      line-height: 34px
+      text-indent: 60px
+      text-align: justify
+
+      &:before
+        +quoteVisual(rgba(255,255,255,.5),18px,-64px,90px)
+
+    strong
+      background: rgba(255,255,255,.1)
+      padding: 0 3px
+
+    cite
+      margin-top: 10px
+      font-size: 20px
+      font-style: normal
+
+      span
+        font-size: 16px
+        font-weight: 300
+        font-style: italic
+
+  .colored
+    border-bottom: 0
+
+    p, cite
+      color: #FFF
+
+    cite span
+      color: rgba(255,255,255,.6)
+
+    &.tealeaf-academy
+      background: #127570
+
+    &.pilot-dc
+      background: #78BAE2
+
+    &.tilde
+      background: #00AFC4
+
+    &.heroku
+      background: #6863A4
+
+    &.rails
+      background: $ruby
+
+    &.wilsonsmith
+      background: #839098
+
+// --------------------------------------
+// Maps
+// Used on /company and /jobs
+.maps
+  height: 280px
+  padding: 0
+  overflow: hidden
+
+  .map
+    width: 50%
+    height: 280px
+    float: left
+    position: relative
+    background: #1F262A image_url('home/map-sf.png') center center no-repeat
+
+  .map + .map
+    float: right
+    background: #1F262A image_url('home/map-sg.png') center center no-repeat
+
+  .address
+    position: relative
+    top: 88px
+    text-align: center
+    +webkitFix
+    span
+      font-size: 22px
+
+    .address-1
+      font-size: 22px
+      padding-bottom: 8px
+
+    .address-2
+      font-size: 18px
+      font-family: $boldFont
+
+    span, a
+      display: block
+      line-height: 22px
+    .mail
+      padding-top: 12px
+      font-size: 16px
+      color: #A5B3BE
+      border: 0
+    a:hover
+      color: #FFF
+
+  .pin
+    width: 10px
+    height: 10px
+    position: absolute
+    display: block
+    left: 50%
+    top: 50%
+    margin: 60px 0 0 -5px
+    background: $blue
+    border-radius: 10px
+    border: 2px solid #22282D
+    z-index: 2
+    +webkitFix
+
+    &:before
+      content: ""
+      width: 72px
+      height: 72px
+      position: absolute
+      top: -36px
+      left: -36px
+      border-radius: 100%
+      background: $blue
+      border: 5px solid $blue
+      animation: pulse 2s infinite
+      z-index: 1
+      +webkitFix

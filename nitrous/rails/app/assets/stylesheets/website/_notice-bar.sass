@@ -1,0 +1,124 @@
+@import 'website_variables'
+// ------------------------------------
+// Notice bar below hero section
+// Used on /home and /stacks, and stack pages
+// Useful on /home for highlighting new blog posts
+.notice
+  height: 48px
+  background: #FFF
+  text-align: center
+  line-height: 48px
+  color: $n2oGray900
+
+  a
+    padding-left: 4px
+    color: #0A0D13
+
+  i
+    color: $blue
+
+  ul
+    text-align: center
+    padding: 0
+    li
+      display: inline-block
+      margin: 0 10px
+      a
+        padding: 0 16px
+        display: block
+
+  .more
+    position: relative
+
+    span
+      padding: 0 6px 0 0
+    i
+      color: rgba(0,0,0,.5)
+
+  ul li:hover
+    ol
+      display: block
+
+  ol
+    position: absolute
+    top: 100%
+    left: -22px
+    display: none
+    background: #FFF
+    border-radius: 0 0 4px 4px
+    box-shadow: 0 1px 3px rgba(0,0,0,.2)
+    text-align: left
+
+    li
+      text-align: left
+
+  .active
+    font-weight: bold
+
+  .social-buttons
+    text-align: center
+
+    & > div
+      min-width: 120px
+      height: 20px
+      display: inline-block
+      margin: 14px 20px 0 20px
+      padding: 0
+
+      span, iframe, & > div
+        vertical-align: top !important
+
+  .search-container
+    width: 50%
+    position: relative
+    margin: 0 auto
+    top: 6px
+
+    .fa, input
+      display: block
+
+    .fa-search
+      font-size: 14px
+      position: absolute
+      top: 10px
+      left: 12px
+      color: #BFBFBF
+
+    input
+      width: 92%
+      padding: 8px 10px 8px 32px
+      font-size: 14px
+      border-radius: 2px
+      border: 1px solid rgba(0,0,0,0.1)
+
+  &.dark
+    background: #34404B
+    border-top: 1px solid rgba(0,0,0,.2)
+    border-bottom: 1px solid rgba(0,0,0,.4)
+
+    p, a
+      color: rgba(255,255,255,.6)
+
+  span.free, span.new
+    position: relative
+    top: -1px
+    color: #FFF
+    text-transform: uppercase
+    background: $blue
+    border-radius: 3px
+    padding: 3px 5px 3px 5px
+    margin-right: 6px
+    font-size: 8px
+    letter-spacing: .6px
+    text-align: center
+
+  span.link
+    color: $blue
+    padding-left: 4px
+    font-weight: 500
+    text-transform: uppercase
+    font-size: 11px
+
+  span.link + i
+    font-size: 8px
+    top: -1px
