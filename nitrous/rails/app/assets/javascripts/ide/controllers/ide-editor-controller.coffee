@@ -59,14 +59,14 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       setting = userSettings[k.underscore()]
       if setting?
         @set(k, setting)
-        @addObserver(k, this, 'updateUserSettings')
+      @addObserver(k, this, 'updateUserSettings')
 
   updateUserSettings: ->
     userSettings = App.get('userSettings')
     if userSettings
       _.each App.Editor.SETTINGS, (k) =>
         userSettings[k.underscore()] = @get(k)
-      userSettings.save()
+      userSettings.requestSave()
 
   removeTab: (tab, forceRemove=false) ->
     tab = @get 'activeTab' unless tab

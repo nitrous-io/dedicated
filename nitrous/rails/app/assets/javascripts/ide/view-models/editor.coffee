@@ -19,6 +19,7 @@ App.Editor = klass = Em.Object.extend
   theme: null
   wrapLines: null
   wrapperStyling: null
+  fontSize: null
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -373,4 +374,5 @@ klass.reopenClass
     'autoCloseBrackets'
     'keybindings'
     'removeTrailingWhitespaceOnSave'
+    'fontSize'
   ]

@@ -11,19 +11,30 @@ App.UserSettings = klass = Em.Object.extend
   tab_size: null
   theme: null
   wrap_lines: null
+  font_size: null
+
+  requestSave: (delay = 5000)->
+    return if @saveTimer
+    @saveRequested = true
+    @saveTimer = window.setTimeout(=>
+      @saveTimer = null
+      @save()
+      @saveRequested = false
+    , delay)
 
   save: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'POST',
-        url: '/api/v0/user/settings',
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-        data: @getProperties(Ember.keys(@))
-      ).done((retData, status, jqxhr) =>
-        @setProperties(retData)
-        resolve(retData)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
+    return unless @saveRequested
+    Em.$.ajax(
+      type: 'POST',
+      url: '/api/v0/user/settings',
+      contentType : "application/json",
+      dataType: "json",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      data: JSON.stringify(@getProperties(Ember.keys(@)))
+    ).done((retData, status, jqxhr) =>
+      @setProperties(retData)
+    ).fail (jqxhr) =>
+      @requestSave(1000)
 
 
 klass.reopenClass
