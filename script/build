@@ -128,7 +128,6 @@ build_nitrous() {
     "nitrous/cmd/engagement" \
     "nitrous/cmd/migrate" \
     "nitrous/cmd/hostshutdown" \
-    "nitrous/cmd/freehostusage" \
     "nitrous/cmd/populatemxprofiles" \
     "nitrous/cmd/healthcheck" \
     "nitrous/cmd/hostautoterminate" \

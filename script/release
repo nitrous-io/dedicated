@@ -233,7 +233,7 @@ else
     (bundle_binary hostbuilder)
     (bundle_binary tender)
     (bundle_binary compass)
-    (bundle_binary nitrousd dbseed createinvitecodes populatehosttransitions populatemxprofiles hostusage biller removeexpiredtokens engagement migrate hostshutdown hostautoterminate freehostusage healthcheck idlefreehosts public templates)
+    (bundle_binary nitrousd dbseed createinvitecodes populatehosttransitions populatemxprofiles hostusage biller removeexpiredtokens engagement migrate hostshutdown hostautoterminate healthcheck idlefreehosts public templates)
   elif [ "$RELEASE" == "freighter" ]; then
     (bundle_freighter)
   elif [ "$RELEASE" == "hostbuilder" ]; then
@@ -243,7 +243,7 @@ else
   elif [ "$RELEASE" == "compass" ]; then
     (bundle_binary compass)
   elif [ "$RELEASE" == "nitrous" ]; then
-    (bundle_binary nitrousd dbseed createinvitecodes populatehosttransitions populatemxprofiles hostusage biller removeexpiredtokens engagement migrate hostshutdown hostautoterminate freehostusage healthcheck idlefreehosts public templates)
+    (bundle_binary nitrousd dbseed createinvitecodes populatehosttransitions populatemxprofiles hostusage biller removeexpiredtokens engagement migrate hostshutdown hostautoterminate healthcheck idlefreehosts public templates)
     exit
   fi
 fi
