@@ -167,7 +167,7 @@ func FirstWarningTargets(db *ndb.Database) ([]*Target, error) {
                 WHERE plans.price = 0
                 AND hosts.terminated_at IS NULL
                 AND hosts.idle_notices_sent = $1
-                AND last_running_at <= now() - interval '%d seconds';`,
+                AND GREATEST(last_running_at, last_pinged_at) <= now() - interval '%d seconds';`,
 		int64(FirstWarningTimeout/time.Second))
 	err := db.Select(&targets, query, host.IDLE_NOTICES_NO_WARNING)
 	if err != nil {
@@ -221,7 +221,7 @@ func TerminationTargets(db *ndb.Database) ([]*Target, error) {
                 AND hosts.terminated_at IS NULL
                 AND hosts.idle_notices_sent = $1
                 AND hosts.idle_next_check <= now()
-                AND last_running_at <= now() - interval '%d seconds';`,
+                AND GREATEST(last_running_at, last_pinged_at) <= now() - interval '%d seconds';`,
 		int64(IdleTimeout/time.Second))
 	err := db.Select(&targets, query, host.IDLE_NOTICES_FINAL_WARNING)
 	if err != nil {
