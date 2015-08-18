@@ -49,7 +49,11 @@ func (h *Host) destroyWithPool() error {
 	volumeID := h.Config.VolumeID
 
 	// Check whether user volume is still attached to an instance.
-	if h.instance != nil {
+	if h.Config.ID != "" {
+		if err := h.reloadInstance(h.Config.ID); err != nil {
+			return mh.Error(err, label)
+		}
+
 		userDevice := blockDevice(h.instance, userDeviceName)
 		if userDevice != nil && userDevice.VolumeId == volumeID {
 			h.Printf("user volume %s is still attached to instance %s, terminating that instance",
