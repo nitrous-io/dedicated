@@ -4,7 +4,7 @@ html lang='en'
     meta charset='utf-8'
     title
       = @title || "Nitrous"
-    link rel='shortcut icon' href='/favicon.ico'
+    = favicon_link_tag
     = yield :head_before
     = yield :head_stylesheet
     = yield :head_after
