@@ -1,0 +1,99 @@
+@import 'website_variables'
+// --------------------------------------
+// Home
+#home
+
+  .hero
+    .hero-copy
+      margin-top: -8px
+
+  // --------------------------------------
+  // IDE video / window / with tooltips
+  .ide
+    border-bottom: 0
+    +webkitFix
+
+    h3
+      padding-top: 40px
+
+    & + article
+      padding-top: 40px
+      padding-bottom: 50px
+
+    .box-wrapper + .centered:last-of-type
+      padding-top: 60px
+
+    & + .featurette
+      .box-wrapper
+        padding: 0 20px
+
+    .full-visual
+      width: 970px
+      height: 565px
+      transition: none
+
+    video
+      display: block
+      width: 970px
+      height: 545px
+      border: 0
+      margin: 0
+      padding: 0
+
+  // --------------------------------------
+  // Blue dots
+  .annotations
+    position: absolute
+    width: 100%
+    height: 100%
+    top: 0
+    left: 0
+    z-index: 1
+    +webkitFix
+
+  .annotation-dot
+    width: 10px
+    height: 10px
+    position: absolute
+    display: block
+    background: $blue
+    border-radius: 10px
+    border: 2px solid #FFF
+    cursor: pointer
+    z-index: 2
+    +webkitFix
+
+    &:before
+      content: ""
+      width: 30px
+      height: 30px
+      position: absolute
+      top: -15px
+      left: -15px
+      border-radius: 30px
+      background: $blue
+      border: 5px solid $blue
+      animation: pulse 2s infinite
+      z-index: 1
+      +webkitFix
+
+    &[data-id="1"]
+      top: 137px
+      left: 94px
+    &[data-id="2"]
+      top: 100px
+      left: 367px
+    &[data-id="3"]
+      top: 488px
+      left: 670px
+    &[data-id="4"]
+      top: 250px
+      left: 567px
+
+  // --------------------------------------
+  // Quotes
+  .quotes
+    padding-bottom: 50px
+
+    .carousel-item:nth-of-type(2), .carousel-item:nth-of-type(3), .carousel-item:nth-of-type(4)
+      padding-top: 20px

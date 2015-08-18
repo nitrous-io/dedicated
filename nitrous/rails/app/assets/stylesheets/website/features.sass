@@ -1,0 +1,118 @@
+@import 'website_variables'
+// --------------------------------------
+// Features
+#features
+
+  .featurette .full-visual
+    width: auto
+
+  .featurette:first-of-type
+    padding-top: 20px
+    padding-bottom: 70px
+
+  .dashboard .full-visual
+    width: 860px
+    height: 502px
+    overflow: hidden
+    border-radius: 4px 4px 1px 1px
+
+  .anywhere .full-visual
+    width: 558px
+    height: 230px
+    padding-bottom: 40px
+    &, img
+      background: transparent
+      box-shadow: 0 0 0 transparent
+
+  .anywhere .box-wrapper
+    padding-top: 10px
+    padding-bottom: 20px
+
+  .themes .full-visual
+    width: 970px
+    height: 565px
+    overflow: hidden
+    border-radius: 4px 4px 1px 1px
+
+
+  .box
+    .big-title
+      text-align: left
+
+
+  .visual-on-left
+    .window
+      width: 808px
+      left: -340px
+
+  .box.auto
+
+    &.text
+      .content
+        width: 320px
+        padding-top: 90px
+
+        h3 + p
+          padding-top: 10px
+
+        p + p
+          margin-top: 16px
+
+    .content
+      width: 460px
+      padding: 10px 0
+      display: flex
+      flex-direction: column
+
+      .item
+        padding: 10px 0
+
+      h3.section-title, h4
+        text-align: left
+
+      h3.section-title
+        font-size: 26px
+        line-height: 44px
+        padding-left: 58px
+        padding-bottom: 20px
+
+      h4
+        font-family: $boldFont
+        font-weight: 400
+        font-size: 14px
+        padding: 0 0 6px 0
+
+      h4, p
+        color: #a5b3be
+
+    .download-btns
+      align-self: flex-end
+
+    &.nitrous-desktop
+      h3
+        background: image_url('home/nitrous-desktop-icon.png') 0 0 no-repeat
+        background-size: 44px 44px
+
+    &.nitrous-chrome
+      h3
+        background: image_url('home/nitrous-chrome-icon.png') 0 0 no-repeat
+        background-size: 44px 44px
+
+  article.downloads
+    padding: 74px 0 50px 0
+
+  article.cut-off
+    height: 360px
+
+  article.trio
+    height: 652px
+
+    .full-visual:nth-child(2), .full-visual:nth-child(3)
+      position: absolute
+      top: 0
+
+    .full-visual:nth-child(2)
+      left: -756px
+
+    .full-visual:nth-child(3)
+      right: -756px

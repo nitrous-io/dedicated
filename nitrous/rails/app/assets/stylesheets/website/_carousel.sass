@@ -1,0 +1,138 @@
+@import 'website_variables'
+// --------------------------------------
+// Carousel
+// Used on /home and /features
+.carousel
+  position: relative
+
+  .carousel-inner
+    width: 100%
+    position: relative
+    overflow: hidden
+
+  .carousel-open:checked + .carousel-item
+    position: static
+    opacity: 100
+
+  .carousel-item
+    width: 100%
+    height: 100%
+    padding-bottom: 20px
+    margin: 0
+    position: absolute
+    top: auto
+    bottom: auto
+    opacity: 0
+    transition: opacity 0.4s ease-out
+    z-index: 2
+    +webkitFix
+
+    .box-wrapper.three
+      padding-top: 40px
+
+  .carousel-control
+    user-select: none
+    width: 80px
+    height: 100%
+    position: absolute
+    top: 0
+    background: transparent
+    cursor: pointer
+    display: none
+    cursor: pointer
+    text-align: center
+    z-index: 10
+
+    i.fa-chevron-right, i.fa-chevron-left
+      font-size: 40px
+      line-height: 226px
+      color: rgba(255,255,255,.2)
+
+  .carousel-control.prev
+    left: 0
+
+  .carousel-control.next
+    right: 0
+
+  .carousel-control:hover
+    i.fa-chevron-right, i.fa-chevron-left
+      color: rgba(255,255,255,.4)
+
+  #carousel-1:checked ~ .control-1,
+  #carousel-2:checked ~ .control-2,
+  #carousel-3:checked ~ .control-3,
+  #carousel-4:checked ~ .control-4,
+  #carousel-5:checked ~ .control-5
+    display: block
+
+    &.carousel-bullet
+      display: inline-block
+
+    .theme-preview
+      border: 2px solid $blue
+      box-shadow: 0 15px 30px rgba(0,0,0,.1)
+
+  .carousel-indicators
+    position: relative
+    list-style: none
+    margin: 0
+    padding: 0
+    text-align: center
+    z-index: 10
+
+  .carousel-indicators li
+    display: inline-block
+    margin: 0 5px
+
+  .carousel-bullet
+    position: relative
+    text-align: center
+    display: inline-block
+    margin: 0 18px
+    z-index: 10
+
+  .theme-preview
+    width: 160px
+    height: 92px
+    background: red
+    cursor: pointer
+    border: 2px solid transparent
+    border-radius: 4px
+    overflow: hidden
+
+  label[for="carousel-1"]
+    .theme-preview
+      background: image_url('home/theme-preview-1.png') 0 0 no-repeat
+      background-size: 160px 92px
+
+  label[for="carousel-2"]
+    .theme-preview
+      background: image_url('home/theme-preview-2.png') 0 0 no-repeat
+      background-size: 160px 92px
+
+  label[for="carousel-3"]
+    .theme-preview
+      background: image_url('home/theme-preview-3.png') 0 0 no-repeat
+      background-size: 160px 92px
+
+  label[for="carousel-4"]
+    .theme-preview
+      background: image_url('home/theme-preview-4.png') 0 0 no-repeat
+      background-size: 160px 92px
+
+  label[for="carousel-5"]
+    .theme-preview
+      background: image_url('home/theme-preview-5.png') 0 0 no-repeat
+      background-size: 160px 92px
+
+// Customizations
+article.themes
+  .carousel
+    .carousel-inner
+      text-align: center
+      overflow: visible
+
+article.quotes
+  .carousel
+    .carousel-inner
+      min-height: 260px

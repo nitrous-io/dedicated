@@ -245,28 +245,6 @@
         a href="mailto:hello@nitrous.io" target="_blank" send us a message
         | .
 
-
-
-  article
-    .container
-      .box-wrapper.three
-        .box.ssl
-          h3.with-icon SSL Data Encryption
-          p All of your information is encrypted and transmitted securely using the Secure Sockets Layer (SSL) protocol.
-
-        .box.backup
-          h3.with-icon Backup &amp; Redundancy
-          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your project resides in the cloud in military-grade secure facilities.
-
-        .box.secure
-          h3.with-icon Your data, secured
-          p Every user operates within their own isolated environment and cannot interact with other applications or areas of the system.
-
-
-      .centered
-        a class="btn white-outline" href="/features"
-          | More features
-
-  = render partial: 'layouts/companies', locals: { theme: 'darker' }
+  = render partial: 'layouts/companies', locals: { theme: '' }
 
 = render partial: 'layouts/footer', locals: { active: 'pricing' }

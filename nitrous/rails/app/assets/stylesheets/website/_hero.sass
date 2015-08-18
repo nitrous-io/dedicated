@@ -1,0 +1,340 @@
+@import 'website_variables'
+// --------------------------------------
+// Hero section
+// Used on all pages using .hero and .page-hero
+.page
+
+  .hero, .page-hero
+    position: relative
+    display: flex
+
+    > .container
+      display: flex
+      flex-direction: column
+      flex-grow: 1
+      align-items: center
+
+    .featurette
+      padding-top: 92px
+      padding-bottom: 0
+      margin-bottom: 0
+      border-bottom: 0
+
+      p
+        color: rgba(255,255,255,.6)
+
+  .hero-copy
+    position: relative
+    text-align: center
+    z-index: 2
+    display: flex
+    flex-grow: 1
+    flex-direction: column
+    justify-content: center
+    margin-top: -19px
+    +webkitFix
+
+    h2
+      font-size: 38px
+      padding-bottom: 2px
+      font-weight: 400
+      font-family: $boldFont
+
+    h3
+      font-size: 22px
+      color: #A5B3BE
+      font-weight: 300
+
+  .hero
+    height: 460px
+
+  .page-hero
+    height: 260px
+
+    .hero-copy
+      h2
+        font-size: 32px
+      h3
+        font-size: 20px
+
+// --------------------------------------
+// Story pages
+.story
+  .page-hero
+    height: 460px
+
+    .hero-copy
+      padding-bottom: 36px
+
+    .hero-copy h2
+      font-size: 42px
+      padding-bottom: 4px
+
+    .hero-copy h3
+      color: rgba(255,255,255,.8)
+
+    article
+      h3, .section-title
+        font-family: $boldFont
+        color: #FFF
+
+    .hero-copy .btn.submit
+      width: 112px
+      margin: 30px auto 0 auto
+
+// --------------------------------------
+// Full height
+.page-hero.full-height
+  height: 680px
+  height: 100vh
+  min-height: 680px
+  max-height: 860px
+  user-select: none
+
+  .hero-copy
+    margin-top: 0
+
+    a.btn.submit
+      margin-top: 40px
+
+  .hero-tagline, .hero-visual
+    top: 50%
+    position: absolute
+    transform: translate3d(0,-45%,0)
+    -webkit-perspective: 1000
+    backface-visibility: hidden
+
+  .hero-tagline
+    width: 52%
+    right: 0
+    text-align: center
+    animation: .8s ease 1 hero-tagline-in
+    transition: .25s opacity
+    z-index: 5
+
+    h2
+      font-size: 35px
+      font-family: $boldFont
+      padding-bottom: 4px
+      font-weight: 400
+
+    h3
+      font-size: 20px
+      color: rgba(255,255,255,.8)
+
+    .cta-get-started
+      border: 1px solid #FFF
+      background: #FFF
+
+    input[type="email"]
+      background: #FFF
+      color: $blue
+
+    input[type="submit"]
+      border: none
+      line-height: 42px
+      border-radius: 4px
+
+      &:hover
+        background: rgba($blue,.8)
+
+  .hero-visual
+    width: 47%
+    min-height: 571px
+    left: 0
+    animation: .8s ease 1 hero-visual-in
+    transition: .4s cubic-bezier(.2,.6,.2,1.2)
+    z-index: 10
+
+    img
+      position: relative
+      margin: 0 auto
+      right: -100%
+      transform: translateX(-100%)
+      border-radius: 2px
+      box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 16px 20px rgba(0,0,0,.1)
+
+// --------------------------------------
+// Dark-themed pages only
+.dark
+  .hero
+    background: #2C3944
+    background: linear-gradient(to bottom, rgba(40,50,58,1) 0%,rgba(49,62,73,1) 47%,rgba(54,69,80,1) 100%)
+    background-size: cover
+
+  #company .page-hero
+    background: #2C3944 image_url('home/office-hero-bg.jpg') center center no-repeat
+    background-size: cover
+
+  #jobs .page-hero
+    background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
+    background-size: cover
+
+  .page-hero
+    border-bottom: 1px solid rgba(0,0,0,.3)
+
+  .no-hero
+    .hero-copy
+      margin-top: -8px
+
+    border: 0
+
+// --------------------------------------
+// Light-themed pages only
+.light
+  .page-hero
+    h3
+      color: rgba(255,255,255,.8)
+
+  .full-height
+    .page-hero
+      background: #0099ED
+
+// --------------------------------------
+// Home
+#home
+  .hero
+    background-color: #2C3944
+    background-image: linear-gradient(10deg, rgba(44,57,68,.3) 40%, rgba(44,57,68,.9) 100%), image_url('home/home-hero-bg.jpg')
+    background-position: top center
+    background-repeat: no-repeat
+    background-size: cover
+
+    .shadows, .patternshadows
+      position: absolute
+      top: 0
+      right: 0
+      bottom: 0
+      left: 0
+      display: block
+      z-index: 1
+
+    .shadows
+      background-image: linear-gradient(0deg, rgba(42,50,57,0) 47%, rgba(42,50,57,0.30) 90%)
+      opacity: 1
+      animation: fadeIn 3.15s
+      animation-iteration-count: 1
+
+    .patternshadows
+      background-image: radial-gradient(ellipse at center, rgba(48,60,71,.70) 0%,rgba(48,60,71,1) 68%)
+
+// --------------------------------------
+// Logo pattern
+.logo-pattern
+  position: absolute
+  top: 0
+  left: 0
+  right: 0
+  bottom: 0
+  opacity: 0
+  text-align: center
+  overflow: hidden
+  +webkitFix
+
+  &.fadeIn
+    opacity: 1
+    animation: fadeIn 2.15s
+    animation-iteration-count: 1
+
+  .inner
+    width: 1368px
+    height: 800px
+    margin: 0 auto
+    position: relative
+    transition: all 0.2s ease 0s
+    +logoGridBg(rgba(48,60,71,1),1004px,380px)
+    transform: matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1) rotate(15deg) translateY(-110px) translateX(-50px)
+    -webkit-perspective: 1000
+    backface-visibility: hidden
+
+    &.heroMatrix
+      animation: heroMatrix 185s infinite
+
+// --------------------------------------
+// Stacks pages
+.stacks-home
+  .page-hero
+    +heroLogoGrid(#0099ED,1004px,380px)
+
+.stack-ruby .page-hero
+  background: $ruby
+.stack-ruby-on-rails .page-hero
+  background: $ruby-on-rails
+.stack-nodejs .page-hero
+  background: $nodejs
+.stack-meteor .page-hero
+  background: $meteor
+.stack-python .page-hero
+  background: $python
+.stack-django .page-hero
+  background: $django
+.stack-html5 .page-hero
+  background: $html5
+.stack-php .page-hero
+  background: $php
+.stack-golang .page-hero
+  background: $golang
+.stack-wordpress .page-hero
+  background: $wordpress
+.stack-asp .page-hero
+  background: $asp
+.stack-laravel .page-hero
+  background: $laravel
+.stack-iojs .page-hero
+  background: $iojs
+.stack-java .page-hero
+  background: $java
+.stack-ubuntu .page-hero
+  background: $ubuntu
+.stack-docker .page-hero
+  background: $docker
+.stack-rust .page-hero
+  background: $rust
+
+
+// --------------------------------------
+// Other pages
+#press
+  .page-hero
+    +heroLogoGrid(#0099ED,1004px,380px)
+
+#flatiron
+  .page-hero
+    background: $blue image_url('home/flatiron-hero.jpg') center center no-repeat
+    background-size: cover
+
+#education
+  .page-hero
+    background: $blue image_url('home/education-hero.jpg') center center no-repeat
+    background-size: cover
+
+#agencies
+  .page-hero
+    background: $blue image_url('home/agencies-hero.jpg') center center no-repeat
+    background-size: cover
+
+#enterprises
+  .page-hero
+    background: $blue image_url('home/enterprises-hero.jpg') center center no-repeat
+    background-size: cover
+
+#teams
+  .page-hero
+    background: $blue image_url('home/teams-hero.jpg') center center no-repeat
+    background-size: cover
+
+#orgs
+  .page-hero
+    background-color: #8A9FAE
+    background-image: linear-gradient(10deg, rgba(0,154,237,.20) 40%, rgba(0,154,237,.72) 100%), image_url('home/orgs-hero-bg.png')
+    background-position: top center
+    background-repeat: no-repeat
+    background-size: cover
+
+    .hero-copy
+      padding-bottom: 0
+
+#vpc
+  .page-hero
+    background: #8696A0 image_url('home/vpc-hero.jpg') center center no-repeat
+    background-size: cover

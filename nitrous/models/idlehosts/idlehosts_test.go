@@ -146,6 +146,14 @@ var _ = Describe("models/idlehosts", func() {
 			Expect(trgts).To(BeEmpty())
 		})
 
+		It("should not include hosts that were pinged recently", func() {
+			_, err := db.Exec("UPDATE hosts SET last_running_at = now() - interval '123 days', last_pinged_at = now() - interval '10 minutes' WHERE id = $1;", hs3.H.ID)
+			Expect(err).To(BeNil())
+			trgts, err := idlehosts.FirstWarningTargets(db)
+			Expect(err).To(BeNil())
+			Expect(trgts).To(HaveLen(0))
+		})
+
 		It("should not include hosts that have had a notice sent", func() {
 			_, err := db.Exec("UPDATE hosts SET idle_notices_sent = 1 WHERE id = $1;", hs3.H.ID)
 			Expect(err).To(BeNil())

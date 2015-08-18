@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 
@@ -153,6 +154,10 @@ var _ = Describe("controllers/freighterd", func() {
 
 				m := &freighterd.Message{Event: "ping"}
 				msg = genMessage(hs.H.Secret, m)
+
+				t := &token.Token{UserID: hs.H.UserID}
+				err := t.Insert(db)
+				Expect(err).To(BeNil())
 			})
 
 			It("accepts host ID in addition to slug", func() {
@@ -172,6 +177,20 @@ var _ = Describe("controllers/freighterd", func() {
 				Expect(err).To(BeNil())
 				Expect(h.LastPingedAt.Valid).To(BeTrue())
 				Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
+			})
+
+			It("responds with HTTP 401 and does not update last_pinged_at if user is not logged in", func() {
+				_, err := db.Exec(`DELETE FROM tokens WHERE user_id = $1`, hs.H.UserID)
+				Expect(err).To(BeNil())
+				h, err := host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, msg)
+
+				Expect(res.Code).To(Equal(http.StatusUnauthorized))
+				h, err = host.FindByIdentifier(db, hs.H.Slug)
+				Expect(err).To(BeNil())
+				Expect(h.LastPingedAt.Valid).To(BeFalse())
 			})
 		})
 

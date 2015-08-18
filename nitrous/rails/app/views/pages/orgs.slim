@@ -1,0 +1,145 @@
+- @title = 'Orgs · Nitrous'
+- @html_class = 'light'
+- @body_id = 'orgs'
+- @body_class = 'story'
+
+.page
+  .page-hero.full-height
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'education' }
+
+      .hero-copy
+        h2
+          | Nitrous Orgs
+        h3
+          | Leverage Nitrous's cutting-edge cloud IDE to stay lean,
+          br
+          | agile and productive, wherever you are
+
+        a.btn.white-outline.submit href="/app/#/signup/?org=1" Sign Up Now
+
+        article.featurette
+          .container
+            .box-wrapper.three.centered
+              .box
+                .visual.billing
+                h3.section-title Centralized Billing
+                p Simplified billing for your team: team owner handles billing for all users
+
+              .box
+                .visual.team-administration
+                h3.section-title Team Administration
+                p Quickly add and remove team owners, admins, and members
+
+              .box
+                .visual.custom-templates
+                h3.section-title Custom Templates
+                p Setup and deploy your own Docker images inside Nitrous
+
+
+  article.featurette
+    .container
+
+      h3.big-title The Best of Nitrous
+
+      .box-wrapper.three
+        .box.terminal
+          h3.with-icon Built-in Terminal
+          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+
+        .box.code
+          h3.with-icon Zero-to-code in seconds
+          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+
+        .box.containers
+          h3.with-icon Powered by Docker
+          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+
+      .box-wrapper.three
+        .box.collaboration
+          h3.with-icon Collaboration
+          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+
+        .box.github
+          h3.with-icon GitHub integration
+          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+
+        .box.snapshots
+          h3.with-icon Snapshots
+          p Preserve the state of any container and project environment, and stop worrying about breaking things.
+
+      .box-wrapper.three
+        .box.go-to-file
+          h3.with-icon Go to file
+          p Quickly jump between files with only a few keystrokes, just like your favorite desktop editor.
+
+        .box.split-editing
+          h3.with-icon Split Editing
+          p Get the most out of your screen real-estate with split editing support. Edit files side by side.
+
+        .box.ssh
+          h3.with-icon Full SSH access
+          p
+            | Access your development environment directly with SSH
+
+      .centered
+        a class="btn grey-outline" href="/features"
+          | Learn more
+
+  article
+    .container
+      .box-wrapper
+        .box.auto
+          blockquote
+            = image_tag 'home/quote-heroku-visual.png'
+            p
+              ' Many companies — including Heroku — have attempted to move development to the cloud. Nitrous is
+              strong the first solution that doesn't feel like a toy
+              |. I can use it to get work done, today.
+            cite
+              | Max Schoening
+              span Software Designer at Heroku
+
+        .box.auto
+          blockquote
+            = image_tag 'home/quote-flatiron-visual.png'
+            p
+              ' Flatiron is growing rapidly, and to offer our summer courses in multiple locations around the country, we need a
+              strong zero-install solution
+              '  for students with limited time and much enthusiasm to learn. Nitrous allows Flatiron's students to have
+              strong the flexibility of using any device
+              |  — Windows, Mac, Linux or Chromebook — and begin coding from day one.
+            cite
+              | Avi Flombaum
+              span Dean and Co-Founder of The Flatiron School
+
+      .centered
+        a class="btn grey-outline" href="/flatiron"
+          | Flatiron Case Study
+
+  article.used-by
+    .container
+      h3.section-title
+       | Used by teams at startups and corporations alike
+      .logos
+        .row
+          = image_tag 'home/sendgrid-on-light.svg',   class: 'sendgrid on-light',   alt: 'Sendgrid'
+          = image_tag 'home/lampcamp-on-light.png',      class: 'lampcamp',      alt: 'LAMPCamp'
+          = image_tag 'home/thoughtbot-on-light.svg', class: 'thoughtbot on-light', alt: 'thoughtbot'
+          = image_tag 'home/zendesk-on-light.svg',    class: 'zendesk on-light',    alt: 'Zendesk'
+          = image_tag 'home/clearsight-on-light.png',      class: 'clearsight',      alt: 'Clearsight Studio'
+        .row
+          = image_tag 'home/heroku-on-light.svg',     class: 'heroku on-light',     alt: 'Heroku'
+          = image_tag 'home/tilde-on-light.png',      class: 'tilde on-light',      alt: 'Tilde'
+          = image_tag 'home/shopify-on-light.svg',    class: 'shopify on-light',    alt: 'Shopify'
+          = image_tag 'home/facebook-on-light.svg',      class: 'facebook on-light',      alt: 'Facebook'
+          = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
+          = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'
+
+  article.cta
+    .container
+      h3.section-title Let's get started
+      a.btn.blue.submit href="/app/#/signup/?org=1" Sign Up for Orgs
+
+
+= render partial: 'layouts/footer', locals: { active: 'orgs' }

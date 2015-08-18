@@ -1,4 +1,4 @@
-- @title = 'Nitrous Pro'
+- @title = 'Nitrous'
 - @html_class = 'dark'
 - @body_id = 'home'
 
@@ -36,13 +36,16 @@
           | Cloud-based code editor with collaboration, one-click installs and snapshots
 
         = render 'layouts/cta_form'
-
       .shadows
-      .patternshadows
 
-      .logo-pattern
-        .inner
-
+  .notice
+    .container
+      p
+        a href='/flatiron'
+          span.new Latest
+          | The Flatiron School has selected Nitrous as its software development platform
+          span.link Read more
+          i.fa.fa-chevron-right
 
   article.featurette.ide.attached-bottom
     .container
@@ -52,7 +55,7 @@
         br
         | Run web servers, databases, caches and more, right from your Web browser.
       .full-visual
-        .window-controls
+        .window-controls.osx
           span
           span
           span
@@ -61,22 +64,23 @@
           source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.webm" type="video/webm"
           source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.mp4" type="video/mp4"
 
-        .annotation-dot.tooltip.blue.zoom data-id="1" data-tooltip="Browse, upload, manage files and folders, just as you would on your desktop"
-          .target
-        .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
-          .target
-        .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers with full root-enabled shell access"
-          .target
-        .annotation-dot.tooltip.blue.zoom data-id="4" data-tooltip="Edit files side by side with Nitrous's new Split Editing mode"
-          .target
+        .annotations
+          .annotation-dot.tooltip.blue.zoom data-id="1" data-tooltip="Browse, upload, manage files and folders, just as you would on your desktop"
+            .target
+          .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
+            .target
+          .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers with full root-enabled shell access"
+            .target
+          .annotation-dot.tooltip.blue.zoom data-id="4" data-tooltip="Edit files side by side with Nitrous's new Split Editing mode"
+            .target
 
 
-  article.features
+  article.featurette
     .container
 
       .box-wrapper.three
         .box.terminal
-          h3.with-icon Built-in Terminal
+          h3.with-icon Built-in terminal
           p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
 
         .box.code
@@ -84,8 +88,8 @@
           p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
 
         .box.containers
-          h3.with-icon Powerful Containers
-          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+          h3.with-icon The power of Docker
+          p Create and work on multiple containers, or create custom containers using Docker images.
 
       .box-wrapper.three
         .box.github
@@ -98,43 +102,11 @@
 
         .box.snapshots
           h3.with-icon Snapshots
-          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot to preserve the state of your project's environment at any time.
+          p Take snapshots to preserve the state of your project's environment, and revert back to them at any time.
 
       .centered
         a class="btn white-outline" href="/features"
           | Learn more
-
-  article.nitrous-desktop.lighter
-    .container
-      .pull-wrapper
-        .pull-left
-          = image_tag 'home/nitrous-desktop-featurette.png', class: 'app-window', alt: 'Nitrous Desktop'
-          = image_tag 'home/nitrous-desktop-icon.png', class: 'app-icon', alt: 'Nitrous Desktop'
-
-        .pull-right
-          h3.section-title Nitrous Sync
-
-          .item
-            h4 Manage cloud environments
-            p
-              | Nitrous Sync (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
-
-          .item
-            h4 Use your favorite editor
-            p
-              ' Sync files between your Nitrous workspaces and desktop computer, allowing you to edit code using
-              a href="https://atom.io/" target="_blank" Atom
-              ' ,
-              a href="http://www.sublimetext.com/" target="_blank" Sublime Text
-              ' ,
-              a href="http://macromates.com/" target="_blank" Textmate
-              | &nbsp;or your favorite desktop text editor.
-
-            .download-btns
-              a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
-              a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
-              a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
-
 
   article.quotes
     .carousel
@@ -148,50 +120,69 @@
                 p
                   | I know how to administer a computer well enough.&nbsp;
                   strong But I don't want to
-                  | . Nitrous.IO allows me to just say "I want to code some Rails now, kthx" and not have to worry about getting all the details straight. Sometimes, I care about the details, but most of the time, I don't.
+                  | . Nitrous allows me to just say "I want to code some Rails now, kthx" and not have to worry about getting all the details straight. Sometimes, I care about the details, but most of the time, I don't.
                 cite
+                  = image_tag 'home/quote-steveklabnik.png'
                   | Steve Klabnik
                   span , Rails Core Committer & prolific Open Source contributor
 
         input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
         .carousel-item
           .container
-            .box-wrapper.three
-              .box
-                blockquote
-                  p
-                    | You don't have to install anything so&nbsp;
-                    strong you save time
-                    |. Plus the students have a text editor and terminal in the same screen, and don't have to switch all the time, which also makes it less confusing.
-                  cite
-                    | Andreas Tiefenthaler
-                    span , Rails Girls Instructor
-              .box
-                blockquote
-                  p
-                    | The online code editor is the bees knees. It provides me a simple interface into my app's code&nbsp;
-                    strong from anywhere
-                    | &nbsp;I have an internet connection.
-                  cite
-                    | Miles Smith
-                    span , Freelance Ruby/JS Developer
-              .box
-                blockquote
-                  p
-                    | I love that I can spin up a new box in seconds and start developing proof of concepts in minutes. Another sweet feature that I've used a lot is the ability to provide a&nbsp;
-                    strong public preview link
-                    | &nbsp;of my app.
-                  cite
-                    | Shaun McAvinney
-                    span , Engineer at RJMetrics
+            .box-wrapper.one
+              blockquote
+                p
+                  | You don't have to install anything so&nbsp;
+                  strong you save time
+                  |. Plus the students have a text editor and terminal in the same screen, and don't have to switch all the time, which also makes it less confusing.
+                cite
+                  = image_tag 'home/quote-andreas-tiefenthaler.png'
+                  | Andreas Tiefenthaler
+                  span , Rails Girls Instructor
 
-        label.carousel-control.prev.control-1 for="carousel-2"
+        input#carousel-3.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
+                p
+                  ' Many companies — including Heroku — have attempted to move development to the cloud. Nitrous is
+                  strong the first solution that doesn't feel like a toy
+                  |. I can use it to get work done, today.
+                cite
+                  = image_tag 'home/quote-max-schoening.png'
+                  | Max Schoening
+                  span , Software Designer at Heroku
+
+        input#carousel-4.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
+                p
+                  | I love that I can spin up a new box in seconds and start developing proof of concepts in minutes. Another sweet feature that I've used a lot is the ability to provide a&nbsp;
+                  strong public preview link
+                  | &nbsp;of my app.
+                cite
+                  = image_tag 'home/quote-shaunmcavinney.png'
+                  | Shaun McAvinney
+                  span , Engineer at RJMetrics
+
+        label.carousel-control.prev.control-1 for="carousel-4"
           i.fa.fa-chevron-left
         label.carousel-control.next.control-1 for="carousel-2"
           i.fa.fa-chevron-right
         label.carousel-control.prev.control-2 for="carousel-1"
           i.fa.fa-chevron-left
-        label.carousel-control.next.control-2 for="carousel-1"
+        label.carousel-control.next.control-2 for="carousel-3"
+          i.fa.fa-chevron-right
+        label.carousel-control.prev.control-3 for="carousel-2"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-3 for="carousel-4"
+          i.fa.fa-chevron-right
+        label.carousel-control.prev.control-4 for="carousel-3"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-4 for="carousel-1"
           i.fa.fa-chevron-right
 
   article.for-everyone.lighter
@@ -200,7 +191,7 @@
         .box
           h3.larger For Teams
           p Work collaboratively on applications and private repos. Leverage Nitrous's cutting-edge cloud IDE to stay productive wherever you are.
-          a.learn-more href="/teams"
+          a.learn-more href="/orgs"
             | Learn more
             i.fa.fa-chevron-right
 

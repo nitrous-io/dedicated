@@ -1531,5 +1531,9 @@ func init() {
                                 ALTER TABLE user_profiles ADD COLUMN subscribe_announcements bool DEFAULT true NOT NULL;
 			`,
 		},
+		{
+			Version: "1439884950",
+			Up:      `DROP TABLE host_usages;`,
+		},
 	}
 }

@@ -8,49 +8,14 @@
 
 
 .page
-  .page-hero
+  .page-hero.no-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'features' }
       .hero-copy
         h2
-          | The future of development
+          | Making coding in the cloud a reality
         h3
-          | Get your team, students, or workshop all on the same page in seconds.
-
-
-  article.featurette.extra-padding.anywhere.darker
-    .container
-
-      .full-visual
-        = image_tag 'home/anywhere-visual.png', width: '558px', height: '230px', alt: 'Work from anywhere with Nitrous'
-
-      h3.big-title Work from anywhere
-      h4
-        | Be productive on any machine and any operating system – you're just
-        br
-        | a Web browser away from a predictable and consistent development box
-
-      .box-wrapper.four
-        .box
-          p.version.anywhere-logo.windows Windows&reg; 8, 7, Vista, XP, running IE 10, Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.osx OS X&reg; 10.7 or later, running Safari, Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.ubuntu Linux/Ubuntu, running Chrome, or Firefox
-        .box
-          p.version.anywhere-logo.chrome Chrome OS, running version 41.0.2272.89 or later
-
-
-  article.featurette.attached-bottom
-    .container
-
-      h3.big-title A full-featured IDE in your browser
-      h4
-        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
-        br
-        | Run web servers, databases, caches and more, right from your Web browser
-
-
+          | Be productive on any machine &amp; operating system
 
   article.featurette
     .container
@@ -65,7 +30,7 @@
           p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
 
         .box.containers
-          h3.with-icon Powerful Containers
+          h3.with-icon Powered by Docker
           p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
 
       .box-wrapper.three
@@ -79,7 +44,7 @@
 
         .box.snapshots
           h3.with-icon Snapshots
-          p Preserve the state of any container, and stop worrying about breaking things. Take a snapshot to preserve the state of your project's environment at any time.
+          p Take snapshots to preserve the state of your project's environment, and revert back to them at any time.
 
       .box-wrapper.three
         .box.go-to-file
@@ -103,75 +68,136 @@
 
         .box.backup
           h3.with-icon Backup &amp; Redundancy
-          p Never worry about losing your progress because of a coffee spill or stolen laptop. Your project resides in the cloud in military-grade secure facilities.
+          p Never worry about losing your work because of a coffee spill or stolen laptop. Your projects are in the cloud, in military-grade secure facilities.
 
         .box.secure
           h3.with-icon Your data, secured
           p Every user operates within their own isolated environment and cannot interact with other applications or areas of the system.
 
 
-  article.featurette.themes.darker
+  article.featurette.with-pulled-visual.trio
     .container
-      h3.big-title A code editor you'll love
-      h4 Choose from Nitrous's selection of color schemes that control the editor's syntax highlighting
-
-    .carousel
-      .carousel-inner
-
-        input#carousel-1.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
-        .carousel-item
-          .container
-            .full-visual
-              = image_tag 'home/ide-theme-split-1.png', width: '970px', alt: 'Nitrous Editor themes'
-
-        input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
-        .carousel-item
-          .container
-            .full-visual
-              = image_tag 'home/ide-theme-split-2.png', width: '970px', alt: 'Nitrous Editor themes'
-
-        input#carousel-3.carousel-open type="radio" name="carousel" aria-hidden="true" hidden="" checked="checked"
-        .carousel-item
-          .container
-            .full-visual
-              = image_tag 'home/ide-theme-split-3.png', width: '970px', alt: 'Nitrous Editor themes'
-
-        input#carousel-4.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
-        .carousel-item
-          .container
-            .full-visual
-              = image_tag 'home/ide-theme-split-4.png', width: '970px', alt: 'Nitrous Editor themes'
-
-        input#carousel-5.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
-        .carousel-item
-          .container
-            .full-visual
-              = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
-
-
-        label.carousel-bullet.control-1 for="carousel-1"
-          .theme-preview
-        label.carousel-bullet.control-2 for="carousel-2"
-          .theme-preview
-        label.carousel-bullet.control-3 for="carousel-3"
-          .theme-preview
-        label.carousel-bullet.control-4 for="carousel-4"
-          .theme-preview
-        label.carousel-bullet.control-5 for="carousel-5"
-          .theme-preview
-
-
-  article.featurette.dashboard
-    .container
-      h3.big-title Self-service Dashboard
+      h3.big-title The first cloud IDE you'll love
       h4
-        | Easily create and manage containers in your workspace, or create
+        | Light and dark themes, multiple layouts, and power-tools
         br
-        | your own custom containers with Docker images
+        |that will put your desktop code editor to shame
 
-      .full-visual
-        = image_tag 'home/dashboard-featurette.png', width: '860px', height: '502px', alt: 'Self-service Dashboard'
+      .visual-wrapper
+        .full-visual.window.centered
+          .window-controls.osx
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-2.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
 
+        .full-visual.window
+          .window-controls.osx
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-3.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
+
+        .full-visual.window
+          .window-controls.osx
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-1.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
+
+  article.featurette.with-pulled-visual.cut-off
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Self-service dashboard
+            p
+              | Easily create and manage containers in your workspace, or create your own custom containers with Docker images.
+            p
+              | Access your app's public preview or SSH URLs in one click, and invite others to come collaborate on your project with you.
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx
+                span
+                span
+                span
+              = image_tag 'home/dashboard-featurette-1.png', width: '808px', height: '460px', alt: 'Self-service Dashboard'
+
+
+  article.featurette.with-pulled-visual.cut-off
+    .container
+      .box-wrapper.text-on-right
+
+        .box.auto.visual-on-left
+          .content
+            .full-visual.window
+              .window-controls.osx
+                span
+                span
+                span
+              = image_tag 'home/dashboard-featurette-2.png', width: '808px', height: '460px', alt: 'Self-service Dashboard'
+
+        .box.auto.text
+          .content
+            h3.big-title Get coding fast
+            p
+              ' Containers come with a set of
+              strong pre-installed tools, libraries
+              ', and/or
+              strong frameworks
+              |  to get you coding fast.
+            p
+              | Stop worrying about setting up your development environment, we'll take care of that for you.
+
+
+  article.downloads.lighter
+    .container
+      .box-wrapper
+
+        .box.auto.nitrous-desktop
+          .content
+            h3.section-title Nitrous Desktop
+
+            .item
+              h4 Manage your cloud environments
+              p
+                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+
+            .item
+              h4 Sync files, use your favorite editor
+              p
+                ' Sync files between Nitrous and desktop computer, allowing you to edit files using
+                a href="https://atom.io/" target="_blank" Atom
+                ' ,
+                a href="http://www.sublimetext.com/" target="_blank" Sublime Text
+                | &nbsp;or your text editor of choice.
+
+              .download-btns
+                a.btn.download.windows href="http://getpro.nitrous.io/windows/download.html" target="_blank" For Windows
+                a.btn.download.osx href="http://getpro.nitrous.io/mac/download.html" target="_blank" For Mac
+                a.btn.download.linux href="http://getpro.nitrous.io/linux/download.html" target="_blank" For Linux
+
+        .box.auto.nitrous-chrome
+          .content
+            h3.section-title Nitrous for Chrome
+
+            .item
+              h4 Lightning fast, works everywhere
+              p
+                | Written from scratch with performance in mind, Nitrous for Chrome will profoundly enhance your coding experience, whichever device you use.
+
+            .item
+              h4 Native keyboard shortcuts
+              p
+                ' Nitrous for Chrome takes advantage of the freedom offered by Chrome apps, and provides a "native-like" coding experience.
+                a href="https://community.nitrous.io/posts/nitrous-pro-chrome-app-now-available" target="_blank" Learn more
+                | .
+
+              .download-btns
+                a.btn.download.chrome href="https://chrome.google.com/webstore/detail/nitrous/efdcneeepllhjlbejkfnaolelbpdacai?hl=en" target="_blank" Chrome Web Store
 
 
   = render partial: 'layouts/stacks', locals: { theme: 'darker' }
