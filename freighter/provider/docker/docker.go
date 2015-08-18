@@ -171,7 +171,7 @@ func (p *DockerProvider) CreateStart(name, imageName, secret, configJSON string)
 	if err != nil {
 		logrus.Errorf("DockerProvider: failed to create container %s: %v", name, err)
 
-		if strings.Contains(err.Error(), "cannot mount volume over existing file") && strings.Contains(err.Error(), ".nitrous-container-slug") {
+		if strings.Contains(err.Error(), ".nitrous-container-slug") {
 			if e := p.FixImage(imageName); e != nil {
 				return nil, err
 			}
