@@ -49,11 +49,7 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 		if err != nil {
 			return sendErr(resp, msg, err)
 		}
-		files := make([]interface{}, len(entries))
-		for i, f := range entries {
-			files[i] = fileInfoArgs(f)
-		}
-		return sendFinalReply(resp, msg, []interface{}{dir, files})
+		return sendFinalReply(resp, msg, []interface{}{dir, entries})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
@@ -196,14 +192,6 @@ func NewFsHandler(uid, gid int) AsyncHandler {
 	}
 }
 
-func fileInfoArgs(info os.FileInfo) []interface{} {
-	return []interface{}{
-		info.Name(),
-		info.IsDir(),
-		info.Size(),
-	}
-}
-
 func detectContentType(data []byte) (string, error) {
 	var contentType string
 	detectedContent := http.DetectContentType(data)
@@ -236,7 +224,7 @@ func (c *FS) openFile(p string, flag int) (*os.File, error) {
 	return f, nil
 }
 
-func readDir(dirname string) (fi []os.FileInfo, err error) {
+func readDir(dirname string) (entries []interface{}, err error) {
 	f, err := os.Open(dirname)
 	if err != nil {
 		logrus.Errorf("readDir: os.Open('%s') failed with '%s'", dirname, err)
@@ -244,21 +232,33 @@ func readDir(dirname string) (fi []os.FileInfo, err error) {
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	fi = make([]os.FileInfo, 0, len(names))
+	entries = make([]interface{}, 0, len(names))
 	for _, filename := range names {
-		// use stat to read symlink as well
+		// Use os.Stat() so we resolve symlinks.
 		fp := filepath.Clean(filepath.Join(dirname, filename))
-		fip, lerr := os.Stat(fp)
+		fi, lerr := os.Stat(fp)
 		if os.IsNotExist(lerr) {
 			// File disappeared between readdir + stat.
 			// Just treat it as if it didn't exist.
 			continue
 		}
 		if lerr != nil {
-			return fi, lerr
+			return entries, lerr
 		}
-		fi = append(fi, fip)
+
+		realPath, lerr := filepath.EvalSymlinks(fp)
+		if lerr != nil {
+			return entries, lerr
+		}
+
+		entry := []interface{}{
+			fi.Name(),
+			fi.IsDir(),
+			fi.Size(),
+			realPath,
+		}
+		entries = append(entries, entry)
 	}
 
-	return fi, err
+	return entries, err
 }
