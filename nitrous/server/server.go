@@ -287,6 +287,7 @@ func (s *Server) static(prefix string, dir string) {
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
 func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
+	fmt.Printf("Error: %v\n", err)
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		uuid := w.Header().Get(constants.NitrousUUIDHeader)
