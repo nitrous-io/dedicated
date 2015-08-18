@@ -123,7 +123,6 @@ build_nitrous() {
     "nitrous/cmd/createinvitecodes" \
     "nitrous/cmd/populatehosttransitions" \
     "nitrous/cmd/biller" \
-    "nitrous/cmd/hostusage" \
     "nitrous/cmd/removeexpiredtokens" \
     "nitrous/cmd/engagement" \
     "nitrous/cmd/migrate" \
