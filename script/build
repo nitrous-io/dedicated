@@ -124,7 +124,6 @@ build_nitrous() {
     "nitrous/cmd/populatehosttransitions" \
     "nitrous/cmd/biller" \
     "nitrous/cmd/removeexpiredtokens" \
-    "nitrous/cmd/engagement" \
     "nitrous/cmd/migrate" \
     "nitrous/cmd/hostshutdown" \
     "nitrous/cmd/populatemxprofiles" \
