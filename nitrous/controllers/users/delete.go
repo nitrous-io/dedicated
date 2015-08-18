@@ -33,7 +33,7 @@ var (
 )
 
 var (
-	MailChimp mailchimp.MailChimpProvider
+	MailChimp mailchimp.MailChimpProvider = &mailchimp.MailChimp{}
 )
 
 func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -132,7 +132,6 @@ func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 
 		for _, id := range listIDs {
-
 			if err := MailChimp.Unsubscribe(id, env.User.Email); err != nil {
 				logrus.Errorf("MailChimp unsubscribe failed for user %d, err: %v", env.User.ID, err)
 			}
