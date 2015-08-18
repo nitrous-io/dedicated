@@ -9,6 +9,9 @@ App.IdeEditorFindReplaceView document=view.document
     if view.document.errorCount
       span.errors
         | {{view.document.errorCount}} {{plural view.document.errorCount 'Error' 'Errors'}}
+    if view.document.findError
+      span.errors
+        | {{view.document.findError}}
 
   .ide-toolbar-btns
     unless collabEnabled

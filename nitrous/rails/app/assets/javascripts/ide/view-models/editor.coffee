@@ -50,8 +50,8 @@ App.Editor = klass = Em.Object.extend
     'Alt-Left': 'goLineLeftSmart'
 
   # keybindings in codemirror default keymap that we use in menu
-  macOverrideKeys: ['Cmd-D', 'Cmd-F', 'Cmd-Alt-F', 'Shift-Cmd-Alt-F']
-  pcOverrideKeys: ['Shift-Ctrl-F', 'Ctrl-D', 'Ctrl-F', 'Shift-Ctrl-F', 'Shift-Ctrl-R']
+  macOverrideKeys: ['Cmd-D', 'Cmd-F', 'Cmd-Alt-F', 'Shift-Cmd-Alt-F', 'Cmd-G', 'Shift-Cmd-G']
+  pcOverrideKeys: ['Shift-Ctrl-F', 'Ctrl-D', 'Ctrl-F', 'Shift-Ctrl-F', 'Shift-Ctrl-R', 'Ctrl+G']
 
   lintableMode: (->
     _.any CodeMirror.MODES_WITH_LINTING, (m) =>
@@ -114,7 +114,7 @@ App.Editor = klass = Em.Object.extend
 
   find: (query, reverse, matchCase, useRegex) ->
     if cm = @get 'codeMirror'
-      cm.find(query, reverse, matchCase, useRegex)
+      return cm.find(query, reverse, matchCase, useRegex)
 
   replace: (query, text, all, matchCase, useRegex) ->
     if cm = @get 'codeMirror'

@@ -68,7 +68,7 @@ func (s *uploadCmd) Run(args []string) int {
 
 	for _, u := range uploads {
 		if err := conn.Upload(u.remote, u.f); err != nil {
-			return failf("failed to upload %q to %s:%q", u.local, slug, u.remote)
+			return failf("failed to upload %q to %s:%q, err: %v", u.local, slug, u.remote, err)
 		}
 		logrus.Infof("uploaded %q to %s:%q", u.local, slug, u.remote)
 	}

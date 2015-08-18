@@ -8,8 +8,7 @@ import (
 	"github.com/mitchellh/cli"
 )
 
-type runCmd struct {
-}
+type runCmd struct{}
 
 func newRunCommand() cli.CommandFactory {
 	return func() (cli.Command, error) {

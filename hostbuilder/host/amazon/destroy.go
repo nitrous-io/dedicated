@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"errors"
 	"time"
 
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -15,7 +16,11 @@ func (h *Host) Destroy() error {
 	label := h.MetricsLabel("destroy")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Printf("destroy - checking if instance %s supports EBS hotswapping", h.Config.ID)
+	h.Printf("destroy - checking if instance %s / vol %s supports EBS hotswapping", h.Config.ID, h.Config.VolumeID)
+
+	if h.Config.VolumeID == "" {
+		return mh.Error(errors.New("cannot safely destroy a host with unknown volume ID"), label)
+	}
 
 	// [Feature flag] - requires EBS hotswapping.
 	vol, err := h.getVolume(h.Config.VolumeID)
@@ -49,7 +54,11 @@ func (h *Host) destroyWithPool() error {
 	volumeID := h.Config.VolumeID
 
 	// Check whether user volume is still attached to an instance.
-	if h.instance != nil {
+	if h.Config.ID != "" {
+		if err := h.reloadInstance(h.Config.ID); err != nil {
+			return mh.Error(err, label)
+		}
+
 		userDevice := blockDevice(h.instance, userDeviceName)
 		if userDevice != nil && userDevice.VolumeId == volumeID {
 			h.Printf("user volume %s is still attached to instance %s, terminating that instance",
