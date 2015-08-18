@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -237,10 +236,10 @@ func (c *FS) openFile(p string, flag int) (*os.File, error) {
 	return f, nil
 }
 
-func readDir(name string) (fi []os.FileInfo, err error) {
-	f, err := os.Open(name)
+func readDir(dirname string) (fi []os.FileInfo, err error) {
+	f, err := os.Open(dirname)
 	if err != nil {
-		logrus.Errorf("readDir: os.Open('%s') failed with '%s'\n", name, err)
+		logrus.Errorf("readDir: os.Open('%s') failed with '%s'", dirname, err)
 		return nil, err
 	}
 	defer f.Close()
@@ -248,7 +247,7 @@ func readDir(name string) (fi []os.FileInfo, err error) {
 	fi = make([]os.FileInfo, 0, len(names))
 	for _, filename := range names {
 		// use stat to read symlink as well
-		fp := filepath.Clean(filepath.Join(name, filename))
+		fp := filepath.Clean(filepath.Join(dirname, filename))
 		fip, lerr := os.Stat(fp)
 		if os.IsNotExist(lerr) {
 			// File disappeared between readdir + stat.
@@ -260,13 +259,6 @@ func readDir(name string) (fi []os.FileInfo, err error) {
 		}
 		fi = append(fi, fip)
 	}
-	sort.Sort(byName(fi))
+
 	return fi, err
 }
-
-// byName implements sort.Interface.
-type byName []os.FileInfo
-
-func (f byName) Len() int           { return len(f) }
-func (f byName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
-func (f byName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
