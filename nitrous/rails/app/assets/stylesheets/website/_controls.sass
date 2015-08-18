@@ -9,16 +9,25 @@
     padding: 0
     display: inline-block
     background: #1C2227
-    
+
     img
       display: block
       border: 0
-  
+
   &.centered
     margin: 0 auto
     float: none
     display: table
     position: relative
+
+  &.pulled-left, &.pulled-right
+    position: absolute
+
+  &.pulled-left
+    left: -310px
+
+  &.pulled-right
+    right: -310px
 
   .window-controls
     width: 100%
@@ -49,14 +58,14 @@
 
         &:first-of-type
           margin-left: 8px
-    
+
     // Chromw Browser style
     &.chrome-browser
       height: 32px
       background: #1C2227
       border-bottom: 1px solid #2A3239
       border-radius: 3px 3px 0 0
-      
+
       .tab
         width: 160px
         height: 28px
@@ -64,14 +73,14 @@
         top: 4px
         left: 16px
         overflow: hidden
-        
+
         .tab-content
           position: relative
           z-index: 2
 
           .title
             font-size: 13px
-          
+
         .tab-box
           height: 32px
           transform: perspective(100px) rotateX(30deg)
@@ -80,7 +89,7 @@
           margin: 0 10px 0 10px
           box-shadow: inset 0 1px rgba(255, 255, 255, 0.14), 0 -1px rgba(0, 0, 0, 0.25)
           z-index: 1
-      
+
     // Chrome OS style
     &.chrome
       height: 24px

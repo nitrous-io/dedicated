@@ -275,6 +275,20 @@ i.chevron-right
     h3, h4, p
       text-align: left
 
+  &.text-on-right
+    justify-content: flex-end
+
+    .text
+      margin-left: 60px
+      margin-right: 20px
+
+  &.text-on-left
+    justify-content: flex-start
+
+    .text
+      margin-right: 60px
+      margin-left: 20px
+
   &.auto
     display: flex
     align-items: stretch
@@ -319,6 +333,10 @@ i.chevron-right
       ul
         padding-top: 20px
         padding-left: 0
+
+  &.visual-on-left
+    .content
+      justify-content: flex-end
 
 h4 + .box-wrapper
   padding-top: 40px
@@ -497,6 +515,16 @@ h4 + .box-wrapper
     display: inline-block
     margin-top: 10px
 
+article.with-pulled-visual
+  overflow: hidden
+
+.visual-wrapper
+  position: relative
+
+  .full-visual
+    position: absolute
+
+
 // --------------------------------------
 // Columns
 .columns
@@ -621,6 +649,20 @@ h4 + .box-wrapper
   article
     border-bottom: 1px solid #252C33
     border-bottom: 1px solid rgba(0,0,0,.2)
+
+    &.no-border
+      border-bottom: 0
+
+  //.quotes .one
+  //  blockquote
+  //    p
+  //      &:before
+  //        color: $blue
+
+  //  cite
+  //    img
+  //      border: 2px solid $blue
+  //      border-radius: 36px
 
 // --------------------------------------
 // Light-themed pages only

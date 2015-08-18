@@ -19,13 +19,28 @@ nav
   li
     float: left
     line-height: 48px
+    &:first-child
+      margin-right: 10px
+
     &:not(:first-child)
-      margin-left: 30px
+      margin-left: 8px
 
   a
-    padding: 7px 0
-    font-weight: 300
+    padding: 7px 10px
+    position: relative
+    font-weight: 400
     color: rgba(255,255,255,.7)
+
+    &:before
+      content: ""
+      display: block
+      position: absolute
+      top: -6px
+      left: -6px
+      right: -6px
+      bottom: -6px
+      background: transparent
+      z-index: 0
 
     &:hover
       color: #FFF
@@ -62,18 +77,20 @@ nav
         border-radius: 10px
 
     &.active
-      font-weight: 500
       color: #FFF
       cursor: default
 
 .logo
   position: relative
   a
-    width: 140px
+    width: 122px
     height: 48px
     display: block
     text-indent: -999999px
     padding: 0
     position: relative
-    background: image_url('home/nitrous-pro-logo.svg') 0 50% no-repeat
-    background-size: 140px 14px
+    background: image_url('home/nitrous-logo.svg') 0 50% no-repeat
+    background-size: 122px 14px
+    // Nitrous Pro
+    //background: image_url('home/nitrous-pro-logo.svg') 0 50% no-repeat
+    //background-size: 140px 14px

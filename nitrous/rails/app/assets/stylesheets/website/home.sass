@@ -2,17 +2,17 @@
 // --------------------------------------
 // Home
 #home
-  
+
   .hero
     .hero-copy
       margin-top: -8px
-  
+
   // --------------------------------------
   // IDE video / window / with tooltips
   .ide
     border-bottom: 0
     +webkitFix
-    
+
     h3
       padding-top: 40px
 
@@ -23,10 +23,10 @@
     .box-wrapper + .centered:last-of-type
       padding-top: 60px
 
-    & + .features
+    & + .featurette
       .box-wrapper
         padding: 0 20px
-  
+
     .full-visual
       width: 970px
       height: 565px
@@ -39,9 +39,18 @@
       border: 0
       margin: 0
       padding: 0
-  
+
   // --------------------------------------
   // Blue dots
+  .annotations
+    position: absolute
+    width: 100%
+    height: 100%
+    top: 0
+    left: 0
+    z-index: 1
+    +webkitFix
+
   .annotation-dot
     width: 10px
     height: 10px
@@ -69,14 +78,22 @@
       +webkitFix
 
     &[data-id="1"]
-      top: 127px
-      left: 110px
+      top: 137px
+      left: 94px
     &[data-id="2"]
-      top: 70px
+      top: 100px
       left: 367px
     &[data-id="3"]
       top: 488px
-      left: 669px
+      left: 670px
     &[data-id="4"]
       top: 250px
       left: 567px
+
+  // --------------------------------------
+  // Quotes
+  .quotes
+    padding-bottom: 50px
+
+    .carousel-item:nth-of-type(2), .carousel-item:nth-of-type(3), .carousel-item:nth-of-type(4)
+      padding-top: 20px

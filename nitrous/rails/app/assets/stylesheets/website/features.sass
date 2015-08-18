@@ -34,7 +34,29 @@
     overflow: hidden
     border-radius: 4px 4px 1px 1px
 
+
+  .box
+    .big-title
+      text-align: left
+
+
+  .visual-on-left
+    .window
+      width: 808px
+      left: -340px
+
   .box.auto
+
+    &.text
+      .content
+        width: 320px
+        padding-top: 90px
+
+        h3 + p
+          padding-top: 10px
+
+        p + p
+          margin-top: 16px
 
     .content
       width: 460px
@@ -76,51 +98,21 @@
         background: image_url('home/nitrous-chrome-icon.png') 0 0 no-repeat
         background-size: 44px 44px
 
-  // --------------------------------------
-  // Nitrous Desktop
-  .nitrous-desktop
-    .pull-wrapper
-      width: 900px
-      padding-bottom: 0
+  article.downloads
+    padding: 74px 0 50px 0
 
-    .pull-left
-      border-radius: 3px
-      background: #1C2227
+  article.cut-off
+    height: 360px
 
-      a
-        border: 0
+  article.trio
+    height: 652px
 
-      img
-        width: 398px
-        height: 394px
-        display: block
+    .full-visual:nth-child(2), .full-visual:nth-child(3)
+      position: absolute
+      top: 0
 
-    .pull-right
-      width: 428px
-      margin-top: 54px
+    .full-visual:nth-child(2)
+      left: -756px
 
-      .item
-        padding-bottom: 0
-
-  // --------------------------------------
-  // Pulled out
-  .pull-wrapper
-    width: 96%
-    margin: 0 auto
-    padding-bottom: 60px
-    +clearFix
-
-    .full-visual
-      margin: 0
-
-    .pull-left, .pull-right
-      position: relative
-
-    .pull-left
-      float: left
-
-    .pull-right
-      float: right
-
-      img
-        float: right
+    .full-visual:nth-child(3)
+      right: -756px
