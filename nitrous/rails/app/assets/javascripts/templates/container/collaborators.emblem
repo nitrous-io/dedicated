@@ -27,10 +27,17 @@
             p
               | Added&nbsp;
               = ago collaborator.createdAt
+
           if model.canEdit
             .right-accessory
               button.ui.btn click='remove collaborator'
-                i.fa.fa-close
+                | Remove
+
+          if collaborator.isSelf
+            .right-accessory
+              button.ui.btn click='remove collaborator'
+                | Leave container
+
   else
     p.hint-text
       i.spinner
