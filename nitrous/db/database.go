@@ -2,10 +2,13 @@ package db
 
 import (
 	"database/sql"
+	"os"
+	"path"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 )
 
 type Database struct {
@@ -61,6 +64,7 @@ func NewDatabase(conn string) (*Database, error) {
 }
 
 func (d *Database) MigrateAll() error {
+	LoadMigrationsFromRootDir()
 	return d.Migrate(Migrations)
 }
 
@@ -130,6 +134,21 @@ func (d *Database) Migrate(migrations []*Migration) error {
 		}
 	}
 	return nil
+}
+
+func LoadMigrationsFromRootDir() {
+	pth := path.Join(envvars.RootDir, "migrations")
+	st, err := os.Stat(pth)
+	if err != nil {
+		if os.IsNotExist(err) {
+			logrus.Errorf("Not loading migrations from %q, does not exist", pth)
+			return
+		}
+		logrus.Errorf("Not loading migrations from %q, error: %v", err)
+	}
+	if !st.IsDir() {
+		logrus.Errorf("Not loading migrations from %q, not a directory", err)
+	}
 }
 
 // TransactionLock tries to set an advisory lock on transaction and
