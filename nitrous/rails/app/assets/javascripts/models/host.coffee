@@ -79,9 +79,10 @@ App.Host = klass = App.Model.extend
   ).property 'id'
 
   images: (->
+    return unless @get('isRunning')
     if id = @get('id')
       App.Image.fetch(hostId: id).value
-  ).property 'id'
+  ).property 'id', 'isRunning'
 
   announcements: (->
     if id = @get('id')
