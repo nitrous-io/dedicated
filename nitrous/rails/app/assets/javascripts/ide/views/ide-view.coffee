@@ -2,6 +2,8 @@ App.IdeView = Em.View.extend
   templateName: 'ide/ide'
   elementId: 'ide-view'
 
+  timeStarted: null
+
   willInsertElement: ->
     @_super()
     $('html').addClass 'ide'
@@ -15,6 +17,7 @@ App.IdeView = Em.View.extend
     @_super()
     controller = @get 'controller'
     controller.validateContainerState()
+    @set('timeStarted', Date.now())
     Mp.track Mp.EventIDEStarted, container_id: @get 'controller.id'
     Mp.increment Mp.PropertyIDEStartCount
     Em.run.scheduleOnce 'afterRender', ->
@@ -22,5 +25,8 @@ App.IdeView = Em.View.extend
 
   willDestroyElement: ->
     @_super()
+    Mp.track Mp.EventIDEDeparted, container_id: @get 'controller.id'
+    if started = @get('timeStarted')
+      Mp.increment Mp.PropertyIDEUseTime, Date.now() - started
     $('html').removeClass 'ide'
     $(window).unbind 'keydown.ideView'

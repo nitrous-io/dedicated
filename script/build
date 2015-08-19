@@ -72,6 +72,7 @@ build_assets() {
   # move assets to build
   (
     mv ./nitrous/rails/public/assets "$BUILD_DIR"/public
+    cp ./nitrous/rails/public/favicon.ico "$BUILD_DIR"/public
   )
 }
 

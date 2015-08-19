@@ -1,7 +1,7 @@
 .ui.card
   .card-body
     .ui.input-group
-      = input type='text' class='focus' placeholder=view.content.placeholder value=view.content.pattern
+      = input type='text' class='focus' placeholder=view.content.placeholder value=view.content.pattern spellcheck='false'
 
     if view.content.showStatus
       .status

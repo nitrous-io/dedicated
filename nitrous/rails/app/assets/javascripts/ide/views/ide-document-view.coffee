@@ -44,7 +44,8 @@ App.IdeDocumentView = Em.View.extend
       return # need to return void
     $(window).on "focus.#{@get('elementId')}", =>
       # Restore document focus when browser tab gains focus.
-      @get('editor').focus()
+      if @get('document') == @get('controller.activeTab')
+        @get('editor').focus()
     @focusedDidChange()
 
   willDestroyElement: ->
