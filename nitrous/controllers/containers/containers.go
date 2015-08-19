@@ -162,6 +162,28 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 		wg.Add(1)
 		go func(h *host.Host) {
 			defer wg.Done()
+
+			savedContainers, ok := containerHostMap[h.ID]
+			if !ok {
+				errorMessagesMu.Lock()
+				errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for %s", h.Slug))
+				errorMessagesMu.Unlock()
+			}
+
+			if h.State != host.StateRunning {
+				for _, sc := range savedContainers {
+					sc.State = container.StateUnknown
+					if h.State == host.StateStopped {
+						sc.State = container.StateHostStopped
+					}
+					containersRespMu.Lock()
+					containersResp = append(containersResp, serializers.SerializeContainer(sc))
+					containersRespMu.Unlock()
+				}
+
+				return
+			}
+
 			crt, ok := certHostMap[h.ID]
 			if !ok {
 				errorMessagesMu.Lock()
@@ -171,13 +193,6 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 			}
 
 			liveContainers, freighterErr := freighterList(crt, h, env)
-
-			savedContainers, ok := containerHostMap[h.ID]
-			if !ok {
-				errorMessagesMu.Lock()
-				errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for %s", h.Slug))
-				errorMessagesMu.Unlock()
-			}
 
 			if freighterErr != nil {
 				// If we can't get through to the host, then pass them along without the Freighter specific

@@ -585,7 +585,7 @@ var _ = Describe("controllers/containers", func() {
 			})
 		})
 
-		Context("when host is not running", func() {
+		Context("when host is stopped", func() {
 			BeforeEach(func() {
 				hs.H.State = host.StateStopped
 				err := hs.H.Update(db)
@@ -627,6 +627,34 @@ var _ = Describe("controllers/containers", func() {
 				Expect(j.Containers[0].User).To(Equal(""))
 				Expect(j.Containers[0].StartedAt).To(BeNil())
 				Expect(j.Containers[0].FinishedAt).To(BeNil())
+			})
+		})
+
+		Context("when host is not running but not stopped", func() {
+			BeforeEach(func() {
+				hs.H.State = host.StateRestarting
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+				UnstubFreighterFn()
+			})
+
+			It("should return containers belonging to the host with unknown state", func() {
+				doRequest("valid-token", "foo")
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Containers []*serializers.Container `json:"containers"`
+				}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Containers).To(HaveLen(1))
+
+				Expect(j.Containers[0].ID).To(Equal(c.ID))
+				Expect(j.Containers[0].CID).To(Equal("deadbeef"))
+				Expect(j.Containers[0].IPAddress).To(Equal(""))
+				Expect(j.Containers[0].GatewayIP).To(Equal(""))
+				Expect(j.Containers[0].State).To(Equal(container.StateUnknown.String()))
 			})
 		})
 
