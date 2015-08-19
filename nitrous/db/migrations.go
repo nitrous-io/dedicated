@@ -1,9 +1,14 @@
 package db
 
-var Migrations []*Migration
+/**
+ * This file stores the previous method for migrations
+ * you should now create migrations using ./script/create-migration
+**/
+
+var legacyMigrations []*Migration
 
 func init() {
-	Migrations = []*Migration{
+	legacyMigrations = []*Migration{
 		{
 			Version: "10",
 			Up: `

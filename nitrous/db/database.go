@@ -2,8 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"errors"
+	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
@@ -27,6 +31,10 @@ const (
 	INVOICE_USER_PAY_LOCK
 	HOST_SHUTDOWN_LOCK
 	IDLE_HOST_LOCK
+)
+
+var (
+	migrationFileRegex = regexp.MustCompile("^(\\d+)_.+\\.sql$")
 )
 
 func (d *Database) WithTransaction(body func(*sqlx.Tx) error) (err error) {
@@ -64,8 +72,8 @@ func NewDatabase(conn string) (*Database, error) {
 }
 
 func (d *Database) MigrateAll() error {
-	LoadMigrationsFromRootDir()
-	return d.Migrate(Migrations)
+	migrations := LoadMigrationsFromRootDir()
+	return d.Migrate(migrations)
 }
 
 func (d *Database) Migrate(migrations []*Migration) error {
@@ -136,7 +144,11 @@ func (d *Database) Migrate(migrations []*Migration) error {
 	return nil
 }
 
-func LoadMigrationsFromRootDir() {
+func LoadMigrationsFromRootDir() (allMigrations []*Migration) {
+	// load existing migrations
+	allMigrations = []*Migration{}
+	allMigrations = append(allMigrations, legacyMigrations...)
+
 	pth := path.Join(envvars.RootDir, "migrations")
 	st, err := os.Stat(pth)
 	if err != nil {
@@ -145,10 +157,58 @@ func LoadMigrationsFromRootDir() {
 			return
 		}
 		logrus.Errorf("Not loading migrations from %q, error: %v", err)
+		return
 	}
 	if !st.IsDir() {
 		logrus.Errorf("Not loading migrations from %q, not a directory", err)
+		return
 	}
+
+	files, err := ioutil.ReadDir(pth)
+	if err != nil {
+		logrus.Errorf("Not loading migrations from %q, error: %v", err)
+		return
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		m, err := LoadMigrationFile(pth, file.Name())
+		if file.Name() == "README.md" {
+			continue
+		}
+		if err != nil {
+			logrus.Errorf("Error loading %q, %v", file.Name(), err)
+			continue
+		}
+		allMigrations = append(allMigrations, m)
+	}
+	return
+}
+
+func LoadMigrationFile(pth, file string) (*Migration, error) {
+	matches := migrationFileRegex.FindStringSubmatch(file)
+	if len(matches) == 0 {
+		return nil, errors.New("does not match pattern")
+	}
+	logrus.Infof("Loading migration %s", file)
+	fullpath := path.Join(pth, file)
+	contents, err := ioutil.ReadFile(fullpath)
+	if err != nil {
+		return nil, err
+	}
+
+	contentsStr := strings.TrimSpace(string(contents[:]))
+	if len(contentsStr) == 0 {
+		return nil, errors.New("Migration is empty")
+	}
+
+	m := &Migration{
+		Version: matches[1],
+		Up:      contentsStr,
+	}
+	return m, nil
 }
 
 // TransactionLock tries to set an advisory lock on transaction and
