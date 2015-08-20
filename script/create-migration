@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+v=$*
+name=${v// /_}
+size=${#name}
+
+if [[ "$size" == "0" ]]; then
+  echo "You must specify a migration name"
+  exit -1
+fi
+
+d=$(date +%s)
+fname="${d}_${name}.sql"
+path="nitrous/migrations/${fname}"
+echo "Creating ${path}"
+
+echo "-- ${name}" > ${path}
+echo "-- Version: ${d}" >> ${path}
+echo "-- Please specify your SQL migration here" >> ${path}
+
+if [[ -n "$EDITOR" ]]; then
+  ${EDITOR} ${path}
+fi
