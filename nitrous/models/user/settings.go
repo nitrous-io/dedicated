@@ -109,7 +109,7 @@ func (s *Settings) IdeSettingsMapWithDefaults() (map[string]interface{}, error) 
 	}
 
 	for k, v := range DefaultSettings {
-		if _, ok := m[k]; !ok {
+		if curVal, ok := m[k]; !ok || curVal == nil {
 			m[k] = v
 		}
 	}
