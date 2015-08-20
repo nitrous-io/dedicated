@@ -101,13 +101,13 @@ func newConn(slug string) (*sshutil.Conn, error) {
 		return nil, err
 	}
 
-	privKey, err := privateKey(h)
+	privKey, err := h.privateKey()
 	if err != nil {
 		return nil, err
 	}
 
 	// create the ssh client
-	addr := address(h)
+	addr := h.address()
 	connInterval := 5 * time.Second
 
 	// set sshUser depending on the provider
@@ -131,14 +131,9 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	return conn, nil
 }
 
-func privateKey(h *SshHost) (*rsa.PrivateKey, error) {
-	// For the "amazon" provider, the private key can be either:
-	// 1. that of an EC2 keypair, or
-	// 2. the private key stored in the database.
-	// We check if the provider template has 'hotswap' in the name and if
-	// we have a private key for it in SSH_KEYS_DIR, we return that instead.
-	if h.Provider == "amazon" && strings.Contains(h.TemplateName, "hotswap") && sshKeysDir != "" {
-		privKey, err := amazonPrivateKey(h)
+func (h *SshHost) privateKey() (*rsa.PrivateKey, error) {
+	if h.useLocalKey() {
+		privKey, err := h.amazonPrivateKey()
 		if err == nil {
 			return privKey, nil
 		}
@@ -167,7 +162,7 @@ func privateKey(h *SshHost) (*rsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-func amazonPrivateKey(h *SshHost) (*rsa.PrivateKey, error) {
+func (h *SshHost) amazonPrivateKey() (*rsa.PrivateKey, error) {
 	keyPath := path.Join(sshKeysDir, fmt.Sprintf(
 		"hostbuilder.%s.%s.pem", h.RegionIdentifier.String, awsEnv))
 	if _, err := os.Stat(keyPath); err != nil {
@@ -192,7 +187,7 @@ func amazonPrivateKey(h *SshHost) (*rsa.PrivateKey, error) {
 	return pk, nil
 }
 
-func address(h *SshHost) string {
+func (h *SshHost) address() string {
 	return fmt.Sprintf("%s:65100", h.IPAddress.String)
 }
 
@@ -211,6 +206,17 @@ func hostFromSlug(slug string) (*SshHost, error) {
 		return nil, err
 	}
 	return host, nil
+}
+
+func (h *SshHost) useLocalKey() bool {
+	// For the "amazon" provider, the private key can be either:
+	// 1. that of an EC2 keypair, or
+	// 2. the private key stored in the database.
+	// We check if the provider template has 'hotswap' in the name and if
+	// we have a private key for it in SSH_KEYS_DIR, we return that instead.
+	return h.Provider == "amazon" &&
+		strings.Contains(h.TemplateName, "hotswap") &&
+		sshKeysDir != ""
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session
