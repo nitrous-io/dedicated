@@ -82,18 +82,19 @@ var _ = Describe("models/user settings", func() {
 			settings, err := u.Settings(db)
 			Expect(err).To(BeNil())
 
-			settings.IdeSettings = `{"wrap_lines": false}`
+			settings.IdeSettings = `{"wrap_lines": false, "ruler_column": null}`
 			m, err := settings.IdeSettingsMapWithDefaults()
 			Expect(err).To(BeNil())
 
 			for k, v := range user.DefaultSettings {
-				if k == "wrap_lines" {
+				if k == "wrap_lines" || k == "ruler_column" {
 					continue
 				}
 				Expect(m[k]).To(Equal(v))
 			}
 
 			Expect(m["wrap_lines"]).To(BeFalse())
+			Expect(m["ruler_column"]).To(Equal(0))
 		})
 	})
 
