@@ -35,33 +35,81 @@ var _ = Describe("models/user settings", func() {
 		}
 	})
 
+	Describe("MigrateDivergedSettings", func() {
+		It("should migrate users who have diverged from the default settings", func() {
+			settings, err := u.Settings(db)
+			Expect(err).To(BeNil())
+
+			m, err := settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m).To(BeEmpty())
+
+			settings.AutoCloseBrackets = false
+			settings.WrapLines = false
+			settings.Theme = "Visual Studio"
+			settings.Migrated = false
+			Expect(settings.Update(db)).To(BeNil())
+
+			Expect(settings.MigrateDivergedSettings(db)).To(BeNil())
+
+			settings, err = u.Settings(db)
+			Expect(err).To(BeNil())
+
+			m, err = settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m).ToNot(BeEmpty())
+			Expect(m["auto_close_brackets"]).To(BeFalse())
+			Expect(m["wrap_lines"]).To(BeFalse())
+			Expect(m["theme"]).To(Equal("Visual Studio"))
+		})
+	})
+
+	Describe("IdeSettingsMap()", func() {
+		It("should only unpack user set values by default", func() {
+			settings, err := u.Settings(db)
+			Expect(err).To(BeNil())
+
+			settings.IdeSettings = `{"abc": true}`
+			m, err := settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m).To(HaveKey("abc"))
+			Expect(m["abc"]).To(BeTrue())
+		})
+	})
+
+	Describe("IdeSettingsMapWithDefaults()", func() {
+		It("should mix the values with the defaults", func() {
+			settings, err := u.Settings(db)
+			Expect(err).To(BeNil())
+
+			settings.IdeSettings = `{"wrap_lines": false}`
+			m, err := settings.IdeSettingsMapWithDefaults()
+			Expect(err).To(BeNil())
+
+			for k, v := range user.DefaultSettings {
+				if k == "wrap_lines" {
+					continue
+				}
+				Expect(m[k]).To(Equal(v))
+			}
+
+			Expect(m["wrap_lines"]).To(BeFalse())
+		})
+	})
+
 	Describe("Update()", func() {
 		It("updates the user settings record", func() {
 			settings, err := u.Settings(db)
 			Expect(err).To(BeNil())
 
-			Expect(settings.AutoCloseBrackets).To(BeTrue())
-			Expect(settings.Keybindings).To(Equal("default"))
-			Expect(settings.RulerColumn).To(Equal(int64(0)))
-			Expect(settings.Theme).To(Equal("solarized dark"))
-			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeTrue())
-			origUpdatedAt := settings.UpdatedAt
+			Expect(settings.IdeSettings).To(Equal("{}"))
 
-			settings.AutoCloseBrackets = false
-			settings.Keybindings = "vim"
-			settings.RulerColumn = 120
-			settings.Theme = "vibrant-ink"
-			settings.RemoveTrailingWhitespaceOnSave = false
+			settings.IdeSettings = `{"abc": true}`
 
 			err = settings.Update(db)
 			Expect(err).To(BeNil())
 
-			Expect(settings.AutoCloseBrackets).To(BeFalse())
-			Expect(settings.Keybindings).To(Equal("vim"))
-			Expect(settings.RulerColumn).To(Equal(int64(120)))
-			Expect(settings.Theme).To(Equal("vibrant-ink"))
-			Expect(settings.UpdatedAt.Time).To(BeTemporally(">", origUpdatedAt.Time))
-			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeFalse())
+			Expect(settings.IdeSettings).To(Equal(`{"abc": true}`))
 		})
 	})
 
@@ -78,13 +126,8 @@ var _ = Describe("models/user settings", func() {
 			settings := &user.Settings{}
 			err = db.Get(settings, `SELECT * FROM user_settings WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
-
-			Expect(settings.UserID).To(Equal(u.ID))
-			Expect(settings.AutoCloseBrackets).To(BeTrue())
-			Expect(settings.RulerColumn).To(Equal(int64(0)))
-			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeTrue())
-			Expect(settings.CreatedAt).NotTo(BeNil())
-			Expect(settings.UpdatedAt).NotTo(BeNil())
+			Expect(settings.IdeSettings).To(Equal("{}"))
+			Expect(settings.Migrated).To(BeTrue())
 		})
 	})
 

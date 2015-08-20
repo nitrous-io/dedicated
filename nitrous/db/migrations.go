@@ -1535,5 +1535,13 @@ func init() {
 			Version: "1439884950",
 			Up:      `DROP TABLE host_usages;`,
 		},
+		{
+			Version: "1439927624",
+			Up: `
+				ALTER TABLE user_settings ADD COLUMN ide_settings JSON DEFAULT '{}'::JSON;
+				ALTER TABLE user_settings ADD COLUMN migrated bool DEFAULT TRUE;
+				UPDATE user_settings SET migrated = FALSE;
+			`,
+		},
 	}
 }

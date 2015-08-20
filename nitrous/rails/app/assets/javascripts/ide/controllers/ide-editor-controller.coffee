@@ -1,3 +1,5 @@
+DEFAULT_FONT_SIZE = 14
+
 App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   content: null
   modelClass: App.Document
@@ -28,6 +30,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   autoCloseBrackets: true
   removeTrailingWhitespaceOnSave: true
   keybindings: 'default'
+  fontSize: null
 
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
@@ -56,14 +59,14 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       setting = userSettings[k.underscore()]
       if setting?
         @set(k, setting)
-        @addObserver(k, this, 'updateUserSettings')
+      @addObserver(k, this, 'updateUserSettings')
 
   updateUserSettings: ->
     userSettings = App.get('userSettings')
     if userSettings
       _.each App.Editor.SETTINGS, (k) =>
         userSettings[k.underscore()] = @get(k)
-      userSettings.save()
+      userSettings.requestSave()
 
   removeTab: (tab, forceRemove=false) ->
     tab = @get 'activeTab' unless tab
@@ -197,3 +200,28 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     lineStr = @get('goToLineDialog.line')
     if line = parseInt(lineStr)
       @get('activeTab')?.set('goToLine', line)
+
+  getFontSize: ->
+    if (size = @get 'fontSize')
+      return size
+
+    size = $(".active .code-editor .CodeMirror-wrap:visible").css("font-size")
+
+    # fall back to CSS size
+    unless size
+      return DEFAULT_FONT_SIZE
+
+    parseInt(size)
+
+  increaseFontSize: ->
+    curSize = @getFontSize()
+
+    @set 'fontSize', curSize+1
+
+  decreaseFontSize: ->
+    curSize = @getFontSize()
+
+    @set 'fontSize', curSize-1
+
+  resetFontSize: ->
+    @set 'fontSize', null

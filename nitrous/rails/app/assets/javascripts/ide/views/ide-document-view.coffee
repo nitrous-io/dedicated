@@ -22,6 +22,7 @@ App.IdeDocumentView = Em.View.extend
   tabSizeBinding: 'controller.tabSize'
   themeBinding: 'controller.theme'
   wrapLinesBinding: 'controller.wrapLines'
+  fontSizeBinding: 'controller.fontSize'
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -145,6 +146,18 @@ App.IdeDocumentView = Em.View.extend
           @get('activeLineWidgets').pushObject obj
   ).observes 'document.lineWidgets.@each'
 
+  triggerEditorStyleChange: (->
+    @setStyles()
+  ).observes 'fontSize'
+
+  setStyles: ->
+    style = []
+
+    if fs = @get('fontSize')
+      style.push "font-size: #{fs}px"
+
+    @get('editor')?.set 'wrapperStyling', style.join("; ")
+
   insertEditor: ->
     $codeEditor = @$('.code-editor')
     return if $codeEditor.length == 0
@@ -192,6 +205,7 @@ App.IdeDocumentView = Em.View.extend
         @set 'document.scrollPosition', {left: scroll.left, top: scroll.top}
 
     @set 'editor', editor
+    @setStyles()
 
   destroyEditor: ->
     if editor = @get 'editor'

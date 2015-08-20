@@ -18,6 +18,9 @@ pcKeyNames =
   backspace: "Backspace"
   escape: "Escape"
 
+
+keySplit = /'.*?'|".*?"|[^+]+/g
+
 App.MenuItem = Em.Object.extend
   name: null
   macKey: null
@@ -52,7 +55,9 @@ App.MenuItem = Em.Object.extend
     if key = @get 'key'
       key = key[0] if _.isArray key
 
-      _.map(key.split('+'), (k) ->
+      _.map(key.match(keySplit), (k) ->
+        if match = k.match(/['"](.+)['"]/)
+          k = match[1]
         k = (if isMac then macKeyNames else pcKeyNames)[k] || k
         k = k.charAt(0).toUpperCase() + k.slice(1)
       ).join(if isMac then ' ' else '+')
@@ -62,7 +67,9 @@ App.MenuItem = Em.Object.extend
     if keys = @get 'key'
       keys = [keys] if _.isString keys
       _.map keys, (key) ->
-        _.map(key.split('+'), (k) ->
+        _.map(key.match(keySplit), (k) ->
+          if match = k.match(/['"](.+)['"]/)
+            k = match[1]
           k = switch k
             when 'command'
               'Cmd'
@@ -74,6 +81,8 @@ App.MenuItem = Em.Object.extend
               'PageUp'
             when 'pagedown'
               'PageDown'
+            when '+'
+              '='
             else
               k
           k.charAt(0).toUpperCase() + k.slice(1)
