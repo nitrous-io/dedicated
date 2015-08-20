@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
@@ -50,11 +49,7 @@ func (c *FS) HandleAsync(msg *Message) chan *Message {
 		if err != nil {
 			return sendErr(resp, msg, err)
 		}
-		files := make([]interface{}, len(entries))
-		for i, f := range entries {
-			files[i] = fileInfoArgs(f)
-		}
-		return sendFinalReply(resp, msg, []interface{}{dir, files})
+		return sendFinalReply(resp, msg, []interface{}{dir, entries})
 	case "read":
 		fileName := msg.Args[0].(string)
 		info, err := c.read(fileName)
@@ -197,14 +192,6 @@ func NewFsHandler(uid, gid int) AsyncHandler {
 	}
 }
 
-func fileInfoArgs(info os.FileInfo) []interface{} {
-	return []interface{}{
-		info.Name(),
-		info.IsDir(),
-		info.Size(),
-	}
-}
-
 func detectContentType(data []byte) (string, error) {
 	var contentType string
 	detectedContent := http.DetectContentType(data)
@@ -237,36 +224,41 @@ func (c *FS) openFile(p string, flag int) (*os.File, error) {
 	return f, nil
 }
 
-func readDir(name string) (fi []os.FileInfo, err error) {
-	f, err := os.Open(name)
+func readDir(dirname string) (entries []interface{}, err error) {
+	f, err := os.Open(dirname)
 	if err != nil {
-		logrus.Errorf("readDir: os.Open('%s') failed with '%s'\n", name, err)
+		logrus.Errorf("readDir: os.Open('%s') failed with '%s'", dirname, err)
 		return nil, err
 	}
 	defer f.Close()
 	names, err := f.Readdirnames(-1)
-	fi = make([]os.FileInfo, 0, len(names))
+	entries = make([]interface{}, 0, len(names))
 	for _, filename := range names {
-		// use stat to read symlink as well
-		fp := filepath.Clean(filepath.Join(name, filename))
-		fip, lerr := os.Stat(fp)
+		// Use os.Stat() so we resolve symlinks.
+		fp := filepath.Clean(filepath.Join(dirname, filename))
+		fi, lerr := os.Stat(fp)
 		if os.IsNotExist(lerr) {
 			// File disappeared between readdir + stat.
 			// Just treat it as if it didn't exist.
 			continue
 		}
 		if lerr != nil {
-			return fi, lerr
+			return entries, lerr
 		}
-		fi = append(fi, fip)
+
+		realPath, lerr := filepath.EvalSymlinks(fp)
+		if lerr != nil {
+			return entries, lerr
+		}
+
+		entry := []interface{}{
+			fi.Name(),
+			fi.IsDir(),
+			fi.Size(),
+			realPath,
+		}
+		entries = append(entries, entry)
 	}
-	sort.Sort(byName(fi))
-	return fi, err
+
+	return entries, err
 }
-
-// byName implements sort.Interface.
-type byName []os.FileInfo
-
-func (f byName) Len() int           { return len(f) }
-func (f byName) Less(i, j int) bool { return f[i].Name() < f[j].Name() }
-func (f byName) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }

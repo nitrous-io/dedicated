@@ -66,3 +66,82 @@ var _ = Describe("openFile", func() {
 		Expect(int(s.Gid)).To(Equal(1000), "unexpected gid")
 	})
 })
+
+var _ = Describe("readDir", func() {
+	It("returns files in the directory", func() {
+		tempdir, _ := ioutil.TempDir("/tmp", "test")
+		defer os.RemoveAll(tempdir)
+
+		// Test for regular directory.
+		err := os.MkdirAll(filepath.Join(tempdir, "subdir"), 0755)
+		Expect(err).To(BeNil())
+
+		entries, err := readDir(tempdir)
+		Expect(err).To(BeNil())
+		Expect(entries).To(HaveLen(1))
+		entry := entries[0].([]interface{})
+		Expect(entry[0]).To(Equal("subdir")) // Name.
+		Expect(entry[1]).To(Equal(true))     // Is this a directory?
+		// 3rd item is file size, which we do not care about.
+		Expect(entry[3]).To(Equal(filepath.Join(tempdir, "subdir"))) // Real path.
+
+		// Test for regular file.
+		f, err := os.Create(filepath.Join(tempdir, "subdir", "a.go"))
+		Expect(err).To(BeNil())
+		defer f.Close()
+
+		entries, err = readDir(filepath.Join(tempdir, "subdir"))
+		Expect(err).To(BeNil())
+		Expect(entries).To(HaveLen(1))
+		entry = entries[0].([]interface{})
+		Expect(entry[0]).To(Equal("a.go"))
+		Expect(entry[1]).To(Equal(false))
+		Expect(entry[3]).To(Equal(filepath.Join(tempdir, "subdir", "a.go")))
+	})
+
+	It("handles symlinks by properly including their real paths", func() {
+		tempdir, _ := ioutil.TempDir("/tmp", "test")
+		defer os.RemoveAll(tempdir)
+
+		err := os.MkdirAll(filepath.Join(tempdir, "subdir"), 0755)
+		Expect(err).To(BeNil())
+
+		f1, err := os.Create(filepath.Join(tempdir, "doc.go"))
+		Expect(err).To(BeNil())
+		defer f1.Close()
+
+		err = os.Symlink(filepath.Join(tempdir, "doc.go"), filepath.Join(tempdir, "subdir", "symlink.go"))
+		Expect(err).To(BeNil())
+
+		entries, err := readDir(filepath.Join(tempdir, "subdir"))
+		Expect(err).To(BeNil())
+		Expect(entries).To(HaveLen(1))
+		entry := entries[0].([]interface{})
+		Expect(entry[0]).To(Equal("symlink.go"))
+		Expect(entry[1]).To(Equal(false))
+		Expect(entry[3]).To(Equal(filepath.Join(tempdir, "doc.go")))
+	})
+
+	It("handles files within a symlink to a directory by properly including their real paths", func() {
+		tempdir, _ := ioutil.TempDir("/tmp", "test")
+		defer os.RemoveAll(tempdir)
+
+		err := os.MkdirAll(filepath.Join(tempdir, "subdir"), 0755)
+		Expect(err).To(BeNil())
+
+		f, err := os.Create(filepath.Join(tempdir, "subdir", "doc.go"))
+		Expect(err).To(BeNil())
+		defer f.Close()
+
+		err = os.Symlink(filepath.Join(tempdir, "subdir"), filepath.Join(tempdir, "subdir-symlink"))
+		Expect(err).To(BeNil())
+
+		entries, err := readDir(filepath.Join(tempdir, "subdir-symlink"))
+		Expect(err).To(BeNil())
+		Expect(entries).To(HaveLen(1))
+		entry := entries[0].([]interface{})
+		Expect(entry[0]).To(Equal("doc.go"))
+		Expect(entry[1]).To(Equal(false))
+		Expect(entry[3]).To(Equal(filepath.Join(tempdir, "subdir", "doc.go")))
+	})
+})

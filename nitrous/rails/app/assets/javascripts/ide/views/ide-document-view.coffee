@@ -57,10 +57,10 @@ App.IdeDocumentView = Em.View.extend
 
   collabNamespace: (->
     containerSlug = App.get 'container.slug'
-    fileName = @get 'document.path.absolutePath'
-    if containerSlug && fileName
-      "#{containerSlug}:#{fileName}"
-  ).property 'App.container.slug', 'document.path.absolutePath'
+    collabPath = @get 'document.path.collabPath'
+    if containerSlug && collabPath
+      "#{containerSlug}:#{collabPath}"
+  ).property 'App.container.slug', 'document.path.collabPath'
 
   modeName: (->
     CodeMirror.MODES[@get('mode')]
