@@ -652,6 +652,47 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(count).To(Equal(2))
 		})
 
+		It("should perform a delete if the current user is admin even though he isn't the owner and isn't removing himself", func() {
+			otherUser := &user.User{
+				Username: "wonder",
+				Email:    "wonder@wonder.com",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			adminUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err = test.WrapInTransaction(db, adminUser.Insert)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`UPDATE users SET admin=true where id=$1`, adminUser.ID)
+			Expect(err).To(BeNil())
+
+			t = &token.Token{
+				UserID: adminUser.ID,
+				Token:  "valid-token2",
+			}
+			err = t.Insert(db)
+			Expect(err).To(BeNil())
+
+			cc, err := containercollab.Create(db, cnr.ID, otherUser.ID)
+			Expect(err).To(BeNil())
+			_, err = containercollab.Create(db, cnr.ID, adminUser.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(cc.ID)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE container_id = $1;`, cnr.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
 		It("should perform a delete if the current user is not the owner but tries to remove himself", func() {
 			otherUser := &user.User{
 				Username: "steve",

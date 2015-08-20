@@ -131,12 +131,8 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	_, err = container.Find(env.DB, env.User, cn.Slug)
-	if err != nil && env.User.ID != affectedUserID.Int64 {
-		if err == sql.ErrNoRows {
-			return errNotPermitted
-		}
-		return err
+	if env.User.ID != cn.UserID && env.User.ID != affectedUserID.Int64 && !env.User.Admin {
+		return errNotPermitted
 	}
 	err = containercollab.Delete(env.DB, ccid, cn.ID)
 	if err != nil {
