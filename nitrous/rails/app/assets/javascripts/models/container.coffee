@@ -28,10 +28,11 @@ App.Container = klass = App.Model.extend
 
   config: (->
     return unless @get('id') # Load config only after container is saved
+    return unless @get('host').get('isRunning')
     config = Em.ObjectProxy.create()
     @loadConfig()
     config
-  ).property 'id'
+  ).property 'id', 'host.isRunning'
 
   collaborators: (->
     if id = @get('id')
