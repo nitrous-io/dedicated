@@ -640,11 +640,11 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			doRequest(cc.ID)
 
-			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			Expect(res.Code).To(Equal(http.StatusForbidden))
 
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("invalid_request"))
-			Expect(errDesc).To(Equal("action not permitted"))
+			Expect(errDesc).To(Equal("you do not have permission to remove this collaborator"))
 
 			var count int
 			err = db.QueryRow(`SELECT COUNT(*) FROM container_collabs WHERE container_id = $1;`, cnr.ID).Scan(&count)
