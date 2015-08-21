@@ -83,7 +83,16 @@ All hosts created on Nitrous must have a Stripe subscription, for this work loca
 - make release: release all apps
 - make APP=(nitrous/freighter/hostbuilder) release: release individial app
 - make createdb/dropdb: prepare the DB. Useful in development
+- script/create-migration: creates a migration file to populating SQL
 ```
+
+### Migrations
+
+Much like Rails, migrations are now stored in individual files located in `nitrous/migrations`. The follow the format `1440095634_create_users_table.sql`, where `1440095634` is the current Unix Epoch Timestamp and `create_users_table` is a textual description of the what the migration does.
+
+You can use the script `script/create-migration` to easily create your migrations.
+
+Prior to this migrations were stored in `nitrous/db/migrations.go`.
 
 ### Dependency management
 
