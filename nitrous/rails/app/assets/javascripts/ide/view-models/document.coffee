@@ -8,6 +8,9 @@ App.Document = App.TabContent.extend
   isDocumentTab: true
   contentType: 'text'
 
+  plugin: null
+  editorMode: 'text/plain'
+
   otClient: null
   otUndoManagerOverride: null
 
@@ -31,12 +34,25 @@ App.Document = App.TabContent.extend
   scrollPosition: null
 
   errorCountBinding: 'lineWidgets.length'
-  
+
   currentOffset: null
 
   readOnly: false
 
   lineWidgets: Em.A([])
+
+  init: ->
+    @_super.apply this, arguments
+
+    @setPluginManager()
+
+  setPluginManager: ->
+    if pl = (App.CodePluginsManager.forType @get('editorMode'))
+      @set 'plugin', new pl(@)
+
+  updatePluginManager: (->
+    @setPluginManager()
+  ).observes 'editorMode'
 
   line: (->
     (@get('selections.0.head.line') || 0) + 1

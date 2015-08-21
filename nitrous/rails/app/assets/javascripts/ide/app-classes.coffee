@@ -16,6 +16,8 @@
 #= require ../templates/components/ui-toggle-button
 #= require ../templates/snackbar
 #= require ../lib/event-message-handler
+#= require ./code-plugins/manager
+#= require_tree ./code-plugins/plugins
 #= require_tree ../shared
 #= require_tree ./routes
 #= require_self

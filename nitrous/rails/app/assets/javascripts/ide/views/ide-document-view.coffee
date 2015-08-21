@@ -10,7 +10,7 @@ App.IdeDocumentView = Em.View.extend
   document: null
   editor: null
 
-  mode: 'text/plain'
+  modeBinding: 'document.editorMode'
   autoCloseBracketsBinding: 'controller.autoCloseBrackets'
   highlightLineBinding: 'controller.highlightLine'
   keybindingsBinding: 'controller.keybindings'

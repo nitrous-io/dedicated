@@ -81,46 +81,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
 
   goToDefinition: (doc) ->
-    path = doc.get 'path'
     opsSocket = @get 'opsSocket'
-    if !path || !opsSocket
-      return
-    cmd = ["oracle", "-format=json", "-pos=$(readlink -f #{path.get('absolutePath')}):##{doc.get("currentOffset")}", "definition"]
-    cwd = ''
-    env = []
-    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
-      if err || cmdErr
-        return
-      data = JSON.parse stdout
-      if (def = data.definition) && (pos = def.objpos)
-        match = pos.match(/^([^:]+):(\d+):(\d+)$/)
-        if match
-          filepath = match[1]
-          line = match[2]
-          cursor = match[3]
-          path = App.Path.create absolutePath: filepath
-          sidebarController = App.get 'router.ideSidebarController'
-          if sidebarController
-            pos = {line: parseInt(line)-1, ch: parseInt(cursor)-1}
-            sidebarController.openPath path, selections: [{anchor: pos, head: pos}]
-
-
-  saveGoDocument: (doc) ->
-    path = doc.get 'path'
-    opsSocket = @get 'opsSocket'
-    if !path || !opsSocket
-      return
-    cmd = ["goimports", "-w", path.get('absolutePath')]
-    cwd = ''
-    env = []
-    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
-      doc.processErrMessage stderr
-      if err || cmdErr
-        doc.set 'clean', true
-        return
-      sidebarController = App.get 'router.ideSidebarController'
-      if sidebarController
-        sidebarController.refreshTextFileContent path
+    if pl = doc.get('plugin')
+      pl.goToDefinition({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
 
   saveDocument: (doc) ->
     return unless @get 'opsSocketReady'
@@ -143,8 +106,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
         Mp.increment Mp.PropertyIDEFileSaveCount
 
-        if App.get('freighterdFeatures')?.contains('cmdrun') && path.get('absolutePath').match(/\.go$/)
-          @saveGoDocument(doc)
+        if pl = doc.get('plugin')
+          pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
         else
           doc.set 'clean', true
     else
