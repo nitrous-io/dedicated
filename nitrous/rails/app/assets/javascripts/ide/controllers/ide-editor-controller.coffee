@@ -80,6 +80,31 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     @get('tabWatcher').notifyOfChange()
   ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
 
+  goToDefinition: (doc) ->
+    path = doc.get 'path'
+    opsSocket = @get 'opsSocket'
+    if !path || !opsSocket
+      return
+    cmd = ["oracle", "-format=json", "-pos=$(readlink -f #{path.get('absolutePath')}):##{doc.get("currentOffset")}", "definition"]
+    cwd = ''
+    env = []
+    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+      if err || cmdErr
+        return
+      data = JSON.parse stdout
+      if (def = data.definition) && (pos = def.objpos)
+        match = pos.match(/^([^:]+):(\d+):(\d+)$/)
+        if match
+          filepath = match[1]
+          line = match[2]
+          cursor = match[3]
+          path = App.Path.create absolutePath: filepath
+          sidebarController = App.get 'router.ideSidebarController'
+          if sidebarController
+            pos = {line: parseInt(line)-1, ch: parseInt(cursor)-1}
+            sidebarController.openPath path, selections: [{anchor: pos, head: pos}]
+
+
   saveGoDocument: (doc) ->
     path = doc.get 'path'
     opsSocket = @get 'opsSocket'

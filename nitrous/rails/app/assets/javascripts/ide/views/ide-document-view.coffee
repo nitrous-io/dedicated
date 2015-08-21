@@ -43,11 +43,13 @@ App.IdeDocumentView = Em.View.extend
     $(window).on "unload.#{@get('elementId')}", =>
       @leaveCollab()
       return # need to return void
+    @watchOffset()
 
   willDestroyElement: ->
     @_super()
     @destroyEditor()
     @leaveCollab()
+    @stopWatchOffset()
     $(window).off "unload.#{@get('elementId')}"
 
   collabNamespace: (->
@@ -126,7 +128,11 @@ App.IdeDocumentView = Em.View.extend
   jumpToLine: (->
     if line = @get 'document.goToLine'
       @set 'document.goToLine', null
-      @get('editor')?.goToLine(line)
+      if typeof(line) == "number"
+        @get('editor')?.goToLine(line)
+        return
+
+      @get('editor')?.goToLine(line.line+1, line.cursor)
   ).observes 'document.goToLine'
 
   addLineWidgets: (->
@@ -467,6 +473,16 @@ App.IdeDocumentView = Em.View.extend
       @set 'mode', App.FileTypeDetect.detect(fileName)
       @set 'collabMode', true
   ).observes 'document.path.absolutePath'
+
+  watchOffset: ->
+    @watchOffsetTimer = window.setInterval(=>
+      if editor = @get('editor')
+        @set 'document.currentOffset', editor.getOffset()
+    , 100)
+
+  stopWatchOffset: ->
+    if @watchOffsetTimer
+      window.clearInterval(@watchOffsetTimer)
 
   actions:
     didClickLineCol: ->

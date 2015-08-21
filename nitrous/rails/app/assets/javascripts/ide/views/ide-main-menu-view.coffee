@@ -265,6 +265,13 @@ App.IdeMainMenuView = Em.View.extend
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
           callback: (controller) ->
             controller.revealInSidebar()
+        separator
+        menuItem 'Go To Definition',
+          macKey: 'shift+ctrl+.', pcKey: 'ctrl+alt+.'
+          chromeMacKey: ['shift+command+.', 'shift+ctrl+.'],     chromePcKey: ['shift+ctrl+.', 'ctrl+alt+.']
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
+          callback: (controller) ->
+            controller.findGoToDefinition()
       ]
       menu 'View', [
         menuItem 'Split Editor Pane Vertically',

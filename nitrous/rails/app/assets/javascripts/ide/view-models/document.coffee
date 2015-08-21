@@ -31,6 +31,8 @@ App.Document = App.TabContent.extend
   scrollPosition: null
 
   errorCountBinding: 'lineWidgets.length'
+  
+  currentOffset: null
 
   readOnly: false
 
