@@ -17,6 +17,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
 	"golang.org/x/crypto/ssh"
@@ -34,6 +35,7 @@ var (
 
 type SshHost struct {
 	ID                    int64          `db:"id"`
+	State                 string         `db:"state"`
 	TemplateName          string         `db:"pt_name"`
 	RegionIdentifier      sql.NullString `db:"region_identifier"`
 	IPAddress             sql.NullString `db:"ip_address"`
@@ -99,6 +101,9 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	h, err := hostFromSlug(slug)
 	if err != nil {
 		return nil, err
+	}
+	if h.State != host.StateRunning {
+		logrus.Warnf("Host is not running.  Current state is %s", h.State)
 	}
 
 	privKey, err := h.privateKey()
@@ -194,7 +199,7 @@ func (h *SshHost) address() string {
 func hostFromSlug(slug string) (*SshHost, error) {
 	host := &SshHost{}
 	err := dbconn.Get(host,
-		`SELECT hosts.id, hosts.region_identifier, hosts.ip_address,
+		`SELECT hosts.id, hosts.region_identifier, hosts.ip_address, hosts.state,
 			pt.provider, pt.name AS pt_name,
 			key_pairs.encrypted_private_key, key_pairs.encrypted_private_key_iv
 		FROM hosts
