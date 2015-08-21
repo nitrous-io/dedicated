@@ -35,7 +35,7 @@ import (
 var (
 	Index  middleware.Middleware = containers.WithContainerAndHost(index, containers.AllowCollab)
 	Add    middleware.Middleware = containers.WithContainerAndHost(add, containers.TouchHost)
-	Remove middleware.Middleware = containers.WithContainerAndHost(remove, containers.TouchHost)
+	Remove middleware.Middleware = containers.WithContainerAndHost(remove, containers.AllowCollab, containers.TouchHost)
 
 	errMissingUserParam     = httperror.New(http.StatusBadRequest, "invalid_request", "`user` must be provided")
 	errUserNotFound         = httperror.New(http.StatusBadRequest, "user_not_found", "the specified user could not be found")
@@ -43,6 +43,7 @@ var (
 	errAlreadyAdded         = httperror.New(http.StatusConflict, "already_added", "this user is already a collaborator")
 	errUserNotConfirmed     = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
 	errCollaboratorNotFound = httperror.New(http.StatusNotFound, "collaborator_not_found", "the specified collaborator was not found")
+	errNotPermitted         = httperror.New(http.StatusBadRequest, "invalid_request", "action not permitted")
 	errEmailAlreadySent     = errors.New("email already sent")
 	Mailer                  mailer.Mailer
 )
@@ -130,6 +131,9 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
+	if env.User.ID != cn.UserID && env.User.ID != affectedUserID.Int64 && !env.User.Admin {
+		return errNotPermitted
+	}
 	err = containercollab.Delete(env.DB, ccid, cn.ID)
 	if err != nil {
 		return err
