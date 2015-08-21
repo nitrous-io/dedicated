@@ -80,7 +80,7 @@ build_assets() {
 build_freighter() {
   (
   VERSION=$(get_version freighter)
-  LDFLAGS="-X main.version=$VERSION"
+  LDFLAGS="-X main.version $VERSION"
   build "freighter/freighterd"
   )
 }
@@ -88,7 +88,7 @@ build_freighter() {
 build_hostbuilder() {
   (
   VERSION=$(get_version hostbuilder)
-  LDFLAGS="-X main.version=${VERSION}"
+  LDFLAGS="-X main.version ${VERSION}"
   build "hostbuilder/hostbuilder"
   )
 }
@@ -96,7 +96,7 @@ build_hostbuilder() {
 build_compass() {
   (
   VERSION=$(get_version compass)
-  LDFLAGS="-X main.version=${VERSION}"
+  LDFLAGS="-X main.version ${VERSION}"
   build "compass/compass"
   )
 }
@@ -104,7 +104,7 @@ build_compass() {
 build_tender() {
   (
   VERSION=$(get_version tender)
-  LDFLAGS="-X main.version=${VERSION}"
+  LDFLAGS="-X main.version ${VERSION}"
   build "tender/tender"
   )
 }
@@ -113,8 +113,8 @@ build_nitrous() {
   (
   VERSION=$(get_version nitrous)
   LDFLAGS="\
-    -X main.version=${VERSION} \
-    -X main.freighterVersion=$(get_version freighter) \
+    -X main.version ${VERSION} \
+    -X main.freighterVersion $(get_version freighter) \
     "
   build "nitrous/nitrousd" \
     "nitrous/cmd/dbseed" \
