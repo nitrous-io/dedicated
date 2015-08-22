@@ -18,6 +18,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
   collabSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.collabSocketReady'
 
+  supportsGoToDefinitionBinding: Em.Binding.oneWay 'activeTab.supportsGoToDefinition'
+
   softTabs: true
   tabSize: 2
   theme: 'solarized dark'
@@ -77,7 +79,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
   activeTabDidChange: (->
-    @get('tabWatcher').notifyOfChange()
+    @get('tabWatcher')?.notifyOfChange()
   ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
 
   goToDefinition: (doc) ->

@@ -81,3 +81,7 @@ App.Document = App.TabContent.extend
           msg.className = 'line-error-message'
           errors.push({line: parseInt(match[1])-1, node: msg, options: {coverGutter: false}})
     @set 'lineWidgets', errors
+
+  supportsGoToDefinition: (->
+    @get('plugin')?.supportsGoToDefinition || false
+  ).property 'plugin'
