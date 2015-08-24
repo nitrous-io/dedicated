@@ -463,4 +463,93 @@ var _ = Describe("models/freetier", func() {
 			})
 		})
 	})
+
+	Describe("IsIdle()", func() {
+		var (
+			hs         *test.HostStack
+			t1, t2, t3 time.Time
+		)
+
+		BeforeEach(func() {
+			t1 = time.Now()
+			t2 = t1.Add(-900 * time.Second) // 900s = idle_timeout DEFAULT
+			t3 = t2.Add(1 * time.Minute)
+
+			var err error
+			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns true when host has been idle", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeTrue())
+		})
+
+		It("returns false if host does have the auto_shutdown=true", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       false,
+				UserID:             u.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+
+		It("returns false if host is not running", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t2, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+
+		It("returns false if it has been pinged within its idle_timeout", func() {
+			h := &host.Host{
+				Slug:               "my-host-1",
+				State:              host.StateStopped,
+				LastPingedAt:       pq.NullTime{t3, true},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             hs.H.PlanID,
+				RegionID:           hs.H.RegionID,
+				ProviderTemplateID: hs.H.ProviderTemplateID,
+			}
+			Expect(h.Insert(db)).To(BeNil())
+
+			idle, err := freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
+		})
+	})
 })
