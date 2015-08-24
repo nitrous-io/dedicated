@@ -28,7 +28,7 @@
                 = monDayYear subscription.currentPeriodEnd
               td.actions
                 if subscription.cancelPending
-                  button.ui.btn click='reactivateSubscription subscription'
+                  button.ui.btn.secondary click='showReactivateSubscription subscription'
                     | Re-activate
                 else
                   if subscription.canUpgrade
@@ -121,3 +121,17 @@
       .right
         button.ui.btn click='hideCancelSubscription' Back
         button.ui.btn.danger.terminate-btn click='cancelSubscription subscription' disabled=terminateSlugConfirmationInvalid Cancel Subscription
+
+.reactivate-subscription-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Reactivate subscription
+    .card-body
+      p 
+        ' Proceed to re-activate subscription for 
+        strong
+          = subscription.hostSlug
+        ' ?
+    .card-footer
+      .right
+        button.ui.btn click='hideReactivateSubscription' Back 
+        button.ui.btn.secondary click='reactivateSubscription subscription' Re-activate 
