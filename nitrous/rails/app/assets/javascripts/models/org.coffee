@@ -44,6 +44,12 @@ App.Org = klass = App.NewModel.extend
       App.OrgInvoice.fetch(orgSlug: slug).value
   ).property 'slug'
 
+  firstTime: (->
+    if bp = @get 'billingProfile'
+      return bp.get('state') == 'no_card'
+    true
+  ).property 'billingProfile.state'
+
 klass.reopenClass
   collectionUrl: '/api/v0/orgs'
   collectionRoot: 'orgs'
