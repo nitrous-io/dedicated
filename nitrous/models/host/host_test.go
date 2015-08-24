@@ -1062,6 +1062,65 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("UpdateSpecifiedColumns()", func() {
+		var h *host.Host
+
+		BeforeEach(func() {
+			var err error
+			h = &host.Host{
+				Slug:               "slug",
+				UserID:             hs.U.ID,
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				State:              host.StateRunning,
+				HourlyPrice:        100,
+				Free:               false,
+				TerminatedAt:       nil,
+				Preprovisioned:     false,
+				LastPingedAt:       pq.NullTime{Valid: false},
+				AutoShutdown:       false,
+				MaxContainers:      sql.NullInt64{int64(3), true},
+			}
+			err = h.Insert(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates only the specified columns", func() {
+			h.Slug = "new-slug"
+			h.Name = sql.NullString{"foo host", true}
+			h.State = host.StateRestarting
+			h.MaxContainers = sql.NullInt64{1, true}
+
+			err := h.UpdateSpecifiedColumns(db, []string{"slug", "name"})
+			Expect(err).To(BeNil())
+
+			h2 := &host.Host{}
+			err = db.Get(h2, `SELECT * FROM hosts WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			Expect(h2).NotTo(BeNil())
+
+			// Updated fields
+			Expect(h2.Slug).To(Equal("new-slug"))
+			Expect(h2.Name.String).To(Equal("foo host"))
+
+			// Not updated fields
+			Expect(h2.State).To(Equal(host.StateRunning))
+			Expect(h2.MaxContainers.Int64).To(Equal(int64(3)))
+		})
+
+		It("updates UpdatedAt", func() {
+			origUpdatedAt := *h.UpdatedAt
+			time.Sleep(1 * time.Millisecond)
+
+			h.Name = sql.NullString{"foo host", true}
+			err := h.UpdateSpecifiedColumns(db, []string{"name"})
+			Expect(err).To(BeNil())
+
+			Expect(*h.UpdatedAt).To(BeTemporally(">", origUpdatedAt))
+		})
+	})
+
 	Describe("UpdateState()", func() {
 		BeforeEach(func() {
 			var err error

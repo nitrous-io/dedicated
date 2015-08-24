@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -393,6 +394,26 @@ func (h *Host) Update(d db.QueryReceiver) error {
 			:region_identifier, :last_pinged_at, :auto_shutdown)
 		WHERE id = :id
 		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(h).StructScan(h)
+}
+
+func (h *Host) UpdateSpecifiedColumns(d db.QueryReceiver, columnNames []string) error {
+	columnsCount := len(columnNames)
+
+	columns := make([]string, 0, columnsCount)
+	values := make([]string, 0, columnsCount)
+
+	for _, columnName := range columnNames {
+		columns = append(columns, fmt.Sprintf(`"%s"`, columnName))
+		values = append(values, fmt.Sprintf(`:%s`, columnName))
+	}
+
+	query := fmt.Sprintf("UPDATE hosts SET (%s, updated_at) = (%s, now()) WHERE id = :id RETURNING *;", strings.Join(columns, ", "), strings.Join(values, ", "))
+	nstmt, err := d.PrepareNamed(query)
+
 	if err != nil {
 		return err
 	}
