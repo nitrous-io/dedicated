@@ -56,8 +56,8 @@ func init() {
 	}
 
 	awsEnv = os.Getenv("AWS_ENV")
-	if awsEnv != "staging" && awsEnv != "production" {
-		logrus.Fatalf("Invalid AWS_ENV '%s'.  Must be either staging or production", awsEnv)
+	if awsEnv == "" {
+		logrus.Fatalf("Invalid AWS_ENV %q. Suggested values: staging, production", awsEnv)
 	}
 
 	sshKeysDir = os.Getenv("SSH_KEYS_DIR")
