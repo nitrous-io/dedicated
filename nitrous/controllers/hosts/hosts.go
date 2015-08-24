@@ -337,11 +337,12 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	err = hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID)
-	if err != nil {
+	if err := hostcontrol.StopWithQueue(env.DB, h, hostbuilderHeaders(env), evHandler, env.User.ID); err != nil {
 		return err
 	}
+
 	env.SetEmptyResponseBody()
+
 	return nil
 }
 

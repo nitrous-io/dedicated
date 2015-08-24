@@ -83,7 +83,7 @@ func init() {
 
 func NewProvider() *SubscriptionProvider {
 	s := &SubscriptionProvider{}
-	s.HostStopFunc = hostcontrol.Stop
+	s.HostStopFunc = hostcontrol.StopWithQueue
 	s.Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
 	return s
 }
