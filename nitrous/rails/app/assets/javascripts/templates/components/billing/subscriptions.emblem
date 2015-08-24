@@ -27,7 +27,10 @@
                   ' Renews on
                 = monDayYear subscription.currentPeriodEnd
               td.actions
-                unless subscription.cancelPending
+                if subscription.cancelPending
+                  button.ui.btn click='reactivateSubscription subscription'
+                    | Re-activate
+                else
                   if subscription.canUpgrade
                     = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary'
                       | Upgrade

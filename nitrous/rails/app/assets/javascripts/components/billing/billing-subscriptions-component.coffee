@@ -54,3 +54,9 @@ App.BillingSubscriptionsComponent = Em.Component.extend
         App.snackbar.post('Subscription cancelled successfully.')
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, 'Failed to cancel subscription.')
+
+    reactivateSubscription: (subscription)->
+      subscription.reactivate().then ->
+        App.snackbar.post('Your subscription has been re-activated.')
+      , (jqxhr) ->
+        App.postError(jqxhr.responseJSON, 'Failed to re-activate subscription.')
