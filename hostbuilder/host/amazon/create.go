@@ -187,18 +187,20 @@ func attachNewUserVolume(ctx *host.HostContext) error {
 	if err != nil {
 		return err
 	}
+	volID := vol.VolumeId
+	h.Printf("new user volume id %s created", volID)
 
 	// Tag volume so it has useful metadata.
-	if err := h.tagVolume(vol.VolumeId); err != nil {
+	if err := h.tagVolume(volID); err != nil {
 		return err
 	}
 
-	h.Printf("attaching new user volume %s to instance %s", vol.VolumeId, h.instance.InstanceId)
+	h.Printf("attaching new user volume %s to instance %s", volID, h.instance.InstanceId)
 
 	// Attach volume to instance.
 	vol, err = attachVolume(h.provider, vol.VolumeId, h.instance.InstanceId, userDeviceName)
 	if err != nil {
-		return fmt.Errorf("amazon: failed to attach new user volume %s to %s, err: %v", vol.VolumeId, h.instance.InstanceId, err)
+		return fmt.Errorf("amazon: failed to attach new user volume %s to %s, err: %v", volID, h.instance.InstanceId, err)
 	}
 
 	h.userVolume = vol
