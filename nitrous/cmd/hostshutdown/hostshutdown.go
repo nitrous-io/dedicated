@@ -63,7 +63,6 @@ func main() {
 
 	ticker := time.NewTicker(checkInterval)
 	for _ = range ticker.C {
-		timeStart := time.Now()
 		hosts, err := freetier.IdleFreeHosts(dbConn)
 		if err != nil {
 			logrus.Fatalf("freetier.IdleFreeHosts() failed with '%s'", err)
@@ -74,36 +73,35 @@ func main() {
 			hostsCh <- hst
 		}
 		wg.Wait()
-		if n := len(hosts); n > 0 {
-			logrus.Infof("Stopped %d hosts in %s", n, time.Since(timeStart))
-		}
 	}
 }
 
 func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 	for h := range ch {
 		logrus.Infof("worker: received host %d", h.ID)
-		stopHost(dbConn, h)
+		err := stopHost(dbConn, h)
+		if err != nil {
+			logrus.Errorf("worker: error stopping host: %v", err)
+		} else {
+			logrus.Infof("worker: stopped host %d", h.ID)
+		}
 		wg.Done()
 	}
 }
 
-func stopHost(dbConn *db.Database, hst *host.Host) {
+func stopHost(dbConn *db.Database, hst *host.Host) error {
 	tx, err := dbConn.Beginx()
 	if err != nil {
-		logrus.Errorf("Unable to start transaction, err: %v", err)
-		return
+		return err
 	}
 	defer tx.Rollback()
 
 	gotLock, err := db.TransactionLock(tx, db.HOST_SHUTDOWN_LOCK, int(hst.ID))
 	if err != nil {
-		logrus.Errorf("Unable to obtain lock on host %d, err: %v", hst.ID, err)
-		return
+		return fmt.Errorf("unable to obtain lock on host %d, err: %v", hst.ID, err)
 	}
 	if !gotLock {
-		logrus.Warnf("Host %d is already locked by another process, skipping", hst.ID)
-		return
+		return fmt.Errorf("host %d is already locked by another process", hst.ID)
 	}
 
 	// Confirm that host is still eligible for shutdown - user might have used
@@ -111,13 +109,11 @@ func stopHost(dbConn *db.Database, hst *host.Host) {
 	// incorrectly shutdown the host at this point.
 	idle, err := freetier.IsIdle(dbConn, hst)
 	if err != nil {
-		logrus.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
-		return
+		return fmt.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
 	}
 
 	if !idle {
-		logrus.Infof("host %d is no longer idle, skipping", hst.ID)
-		return
+		return fmt.Errorf("host %d is no longer idle", hst.ID)
 	}
 
 	logrus.Infof("Starting shutdown on host %d for user %d", hst.ID, hst.UserID)
@@ -128,8 +124,9 @@ func stopHost(dbConn *db.Database, hst *host.Host) {
 	headers.Set(constants.NitrousUUIDHeader, requestID)
 
 	if err := hostcontrol.StopWithQueue(dbConn, hst, headers, nil, initiatorID); err != nil {
-		logrus.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
-		return
+		return fmt.Errorf("unable to shutdown host %d, err: %v", hst.ID, err)
 	}
 	logrus.Infof("Started shutdown on host %d for user %d after %s", hst.ID, hst.UserID, time.Since(start))
+
+	return nil
 }
