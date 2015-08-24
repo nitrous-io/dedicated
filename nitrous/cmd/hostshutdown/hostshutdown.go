@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
 
 const (
@@ -46,10 +45,6 @@ func main() {
 
 	if envvars.WebHostname == "" {
 		logrus.Fatalf("WEB_HOSTNAME is not defined")
-	}
-
-	if envvars.TrustKey == "" {
-		logrus.Fatalf("TRUST_KEY is not defined")
 	}
 
 	if envvars.ProvisionerUser == "" {
@@ -88,12 +83,12 @@ func main() {
 func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 	for h := range ch {
 		logrus.Infof("worker: received host %d", h.ID)
-		controlHost(dbConn, h)
+		stopHost(dbConn, h)
 		wg.Done()
 	}
 }
 
-func controlHost(dbConn *db.Database, hst *host.Host) {
+func stopHost(dbConn *db.Database, hst *host.Host) {
 	tx, err := dbConn.Beginx()
 	if err != nil {
 		logrus.Errorf("Unable to start transaction, err: %v", err)
@@ -101,45 +96,26 @@ func controlHost(dbConn *db.Database, hst *host.Host) {
 	}
 	defer tx.Rollback()
 
-	locked, err := db.TransactionLock(tx, db.HOST_SHUTDOWN_LOCK, int(hst.ID))
+	gotLock, err := db.TransactionLock(tx, db.HOST_SHUTDOWN_LOCK, int(hst.ID))
 	if err != nil {
 		logrus.Errorf("Unable to obtain lock on host %d, err: %v", hst.ID, err)
 		return
 	}
-	if !locked {
+	if !gotLock {
 		logrus.Warnf("Host %d is already locked by another process, skipping", hst.ID)
 		return
 	}
 
-	logrus.Infof("Starting shut down on host %d for user %d", hst.ID, hst.UserID)
-	timeStart := time.Now()
+	logrus.Infof("Starting shutdown on host %d for user %d", hst.ID, hst.UserID)
+	start := time.Now()
 
+	requestID := fmt.Sprintf("%s-hostcontrol", uuid.Make())
 	headers := http.Header{}
-	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
-	err = hostcontrol.Stop(dbConn, hst, headers, nil, initiatorID)
-	if err != nil {
+	headers.Set(constants.NitrousUUIDHeader, requestID)
+
+	if err := hostcontrol.StopWithQueue(dbConn, hst, headers, nil, initiatorID); err != nil {
 		logrus.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
 		return
 	}
-	logrus.Infof("Successfully shut down host %d for user %d in %s", hst.ID, hst.UserID, time.Since(timeStart))
-
-	u := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
-	data := url.Values{}
-	data.Set("trust_key", envvars.TrustKey)
-	client := http.DefaultClient
-	resp, err := client.PostForm(u, data)
-	if err != nil {
-		logrus.Errorf("Error POSTing to %s for user %d, err: %v", u, hst.UserID, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logrus.Errorf("Unable to read HTTP response body, err: %s", err)
-			return
-		}
-		logrus.Errorf("Unable to send user_refresh for user %d, response: %s", hst.UserID, b)
-	}
+	logrus.Infof("Started shutdown on host %d for user %d after %s", hst.ID, hst.UserID, time.Since(start))
 }
