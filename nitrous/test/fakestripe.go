@@ -45,6 +45,7 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		if s := body.Get("at_period_end"); s != "" {
 			m["at_period_end"] = s
 		}
+
 		for k, v := range *body {
 			if len(v) == 0 {
 				continue

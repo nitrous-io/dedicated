@@ -614,6 +614,77 @@ var _ = Describe("subscriptions", func() {
 		})
 	})
 
+	Describe("Reactivate()", func() {
+		var sub *subscription.Subscription
+
+		BeforeEach(func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub = &subscription.Subscription{
+				BillingProfileID: bp.ID,
+				StripeID:         sql.NullString{"sub1", true},
+				PlanID:           pl.ID,
+				Slug:             "SLUG",
+				CancelPending:    true,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+
+		It("submits a request to Stripe to update the subscription to set cancel_at_period_end=false", func() {
+			fakeStripe.Responses = []string{
+				`{
+					"cancel_at_period_end": false,
+					"id": "sub1"
+				}`,
+			}
+
+			err := subProvider.Reactivate(db, sub)
+			Expect(err).To(BeNil())
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("POST"))
+			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
+		})
+
+		It("should return error if cancel_at_period_end is not set to false after updating", func() {
+			fakeStripe.Responses = []string{
+				`{
+					"cancel_at_period_end": true,
+					"id": "sub1"
+				}`,
+			}
+
+			err := subProvider.Reactivate(db, sub)
+			Expect(err).To(Equal(fmt.Errorf("An error occured when re-activating Stripe subscription %d. Expected Stripe response cancel_at_period_end=false, got cancel_at_period_end=true.", sub.ID)))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("POST"))
+			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
+		})
+
+		It("should return error from stripe if customer's subscription does not exist", func() {
+			fakeStripe.Errors = []*stripe.Error{
+				&stripe.Error{
+					Type:  "invalid_request_error",
+					Msg:   fmt.Sprintf("Customer %v does not have a subscription with ID sub1", stripeCustomerID),
+					Param: "subscription",
+				},
+			}
+
+			err := subProvider.Reactivate(db, sub)
+			Expect(err).To(Equal(fakeStripe.Errors[0]))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("POST"))
+			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
+		})
+	})
+
 	Describe("Upgrade()", func() {
 		var (
 			sub     *subscription.Subscription
