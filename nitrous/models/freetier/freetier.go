@@ -121,3 +121,20 @@ func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 	}
 	return hosts, nil
 }
+
+func IsIdle(d *db.Database, h *host.Host) (bool, error) {
+	var count int
+	err := d.QueryRow(`
+		SELECT count(*) FROM hosts
+		WHERE id = $1
+			AND auto_shutdown = $2
+			AND state = $3
+			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			AND terminated_at IS NULL
+		`, h.ID, true, host.StateRunning).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+
+	return (count == 1), nil
+}

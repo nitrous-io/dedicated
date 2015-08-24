@@ -106,6 +106,20 @@ func stopHost(dbConn *db.Database, hst *host.Host) {
 		return
 	}
 
+	// Confirm that host is still eligible for shutdown - user might have used
+	// the host since the time the last query was ran, and we don't want to
+	// incorrectly shutdown the host at this point.
+	idle, err := freetier.IsIdle(dbConn, hst)
+	if err != nil {
+		logrus.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
+		return
+	}
+
+	if !idle {
+		logrus.Infof("host %d is no longer idle, skipping", hst.ID)
+		return
+	}
+
 	logrus.Infof("Starting shutdown on host %d for user %d", hst.ID, hst.UserID)
 	start := time.Now()
 
