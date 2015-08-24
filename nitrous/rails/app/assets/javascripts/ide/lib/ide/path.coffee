@@ -1,5 +1,6 @@
 klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
-  sortProperties: ['file', 'persisted', 'lowerCaseName']
+  sortProperties: ['file', 'persisted', 'filename']
+
   expanded: false
   selected: false
   absolutePath: ''
@@ -41,6 +42,11 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
     if name = @get 'name'
       name.toLowerCase()
   ).property 'name'
+
+  filename: (->
+    App.Filename.create
+      name: @get('lowerCaseName')
+  ).property 'lowerCaseName'
 
   hidden: (->
     if name = @get 'name'
@@ -134,3 +140,16 @@ klass.reopenClass
 
   pathToComponents: (pathString) ->
     pathString.split '/'
+
+# This is a workaround: Ember.compare() compares strings using localeCompare(),
+# which unfortunately sorts 'foo_test.go' before 'foo.go'.
+App.Filename = Em.Object.extend Em.Comparable,
+  name: null
+
+  compare: (a, b) ->
+    aName = a.get('name')
+    bName = b.get('name')
+
+    return -1 if aName < bName
+    return 1 if aName > bName
+    return 0
