@@ -35,12 +35,16 @@ App.IdeRoute = Em.Route.extend
     @_super()
     @render 'feedback', into: 'ide', outlet: 'feedback', controller: 'feedback'
 
+  persistData: ->
+    TabWatcher.syncChanges()
+    App.get('userSettings')?.save()
+
   activate: ->
     # warn the user before actually unload the window. This is helpful to
     # prevent mis-click close tab / cmd + w
     return if App.get 'redirecting'
-    $(window).bind 'beforeunload.ide', (ev)->
-      TabWatcher.syncChanges()
+    $(window).bind 'beforeunload.ide', (ev)=>
+      @persistData()
       message
 
   deactivate: ->
@@ -51,8 +55,8 @@ App.IdeRoute = Em.Route.extend
     controller.initialize()
 
   actions:
-    willTransition: (transition) ->
-      TabWatcher.syncChanges()
+    willTransition: (transition) =>
+      @persistData()
       return true if App.get 'isChromeWebView'
       return true if App.get 'redirecting'
       return true if window.confirm(message + '\n\nAre you sure you want to leave this page?')

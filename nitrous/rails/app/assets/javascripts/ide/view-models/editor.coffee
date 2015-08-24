@@ -18,6 +18,8 @@ App.Editor = klass = Em.Object.extend
   tabSize: null
   theme: null
   wrapLines: null
+  wrapperStyling: null
+  fontSize: null
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -272,6 +274,12 @@ App.Editor = klass = Em.Object.extend
         cm.setValue text
   ).observes 'text'
 
+  wrapperStylingDidChange: (->
+    if cm = @get 'codeMirror'
+      cm.getWrapperElement()?.setAttribute('style', @get('wrapperStyling'))
+      cm.refresh()
+  ).observes 'wrapperStyling'
+
   _bootstrapCodeMirror: ->
     cm = CodeMirror @get('domTarget'),
       lint              : @get 'lintableMode'
@@ -366,4 +374,5 @@ klass.reopenClass
     'autoCloseBrackets'
     'keybindings'
     'removeTrailingWhitespaceOnSave'
+    'fontSize'
   ]

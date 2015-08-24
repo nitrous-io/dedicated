@@ -43,7 +43,7 @@ func UserRefresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 
 	for _, h := range hosts {
-		logrus.Infof("Host state: %v", h.State)
+		logrus.Infof("refreshing host state %v for host %d", h.State, h.ID)
 		var evState controllers.EventName
 		switch h.State {
 		case host.StateRunning:

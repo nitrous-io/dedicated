@@ -1,12 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"crypto/rsa"
@@ -14,11 +16,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/mitchellh/cli"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/pkg/sshutil"
 	"github.com/nitrous-io/nitrous-common/cipher"
 	"golang.org/x/crypto/ssh"
@@ -26,14 +25,24 @@ import (
 )
 
 var (
-	aesKey       string
-	dbURL        string
-	dbconn       *db.Database
-	awsAccessKey string
-	awsSecretKey string
-	sshKeysDir   string
-	sshTimeout   = 15 * time.Second // Timeout for establishing an SSH connection.
+	aesKey     string
+	dbURL      string
+	dbconn     *db.Database
+	awsEnv     string
+	sshKeysDir string
+	sshTimeout = 15 * time.Second // Timeout for establishing an SSH connection.
 )
+
+type SshHost struct {
+	ID                    int64          `db:"id"`
+	State                 string         `db:"state"`
+	TemplateName          string         `db:"pt_name"`
+	RegionIdentifier      sql.NullString `db:"region_identifier"`
+	IPAddress             sql.NullString `db:"ip_address"`
+	EncryptedPrivateKey   string         `db:"encrypted_private_key"`
+	EncryptedPrivateKeyIv string         `db:"encrypted_private_key_iv"`
+	Provider              string         `db:"provider"`
+}
 
 func init() {
 	aesKey = os.Getenv("AES_KEY")
@@ -46,13 +55,9 @@ func init() {
 		logrus.Fatal("NITROUS_PG_URL is not defined")
 	}
 
-	awsAccessKey = os.Getenv("AWS_ACCESS_KEY")
-	if awsAccessKey == "" {
-		logrus.Fatal("AWS_ACCESS_KEY is not defined")
-	}
-	awsSecretKey = os.Getenv("AWS_SECRET_KEY")
-	if awsSecretKey == "" {
-		logrus.Fatal("AWS_SECRET_KEY is not defined")
+	awsEnv = os.Getenv("AWS_ENV")
+	if awsEnv != "staging" && awsEnv != "production" {
+		logrus.Fatalf("Invalid AWS_ENV '%s'.  Must be either staging or production", awsEnv)
 	}
 
 	sshKeysDir = os.Getenv("SSH_KEYS_DIR")
@@ -97,14 +102,17 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	if h.State != host.StateRunning {
+		logrus.Warnf("Host is not running.  Current state is %s", h.State)
+	}
 
-	privKey, err := privateKey(h)
+	privKey, err := h.privateKey()
 	if err != nil {
 		return nil, err
 	}
 
 	// create the ssh client
-	addr := address(h)
+	addr := h.address()
 	connInterval := 5 * time.Second
 
 	// set sshUser depending on the provider
@@ -128,14 +136,9 @@ func newConn(slug string) (*sshutil.Conn, error) {
 	return conn, nil
 }
 
-func privateKey(h *host.Host) (*rsa.PrivateKey, error) {
-	// For the "amazon" provider, the private key can be either:
-	// 1. that of an EC2 keypair, or
-	// 2. the private key stored in the database.
-	// We first check the keypair name of the underlying EC2 instance and if
-	// we have a private key for it in SSH_KEYS_DIR, we return that instead.
-	if h.Provider == "amazon" && sshKeysDir != "" {
-		privKey, err := amazonPrivateKey(h)
+func (h *SshHost) privateKey() (*rsa.PrivateKey, error) {
+	if h.useLocalKey() {
+		privKey, err := h.amazonPrivateKey()
 		if err == nil {
 			return privKey, nil
 		}
@@ -143,16 +146,11 @@ func privateKey(h *host.Host) (*rsa.PrivateKey, error) {
 		logrus.Infof("failed to use local private key, using key from database, err: %v", err)
 	}
 
-	kp, err := keypairs.Get(dbconn, h.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find a keypair for host %v, error %q", h, err)
-	}
-
 	// get the private key from keypair
 	priv, err := cipher.Decrypt(
 		[]byte(aesKey),
-		[]byte(kp.EncryptedPrivateKeyIv),
-		[]byte(kp.EncryptedPrivateKey))
+		[]byte(h.EncryptedPrivateKeyIv),
+		[]byte(h.EncryptedPrivateKey))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt private key for host %v, error %q", h, err)
 	}
@@ -169,34 +167,9 @@ func privateKey(h *host.Host) (*rsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-func amazonPrivateKey(h *host.Host) (*rsa.PrivateKey, error) {
-	auth, err := aws.GetAuth(awsAccessKey, awsSecretKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to auth with AWS API, err: %v", err)
-	}
-
-	region, ok := aws.Regions[h.RegionIdentifier.String]
-	if !ok {
-		return nil, fmt.Errorf("invalid AWS region %q for host", h.RegionIdentifier.String)
-	}
-
-	client := ec2.New(auth, region)
-
-	instanceID := h.ProviderIdentifier.String
-	resp, err := client.Instances([]string{instanceID}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get instance info for %q, err: %v", instanceID, err)
-	}
-
-	if len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
-		return nil, fmt.Errorf("instance %q not found", instanceID)
-	}
-
-	instance := resp.Reservations[0].Instances[0]
-
-	logrus.Infof("Underlying EC2 instance: %+v", instance)
-
-	keyPath := path.Join(sshKeysDir, fmt.Sprintf("%s.pem", instance.KeyName))
+func (h *SshHost) amazonPrivateKey() (*rsa.PrivateKey, error) {
+	keyPath := path.Join(sshKeysDir, fmt.Sprintf(
+		"hostbuilder.%s.%s.pem", h.RegionIdentifier.String, awsEnv))
 	if _, err := os.Stat(keyPath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("private key does not exist locally at %q", keyPath)
@@ -219,12 +192,36 @@ func amazonPrivateKey(h *host.Host) (*rsa.PrivateKey, error) {
 	return pk, nil
 }
 
-func address(h *host.Host) string {
+func (h *SshHost) address() string {
 	return fmt.Sprintf("%s:65100", h.IPAddress.String)
 }
 
-func hostFromSlug(slug string) (*host.Host, error) {
-	return host.FindByIdentifier(dbconn, slug)
+func hostFromSlug(slug string) (*SshHost, error) {
+	host := &SshHost{}
+	err := dbconn.Get(host,
+		`SELECT hosts.id, hosts.region_identifier, hosts.ip_address, hosts.state,
+			pt.provider, pt.name AS pt_name,
+			key_pairs.encrypted_private_key, key_pairs.encrypted_private_key_iv
+		FROM hosts
+		JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+		JOIN key_pairs ON key_pairs.host_id = hosts.id
+		WHERE hosts.slug = $1
+		AND hosts.terminated_at IS NULL;`, slug)
+	if err != nil {
+		return nil, err
+	}
+	return host, nil
+}
+
+func (h *SshHost) useLocalKey() bool {
+	// For the "amazon" provider, the private key can be either:
+	// 1. that of an EC2 keypair, or
+	// 2. the private key stored in the database.
+	// We check if the provider template has 'hotswap' in the name and if
+	// we have a private key for it in SSH_KEYS_DIR, we return that instead.
+	return h.Provider == "amazon" &&
+		strings.Contains(h.TemplateName, "hotswap") &&
+		sshKeysDir != ""
 }
 
 // pipes returns stdin, stdout, stderr of the current ssh session

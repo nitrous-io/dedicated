@@ -21,6 +21,12 @@ App.ContainerCollaborator = klass = App.Model.extend
       "collaborator-#{cId}-#{id}"
   ).property 'id', 'containerId'
 
+  isSelf: (->
+    userId = App.get 'user.id'
+    if userId == @get('userId')
+      true
+  ).property 'App.user.id'
+
 klass.reopenClass
   url: '/containers/:containerId/collaborators'
   primaryKey: 'id'

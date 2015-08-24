@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
@@ -15,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/freetier"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 )
 
 const (
@@ -48,10 +47,6 @@ func main() {
 		logrus.Fatalf("WEB_HOSTNAME is not defined")
 	}
 
-	if envvars.TrustKey == "" {
-		logrus.Fatalf("TRUST_KEY is not defined")
-	}
-
 	if envvars.ProvisionerUser == "" {
 		logrus.Fatal("PROVISIONER_USER is not defined")
 	}
@@ -68,7 +63,6 @@ func main() {
 
 	ticker := time.NewTicker(checkInterval)
 	for _ = range ticker.C {
-		timeStart := time.Now()
 		hosts, err := freetier.IdleFreeHosts(dbConn)
 		if err != nil {
 			logrus.Fatalf("freetier.IdleFreeHosts() failed with '%s'", err)
@@ -79,67 +73,60 @@ func main() {
 			hostsCh <- hst
 		}
 		wg.Wait()
-		if n := len(hosts); n > 0 {
-			logrus.Infof("Stopped %d hosts in %s", n, time.Since(timeStart))
-		}
 	}
 }
 
 func worker(dbConn *db.Database, wg *sync.WaitGroup, ch chan *host.Host) {
 	for h := range ch {
 		logrus.Infof("worker: received host %d", h.ID)
-		controlHost(dbConn, h)
+		err := stopHost(dbConn, h)
+		if err != nil {
+			logrus.Errorf("worker: error stopping host: %v", err)
+		} else {
+			logrus.Infof("worker: stopped host %d", h.ID)
+		}
 		wg.Done()
 	}
 }
 
-func controlHost(dbConn *db.Database, hst *host.Host) {
+func stopHost(dbConn *db.Database, hst *host.Host) error {
 	tx, err := dbConn.Beginx()
 	if err != nil {
-		logrus.Errorf("Unable to start transaction, err: %v", err)
-		return
+		return err
 	}
 	defer tx.Rollback()
 
-	locked, err := db.TransactionLock(tx, db.HOST_SHUTDOWN_LOCK, int(hst.ID))
+	gotLock, err := db.TransactionLock(tx, db.HOST_SHUTDOWN_LOCK, int(hst.ID))
 	if err != nil {
-		logrus.Errorf("Unable to obtain lock on host %d, err: %v", hst.ID, err)
-		return
+		return fmt.Errorf("unable to obtain lock on host %d, err: %v", hst.ID, err)
 	}
-	if !locked {
-		logrus.Warnf("Host %d is already locked by another process, skipping", hst.ID)
-		return
+	if !gotLock {
+		return fmt.Errorf("host %d is already locked by another process", hst.ID)
 	}
 
-	logrus.Infof("Starting shut down on host %d for user %d", hst.ID, hst.UserID)
-	timeStart := time.Now()
+	// Confirm that host is still eligible for shutdown - user might have used
+	// the host since the time the last query was ran, and we don't want to
+	// incorrectly shutdown the host at this point.
+	idle, err := freetier.IsIdle(dbConn, hst)
+	if err != nil {
+		return fmt.Errorf("error confirming that host %d is still idle, err: %v", hst.ID, err)
+	}
 
+	if !idle {
+		return fmt.Errorf("host %d is no longer idle", hst.ID)
+	}
+
+	logrus.Infof("Starting shutdown on host %d for user %d", hst.ID, hst.UserID)
+	start := time.Now()
+
+	requestID := fmt.Sprintf("%s-hostcontrol", uuid.Make())
 	headers := http.Header{}
-	headers.Set(constants.NitrousUUIDHeader, "hostcontrol")
-	err = hostcontrol.Stop(dbConn, hst, headers, nil, initiatorID)
-	if err != nil {
-		logrus.Errorf("Unable to shutdown host %d, err: %v", hst.ID, err)
-		return
-	}
-	logrus.Infof("Successfully shut down host %d for user %d in %s", hst.ID, hst.UserID, time.Since(timeStart))
+	headers.Set(constants.NitrousUUIDHeader, requestID)
 
-	u := fmt.Sprintf("https://%s/api/v0/maintenance/user_refresh/%d", envvars.WebHostname, hst.UserID)
-	data := url.Values{}
-	data.Set("trust_key", envvars.TrustKey)
-	client := http.DefaultClient
-	resp, err := client.PostForm(u, data)
-	if err != nil {
-		logrus.Errorf("Error POSTing to %s for user %d, err: %v", u, hst.UserID, err)
-		return
+	if err := hostcontrol.StopWithQueue(dbConn, hst, headers, nil, initiatorID); err != nil {
+		return fmt.Errorf("unable to shutdown host %d, err: %v", hst.ID, err)
 	}
-	defer resp.Body.Close()
+	logrus.Infof("Started shutdown on host %d for user %d after %s", hst.ID, hst.UserID, time.Since(start))
 
-	if resp.StatusCode != http.StatusOK {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			logrus.Errorf("Unable to read HTTP response body, err: %s", err)
-			return
-		}
-		logrus.Errorf("Unable to send user_refresh for user %d, response: %s", hst.UserID, b)
-	}
+	return nil
 }

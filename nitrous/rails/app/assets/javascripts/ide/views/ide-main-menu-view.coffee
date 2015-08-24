@@ -268,13 +268,13 @@ App.IdeMainMenuView = Em.View.extend
       ]
       menu 'View', [
         menuItem 'Split Editor Pane Vertically',
-          macKey: 'shift+ctrl+\\', pcKey: 'shift+ctrl+\\'
-          chromeMacKey: 'shift+ctrl+\\', chromePcKey: 'shift+ctrl+\\'
+          macKey: 'shift+ctrl+8', pcKey: 'shift+ctrl+8'
+          chromeMacKey: 'shift+ctrl+8', chromePcKey: 'shift+ctrl+8'
           callback: (controller) ->
             controller.viewSplitEditorPaneVertically()
         menuItem 'Split Editor Pane Horizontally',
-          macKey: 'shift+ctrl+-', pcKey: 'shift+ctrl+-'
-          chromeMacKey: 'shift+ctrl+-', chromePcKey: 'shift+ctrl+-'
+          macKey: 'shift+ctrl+9', pcKey: 'shift+ctrl+9'
+          chromeMacKey: 'shift+ctrl+9', chromePcKey: 'shift+ctrl+9'
           callback: (controller) ->
             controller.viewSplitEditorPaneHorizontally()
         menuItem 'Close Editor Pane',
@@ -305,6 +305,25 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.viewToggleTrailingSpace()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.showTrailingSpace')
+        separator
+        menuItem 'Increase Font Size',
+          macKey: 'shift+ctrl+"+"', pcKey: 'shift+ctrl+"+"'
+          chromeMacKey: ['shift+ctrl+"+"'], chromePcKey: 'shift+ctrl+"+"'
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.viewIncreaseFontSize()
+        menuItem 'Decrease Font Size',
+          macKey: 'shift+ctrl+-', pcKey: 'shift+ctrl+-'
+          chromeMacKey: ['shift+ctrl+-'], chromePcKey: 'shift+ctrl+-'
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.viewDecreaseFontSize()
+        menuItem 'Reset Font Size',
+          macKey: 'shift+ctrl+0', pcKey: 'shift+ctrl+0'
+          chromeMacKey: ['shift+ctrl+0'], chromePcKey: 'shift+ctrl+0'
+          disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.isActiveTabNotAnEditor')
+          callback: (controller) ->
+            controller.viewResetFontSize()
       ]
       menu 'Window', [
         menuItem 'Editor Theme', submenu: themesMenu

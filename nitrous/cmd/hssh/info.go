@@ -43,7 +43,7 @@ func (s *infoCmd) Run(args []string) int {
 	}
 	defer f.Close()
 
-	privKey, err := privateKey(h)
+	privKey, err := h.privateKey()
 	if err != nil {
 		return failf("info: %q", err)
 	}

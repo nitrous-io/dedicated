@@ -109,7 +109,15 @@ build_tender() {
   )
 }
 
+build_migrations() {
+  (
+  rm -rf "$BUILD_DIR"/migrations
+  cp -r ./nitrous/migrations "$BUILD_DIR"/migrations
+  )
+}
+
 build_nitrous() {
+  (build_migrations)
   (
   VERSION=$(get_version nitrous)
   LDFLAGS="\

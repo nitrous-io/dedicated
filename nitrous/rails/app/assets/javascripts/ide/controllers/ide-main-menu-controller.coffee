@@ -166,6 +166,18 @@ App.IdeMainMenuController = Em.Controller.extend
   viewToggleMatchBrackets: ->
     @_toggleEditorProperty 'matchBrackets'
 
+  viewIncreaseFontSize: ->
+    if editorController = @get 'controllers.ideEditor'
+      editorController.increaseFontSize()
+
+  viewDecreaseFontSize: ->
+    if editorController = @get 'controllers.ideEditor'
+      editorController.decreaseFontSize()
+
+  viewResetFontSize: ->
+    if editorController = @get 'controllers.ideEditor'
+      editorController.resetFontSize()
+
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'
       editorController.toggleProperty(property)

@@ -2,6 +2,7 @@ package usersettings_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -11,7 +12,6 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
-	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -73,34 +73,77 @@ var _ = Describe("controllers/userprofiles", func() {
 			return res
 		}
 
-		It("responds with user's settings serialized as JSON'", func() {
+		It("responds with the user's settings as well as defaults", func() {
+			_, err := db.Exec(`UPDATE user_settings SET ide_settings = '{"tab_size": 3}'::JSON WHERE user_id = $1`, u.ID)
+			Expect(err).To(BeNil())
+
 			res := doRequest()
 			Expect(res.Code).To(Equal(http.StatusOK))
 
-			j := struct {
-				UserSettings serializers.UserSettings `json:"user_settings"`
-			}{}
-			err := json.NewDecoder(res.Body).Decode(&j)
+			var j struct {
+				UserSettings map[string]interface{} `json:"user_settings"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
-			Expect(j.UserSettings.UserID).To(Equal(u.ID))
 
-			settings, err := u.Settings(db)
-			Expect(err).To(BeNil())
-			Expect(j.UserSettings.ID).To(Equal(settings.ID))
-			Expect(j.UserSettings.AutoCloseBrackets).To(Equal(settings.AutoCloseBrackets))
+			Expect(j.UserSettings["tab_size"]).To(Equal(float64(3)))
+			Expect(j.UserSettings["match_brackets"]).To(BeTrue())
 		})
 	})
 
 	Describe("POST /api/v0/user/settings", func() {
-		doRequest := func(params *url.Values) *httptest.ResponseRecorder {
-			req, err := test.NewAuthedFormRequest(t, "POST", "/api/v0/user/settings", params)
+		doRequest := func(jsonStr string) *httptest.ResponseRecorder {
+			req, err := test.NewBodyRequest("POST", "/api/v0/user/settings", jsonStr)
 			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", t.Token))
+			req.Header.Set("Content-type", "application/json")
 			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
 			return res
 		}
 
 		It("updates the user's settings and responds with the new settings", func() {
+			_, err := db.Exec(`UPDATE user_settings SET ide_settings = '{"tab_size": 9}'::JSON WHERE user_id = $1`, u.ID)
+			Expect(err).To(BeNil())
+
+			jsonStr := `{
+                                "tab_size": 3,
+                                "auto_close_brackets": false,
+                                "remove_trailing_whitespace_on_save": false,
+                                "keybindings": "vim",
+                                "ruler_column": 120,
+                                "theme": "solarized light"
+                        }`
+
+			res := doRequest(jsonStr)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := struct {
+				UserSettings map[string]interface{} `json:"user_settings"`
+			}{}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			serialized := j.UserSettings
+			Expect(serialized["tab_size"]).To(Equal(float64(3)))
+			Expect(serialized["auto_close_brackets"]).To(BeFalse())
+			Expect(serialized["remove_trailing_whitespace_on_save"]).To(BeFalse())
+			Expect(serialized["keybindings"]).To(Equal("vim"))
+			Expect(serialized["ruler_column"]).To(Equal(float64(120)))
+			Expect(serialized["theme"]).To(Equal("solarized light"))
+
+			settings, err := u.Settings(db)
+			Expect(err).To(BeNil())
+			m, err := settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m["tab_size"]).To(Equal(float64(3)))
+			Expect(m["auto_close_brackets"]).To(BeFalse())
+			Expect(m["remove_trailing_whitespace_on_save"]).To(BeFalse())
+			Expect(m["keybindings"]).To(Equal("vim"))
+			Expect(m["ruler_column"]).To(Equal(float64(120)))
+			Expect(m["theme"]).To(Equal("solarized light"))
+		})
+
+		It("should handle legacy params sent by older IDE clients", func() {
 			settings, err := u.Settings(db)
 			Expect(err).To(BeNil())
 			Expect(settings.AutoCloseBrackets).To(BeTrue())
@@ -109,35 +152,42 @@ var _ = Describe("controllers/userprofiles", func() {
 			Expect(settings.Theme).To(Equal("solarized dark"))
 
 			params := &url.Values{}
+			params.Set("tab_size", "3")
 			params.Set("auto_close_brackets", "false")
 			params.Set("remove_trailing_whitespace_on_save", "false")
 			params.Set("keybindings", "vim")
 			params.Set("ruler_column", "120")
-			params.Set("theme", "solarized light")
+			params.Set("theme", "visual studio")
 
-			res := doRequest(params)
+			req, err := test.NewAuthedFormRequest(t, "POST", "/api/v0/user/settings", params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			handler.ServeHTTP(res, req)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {
-				UserSettings serializers.UserSettings `json:"user_settings"`
+				UserSettings map[string]interface{} `json:"user_settings"`
 			}{}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			serialized := j.UserSettings
-			Expect(serialized.UserID).To(Equal(u.ID))
-			Expect(serialized.AutoCloseBrackets).To(BeFalse())
-			Expect(serialized.RemoveTrailingWhitespaceOnSave).To(BeFalse())
-			Expect(serialized.Keybindings).To(Equal("vim"))
-			Expect(serialized.RulerColumn).To(Equal(int64(120)))
-			Expect(serialized.Theme).To(Equal("solarized light"))
+			Expect(serialized["tab_size"]).To(Equal(float64(3)))
+			Expect(serialized["auto_close_brackets"]).To(BeFalse())
+			Expect(serialized["remove_trailing_whitespace_on_save"]).To(BeFalse())
+			Expect(serialized["keybindings"]).To(Equal("vim"))
+			Expect(serialized["ruler_column"]).To(Equal(float64(120)))
+			Expect(serialized["theme"]).To(Equal("visual studio"))
 
 			settings, err = u.Settings(db)
 			Expect(err).To(BeNil())
-			Expect(settings.AutoCloseBrackets).To(BeFalse())
-			Expect(settings.RemoveTrailingWhitespaceOnSave).To(BeFalse())
-			Expect(settings.Keybindings).To(Equal("vim"))
-			Expect(settings.RulerColumn).To(Equal(int64(120)))
-			Expect(settings.Theme).To(Equal("solarized light"))
+			m, err := settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m["tab_size"]).To(Equal(float64(3)))
+			Expect(m["auto_close_brackets"]).To(BeFalse())
+			Expect(m["remove_trailing_whitespace_on_save"]).To(BeFalse())
+			Expect(m["keybindings"]).To(Equal("vim"))
+			Expect(m["ruler_column"]).To(Equal(float64(120)))
+			Expect(m["theme"]).To(Equal("visual studio"))
 		})
 	})
 })

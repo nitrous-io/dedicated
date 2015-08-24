@@ -1,29 +1,43 @@
+keysToSubmit = [
+  'auto_close_brackets'
+  'highlight_line'
+  'keybindings'
+  'match_brackets'
+  'ruler_column'
+  'show_line_numbers'
+  'show_trailing_space'
+  'soft_tabs'
+  'tab_size'
+  'theme'
+  'wrap_lines'
+  'font_size'
+]
+
 App.UserSettings = klass = Em.Object.extend
-  id: null
-  auto_close_brackets: null
-  highlight_line: null
-  keybindings: null
-  match_brackets: null
-  ruler_column: null
-  show_line_numbers: null
-  show_trailing_space: null
-  soft_tabs: null
-  tab_size: null
-  theme: null
-  wrap_lines: null
+
+  requestSave: (delay = 5000)->
+    return if @saveTimer
+
+    @saveRequested = true
+    @saveTimer = window.setTimeout(=>
+      @saveTimer = null
+      @save()
+      @saveRequested = false
+    , delay)
 
   save: ->
-    new Em.RSVP.Promise (resolve, reject) =>
-      Em.$.ajax(
-        type: 'POST',
-        url: '/api/v0/user/settings',
-        headers: { Authorization: "Bearer #{App.get 'token'}" },
-        data: @getProperties(Ember.keys(@))
-      ).done((retData, status, jqxhr) =>
-        @setProperties(retData)
-        resolve(retData)
-      ).fail (jqxhr) ->
-        reject(jqxhr)
+    return unless @saveRequested
+    Em.$.ajax(
+      type: 'POST',
+      url: '/api/v0/user/settings',
+      contentType : "application/json",
+      dataType: "json",
+      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      data: JSON.stringify(@getProperties(keysToSubmit))
+    ).done((data, status, jqxhr) =>
+      @setProperties(data.user_settings)
+    ).fail (jqxhr) =>
+      @requestSave(1000)
 
 
 klass.reopenClass

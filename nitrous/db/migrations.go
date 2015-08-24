@@ -1,9 +1,14 @@
 package db
 
-var Migrations []*Migration
+/**
+ * This file stores the previous method for migrations
+ * you should now create migrations using ./script/create-migration
+**/
+
+var legacyMigrations []*Migration
 
 func init() {
-	Migrations = []*Migration{
+	legacyMigrations = []*Migration{
 		{
 			Version: "10",
 			Up: `
@@ -1534,6 +1539,14 @@ func init() {
 		{
 			Version: "1439884950",
 			Up:      `DROP TABLE host_usages;`,
+		},
+		{
+			Version: "1439927624",
+			Up: `
+				ALTER TABLE user_settings ADD COLUMN ide_settings JSON DEFAULT '{}'::JSON;
+				ALTER TABLE user_settings ADD COLUMN migrated bool DEFAULT TRUE;
+				UPDATE user_settings SET migrated = FALSE;
+			`,
 		},
 	}
 }

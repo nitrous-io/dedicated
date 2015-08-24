@@ -1,8 +1,10 @@
 klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
-  sortProperties: ['file', 'persisted', 'lowerCaseName']
+  sortProperties: ['file', 'persisted', 'filename']
+
   expanded: false
   selected: false
   absolutePath: ''
+  realPath: ''
   loadCount: 0
   directory: false
   size: 0
@@ -30,10 +32,21 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
       '~'
   ).property 'absolutePath'
 
+  collabPath: (->
+    if realPath = @get('realPath')
+      return realPath
+    @get('absolutePath')
+  ).property 'absolutePath', 'realPath'
+
   lowerCaseName: (->
     if name = @get 'name'
       name.toLowerCase()
   ).property 'name'
+
+  filename: (->
+    App.Filename.create
+      name: @get('lowerCaseName')
+  ).property 'lowerCaseName'
 
   hidden: (->
     if name = @get 'name'
@@ -86,17 +99,21 @@ klass = App.Path = Em.ArrayProxy.extend Em.SortableMixin,
       name = item[0]
       isDir = item[1]
       size = item[2]
+      realPath = item[3]
+
       absolutePathForItem = _getAbsolutePathForItem(name)
       if existingContentPaths.contains absolutePathForItem
         path = this.findByRelativePath name
         if !isDir && path.get 'directory'
           path.set 'content', Em.A()
       else
-        path = App.Path.create absolutePath: absolutePathForItem
+        path = App.Path.create
+          absolutePath: absolutePathForItem
         addedContent.push path
       path.setProperties
         directory: isDir
         size: size
+        realPath: realPath
 
     newContentPaths = newContent.map (item) -> _getAbsolutePathForItem(item[0])
     content.forEach (path) ->
@@ -123,3 +140,16 @@ klass.reopenClass
 
   pathToComponents: (pathString) ->
     pathString.split '/'
+
+# This is a workaround: Ember.compare() compares strings using localeCompare(),
+# which unfortunately sorts 'foo_test.go' before 'foo.go'.
+App.Filename = Em.Object.extend Em.Comparable,
+  name: null
+
+  compare: (a, b) ->
+    aName = a.get('name')
+    bName = b.get('name')
+
+    return -1 if aName < bName
+    return 1 if aName > bName
+    return 0
