@@ -1,7 +1,6 @@
 package amazon
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -127,29 +126,31 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	instanceType := h.instance.InstanceType
 	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
 
-	poolFull, err := h.isPoolFull(h.provider, instanceType)
-	if err != nil {
-		h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
-		return nil, mh.Error(err, label)
-	}
+	go func() {
+		poolFull, err := h.isPoolFull(h.provider, instanceType)
+		if err != nil {
+			h.Printf("failed to check whether pool for %q is full, err: %v", instanceType, err)
 
-	// If instance pool is full, we terminate the instance.
-	// Otherwise, we release the (still running) instance to the pool.
-	if poolFull {
-		h.Printf("pool for %q is full, terminating instance", instanceType)
-		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
-			err = fmt.Errorf("amazon: failed to terminate instance %s, err %v", instanceID, err)
-			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
-			return nil, mh.Error(err, label)
+			// We assume the pool is full if we're unable to check its status.
+			poolFull = true
 		}
-	} else {
+
+		// If instance pool is full, we terminate the instance.
+		// Otherwise, we release the (still running) instance to the pool.
+		if poolFull {
+			h.Printf("pool for %q is full, terminating instance %s after stopping workspace", instanceType, instanceID)
+			if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
+				h.Printf("failed to terminate instance %s, err: %v", instanceID, err)
+			}
+			return
+		}
+
 		h.Printf("releasing instance %s of stopped workspace to pool for %q", instanceID, instanceType)
 		if err := h.releaseInstance(h.provider); err != nil {
-			err = fmt.Errorf("amazon: failed to release instance %s to pool, err %v", instanceID, err)
-			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
-			return nil, mh.Error(err, label)
+			h.Printf("failed to release instance %s to pool, err: %v", instanceID, err)
+			return
 		}
-	}
+	}()
 
 	info := &host.Info{
 		VolumeID: userVolume.VolumeId,
