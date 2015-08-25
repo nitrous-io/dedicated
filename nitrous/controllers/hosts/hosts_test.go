@@ -2642,6 +2642,12 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_state"))
+			Expect(errDesc).To(Equal("workspace must be running or stopped to upgrade"))
+
+			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
 		})
 
 		It("responds with HTTP 202 Accepted and respecs the host asynchronously", func() {
