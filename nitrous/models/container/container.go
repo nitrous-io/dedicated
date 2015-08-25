@@ -218,19 +218,15 @@ func (c *Container) UpdateColumn(d db.QueryReceiver, column string, value interf
 }
 
 func (c *Container) Delete(d db.QueryReceiver) error {
+	// caller expected to use transaction if necessary
+	if _, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID); err != nil {
+		return err
+	}
 	nstmt, err := d.PrepareNamed(`UPDATE containers SET terminated_at = now() WHERE id = :id RETURNING *;`)
 	if err != nil {
 		return err
 	}
 	return nstmt.QueryRowx(c).StructScan(c)
-}
-
-func (c *Container) DeletePermanently(d db.QueryReceiver) error {
-	if _, err := d.Exec(`DELETE FROM container_volumes WHERE container_id = $1`, c.ID); err != nil {
-		return err
-	}
-	_, err := d.Exec(`DELETE FROM containers WHERE id = $1`, c.ID)
-	return err
 }
 
 func (c *Container) Validate() error {
