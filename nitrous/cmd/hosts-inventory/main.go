@@ -12,7 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 )
 
-const Usage = `Usage: hostrunner [workingdir]
+const Usage = `Usage: hosts-inventory [workingdir]
   [workingdir] is the directory that stores artifacts (private key files) and defaults to a directory in /tmp
 `
 
@@ -59,7 +59,7 @@ func main() {
 	switch len(os.Args) {
 	case 1:
 		var err error
-		workDir, err = ioutil.TempDir("", "hostrunner")
+		workDir, err = ioutil.TempDir("", "hosts-inventory")
 		if err != nil {
 			logrus.Fatalf("Error creating work directory: %v", err)
 		}
