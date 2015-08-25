@@ -164,8 +164,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	// suspicious users cannot create free workspaces
-	if u.Suspicious.Valid && pl.Price == 0 {
+	// suspicious users cannot create workspaces
+	if u.Suspicious.Valid {
 		return errSuspiciousUser
 	}
 
