@@ -33,6 +33,7 @@ func init() {
 
 type SshHost struct {
 	ID                    int64          `db:"id"`
+	Slug                  string         `db:"slug"`
 	State                 string         `db:"state"`
 	TemplateName          string         `db:"pt_name"`
 	RegionIdentifier      sql.NullString `db:"region_identifier"`
@@ -40,6 +41,18 @@ type SshHost struct {
 	EncryptedPrivateKey   string         `db:"encrypted_private_key"`
 	EncryptedPrivateKeyIv string         `db:"encrypted_private_key_iv"`
 	Provider              string         `db:"provider"`
+}
+
+// performs a query that populates SshHost fields
+// be very wary of SQL injection (not to be run with user input)
+func Query(extra string) string {
+	return fmt.Sprintf(`SELECT hosts.id, hosts.slug, hosts.region_identifier, hosts.ip_address, hosts.state,
+	pt.provider, pt.name AS pt_name,
+	key_pairs.encrypted_private_key, key_pairs.encrypted_private_key_iv
+	FROM hosts
+	JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+	JOIN key_pairs ON key_pairs.host_id = hosts.id
+	%s`, extra)
 }
 
 func (h *SshHost) PrivateKey() (*rsa.PrivateKey, error) {
@@ -91,14 +104,8 @@ func (h *SshHost) PrivatePEM() ([]byte, error) {
 func FromSlug(d db.QueryReceiver, slug string) (*SshHost, error) {
 	host := &SshHost{}
 	err := d.Get(host,
-		`SELECT hosts.id, hosts.region_identifier, hosts.ip_address, hosts.state,
-			pt.provider, pt.name AS pt_name,
-			key_pairs.encrypted_private_key, key_pairs.encrypted_private_key_iv
-		FROM hosts
-		JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-		JOIN key_pairs ON key_pairs.host_id = hosts.id
-		WHERE hosts.slug = $1
-		AND hosts.terminated_at IS NULL;`, slug)
+		Query(`WHERE hosts.slug = $1 AND hosts.terminated_at IS NULL;`),
+		slug)
 	if err != nil {
 		return nil, err
 	}

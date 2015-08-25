@@ -1,20 +1,15 @@
 package main
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 	"path"
 
 	"github.com/Sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
-	"github.com/nitrous-io/nitrous-common/cipher"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/hostkeys"
 )
 
 const (
@@ -22,26 +17,19 @@ const (
 )
 
 type AnsibleHost struct {
-	*host.Host
+	*hostkeys.SshHost
 }
 
 func inventoryHosts() ([]*AnsibleHost, error) {
 	hosts := []*AnsibleHost{}
-	err := dbConn.Select(&hosts, `SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
-			FROM hosts
-			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
-			LEFT JOIN orgs ON hosts.org_id = orgs.id
-			WHERE terminated_at IS NULL
-				AND pt.name NOT LIKE '%hotswap%'
-				AND preprovisioned = FALSE
-				AND hosts.state NOT IN ($1, $2)
-				AND (
-					sub.state IS NULL OR -- users with no subscriptions still exist
-					sub.state != $3 -- deleted subscriptions will be deleted shortly
-				)
-			ORDER BY id;`,
+	err := dbConn.Select(&hosts, hostkeys.Query(
+		`LEFT JOIN subscriptions AS subs ON hosts.subscription_id = subs.id
+		WHERE hosts.terminated_at IS NULL
+		AND hosts.state NOT IN ($1, $2)
+		AND COALESCE(subs.state, 'null') != $3
+		ORDER BY id;`),
 		host.StateOrphan, host.StateBorn, subscription.StateDeleted)
+
 	if err != nil {
 		return nil, err
 	}
@@ -71,51 +59,12 @@ func (h *AnsibleHost) writePrivateKey() error {
 	}
 	defer f.Close()
 
-	privKey, err := privateKey(h.Host)
+	pem, err := h.PrivatePEM()
 	if err != nil {
 		return err
 	}
-
-	if _, err := f.Write(privatePEM(privKey)); err != nil {
+	if _, err := f.Write(pem); err != nil {
 		return err
 	}
 	return nil
-}
-
-func privatePEM(priv *rsa.PrivateKey) []byte {
-	// ASN.1 DER encoded form
-	privder := x509.MarshalPKCS1PrivateKey(priv)
-	privblk := pem.Block{
-		Type:    "RSA PRIVATE KEY",
-		Headers: nil,
-		Bytes:   privder,
-	}
-	return pem.EncodeToMemory(&privblk)
-}
-
-func privateKey(h *host.Host) (*rsa.PrivateKey, error) {
-	kp, err := keypairs.Get(dbConn, h.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find a keypair for host %v, error %q", h, err)
-	}
-
-	// get the private key from keypair
-	priv, err := cipher.Decrypt(
-		[]byte(aesKey),
-		[]byte(kp.EncryptedPrivateKeyIv),
-		[]byte(kp.EncryptedPrivateKey))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt private key for host %v, error %q", h, err)
-	}
-
-	pk, err := ssh.ParseRawPrivateKey(priv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse private key for host %v, error %q", h, err)
-	}
-	privKey, ok := pk.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("invalid RSA key for host %v", h)
-	}
-
-	return privKey, nil
 }

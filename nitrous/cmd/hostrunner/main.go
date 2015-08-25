@@ -43,7 +43,7 @@ func init() {
 
 func writeInventory(hosts []*AnsibleHost) error {
 	fpath := path.Join(workDir, "inventory")
-	logrus.Debug("Writing inventory file to", fpath)
+	logrus.Debug("Writing inventory file to ", fpath)
 	f, err := os.Create(fpath)
 	if err != nil {
 		return fmt.Errorf("Error creating inventory file: %v", err)
@@ -63,7 +63,6 @@ func main() {
 		if err != nil {
 			logrus.Fatalf("Error creating work directory: %v", err)
 		}
-		// no-op
 	case 2:
 		workDir = os.Args[1]
 		if err := os.MkdirAll(workDir, 0700); err != nil {
