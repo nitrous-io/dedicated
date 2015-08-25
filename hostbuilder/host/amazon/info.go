@@ -11,6 +11,10 @@ func (h *Host) Info() (*host.Info, error) {
 		return nil, errors.New("Invalid ec2 instance")
 	}
 
+	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+		return nil, err
+	}
+
 	info := &host.Info{
 		Provider:       h.DriverName(),
 		ID:             h.instance.InstanceId,
