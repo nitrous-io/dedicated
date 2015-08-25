@@ -32,8 +32,12 @@
                     = link-to 'subscriptions.upgrade' subscription.slug class='ui btn primary'
                       | Upgrade
                   else
-                    button.ui.btn.primary disabled='disabled'
-                      | Upgrade
+                    if subscription.hostIsTransitioning
+                      button.ui.btn.primary click='showWaitForHost subscription'
+                        | Upgrade
+                    else
+                      button.ui.btn.primary disabled='disabled'
+                        | Upgrade
                   button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
               td.charge
                 | $
@@ -62,6 +66,16 @@
       ' You don't have any subscriptions,
       link-to 'hosts.new'| create one now
       | .
+
+.wait-for-host-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header &ldquo;{{subscription.host.name}}&rdquo; is currently busy
+    .card-body
+      p
+        | The workspace &ldquo;{{subscription.host.displayName}}&rdquo; must be running or stopped before you can upgrade, please wait and then try again.
+    .card-footer
+      .right
+        button.ui.btn click='hideWaitForHost' Close
 
 .cancel-subscription-modal-dialog.ui.modal
   .ui.card

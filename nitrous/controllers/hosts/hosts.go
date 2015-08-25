@@ -44,7 +44,7 @@ var (
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and region combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace must be running or stopped to upgrade")
 	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
