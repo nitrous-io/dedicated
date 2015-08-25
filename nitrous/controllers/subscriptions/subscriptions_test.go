@@ -518,6 +518,38 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
 		})
 
+		It("should return a bad request if the subscription has been canceled", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET state = 'canceled' WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("you cannot cancel a subscription that has been canceled"))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
+		It("should return a bad request if the subscription is pending cancellation", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("you cannot cancel a subscription that has been canceled"))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
 		It("should return not found if the subscription does not belong to the user", func() {
 			u2 := &user.User{
 				Username: "foo",

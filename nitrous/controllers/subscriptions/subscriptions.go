@@ -23,9 +23,10 @@ import (
 var (
 	subProvider sub.Provider
 
+	errCannotCancel         = httperror.New(http.StatusBadRequest, "invalid_request", "you cannot cancel a subscription that has been canceled")
 	errCannotUpgrade        = httperror.New(http.StatusBadRequest, "invalid_request", "you cannnot upgrade to this plan")
-	errOrgForbidden         = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
 	errCannotReactivate     = httperror.New(http.StatusBadRequest, "invalid_request", "you cannot reactivate a subscription that has not been cancelled")
+	errOrgForbidden         = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
 	errSubscriptionNotFound = httperror.New(http.StatusNotFound, "subscription_not_found", "subscription does not exist")
 )
 
@@ -173,6 +174,10 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
 	if err != nil {
 		return err
+	}
+
+	if s.CanBeCanceled() {
+		return errCannotCancel
 	}
 
 	err = subProvider.Cancel(env.DB, s)
