@@ -31,6 +31,14 @@ App.BillingSubscriptionsComponent = Em.Component.extend
     @set 'subscription', null
 
   actions:
+    showWaitForHost: (subscription) ->
+      @set('subscription', subscription)
+      ui.showModal(@$('.wait-for-host-modal-dialog'))
+
+    hideWaitForHost: ->
+      ui.hideModal(@$('.wait-for-host-modal-dialog'))
+      @set('subscription', null)
+
     showCancelSubscription: (subscription) ->
       @set('subscription', subscription)
       ui.showModal(@$('.cancel-subscription-modal-dialog'))

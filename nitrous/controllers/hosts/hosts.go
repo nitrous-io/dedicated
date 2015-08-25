@@ -44,7 +44,7 @@ var (
 	errProvidertemplateNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "no matching templates found for the given plan and region combination")
 	errHostStartInvalidState    = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not stopped")
 	errHostStopInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
+	errHostRespecInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace must be running or stopped to upgrade")
 	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
@@ -281,7 +281,8 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 	h.IPAddress = sql.NullString{info.IPAddress, true}
 	h.FreighterdPort = sql.NullInt64{int64(info.FreighterdPort), true}
 	if err := db.WithTransaction(func(tx *sqlx.Tx) error {
-		if err := h.Update(tx); err != nil {
+		columnsToUpdate := []string{"state", "provider_identifier", "ip_address", "freighterd_port"}
+		if err := h.UpdateSpecifiedColumns(tx, columnsToUpdate); err != nil {
 			return err
 		}
 		return hosttransition.Record(tx, h, host.StateStarting, *h.UpdatedAt, env.User.ID)

@@ -10,6 +10,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -24,7 +25,7 @@ import (
 var (
 	IdleTimeout                  = 14 * 24 * time.Hour
 	FirstWarningTimeout          = IdleTimeout - (7 * 24 * time.Hour)
-	NextCheckAfterFirstWarning   = IdleTimeout - (24 * time.Hour) // after first warning is sent, second warning occurs 24hrs before termination
+	NextCheckAfterFirstWarning   = FirstWarningTimeout - (24 * time.Hour) // after first warning is sent, second warning occurs 7 days - 24hrs
 	TerminationAfterFinalWarning = 24 * time.Hour
 	Mailer                       mailer.Mailer
 )
@@ -37,6 +38,11 @@ var (
 
 func init() {
 	Mailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
+
+	total := FirstWarningTimeout + NextCheckAfterFirstWarning + TerminationAfterFinalWarning
+	if total != IdleTimeout {
+		logrus.Fatalf("IdleTimeout should add up to all Warning checks", total, IdleTimeout)
+	}
 }
 
 type Target struct {

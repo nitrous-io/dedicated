@@ -254,6 +254,7 @@ type FakeRoundTripper struct {
 	Wait     time.Duration
 	Header   map[string]string
 	Requests []*http.Request
+	Proxy    func(req *http.Request)
 }
 
 func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
@@ -269,6 +270,10 @@ func (rt *FakeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	for k, v := range rt.Header {
 		res.Header.Set(k, v)
+	}
+
+	if rt.Proxy != nil {
+		rt.Proxy(r)
 	}
 	return res, nil
 }

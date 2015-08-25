@@ -34,11 +34,16 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     @get('plan.price') / 100.0
   ).property 'plan'
 
+  hostIsTransitioning: (->
+    !(@get('host.isRunning') || @get('host.isStopped'))
+  ).property 'host.isRunning', 'host.isStopped'
+
   canUpgrade: (->
+    return false if @get('hostIsTransitioning')
     return true unless curPlan = @get('plan')
     App.get('eligiblePlans').any (plan) =>
       plan.get('isPaidPlan') && !plan.get('hidden') && (curPlan.get('org') == plan.get('org')) && (plan.get('price') > @get('plan.price'))
-  ).property 'App.eligiblePlans.@each', 'plan'
+  ).property 'App.eligiblePlans.@each', 'plan', 'hostIsTransitioning'
 
   cancel: ->
     Em.RSVP.Promise.cast Em.$.ajax

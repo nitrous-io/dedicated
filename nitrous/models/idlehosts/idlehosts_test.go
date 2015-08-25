@@ -329,7 +329,8 @@ var _ = Describe("models/idlehosts", func() {
 			Expect(err).To(BeNil())
 			Expect(h.IdleNoticesSent).To(Equal(host.IDLE_NOTICES_FIRST_WARNING))
 			Expect(h.IdleNextCheck.Valid).To(BeTrue())
-			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(idlehosts.NextCheckAfterFirstWarning), time.Second))
+			secondWarningTimeframe := ((7 * 24) - 24) * time.Hour
+			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(secondWarningTimeframe), time.Second))
 		})
 
 		It("should return an error if the host has an unexpected notice count", func() {
@@ -396,7 +397,7 @@ var _ = Describe("models/idlehosts", func() {
 			Expect(err).To(BeNil())
 			Expect(h.IdleNoticesSent).To(Equal(host.IDLE_NOTICES_FINAL_WARNING))
 			Expect(h.IdleNextCheck.Valid).To(BeTrue())
-			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(idlehosts.TerminationAfterFinalWarning), time.Second))
+			Expect(h.IdleNextCheck.Time).To(BeTemporally("~", time.Now().Add(24*time.Hour), time.Second))
 		})
 
 		It("should return an error if the host has an unexpected notice count", func() {

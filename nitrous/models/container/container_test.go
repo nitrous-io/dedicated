@@ -637,7 +637,11 @@ var _ = Describe("models/container", func() {
 	})
 
 	Describe("Delete()", func() {
-		var c *container.Container
+		var (
+			c  *container.Container
+			v  *volume.Volume
+			cv *cvolume.ContainerVolume
+		)
 
 		BeforeEach(func() {
 			c = &container.Container{
@@ -649,6 +653,13 @@ var _ = Describe("models/container", func() {
 				TerminatedAt: nil,
 			}
 			err := c.Insert(db)
+			Expect(err).To(BeNil())
+
+			v = &volume.Volume{Slug: "beefyvolume", HostID: h.ID}
+			err = v.Insert(db)
+			Expect(err).To(BeNil())
+			cv = &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
+			err = cv.Insert(db)
 			Expect(err).To(BeNil())
 
 			c, err = container.Find(db, u, "java-test-container")
@@ -668,6 +679,21 @@ var _ = Describe("models/container", func() {
 			Expect(c2).To(Equal(c))
 		})
 
+		It("removes associated volumes but not the volume itself", func() {
+			err := c.Delete(db)
+			Expect(err).To(BeNil())
+			Expect(c.TerminatedAt).NotTo(BeNil())
+
+			var count int
+			err = db.QueryRow(`SELECT COUNT(*) FROM container_volumes WHERE id = $1`, cv.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(0))
+
+			err = db.QueryRow(`SELECT COUNT(*) FROM volumes WHERE id = $1`, v.ID).Scan(&count)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+
 		It("fills up the fields in the struct", func() {
 			c2 := &container.Container{ID: c.ID}
 			err := c2.Delete(db)
@@ -675,40 +701,6 @@ var _ = Describe("models/container", func() {
 
 			Expect(c2.CreatedAt).NotTo(BeNil())
 			Expect(c2.UpdatedAt).NotTo(BeNil())
-		})
-	})
-
-	Describe("DeletePermanently()", func() {
-		It("deletes the container from the database", func() {
-			c := &container.Container{
-				UserID:       u.ID,
-				HostID:       h.ID,
-				Image:        "nitrous-base",
-				Slug:         "beef",
-				TerminatedAt: nil,
-			}
-			err := c.Insert(db)
-			Expect(err).To(BeNil())
-
-			// ensure association are deleted
-			v := &volume.Volume{Slug: "beefyvolume", HostID: h.ID}
-			err = v.Insert(db)
-			Expect(err).To(BeNil())
-			cv := &cvolume.ContainerVolume{ContainerID: c.ID, VolumeID: v.ID}
-			err = cv.Insert(db)
-			Expect(err).To(BeNil())
-
-			var count int
-			err = db.QueryRow(`SELECT COUNT(*) FROM containers WHERE slug = $1;`, "beef").Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(1))
-
-			err = c.DeletePermanently(db)
-			Expect(err).To(BeNil())
-
-			err = db.QueryRow(`SELECT COUNT(*) FROM containers WHERE slug = $1;`, "beef").Scan(&count)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(0))
 		})
 	})
 

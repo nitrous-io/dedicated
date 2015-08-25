@@ -1598,6 +1598,50 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(h.State).To(Equal(host.StateRunning))
 			})
+
+			It("does not update unrelated fields", func() {
+				// initial value
+				hs.H.MaxContainers = sql.NullInt64{3, true}
+				err := hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				// start a host after 100ms
+				hb := hostbuilderclient.NewHostbuilder("www.example.com")
+				rt := &test.FakeRoundTripper{
+					Message: okResponse,
+					Status:  http.StatusOK,
+					Proxy: func(req *http.Request) {
+						time.Sleep(100 * time.Millisecond)
+					},
+				}
+				replaceTransport(hb, rt)
+				hosts.HostbuilderClient = hb
+
+				var done = make(chan struct{})
+				go func() {
+					doRequest(hs.H.Slug)
+					done <- struct{}{}
+				}()
+
+				// give some time to send a request
+				// so host variable will have old values in the request
+				time.Sleep(10 * time.Millisecond)
+				hs.H.MaxContainers = sql.NullInt64{1, true}
+				err = hs.H.Update(db)
+				Expect(err).To(BeNil())
+
+				select {
+				case <-done:
+					Expect(res.Code).To(Equal(http.StatusOK))
+					var j struct {
+						Host *serializers.Host `json:"host"`
+					}
+					err = json.NewDecoder(res.Body).Decode(&j)
+					Expect(err).To(BeNil())
+					Expect(j.Host.IPAddress).To(Equal("127.0.0.1"))
+					Expect(j.Host.MaxContainers).To(Equal(int64(1)))
+				}
+			})
 		})
 
 		Context("when hostbuilder fails to start the host", func() {
@@ -2598,6 +2642,10 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_state"))
+			Expect(errDesc).To(Equal("workspace must be running or stopped to upgrade"))
 		})
 
 		It("responds with HTTP 202 Accepted and respecs the host asynchronously", func() {
