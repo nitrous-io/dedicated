@@ -478,24 +478,35 @@ func createInstance(ctx *host.HostContext) error {
 		return mh.Error(fmt.Errorf("amazon: failed to get region keypair %v", err), label)
 	}
 
-	bdm := []ec2.BlockDeviceMapping{
-		{
-			// The root volume is defined in the AMI's block devices as a
-			// snapshot, so we do not need to specify its size.
-			DeviceName:          rootDeviceName,
-			VolumeType:          GeneralVolumeType,
-			DeleteOnTermination: true,
-		},
-	}
+	var bdm []ec2.BlockDeviceMapping
+
 	if containsUserDevice(h.ami.BlockDevices) {
-		bdm = append(bdm, ec2.BlockDeviceMapping{
-			// The user volume is also in the AMI's block devices
-			// and we override its size to what was requested.
-			DeviceName:          userDeviceName,
-			VolumeSize:          storageSize,
-			VolumeType:          GeneralVolumeType,
-			DeleteOnTermination: false,
-		})
+		bdm = []ec2.BlockDeviceMapping{
+			{
+				// The root volume is defined in the AMI's block devices as a
+				// snapshot, so we do not need to specify its size.
+				DeviceName:          rootDeviceName,
+				VolumeType:          GeneralVolumeType,
+				DeleteOnTermination: true,
+			},
+			{
+				// The user volume is also in the AMI's block devices
+				// and we override its size to what was requested.
+				DeviceName:          userDeviceName,
+				VolumeSize:          storageSize,
+				VolumeType:          GeneralVolumeType,
+				DeleteOnTermination: false,
+			},
+		}
+	} else {
+		bdm = []ec2.BlockDeviceMapping{
+			{
+				DeviceName:          rootDeviceName,
+				VolumeSize:          storageSize,
+				VolumeType:          GeneralVolumeType,
+				DeleteOnTermination: true,
+			},
+		}
 	}
 
 	opts := &ec2.RunInstances{
