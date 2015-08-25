@@ -12,6 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -447,7 +448,14 @@ func (s *Server) handleRespecMessage(m *queue.Message) error {
 
 		info := queueInfo.Host
 		h.ProviderTemplateID = rs.ProviderTemplateID
-		h.State = host.StateRunning
+		switch info.State {
+		case state.Running:
+			h.State = host.StateRunning
+		case state.Stopped:
+			h.State = host.StateStopped
+		default:
+			logData.Warnf("unexpected state %v from hostbuilder after respec", info.State)
+		}
 		h.IPAddress = sql.NullString{info.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{info.ID, true}
 		h.ProviderStorageIdentifier = sql.NullString{info.VolumeID, true}
