@@ -413,6 +413,22 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(hosts).To(HaveLen(0))
 			})
 
+			It("sets the host as terminated even if the termination fails", func() {
+				rt.Status = http.StatusInternalServerError
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				fsub.SubscribeError = errors.New("I failed")
+
+				err := handler(message)
+				Expect(err).To(MatchError("Failed to create subscription, please try again."))
+				Expect(rt.Requests).To(HaveLen(1))
+
+				hosts, _ := host.FindAllByUser(db, u.ID)
+				Expect(hosts).To(HaveLen(0))
+			})
+
 			It("continues creating if the subscribe succeeds", func() {
 				fsub.SubscribeError = nil
 				fsub.SubscribeReturn = &subscription.Subscription{}
