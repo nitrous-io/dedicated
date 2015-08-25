@@ -1,6 +1,7 @@
 #= require ./base
 
-GOPATH_ERROR = /not beneath any of these GOROOT\/GOPATH directories:(.+)$/
+GOPATH_ERROR = /not beneath any of these GOROOT\/GOPATH directories:\s?(.+)$/
+NOTFOUND_ERROR = /command\s+not\s+found:/
 
 klass = class Go extends PluginBase
   afterSave: (context)->
@@ -24,19 +25,23 @@ klass = class Go extends PluginBase
         return
       if sidebar
         sidebar.refreshTextFileContent pth
-  
+
   supportsGoToDefinition: true
   goToDefinition: (context)->
     opsSocket = context.opsSocket
     sidebar = context.sidebar
     pth = @path()
 
+    expandedPath = pth.get('absolutePath')
+    unless context.noReadlink
+      expandedPath = "$(readlink -f #{expandedPath})"
+
     if !pth || !opsSocket
       return
     cmd = [
       "oracle",
       "-format=json",
-      "-pos=$(readlink -f #{pth.get('absolutePath')}):##{@document.get("currentOffset")}",
+      "-pos=#{expandedPath}:##{@document.get("currentOffset")}",
       "definition"
     ]
     cwd = ''
@@ -44,7 +49,7 @@ klass = class Go extends PluginBase
     opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
       if err || cmdErr
         if stderr
-          @processOracleErr(stderr)
+          @processOracleErr(context, stderr)
         return
       data = JSON.parse stdout
       if (def = data.definition) && (pos = def.objpos)
@@ -58,9 +63,27 @@ klass = class Go extends PluginBase
             pos = {line: parseInt(line)-1, ch: parseInt(cursor)-1}
             sidebar.openPath pth, selections: [{anchor: pos, head: pos}]
 
-  processOracleErr: (err)->
+  processOracleErr: (context, err)->
     err = err.trim()
+    if m = err.match NOTFOUND_ERROR
+      @handleError "For Go To Definition to work, <strong>gooracle</strong> must be installed.",
+        title: "Oracle is not installed"
+        url: "http://golang.org/s/oracle-user-manual"
+        okText: 'Help'
+      return
     if m = err.match GOPATH_ERROR
-      @handleError("The file is outside of your GOPATH/GOROOT: #{m[1]}")
+      # our symlink expanding may have broke
+      unless context.noReadlink
+        context.noReadlink = true
+        @goToDefinition(context)
+        return
+      pth = @path()
+      @handleError "This file is not inside your GOPATH or GOROOT paths: #{m[1]}.<br/><br/>For Go code tooling to work you must ensure <b>#{pth.get('absolutePath')}</b> is inside GOPATH or GOROOT.",
+        title: "File is outside GOPATH/GOROOT"
+        url: "This would go to a community docs before the PR merges"
+        okText: "Help"
+      return
+    
+    @handleSnackbarError "Go To Definition is unavailable."
 
 App.CodePluginsManager.registerCodePlugin "golang", klass, ["go", "text/x-go"]

@@ -2,13 +2,21 @@ class @PluginBase
   constructor: (@document) ->
 
   afterSave: (context)->
-  
+
   supportsGoToDefinition: false
   goToDefinition: (context)->
 
   path: ->
     @document.get 'path'
 
-  handleError: (err)->
-    # this is an example for the plugin proposal, we would not use alert in RL
-    window.alert("#{@document.get('title')}: #{err}")
+  handleSnackbarError: (err)->
+    App.Snackbar.postError err
+
+  handleError: (err, opts = {})->
+    PubSub.publish 'error.message',
+      App.ErrorDialog.create
+        errorMessage: err
+        redirectUrl: opts.url
+        newWindow: true
+        errorTitle: (opts.title || @document.get('title'))
+        okButtonText: (opts.okText || 'OK')
