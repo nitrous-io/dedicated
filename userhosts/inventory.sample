@@ -1,0 +1,7 @@
+[userhosts:vars]
+ansible_ssh_port=65100
+ansible_ssh_user=ubuntu
+
+[userhosts]
+
+hostslug-1234 ansible_ssh_host=127.0.0.127 ansible_ssh_private_key_file=/path/to/pem

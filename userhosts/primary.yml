@@ -1,0 +1,14 @@
+---
+- hosts: userhosts
+  gather_facts: no
+  sudo: yes
+  tasks:
+  - name: install ntp
+    apt: name=ntp state=present
+  - name: copy block-ec2-metadata upstart
+    copy: src=~/code/dedicated/script/block-ec2-metadata dest=/tmp/block-ec2-metadata
+  - name: execute block-ec2 script
+    shell: chmod +x /tmp/block-ec2-metadata && /tmp/block-ec2-metadata
+    args:
+      creates: /etc/init/block-ec2-metadata.conf
+
