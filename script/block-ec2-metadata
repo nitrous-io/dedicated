@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# Install ntp. It will sync in max 30 minutes since first execution
-sudo apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" ntp
-
-# Forced sync
-sudo ntpdate -u 0.ubuntu.pool.ntp.org
-
 # Add Upstart job to block access to EC2 metadata service from Docker containers.
 upstart_file='/etc/init/block-ec2-metadata.conf'
 
