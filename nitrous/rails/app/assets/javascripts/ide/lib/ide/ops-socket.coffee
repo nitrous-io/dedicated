@@ -7,6 +7,9 @@ App.OpsSocket = klass = App.EventedSocket.extend
   unwatchDir: (absolutePath) ->
     @send 'fs', 'unwatchDir', absolutePath
 
+  unwatchFile: (absolutePath) ->
+    @send 'fs', 'unwatchFile', absolutePath
+
   fetchFileList: (absolutePath, callback) ->
     @send 'fs', 'list', absolutePath, callback
 
