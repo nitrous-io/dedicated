@@ -70,6 +70,7 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
     nextSearch = @get('patternForSearch')
     if nextSearch != @get('content.currentSearch')
       @get('controller').startFind nextSearch, @get('content.basePath')
+      return unless @get('content')
       @set 'content.currentSearch', nextSearch
 
   didClickResult: (filename) ->
