@@ -23,8 +23,11 @@ import (
 var (
 	subProvider sub.Provider
 
-	errCannotUpgrade = httperror.New(http.StatusBadRequest, "invalid_request", "you cannnot upgrade to this plan")
-	errOrgForbidden  = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
+	errCannotCancel         = httperror.New(http.StatusBadRequest, "invalid_request", "you cannot cancel a subscription that has been canceled")
+	errCannotUpgrade        = httperror.New(http.StatusBadRequest, "invalid_request", "you cannnot upgrade to this plan")
+	errCannotReactivate     = httperror.New(http.StatusBadRequest, "invalid_request", "you cannot reactivate a subscription that has not been cancelled")
+	errOrgForbidden         = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
+	errSubscriptionNotFound = httperror.New(http.StatusNotFound, "subscription_not_found", "subscription does not exist")
 )
 
 func init() {
@@ -173,6 +176,10 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if s.CanBeCanceled() {
+		return errCannotCancel
+	}
+
 	err = subProvider.Cancel(env.DB, s)
 	if err != nil {
 		return err
@@ -181,6 +188,30 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "cancelled",
+	}
+	return nil
+}
+
+func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	slug := mux.Vars(r)["slug"]
+
+	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	if err != nil {
+		return errSubscriptionNotFound
+	}
+
+	if !s.CancelPending {
+		return errCannotReactivate
+	}
+
+	err = subProvider.Reactivate(env.DB, s)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "reactivated",
 	}
 	return nil
 }

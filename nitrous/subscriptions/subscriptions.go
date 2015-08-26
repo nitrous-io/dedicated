@@ -39,6 +39,7 @@ type Provider interface {
 	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
+	Reactivate(d *db.Database, sub *subscription.Subscription) error
 
 	HandleSubscriptionUpdated(d *db.Database, subID string) (*subscription.Subscription, error)
 	HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error)
@@ -311,6 +312,44 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 
 	if err := s.upgradeHosts(d, sub); err != nil {
 		logrus.Errorf("Error upgrading hosts for subscription %d, err: %v", sub.ID, err)
+	}
+
+	return nil
+}
+
+func (s *SubscriptionProvider) Reactivate(d *db.Database, sub *subscription.Subscription) error {
+	logrus.Infof("Cancelled Subscription %d has been requested to be re-activated", sub.ID)
+
+	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
+	if err != nil {
+		return err
+	}
+
+	cancelledPlan, err := plan.FindByID(d, sub.PlanID)
+	if err != nil {
+		return err
+	}
+
+	planID := cancelledPlan.StripePlanID.String
+	if bp.State == billingprofile.StateExempt {
+		planID = planID + "-exempt"
+	}
+
+	// https://support.stripe.com/questions/how-can-i-resume-a-subscription-after-it-has-been-canceled
+	stripeSub, err := stripesub.Update(
+		sub.StripeID.String,
+		&stripe.SubParams{
+			Customer: bp.StripeID.String,
+			Plan:     planID,
+		},
+	)
+	if err != nil {
+		logrus.Errorf("Unable to re-activate Stripe subscription %d, err: %v.", sub.ID, err)
+		return err
+	}
+
+	if stripeSub.EndCancel {
+		return fmt.Errorf("An error occured when re-activating Stripe subscription %d. Expected Stripe response cancel_at_period_end=false, got cancel_at_period_end=true.", sub.ID)
 	}
 
 	return nil

@@ -49,7 +49,13 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     Em.RSVP.Promise.cast Em.$.ajax
       type: 'DELETE',
       url: "/api/v0/subscriptions/#{@get 'slug'}/cancel",
-      headers: { Authorization: "Bearer #{App.get 'token'}" },
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  reactivate: ->
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'POST',
+      url: "/api/v0/subscriptions/#{@get 'slug'}/reactivate",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
 
   upgrade: (plan_id)->
     Em.RSVP.Promise.cast Em.$.ajax

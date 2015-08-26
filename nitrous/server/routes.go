@@ -210,6 +210,7 @@ func (s *Server) drawRoutes() {
 				"/feedback":                                r("feedback.Send", feedback.Send),
 				"/invoices/{id}/pay":                       r("billing.PayInvoice", billing.PayInvoice, EventInvoiceManuallyPaid),
 				"/subscriptions/{slug}/upgrade":            r("subscriptions.Upgrade", subscriptions.Upgrade),
+				"/subscriptions/{slug}/reactivate":         r("subscriptions.Reactivate", subscriptions.Reactivate),
 				"/admin/announcements/new":                 r("announcements.SendAnnouncement", announcements.SendAnnouncement),
 				"/admin/switch_user":                       r("admin.SwitchUser", admin.SwitchUser),
 				"/admin/provider_templates/{ptid}":         r("providertemplates.Update", providertemplates.Update),
