@@ -91,18 +91,28 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
-        containerData = data.container
-        if container = findContainer(containerData)
-          container.get("collaborators").reload()
-          return if container.get("userId") == App.get('user.id')
+        if container = findContainer(data.container)
+          # Make sure container exists on user's workspace before reloading collaborators or GET /containers/{slug}/collaborators will return 404.
+          if isOwner(data) || findSharedContainer(data)
+            container.get("collaborators").reload()
 
-        if App.get('sharedContainers')
-          App.get('sharedContainers').reload()
-        else
-          App.set('sharedContainers', App.SharedContainer.fetch().value)
+        if !isOwner(data)
+          if App.get('sharedContainers')
+            App.get('sharedContainers').reload()
+          else
+            App.set('sharedContainers', App.SharedContainer.fetch().value)
 
-        if evt == "collaborator.added" && data.container.user_id != App.get('user.id')
-            App.snackbar.post("#{data.initiated_by.username} has added to you to #{data.container.slug}")
+        if evt == "collaborator.added" && !isOwner(data)
+          if isCollaborator(data)
+            App.snackbar.post("#{data.initiated_by.username} added you to shared container “#{data.container.slug}“")
+          else
+            App.snackbar.post("#{data.initiated_by.username} added “#{data.collaborator.username}“ to shared container #“{data.container.slug}“")
+
+        if evt == "collaborator.removed" && !isInitiator(data) 
+          if !isOwner(data) && isCollaborator(data)
+            App.snackbar.post("#{data.initiated_by.username} removed you from shared container “#{data.container.slug}“")
+          if isOwner(data)
+            App.snackbar.post("#{data.collaborator.username} left shared container “#{data.container.slug}“")
 
     @on 'image.build_failed', (data) ->
       findImage(data)?.set 'progress', null
@@ -161,6 +171,10 @@ findContainer = (data) ->
     return c
   return findAllSharedContainers()?.findBy(pk, data[pk])
 
+findSharedContainer = (data) ->
+  pk = App.Container.primaryKey
+  findAllSharedContainers()?.findBy(pk, data[pk])
+
 findAllHosts = ->
   App.get('hosts')
 
@@ -201,3 +215,15 @@ parseProgress = (data) ->
     if eta && id
       progress.status = "Downloading #{id}... #{eta}"
   progress
+
+isCollaborator = (data) ->
+  if App.get('user.id') == data.collaborator.id
+    true
+
+isOwner = (data) ->
+  if App.get('user.id') == data.container.user_id
+    true
+
+isInitiator = (data) -> 
+  if App.get('user.id') == data.initiated_by.id
+    true

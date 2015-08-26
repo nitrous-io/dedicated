@@ -107,7 +107,13 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		}
 	}()
 
-	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
+	collabData := map[string]interface{}{
+		"collaborator": map[string]interface{}{
+			"id":       usr.ID,
+			"username": usr.Username,
+		},
+	}
+	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, collabData)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -123,7 +129,7 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 	}
 
 	var affectedUserID sql.NullInt64
-	err = env.DB.QueryRow(`SELECT user_id FROM container_collabs WHERE id = $1 AND container_id = $2`, ccid, cn.ID).Scan(&affectedUserID)
+	err = env.DB.Get(&affectedUserID, `SELECT user_id FROM container_collabs WHERE id = $1`, ccid)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errCollaboratorNotFound
@@ -139,8 +145,21 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
+	var affectedUsername string
+	err = env.DB.Get(&affectedUsername, `SELECT username FROM users WHERE id = $1`, affectedUserID)
+	// Don't return err when owner removes a collaborator that is pending invite as the collaborator does not have a user record.
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
 	ev := controllers.EventCollaboratorRemoved
-	containers.PublishContainerEvent(env, ev, cn, nil)
+	collabData := map[string]interface{}{
+		"collaborator": map[string]interface{}{
+			"id":       affectedUserID.Int64,
+			"username": affectedUsername,
+		},
+	}
+	containers.PublishContainerEvent(env, ev, cn, collabData)
 
 	// fire to removed user
 	if affectedUserID.Valid {
@@ -150,6 +169,10 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 			"initiated_by": map[string]interface{}{
 				"username": env.User.Username,
 				"id":       env.User.ID,
+			},
+			"collaborator": map[string]interface{}{
+				"id":       affectedUserID.Int64,
+				"username": affectedUsername,
 			},
 		}
 		env.Events.Publish(controllers.NewEvent(ev, data), topic)

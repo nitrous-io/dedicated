@@ -770,7 +770,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 	return c
 }
 
-func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, add map[string]interface{}) {
+func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, additionalData map[string]interface{}) {
 	userIDs, err := containercollab.GetCollaboratorIDs(env.DB, c.ID)
 	if err != nil {
 		logrus.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
@@ -781,24 +781,24 @@ func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 
 	if env.User != nil {
 		data["initiated_by"] = map[string]interface{}{
-			"username": env.User.Username,
 			"id":       env.User.ID,
+			"username": env.User.Username,
 		}
 	}
 
-	for k, v := range add {
+	for k, v := range additionalData {
 		data[k] = v
 	}
 
 	PublishContainerEventToUsers(env.Events, name, c, userIDs, data)
 }
 
-func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventName, c *container.Container, userIDs []int64, add map[string]interface{}) {
+func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventName, c *container.Container, userIDs []int64, additionalData map[string]interface{}) {
 	data := map[string]interface{}{
 		"container": serializers.SerializeContainer(c),
 	}
 
-	for k, v := range add {
+	for k, v := range additionalData {
 		data[k] = v
 	}
 
