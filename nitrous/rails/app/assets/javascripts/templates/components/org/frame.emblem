@@ -1,14 +1,28 @@
-.card-header.tab-bar-title
-  h2
-    link-to 'org.index' org.slug
-      = org.displayName
+if org.firstTime
+  .card-header.bordered
+    .steps
+      .step.completed
+        i.fa.fa-check-circle-o.fa-lg
+        | Org Info
+      .step class={billingOrAddCardSelected:active}
+        i.fa.fa-circle-o.fa-lg
+        link-to 'org.billing' | Billing Info
+      .step class={membersSelected:active}
+        i.fa.fa-circle-o.fa-lg
+        link-to 'org.members' | Invite Members
 
-ul.ui.tab-bar.org-tab-bar
-  li class={membersSelected:selected}
-    link-to 'org.members' | Members
-  if canSeeBillingTab
-    li class={billingOrAddCardSelected:selected}
-      link-to 'org.billing' | Billing
+else
+  .card-header.tab-bar-title
+    h2
+      link-to 'org.index' org.slug
+        = org.displayName
+
+    ul.ui.tab-bar.org-tab-bar
+      li class={membersSelected:selected}
+        link-to 'org.members' | Members
+      if canSeeBillingTab
+        li class={billingOrAddCardSelected:selected}
+          link-to 'org.billing' | Billing
 
 if membersSelected
   = org-members org=org
