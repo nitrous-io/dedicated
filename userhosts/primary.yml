@@ -4,7 +4,7 @@
   sudo: yes
   tasks:
   - name: install ntp
-    apt: name=ntp state=present
+    apt: name=ntp state=present force=yes
   - name: copy block-ec2-metadata upstart
     copy: src=files/block-ec2-metadata.conf dest=/etc/init/block-ec2-metadata.conf backup=yes mode=0644
   - shell: ip route ls type unreachable
