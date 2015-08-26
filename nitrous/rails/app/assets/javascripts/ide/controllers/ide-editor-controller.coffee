@@ -47,6 +47,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     CodeMirror.commands.save = (cm) =>
       @saveDocument(@get('activeTab'))
 
+  opsSocketDidStartForTheFirstTime: (->
+    if @get 'opsSocket.startedFirstTime'
+      socket = @get 'opsSocket'
+      socket.on 'fileChanged.output', _.bind(@handleFileChanged, this)
+  ).observes 'opsSocket.startedFirstTime'
+
   reset: ->
     @set 'content', null
     @set 'saveDialog', null
@@ -74,6 +80,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     tab = @get 'activeTab' unless tab
     return unless tab
     if tab.get('clean') || forceRemove
+      opsSocket = @get 'opsSocket'
+      opsSocket.unwatchFile tab.get('path.absolutePath')
+
       @_super(tab)
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
@@ -86,6 +95,17 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     opsSocket = @get 'opsSocket'
     if pl = doc.get('plugin')
       pl.goToDefinition({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
+
+  handleFileChanged: (err, file) ->
+    path = App.Path.create(absolutePath: file)
+    if doc = @findProperty 'path', path
+      return unless doc.get('clean')
+
+      lastUpdated = doc.get('documentLastUpdated')
+      return if lastUpdated && (Date.now() - lastUpdated)/1000 <= 1
+      doc.set 'documentLastUpdated', Date.now()
+      if sidebar = App.get('router.ideSidebarController')
+        sidebar.refreshTextFileContent path
 
   saveDocument: (doc) ->
     return unless @get 'opsSocketReady'
@@ -107,6 +127,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
           return
         Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
         Mp.increment Mp.PropertyIDEFileSaveCount
+        doc.set 'documentLastUpdated', Date.now()
 
         if pl = doc.get('plugin')
           pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})

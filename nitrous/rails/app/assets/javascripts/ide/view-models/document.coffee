@@ -23,6 +23,8 @@ App.Document = App.TabContent.extend
   replaceAllTrigger: null
   selectNextTrigger: null
 
+  documentLastUpdated: null
+
   foldCodeTrigger: null
   unfoldCodeTrigger: null
   toggleCommentTrigger: null
@@ -65,6 +67,11 @@ App.Document = App.TabContent.extend
   title: (->
     @get('path.name') || "Untitled #{untitledCount += 1}"
   ).property 'path.name'
+
+  observeReplaceContentTrigger: (->
+    return unless @get('replaceContentTrigger')
+    @set 'documentLastUpdated', Date.now()
+  ).property 'replaceContentTrigger'
 
   processErrMessage: (stderr)->
     errors = Em.A([])
