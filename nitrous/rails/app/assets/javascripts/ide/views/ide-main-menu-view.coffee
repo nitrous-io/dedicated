@@ -167,12 +167,21 @@ App.IdeMainMenuView = Em.View.extend
             controller.fileClose()
       ]
       menu 'Edit', [
-        menuItem 'Go to Line...',
+        menuItem 'Go to Line',
           macKey: 'command+l', pcKey: 'ctrl+l'
           chromeMacKey: 'command+l', chromePcKey: 'ctrl+l'
           disabledBinding: Em.Binding.oneWay('App.router.ideEditorController.hasNoTab')
           callback: (controller) ->
             controller.editGoToLine()
+        menuItem 'Go to Definition',
+          macKey: 'shift+ctrl+.', pcKey: 'ctrl+alt+.'
+          chromeMacKey: ['shift+command+.', 'shift+ctrl+.'],     chromePcKey: ['shift+ctrl+.', 'ctrl+alt+.']
+          disabled: (->
+            return false if App.get('router.ideEditorController.supportsGoToDefinition')
+            true
+          ).property 'App.router.ideEditorController.supportsGoToDefinition'
+          callback: (controller) ->
+            controller.findGoToDefinition()
         separator
         menuItem 'Fold',
           chromeMacKey: 'option+command+[', chromePcKey: 'shift+ctrl+['

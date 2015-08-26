@@ -518,6 +518,38 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
 		})
 
+		It("should return a bad request if the subscription has been canceled", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET state = 'canceled' WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("you cannot cancel a subscription that has been canceled"))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
+		It("should return a bad request if the subscription is pending cancellation", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("you cannot cancel a subscription that has been canceled"))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
 		It("should return not found if the subscription does not belong to the user", func() {
 			u2 := &user.User{
 				Username: "foo",
@@ -548,6 +580,111 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			Expect(fsub.CancelCalled).To(BeFalse())
 			Expect(fsub.CancelSubscription).To(BeNil())
+		})
+	})
+
+	Describe("POST /api/v0/subscriptions/{id}/reactivate", func() {
+		var (
+			s *subscription.Subscription
+			p *plan.Plan
+		)
+
+		BeforeEach(func() {
+			// Insert plan
+			p = &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(slug string) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/subscriptions/%s/reactivate", slug)
+			req, err := test.NewAuthedRequest(t, "POST", url, nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("should request to reactivate the subscription", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.ReactivateCalled).To(BeTrue())
+			Expect(fsub.ReactivateSubscription.ID).To(Equal(s.ID))
+		})
+
+		It("should return a bad request if cancel_pending = false", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("you cannot reactivate a subscription that has not been cancelled"))
+
+			Expect(fsub.ReactivateCalled).To(BeFalse())
+		})
+
+		It("should return a not found if the subscription does not belong to the user", func() {
+			u2 := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			bp, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"2", true},
+				Slug:             "SLUG2",
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			res := doRequest(s2.Slug)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("subscription_not_found"))
+			Expect(errDesc).To(Equal("subscription does not exist"))
+
+			Expect(fsub.ReactivateCalled).To(BeFalse())
+			Expect(fsub.ReactivateSubscription).To(BeNil())
 		})
 	})
 })

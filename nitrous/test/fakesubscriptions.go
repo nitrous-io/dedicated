@@ -23,6 +23,10 @@ type FakeSubscriptionProvider struct {
 	CancelSubscription *subscription.Subscription
 	CancelError        error
 
+	ReactivateCalled       bool
+	ReactivateSubscription *subscription.Subscription
+	ReactivateError        error
+
 	UpgradeCalled       bool
 	UpgradeSubscription *subscription.Subscription
 	UpgradePlan         *plan.Plan
@@ -63,6 +67,12 @@ func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subs
 	s.CancelCalled = true
 	s.CancelSubscription = sub
 	return s.CancelError
+}
+
+func (s *FakeSubscriptionProvider) Reactivate(d *db.Database, sub *subscription.Subscription) error {
+	s.ReactivateCalled = true
+	s.ReactivateSubscription = sub
+	return s.ReactivateError
 }
 
 func (s *FakeSubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error {

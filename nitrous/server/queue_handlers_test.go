@@ -413,6 +413,22 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(hosts).To(HaveLen(0))
 			})
 
+			It("sets the host as terminated even if the termination fails", func() {
+				rt.Status = http.StatusInternalServerError
+
+				ch := svr.Events.Subscribe(u.Topic())
+				defer svr.Events.Unsubscribe(ch, u.Topic())
+
+				fsub.SubscribeError = errors.New("I failed")
+
+				err := handler(message)
+				Expect(err).To(MatchError("Failed to create subscription, please try again."))
+				Expect(rt.Requests).To(HaveLen(1))
+
+				hosts, _ := host.FindAllByUser(db, u.ID)
+				Expect(hosts).To(HaveLen(0))
+			})
+
 			It("continues creating if the subscribe succeeds", func() {
 				fsub.SubscribeError = nil
 				fsub.SubscribeReturn = &subscription.Subscription{}
@@ -1121,6 +1137,29 @@ var _ = Describe("HostQueueHandler", func() {
 
 				err = handler(message)
 				Expect(err).ToNot(BeNil())
+			})
+
+			It("updates state to stopped if hostbuilder says that host state is stopped", func() {
+				// Send message with state of "stopped".
+				queueInfo.Host.State = state.Stopped
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message := &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "respec",
+					Event:        string(event.HostRespecced),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+
+				err = handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.State).To(Equal(host.StateStopped))
 			})
 		})
 

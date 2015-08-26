@@ -8,6 +8,9 @@ App.Document = App.TabContent.extend
   isDocumentTab: true
   contentType: 'text'
 
+  plugin: null
+  editorMode: 'text/plain'
+
   otClient: null
   otUndoManagerOverride: null
 
@@ -32,9 +35,24 @@ App.Document = App.TabContent.extend
 
   errorCountBinding: 'lineWidgets.length'
 
+  currentOffset: null
+
   readOnly: false
 
   lineWidgets: Em.A([])
+
+  init: ->
+    @_super.apply this, arguments
+
+    @setPluginManager()
+
+  setPluginManager: ->
+    if pl = (App.CodePluginsManager.forType @get('editorMode'))
+      @set 'plugin', new pl(@)
+
+  updatePluginManager: (->
+    @setPluginManager()
+  ).observes 'editorMode'
 
   line: (->
     (@get('selections.0.head.line') || 0) + 1
@@ -63,3 +81,7 @@ App.Document = App.TabContent.extend
           msg.className = 'line-error-message'
           errors.push({line: parseInt(match[1])-1, node: msg, options: {coverGutter: false}})
     @set 'lineWidgets', errors
+
+  supportsGoToDefinition: (->
+    @get('plugin')?.supportsGoToDefinition || false
+  ).property 'plugin'

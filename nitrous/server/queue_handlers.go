@@ -12,6 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	hh "github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -103,7 +104,19 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 					hdrs.Set(constants.NitrousUUIDHeader, m.UUID)
 					return hostcontrol.Terminate(tx, h, hdrs, u.ID)
 				}); err != nil {
-					logrus.Errorf("Unable to terminate host %d: %v", h.ID, err)
+					logrus.Errorf("Unable to terminate host %d, will modify DB: %v", h.ID, err)
+					// attempting to mark host as terminated
+					// at DB level
+					h.ProviderIdentifier = sql.NullString{Valid: false}
+					err := s.db.WithTransaction(func(tx *sqlx.Tx) error {
+						hdrs := http.Header{}
+						hdrs.Set(constants.NitrousUUIDHeader, m.UUID)
+						return hostcontrol.Terminate(tx, h, hdrs, u.ID)
+					})
+					if err != nil {
+						logrus.Errorf("Unable to terminate host at DB level %d: %v", h.ID, err)
+						s.markHostAsTerminated(h)
+					}
 				} else {
 					s.publishProvisionFailure(u, h, e.Error())
 				}
@@ -447,7 +460,14 @@ func (s *Server) handleRespecMessage(m *queue.Message) error {
 
 		info := queueInfo.Host
 		h.ProviderTemplateID = rs.ProviderTemplateID
-		h.State = host.StateRunning
+		switch info.State {
+		case state.Running:
+			h.State = host.StateRunning
+		case state.Stopped:
+			h.State = host.StateStopped
+		default:
+			logData.Warnf("unexpected state %v from hostbuilder after respec", info.State)
+		}
 		h.IPAddress = sql.NullString{info.IPAddress, true}
 		h.ProviderIdentifier = sql.NullString{info.ID, true}
 		h.ProviderStorageIdentifier = sql.NullString{info.VolumeID, true}
@@ -497,6 +517,13 @@ func (s *Server) handleRespecMessage(m *queue.Message) error {
 	}
 
 	return nil
+}
+
+func (s *Server) markHostAsTerminated(h *host.Host) {
+	_, err := s.db.Exec("UPDATE hosts SET terminated_at = now(), updated_at = now() WHERE id = $1 AND terminated_at IS NULL;", h.ID)
+	if err != nil {
+		logrus.Errorf("Failed to set `terminated_at` on host %d: %v", h.ID, err)
+	}
 }
 
 func (s *Server) PublishContainerEvent(name controllers.EventName, c *container.Container, queueInfo *hh.QueueInfo) error {

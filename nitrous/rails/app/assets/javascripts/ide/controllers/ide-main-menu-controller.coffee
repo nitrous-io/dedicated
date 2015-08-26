@@ -51,6 +51,10 @@ App.IdeMainMenuController = Em.Controller.extend
   findReplace: ->
     activeDocumentSet 'replaceTrigger', true
 
+  findGoToDefinition: ->
+    if editorController = @get 'controllers.ideEditor'
+      editorController.goToDefinition editorController.get('activeTab')
+
   revealInSidebar: ->
     if editorController = @get 'controllers.ideEditor'
       path = editorController.get('activeTab.path')

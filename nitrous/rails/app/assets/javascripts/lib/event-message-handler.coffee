@@ -140,7 +140,7 @@ App.EventMessageHandler = App.EventsSocket.extend
         App.refreshInvoices()
 
     @on 'subscription.updated', (data) ->
-      if (data.subscription && sub = App.get('subscriptions').findBy('id', data.subscription.id))
+      if (data.subscription && sub = App.get('subscriptions').findBy('slug', data.subscription.slug))
         sub.load(data.subscription)
       else
         App.refreshSubscriptions()

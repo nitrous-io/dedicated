@@ -102,6 +102,7 @@ App.Editor = klass = Em.Object.extend
       cm.hasFocus()
 
   focus: ->
+    window.focusedEditor = this
     if cm = @get('codeMirror')
       cm.focus() unless @hasFocus()
 
@@ -162,6 +163,22 @@ App.Editor = klass = Em.Object.extend
   splitSelectionIntoLines: ->
     if cm = @get 'codeMirror'
       cm.execCommand('splitSelectionByLine')
+
+  getOffset: ->
+    if cm = @get 'codeMirror'
+      c = cm.getCursor()
+      lineNo = c.line
+      cursorNo = c.ch
+      l = 0
+      dLength = 0
+      cm.eachLine (line) ->
+        if l == lineNo
+          dLength += cursorNo
+          return true
+        dLength += (line.text.length + 1)
+        l++
+        false
+      dLength
 
   removeTrailingWhitespace: ->
     if cm = @get 'codeMirror'

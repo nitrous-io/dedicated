@@ -37,6 +37,9 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
 
+      PubSub.subscribe 'error.message', (msg, data) =>
+        @set('errorDialog', data)
+
       @set 'opsSocket', opsSocket = App.OpsSocket.create(container: container)
       opsSocket.connect()
 

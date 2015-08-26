@@ -54,3 +54,18 @@ App.BillingSubscriptionsComponent = Em.Component.extend
         App.snackbar.post('Subscription cancelled successfully.')
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, 'Failed to cancel subscription.')
+
+    showReactivateSubscription: (subscription)->
+      @set('subscription', subscription)
+      ui.showModal(@$('.reactivate-subscription-modal-dialog'))
+
+    hideReactivateSubscription: ->
+      ui.hideModal(@$('.reactivate-subscription-modal-dialog'))
+      @set('subscription', null)
+
+    reactivateSubscription: (subscription)->
+      ui.hideModal(@$('.reactivate-subscription-modal-dialog'))
+      subscription.reactivate().then ->
+        App.snackbar.post('Your subscription has been re-activated.')
+      , (jqxhr) ->
+        App.postError(jqxhr.responseJSON, 'Failed to re-activate subscription. Support has been notified and is looking into the matter.')

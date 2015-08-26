@@ -18,6 +18,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
   collabSocketReadyBinding: Em.Binding.oneWay 'App.router.ideController.collabSocketReady'
 
+  supportsGoToDefinitionBinding: Em.Binding.oneWay 'activeTab.supportsGoToDefinition'
+
   softTabs: true
   tabSize: 2
   theme: 'solarized dark'
@@ -77,25 +79,13 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
   activeTabDidChange: (->
-    @get('tabWatcher').notifyOfChange()
+    @get('tabWatcher')?.notifyOfChange()
   ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
 
-  saveGoDocument: (doc) ->
-    path = doc.get 'path'
+  goToDefinition: (doc) ->
     opsSocket = @get 'opsSocket'
-    if !path || !opsSocket
-      return
-    cmd = ["goimports", "-w", path.get('absolutePath')]
-    cwd = ''
-    env = []
-    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
-      doc.processErrMessage stderr
-      if err || cmdErr
-        doc.set 'clean', true
-        return
-      sidebarController = App.get 'router.ideSidebarController'
-      if sidebarController
-        sidebarController.refreshTextFileContent path
+    if pl = doc.get('plugin')
+      pl.goToDefinition({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
 
   saveDocument: (doc) ->
     return unless @get 'opsSocketReady'
@@ -118,8 +108,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         Mp.track Mp.EventIDEUserSavedFile, new_file: 'false'
         Mp.increment Mp.PropertyIDEFileSaveCount
 
-        if App.get('freighterdFeatures')?.contains('cmdrun') && path.get('absolutePath').match(/\.go$/)
-          @saveGoDocument(doc)
+        if pl = doc.get('plugin')
+          pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
         else
           doc.set 'clean', true
     else
