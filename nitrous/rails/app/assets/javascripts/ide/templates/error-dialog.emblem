@@ -2,9 +2,11 @@
   h2.card-header
     = view.content.errorTitle
   .card-body
-    p = view.content.errorMessage
+    p == view.content.errorMessage
   .card-footer
+    input.key-focus style='visibility: hidden'
     .right
-      button.ui.btn click='didClickCancel target="view"' Cancel
+      if view.content.redirectUrl
+        button.ui.btn click='didClickCancel target="view"' Cancel
       button.ui.btn.primary click='didClickOK target="view"'
         = view.content.okButtonText
