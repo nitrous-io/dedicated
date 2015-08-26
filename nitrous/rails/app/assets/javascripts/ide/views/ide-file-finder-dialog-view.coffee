@@ -1,3 +1,5 @@
+LINE_NO_REGEX = /\s*:(\d+)\s*$/
+
 App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
   templateName: 'ide/file-finder-dialog'
   elementId: 'ide-file-finder-dialog-view'
@@ -40,6 +42,11 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
         suppress()
         if path = @get('content.selectedFile.absolutePath')
           this.didClickResult(path)
+        else
+          # user may want to navigate in file
+          if line = @get 'patternLineNumber'
+            @set('controller.controllers.ideEditor.activeTab.goToLine', line)
+            @hide()
 
   setupPoller: ->
     @set 'pollerKey', Ember.run.later(this, (=>
@@ -47,8 +54,20 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
       this.setupPoller()
     ), 200)
 
+  patternForSearch: (->
+    return unless @get('content.pattern')
+    replaced = @get('content.pattern').replace(LINE_NO_REGEX, "")
+    return @get('content.pattern') if replaced == ""
+    replaced
+  ).property 'content.pattern'
+
+  patternLineNumber: (->
+    if (m = @get('content.pattern')?.match(LINE_NO_REGEX))
+      return parseInt(m[1])
+  ).property 'content.pattern'
+
   poller: ->
-    nextSearch = @get('content.pattern')
+    nextSearch = @get('patternForSearch')
     if nextSearch != @get('content.currentSearch')
       @get('controller').startFind nextSearch, @get('content.basePath')
       @set 'content.currentSearch', nextSearch
@@ -57,7 +76,13 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
     # filename will be relative to home directory
     path = App.Path.create absolutePath: filename
     if sidebar = @get 'controller.controllers.ideSidebar'
-      sidebar.openPath path,
+      opts = {
         done: =>
           this.hide()
         source: 'filefinder'
+      }
+      if line = @get 'patternLineNumber'
+        pos = {line: line-1, ch: 0}
+        opts.selections = [{anchor: pos, head: pos}]
+      sidebar.openPath path, opts
+
