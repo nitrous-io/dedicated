@@ -10,7 +10,7 @@ class @PluginBase
     @document.get 'path'
 
   handleSnackbarError: (err)->
-    App.Snackbar.postError err
+    App.postError err
 
   handleError: (err, opts = {})->
     PubSub.publish 'error.message',
