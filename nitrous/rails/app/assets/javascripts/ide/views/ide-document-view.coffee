@@ -476,6 +476,7 @@ App.IdeDocumentView = Em.View.extend
 
   watchOffset: ->
     @watchOffsetTimer = window.setInterval(=>
+      return unless @get('document.active')
       if editor = @get('editor')
         @set 'document.currentOffset', editor.getOffset()
     , 100)
