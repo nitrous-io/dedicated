@@ -6,7 +6,7 @@ App.IdeEditorView = Em.View.extend
   didInsertElement: ->
     @_super()
     $(window).on "focus.#{@get('elementId')}", =>
-      @set('controller.activeTab.focused', true)
+      @get('controller.activeTab')?.set('focused', true)
 
   willDestroyElement: ->
     @_super()
