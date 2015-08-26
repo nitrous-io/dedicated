@@ -1138,6 +1138,29 @@ var _ = Describe("HostQueueHandler", func() {
 				err = handler(message)
 				Expect(err).ToNot(BeNil())
 			})
+
+			It("updates state to stopped if hostbuilder says that host state is stopped", func() {
+				// Send message with state of "stopped".
+				queueInfo.Host.State = state.Stopped
+				payload, err := json.Marshal(queueInfo)
+				Expect(err).To(BeNil())
+				message := &queue.Message{
+					UUID:         "uuid-1234",
+					Action:       "respec",
+					Event:        string(event.HostRespecced),
+					ResourceName: "host",
+					ResourceID:   "host-1234",
+					Payload:      payload,
+				}
+
+				err = handler(message)
+				Expect(err).To(BeNil())
+
+				updatedHost, err := host.Find(db, u, h.Slug)
+				Expect(err).To(BeNil())
+
+				Expect(updatedHost.State).To(Equal(host.StateStopped))
+			})
 		})
 
 		Context("a host respec fails", func() {

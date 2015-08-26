@@ -9,6 +9,7 @@ import (
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/event"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"golang.org/x/net/context"
@@ -24,33 +25,39 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	label := h.MetricsLabel("respec")
 	defer mh.UpdateSince(label, time.Now())
 
-	h.Printf("respec received: %#v", h.Config)
+	h.Printf("respec received: %+v", h.Config)
 
 	host.PublishMessage(qp, event.HostRespeccing, h.requestID, queueInfo, "Respeccing host", queue.Respec)
 
-	if err := h.reloadInstance(h.Config.ID); err != nil {
-		return nil, mh.Error(err, label)
-	}
+	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
+	// host is a hotswap host that's stopped.
+	hotswapHostStopped := (h.Config.ID == "")
 
-	// Allocate Elastic IP.
-	addresses, err := getAddresses(h.provider, h.instance.InstanceId)
-	if err != nil {
-		return nil, mh.Error(err, label)
-	}
-	// If instance already has an Elastic IP allocated, we skip this step.
-	if len(addresses) == 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), allocateElasticIPTimeout)
-		defer cancel()
-
-		hctx := host.NewContext(ctx, h, h, nil)
-		err := hctx.Run(host.Step{
-			Description: "Allocating static IP",
-			Func:        allocateElasticIP,
-		})
-		if err != nil {
-			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-			h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
+	if !hotswapHostStopped {
+		if err := h.reloadInstance(h.Config.ID); err != nil {
 			return nil, mh.Error(err, label)
+		}
+
+		// Allocate Elastic IP.
+		addresses, err := getAddresses(h.provider, h.instance.InstanceId)
+		if err != nil {
+			return nil, mh.Error(err, label)
+		}
+		// If instance already has an Elastic IP allocated, we skip this step.
+		if len(addresses) == 0 {
+			ctx, cancel := context.WithTimeout(context.Background(), allocateElasticIPTimeout)
+			defer cancel()
+
+			hctx := host.NewContext(ctx, h, h, nil)
+			err := hctx.Run(host.Step{
+				Description: "Allocating static IP",
+				Func:        allocateElasticIP,
+			})
+			if err != nil {
+				h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+				h.Printf("ERROR: failed to allocate Elastic IP to instance %s: %v", h.instance.InstanceId, err)
+				return nil, mh.Error(err, label)
+			}
 		}
 	}
 
@@ -64,7 +71,7 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		return h.respecWithPool(qp, queueInfo)
 	}
 
-	h.Printf("respeccing pre-EBS hotswapping instance normally")
+	h.Printf("respeccing pre-EBS hotswapping instance normally, instance: %+v", h.instance)
 
 	var changeInstanceType, changeStorageSize bool
 
@@ -112,9 +119,11 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	// Otherwise, we stop the instance since any further changes now require
 	// it to be stopped.
-	if err := h.stopInstance(); err != nil {
-		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
-		return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+	if getState(h.instance) == state.Running {
+		if err := h.stopInstance(); err != nil {
+			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+			return nil, mh.Error(fmt.Errorf("amazon: failed to stop instance for respeccing, err: %v", err), label)
+		}
 	}
 
 	if changeInstanceType {
@@ -153,6 +162,14 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
 	label := h.MetricsLabel("respec_with_pool")
 	defer mh.UpdateSince(label, time.Now())
+
+	// If we don't have an ID (i.e. provider_identifier from nitrousd), the
+	// host is a hotswap host that's stopped.
+	if h.Config.ID == "" {
+		return h.respecStoppedHostWithPool(qp, queueInfo)
+	}
+
+	h.Printf("respeccing running EBS hotswapping instance: %+v", h.instance)
 
 	var changeInstanceType, changeStorageSize bool
 
@@ -199,7 +216,7 @@ func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*h
 	}
 
 	if changeStorageSize {
-		if err := h.resizeUserVolume(userVolume, configuredSize); err != nil {
+		if err := h.liveResizeUserVolume(userVolume, configuredSize); err != nil {
 			h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
 			return nil, mh.Error(fmt.Errorf("amazon: failed to resize user volume, err: %v", err), label)
 		}
@@ -233,6 +250,62 @@ func (h *Host) respecWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*h
 	}
 
 	return info, err
+}
+
+func (h *Host) respecStoppedHostWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*host.Info, error) {
+	label := h.MetricsLabel("respec_stopped_host")
+	defer mh.UpdateSince(label, time.Now())
+
+	h.Printf("respeccing stopped EBS hotswapping instance, volume %s", h.Config.VolumeID)
+
+	if h.Config.StorageSize == 0 {
+		return &host.Info{
+			VolumeID: h.Config.VolumeID,
+			Provider: h.DriverName(),
+			Region:   h.provider.Region.Name,
+			State:    state.Stopped,
+		}, nil
+	}
+
+	userVolume, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		return nil, mh.Error(err, label)
+	}
+
+	currentSize, err := strconv.ParseInt(userVolume.Size, 10, 64)
+	if err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+		return nil, mh.Error(fmt.Errorf("amazon: cannot parse size from volume: %+v, err: %v", userVolume, err), label)
+	}
+
+	configuredSize := computeSize(h.Config.StorageSize)
+	if currentSize >= configuredSize {
+		h.Printf("respec: volume resize not required, current size is %d", currentSize)
+		return &host.Info{
+			VolumeID: h.Config.VolumeID,
+			Provider: h.DriverName(),
+			Region:   h.provider.Region.Name,
+			State:    state.Stopped,
+		}, nil
+	}
+
+	h.Printf("respec: volume resize required (%d to %d)", currentSize, configuredSize)
+
+	if err := h.resizeUserVolume(userVolume, configuredSize); err != nil {
+		h.publishHostError(qp, queueInfo, event.HostRespecFailed, queue.Respec, err)
+		return nil, mh.Error(fmt.Errorf("amazon: failed to resize user volume, err: %v", err), label)
+	}
+
+	info := &host.Info{
+		VolumeID: h.newVolume.VolumeId, // Use new volume's ID.
+		Provider: h.DriverName(),
+		Region:   h.provider.Region.Name,
+		State:    state.Stopped,
+	}
+
+	host.PublishHost(qp, event.HostRespecced, h.requestID, queueInfo, info, queue.Respec, "")
+
+	return info, nil
 }
 
 type resizeStep struct {
@@ -303,7 +376,49 @@ func (h *Host) resizeRootVolume(rootVolume *ec2.Volume, newSize int64) (err erro
 	return nil
 }
 
+// resizeUserVolume resizes user volume that's not attached to an instance.
 func (h *Host) resizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	ctx, cancel = context.WithTimeout(context.Background(), resizeVolumeTimeout)
+	defer cancel()
+
+	h.userVolume = userVolume
+	h.newSize = newSize
+
+	hctx := host.NewContext(ctx, h, h, nil)
+	steps := []host.Step{
+		{
+			Description: "Taking snapshot of current user volume",
+			Func:        snapshotUserVolume,
+		},
+		{
+			Description: "Creating larger volume",
+			Func:        createNewVolume,
+		},
+		{
+			Description: "Cleaning up",
+			Func:        deleteOldVolume,
+		},
+	}
+	for _, step := range steps {
+		if err := hctx.Run(step); err != nil {
+			h.Printf("ERROR: failed in resize user volume step %q: %v", step.Description, err)
+
+			if err == context.DeadlineExceeded {
+				return ErrTimeout
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+// liveResizeUserVolume resizes user volume of a running instance.
+func (h *Host) liveResizeUserVolume(userVolume *ec2.Volume, newSize int64) (err error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -464,10 +579,10 @@ func snapshotUserVolume(ctx *host.HostContext) error {
 	userVolume := h.userVolume
 	newSize := h.newSize
 
-	h.Printf("Creating snapshot of user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Creating snapshot of user volume %s", userVolume.VolumeId)
 
 	desc := fmt.Sprintf("Created by hostbuilder for respec of %s from %sGB to %dGB",
-		h.instance.InstanceId, userVolume.Size, newSize)
+		userVolume.VolumeId, userVolume.Size, newSize)
 	snapshot, err := createSnapshot(h.provider, userVolume.VolumeId, desc)
 	if err != nil {
 		return fmt.Errorf("amazon: failed to create snapshot of user volume %+v, err: %v", userVolume, err)
@@ -476,7 +591,7 @@ func snapshotUserVolume(ctx *host.HostContext) error {
 	h.snapshot = snapshot
 
 	tags := []ec2.Tag{
-		{Key: "InstanceID", Value: h.instance.InstanceId},
+		{Key: "volume-id", Value: userVolume.VolumeId},
 		{Key: "dedicated", Value: h.driverConfig.Env},
 	}
 	if _, err := h.provider.CreateTags([]string{snapshot.Id}, tags); err != nil {
@@ -543,11 +658,11 @@ func deleteOldVolume(ctx *host.HostContext) error {
 
 	userVolume := h.userVolume
 
-	h.Printf("Deleting old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Deleting old user volume %s", userVolume.VolumeId)
 	if _, err := h.provider.DeleteVolume(userVolume.VolumeId); err != nil {
-		h.Printf("ERROR: failed to delete old user volume %s for instance %s after respec, err: %v", userVolume.VolumeId, h.instance.InstanceId, err)
+		h.Printf("ERROR: failed to delete old user volume %s after respec, err: %v", userVolume.VolumeId, err)
 	}
-	h.Printf("Deleted old user volume %s of instance %s", userVolume.VolumeId, h.instance.InstanceId)
+	h.Printf("Deleted old user volume %s", userVolume.VolumeId)
 
 	return nil
 }
