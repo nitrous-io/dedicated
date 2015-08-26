@@ -80,10 +80,9 @@ klass = class Go extends PluginBase
       pth = @path()
       @handleError "This file is not inside your GOPATH or GOROOT paths: #{m[1]}.<br/><br/>For Go code tooling to work you must ensure <b>#{pth.get('absolutePath')}</b> is inside GOPATH or GOROOT.",
         title: "File is outside GOPATH/GOROOT"
-        url: "This would go to a community docs before the PR merges"
         okText: "Help"
       return
-    
+
     @handleSnackbarError "Go To Definition is unavailable."
 
 App.CodePluginsManager.registerCodePlugin "golang", klass, ["go", "text/x-go"]
