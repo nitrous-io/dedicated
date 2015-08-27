@@ -1615,23 +1615,27 @@ var _ = Describe("models/host", func() {
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   false,
 				}: hostbuilderclient.Config{
 					"id":         "i-123456",
 					"volume_id":  "vol-abcde",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
+					"hotswap":    false,
 				},
 				&host.Host{
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   true,
 					ProviderTemplate:          &providertemplate.ProviderTemplate{},
 				}: hostbuilderclient.Config{
 					"id":         "i-123456",
 					"volume_id":  "",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
+					"hotswap":    true,
 				},
 				&host.Host{
 					ID:                        42,
@@ -1639,6 +1643,7 @@ var _ = Describe("models/host", func() {
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   true,
 					ProviderTemplate: &providertemplate.ProviderTemplate{
 						Provider: "amazon",
 						Config: hstore.Hstore{
@@ -1655,6 +1660,7 @@ var _ = Describe("models/host", func() {
 					"volume_id":     "vol-abcde",
 					"region_id":     "us-west-2",
 					"ip_address":    "10.0.0.1",
+					"hotswap":       true,
 					"name":          "userhost-{{env}}-42",
 					"disable_eip":   true,
 					"instance_type": "t2.micro",

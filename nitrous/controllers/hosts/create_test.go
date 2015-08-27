@@ -586,6 +586,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(config["freighterd_version"]).To(Equal(hosts[0].FreighterdVersion))
 		})
 
+		It("sends whether the provider template supports hotswap to hostbuilder", func() {
+			_, err := db.Exec("UPDATE provider_templates SET hotswap = true WHERE id = $1", hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(params)
+
+			req := rt.Requests[0]
+			var config hostbuilderclient.Config
+			err = json.Unmarshal([]byte(req.FormValue("config")), &config)
+			Expect(err).To(BeNil())
+			Expect(config["hotswap"]).To(BeTrue())
+		})
+
 		It("responds with the progress data and created host", func() {
 			res := doRequest(params)
 			Expect(res.Code).To(Equal(http.StatusOK))

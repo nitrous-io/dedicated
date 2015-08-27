@@ -905,6 +905,7 @@ var _ = Describe("controllers/hosts", func() {
 					ProviderIdentifier: sql.NullString{"001", true},
 					IPAddress:          sql.NullString{"10.0.0.1", true},
 					RegionIdentifier:   sql.NullString{"us-east-1", true},
+					Hotswap:            true,
 				},
 				U: u,
 			})
@@ -1075,12 +1076,14 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
+				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
-			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
-			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
-			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
+			Expect(payload.Region).To(Equal("us-east-1"))
+			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when hostbuilder successfully deletes the host", func() {
@@ -1385,6 +1388,7 @@ var _ = Describe("controllers/hosts", func() {
 					State:            host.StateStopped,
 					IPAddress:        sql.NullString{"10.0.0.1", true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
+					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -1421,12 +1425,14 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
+				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
 			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
 			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
 			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is not in the stopped state", func() {
@@ -1717,6 +1723,7 @@ var _ = Describe("controllers/hosts", func() {
 					IPAddress:        sql.NullString{"127.0.0.1", true},
 					FreighterdPort:   sql.NullInt64{65333, true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
+					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -1754,12 +1761,14 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
+				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
-			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
-			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
-			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
+			Expect(payload.Region).To(Equal("us-east-1"))
+			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is already stopped", func() {
@@ -1970,6 +1979,7 @@ var _ = Describe("controllers/hosts", func() {
 					State:            host.StateRunning,
 					IPAddress:        sql.NullString{"127.0.0.1", true},
 					RegionIdentifier: sql.NullString{"us-east-1", true},
+					Hotswap:          true,
 				},
 				U: u,
 			})
@@ -2006,12 +2016,14 @@ var _ = Describe("controllers/hosts", func() {
 				ID        string `json:"id"`
 				IPAddress string `json:"ip_address"`
 				Region    string `json:"region_id"`
+				Hotswap   bool   `json:"hotswap"`
 			}{}
 			json.Unmarshal([]byte(rt.Requests[0].FormValue("config")), payload)
 
-			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String), "invalid id")
-			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String), "invalid ip_address")
-			Expect(payload.Region).To(Equal("us-east-1"), "invalid region")
+			Expect(payload.ID).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(payload.IPAddress).To(Equal(hs.H.IPAddress.String))
+			Expect(payload.Region).To(Equal("us-east-1"))
+			Expect(payload.Hotswap).To(Equal(true))
 		})
 
 		Context("when host is not in the running state", func() {
