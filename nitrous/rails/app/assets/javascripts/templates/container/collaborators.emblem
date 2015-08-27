@@ -64,7 +64,8 @@
     .card-body
       p 
         strong
-          = collaborator.username  
+          = collaborator.username
+          = collaborator.pendingEmail
         '  will no longer have access to 
         strong
           = containerSlug

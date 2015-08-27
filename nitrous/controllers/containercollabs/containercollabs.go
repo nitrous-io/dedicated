@@ -137,52 +137,68 @@ func remove(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return err
 	}
 
-	if env.User.ID != cn.UserID && env.User.ID != affectedUserID.Int64 && !env.User.Admin {
+	if !isOwner(env, cn) && !isSelf(env, affectedUserID.Int64) && !env.User.Admin {
 		return errRemoveForbidden
 	}
-	err = containercollab.Delete(env.DB, ccid, cn.ID)
-	if err != nil {
+	if err = containercollab.Delete(env.DB, ccid, cn.ID); err != nil {
 		return err
 	}
 
-	var affectedUsername string
-	err = env.DB.Get(&affectedUsername, `SELECT username FROM users WHERE id = $1`, affectedUserID)
-	// Don't return err when owner removes a collaborator that is pending invite as the collaborator does not have a user record.
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-
-	ev := controllers.EventCollaboratorRemoved
-	collabData := map[string]interface{}{
-		"collaborator": map[string]interface{}{
-			"id":       affectedUserID.Int64,
-			"username": affectedUsername,
-		},
-	}
-	containers.PublishContainerEvent(env, ev, cn, collabData)
-
-	// fire to removed user
+	// Don't publish events to removed users that are pending invite since they don't have an account.
+	collabData := make(map[string]interface{})
 	if affectedUserID.Valid {
-		topic := pubsub.Topic(fmt.Sprintf("user-%d", affectedUserID.Int64))
-		data := map[string]interface{}{
-			"container": serializers.SerializeContainer(cn),
-			"initiated_by": map[string]interface{}{
-				"username": env.User.Username,
-				"id":       env.User.ID,
-			},
-			"collaborator": map[string]interface{}{
-				"id":       affectedUserID.Int64,
-				"username": affectedUsername,
-			},
+		collabData, err = publishRemoveEvent(env, cn, affectedUserID.Int64)
+		if err != nil {
+			return err
 		}
-		env.Events.Publish(controllers.NewEvent(ev, data), topic)
 	}
+	containers.PublishContainerEvent(env, controllers.EventCollaboratorRemoved, cn, collabData)
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,
 	}
 	return nil
+}
+
+func isOwner(env *middleware.Env, cn *container.Container) bool {
+	return env.User.ID == cn.UserID
+}
+
+func isSelf(env *middleware.Env, uID int64) bool {
+	return env.User.ID == uID
+}
+
+func publishRemoveEvent(env *middleware.Env, cn *container.Container, uID int64) (map[string]interface{}, error) {
+	var username string
+	err := env.DB.Get(&username, `SELECT username FROM users WHERE id = $1`, uID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errUserNotFound
+		}
+		return nil, err
+	}
+
+	collabData := map[string]interface{}{
+		"collaborator": map[string]interface{}{
+			"id":       uID,
+			"username": username,
+		},
+	}
+
+	// Fire to removed user
+	topic := pubsub.Topic(fmt.Sprintf("user-%d", uID))
+	data := map[string]interface{}{
+		"container": serializers.SerializeContainer(cn),
+		"initiated_by": map[string]interface{}{
+			"username": env.User.Username,
+			"id":       env.User.ID,
+		},
+		"collaborator": collabData["collaborator"],
+	}
+	env.Events.Publish(controllers.NewEvent(controllers.EventCollaboratorRemoved, data), topic)
+
+	return collabData, nil
 }
 
 func handleNoUser(cn *container.Container, env *middleware.Env, email string) error {
@@ -195,7 +211,13 @@ func handleNoUser(cn *container.Container, env *middleware.Env, email string) er
 		return err
 	}
 
-	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, nil)
+	collabData := map[string]interface{}{
+		"collaborator": map[string]interface{}{
+			"username": email,
+		},
+	}
+	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, collabData)
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,

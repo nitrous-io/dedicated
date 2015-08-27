@@ -38,10 +38,11 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
     removeCollaborator: ()->
       ui.hideModal '.remove-collaborator-modal-dialog'
       collaborator = @get('collaborator')
+      username = collaborator.get('username') || collaborator.get('pendingEmail')
       collaborator.ajax('DELETE').then ->
-        App.snackbar.post("You removed collaborator “#{collaborator.get('username')}“.")
+        App.snackbar.post("You removed “#{username}“")
       , (jqxhr) ->
-        App.postError(jqxhr.responseJSON, "Failed to remove collaborator “#{collaborator.get('username')}“.")
+        App.postError(jqxhr.responseJSON, "Failed to remove “#{username}“")
 
     showLeaveContainer: (collaborator)->
       @set('collaborator', collaborator)
@@ -56,7 +57,7 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
       containerSlug = @get 'model.slug'
       collaborator = @get('collaborator')
       collaborator.ajax('DELETE').then =>
-        App.snackbar.post("You left “#{containerSlug}“.")
+        App.snackbar.post("You left “#{containerSlug}“")
         @transitionToRoute 'home.index'
       , (jqxhr) ->
-        App.postError(jqxhr.responseJSON, "Failed to leave “#{containerSlug}“.")
+        App.postError(jqxhr.responseJSON, "Failed to leave “#{containerSlug}“")

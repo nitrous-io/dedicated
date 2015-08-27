@@ -486,6 +486,57 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
+		It("should fire off events with collab username if added collaborator is pending invite", func() {
+			chOwner := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(chOwner, u.Topic())
+
+			doRequest("robin@example.com")
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			collab := &containercollab.ContainerCollab{}
+			err := db.Get(collab, "SELECT * FROM container_collabs WHERE invite_email = 'robin@example.com' AND container_id = $1", cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(collab).ToNot(BeNil())
+
+			msgsOwners := []pubsub.Message{}
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				msgsOwners = append(msgsOwners, <-chOwner)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			Expect(msgsOwners).To(HaveLen(1))
+
+			ownerMsg := msgsOwners[0].(*controllers.Event)
+			Expect(ownerMsg.Name).To(Equal(controllers.EventCollaboratorAdded))
+			data, ok := ownerMsg.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+
+			cn, ok := data["container"].(*serializers.Container)
+			Expect(ok).To(BeTrue())
+			Expect(cn.ID).To(Equal(cnr.ID))
+
+			initiator, ok := data["initiated_by"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			initiatorID, ok := initiator["id"].(int64)
+			Expect(ok).To(BeTrue())
+			Expect(initiatorID).To(Equal(u.ID))
+			initiatorUsername, ok := initiator["username"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(initiatorUsername).To(Equal(u.Username))
+
+			collaborator, ok := data["collaborator"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			_, ok = collaborator["id"]
+			Expect(ok).ToNot(BeTrue())
+			collaboratorUsername, ok := collaborator["username"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(collaboratorUsername).To(Equal("robin@example.com"))
+		})
+
 		It("should fire off events to the target user and container owner", func() {
 			otherUser := &user.User{
 				Username: "steve",
@@ -609,7 +660,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(count).To(Equal(1))
 		})
 
-		It("should return a bad request if the current user is not the owner but tries to remove another collaborator", func() {
+		It("should return a forbidden if the current user is not the owner but tries to remove another collaborator", func() {
 			usr2 := &user.User{
 				Username: "steve",
 				Email:    "steve@stevey.com",
@@ -811,6 +862,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(ok).To(BeTrue())
 
 			cn, ok := data["container"].(*serializers.Container)
+			Expect(ok).To(BeTrue())
 			Expect(cn.ID).To(Equal(cnr.ID))
 
 			initiator, ok := data["initiated_by"].(map[string]interface{})
@@ -837,6 +889,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(ok).To(BeTrue())
 
 			cn, ok = data["container"].(*serializers.Container)
+			Expect(ok).To(BeTrue())
 			Expect(cn.ID).To(Equal(cnr.ID))
 
 			initiator, ok = data["initiated_by"].(map[string]interface{})
@@ -856,6 +909,49 @@ var _ = Describe("controllers/containercollabs", func() {
 			collaboratorUsername, ok = collaborator["username"].(string)
 			Expect(ok).To(BeTrue())
 			Expect(collaboratorUsername).To(Equal(otherUser.Username))
+		})
+
+		It("should not include collaborator data when firing off events if target user is pending invite", func() {
+			var collabID int64
+			err := db.QueryRow(`INSERT INTO container_collabs (container_id, invite_email, invite_code) VALUES ($1, 'abc@example.com', '22x2') RETURNING ID`, cnr.ID).Scan(&collabID)
+			Expect(err).To(BeNil())
+
+			chOwner := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(chOwner, u.Topic())
+
+			doRequest(collabID)
+
+			msgsOwners := []pubsub.Message{}
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				msgsOwners = append(msgsOwners, <-chOwner)
+				wg.Done()
+			}()
+
+			wg.Wait()
+			Expect(msgsOwners).To(HaveLen(1))
+
+			ownerMsg := msgsOwners[0].(*controllers.Event)
+			Expect(ownerMsg.Name).To(Equal(controllers.EventCollaboratorRemoved))
+			data, ok := ownerMsg.Data.(map[string]interface{})
+			Expect(ok).To(BeTrue())
+
+			_, ok = data["collaborator"].(map[string]interface{})
+			Expect(ok).ToNot(BeTrue())
+
+			cn, ok := data["container"].(*serializers.Container)
+			Expect(ok).To(BeTrue())
+			Expect(cn.ID).To(Equal(cnr.ID))
+
+			initiator, ok := data["initiated_by"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			initiatorID, ok := initiator["id"].(int64)
+			Expect(ok).To(BeTrue())
+			Expect(initiatorID).To(Equal(u.ID))
+			initiatorUsername, ok := initiator["username"].(string)
+			Expect(ok).To(BeTrue())
+			Expect(initiatorUsername).To(Equal(u.Username))
 		})
 	})
 })

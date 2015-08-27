@@ -92,8 +92,8 @@ App.EventMessageHandler = App.EventsSocket.extend
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
         if container = findContainer(data.container)
-          # Make sure container exists on user's workspace before reloading collaborators or GET /containers/{slug}/collaborators will return 404.
-          if isOwner(data) || findSharedContainer(data)
+          # Make sure container is not deleted on user's workspace before reloading collaborators or GET /containers/{slug}/collaborators will return 404.
+          if isOwner(data) || !isCollaborator(data) 
             container.get("collaborators").reload()
 
         if !isOwner(data)
@@ -108,7 +108,7 @@ App.EventMessageHandler = App.EventsSocket.extend
           else
             App.snackbar.post("#{data.initiated_by.username} added “#{data.collaborator.username}“ to “#{data.container.slug}“")
 
-        if evt == "collaborator.removed" && !isInitiator(data) 
+        if evt == "collaborator.removed" && !isInitiator(data)
           if !isOwner(data) && isCollaborator(data)
             App.snackbar.post("#{data.initiated_by.username} removed you from “#{data.container.slug}“")
           if isOwner(data)
@@ -171,10 +171,6 @@ findContainer = (data) ->
     return c
   return findAllSharedContainers()?.findBy(pk, data[pk])
 
-findSharedContainer = (data) ->
-  pk = App.Container.primaryKey
-  findAllSharedContainers()?.findBy(pk, data[pk])
-
 findAllHosts = ->
   App.get('hosts')
 
@@ -217,13 +213,12 @@ parseProgress = (data) ->
   progress
 
 isCollaborator = (data) ->
-  if App.get('user.id') == data.collaborator.id
-    true
+  # collaborator data may not be passed in for pending invites, so you need to check if the values exist
+  if data.collaborator && data.collaborator.id
+      App.get('user.id') == data.collaborator.id
 
 isOwner = (data) ->
-  if App.get('user.id') == data.container.user_id
-    true
+  App.get('user.id') == data.container.user_id
 
 isInitiator = (data) -> 
-  if App.get('user.id') == data.initiated_by.id
-    true
+  App.get('user.id') == data.initiated_by.id
