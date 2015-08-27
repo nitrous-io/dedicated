@@ -99,6 +99,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   handleFileChanged: (err, file) ->
     path = App.Path.create(absolutePath: file)
     if doc = @findProperty 'path', path
+      return unless doc.isOTMaster()
       return unless doc.get('clean')
 
       lastUpdated = doc.get('documentLastUpdated')
