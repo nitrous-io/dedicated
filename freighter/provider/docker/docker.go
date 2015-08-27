@@ -240,6 +240,7 @@ func (p *DockerProvider) create(name, imageName, secret, configJSON string) (*pr
 		}
 		return nil, err
 	}
+
 	return p.GetInfo(container.ID)
 }
 
@@ -271,6 +272,7 @@ func (p *DockerProvider) GetConfig(id string) (*provider.ContainerConfig, error)
 	if err != nil {
 		return nil, err
 	}
+
 	return p.configFromContainer(cnr), nil
 }
 
@@ -1401,7 +1403,22 @@ func (p *DockerProvider) containerAuthorizedKeys(containerName string) *Authoriz
 }
 
 func (p *DockerProvider) inspectContainer(id string) (*dockerclient.Container, error) {
-	return p.client.InspectContainer(id)
+	containerInfo, err := p.client.InspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// When docker version >= 1.8
+	if containerInfo.Mounts != nil && containerInfo.Volumes == nil {
+		mounts := containerInfo.Mounts
+		volumes := make(map[string]string)
+		for _, mount := range mounts {
+			volumes[mount.Destination] = mount.Source
+		}
+		containerInfo.Volumes = volumes
+	}
+
+	return containerInfo, nil
 }
 
 func (p *DockerProvider) dockerTag(image string, newName string, force bool) error {
