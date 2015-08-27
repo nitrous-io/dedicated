@@ -286,7 +286,8 @@ type Container struct {
 
 	RestartCount int `json:"RestartCount,omitempty" yaml:"RestartCount,omitempty"`
 
-	AppArmorProfile string `json:"AppArmorProfile,omitempty" yaml:"AppArmorProfile,omitempty"`
+	AppArmorProfile string  `json:"AppArmorProfile,omitempty" yaml:"AppArmorProfile,omitempty"`
+	Mounts          []Mount `json:"Mounts,omitempty" yaml:"Mounts,omitempty"`
 }
 
 // RenameContainerOptions specify parameters to the RenameContainer function.
