@@ -43,6 +43,23 @@
     background-position: 8px center
     padding-left: 56px
 
+.billing-history
+  th
+    text-transform: initial
+    font-size: initial
+
+  tbody
+    tr
+      &:nth-child(odd)
+        background-color: rgba($n2oGray900, .3)
+
+      &.unpaid
+        color: rgba($n2oGray200, .6)
+
+  a.view-invoice
+    cursor: pointer
+    color: $n2oGray100
+
 .billing-table
   .heading
     display: table
@@ -103,6 +120,9 @@
         height: 20px
         line-height: 21px
         color: $n2oGray200
+
+  tr.collapsed
+    display: none
 
   tr.total-charge
     font-weight: bold
