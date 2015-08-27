@@ -1341,26 +1341,6 @@ var _ = Describe("controllers/hosts", func() {
 			})
 		})
 
-		Context("when host is provider identifier is nil", func() {
-			It("should not make a request to hostbuilder", func() {
-				hs.H.ProviderIdentifier = sql.NullString{String: "", Valid: false}
-				hs.H.Update(db)
-
-				// in this context, hostbuilder should not be called
-				hb := hostbuilderclient.NewHostbuilder("www.example.com")
-				rt := &test.FakeRoundTripper{
-					Message: errorResponse,
-					Status:  http.StatusBadRequest,
-				}
-				replaceTransport(hb, rt)
-				hosts.HostbuilderClient = hb
-
-				doRequest(hs.H.Slug, t.Token)
-				Expect(len(rt.Requests)).To(Equal(0), "expect to not called hostbuilder")
-				Expect(res.Code).To(Equal(http.StatusOK))
-			})
-		})
-
 		Context("oauth token failure modes", func() {
 			BeforeEach(func() {
 				authTokenInputs.Path = "/api/v0/hosts/foo"
