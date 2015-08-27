@@ -59,7 +59,7 @@ var (
 
 	// Point every region to use us-west-2 in dev
 	amazonConfig = map[string]map[string]string{
-		"usw1":  amazonRegionConfig,
+		"usw2":  amazonRegionConfig,
 		"use1":  amazonRegionConfig,
 		"euw1":  amazonRegionConfig,
 		"apse1": amazonRegionConfig,

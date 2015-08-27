@@ -68,7 +68,7 @@ klass = class Go extends PluginBase
     if m = err.match NOTFOUND_ERROR
       @handleError "For Go To Definition to work, <strong>gooracle</strong> must be installed.",
         title: "Oracle is not installed"
-        url: "http://golang.org/s/oracle-user-manual"
+        url: "https://community.nitrous.io/docs/using-go-to-definition-with-go#not_installed"
         okText: 'Help'
       return
     if m = err.match GOPATH_ERROR
@@ -80,6 +80,7 @@ klass = class Go extends PluginBase
       pth = @path()
       @handleError "This file is not inside your GOPATH or GOROOT paths: #{m[1]}.<br/><br/>For Go code tooling to work you must ensure <b>#{pth.get('absolutePath')}</b> is inside GOPATH or GOROOT.",
         title: "File is outside GOPATH/GOROOT"
+        url: "https://community.nitrous.io/docs/using-go-to-definition-with-go#file_outside_gopath"
         okText: "Help"
       return
 

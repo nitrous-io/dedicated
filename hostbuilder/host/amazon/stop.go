@@ -26,12 +26,8 @@ func (h *Host) StopWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*ho
 	}
 
 	// [Feature flag] - requires EBS hotswapping.
-	vol, err := h.getVolume(h.Config.VolumeID)
-	if err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	if h.supportsEBSHotswapping(vol) {
+	if h.Config.Hotswap {
+		h.Printf("stopping hotswap instance")
 		return h.stopWithPool(qp, queueInfo)
 	}
 

@@ -23,12 +23,8 @@ func (h *Host) Destroy() error {
 	}
 
 	// [Feature flag] - requires EBS hotswapping.
-	vol, err := h.getVolume(h.Config.VolumeID)
-	if err != nil {
-		return mh.Error(err, label)
-	}
-
-	if h.supportsEBSHotswapping(vol) {
+	if h.Config.Hotswap {
+		h.Printf("destroying hotswap instance")
 		return h.destroyWithPool()
 	}
 
