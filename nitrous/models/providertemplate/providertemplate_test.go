@@ -172,21 +172,25 @@ var _ = Describe("models/providertemplate", func() {
 				Name:            "ec2-micro-apse1",
 				Provider:        "ec2",
 				PreprovisionMax: 2,
+				Disabled:        false,
+				Hotswap:         true,
 			}
 			err = pt.Insert(db)
 			Expect(err).To(BeNil())
 		})
 
 		It("persists the provider template in the database", func() {
-			pt2, err := providertemplate.FindByID(db, pt.ID)
+			pt, err := providertemplate.FindByID(db, pt.ID)
 			Expect(err).To(BeNil())
-			Expect(pt2).NotTo(BeNil())
-			Expect(pt2.ID).NotTo(BeZero())
-			Expect(pt2.RegionID).To(Equal(r.ID))
-			Expect(pt2.PlanID).To(Equal(p1.ID))
-			Expect(pt2.Name).To(Equal("ec2-micro-apse1"))
-			Expect(pt2.Provider).To(Equal("ec2"))
-			Expect(pt2.PreprovisionMax).To(Equal(2))
+			Expect(pt).NotTo(BeNil())
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Name).To(Equal("ec2-micro-apse1"))
+			Expect(pt.Provider).To(Equal("ec2"))
+			Expect(pt.PreprovisionMax).To(Equal(2))
+			Expect(pt.Disabled).To(BeFalse())
+			Expect(pt.Hotswap).To(BeTrue())
 		})
 
 		It("fills up ID and other fields in original struct", func() {

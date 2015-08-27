@@ -62,12 +62,8 @@ func (h *Host) RespecWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 	}
 
 	// [Feature flag] - requires EBS hotswapping.
-	vol, err := h.getVolume(h.Config.VolumeID)
-	if err != nil {
-		return nil, mh.Error(err, label)
-	}
-
-	if h.supportsEBSHotswapping(vol) {
+	if h.Config.Hotswap {
+		h.Printf("respeccing hotswap instance")
 		return h.respecWithPool(qp, queueInfo)
 	}
 

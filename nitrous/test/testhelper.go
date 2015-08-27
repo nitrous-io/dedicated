@@ -43,8 +43,7 @@ func TestDatabase(dbname string) (*db.Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	migrations := db.LoadMigrationsFromRootDir()
-	if err := d.Migrate(migrations); err != nil {
+	if err := d.MigrateAll(); err != nil {
 		d.Close()
 		return nil, err
 	}

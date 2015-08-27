@@ -910,6 +910,7 @@ var _ = Describe("models/host", func() {
 				Free:               true,
 				LastPingedAt:       pq.NullTime{t, true},
 				AutoShutdown:       true,
+				Hotswap:            true,
 				FreighterdVersion:  fv,
 				DockerVersion:      dv,
 			}
@@ -932,6 +933,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 			Expect(hosts[0].LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 			Expect(hosts[0].AutoShutdown).To(BeTrue())
+			Expect(hosts[0].Hotswap).To(BeTrue())
 			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
 			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 		})
@@ -1613,23 +1615,27 @@ var _ = Describe("models/host", func() {
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   false,
 				}: hostbuilderclient.Config{
 					"id":         "i-123456",
 					"volume_id":  "vol-abcde",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
+					"hotswap":    false,
 				},
 				&host.Host{
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   true,
 					ProviderTemplate:          &providertemplate.ProviderTemplate{},
 				}: hostbuilderclient.Config{
 					"id":         "i-123456",
 					"volume_id":  "",
 					"region_id":  "us-west-2",
 					"ip_address": "10.0.0.1",
+					"hotswap":    true,
 				},
 				&host.Host{
 					ID:                        42,
@@ -1637,6 +1643,7 @@ var _ = Describe("models/host", func() {
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
+					Hotswap:                   true,
 					ProviderTemplate: &providertemplate.ProviderTemplate{
 						Provider: "amazon",
 						Config: hstore.Hstore{
@@ -1653,6 +1660,7 @@ var _ = Describe("models/host", func() {
 					"volume_id":     "vol-abcde",
 					"region_id":     "us-west-2",
 					"ip_address":    "10.0.0.1",
+					"hotswap":       true,
 					"name":          "userhost-{{env}}-42",
 					"disable_eip":   true,
 					"instance_type": "t2.micro",

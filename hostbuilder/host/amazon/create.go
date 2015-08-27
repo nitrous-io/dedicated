@@ -30,7 +30,8 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 	// If the AMI specifies a block device mapping for a user device, we use the
 	// instance pool.
-	if containsUserDevice(ami.BlockDevices) {
+	if h.Config.Hotswap && containsUserDevice(ami.BlockDevices) {
+		h.Printf("creating hotswap instance")
 		useInstancePool = true
 	}
 

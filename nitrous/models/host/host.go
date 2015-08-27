@@ -133,6 +133,8 @@ type Host struct {
 	IdleNoticesSent int         `db:"idle_notices_sent"`
 	IdleNextCheck   pq.NullTime `db:"idle_next_check"`
 
+	Hotswap bool `db:"hotswap"`
+
 	// not the ideal but convenient place so that it's easy to construct
 	// serializers.Host out of it. Data comes from freighterd, not database
 	LiveDockerVersion     string
@@ -370,12 +372,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned, freighterd_version, docker_version,
-			region_identifier, last_pinged_at, auto_shutdown
+			region_identifier, last_pinged_at, auto_shutdown, hotswap
 		) VALUES (
-                        :user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
+			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
-			:region_identifier, :last_pinged_at, :auto_shutdown
+			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap
 		)
 		RETURNING *;`)
 	if err != nil {
@@ -530,6 +532,7 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 		"volume_id":  h.ProviderStorageIdentifier.String,
 		"region_id":  h.RegionIdentifier.String,
 		"ip_address": h.IPAddress.String,
+		"hotswap":    h.Hotswap,
 	}
 
 	if pt := h.ProviderTemplate; pt != nil {

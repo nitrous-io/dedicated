@@ -28,7 +28,7 @@ App.Container = klass = App.Model.extend
 
   config: (->
     return unless @get('id') # Load config only after container is saved
-    return unless @get('host').get('isRunning')
+    return unless @get('host')?.get('isRunning')
     config = Em.ObjectProxy.create()
     @loadConfig()
     config
