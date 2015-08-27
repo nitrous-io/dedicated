@@ -5,11 +5,11 @@
     else
       | Subscription
 .card-body
-  if subscriptions.length
+  if sortedSubscriptions.length
     .billing-table
       table.ui.table.horizontal
         tbody
-          = each subscription in subscriptions
+          = each subscription in sortedSubscriptions
             tr class={subscription.cancelPending:cancelled}
               td
                 if subscription.hostSlug

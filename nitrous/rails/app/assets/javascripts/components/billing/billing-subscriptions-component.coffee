@@ -7,6 +7,11 @@ App.BillingSubscriptionsComponent = Em.Component.extend
 
   terminateSlugConfirmation: null
 
+  sortedSubscriptions: (->
+    return unless @get 'subscriptions'
+    @get('subscriptions').sortBy('cancelPending', 'host.slug')
+  ).property 'subscriptions.@each.cancelPending'
+
   terminateSlugConfirmationInvalid: (->
     @get('subscription.hostSlug') != @get('terminateSlugConfirmation')
   ).property 'subscription.hostSlug', 'terminateSlugConfirmation'
