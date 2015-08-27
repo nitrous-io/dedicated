@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/Sirupsen/logrus"
 
@@ -34,6 +36,35 @@ func inventoryHosts() ([]*AnsibleHost, error) {
 		return nil, err
 	}
 	return hosts, nil
+}
+
+func inventoryHostsFromFile(f *os.File) ([]*AnsibleHost, error) {
+	// TODO: couldn't get sqlx.In working with the needed query, sacrifice some
+	// performance for now
+	hosts, err := inventoryHosts()
+	if err != nil {
+		return nil, err
+	}
+
+	slugs := map[string]struct{}{}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		t := scanner.Text()
+		if strings.HasPrefix(t, "#") {
+			continue
+		}
+		slugs[t] = struct{}{}
+	}
+
+	filtered := []*AnsibleHost{}
+	for _, h := range hosts {
+		if _, ok := slugs[h.Slug]; !ok {
+			continue
+		}
+		filtered = append(filtered, h)
+	}
+
+	return filtered, nil
 }
 
 func (h *AnsibleHost) FullKeyPath() string {

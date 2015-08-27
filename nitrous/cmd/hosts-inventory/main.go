@@ -12,15 +12,17 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 )
 
-const Usage = `Usage: hosts-inventory [workingdir]
+const Usage = `Usage: hosts-inventory [workingdir] [custom-file]
   [workingdir] is the directory that stores artifacts (private key files) and defaults to a directory in /tmp
+  [customfile] is a text file with a list of host slugs for filtering the default hosts query
 `
 
 var (
 	dbConn *db.Database
 
-	aesKey  string
-	workDir string
+	aesKey     string
+	workDir    string
+	filterPath string
 )
 
 func init() {
@@ -56,17 +58,20 @@ func writeInventory(hosts []*AnsibleHost) error {
 }
 
 func main() {
+	var err error
 	switch len(os.Args) {
 	case 1:
-		var err error
 		workDir, err = ioutil.TempDir("", "hosts-inventory")
 		if err != nil {
 			logrus.Fatalf("Error creating work directory: %v", err)
 		}
-	case 2:
+	case 2, 3:
 		workDir = os.Args[1]
 		if err := os.MkdirAll(workDir, 0700); err != nil {
 			logrus.Fatalf("Could not use directory %s: %v", workDir, err)
+		}
+		if len(os.Args) == 3 {
+			filterPath = os.Args[2]
 		}
 	default:
 		fmt.Println(Usage)
@@ -75,7 +80,16 @@ func main() {
 
 	logrus.Debugf("Using work directory %s", workDir)
 
-	hosts, err := inventoryHosts()
+	var hosts []*AnsibleHost
+	if filterPath == "" {
+		hosts, err = inventoryHosts()
+	} else {
+		f, err := os.Open(filterPath)
+		if err != nil {
+			logrus.Fatalf("Error retrieving hosts: %v", err)
+		}
+		hosts, err = inventoryHostsFromFile(f)
+	}
 	if err != nil {
 		logrus.Fatalf("Error retrieving hosts: %v", err)
 	}
