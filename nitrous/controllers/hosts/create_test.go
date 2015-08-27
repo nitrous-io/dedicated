@@ -460,6 +460,19 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.AutoShutdown).To(BeTrue())
 		})
 
+		It("sets hotswap to the hotswap value of the provider template", func() {
+			_, err := db.Exec("UPDATE provider_templates SET hotswap = true WHERE id = $1", hs.PT.ID)
+			Expect(err).To(BeNil())
+
+			doRequest(params)
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+
+			h := hosts[0]
+			Expect(h.Hotswap).To(BeTrue())
+		})
+
 		Context("if org is speicifed", func() {
 			It("sets the org_id on the host", func() {
 				err := db.WithTransaction(func(t *sqlx.Tx) error {
