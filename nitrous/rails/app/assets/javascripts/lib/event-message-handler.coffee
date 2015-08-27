@@ -104,15 +104,15 @@ App.EventMessageHandler = App.EventsSocket.extend
 
         if evt == "collaborator.added" && !isOwner(data)
           if isCollaborator(data)
-            App.snackbar.post("#{data.initiated_by.username} added you to shared container “#{data.container.slug}“")
+            App.snackbar.post("#{data.initiated_by.username} added you to “#{data.container.slug}“")
           else
-            App.snackbar.post("#{data.initiated_by.username} added “#{data.collaborator.username}“ to shared container #“{data.container.slug}“")
+            App.snackbar.post("#{data.initiated_by.username} added “#{data.collaborator.username}“ to “#{data.container.slug}“")
 
         if evt == "collaborator.removed" && !isInitiator(data) 
           if !isOwner(data) && isCollaborator(data)
-            App.snackbar.post("#{data.initiated_by.username} removed you from shared container “#{data.container.slug}“")
+            App.snackbar.post("#{data.initiated_by.username} removed you from “#{data.container.slug}“")
           if isOwner(data)
-            App.snackbar.post("#{data.collaborator.username} left shared container “#{data.container.slug}“")
+            App.snackbar.post("#{data.collaborator.username} left “#{data.container.slug}“")
 
     @on 'image.build_failed', (data) ->
       findImage(data)?.set 'progress', null

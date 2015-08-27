@@ -30,12 +30,12 @@
 
           if model.canEdit
             .right-accessory
-              button.ui.btn click='remove collaborator'
+              button.ui.btn click='showRemoveCollaborator collaborator'
                 | Remove
 
           if collaborator.isSelf
             .right-accessory
-              button.ui.btn click='remove collaborator'
+              button.ui.btn click='showLeaveContainer collaborator'
                 | Leave container
 
   else
@@ -57,3 +57,33 @@
                   = input type='text' placeholder='Username or email' required=true value=username
                 td
                   input.ui.btn.raised type='submit' value='Add'
+
+.remove-collaborator-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Remove collaborator?
+    .card-body
+      p 
+        strong
+          = collaborator.username  
+        '  will no longer have access to 
+        strong
+          = containerSlug
+        ' .
+    .card-footer
+      .right
+        button.ui.btn click='hideRemoveCollaborator' Cancel 
+        button.ui.btn.secondary click='removeCollaborator' Remove 
+
+.leave-container-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Leave container?
+    .card-body
+      p 
+        ' You will no longer have access to  
+        strong
+          = containerSlug
+        ' .
+    .card-footer
+      .right
+        button.ui.btn click='hideLeaveContainer' Cancel 
+        button.ui.btn.secondary click='leaveContainer' Leave 
