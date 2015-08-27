@@ -426,23 +426,6 @@ func (h *Host) tagVolume(volumeID string) error {
 	return nil
 }
 
-// supportsEBSHotswapping returns true if:
-// 1. the configured volume is not attached to an instance.
-// 2. the configured volume is attached to the configured instance as its user
-//    device.
-func (h *Host) supportsEBSHotswapping(vol *ec2.Volume) bool {
-	if len(vol.Attachments) == 0 {
-		return true
-	}
-
-	attachment := vol.Attachments[0]
-	if attachment.InstanceId == h.Config.ID && attachment.Device == userDeviceName {
-		return true
-	}
-
-	return false
-}
-
 // inspectSourceAMI gets the requested AMI's info and saves it.
 func inspectSourceAMI(ctx *host.HostContext) error {
 	h := ctx.Host.(*Host)
@@ -470,8 +453,8 @@ func createInstance(ctx *host.HostContext) error {
 
 	storageSize := computeSize(h.Config.StorageSize)
 
-	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, name: %s",
-		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Name())
+	h.Printf("amazon: creating instance in region %s, type: %s, size: %d, ami: %s, name: %s",
+		h.Config.RegionID, h.Config.InstanceType, storageSize, h.Config.SourceAMI, h.Name())
 
 	kp, err := h.regionKeypair()
 	if err != nil {
