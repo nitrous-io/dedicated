@@ -910,6 +910,7 @@ var _ = Describe("models/host", func() {
 				Free:               true,
 				LastPingedAt:       pq.NullTime{t, true},
 				AutoShutdown:       true,
+				Hotswap:            true,
 				FreighterdVersion:  fv,
 				DockerVersion:      dv,
 			}
@@ -932,6 +933,7 @@ var _ = Describe("models/host", func() {
 			Expect(hosts[0].UpdatedAt).NotTo(BeNil())
 			Expect(hosts[0].LastPingedAt.Time.Unix()).To(Equal(t.Unix()))
 			Expect(hosts[0].AutoShutdown).To(BeTrue())
+			Expect(hosts[0].Hotswap).To(BeTrue())
 			Expect(hosts[0].FreighterdVersion).To(Equal("1.0.69-deadbeef-88"))
 			Expect(hosts[0].DockerVersion).To(Equal("1.4.1-nitrous"))
 		})

@@ -18,6 +18,7 @@ type ProviderTemplate struct {
 	Config          hstore.Hstore `db:"config"`
 	PreprovisionMax int           `db:"preprovision_max"`
 	Disabled        bool          `db:"disabled"`
+	Hotswap         bool          `db:"hotswap"`
 	CreatedAt       *time.Time    `db:"created_at"`
 	UpdatedAt       *time.Time    `db:"updated_at"`
 }
@@ -73,8 +74,8 @@ func Find(d db.QueryReceiver, region *region.Region, plan *plan.Plan, provider s
 
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
-		(region_id, plan_id, name, provider, config, preprovision_max, disabled)
-		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max, :disabled)
+		(region_id, plan_id, name, provider, config, preprovision_max, disabled, hotswap)
+		VALUES (:region_id, :plan_id, :name, :provider, :config, :preprovision_max, :disabled, :hotswap)
 		RETURNING *;`)
 	if err != nil {
 		return err

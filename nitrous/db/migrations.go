@@ -1548,5 +1548,12 @@ func init() {
 				UPDATE user_settings SET migrated = FALSE;
 			`,
 		},
+		{
+			Version: "1440647801",
+			Up: `
+				ALTER TABLE provider_templates ADD COLUMN hotswap boolean DEFAULT false NOT NULL;
+				ALTER TABLE hosts ADD COLUMN hotswap boolean DEFAULT false NOT NULL;
+			`,
+		},
 	}
 }
