@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	nuser "github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -36,14 +38,18 @@ func init() {
 	logrus.SetLevel(logrus.PanicLevel)
 }
 
-var tables []string // retrieve list of tables once and store here
+var (
+	tables             []string // retrieve list of tables once and store here
+	nitrousPathReplace = regexp.MustCompile("dedicated/nitrous/.*")
+)
 
 func TestDatabase(dbname string) (*db.Database, error) {
 	d, err := ConnectToTestDatabase(dbname)
 	if err != nil {
 		return nil, err
 	}
-	if err := d.MigrateAll(); err != nil {
+	path := nitrousPathReplace.ReplaceAllString(envvars.RootDir, "dedicated/nitrous")
+	if err := d.MigrateAll(path); err != nil {
 		d.Close()
 		return nil, err
 	}

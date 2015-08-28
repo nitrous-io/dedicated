@@ -17,9 +17,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/pkg/queue"
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/rcrowley/go-metrics/librato"
-	"github.com/stripe/stripe-go"
+	stripe "github.com/stripe/stripe-go"
 )
 
 const HostQueueName = "v1.host"
@@ -71,7 +71,7 @@ func main() {
 		logrus.Fatal(err)
 	}
 	defer dbConn.DB.Close()
-	if err := dbConn.MigrateAll(); err != nil {
+	if err := dbConn.MigrateAll(""); err != nil {
 		logrus.Infof("nitrousd: migrations failed: %v", err)
 	}
 

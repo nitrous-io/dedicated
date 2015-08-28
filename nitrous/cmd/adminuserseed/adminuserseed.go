@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	err = dbConn.MigrateAll()
+	err = dbConn.MigrateAll("")
 	if err != nil {
 		logrus.Infof("Migrations failed: %v", err)
 	}
