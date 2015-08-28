@@ -36,6 +36,8 @@ var (
 	emailRe    = regexp.MustCompile(`\A[^@\s]+@([^@\s]+\.)+[^@\s]+\z`)
 	Mailer     mailer.Mailer
 	MailChimp  mailchimp.MailChimpProvider
+
+	AllowedDesktopAppBillingStates = []string{billingprofile.StatePaid, billingprofile.StateExempt, billingprofile.StatePaymentDue}
 )
 
 var (
@@ -81,6 +83,10 @@ type User struct {
 	ServiceAccount bool `db:"service_account"`
 
 	MaxContainers sql.NullInt64 `db:"max_containers"`
+
+	// only applicable when true, which overrides the logic
+	// for determining use of desktop app
+	CanUseDesktopApp sql.NullBool `db:"can_use_desktop_app"`
 
 	ResetPasswordToken  sql.NullString `db:"reset_password_token"`
 	ResetPasswordSentAt *time.Time     `db:"reset_password_sent_at"`
@@ -394,6 +400,44 @@ func (u *User) CanLogin() bool {
 		return true
 	}
 	return false
+}
+
+func (u *User) CheckCanUseDesktopApp(d *db.Database) (bool, error) {
+	if u.CanUseDesktopApp.Bool {
+		return true, nil
+	}
+
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return false, err
+	}
+
+	for _, state := range AllowedDesktopAppBillingStates {
+		if bp.State == state {
+			return true, nil
+		}
+	}
+
+	// now check org memberships
+	arg := map[string]interface{}{
+		"user_id": u.ID,
+		"states":  AllowedDesktopAppBillingStates,
+	}
+	query, args, err := sqlx.Named(`SELECT COUNT(b.id) = 1 FROM billing_profiles b LEFT JOIN org_memberships o ON o.org_id = b.org_id WHERE o.user_id = :user_id AND b.state IN (:states) LIMIT 1;`, arg)
+	if err != nil {
+		return false, err
+	}
+	query, args, err = sqlx.In(query, args...)
+	if err != nil {
+		return false, err
+	}
+	query = d.Rebind(query)
+	var success bool
+	err = d.Get(&success, query, args...)
+	if err != nil {
+		return false, err
+	}
+	return success, nil
 }
 
 func (u *User) ConfirmationTokenExpired() bool {

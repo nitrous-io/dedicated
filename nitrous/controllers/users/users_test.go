@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
@@ -1038,6 +1040,69 @@ var _ = Describe("controllers/users", func() {
 					billingprofile, ok := userinfo["billing_profile"].(map[string]interface{})
 					Expect(ok).To(BeTrue())
 					Expect(billingprofile["state"]).To(Equal("no_card"))
+				})
+			})
+
+			Describe("when user is paid", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StatePaid, u.ID)
+					Expect(err).To(BeNil())
+
+					doRequest("foobarbazqux")
+				})
+
+				ItReturnsUserDetails()
+
+				It("should indicate if the user can use the desktop app", func() {
+					Expect(userinfo["can_use_desktop_app"]).To(BeTrue())
+				})
+			})
+
+			Describe("when user is free", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
+					Expect(err).To(BeNil())
+
+					doRequest("foobarbazqux")
+				})
+
+				ItReturnsUserDetails()
+
+				It("should indicate if the user can use the desktop app", func() {
+					Expect(userinfo["can_use_desktop_app"]).To(BeFalse())
+				})
+			})
+
+			Describe("when user is member of paid org", func() {
+				BeforeEach(func() {
+					o := &org.Org{
+						Slug:  "Foobar",
+						Name:  "Foo Bar, Inc.",
+						Email: "eng@foobar.com",
+					}
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+					err = db.WithTransaction(func(tx *sqlx.Tx) error {
+						return billingprofile.Create(tx, u.ID, sql.NullInt64{o.ID, true})
+					})
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u.ID, "member")
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2;`, billingprofile.StatePaid, o.ID)
+					Expect(err).To(BeNil())
+
+					doRequest("foobarbazqux")
+				})
+
+				ItReturnsUserDetails()
+
+				It("should indicate if the user can use the desktop app", func() {
+					Expect(userinfo["can_use_desktop_app"]).To(BeTrue())
 				})
 			})
 		})
