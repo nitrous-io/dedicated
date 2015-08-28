@@ -989,6 +989,7 @@ type VolumeAttachment struct {
 // Response to a DescribeVolumes request
 type VolumesResp struct {
 	RequestId string   `xml:"requestId"`
+	NextToken string   `xml:"nextToken,omitempty"`
 	Volumes   []Volume `xml:"volumeSet>item"`
 }
 
@@ -1071,6 +1072,19 @@ func (ec2 *EC2) DetachVolume(id string) (resp *SimpleResp, err error) {
 func (ec2 *EC2) Volumes(volIds []string, filter *Filter) (resp *VolumesResp, err error) {
 	params := makeParams("DescribeVolumes")
 	addParamsList(params, "VolumeId", volIds)
+	filter.addParams(params)
+	resp = &VolumesResp{}
+	err = ec2.query(params, resp)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (ec2 *EC2) VolumesWithExtraParams(volIds []string, filter *Filter, extraParams map[string]string) (resp *VolumesResp, err error) {
+	params := makeParams("DescribeVolumes")
+	addParamsList(params, "VolumeId", volIds)
+	addParams(params, extraParams)
 	filter.addParams(params)
 	resp = &VolumesResp{}
 	err = ec2.query(params, resp)
