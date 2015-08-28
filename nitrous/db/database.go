@@ -71,8 +71,11 @@ func NewDatabase(conn string) (*Database, error) {
 	return &Database{DB: db}, nil
 }
 
-func (d *Database) MigrateAll() error {
-	migrations := LoadMigrationsFromRootDir()
+func (d *Database) MigrateAll(rootDir string) error {
+	if rootDir == "" {
+		rootDir = envvars.RootDir
+	}
+	migrations := LoadMigrationsFromDir(rootDir)
 	return d.Migrate(migrations)
 }
 
@@ -144,12 +147,12 @@ func (d *Database) Migrate(migrations []*Migration) error {
 	return nil
 }
 
-func LoadMigrationsFromRootDir() (allMigrations []*Migration) {
+func LoadMigrationsFromDir(rootDir string) (allMigrations []*Migration) {
 	// load existing migrations
 	allMigrations = []*Migration{}
 	allMigrations = append(allMigrations, legacyMigrations...)
 
-	pth := path.Join(envvars.RootDir, "migrations")
+	pth := path.Join(rootDir, "migrations")
 	st, err := os.Stat(pth)
 	if err != nil {
 		if os.IsNotExist(err) {

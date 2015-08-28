@@ -23,7 +23,8 @@ type User struct {
 	PhoneCountryCode string          `json:"phone_country_code"`
 	PhoneAuthed      bool            `json:"phone_authed"`
 
-	MaxContainers int64 `json:"max_containers,omitempty"`
+	MaxContainers    int64 `json:"max_containers,omitempty"`
+	CanUseDesktopApp *bool `json:"can_use_desktop_app,omitempty"`
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
@@ -49,6 +50,10 @@ func SerializeUser(u *user.User) *User {
 
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
+	}
+
+	if u.CanUseDesktopApp.Valid {
+		s.CanUseDesktopApp = &u.CanUseDesktopApp.Bool
 	}
 
 	return s
