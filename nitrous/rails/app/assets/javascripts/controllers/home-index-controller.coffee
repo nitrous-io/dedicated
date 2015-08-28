@@ -4,6 +4,10 @@ App.HomeIndexController = Em.Controller.extend
       if App.get('user.firstTime')
         App.set 'onboardingReady', true
 
+      if App.get('intent') == 'org'
+        @transitionToRoute 'orgs.new'
+        return
+
       if shared = App.get('sharedContainers.firstObject.slug')
         @transitionToRoute 'container.index', shared
         return
