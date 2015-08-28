@@ -11,7 +11,7 @@ const firstWarningHtmlTmpl = `
   </head>
   <body>
     <h3>Hi {{ .Name }},</h3>
-    <p>We noticed you haven't used your free workspace <strong>{{ .HostName }}</strong> in the past few weeks. In an effort to maintain the best possible performance for all Nitrous users, we terminate unused workspaces. If you do not use your workspace in the next 7 days, it will be deleted.</p>
+    <p>We noticed you haven't used your free workspace <strong>{{ .HostName }}</strong> in the past week. In an effort to maintain the best possible performance for all Nitrous users, we terminate unused workspaces. If you do not use your workspace in the next 7 days, it will be deleted.</p>
     <p>To save your free projects and begin using your workspace again, visit the <a href="{{ .DashboardUrl }}">visit the dashboard</a> and start your workspace. You can also avoid inactive workspace termination in the future by <a href="{{ .UpgradeUrl }}">upgrading to any of our paid plans</a>.</p>
     <p>Please note that we are not deleting your user account, only the free workspaces you are not using. You can sign in again anytime to create a new free workspace.</p>
     <p>If you have any questions please email our support team at {{ .SupportEmail }}.</p>
@@ -24,7 +24,7 @@ const firstWarningHtmlTmpl = `
 const firstWarningTxtTmpl = `
 Hi {{ .Name }},
 
-We noticed you haven't used your free workspace {{ .HostName }} in the past few weeks. In an effort to maintain the best possible performance for all Nitrous users, we terminate unused workspaces. If you do not use your workspace in the next 7 days, it will be deleted.
+We noticed you haven't used your free workspace {{ .HostName }} in the past week. In an effort to maintain the best possible performance for all Nitrous users, we terminate unused workspaces. If you do not use your workspace in the next 7 days, it will be deleted.
 
 To save your free projects and begin using your workspace again, visit the dashboard at {{ .DashboardUrl }} and start your workspace. You can also avoid inactive workspace termination in the future by upgrading to any of our paid plans at {{ .UpgradeUrl }}.
 

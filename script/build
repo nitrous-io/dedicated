@@ -138,7 +138,8 @@ build_nitrous() {
     "nitrous/cmd/populatemxprofiles" \
     "nitrous/cmd/healthcheck" \
     "nitrous/cmd/hostautoterminate" \
-    "nitrous/cmd/idlefreehosts"
+    "nitrous/cmd/idlefreehosts" \
+    "nitrous/cmd/hosts-inventory" \
   )
   if [ "$ENV" != "development" ]; then
     (build_assets)

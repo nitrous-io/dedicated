@@ -411,7 +411,12 @@ App.IdeDocumentView = Em.View.extend
     lenDiff = Math.abs(currContent.length - newContent.length)
     if lenDiff > 4*1024
       selections = cm.listSelections()
-      editor.set 'text', newContent
+      lastLine = cm.lastLine()
+      len = cm.getLine(lastLine).text.length
+
+      from = {line: 0, ch: 0}
+      to = {line: lastLine, ch: len}
+      editor.replaceRange newContent, from: from, to: to
       editor.setSelections(selections)
     else
       differ = new diff_match_patch
@@ -476,6 +481,7 @@ App.IdeDocumentView = Em.View.extend
 
   watchOffset: ->
     @watchOffsetTimer = window.setInterval(=>
+      return unless @get('document.active')
       if editor = @get('editor')
         @set 'document.currentOffset', editor.getOffset()
     , 100)

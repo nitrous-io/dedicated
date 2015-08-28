@@ -21,6 +21,7 @@ type OpsHandler struct {
 	fileWatcher     *fsnotify.Watcher
 	fileWatcherQuit chan bool
 	watchedDirs     map[string]bool
+	watchedFiles    map[string]bool
 
 	uid, gid int
 }
@@ -34,6 +35,7 @@ func handleOps(info *CopsInfo, r io.Reader, w io.Writer) (err error) {
 		errCh:           make(chan error, 1),
 		fileWatcherQuit: make(chan bool),
 		watchedDirs:     make(map[string]bool),
+		watchedFiles:    make(map[string]bool),
 		uid:             uid,
 		gid:             gid,
 	}
@@ -74,6 +76,15 @@ func (oh *OpsHandler) notifyDirChanged(dir string) {
 		Event:     "dirChanged.output",
 	}
 	msg.Args = []interface{}{dir}
+	oh.sendReply(msg)
+}
+
+func (oh *OpsHandler) notifyFileChanged(path string) {
+	msg := &Message{
+		Namespace: "watcher",
+		Event:     "fileChanged.output",
+	}
+	msg.Args = []interface{}{path}
 	oh.sendReply(msg)
 }
 
@@ -122,6 +133,10 @@ func (oh *OpsHandler) fileWatcherLoop() {
 				// it's the parent directory that needs to be updated
 				oh.notifyDirChanged(filepath.Dir(path))
 			}
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				// notify of file change as well
+				oh.notifyFileChanged(path)
+			}
 		case err := <-oh.fileWatcher.Errors:
 			logrus.Errorf("fileWatcherLoop: got fsnotify error '%s'", err)
 			return
@@ -169,10 +184,20 @@ func (oh *OpsHandler) copsMessageLoop() {
 					oh.watchedDirs[dir] = true
 					oh.fileWatcher.Add(dir)
 				}
+			case "read":
+				file := msg.Args[0].(string)
+				if !oh.watchedFiles[file] {
+					oh.watchedFiles[file] = true
+					oh.fileWatcher.Add(file)
+				}
 			case "unwatchDir":
 				dir := msg.Args[0].(string)
 				delete(oh.watchedDirs, dir)
 				oh.fileWatcher.Remove(dir)
+			case "unwatchFile":
+				file := msg.Args[0].(string)
+				delete(oh.watchedFiles, file)
+				oh.fileWatcher.Remove(file)
 			}
 			go oh.runHandler(fsHandler, msg)
 		case "finder":

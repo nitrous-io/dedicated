@@ -57,16 +57,44 @@ Setting up a development environment for Nitrous is simple on Nitrous Pro.
 
 All hosts created on Nitrous must have a Stripe subscription, for this work locally you will need to setup a Stripe account for testing.
 
-* Go to http://stripe.com and signup for a account
-* Go to Account Settings and copy the Test Secret Key and Test Publishable Key into the `.env` file
+* Set the following in your `nitrous/.env`
+
+```
+STRIPE_SECRET_KEY=sk_test_sixQCrN2afLit2BJVn1Uemiz
+STRIPE_PUBLIC_KEY=pk_test_v7b75uFe7AAmLVoWmrInnWYc
+```
+
 * For each plan in the `plans` table you will need to create 2 plans in Stripe: one with an `ID` that matches the `plans.slug` and one where the ID matches `plans.slug`-exempt. Example: if the slug of plan matches `basic` in the table then you would create a Stripe plan with an ID of `basic` and another plan with an ID of `basic-exempt` that has a price of 0.
+* Now run `UPDATE plans SET type = 'prepaid', stripe_plan_id = slug;`
 * You can now use the test cards provided by Stripe when you are required to add a card: https://stripe.com/docs/testing#cards
 * Otherwise you can set your billing profile in the database to the `state` of `exempt`.
-* For the complete development flow it is recommended you setup Stripe webhooks. To achieve this you will need to do the following:
-  * WARNING: this makes your development environment publicly accessible. You wish to consider Nginx serving a second virtual server and allowing only `/api/v0/stripe_hook`.
-  * Expose your Nitrous container over the preview address
-  * Configure Nginx to also listen for non SSL requests (otherwise Stripe will have cert issues accessing your SSL)
-  * Under Account Settings > Webhook specify the address of the container, e.g: `http://HOST:PORT/api/v0/stripe_hook`
+
+##### Stripe Hooks
+
+For the complete development flow it is recommended you setup Stripe webhooks. To achieve this you will need to do the following:
+
+* Create this file (you will need root) in `/etc/nginx/sites-enabled/stripe-hook`
+
+```
+server {
+  listen 6900;
+  location / {
+    deny all;
+  }
+  location /api/v0/stripe_hook {
+                proxy_pass http://127.0.0.1:3333;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $connection_upgrade;
+        }
+}
+```
+
+* Restart Nginx: `/etc/init.d/nginx restart`
+* Expose the port `6900` on your container
+* Go to Stripe > Login as your Nitrous and switch your account (top right) to "Nitrous Pro Dev"
+* If you don't see it, ping someone on Slack for access
+* Under Account Settings > Webhook specify the address of the container, e.g: `http://my-container-slug.nitrousapp.com:6900/api/v0/stripe_hook` as a Test web hook
 
 ### Commands
 

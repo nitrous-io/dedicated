@@ -91,18 +91,28 @@ App.EventMessageHandler = App.EventsSocket.extend
 
     ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
       @on evt, (data) ->
-        containerData = data.container
-        if container = findContainer(containerData)
-          container.get("collaborators").reload()
-          return if container.get("userId") == App.get('user.id')
+        if container = findContainer(data.container)
+          # Make sure container is not deleted on user's workspace before reloading collaborators or GET /containers/{slug}/collaborators will return 404.
+          if isOwner(data) || !isCollaborator(data) 
+            container.get("collaborators").reload()
 
-        if App.get('sharedContainers')
-          App.get('sharedContainers').reload()
-        else
-          App.set('sharedContainers', App.SharedContainer.fetch().value)
+        if !isOwner(data)
+          if App.get('sharedContainers')
+            App.get('sharedContainers').reload()
+          else
+            App.set('sharedContainers', App.SharedContainer.fetch().value)
 
-        if evt == "collaborator.added" && data.container.user_id != App.get('user.id')
-            App.snackbar.post("#{data.initiated_by.username} has added to you to #{data.container.slug}")
+        if evt == "collaborator.added" && !isOwner(data)
+          if isCollaborator(data)
+            App.snackbar.post("#{data.initiated_by.username} added you to “#{data.container.slug}“")
+          else
+            App.snackbar.post("#{data.initiated_by.username} added “#{data.collaborator.username}“ to “#{data.container.slug}“")
+
+        if evt == "collaborator.removed" && !isInitiator(data)
+          if !isOwner(data) && isCollaborator(data)
+            App.snackbar.post("#{data.initiated_by.username} removed you from “#{data.container.slug}“")
+          if isOwner(data)
+            App.snackbar.post("#{data.collaborator.username} left “#{data.container.slug}“")
 
     @on 'image.build_failed', (data) ->
       findImage(data)?.set 'progress', null
@@ -201,3 +211,14 @@ parseProgress = (data) ->
     if eta && id
       progress.status = "Downloading #{id}... #{eta}"
   progress
+
+isCollaborator = (data) ->
+  # collaborator data may not be passed in for pending invites, so you need to check if the values exist
+  if data.collaborator && data.collaborator.id
+      App.get('user.id') == data.collaborator.id
+
+isOwner = (data) ->
+  App.get('user.id') == data.container.user_id
+
+isInitiator = (data) -> 
+  App.get('user.id') == data.initiated_by.id
