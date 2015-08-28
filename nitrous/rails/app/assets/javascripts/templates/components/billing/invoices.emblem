@@ -77,7 +77,7 @@
         button.ui.btn click='closeInvoice' Close
 
         if invoice.manuallyPayable
-          button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
+          button.ui.btn.primary disabled=invoice.paying click='payInvoice invoice'
             if invoice.paying
               i.spinner
               | Processing
