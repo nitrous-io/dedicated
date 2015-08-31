@@ -187,6 +187,24 @@ var _ = Describe("controllers/userkeys", func() {
 				VerifyDelinquentUserResponse(res)
 			})
 
+			It("should return an internal server error if no billing profile records", func() {
+				_, err := db.Exec("DELETE FROM billing_profiles WHERE user_id = $1;", hs.U.ID)
+				Expect(err).To(BeNil())
+
+				doRequest("valid-token", c.Slug)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+
+			It("should return a forbidden if free tier user", func() {
+				_, err := db.Exec(`INSERT INTO billing_profiles (state, user_id) VALUES ('free', $1);`, hs.U.ID)
+				Expect(err).To(BeNil())
+
+				doRequest("valid-token", c.Slug)
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("only paid users have permission to access this section"))
+			})
+
 			Context("when valid oauth token is present", func() {
 				Context("when valid params are received", func() {
 					BeforeEach(func() {
@@ -291,6 +309,7 @@ var _ = Describe("controllers/userkeys", func() {
 
 				ItRequiresAuthToken(&authTokenInputs)
 			})
+
 		})
 	}
 
@@ -306,6 +325,24 @@ var _ = Describe("controllers/userkeys", func() {
 			MarkDelinquentUser(db, hs.U)
 			doRequest("valid-token", c.Slug)
 			VerifyDelinquentUserResponse(res)
+		})
+
+		It("should return an internal server error if no billing profile records", func() {
+			_, err := db.Exec("DELETE FROM billing_profiles WHERE user_id = $1;", hs.U.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("valid-token", c.Slug)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should return a forbidden if free tier user", func() {
+			_, err := db.Exec(`INSERT INTO billing_profiles (state, user_id) VALUES ('free', $1);`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("valid-token", c.Slug)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			_, errDesc := ErrorSlug(res.Body)
+			Expect(errDesc).To(Equal("only paid users have permission to access this section"))
 		})
 
 		Context("with valid oauth token", func() {
@@ -444,6 +481,24 @@ var _ = Describe("controllers/userkeys", func() {
 			MarkDelinquentUser(db, hs.U)
 			doRequest("valid-token", c.Slug, fprint)
 			VerifyDelinquentUserResponse(res)
+		})
+
+		It("should return an internal server error if no billing profile records", func() {
+			_, err := db.Exec("DELETE FROM billing_profiles WHERE user_id = $1;", hs.U.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("valid-token", c.Slug, fprint)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should return a forbidden if free tier user", func() {
+			_, err := db.Exec(`INSERT INTO billing_profiles (state, user_id) VALUES ('free', $1);`, hs.U.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("valid-token", c.Slug, fprint)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+			_, errDesc := ErrorSlug(res.Body)
+			Expect(errDesc).To(Equal("only paid users have permission to access this section"))
 		})
 
 		Context("with valid oauth token", func() {

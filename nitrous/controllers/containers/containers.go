@@ -46,6 +46,7 @@ type WithContainerAndHostOpt int
 const (
 	AllowCollab WithContainerAndHostOpt = iota
 	TouchHost
+	BlockFreeUser
 )
 
 var (
@@ -61,6 +62,8 @@ var (
 	errInvalidPortspec   = httperror.New(http.StatusBadRequest, "invalid_request", "port spec invalid")
 	errInvalidCommand    = httperror.New(http.StatusBadRequest, "invalid_request", "container cmd invalid")
 	errContainerLocked   = httperror.New(http.StatusConflict, "container_locked", "container is locked")
+
+	errFreeUserForbidden = httperror.New(http.StatusForbidden, "invalid_request", "only paid users have permission to access this section")
 
 	makeErrHostPortConflict = func(port string) error {
 		return httperror.New(http.StatusConflict, "host_port_in_use", fmt.Sprintf("Container cannot be started, Host port %s is already in use by another container.", port))
@@ -659,13 +662,15 @@ func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 }
 
 func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) middleware.Middleware {
-	allowCollab, touchHost := false, false
+	allowCollab, touchHost, blockFreeUser := false, false, false
 	for _, opt := range opts {
 		switch opt {
 		case AllowCollab:
 			allowCollab = true
 		case TouchHost:
 			touchHost = true
+		case BlockFreeUser:
+			blockFreeUser = true
 		}
 	}
 	return func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -709,6 +714,24 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 					touchFn()
 				}
 			}()
+		}
+
+		if blockFreeUser {
+			var bp *billingprofile.BillingProfile
+			if h.OrgID.Valid {
+				bp, err = billingprofile.FindForOrg(db, h.OrgID.Int64)
+				if err != nil {
+					return err
+				}
+			} else {
+				bp, err = billingprofile.Find(db, cn.UserID)
+				if err != nil {
+					return err
+				}
+			}
+			if bp.IsFreeTier() {
+				return errFreeUserForbidden
+			}
 		}
 
 		return fn(cn, h, env, w, r)
