@@ -2653,7 +2653,7 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.State).To(Equal(host.StateRespeccing))
 		})
 
-		It("sends the new provider template config to Hostbuilder", func() {
+		It("sends the host config and the new provider template config to Hostbuilder", func() {
 			doRequest(hs.H.Slug)
 			Expect(res.Code).To(Equal(http.StatusAccepted))
 
@@ -2668,8 +2668,18 @@ var _ = Describe("controllers/hosts", func() {
 			err := json.Unmarshal([]byte(req.PostFormValue("config")), &config)
 			Expect(err).To(BeNil())
 
+			// Host config.
+			Expect(config["host_id"]).To(BeNumerically("==", hs.H.ID))
 			Expect(config["id"]).To(Equal(hs.H.ProviderIdentifier.String))
+			Expect(config["volume_id"]).To(Equal(hs.H.ProviderStorageIdentifier.String))
+			Expect(config["region_id"]).To(Equal(hs.H.RegionIdentifier.String))
+			Expect(config["ip_address"]).To(Equal(hs.H.IPAddress.String))
+			Expect(config["hotswap"]).To(Equal(hs.H.Hotswap))
+
+			// Provider template config.
 			Expect(config["instance_type"]).To(Equal("t2.micro"))
+			Expect(config["storage_size"]).To(BeNumerically("==", 20))
+			Expect(config["disable_eip"]).To(Equal(false))
 		})
 
 		It("updates the host state to respeccing", func() {

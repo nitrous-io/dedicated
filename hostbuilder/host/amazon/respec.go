@@ -615,6 +615,10 @@ func createNewVolume(ctx *host.HostContext) error {
 	}
 	h.Printf("Created new volume %s from snapshot %s", newVolume.VolumeId, snapshot.Id)
 
+	if err := h.tagVolume(newVolume.VolumeId); err != nil {
+		return err
+	}
+
 	h.newVolume = newVolume
 
 	return nil

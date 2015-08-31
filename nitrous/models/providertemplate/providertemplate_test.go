@@ -32,19 +32,21 @@ var _ = Describe("models/providertemplate", func() {
 		Expect(err).To(BeNil())
 
 		r = &region.Region{Slug: "apse1", Name: "Southeast Asia"}
-		err = r.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(r.Insert(db)).To(BeNil())
 
 		p1 = &plan.Plan{Slug: "512mb", Name: "micro", MaxContainers: 1, Price: 500}
-		err = p1.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(p1.Insert(db)).To(BeNil())
 		p2 = &plan.Plan{Slug: "1gb", Name: "small", MaxContainers: 3, Price: 1000}
-		err = p2.Insert(db)
-		Expect(err).To(BeNil())
+		Expect(p2.Insert(db)).To(BeNil())
 
-		_, err = db.Exec("INSERT INTO provider_templates (region_id, plan_id, name, provider, config) values ($1, $2, $3, $4, $5);", r.ID, p1.ID, "do-512MB", "digitalocean", "")
+		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap)
+			values ($1, $2, $3, $4, $5, $6);`, r.ID, p1.ID, "do-512MB", "digitalocean", "", false)
 		Expect(err).To(BeNil())
-		_, err = db.Exec("INSERT INTO provider_templates (region_id, plan_id, name, provider, config) values ($1, $2, $3, $4, $5);", r.ID, p2.ID, "do-1GB", "digitalocean", "")
+		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap)
+			values ($1, $2, $3, $4, $5, $6);`, r.ID, p2.ID, "do-1GB", "digitalocean", "", false)
+		Expect(err).To(BeNil())
+		_, err = db.Exec(`INSERT INTO provider_templates (region_id, plan_id, name, provider, config, hotswap, disabled)
+			values ($1, $2, $3, $4, $5, $6, $7);`, r.ID, p2.ID, "do-hotswap-1GB", "digitalocean", "", true, true)
 		Expect(err).To(BeNil())
 	})
 
@@ -59,16 +61,18 @@ var _ = Describe("models/providertemplate", func() {
 			pts, err := providertemplate.All(db)
 			Expect(err).To(BeNil())
 
-			Expect(pts).To(HaveLen(2))
+			Expect(pts).To(HaveLen(3))
 
-			pt1, pt2 := pts[0], pts[1]
+			pt1, pt2, pt3 := pts[0], pts[1], pts[2]
 
 			Expect([]string{
 				pt1.Name, pt1.Provider,
 				pt2.Name, pt2.Provider,
+				pt3.Name, pt3.Provider,
 			}).To(ConsistOf([]string{
 				"do-512MB", "digitalocean",
 				"do-1GB", "digitalocean",
+				"do-hotswap-1GB", "digitalocean",
 			}))
 		})
 	})
@@ -145,6 +149,37 @@ var _ = Describe("models/providertemplate", func() {
 			pt, err := providertemplate.Find(db, r, p1, "digitalocean")
 			Expect(pt).To(BeNil())
 			Expect(err).NotTo(BeNil())
+		})
+	})
+
+	Describe("FindForRespec()", func() {
+		It("returns the first provider template for the given region / plan / provider / hotswap combination", func() {
+			pt, err := providertemplate.FindForRespec(db, r, p1, "digitalocean", false)
+			Expect(err).To(BeNil())
+
+			Expect(pt.Name).To(Equal("do-512MB"))
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p1.ID))
+			Expect(pt.Provider).To(Equal("digitalocean"))
+		})
+
+		It("returns a disabled provider template", func() {
+			pt, err := providertemplate.FindForRespec(db, r, p2, "digitalocean", true)
+			Expect(err).To(BeNil())
+
+			Expect(pt.Name).To(Equal("do-hotswap-1GB"))
+			Expect(pt.Disabled).To(BeTrue())
+			Expect(pt.ID).NotTo(BeZero())
+			Expect(pt.RegionID).To(Equal(r.ID))
+			Expect(pt.PlanID).To(Equal(p2.ID))
+			Expect(pt.Provider).To(Equal("digitalocean"))
+		})
+
+		It("returns an error when no provider record matches the conditions", func() {
+			pt, err := providertemplate.FindForRespec(db, r, p1, "digitalocean", true)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(pt).To(BeNil())
 		})
 	})
 

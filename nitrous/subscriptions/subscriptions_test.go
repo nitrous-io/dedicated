@@ -909,7 +909,7 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		It("should create a respec entry for the host", func() {
-			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1,  plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
+			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1, plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
 			Expect(err).To(BeNil())
 
 			pl2 := &plan.Plan{
@@ -934,10 +934,40 @@ var _ = Describe("subscriptions", func() {
 			err = subProvider.Upgrade(db, sub, pl2, u)
 			Expect(err).To(BeNil())
 
-			re, err := respec.Find(db, hs.H.ID)
+			rs, err := respec.Find(db, hs.H.ID)
 			Expect(err).To(BeNil())
-			Expect(re.State).To(Equal(respec.StatePending))
-			Expect(re.ProviderTemplateID).To(Equal(pt2.ID))
+			Expect(rs.State).To(Equal(respec.StatePending))
+			Expect(rs.ProviderTemplateID).To(Equal(pt2.ID))
+		})
+
+		It("creates a respec to a provider template for the same region that satisfies the required plan and has the same hotswap value, even if it is disabled", func() {
+			pl2 := &plan.Plan{
+				Slug:          "newStripePlan",
+				Name:          "newStripePlan",
+				MaxContainers: 19,
+				AutoShutdown:  false,
+				Price:         1899,
+				StripePlanID:  sql.NullString{"newPlan", true},
+			}
+			Expect(pl2.Insert(db)).To(BeNil())
+
+			pt2 := &providertemplate.ProviderTemplate{
+				Name:     "newPlan",
+				Disabled: true,
+				PlanID:   pl2.ID,
+				RegionID: hs.PT.RegionID,
+				Provider: hs.PT.Provider,
+				Hotswap:  hs.PT.Hotswap,
+			}
+			Expect(pt2.Insert(db)).To(BeNil())
+
+			err := subProvider.Upgrade(db, sub, pl2, u)
+			Expect(err).To(BeNil())
+
+			rs, err := respec.Find(db, hs.H.ID)
+			Expect(err).To(BeNil())
+			Expect(rs.State).To(Equal(respec.StatePending))
+			Expect(rs.ProviderTemplateID).To(Equal(pt2.ID))
 		})
 	})
 
