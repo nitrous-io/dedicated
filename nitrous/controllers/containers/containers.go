@@ -672,18 +672,19 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 		db := env.DB
 		slug := mux.Vars(r)["slug"]
 
-		cn, err := container.Find(db, env.User, slug)
+		cn, err := container.FindShared(db, env.User, slug)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				if !allowCollab {
-					return errContainerNotFound
-				}
-				return withSharedContainerAndHost(fn, env, w, r)
+				return errContainerNotFound
 			}
 			return err
 		}
 
-		h, err := host.Find(db, env.User, strconv.FormatInt(cn.HostID, 10))
+		if cn.UserID != env.User.ID && !allowCollab {
+			return errContainerNotFound
+		}
+
+		h, err := host.FindByIdentifier(db, strconv.FormatInt(cn.HostID, 10))
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return errHostNotFound
@@ -695,28 +696,6 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 		}
 		return fn(cn, h, env, w, r)
 	}
-}
-
-func withSharedContainerAndHost(fn containerHandler, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-	slug := mux.Vars(r)["slug"]
-
-	cn, err := container.FindShared(db, env.User, slug)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errContainerNotFound
-		}
-		return err
-	}
-
-	h, err := host.FindByIdentifier(db, strconv.FormatInt(cn.HostID, 10))
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errHostNotFound
-		}
-		return err
-	}
-	return fn(cn, h, env, w, r)
 }
 
 type hostFn func(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error
