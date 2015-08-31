@@ -16,7 +16,7 @@ form submit='create'
 
           .slug
             p.inline
-              | https://nitrous.io/orgs/
+              | https://www.nitrous.io/orgs/
             = input type='text' name='name' id='orgs-new-slug' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=model.slug placeholder="planet-express"
 
         .ui.input-group
@@ -27,7 +27,7 @@ form submit='create'
       .info.right
         h4.rtitle Organizations
         h5 Centralized Billing
-        p.small One centralized billing profile for each user on your team.
+        p.small Manage billing for all users in your organization in one place.
 
         h5 Team Administration
         p.small Quickly add and remove team owners, members and admins.
