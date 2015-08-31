@@ -4,21 +4,36 @@
 form submit='create'
   .card-body
     .ui.flex.horizontal
-      .form
+      .form.left
         .ui.input-group
           label.field-label for='orgs-new-name'
-            | Name
-          = input type='text' name='name' id='orgs-new-name' disabled=saving value=model.name
+            | Organization Name
+          = input type='text' name='name' id='orgs-new-name' disabled=saving value=model.name placeholder='Planet Express Shipping'
 
         .ui.input-group
           label.field-label for='orgs-new-slug'
             | Slug
-          = input type='text' name='name' id='orgs-new-slug' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=model.slug
+
+          .slug
+            p.inline
+              | https://www.nitrous.io/orgs/
+            = input type='text' name='name' id='orgs-new-slug' pattern=App.slug.inputPattern title=App.slug.inputTitle disabled=saving value=model.slug placeholder="planet-express"
 
         .ui.input-group
           label.field-label for='orgs-new-email'
             | Billing Email
-          = input type='email' name='email' id='orgs-new-email' disabled=saving value=model.email
+          = input type='email' name='email' id='orgs-new-email' disabled=saving value=model.email placeholder="bender@planetexpress.com"
+
+      .info.right
+        h4.rtitle Organizations
+        h5 Centralized Billing
+        p.small Manage billing for all users in your organization in one place.
+
+        h5 Team Administration
+        p.small Quickly add and remove team owners, members and admins.
+
+        h5 Custom Snapshots
+        p.small Setup and deploy your own private Docker images from within Nitrous.
 
   .card-footer.bordered
     .right

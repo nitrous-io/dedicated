@@ -1,5 +1,5 @@
 App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
-  queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code' }]
+  queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code', intent: 'intent' }]
   user: null
   signingUp: false
   error: null
@@ -7,6 +7,7 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
   suggestedEmail: null
   promoCode: null
   inviteCode: null
+  intent: null
 
   clear: ->
     @setProperties
@@ -49,6 +50,9 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode')).then(=>
         if @get('inviteCode')
           App.set 'sharedContainerTip', true
+
+        if intent = @get('intent')
+          App.set 'intent', intent
 
         Mp.identify()
         App.__container__.lookup('controller:login').doLogin(user.get('username'), user.get('password'))
