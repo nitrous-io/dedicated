@@ -447,7 +447,6 @@ func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOp
 
 	// Update host in hostbuilder (e.g. rename host).
 	config := preprovisionedHost.MachineConfig()
-	config["host_id"] = h.ID
 	config["name"] = opts.Slug
 	config["apt_username"] = strconv.FormatInt(h.ID, 10)
 	config["apt_password"] = h.Secret
@@ -706,7 +705,6 @@ func (p *Provisioner) preprovision(j job) (*host.Host, error) {
 func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {
 	h := phost.host
 	config := hostbuilderclient.Config{
-		"host_id":     h.ID,
 		"name":        h.Slug, // overridden by provider-specific names later
 		"secret":      h.Secret,
 		"public_keys": []string{string(phost.pubkey)},
