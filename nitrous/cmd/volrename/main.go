@@ -73,10 +73,24 @@ func rename(vol *ec2.Volume, h *Host) error {
 	prefix := "userroot"
 	if h.hotswap {
 		prefix = "userdata"
-		// volume should have dedicated:host_id tag equal to instance id
-		vol_host_tag := tagValue("dedicated:host_id", vol.Tags)
-		if vol_host_tag != h.ID {
-			return fmt.Errorf("Expected vol host_id tag %s to equal host id %s", vol_host_tag, h.ID)
+	}
+	name := fmt.Sprintf("%s-%s-%s", prefix, env, h.ID)
+
+	nameTag := tagValue("Name", vol.Tags)
+	volHostTag := tagValue("dedicated:host_id", vol.Tags)
+
+	// new-style tagging
+	if nameTag != "" {
+		if nameTag == name {
+			logrus.WithFields(lf).Debugf("Name is already correct")
+			return nil
+		}
+		return fmt.Errorf("Expected Name tag '%s' to equal '%s'", nameTag, name)
+	}
+
+	if h.hotswap {
+		if volHostTag != h.ID {
+			return fmt.Errorf("Expected vol host_id tag '%s' to equal host id '%s'", volHostTag, h.ID)
 		}
 	} else {
 		// volume should be attached to instance
@@ -87,7 +101,7 @@ func rename(vol *ec2.Volume, h *Host) error {
 			return fmt.Errorf("Expected vol attachment %s to equal provider_identifier %s", vol.Attachments[0].InstanceId, h.instanceID)
 		}
 	}
-	name := fmt.Sprintf("%s-%s-%s", prefix, env, h.ID)
+
 	logrus.WithFields(lf).Debugf("Renaming to %s", name)
 
 	return setName(h.region, h.volID, name)
