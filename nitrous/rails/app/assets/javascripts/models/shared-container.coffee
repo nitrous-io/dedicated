@@ -25,6 +25,11 @@ App.SharedContainer = klass = App.Container.extend
     h
   ).property '_host'
 
+  paidFeaturesEnabled: (->
+    host = @get 'host'
+    !host.get('free')
+  ).property 'host'
+
 klass.reopenClass
   primaryKey: 'slug'
   url: '/containers'

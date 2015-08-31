@@ -54,13 +54,9 @@ App.Container = klass = App.Model.extend
 
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
 
-  userKeysEnabled: (->
-    containerId = @get 'id'
-    if sharedContainer = App.get('sharedContainers').findBy('id', containerId)
-      !sharedContainer.get('free')
-    else 
-      !(App.get 'billingProfile.free')
-  ).property 'App.billingProfile.free', 'id'
+  paidFeaturesEnabled: (->
+    !(App.get 'billingProfile.free')
+  ).property 'App.billingProfile.free'
 
   sshKeysAdded: (->
     sshKeys = @get('userKeys')

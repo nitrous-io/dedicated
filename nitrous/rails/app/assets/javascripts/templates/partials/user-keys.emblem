@@ -2,7 +2,7 @@
   label.field-label
       | User Public Keys
 
-  if model.userKeysEnabled
+  if model.paidFeaturesEnabled
     p.hint-text
      | Add public keys from your machine so you can access your container via ssh
     if records.loaded

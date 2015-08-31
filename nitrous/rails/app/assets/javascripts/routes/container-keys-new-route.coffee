@@ -7,9 +7,9 @@ App.ContainerKeysNewRoute = App.AuthedRoute.extend
   afterModel: (container, transition) ->
    @_super.apply this, arguments
 
-   if !(container.get 'userKeysEnabled')
+   if !container.get('paidFeaturesEnabled')
      transition.abort()
-     App.snackbar.post("you do not have permission to add new user public keys")
+     App.snackbar.post("You do not have permission to add new user public keys")
      @transitionTo 'container.index', container.get 'slug'
 
   setupController: (controller, model) ->

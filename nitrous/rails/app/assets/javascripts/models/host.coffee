@@ -130,6 +130,11 @@ App.Host = klass = App.Model.extend
       @set 'stats', null
   ).observes 'state'
 
+  hostDidUpgrade: (->
+    if !@get('free')
+      @set 'free', false
+  ).observes 'free'
+
   connectivityErrorCountDidChange: (->
     if @get('connectivityErrorCount') == 0
       App.get('containers')?.reload()

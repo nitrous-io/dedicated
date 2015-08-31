@@ -7,9 +7,10 @@ App.ContainerCustomDomainRoute = App.AuthedRoute.extend
   afterModel: (container, transition) ->
     @_super.apply this, arguments
 
-    if App.get('billingProfile.free')
+    if !container.get('paidFeaturesEnabled')
       transition.abort()
-      @transitionToRoute 'container.index', container.get 'slug'
+      App.snackbar.post("Custom domain is not available for your container")
+      @transitionTo 'container.index', container.get 'slug'
 
   setupController: (controller, model) ->
     @_super.apply this, arguments
