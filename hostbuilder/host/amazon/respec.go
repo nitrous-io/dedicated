@@ -521,7 +521,7 @@ func createNewRootVolume(ctx *host.HostContext) error {
 
 	h.newVolume = newVolume
 
-	return nil
+	return h.tagVolume(newVolume.VolumeId, "userroot")
 }
 
 func swapRootVolume(ctx *host.HostContext) error {
@@ -615,7 +615,7 @@ func createNewVolume(ctx *host.HostContext) error {
 	}
 	h.Printf("Created new volume %s from snapshot %s", newVolume.VolumeId, snapshot.Id)
 
-	if err := h.tagVolume(newVolume.VolumeId); err != nil {
+	if err := h.tagVolume(newVolume.VolumeId, "userdata"); err != nil {
 		return err
 	}
 
