@@ -266,7 +266,10 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	return host, err
 }
 
-// FindShared will return a Host that has been shared via a container collaboration
+// FindShared will return a Host that has been shared via a container
+// collaboration.
+// TODO/Note: This should be changed to match container.FindShared (i.e. this
+// func should also find hosts for which the given user is the owner)
 func FindShared(db *db.Database, user *user.User, identifier string) (*Host, error) {
 	host := &Host{}
 
