@@ -528,6 +528,7 @@ func (h *Host) Validate() error {
 // identify the host and manipulate it.
 func (h *Host) MachineConfig() hostbuilderclient.Config {
 	cfg := hostbuilderclient.Config{
+		"host_id":    h.ID,
 		"id":         h.ProviderIdentifier.String,
 		"volume_id":  h.ProviderStorageIdentifier.String,
 		"region_id":  h.RegionIdentifier.String,

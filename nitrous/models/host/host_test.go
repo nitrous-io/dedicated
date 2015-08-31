@@ -1611,12 +1611,14 @@ var _ = Describe("models/host", func() {
 		It("returns configuration for the actual machine", func() {
 			testCases := map[*host.Host]hostbuilderclient.Config{
 				&host.Host{
+					ID:                        42,
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{"vol-abcde", true},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
 					IPAddress:                 sql.NullString{"10.0.0.1", true},
 					Hotswap:                   false,
 				}: hostbuilderclient.Config{
+					"host_id":    int64(42),
 					"id":         "i-123456",
 					"volume_id":  "vol-abcde",
 					"region_id":  "us-west-2",
@@ -1624,6 +1626,7 @@ var _ = Describe("models/host", func() {
 					"hotswap":    false,
 				},
 				&host.Host{
+					ID:                        42,
 					ProviderIdentifier:        sql.NullString{"i-123456", true},
 					ProviderStorageIdentifier: sql.NullString{},
 					RegionIdentifier:          sql.NullString{"us-west-2", true},
@@ -1631,6 +1634,7 @@ var _ = Describe("models/host", func() {
 					Hotswap:                   true,
 					ProviderTemplate:          &providertemplate.ProviderTemplate{},
 				}: hostbuilderclient.Config{
+					"host_id":    int64(42),
 					"id":         "i-123456",
 					"volume_id":  "",
 					"region_id":  "us-west-2",
@@ -1656,6 +1660,7 @@ var _ = Describe("models/host", func() {
 						},
 					},
 				}: hostbuilderclient.Config{
+					"host_id":       int64(42),
 					"id":            "i-123456",
 					"volume_id":     "vol-abcde",
 					"region_id":     "us-west-2",
