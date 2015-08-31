@@ -692,8 +692,25 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 			return err
 		}
 		if touchHost {
-			h.Touch(db)
+			touchFn := func() {
+				if err := h.Touch(db); err != nil {
+					// log and passthrough
+					logrus.WithFields(logrus.Fields{
+						"host_id": h.ID,
+						"slug":    h.Slug,
+					}).Errorf("containers: error touching host: %v", err)
+				}
+			}
+			touchFn()
+			beforeOp := time.Now()
+			defer func() {
+				// if the operation takes too long, touch host again at the end
+				if time.Since(beforeOp) > 1*time.Minute {
+					touchFn()
+				}
+			}()
 		}
+
 		return fn(cn, h, env, w, r)
 	}
 }
