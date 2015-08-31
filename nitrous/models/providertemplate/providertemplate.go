@@ -72,6 +72,19 @@ func Find(d db.QueryReceiver, region *region.Region, plan *plan.Plan, provider s
 	return pt, nil
 }
 
+// FindForRespec is like Find, except it ignores disabled templates and supports
+// a hotswap flag.
+func FindForRespec(d db.QueryReceiver, rg *region.Region, pl *plan.Plan, provider string, hotswap bool) (*ProviderTemplate, error) {
+	pt := &ProviderTemplate{}
+	err := d.Get(pt, `SELECT * FROM provider_templates
+		WHERE region_id = $1 AND plan_id = $2 AND provider = $3 AND hotswap = $4;`,
+		rg.ID, pl.ID, provider, hotswap)
+	if err != nil {
+		return nil, err
+	}
+	return pt, nil
+}
+
 func (pt *ProviderTemplate) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO provider_templates
 		(region_id, plan_id, name, provider, config, preprovision_max, disabled, hotswap)

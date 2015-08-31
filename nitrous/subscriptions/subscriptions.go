@@ -359,9 +359,9 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 	hosts := []*host.Host{}
 	err := d.Select(&hosts, `SELECT
 		hosts.*, pt.provider, pt.config
-    FROM hosts
-    INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
-    WHERE subscription_id = $1 AND terminated_at IS NULL;`, sub.ID)
+		FROM hosts
+			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
+		WHERE subscription_id = $1 AND terminated_at IS NULL;`, sub.ID)
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,12 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 	}
 
 	for _, h := range hosts {
-		newPT, err := providertemplate.Find(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider)
+		currPT, err := providertemplate.FindByID(d, h.ProviderTemplateID)
+		if err != nil {
+			return err
+		}
+
+		newPT, err := providertemplate.FindForRespec(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider, currPT.Hotswap)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
@@ -385,6 +390,7 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 			logrus.Errorf("upgradeHosts host=%d: Error locating new provider template for region %d / plan %d / provider %s, err: %v", h.ID, h.RegionID, newPlan.ID, h.Provider, err)
 			continue
 		}
+
 		err = d.WithTransaction(func(tx *sqlx.Tx) error {
 			h.PlanID = newPlan.ID
 			h.Size = sql.NullString{Valid: true, String: newPlan.Slug}
