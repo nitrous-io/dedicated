@@ -8,14 +8,18 @@ App.TopnavView = Em.View.extend
       "You can only create #{maxHosts} workspace#{if maxHosts != 1 then "s" else ""}."
   ).property 'canCreateHosts', 'userProfile.maxHosts'
 
+  belongsToOrg: (->
+    @get('controller')?.controllerFor('orgs')?.get('collection.length') > 0
+  ).property
+
   hideCreateHost: (->
-    return false if @get('controller')?.controllerFor('orgs')?.get('collection.length')
+    return false if @get('belongsToOrg')
 
     App.get('billingProfile.free')
-  ).property 'App.billingProfile.free'
+  ).property 'belongsToOrg', 'App.billingProfile.free'
 
   canCreateHosts: (->
-    return true if @get('controller')?.controllerFor('orgs')?.get('collection.length')
+    return true if @get('belongsToOrg')
 
     if App.get('billingProfile.isNoCardState')
       return true
@@ -30,7 +34,7 @@ App.TopnavView = Em.View.extend
       return App.get('hosts.loaded') && (App.get('hosts.length') < maxHosts)
 
     return true
-  ).property('controller.controllers.orgs.collection.length', 'App.billingProfile.isNoCardState', 'App.billingProfile.free', 'App.billingProfile.active',
+  ).property('belongsToOrg', 'App.billingProfile.isNoCardState', 'App.billingProfile.free', 'App.billingProfile.active',
     'App.userProfile.maxHosts', 'App.hosts.loaded', 'App.hosts.length')
 
   didInsertElement: ->
