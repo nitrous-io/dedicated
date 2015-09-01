@@ -58,7 +58,10 @@
 
   a.view-invoice
     cursor: pointer
-    color: $n2oGray100
+    color: $blue50
+
+    &.blue
+      color: $lightBlue300
 
 .billing-table
   .heading
@@ -123,6 +126,12 @@
 
   tr.collapsed
     display: none
+
+  tr.no-credit
+    color: rgba($n2oGray200, .6)
+
+  tr.total-line
+    height: 20px !important
 
   tr.total-charge
     font-weight: bold

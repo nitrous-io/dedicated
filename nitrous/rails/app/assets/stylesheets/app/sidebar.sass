@@ -22,16 +22,36 @@
     margin: 0
 
     > li
+      user-select: none
+
       > a
         display: block
+        position: relative
         border-radius: 2px
         transition: background-color .2s
 
+        &:after
+          content: ""
+          position: absolute
+          top: 0
+          left: 2px
+          bottom: 0
+          border-left: 2px solid transparent
+
         &:hover
-          background: $n2oGray700
+          background: transparent
+
+          &:after
+            border-left: 2px solid $n2oGray700
 
       &.selected > a
-        background: $n2oGray800
+        h3
+          color: $lightBlue500
+
+        &:after
+          border-left: 2px solid $lightBlue500
+
+        border-radius: 0
 
       &.disabled
         opacity: 0.4
@@ -41,6 +61,47 @@
 
           &:hover
             background: transparent
+
+  ul.containers
+    padding-top: 6px
+
+    .state-indicator
+      top: 13px
+
+    > li
+      line-height: 36px
+      margin-bottom: 2px
+
+      a
+        border-radius: 2px
+
+        h4
+          padding-left: 38px
+
+      a:after
+        display: none
+
+      &:hover > a
+        background: $n2oGray700
+
+      a:before
+        content: ""
+        width: 22px
+        height: 12px
+        position: absolute
+        top: 11px
+        left: 10px
+        bottom: 0
+        background: image_url('app/container-icn.png') top center no-repeat
+        background-size: 12px 32px
+
+      &.selected > a
+        background: $n2oGray800
+        border-radius: 2px
+        border: 0
+
+        &:before
+          background-position: bottom center
 
   ul.sidebar-list
     margin-bottom: 16px
@@ -119,3 +180,61 @@
 
     .btn
       width: 100%
+
+  .add-container-btn
+    font-size: 13px
+    padding: 0 14px
+    margin: 2px 12px 0 12px
+    cursor: pointer
+    display: block
+    border: 1px solid #3D464D
+    border-radius: 3px
+    color: #97A3AE
+    text-align: center
+
+    &:hover
+      border-color: #4E5862
+
+    i, span
+      display: inline
+
+    i
+      font-size: 11px
+
+    i.spinner
+      display: inline-block
+      position: relative
+
+    span
+      padding-left: 6px
+
+  aside
+    padding-top: 40px
+    padding-left: 12px
+    font-size: 13px
+    line-height: 18px
+    flex-grow: 1
+
+    p, ul, li, span
+      padding: 0
+      margin: 0
+      font-size: 13px
+
+    ul, li
+      list-style: none
+      line-height: 18px
+
+    li
+      display: inline
+      margin-right: 6px
+
+    p
+      color: rgba($n2oGray500,.6)
+
+    a
+      color: $n2oGray500
+      &:hover
+        color: $n2oGray100
+
+#sidebar-view h3 + .state-indicator.running
+  background: transparent

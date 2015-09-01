@@ -31,11 +31,11 @@
               td
                 | $#{currency invoice.totalChargeDollars}
               td
-                a.view-invoice click='showInvoice invoice'
-                  if invoice.manuallyPayable
-                    | Pay Now
-                  else
-                    | View
+                if invoice.manuallyPayable
+                  a.view-invoice.blue click='showInvoice invoice' Pay Now
+                else
+                  a.view-invoice click='showInvoice invoice' View
+
   else
     p.hint-text
       i.fa.fa-exclamation-circle
@@ -53,19 +53,16 @@
             = each item in group.items
               = billing-invoice-item item=item
 
-        tr.divider
-          td
-            | Total usage this period
-          td.charge
-            | $
-            = currency invoice.totalUsageForPeriod
-        tr
+        tr class={invoice.hasCredit:has-credit:no-credit}
           td
             | Credits applied
             if invoice.creditAvailableDollars
               | ($#{currency invoice.creditAvailableDollars} available)
           td class={:charge invoice.hasCredit:credit}
             | ($#{currency invoice.totalCreditDollars})
+
+        tr.total-line
+
         tr.total-charge
           td
             | Total Charge

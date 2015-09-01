@@ -140,6 +140,10 @@ App.Host = klass = App.Model.extend
     @get('updateAvailable') == "soft"
   ).property 'updateAvailable'
 
+  hasContainerCreating: (->
+    App.get('hostCreatingContainer') == @get 'slug'
+  ).property 'App.hostCreatingContainer'
+
   hasError: (->
     return false unless @get('isRunning')
     @get('connectivityError')

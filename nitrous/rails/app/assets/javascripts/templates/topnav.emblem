@@ -2,15 +2,14 @@
   ul.nav.left
     li
       if App.user
-        = link-to 'home.index'
+        = link-to 'home.index' class="nitrous-logo"
           h1.logo
             span Nitrous
-            small Pro
       else
-        a href='/'
+        a.nitrous-logo href='/'
           h1.logo
             span Nitrous
-            small Pro
+
   ul.nav.right
     if App.user
       li.ui.dropdown
