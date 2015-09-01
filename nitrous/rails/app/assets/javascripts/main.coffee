@@ -168,25 +168,6 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 
-  # TODO: Get this logic from server
-  canCreateHosts: (->
-    if @get('billingProfile.isNoCardState')
-      return true
-
-    if @get('billingProfile.free') && (@get('hosts.length') > 0)
-      return false
-
-    if !@get('billingProfile.active')
-      return false
-
-    if maxHosts = @get('userProfile.maxHosts')
-      return @get('hosts.loaded') && (@get('hosts.length') < maxHosts)
-
-    return true
-
-  ).property('billingProfile.isNoCardState', 'billingProfile.free', 'billingProfile.active',
-    'userProfile.maxHosts', 'hosts.loaded', 'hosts.length')
-
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0
 
