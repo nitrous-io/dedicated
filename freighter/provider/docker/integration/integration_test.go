@@ -7,12 +7,15 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Sirupsen/logrus"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	dockerclient "github.com/fsouza/go-dockerclient"
 	"github.com/nitrous-io/dedicated/freighter/provider"
 	"github.com/nitrous-io/dedicated/freighter/provider/docker"
 	"github.com/nitrous-io/dedicated/freighter/test"
@@ -108,6 +111,7 @@ func startContainerWithData(image, datadir, config string) (*docker.DockerProvid
 			os.RemoveAll(datadir)
 		}, err
 	}
+
 	return prov, info, func() {
 		os.RemoveAll(datadir)
 		test.CleanUpContainer(name)
@@ -200,16 +204,72 @@ func assertPort(name string, expected []interface{}) {
 
 // assert if the container contains the expected volumes
 func assertVolumes(name string, expected map[string]string, unexpected []string) {
-	vstr, err := inspectFieldJSON(name, "Volumes")
+	isDockerPre18, err := isDockerPre18()
 	Expect(err).To(BeNil())
-
 	var volumes map[string]string
-	err = json.Unmarshal([]byte(vstr), &volumes)
-	Expect(err).To(BeNil())
+
+	if isDockerPre18 {
+		vstr, err := inspectFieldJSON(name, "Volumes")
+		Expect(err).To(BeNil())
+
+		err = json.Unmarshal([]byte(vstr), &volumes)
+		Expect(err).To(BeNil())
+	} else {
+		mountsJson, err := inspectFieldJSON(name, "Mounts")
+		Expect(err).To(BeNil())
+		var mounts []dockerclient.Mount
+		volumes = make(map[string]string)
+
+		err = json.Unmarshal([]byte(mountsJson), &mounts)
+		Expect(err).To(BeNil())
+
+		for _, mount := range mounts {
+			volumes[mount.Destination] = mount.Source
+		}
+	}
+
 	for k, v := range expected {
 		Expect(volumes).To(HaveKeyWithValue(k, v))
 	}
 	for _, k := range unexpected {
 		Expect(volumes).NotTo(HaveKey(k))
 	}
+}
+
+// docker version
+func getDockerVersion() (int, int, error) {
+	dockerVersionCmd := exec.Command("docker", "-v")
+	b, err := dockerVersionCmd.CombinedOutput()
+	version := string(b)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get version: %s", version)
+	}
+	re, _ := regexp.Compile("Docker version (\\d+)\\.(\\d+).\\d+-nitrous")
+	matches := re.FindStringSubmatch(version)
+	if len(matches) == 3 {
+		majorVersion, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to get docker version: %+v: %+v", matches, err)
+		}
+
+		minorVersion, err := strconv.Atoi(matches[2])
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to get docker version %+v: %+v", matches, err)
+		}
+		return majorVersion, minorVersion, nil
+	}
+	return 0, 0, fmt.Errorf("invalid docker version format: %s", version)
+}
+
+func isDockerPre18() (bool, error) {
+	major, minor, err := getDockerVersion()
+	if err != nil {
+		return false, err
+	}
+
+	if major > 1 || (major == 1 && minor >= 8) {
+		return false, nil
+	}
+
+	return true, nil
 }

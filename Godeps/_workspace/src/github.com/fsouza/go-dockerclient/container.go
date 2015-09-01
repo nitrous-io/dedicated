@@ -128,12 +128,23 @@ type PortMapping map[string]string
 
 // NetworkSettings contains network-related information about a container
 type NetworkSettings struct {
-	IPAddress   string                 `json:"IPAddress,omitempty" yaml:"IPAddress,omitempty"`
-	IPPrefixLen int                    `json:"IPPrefixLen,omitempty" yaml:"IPPrefixLen,omitempty"`
-	Gateway     string                 `json:"Gateway,omitempty" yaml:"Gateway,omitempty"`
-	Bridge      string                 `json:"Bridge,omitempty" yaml:"Bridge,omitempty"`
-	PortMapping map[string]PortMapping `json:"PortMapping,omitempty" yaml:"PortMapping,omitempty"`
-	Ports       map[Port][]PortBinding `json:"Ports,omitempty" yaml:"Ports,omitempty"`
+	IPAddress              string                 `json:"IPAddress,omitempty" yaml:"IPAddress,omitempty"`
+	IPPrefixLen            int                    `json:"IPPrefixLen,omitempty" yaml:"IPPrefixLen,omitempty"`
+	MacAddress             string                 `json:"MacAddress,omitempty" yaml:"MacAddress,omitempty"`
+	Gateway                string                 `json:"Gateway,omitempty" yaml:"Gateway,omitempty"`
+	Bridge                 string                 `json:"Bridge,omitempty" yaml:"Bridge,omitempty"`
+	PortMapping            map[string]PortMapping `json:"PortMapping,omitempty" yaml:"PortMapping,omitempty"`
+	Ports                  map[Port][]PortBinding `json:"Ports,omitempty" yaml:"Ports,omitempty"`
+	NetworkID              string                 `json:"NetworkID,omitempty" yaml:"NetworkID,omitempty"`
+	EndpointID             string                 `json:"EndpointID,omitempty" yaml:"EndpointID,omitempty"`
+	SandboxKey             string                 `json:"SandboxKey,omitempty" yaml:"SandboxKey,omitempty"`
+	GlobalIPv6Address      string                 `json:"GlobalIPv6Address,omitempty" yaml:"GlobalIPv6Address,omitempty"`
+	GlobalIPv6PrefixLen    int                    `json:"GlobalIPv6PrefixLen,omitempty" yaml:"GlobalIPv6PrefixLen,omitempty"`
+	IPv6Gateway            string                 `json:"IPv6Gateway,omitempty" yaml:"IPv6Gateway,omitempty"`
+	LinkLocalIPv6Address   string                 `json:"LinkLocalIPv6Address,omitempty" yaml:"LinkLocalIPv6Address,omitempty"`
+	LinkLocalIPv6PrefixLen int                    `json:"LinkLocalIPv6PrefixLen,omitempty" yaml:"LinkLocalIPv6PrefixLen,omitempty"`
+	SecondaryIPAddresses   []string               `json:"SecondaryIPAddresses,omitempty" yaml:"SecondaryIPAddresses,omitempty"`
+	SecondaryIPv6Addresses []string               `json:"SecondaryIPv6Addresses,omitempty" yaml:"SecondaryIPv6Addresses,omitempty"`
 }
 
 // PortMappingAPI translates the port mappings as contained in NetworkSettings
@@ -191,18 +202,30 @@ type Config struct {
 	OpenStdin       bool                `json:"OpenStdin,omitempty" yaml:"OpenStdin,omitempty"`
 	StdinOnce       bool                `json:"StdinOnce,omitempty" yaml:"StdinOnce,omitempty"`
 	Env             []string            `json:"Env,omitempty" yaml:"Env,omitempty"`
-	Cmd             []string            `json:"Cmd,omitempty" yaml:"Cmd,omitempty"`
+	Cmd             []string            `json:"Cmd" yaml:"Cmd"`
 	DNS             []string            `json:"Dns,omitempty" yaml:"Dns,omitempty"` // For Docker API v1.9 and below only
 	Image           string              `json:"Image,omitempty" yaml:"Image,omitempty"`
 	Volumes         map[string]struct{} `json:"Volumes,omitempty" yaml:"Volumes,omitempty"`
 	VolumesFrom     string              `json:"VolumesFrom,omitempty" yaml:"VolumesFrom,omitempty"`
 	WorkingDir      string              `json:"WorkingDir,omitempty" yaml:"WorkingDir,omitempty"`
 	MacAddress      string              `json:"MacAddress,omitempty" yaml:"MacAddress,omitempty"`
-	Entrypoint      []string            `json:"Entrypoint,omitempty" yaml:"Entrypoint,omitempty"`
+	Entrypoint      []string            `json:"Entrypoint" yaml:"Entrypoint"`
 	NetworkDisabled bool                `json:"NetworkDisabled,omitempty" yaml:"NetworkDisabled,omitempty"`
 	SecurityOpts    []string            `json:"SecurityOpts,omitempty" yaml:"SecurityOpts,omitempty"`
 	OnBuild         []string            `json:"OnBuild,omitempty" yaml:"OnBuild,omitempty"`
+	Mounts          []Mount             `json:"Mounts,omitempty" yaml:"Mounts,omitempty"`
 	Labels          map[string]string   `json:"Labels,omitempty" yaml:"Labels,omitempty"`
+}
+
+// Mount represents a mount point in the container.
+//
+// It has been added in the version 1.20 of the Docker API, available since
+// Docker 1.8.
+type Mount struct {
+	Source      string
+	Destination string
+	Mode        string
+	RW          bool
 }
 
 // LogConfig defines the log driver type and the configuration for it.
@@ -252,6 +275,7 @@ type Container struct {
 	ResolvConfPath string `json:"ResolvConfPath,omitempty" yaml:"ResolvConfPath,omitempty"`
 	HostnamePath   string `json:"HostnamePath,omitempty" yaml:"HostnamePath,omitempty"`
 	HostsPath      string `json:"HostsPath,omitempty" yaml:"HostsPath,omitempty"`
+	LogPath        string `json:"LogPath,omitempty" yaml:"LogPath,omitempty"`
 	Name           string `json:"Name,omitempty" yaml:"Name,omitempty"`
 	Driver         string `json:"Driver,omitempty" yaml:"Driver,omitempty"`
 
@@ -262,7 +286,8 @@ type Container struct {
 
 	RestartCount int `json:"RestartCount,omitempty" yaml:"RestartCount,omitempty"`
 
-	AppArmorProfile string `json:"AppArmorProfile,omitempty" yaml:"AppArmorProfile,omitempty"`
+	AppArmorProfile string  `json:"AppArmorProfile,omitempty" yaml:"AppArmorProfile,omitempty"`
+	Mounts          []Mount `json:"Mounts,omitempty" yaml:"Mounts,omitempty"`
 }
 
 // RenameContainerOptions specify parameters to the RenameContainer function.
@@ -329,8 +354,8 @@ func (c *Client) ContainerChanges(id string) ([]Change, error) {
 // See http://goo.gl/2xxQQK for more details.
 type CreateContainerOptions struct {
 	Name       string
-	Config     *Config `qs:"-"`
-	HostConfig *HostConfig
+	Config     *Config     `qs:"-"`
+	HostConfig *HostConfig `qs:"-"`
 }
 
 // CreateContainer creates a new container, returning the container instance,
@@ -438,6 +463,7 @@ type HostConfig struct {
 	NetworkMode     string                 `json:"NetworkMode,omitempty" yaml:"NetworkMode,omitempty"`
 	IpcMode         string                 `json:"IpcMode,omitempty" yaml:"IpcMode,omitempty"`
 	PidMode         string                 `json:"PidMode,omitempty" yaml:"PidMode,omitempty"`
+	UTSMode         string                 `json:"UTSMode,omitempty" yaml:"UTSMode,omitempty"`
 	RestartPolicy   RestartPolicy          `json:"RestartPolicy,omitempty" yaml:"RestartPolicy,omitempty"`
 	Devices         []Device               `json:"Devices,omitempty" yaml:"Devices,omitempty"`
 	LogConfig       LogConfig              `json:"LogConfig,omitempty" yaml:"LogConfig,omitempty"`
@@ -631,20 +657,24 @@ type Stats struct {
 		IOTimeRecursive         []BlkioStatsEntry `json:"io_time_recursive,omitempty" yaml:"io_time_recursive,omitempty"`
 		SectorsRecursive        []BlkioStatsEntry `json:"sectors_recursive,omitempty" yaml:"sectors_recursive,omitempty"`
 	} `json:"blkio_stats,omitempty" yaml:"blkio_stats,omitempty"`
-	CPUStats struct {
-		CPUUsage struct {
-			PercpuUsage       []uint64 `json:"percpu_usage,omitempty" yaml:"percpu_usage,omitempty"`
-			UsageInUsermode   uint64   `json:"usage_in_usermode,omitempty" yaml:"usage_in_usermode,omitempty"`
-			TotalUsage        uint64   `json:"total_usage,omitempty" yaml:"total_usage,omitempty"`
-			UsageInKernelmode uint64   `json:"usage_in_kernelmode,omitempty" yaml:"usage_in_kernelmode,omitempty"`
-		} `json:"cpu_usage,omitempty" yaml:"cpu_usage,omitempty"`
-		SystemCPUUsage uint64 `json:"system_cpu_usage,omitempty" yaml:"system_cpu_usage,omitempty"`
-		ThrottlingData struct {
-			Periods          uint64 `json:"periods,omitempty"`
-			ThrottledPeriods uint64 `json:"throttled_periods,omitempty"`
-			ThrottledTime    uint64 `json:"throttled_time,omitempty"`
-		} `json:"throttling_data,omitempty" yaml:"throttling_data,omitempty"`
-	} `json:"cpu_stats,omitempty" yaml:"cpu_stats,omitempty"`
+	CPUStats    CPUStats `json:"cpu_stats,omitempty" yaml:"cpu_stats,omitempty"`
+	PreCPUStats CPUStats `json:"precpu_stats,omitempty"`
+}
+
+// CPUStats is a stats entry for cpu stats
+type CPUStats struct {
+	CPUUsage struct {
+		PercpuUsage       []uint64 `json:"percpu_usage,omitempty" yaml:"percpu_usage,omitempty"`
+		UsageInUsermode   uint64   `json:"usage_in_usermode,omitempty" yaml:"usage_in_usermode,omitempty"`
+		TotalUsage        uint64   `json:"total_usage,omitempty" yaml:"total_usage,omitempty"`
+		UsageInKernelmode uint64   `json:"usage_in_kernelmode,omitempty" yaml:"usage_in_kernelmode,omitempty"`
+	} `json:"cpu_usage,omitempty" yaml:"cpu_usage,omitempty"`
+	SystemCPUUsage uint64 `json:"system_cpu_usage,omitempty" yaml:"system_cpu_usage,omitempty"`
+	ThrottlingData struct {
+		Periods          uint64 `json:"periods,omitempty"`
+		ThrottledPeriods uint64 `json:"throttled_periods,omitempty"`
+		ThrottledTime    uint64 `json:"throttled_time,omitempty"`
+	} `json:"throttling_data,omitempty" yaml:"throttling_data,omitempty"`
 }
 
 // BlkioStatsEntry is a stats entry for blkio_stats
@@ -662,6 +692,10 @@ type StatsOptions struct {
 	ID     string
 	Stats  chan<- *Stats
 	Stream bool
+	// A flag that enables stopping the stats operation
+	Done <-chan bool
+	// Initial connection timeout
+	Timeout time.Duration
 }
 
 // Stats sends container statistics for the given container to the given channel.
@@ -669,7 +703,7 @@ type StatsOptions struct {
 // This function is blocking, similar to a streaming call for logs, and should be run
 // on a separate goroutine from the caller. Note that this function will block until
 // the given container is removed, not just exited. When finished, this function
-// will close the given channel.
+// will close the given channel. Alternatively, function can be stopped by signaling on the Done channel
 //
 // See http://goo.gl/DFMiYD for more details.
 func (c *Client) Stats(opts StatsOptions) (retErr error) {
@@ -678,9 +712,16 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 
 	defer func() {
 		close(opts.Stats)
-		if err := <-errC; err != nil && retErr == nil {
-			retErr = err
+
+		select {
+		case err := <-errC:
+			if err != nil && retErr == nil {
+				retErr = err
+			}
+		default:
+			// No errors
 		}
+
 		if err := readCloser.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
@@ -691,6 +732,7 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 			rawJSONStream:  true,
 			useJSONDecoder: true,
 			stdout:         writeCloser,
+			timeout:        opts.Timeout,
 		})
 		if err != nil {
 			dockerError, ok := err.(*Error)
@@ -705,6 +747,18 @@ func (c *Client) Stats(opts StatsOptions) (retErr error) {
 		}
 		errC <- err
 		close(errC)
+	}()
+
+	quit := make(chan struct{})
+	defer close(quit)
+	go func() {
+		// block here waiting for the signal to stop function
+		select {
+		case <-opts.Done:
+			readCloser.Close()
+		case <-quit:
+			return
+		}
 	}()
 
 	decoder := json.NewDecoder(readCloser)
@@ -924,6 +978,7 @@ type LogsOptions struct {
 	Follow       bool
 	Stdout       bool
 	Stderr       bool
+	Since        int64
 	Timestamps   bool
 	Tail         string
 
@@ -989,7 +1044,10 @@ func (c *Client) ReloadContainer(id string) error {
 	if status == http.StatusNotFound {
 		return &NoSuchContainer{ID: id}
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // NoSuchContainer is the error returned when a given container does not exist.
