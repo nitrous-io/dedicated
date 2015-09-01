@@ -17,6 +17,8 @@ type HostAddress struct {
 
 // Config stores shared configuration that can be read by other packages
 type Config struct {
+	Debug bool `json:"debug"`
+
 	DataPath string `json:"data_path"`
 
 	TLSVerify bool   `json:"tls_verify"` // whether we want to use TLS mode for all HTTP hosts
