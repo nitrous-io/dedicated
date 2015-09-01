@@ -25,6 +25,19 @@ App.Invoice = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     !@get('successfulCharge')
   ).property 'successfulCharge'
 
+  items: (->
+    @get('_items')?.map (item)=>
+      inv = App.InvoiceItem.create()
+      inv.load item
+      inv
+  ).property '_items'
+
+  title: (->
+    t = @get('items').findBy('itemType', 'subscription') || @get('items').findBy('itemType', 'compute')
+    return "Unknown" unless t
+    t.get("description").replace("Subscription to", "").trim()
+  ).property 'items.@each'
+
   totalUsageForPeriod: (->
     @get('totalCreditDollars') + @get('totalChargeDollars')
   ).property 'totalCreditDollars', 'totalChargeDollars'

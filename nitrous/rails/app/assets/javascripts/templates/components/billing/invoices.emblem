@@ -2,62 +2,81 @@
   h2 Billing History
 
 .card-body
-  unless invoices.content
+  if invoices.content
+    table.ui.table.billing-history
+      thead
+        tr
+          th
+          th
+            | Subscription
+          th
+            | Date
+          th
+            | Amount
+          th
+            | Details
+      tbody
+        = each invoice in invoices
+          if invoice.showInvoice
+            tr class={invoice.unpaid:unpaid}
+              td
+                if invoice.unpaid
+                  i.fa.fa-times
+                else
+                  i.fa.fa-check
+              td
+                = invoice.title
+              td
+                = basicdate invoice.periodEnd
+              td
+                | $#{currency invoice.totalChargeDollars}
+              td
+                if invoice.manuallyPayable
+                  a.view-invoice.blue click='showInvoice invoice' Pay Now
+                else
+                  a.view-invoice click='showInvoice invoice' View
+
+  else
     p.hint-text
       i.fa.fa-exclamation-circle
       | You don't have any invoices available.
-  = each invoice in invoices
-    if invoice.showInvoice
-      .billing-table
-        .heading
-          h4
-            if invoice.showSubscriptionEndHeading
-              = monthyear invoice.periodEnd
-            else
-              | #{simpledate invoice.periodStart} - #{simpledate invoice.periodEnd}
-          if invoice.showInvoiceState
-            .payment-status class={invoice.unpaid:unpaid}
-              if invoice.awaitingUpdate
-                i.spinner
-                | Verifying
-              else
-                if invoice.manuallyPayable
-                  .payment-pay-now-action
-                    button.ui.btn.danger disabled=invoice.paying click='payInvoice invoice'
-                      if invoice.paying
-                        i.spinner
-                        | Processing
-                      else
-                        | Pay Now
-                else
-                  if invoice.successfulCharge
-                    | Paid
-                  else
-                    if invoice.deferred
-                      | Deferred
-                    else
-                      | Unpaid
-        table.ui.table.horizontal
-          tbody
-            = each group in invoice.groupedItems
-              = each item in group.items
-                = billing-invoice-item item=item
 
-          tr.divider
-            td
-              | Total usage this period
-            td.charge
-              | $
-              = currency invoice.totalUsageForPeriod
-          tr
-            td
-              | Credits applied
-              if invoice.creditAvailableDollars
-                | ($#{currency invoice.creditAvailableDollars} available)
-            td class={:charge invoice.hasCredit:credit}
-              | ($#{currency invoice.totalCreditDollars})
-          tr.total-charge
-            td
-              | Total Charge
-            td.charge
-              | $#{currency invoice.totalChargeDollars}
+#showinvoice-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      = basicdate invoice.periodEnd
+
+    .card-body
+      table.ui.table.horizontal.billing-table
+        tbody
+          = each group in invoice.groupedItems
+            = each item in group.items
+              = billing-invoice-item item=item
+
+        tr class={invoice.hasCredit:has-credit:no-credit}
+          td
+            | Credits applied
+            if invoice.creditAvailableDollars
+              | ($#{currency invoice.creditAvailableDollars} available)
+          td class={:charge invoice.hasCredit:credit}
+            | ($#{currency invoice.totalCreditDollars})
+
+        tr.total-line
+
+        tr.total-charge
+          td
+            | Total Charge
+          td.charge
+            | $#{currency invoice.totalChargeDollars}
+
+    .card-footer
+      .right
+        button.ui.btn click='closeInvoice' Close
+
+        if invoice.manuallyPayable
+          button.ui.btn.primary disabled=invoice.paying click='payInvoice invoice'
+            if invoice.paying
+              i.spinner
+              | Processing
+            else
+              | Pay Now

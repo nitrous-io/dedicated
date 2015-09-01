@@ -10,7 +10,6 @@
         '
         | Your Nitrous Pro account is currently restricted until you correct issues with your billing account.
     = outlet content
-= partial 'partials/footer'
 
 if App.user.admin
   = outlet admin

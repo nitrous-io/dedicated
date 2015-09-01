@@ -86,8 +86,8 @@ func Find(d db.QueryReceiver, user *user.User, identifier string) (*Container, e
 	return c, nil
 }
 
-// Find queries for a container scoped to the user.
-// identifier can be either an ID or a slug.
+// FindShared queries for a container where given user is either the owner or a
+// collaborator.  identifier can be either an ID or a slug.
 func FindShared(d db.QueryReceiver, user *user.User, identifier string) (*Container, error) {
 	c := &Container{}
 	id, err := strconv.ParseInt(identifier, 10, 64)
@@ -97,16 +97,20 @@ func FindShared(d db.QueryReceiver, user *user.User, identifier string) (*Contai
 			`SELECT
 			containers.*
 			FROM containers
-			INNER JOIN container_collabs ON containers.id = container_collabs.container_id
-			WHERE container_collabs.user_id = $1 AND slug = $2 AND containers.terminated_at IS NULL;`,
+			LEFT JOIN container_collabs ON containers.id = container_collabs.container_id
+			WHERE (container_collabs.user_id = $1 OR containers.user_id = $1)
+			AND slug = $2
+			AND containers.terminated_at IS NULL;`,
 			user.ID, identifier)
 	} else {
 		err = d.Get(c,
 			`SELECT
 			containers.*
 			FROM containers
-			INNER JOIN container_collabs ON containers.id = container_collabs.container_id
-			WHERE container_collabs.user_id = $1 AND containers.id = $2 AND containers.terminated_at IS NULL;`,
+			LEFT JOIN container_collabs ON containers.id = container_collabs.container_id
+			WHERE (container_collabs.user_id = $1 OR containers.user_id = $1)
+			AND containers.id = $2
+			AND containers.terminated_at IS NULL;`,
 			user.ID, id)
 	}
 

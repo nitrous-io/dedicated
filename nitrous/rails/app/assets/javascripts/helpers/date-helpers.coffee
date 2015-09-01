@@ -43,6 +43,19 @@ Em.Handlebars.helper 'monthyear', (date) ->
     mName = monthNames[mnt]
     "#{mName} #{date.getFullYear()}"
 
+Em.Handlebars.helper 'basicdate', (date) ->
+  unless date instanceof Date
+    return
+  yr = date.getFullYear()
+  mnt = (date.getMonth() + 1)
+  day = (date.getDate())
+  hr = date.getHours()
+  if hr == 0
+    hr = 12
+  min = date.getMinutes()
+
+  "#{yr}-#{util.padZeroes(mnt)}-#{util.padZeroes(day)}"
+
 Em.Handlebars.helper 'basicdatetime', (date) ->
   unless date instanceof Date
     return

@@ -170,10 +170,12 @@ func (s *Server) notifyWebhook(data map[string]interface{}) error {
 	}
 
 	if e, ok := data["event"]; ok && e == "ping" {
-		// pings use nolog url param so that nitrousd won't log
-		p := &url.Values{}
-		p.Set("nolog", "1")
-		u.RawQuery = p.Encode()
+		if !s.conf.Debug {
+			// pings use nolog url param so that nitrousd won't log
+			p := &url.Values{}
+			p.Set("nolog", "1")
+			u.RawQuery = p.Encode()
+		}
 	}
 
 	verifier := msgverifier.New(s.secret)
@@ -221,7 +223,8 @@ func (s *Server) makeLogUUIDHandler(handlerFunc http.HandlerFunc) http.HandlerFu
 
 		// so that is available in s.respond()
 		w.Header().Set(NitrousUUIDHeader, uuidStr)
-		if noLogs := r.URL.String() == "/ping"; noLogs {
+		noLogs := !s.conf.Debug && r.URL.String() == "/ping"
+		if noLogs {
 			w.Header().Set(NitrousUUIDHeader, "nolog")
 		} else {
 			logrus.Infof("uuid=%s Request: %v %v\n", uuidStr, r.Method, r.URL.String())

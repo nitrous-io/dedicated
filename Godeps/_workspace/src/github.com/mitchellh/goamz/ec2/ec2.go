@@ -127,7 +127,11 @@ type xmlErrors struct {
 var timeNow = time.Now
 
 func (ec2 *EC2) query(params map[string]string, resp interface{}) error {
-	params["Version"] = "2014-06-15"
+	// USE WITH CARE
+	// allows queries to customize the API version being used
+	if _, ok := params["Version"]; !ok {
+		params["Version"] = "2014-06-15"
+	}
 	params["Timestamp"] = timeNow().In(time.UTC).Format(time.RFC3339)
 	endpoint, err := url.Parse(ec2.Region.EC2Endpoint)
 	if err != nil {
@@ -989,6 +993,7 @@ type VolumeAttachment struct {
 // Response to a DescribeVolumes request
 type VolumesResp struct {
 	RequestId string   `xml:"requestId"`
+	NextToken string   `xml:"nextToken,omitempty"`
 	Volumes   []Volume `xml:"volumeSet>item"`
 }
 
@@ -1071,6 +1076,19 @@ func (ec2 *EC2) DetachVolume(id string) (resp *SimpleResp, err error) {
 func (ec2 *EC2) Volumes(volIds []string, filter *Filter) (resp *VolumesResp, err error) {
 	params := makeParams("DescribeVolumes")
 	addParamsList(params, "VolumeId", volIds)
+	filter.addParams(params)
+	resp = &VolumesResp{}
+	err = ec2.query(params, resp)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (ec2 *EC2) VolumesWithExtraParams(volIds []string, filter *Filter, extraParams map[string]string) (resp *VolumesResp, err error) {
+	params := makeParams("DescribeVolumes")
+	addParamsList(params, "VolumeId", volIds)
+	addParams(params, extraParams)
 	filter.addParams(params)
 	resp = &VolumesResp{}
 	err = ec2.query(params, resp)

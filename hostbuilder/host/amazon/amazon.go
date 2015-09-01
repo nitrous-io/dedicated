@@ -412,15 +412,23 @@ func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
 	return &resp.Volumes[0], nil
 }
 
-func (h *Host) tagVolume(volumeID string) error {
+// tagVolume uses the Name tag on ec2 to tag volumes with convention:
+// <type>-<env>-<host id>
+// Where 'type' is
+// userdata - a hotswap-enabled volume to be mounted as user data
+// userroot - pre-hotswap volume that serves both as instance root and user data
+// n/a      - hotswap-enabled root volumes will not be tagged
+func (h *Host) tagVolume(volumeID, namePrefix string) error {
+	name := fmt.Sprintf("%s-%s-%d", namePrefix, h.driverConfig.Env, h.Config.HostID)
+
 	tags := []ec2.Tag{
 		{Key: "dedicated", Value: h.driverConfig.Env},
-		{Key: "dedicated:host_id", Value: strconv.FormatInt(h.Config.HostID, 10)},
+		{Key: "Name", Value: name},
 	}
 
-	h.Printf("tagging user volume %s with tags %#v", volumeID, tags)
+	h.Printf("tagging volume %s with tags %#v", volumeID, tags)
 	if _, err := h.provider.CreateTags([]string{volumeID}, tags); err != nil {
-		return fmt.Errorf("amazon: failed to tag user volume %s with tags %#v, err: %v", volumeID, tags, err)
+		return fmt.Errorf("amazon: failed to tag volume %s with tags %#v, err: %v", volumeID, tags, err)
 	}
 
 	return nil
@@ -529,10 +537,17 @@ func createInstance(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceId)
 	}
 
-	// Tag user volume, if instance has one.
 	userDevice := blockDevice(h.instance, userDeviceName)
-	if userDevice != nil {
-		if err := h.tagVolume(userDevice.VolumeId); err != nil {
+	if userDevice == nil {
+		// no user device = pre-hotswap.  Tag root volume
+		rootDevice := blockDevice(h.instance, rootDeviceName)
+		if err := h.tagVolume(rootDevice.VolumeId, "userroot"); err != nil {
+			return err
+		}
+	} else {
+		// we only name root volumes for non-hotswap instances, i.e. only
+		// volumes which contain user data should have a Name tag
+		if err := h.tagVolume(userDevice.VolumeId, "userdata"); err != nil {
 			return err
 		}
 	}
