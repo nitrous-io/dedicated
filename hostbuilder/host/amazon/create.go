@@ -194,7 +194,7 @@ func attachNewUserVolume(ctx *host.HostContext) error {
 	h.Printf("new user volume id %s created", volID)
 
 	// Tag volume so it has useful metadata.
-	if err := h.tagVolume(volID); err != nil {
+	if err := h.tagVolume(volID, "userdata"); err != nil {
 		return err
 	}
 
