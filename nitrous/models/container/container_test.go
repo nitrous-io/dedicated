@@ -201,13 +201,23 @@ var _ = Describe("models/container", func() {
 
 		Context("when finding by slug", func() {
 			It("returns the container record shared with the user", func() {
-				c, err := container.FindShared(db, recv, c.Slug)
+				shared, err := container.FindShared(db, recv, c.Slug)
 				Expect(err).To(BeNil())
-				Expect(c).NotTo(BeNil())
-				Expect(c.UserID).To(Equal(u.ID))
-				Expect(c.HostID).To(Equal(h.ID))
-				Expect(c.CID).To(Equal("deadbeef"))
-				Expect(c.Slug).To(Equal(c.Slug))
+				Expect(shared).NotTo(BeNil())
+				Expect(shared.UserID).To(Equal(u.ID))
+				Expect(shared.HostID).To(Equal(h.ID))
+				Expect(shared.CID).To(Equal("deadbeef"))
+				Expect(shared.Slug).To(Equal(c.Slug))
+			})
+
+			It("returns the container record if user is the owner", func() {
+				shared, err := container.FindShared(db, u, c.Slug)
+				Expect(err).To(BeNil())
+				Expect(shared).NotTo(BeNil())
+				Expect(shared.UserID).To(Equal(u.ID))
+				Expect(shared.HostID).To(Equal(h.ID))
+				Expect(shared.CID).To(Equal("deadbeef"))
+				Expect(shared.Slug).To(Equal(c.Slug))
 			})
 
 			It("returns an error if the container matching the given slug is not shared with the user", func() {
@@ -233,16 +243,26 @@ var _ = Describe("models/container", func() {
 
 		Context("when finding by ID", func() {
 			It("returns the container record shared with the user", func() {
-				c, err := container.FindShared(db, recv, strconv.FormatInt(c.ID, 10))
+				shared, err := container.FindShared(db, recv, strconv.FormatInt(c.ID, 10))
 				Expect(err).To(BeNil())
-				Expect(c).NotTo(BeNil())
-				Expect(c.UserID).To(Equal(u.ID))
-				Expect(c.HostID).To(Equal(h.ID))
-				Expect(c.CID).To(Equal("deadbeef"))
-				Expect(c.Slug).To(Equal(c.Slug))
+				Expect(shared).NotTo(BeNil())
+				Expect(shared.UserID).To(Equal(u.ID))
+				Expect(shared.HostID).To(Equal(h.ID))
+				Expect(shared.CID).To(Equal("deadbeef"))
+				Expect(shared.Slug).To(Equal(c.Slug))
 			})
 
-			It("returns an error if the container matching the given slug is not shared with the user", func() {
+			It("returns the container record if user is the owner", func() {
+				shared, err := container.FindShared(db, u, strconv.FormatInt(c.ID, 10))
+				Expect(err).To(BeNil())
+				Expect(shared).NotTo(BeNil())
+				Expect(shared.UserID).To(Equal(u.ID))
+				Expect(shared.HostID).To(Equal(h.ID))
+				Expect(shared.CID).To(Equal("deadbeef"))
+				Expect(shared.Slug).To(Equal(c.Slug))
+			})
+
+			It("returns an error if the container matching the given id is not shared with the user", func() {
 				u2 := &user.User{
 					Username: "barbaz",
 					Email:    "barbaz@example.com",
@@ -256,7 +276,7 @@ var _ = Describe("models/container", func() {
 				Expect(c).To(BeNil())
 			})
 
-			It("returns an error when there's no matching container for the given slug'", func() {
+			It("returns an error when there's no matching container for the given id'", func() {
 				c, err := container.FindShared(db, recv, "10001")
 				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(c).To(BeNil())
