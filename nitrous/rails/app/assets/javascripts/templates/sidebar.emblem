@@ -1,5 +1,4 @@
 if App.hosts.length
-  h2 Workspaces
   ul.sidebar-list.hosts
     each host in App.hosts
       li class={host.selected:selected host.isTerminated:disabled}
@@ -32,6 +31,13 @@ if App.hosts.length
                         .state-indicator class={container.state} title={container.state}
                           span
                             = container.state
+              else
+                a.add-container-btn click='createContainer host'
+                  if host.hasContainerCreating
+                    i.spinner
+                  else
+                    i.fa.fa-plus
+                    span Add Container
 
 if App.groupedSharedContainers.length
   h2 Shared Containers
@@ -55,18 +61,13 @@ if App.groupedSharedContainers.length
 
 = orgs-list collection=controllers.orgs.collection selectedItem=controllers.org.model
 
-.app-download
-  if App.billingProfile.free
-    h3 Desktop Sync
-    p Nitrous desktop app allows you to work on your code using your favorite editor. Available for paid users.
-
-    a.ui.btn.raised href='#' click='upgradePaid'
-      i.fa.fa-credit-card
-      | &nbsp; Upgrade to paid
-  else
-    h3 Get Desktop Sync
-    p Install Nitrous desktop app to work on your code using your favorite editor.
-
-    a.ui.btn.raised href='#' click='downloadDesktopApp'
-      i.fa.fa-download
-      | &nbsp; Free Download
+aside
+  p
+    | &copy; 2015 Nitrous, Inc.
+  ul
+    li
+      a href='http://status.nitrous.io/' target="_blank" Status
+    li
+      a href='https://community.nitrous.io/docs/terms-of-use' target="_blank" Terms
+    li
+      a href='mailto:support@nitrous.io?subject=Nitrous%20Feedback' Support

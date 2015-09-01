@@ -159,6 +159,11 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
     , (jqxhr) => # App.Image.pull
       @handleErrorResponse(jqxhr)
 
+  reflectSaving: (->
+    return if @get 'saving'
+    App.set 'hostCreatingContainer', null
+  ).observes 'saving'
+
   actions:
     showContainer: ->
       return unless @get 'createdContainer'
@@ -177,6 +182,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
     create: (repository) ->
       @set 'saving', true
+      App.set 'hostCreatingContainer', @get 'selectedHostSlug'
       App.set 'user.firstTime', false
 
       if App.get('onboardingScreen')
