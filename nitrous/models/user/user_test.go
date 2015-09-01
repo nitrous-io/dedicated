@@ -403,11 +403,12 @@ var _ = Describe("models/user", func() {
 
 		BeforeEach(func() {
 			u = &user.User{
-				Username:  "qux",
-				Name:      "quxboy",
-				Password:  "123456",
-				Email:     "qux@example.com",
-				PromoCode: sql.NullString{"pCode2", true},
+				Username:   "qux",
+				Name:       "quxboy",
+				Password:   "123456",
+				Email:      "qux@example.com",
+				PromoCode:  sql.NullString{"pCode2", true},
+				Suspicious: sql.NullString{"shady", true},
 			}
 		})
 
@@ -476,6 +477,11 @@ var _ = Describe("models/user", func() {
 				Expect(bp.State).To(Equal("no_card"))
 				Expect(bp.CreatedAt).NotTo(BeNil())
 				Expect(bp.UpdatedAt).NotTo(BeNil())
+			})
+
+			It("writes suspicious field if populated", func() {
+				Expect(u2.Username).To(Equal("qux"))
+				Expect(u2.Suspicious.String).To(Equal("shady"))
 			})
 		})
 
@@ -1744,6 +1750,37 @@ var _ = Describe("models/user", func() {
 				Expect(err).To(BeNil())
 				Expect(b.State).To(Equal("no_card"))
 			})
+		})
+	})
+})
+
+var _ = Describe("models/user no db", func() {
+	var u *user.User
+
+	BeforeEach(func() {
+		u = &user.User{}
+	})
+
+	Context("CheckSuspicious()", func() {
+		It("finds suspicious on e-mail", func() {
+			u.Email = "hackerviros@gmail.com"
+			u.CheckSuspicious()
+			Expect(u.Suspicious.Valid).To(BeTrue())
+			Expect(u.Suspicious.String).To(Equal("Signature match email: viros"))
+		})
+
+		It("appends to existing suspicious field", func() {
+			u.Suspicious = sql.NullString{"bad name", true}
+			u.Username = "lucasaoqui"
+			u.CheckSuspicious()
+			Expect(u.Suspicious.Valid).To(BeTrue())
+			Expect(u.Suspicious.String).To(Equal("bad name; Signature match username: aoqui"))
+		})
+
+		It("is no-op if user is not suspicious", func() {
+			Expect(u.Suspicious.Valid).To(BeFalse())
+			u.CheckSuspicious()
+			Expect(u.Suspicious.Valid).To(BeFalse())
 		})
 	})
 })
