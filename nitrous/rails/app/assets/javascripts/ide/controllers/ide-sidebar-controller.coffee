@@ -23,7 +23,7 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   initialize: ->
     @set 'homePath', homePath = App.Path.create absolutePath: App.get('container.homePath'), directory: true
-    @set 'rootPath', homePath
+    @set 'rootPath', App.Path.create absolutePath: App.get('container.rootPath'), directory: true
     @set 'content', Em.A([homePath])
 
   reset: ->
@@ -263,9 +263,18 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   setHomeAsRoot: ->
     @set 'rootPath', @get('homePath')
+    @set 'rootPath.expanded', true
+    @refresh @get 'rootPath'
 
   setPathAsRoot: (path) ->
     @set 'rootPath', path
+
+  rootPathDidChange: (->
+    val = @get 'rootPath'
+    return if App.get('container.rootPath') == val
+    return if App.get('container.metadata.rootPath') == val
+    App.get('container').setMetadata({rootPath: val.get 'collabPath'})
+  ).observes 'rootPath'
 
   newPath: (path, directory) ->
     this.openPath path if !path.get 'expanded'
