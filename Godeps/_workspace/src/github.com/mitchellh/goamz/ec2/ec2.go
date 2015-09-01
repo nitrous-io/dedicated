@@ -127,7 +127,11 @@ type xmlErrors struct {
 var timeNow = time.Now
 
 func (ec2 *EC2) query(params map[string]string, resp interface{}) error {
-	params["Version"] = "2014-06-15"
+	// USE WITH CARE
+	// allows queries to customize the API version being used
+	if _, ok := params["Version"]; !ok {
+		params["Version"] = "2014-06-15"
+	}
 	params["Timestamp"] = timeNow().In(time.UTC).Format(time.RFC3339)
 	endpoint, err := url.Parse(ec2.Region.EC2Endpoint)
 	if err != nil {
