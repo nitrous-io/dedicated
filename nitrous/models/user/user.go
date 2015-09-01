@@ -8,6 +8,7 @@ import (
 	"net/mail"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -221,6 +222,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	if err := u.encryptPassword(); err != nil {
 		return err
 	}
+
+	u.CheckSuspicious()
 
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
 		(email, username, encrypted_password, name, promo_code, suspicious)
@@ -710,4 +713,39 @@ func (u *User) ActivateBillingProfile(d *db.Database, token string) (bp *billing
 
 	err = nil
 	return
+}
+
+// populates Suspicious field if conditions are matched
+func (u *User) CheckSuspicious() {
+	reasons := []string{}
+	if u.Suspicious.Valid {
+		reasons = append(reasons, u.Suspicious.String)
+	}
+
+	// known abusers
+	// TODO move to config file
+	signatures := []string{
+		"viros",
+		"aoqui",
+		"mafia",
+		"grimm",
+		"resende",
+		"slk123",
+	}
+
+	for _, sig := range signatures {
+		if strings.Contains(u.Username, sig) {
+			reasons = append(reasons, fmt.Sprintf("Signature match username: %s", sig))
+		}
+		if strings.Contains(u.Email, sig) {
+			reasons = append(reasons, fmt.Sprintf("Signature match email: %s", sig))
+		}
+	}
+
+	if len(reasons) == 0 {
+		return
+	}
+
+	u.Suspicious.Valid = true
+	u.Suspicious.String = strings.Join(reasons, "; ")
 }
