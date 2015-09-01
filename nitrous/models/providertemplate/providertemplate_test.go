@@ -152,37 +152,6 @@ var _ = Describe("models/providertemplate", func() {
 		})
 	})
 
-	Describe("FindForRespec()", func() {
-		It("returns the first provider template for the given region / plan / provider / hotswap combination", func() {
-			pt, err := providertemplate.FindForRespec(db, r, p1, "digitalocean", false)
-			Expect(err).To(BeNil())
-
-			Expect(pt.Name).To(Equal("do-512MB"))
-			Expect(pt.ID).NotTo(BeZero())
-			Expect(pt.RegionID).To(Equal(r.ID))
-			Expect(pt.PlanID).To(Equal(p1.ID))
-			Expect(pt.Provider).To(Equal("digitalocean"))
-		})
-
-		It("returns a disabled provider template", func() {
-			pt, err := providertemplate.FindForRespec(db, r, p2, "digitalocean", true)
-			Expect(err).To(BeNil())
-
-			Expect(pt.Name).To(Equal("do-hotswap-1GB"))
-			Expect(pt.Disabled).To(BeTrue())
-			Expect(pt.ID).NotTo(BeZero())
-			Expect(pt.RegionID).To(Equal(r.ID))
-			Expect(pt.PlanID).To(Equal(p2.ID))
-			Expect(pt.Provider).To(Equal("digitalocean"))
-		})
-
-		It("returns an error when no provider record matches the conditions", func() {
-			pt, err := providertemplate.FindForRespec(db, r, p1, "digitalocean", true)
-			Expect(err).To(MatchError(sql.ErrNoRows))
-			Expect(pt).To(BeNil())
-		})
-	})
-
 	Describe("FindByName()", func() {
 		It("finds the template by its name", func() {
 			pt, err := providertemplate.FindByName(db, "do-512MB")
@@ -193,6 +162,67 @@ var _ = Describe("models/providertemplate", func() {
 			Expect(pt.PlanID).To(Equal(p1.ID))
 			Expect(pt.Name).To(Equal("do-512MB"))
 			Expect(pt.Provider).To(Equal("digitalocean"))
+		})
+	})
+
+	Describe("RespecTemplate()", func() {
+		It("returns the first provider template for the given region / plan / provider / hotswap combination", func() {
+			pt := &providertemplate.ProviderTemplate{
+				RegionID: r.ID,
+				PlanID:   p1.ID,
+				Provider: "digitalocean",
+				Name:     "",
+				Disabled: false,
+				Hotswap:  false,
+			}
+
+			newPT, err := pt.RespecTemplate(db, p2)
+			Expect(err).To(BeNil())
+
+			Expect(newPT.Name).To(Equal("do-1GB"))
+			Expect(newPT.ID).NotTo(BeZero())
+			Expect(newPT.RegionID).To(Equal(r.ID))
+			Expect(newPT.PlanID).To(Equal(p2.ID))
+			Expect(newPT.Provider).To(Equal("digitalocean"))
+		})
+
+		It("returns a disabled provider template", func() {
+			pt := &providertemplate.ProviderTemplate{
+				RegionID: r.ID,
+				PlanID:   p1.ID,
+				Provider: "digitalocean",
+				Name:     "",
+				Disabled: false,
+				Hotswap:  true,
+			}
+
+			newPT, err := pt.RespecTemplate(db, p2)
+			Expect(err).To(BeNil())
+
+			Expect(newPT.Name).To(Equal("do-hotswap-1GB"))
+			Expect(newPT.Disabled).To(BeTrue())
+			Expect(newPT.ID).NotTo(BeZero())
+			Expect(newPT.RegionID).To(Equal(r.ID))
+			Expect(newPT.PlanID).To(Equal(p2.ID))
+			Expect(newPT.Provider).To(Equal("digitalocean"))
+		})
+
+		It("returns an error when no provider record matches the conditions", func() {
+			r2 := &region.Region{Slug: "apne1", Name: "Northeast Asia"}
+			Expect(r2.Insert(db)).To(BeNil())
+
+			pt := &providertemplate.ProviderTemplate{
+				RegionID: r2.ID,
+				PlanID:   p1.ID,
+				Provider: "digitalocean",
+				Name:     "",
+				Disabled: false,
+				Hotswap:  false,
+			}
+
+			newPT, err := pt.RespecTemplate(db, p2)
+			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(newPT).To(BeNil())
 		})
 	})
 

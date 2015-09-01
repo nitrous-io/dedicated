@@ -22,7 +22,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
-	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -381,7 +380,7 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 			return err
 		}
 
-		newPT, err := providertemplate.FindForRespec(d, &region.Region{ID: h.RegionID}, newPlan, h.Provider, currPT.Hotswap)
+		newPT, err := currPT.RespecTemplate(d, newPlan)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
