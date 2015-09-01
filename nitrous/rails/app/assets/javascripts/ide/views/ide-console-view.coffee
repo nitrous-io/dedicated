@@ -5,7 +5,10 @@ App.IdeConsoleView = Em.View.extend App.IdeTabViewMixin,
 
   didInsertElement: ->
     @_super()
-    @get('controller').createTab()
+    if App.get('container').metadata.noConsole
+      @get('controller').set 'minimized', true
+    else
+      @get('controller').createTab()
 
     @$().bind('click', (evt) =>
       if evt.which == 2 # middle-click

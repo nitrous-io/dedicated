@@ -62,6 +62,10 @@ App.Container = klass = Em.Object.extend
       "/home/#{username}"
   ).property 'loginUsername'
 
+  rootPath: (->
+    @get('metadata.rootPath') || @get('env.NITROUS_FILETREE_ROOT') || @get('homePath')
+  ).property 'homePath', 'env.NITROUS_FILETREE_ROOT ', 'metadata.rootPath'
+
   previewablePorts: (->
     publicPorts = Em.A()
     previewPort = @get('previewPort')
