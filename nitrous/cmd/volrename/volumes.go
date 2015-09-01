@@ -24,10 +24,10 @@ func volumes() (map[string]ec2.Volume, error) {
 
 			regionVols := []ec2.Volume{}
 			params := make(map[string]string)
-			// Below results in a 'The parameter MaxResults is not recognized
-			// (UnknownParameter)' error despite
-			// https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVolumes.html
-			// params["MaxResults"] = "200"
+			// this version is needed for the MaxResults parameter on
+			// DescribeVolumes
+			params["Version"] = "2015-04-15"
+			params["MaxResults"] = "200"
 
 			nextToken := "initial"
 			for nextToken != "" {
