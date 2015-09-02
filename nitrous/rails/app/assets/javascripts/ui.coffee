@@ -13,8 +13,8 @@ window.ui =
         $menu.hide()
       ,200))
 
-  openDropdown: (evt, $dropdown) ->
-    if $dropdown.hasClass('open')
+  openDropdown: (evt, $dropdown, trigger) ->
+    if $dropdown.hasClass('open') && trigger != "mouseover"
       ui.clearDropdowns()
     else
       ui.clearDropdowns(except: $dropdown)
@@ -39,6 +39,11 @@ window.ui =
 
     $('body').on 'click.ui-dropdown', '.ui.dropdown', (evt) ->
       ui.openDropdown(evt, $(this))
+
+    $('body').on 'mouseover.ui-dropdown', '.ui.dropdown', (evt) ->
+      $('.ui.dropdown').each (i, el) =>
+        if $(el).hasClass('open')
+          ui.openDropdown(evt, $(this), "mouseover")
 
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
