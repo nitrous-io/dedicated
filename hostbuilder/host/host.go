@@ -67,13 +67,13 @@ func (c *SSHConfig) Address() string {
 type Info struct {
 	Provider       string      `json:"provider"`
 	ID             string      `json:"id"`
+	VolumeID       string      `json:"volume_id"`
 	Region         string      `json:"region_id"`
 	Name           string      `json:"name"`
 	IPAddress      string      `json:"ip_address"`
 	FreighterdPort uint16      `json:"freighterd_port"`
 	State          state.State `json:"state"`
 	LaunchTime     *time.Time  `json:"launch_time,omitempty"`
-	VolumeID       string      `json:"volume_id,omitempty"`
 }
 
 // QueueInfo will be written to the queue to be consumed later
