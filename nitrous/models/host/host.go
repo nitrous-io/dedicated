@@ -135,12 +135,6 @@ type Host struct {
 
 	Hotswap bool `db:"hotswap"`
 
-	// not the ideal but convenient place so that it's easy to construct
-	// serializers.Host out of it. Data comes from freighterd, not database
-	LiveDockerVersion     string
-	LiveFreighterdVersion string
-	UpdateAvailable       string
-
 	PendingRespec bool
 
 	// Stroage Device ID ( VolumeID for amazon )
