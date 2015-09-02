@@ -23,8 +23,8 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   initialize: ->
     @set 'homePath', homePath = App.Path.create absolutePath: App.get('container.homePath'), directory: true
-    @set 'rootPath', App.Path.create absolutePath: App.get('container.rootPath'), directory: true
     @set 'content', Em.A([homePath])
+    @set 'rootPath', App.Path.create absolutePath: App.get('container.rootPath'), directory: true
 
   reset: ->
     @set 'homePath', null
