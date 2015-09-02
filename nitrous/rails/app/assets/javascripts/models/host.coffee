@@ -4,7 +4,7 @@ attr = SM.attr
 FETCH_STATS_RETRY_COUNT = 10
 FETCH_STATS_RETRY = 3000 # 3s. After a fetchStats failure, retry in..
 FETCH_STATS_NEXT = 60000 # 60s. After FETCH_STATS_RETRY_COUNT has been hit, schedule another fetchStats in
-HAS_ERROR_THRESHOLD = 5 # Show the initial "has error" message after X failures
+HAS_ERROR_THRESHOLD = 2 # Show the initial "has error" message after X failures
 CONTACT_SUPPORT_THRESHOLD = 30 # Show the contact support message after X failures
 
 App.Host = klass = App.Model.extend
