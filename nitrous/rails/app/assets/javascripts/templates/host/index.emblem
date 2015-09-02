@@ -28,7 +28,13 @@
     .notice-text.error
       i.fa.fa-warning
       '
-      | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
+      if shouldContactSupport
+        | We are unable to connect to your workspace, please
+        '
+        a click='contactSupport target=view' href="#"
+          | contact support.
+      else
+        | There are issues connecting to your workspace. Attempting to reconnect...
   else
     if subscription.cancelPending
       .notice-text.error

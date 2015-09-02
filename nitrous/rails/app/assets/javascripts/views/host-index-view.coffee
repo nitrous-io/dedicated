@@ -12,6 +12,9 @@ App.HostIndexView = Em.View.extend
   ).property 'controller.model.state', 'controller.model.stats'
 
   actions:
+    contactSupport: ->
+      App.trigger 'open-feedback-dialog', "Contact support"
+
     refresh: ->
       $btn = @$('.refresh-btn')
       $btn.attr 'disabled', true
