@@ -26,9 +26,6 @@ App.Host = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
   lastUpdatedAt: attr('date', as: 'last_updated_at', serialize: false)
   lastRunningAt: attr('date', as: 'last_running_at', serialize: false)
-  liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
-  liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
-  updateAvailable: attr(as: 'update_available', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
   subscriptionSlug: attr('string', as: 'subscription_slug', serialize: false)
   free: attr('boolean', serialize: false)
@@ -138,14 +135,6 @@ App.Host = klass = App.Model.extend
       App.get('containers')?.reload()
   ).observes 'connectivityErrorCount'
 
-  isHostUpdateHard: (->
-    @get('updateAvailable') == "hard"
-  ).property 'updateAvailable'
-
-  isHostUpdateSoft: (->
-    @get('updateAvailable') == "soft"
-  ).property 'updateAvailable'
-
   hasContainerCreating: (->
     App.get('hostCreatingContainer') == @get 'slug'
   ).property 'App.hostCreatingContainer'
@@ -158,14 +147,6 @@ App.Host = klass = App.Model.extend
   shouldContactSupport: (->
     @get('connectivityErrorCount') >= CONTACT_SUPPORT_THRESHOLD
   ).property 'connectivityErrorCount'
-
-  canUpdate: (->
-    return false if @get('isUpdating')
-    return false if @get('updateAvailable') == ""
-    return true if @get('isHostUpdateSoft')
-    return @get('containers').every (con)->
-      con.get('isStopped') || con.get('isTerminated')
-  ).property 'updateAvailable', 'containers.@each.state'
 
   canSafeStop: (->
     return false if @get('isUpdating')

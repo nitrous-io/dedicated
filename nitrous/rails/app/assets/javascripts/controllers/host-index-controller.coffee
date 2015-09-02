@@ -36,33 +36,6 @@ App.HostIndexController = Em.ObjectController.extend App.PerformActionMixin,
       subscriptionSlug = @get('model.subscriptionSlug')
       @transitionToRoute 'subscriptions.upgrade', subscriptionSlug
 
-    update: ->
-      host = @get('model')
-      events = App.get('eventsSocket')
-
-      unless host.get('canUpdate')
-        App.postError('Containers must be stopped to perform this update.')
-        return
-
-      onUpdateFailed = (data) ->
-        hostData = data.host
-        return unless hostData.id == host.get('id')
-        events.off 'host.update_failed', onUpdateFailed
-        events.off 'host.updated', onUpdated
-        App.postError('Failed to update workspace!')
-
-      onUpdated = (data) ->
-        hostData = data.host
-        return unless hostData.id == host.get('id')
-        events.off 'host.update_failed', onUpdateFailed
-        events.off 'host.updated', onUpdated
-        App.snackbar.post("Your workspace “#{host.get('slug')}” has been updated.")
-
-      events.on 'host.update_failed', onUpdateFailed
-      events.on 'host.updated', onUpdated
-
-      @performAction('POST', 'update_software', 'updating')
-
     respec: ->
       host = @get('model')
       events = App.get('eventsSocket')
