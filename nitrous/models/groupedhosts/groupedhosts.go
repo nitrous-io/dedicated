@@ -96,7 +96,7 @@ func (list *HostList) sort() {
 	sort.Sort(hostEntriesByID(list.InconsistentHosts))
 }
 
-// ProviderIdentifier -> HostEntry map.
+// ProviderIdentifier/ProviderStorageIdentifier -> HostEntry map.
 type HostIndex map[string](*HostEntry)
 
 // getEntry returns the HostEntry with the given key. It initializes and returns
@@ -114,31 +114,39 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	index := HostIndex{}
 	danglingHosts := []*host.Host{}
 
+	// Add all live host data to a map.
 	for _, h := range liveHosts {
-		entry := index.getEntry(h.ID)
+		identifier := h.ID
+		if identifier == "" {
+			identifier = h.VolumeID
+		}
+		entry := index.getEntry(identifier)
 		entry.LiveHost = h
 	}
 
-	for _, dbHost := range dbHosts {
-		pid := dbHost.ProviderIdentifier
-		if pid.String != "" {
-			entry := index.getEntry(pid.String)
-			entry.DBHost = dbHost
+	// Now, add all db host data to the same map, and also identify "dangling"
+	// hosts.
+	// A non-hotswap host is "dangling" when a record exists in the db but we
+	// don't know what its instance ID is.
+	// A hotswap host is "dangling" when a record exists in db but we don't know
+	// what its volume ID is.
+	for _, h := range dbHosts {
+		identifier := h.ProviderIdentifier.String
+		if h.Hotswap {
+			identifier = h.ProviderStorageIdentifier.String
+		}
+
+		if identifier != "" {
+			entry := index.getEntry(identifier)
+			entry.DBHost = h
 			continue
 		}
 
-		// A host that is stopped and missing a provider identifier is a hotswap
-		// host whose instance has been released to an instance pool, and so
-		// can be regarded as healthy.
-		if dbHost.State == host.StateStopped && dbHost.ProviderIdentifier.String == "" {
-			continue
-		}
-
-		if dbHost.State == host.StateBorn && time.Since(*dbHost.CreatedAt) < defaultGracePeriod {
+		if h.State == host.StateBorn && time.Since(*h.CreatedAt) < defaultGracePeriod {
 			continue // allow some time for provider to build host
 		}
 
-		danglingHosts = append(danglingHosts, dbHost)
+		danglingHosts = append(danglingHosts, h)
 	}
 
 	return index, danglingHosts
@@ -151,9 +159,43 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 		return true
 	}
 
+	return isTransitioning(db, dbHost)
+}
+
+func isHotswapConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHost *host.Host) bool {
+	switch dbHost.State {
+	case host.StateRunning:
+		// A running host should be actually running.
+		if liveHost.State != "running" {
+			return false
+		}
+
+		// Host have an underlying instance.
+		if dbHost.ProviderIdentifier.String == "" {
+			return false
+		}
+
+		return true
+
+	case host.StateStopped:
+		// A stopped host should not have a provider identifier (since volume is not
+		// attached to any instance).
+		if dbHost.ProviderIdentifier.String != "" {
+			return false
+		}
+
+		if liveHost.State == "Unknown" || liveHost.State == "" {
+			return true
+		}
+	}
+
+	return isTransitioning(db, dbHost)
+}
+
+func isTransitioning(db *ndb.Database, h *host.Host) bool {
 	// Note: if doing lookup for each host turns out to be too slow,
 	// we'll have to rework it to grab more transitions in one go
-	transition, err := hosttransition.FindMostRecentForHost(db, dbHost.ID)
+	transition, err := hosttransition.FindMostRecentForHost(db, h.ID)
 	if err != nil {
 		return false
 	}
@@ -164,7 +206,7 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 	}
 
 	// allow more time for respeccing
-	if dbHost.State == host.StateRespeccing {
+	if h.State == host.StateRespeccing {
 		return time.Since(*transition.CreatedAt) < respecGracePeriod
 	}
 
@@ -181,23 +223,29 @@ func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 
 	switch {
 	case liveHost != nil && dbHost != nil:
-		if isDbAndLiveConsistent(db, liveHost, dbHost) {
-			list.HealthyHosts = append(list.HealthyHosts, entry)
+		if dbHost.Hotswap {
+			if isHotswapConsistent(db, liveHost, dbHost) {
+				list.HealthyHosts = append(list.HealthyHosts, entry)
+			} else {
+				list.InconsistentHosts = append(list.InconsistentHosts, entry)
+			}
 		} else {
-			list.InconsistentHosts = append(list.InconsistentHosts, entry)
+			if isDbAndLiveConsistent(db, liveHost, dbHost) {
+				list.HealthyHosts = append(list.HealthyHosts, entry)
+			} else {
+				list.InconsistentHosts = append(list.InconsistentHosts, entry)
+			}
 		}
 
 	case liveHost != nil && dbHost == nil:
 		if liveHost.State == "Terminated" {
 			break
 		}
-		if liveHost.Name == "userhost-pool" { // TODO: use common constant
-			break
-		}
 		if liveHost.LaunchTime != nil && time.Since(*liveHost.LaunchTime) <= defaultGracePeriod {
 			break
 		}
 		list.UnaccountedHosts = append(list.UnaccountedHosts, liveHost)
+
 	case liveHost == nil && dbHost != nil:
 		list.DanglingHosts = append(list.DanglingHosts, dbHost)
 	}
