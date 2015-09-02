@@ -110,26 +110,6 @@ func Refresh(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 }
 
 func Show(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	var ver *freighterclient.HostVersions
-
-	if cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID); err == nil {
-		if ver, err = cl.HostVersions(); err == nil {
-			if h.DockerVersion != "" && ver.DockerVersion != h.DockerVersion {
-				h.UpdateAvailable = host.UpdateAvailableHard
-			} else if h.FreighterdVersion != "" && ver.FreighterdVersion != h.FreighterdVersion {
-				h.UpdateAvailable = host.UpdateAvailableSoft
-			}
-			if env.User.Admin {
-				h.LiveDockerVersion = ver.DockerVersion
-				h.LiveFreighterdVersion = ver.FreighterdVersion
-			}
-		}
-	}
-
-	if !envvars.EnableSelfUpgrade && !env.User.Admin {
-		h.UpdateAvailable = ""
-	}
-
 	if _, err := respec.Find(env.DB, h.ID); err == nil {
 		h.PendingRespec = true
 	}
