@@ -1,7 +1,6 @@
 package groupedhosts
 
 import (
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -17,11 +16,6 @@ const (
 	defaultGracePeriod      = 10 * time.Minute
 	inconsistentGracePeriod = 5 * time.Minute
 	respecGracePeriod       = 15 * time.Minute
-)
-
-var (
-	// matches the agreed format for testing images `create-test-#{region}-#{image_id}-#{unix_epoch}`
-	nonNitrousHosts = regexp.MustCompile(`(?i)^create-test-(\w+)-(\d+)-(\d{10,})$`)
 )
 
 type HostEntry struct {
@@ -182,11 +176,6 @@ func isDbAndLiveConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbH
 func mapHost(db *ndb.Database, list *HostList, entry *HostEntry) {
 	liveHost := entry.LiveHost
 	dbHost := entry.DBHost
-
-	// Skip non-Nitrous hosts
-	if liveHost != nil && nonNitrousHosts.MatchString(liveHost.Name) {
-		return
-	}
 
 	list.AllHosts = append(list.AllHosts, entry)
 
