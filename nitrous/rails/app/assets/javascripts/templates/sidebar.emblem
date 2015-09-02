@@ -40,24 +40,20 @@ if App.hosts.length
                     span Add Container
 
 if App.groupedSharedContainers.length
-  h2 Shared Containers
+  h2.sep.for-shared Shared with me
   ul.sidebar-list.shared-containers
-    each group in App.groupedSharedContainers
-      li
-        h3
-          = group.username
-        img.gravatar src=group.gravatar
-        ul.containers
-          each container in group.items
-            li class={container.selected container.isTerminated:disabled}
-              link-to 'container.index' container.slug
-                .group
-                  h4
-                    = container.displayName
 
-                .state-indicator class={container.state} title={container.state}
-                  span
-                    = container.state
+    ul.containers
+      each group in App.groupedSharedContainers
+        each container in group.items
+          li class={container.selected container.isTerminated:disabled} title={group.username}
+            = link-to 'container.index' container.slug title=container.description
+              h4
+                = container.displayName
+              img.gravatar src=group.gravatar
+              .state-indicator class={container.state} title={container.state}
+                span
+                  = container.state
 
 = orgs-list collection=controllers.orgs.collection selectedItem=controllers.org.model
 

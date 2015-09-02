@@ -13,6 +13,33 @@
     text-transform: uppercase
     color: $n2oGray500
 
+    &.sep
+      position: relative
+      text-transform: none
+      border-top: 2px solid rgba($n2oGray500,.1)
+      margin: 26px 0 4px 0
+      padding: 22px 0 10px 34px
+      cursor: default
+      user-select: none
+
+    &.for-shared:before, &.for-orgs:before
+      content: ""
+      width: 22px
+      height: 16px
+      position: absolute
+      top: 21px
+      left: 10px
+
+    &.for-shared
+      &:before
+        background: image_url('app/shared-container-icn.png') top center no-repeat
+        background-size: 16px 16px
+
+    &.for-orgs
+      &:before
+        background: image_url('app/orgs-icn.png') top center no-repeat
+        background-size: 14px 17px
+
   li
     position: relative
     line-height: $lineItemHeight
@@ -142,10 +169,38 @@
         line-height: normal
         padding: 0 0 8px 0
 
+  ul.shared-containers
+    &, ul.containers
+      padding: 0
+
+    > li
+      a
+        h4
+          padding-left: 38px
+
+    .gravatar
+      top: 8px
+
+    .state-indicator
+      border: 2px solid $n2oGray900
+      margin-right: 0
+      top: 3px
+      right: 1px
+
+    li:hover
+      .state-indicator
+        border-color: $n2oGray700
+
+    li.selected
+      .state-indicator
+        border-color: $n2oGray800
+
+
+
   ul.orgs
     > li
       padding-bottom: 0
-      margin-bottom: 0
+      margin-bottom: 2px
 
   .state-indicator
     position: absolute
@@ -163,7 +218,7 @@
     top: 6px
     position: absolute
     right: 5px
-    border-radius: 1px
+    border-radius: 2px
 
   .app-download
     background: $n2oGray1000

@@ -10,6 +10,10 @@ App.SharedContainer = klass = App.Container.extend
 
   canEdit: false
 
+  description: (->
+    "#{@get('name')} shared by #{@get('userUsername')}"
+  ).property 'name', 'userUsername'
+
   loadConfig: ->
     @ajax('GET', 'config').then (json) =>
       @setConfig(json.config)
