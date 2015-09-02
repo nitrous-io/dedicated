@@ -731,6 +731,8 @@ func (u *User) CheckSuspicious() {
 		"grimm",
 		"resende",
 		"slk123",
+		"pekeno",
+		"p3k3n0",
 	}
 
 	for _, sig := range signatures {
