@@ -35,10 +35,6 @@
 			"Rev": "e7c2e6adff9265da4fbfa766e7b147b8a06b835e"
 		},
 		{
-			"ImportPath": "github.com/bgentry/speakeasy",
-			"Rev": "5dfe43257d1f86b96484e760f2f0c4e2559089c7"
-		},
-		{
 			"ImportPath": "github.com/c9s/goprocinfo/linux",
 			"Rev": "4aacc5a471d5027aeebf371f0acf7b38f276a77d"
 		},
@@ -165,11 +161,6 @@
 			"Rev": "ccfcd0245381f0c94c68f50626665eed3c6b726a"
 		},
 		{
-			"ImportPath": "github.com/kr/pty",
-			"Comment": "release.r56-19-g67e2db2",
-			"Rev": "67e2db24c831afa6c64fc17b4a143390674365ef"
-		},
-		{
 			"ImportPath": "github.com/lib/pq",
 			"Rev": "ae7391529ced9c12f06bf01eae33dadb4c70e49f"
 		},
@@ -227,20 +218,12 @@
 			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
-			"ImportPath": "github.com/nitrous-io/nitrous-common/term",
-			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
-		},
-		{
 			"ImportPath": "github.com/nitrous-io/nitrous-common/wsconn",
 			"Rev": "fbd5e767f147322b7c7d9a707d1a4dfdc0450650"
 		},
 		{
 			"ImportPath": "github.com/nitrous-io/ot.go/ot",
 			"Rev": "2da61115adf708cfcb7550140f62be96ee0153e7"
-		},
-		{
-			"ImportPath": "github.com/ogier/pflag",
-			"Rev": "e4f7d00f344b0954fa3791a8527d10ba7334eceb"
 		},
 		{
 			"ImportPath": "github.com/onsi/ginkgo",

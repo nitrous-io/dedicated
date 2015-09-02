@@ -84,12 +84,6 @@ var (
 	RedisPort = os.Getenv("REDIS_PORT")
 	RedisDB   = parseInt64(os.Getenv("REDIS_DB"))
 
-	// Controls whether 'update now' option is available to users.  Defaults to
-	// true if ENABLE_SELF_UPGRADE is absent, i.e. it must explicitly be set to
-	// false
-
-	EnableSelfUpgrade = parseBoolWithDefault(os.Getenv("ENABLE_SELF_UPGRADE"), true)
-
 	// blacklists
 	EmailBlacklistPath = os.Getenv("EMAIL_BLACKLIST_PATH")
 	CIDRBlacklistPath  = os.Getenv("CIDR_BLACKLIST_PATH")

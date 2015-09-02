@@ -11,24 +11,18 @@
           '
           ' plan.
           a click='respec' href='#' Upgrade Now
-  else
-    if updateAvailable
-      unless isUpdating
-        .notice-text
-          i.fa.fa-warning
-          if canUpdate
-            '
-            | There are updates available for this workspace.
-            '
-            a click='update' href="#" Update Now
-          else
-            | There are updates available for this workspace. Please stop your containers before updating.
 
   if hasError
     .notice-text.error
       i.fa.fa-warning
       '
-      | There are issues connecting to your workspace. If this lasts more than 10 minutes, please contact support.
+      if shouldContactSupport
+        | We are unable to connect to your workspace, please
+        '
+        a click='contactSupport target=view' href="#"
+          | contact support.
+      else
+        | There are issues connecting to your workspace. Attempting to reconnect...
   else
     if subscription.cancelPending
       .notice-text.error
@@ -122,15 +116,6 @@
       th Created At
       td colspan='3'
         = dateabbr createdAt
-
-    if liveDockerVersion
-      tr
-        th Docker ver
-        td
-          = liveDockerVersion
-        th Freighterd ver
-        td.usage
-          = liveFreighterdVersion
 
 .card-footer.bordered
   if isRunning

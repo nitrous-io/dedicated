@@ -326,9 +326,6 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(j.Host.CreatedAt).NotTo(BeNil())
 			Expect(j.Host.UpdatedAt).NotTo(BeNil())
 			Expect(j.Host.TerminatedAt).To(BeNil())
-			Expect(j.Host.LiveDockerVersion).To(Equal(""))
-			Expect(j.Host.LiveFreighterdVersion).To(Equal(""))
-			Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableSoft))
 			Expect(j.Host.PendingRespec).To(Equal(false))
 		})
 
@@ -356,62 +353,6 @@ var _ = Describe("controllers/hosts", func() {
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Host.PendingRespec).To(Equal(true))
-		})
-
-		It("responds with an empty update_available if required freighterd & docker version is empty", func() {
-			hs.H.DockerVersion = ""
-			hs.H.FreighterdVersion = ""
-			err := hs.H.Update(db)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, t.Token)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.UpdateAvailable).To(Equal(""))
-		})
-
-		It("should return with a `hard` update_available if the docker versions do not match", func() {
-			hs.H.DockerVersion = "1.2.0-nitrous1"
-			hs.H.FreighterdVersion = ""
-			err := hs.H.Update(db)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, t.Token)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableHard))
-		})
-
-		It("when self upgrade is disabled, returns empty update_available even if versions do not match", func() {
-			envvars.EnableSelfUpgrade = false
-			defer func() {
-				envvars.EnableSelfUpgrade = true
-			}()
-
-			hs.H.DockerVersion = "1.2.0-nitrous1"
-			hs.H.FreighterdVersion = "1.0.1-abcde"
-			err := hs.H.Update(db)
-			Expect(err).To(BeNil())
-
-			doRequest(hs.H.Slug, t.Token)
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.UpdateAvailable).To(Equal(""))
 		})
 
 		It("responds with host info even when called with the host ID", func() {
@@ -453,26 +394,6 @@ var _ = Describe("controllers/hosts", func() {
 				doRequest(hs.H.Slug, anotherToken.Token)
 
 				Expect(res.Code).To(Equal(http.StatusNotFound))
-			})
-
-			It("responds with the host record augmented with Docker and Freighter versions when user is an admin", func() {
-				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
-				Expect(err).To(BeNil())
-
-				doRequest(hs.H.Slug, anotherToken.Token)
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					Host *serializers.Host `json:"host"`
-				}
-				err = json.NewDecoder(res.Body).Decode(&j)
-				Expect(err).To(BeNil())
-				Expect(j.Host.ID).To(Equal(hs.H.ID))
-
-				Expect(mockClient.HostVersionsCalled).To(Equal(1))
-				Expect(j.Host.LiveDockerVersion).To(Equal("1.5.0-nitrous1"))
-				Expect(j.Host.LiveFreighterdVersion).To(Equal("1.0.1-deadbeef"))
-				Expect(j.Host.UpdateAvailable).To(Equal(host.UpdateAvailableSoft))
 			})
 		})
 

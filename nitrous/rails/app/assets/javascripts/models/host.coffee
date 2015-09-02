@@ -1,6 +1,12 @@
 #= require ./model
 attr = SM.attr
 
+FETCH_STATS_RETRY_COUNT = 10
+FETCH_STATS_RETRY = 3000 # 3s. After a fetchStats failure, retry in..
+FETCH_STATS_NEXT = 60000 # 60s. After FETCH_STATS_RETRY_COUNT has been hit, schedule another fetchStats in
+HAS_ERROR_THRESHOLD = 2 # Show the initial "has error" message after X failures
+CONTACT_SUPPORT_THRESHOLD = 30 # Show the contact support message after X failures
+
 App.Host = klass = App.Model.extend
   id: attr('number', serialize: false)
   userId: attr('number', as: 'user_id', serialize: false)
@@ -20,9 +26,6 @@ App.Host = klass = App.Model.extend
   terminatedAt: attr('date', as: 'terminated_at', serialize: false)
   lastUpdatedAt: attr('date', as: 'last_updated_at', serialize: false)
   lastRunningAt: attr('date', as: 'last_running_at', serialize: false)
-  liveFreighterdVersion: attr(as: 'live_freighterd_version', serialize: false)
-  liveDockerVersion: attr(as: 'live_docker_version', serialize: false)
-  updateAvailable: attr(as: 'update_available', serialize: false)
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
   subscriptionSlug: attr('string', as: 'subscription_slug', serialize: false)
   free: attr('boolean', serialize: false)
@@ -36,7 +39,7 @@ App.Host = klass = App.Model.extend
   liveHost: null
 
   # True when there is an error connecting to the host.
-  connectivityError: false
+  connectivityErrorCount: 0
 
   isRunning: Em.computed.equal 'state', 'running'
   isStopped: Em.computed.equal 'state', 'stopped'
@@ -127,18 +130,10 @@ App.Host = klass = App.Model.extend
       @set 'stats', null
   ).observes 'state'
 
-  connectivityErrorDidChange: (->
-    if @get('connectivityError') == false
+  connectivityErrorCountDidChange: (->
+    if @get('connectivityErrorCount') == 0
       App.get('containers')?.reload()
-  ).observes 'connectivityError'
-
-  isHostUpdateHard: (->
-    @get('updateAvailable') == "hard"
-  ).property 'updateAvailable'
-
-  isHostUpdateSoft: (->
-    @get('updateAvailable') == "soft"
-  ).property 'updateAvailable'
+  ).observes 'connectivityErrorCount'
 
   hasContainerCreating: (->
     App.get('hostCreatingContainer') == @get 'slug'
@@ -146,16 +141,12 @@ App.Host = klass = App.Model.extend
 
   hasError: (->
     return false unless @get('isRunning')
-    @get('connectivityError')
-  ).property 'connectivityError', 'isUpdating'
+    @get('connectivityErrorCount') >= HAS_ERROR_THRESHOLD
+  ).property 'connectivityErrorCount', 'isUpdating'
 
-  canUpdate: (->
-    return false if @get('isUpdating')
-    return false if @get('updateAvailable') == ""
-    return true if @get('isHostUpdateSoft')
-    return @get('containers').every (con)->
-      con.get('isStopped') || con.get('isTerminated')
-  ).property 'updateAvailable', 'containers.@each.state'
+  shouldContactSupport: (->
+    @get('connectivityErrorCount') >= CONTACT_SUPPORT_THRESHOLD
+  ).property 'connectivityErrorCount'
 
   canSafeStop: (->
     return false if @get('isUpdating')
@@ -178,7 +169,24 @@ App.Host = klass = App.Model.extend
       @get 'announcements'
     true
 
-  fetchStats: ->
+  fetchStats: (retryCount = FETCH_STATS_RETRY_COUNT) ->
+    return if @fetchStatsPending
+    @getStats()?.fail =>
+      if retryCount == 0
+        # reschedule a check in a minute
+        # this prevents the user from needing to do any "reloading"
+        window.setTimeout =>
+          @fetchStats()
+        , FETCH_STATS_NEXT
+        return
+
+      @fetchStatsPending = true
+      window.setTimeout =>
+        @fetchStatsPending = false
+        @fetchStats(retryCount-1)
+      , FETCH_STATS_RETRY
+
+  getStats: ->
     return unless @get('isRunning')
     Em.RSVP.Promise.resolve(
       Em.$.ajax(
@@ -189,12 +197,12 @@ App.Host = klass = App.Model.extend
           period: '1s'
       )).then(
       (data) =>
+        @set 'connectivityErrorCount', 0
         if stats = data.stats
           @set 'stats', App.HostStats.create(stats)
-          @set 'connectivityError', false
         data
       , (jqxhr) =>
-        @set 'connectivityError', true
+        @set 'connectivityErrorCount', @get('connectivityErrorCount')+1
         throw jqxhr
     )
 
