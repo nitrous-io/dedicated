@@ -34,10 +34,6 @@ type Host struct {
 	LastPingedAt  *time.Time `json:"last_pinged_at,omitempty"`
 	AutoShutdown  bool       `json:"auto_shutdown"`
 
-	LiveDockerVersion     string `json:"live_docker_version,omitempty"`
-	LiveFreighterdVersion string `json:"live_freighterd_version,omitempty"`
-	UpdateAvailable       string `json:"update_available"`
-
 	MaxContainers int64 `json:"max_containers,omitempty"`
 
 	PendingRespec bool `json:"pending_respec"`
@@ -51,33 +47,30 @@ func SerializeHost(h *host.Host) *Host {
 		return nil
 	}
 	serialized := &Host{
-		ID:                    h.ID,
-		UserID:                h.UserID,
-		RegionID:              h.RegionID,
-		PlanID:                h.PlanID,
-		Slug:                  h.Slug,
-		Name:                  h.Name.String,
-		IPAddress:             h.IPAddress.String,
-		StaticIP:              h.StaticIP,
-		FreighterdPort:        h.FreighterdPort.Int64,
-		FreighterdVersion:     h.FreighterdVersion,
-		DockerVersion:         h.DockerVersion,
-		ProviderIdentifier:    h.ProviderIdentifier.String,
-		Size:                  h.Size.String,
-		State:                 h.State,
-		Hostname:              h.Hostname(),
-		ProxyHostname:         h.ProxyHostname(),
-		CreatedAt:             h.CreatedAt,
-		UpdatedAt:             h.UpdatedAt,
-		TerminatedAt:          h.TerminatedAt,
-		AutoShutdown:          h.AutoShutdown,
-		LiveDockerVersion:     h.LiveDockerVersion,
-		LiveFreighterdVersion: h.LiveFreighterdVersion,
-		UpdateAvailable:       h.UpdateAvailable,
-		MaxContainers:         h.MaxContainers.Int64,
-		PendingRespec:         h.PendingRespec,
-		SubscriptionSlug:      h.SubscriptionSlug.String,
-		Free:                  h.Free,
+		ID:                 h.ID,
+		UserID:             h.UserID,
+		RegionID:           h.RegionID,
+		PlanID:             h.PlanID,
+		Slug:               h.Slug,
+		Name:               h.Name.String,
+		IPAddress:          h.IPAddress.String,
+		StaticIP:           h.StaticIP,
+		FreighterdPort:     h.FreighterdPort.Int64,
+		FreighterdVersion:  h.FreighterdVersion,
+		DockerVersion:      h.DockerVersion,
+		ProviderIdentifier: h.ProviderIdentifier.String,
+		Size:               h.Size.String,
+		State:              h.State,
+		Hostname:           h.Hostname(),
+		ProxyHostname:      h.ProxyHostname(),
+		CreatedAt:          h.CreatedAt,
+		UpdatedAt:          h.UpdatedAt,
+		TerminatedAt:       h.TerminatedAt,
+		AutoShutdown:       h.AutoShutdown,
+		MaxContainers:      h.MaxContainers.Int64,
+		PendingRespec:      h.PendingRespec,
+		SubscriptionSlug:   h.SubscriptionSlug.String,
+		Free:               h.Free,
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt
