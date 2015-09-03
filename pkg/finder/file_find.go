@@ -488,6 +488,7 @@ func FindFiles(dir string, term string) ([]*FileNameMatch, error) {
 			}
 		}
 	}
+
 	sort.Sort(byScoreAndPath(matches))
 
 	return matches, nil
