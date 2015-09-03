@@ -21,6 +21,7 @@ type Host struct {
 	DockerVersion             string `json:"docker_version"`
 	ProviderIdentifier        string `json:"provider_identifier"`
 	ProviderStorageIdentifier string `json:"provider_storage_identifier"`
+	Hotswap                   bool   `json:"hotswap"`
 	Hostname                  string `json:"hostname"`       // where we can access the host i.e. slug.nitrouspro.com
 	ProxyHostname             string `json:"proxy_hostname"` // slug.nitrousproxy.com
 	Size                      string `json:"size"`
@@ -61,18 +62,19 @@ func SerializeHost(h *host.Host) *Host {
 		DockerVersion:             h.DockerVersion,
 		ProviderIdentifier:        h.ProviderIdentifier.String,
 		ProviderStorageIdentifier: h.ProviderStorageIdentifier.String,
-		Size:             h.Size.String,
-		State:            h.State,
-		Hostname:         h.Hostname(),
-		ProxyHostname:    h.ProxyHostname(),
-		CreatedAt:        h.CreatedAt,
-		UpdatedAt:        h.UpdatedAt,
-		TerminatedAt:     h.TerminatedAt,
-		AutoShutdown:     h.AutoShutdown,
-		MaxContainers:    h.MaxContainers.Int64,
-		PendingRespec:    h.PendingRespec,
-		SubscriptionSlug: h.SubscriptionSlug.String,
-		Free:             h.Free,
+		Hotswap:                   h.Hotswap,
+		Size:                      h.Size.String,
+		State:                     h.State,
+		Hostname:                  h.Hostname(),
+		ProxyHostname:             h.ProxyHostname(),
+		CreatedAt:                 h.CreatedAt,
+		UpdatedAt:                 h.UpdatedAt,
+		TerminatedAt:              h.TerminatedAt,
+		AutoShutdown:              h.AutoShutdown,
+		MaxContainers:             h.MaxContainers.Int64,
+		PendingRespec:             h.PendingRespec,
+		SubscriptionSlug:          h.SubscriptionSlug.String,
+		Free:                      h.Free,
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt
