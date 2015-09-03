@@ -16,7 +16,7 @@ func testMatches(t *testing.T, root, term string, expResults []string) {
 		return
 	}
 	if len(res) != len(expResults) {
-		t.Errorf("FindFile('%s'): got %d results, expected %d, results: %#v", term, len(res), len(expResults), res)
+		t.Errorf("FindFile('%s'): got %d results, expected %#v, results: %#v", term, len(res), expResults, res)
 		return
 	}
 	for i := 0; i < len(res); i++ {

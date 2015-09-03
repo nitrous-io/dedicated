@@ -1,3 +1,4 @@
+// A convenient command to test the file finder (i.e. finder.FindFiles()).
 package main
 
 import (
@@ -70,7 +71,7 @@ func doFind(dir, term string) {
 }
 
 func parseFlags() {
-	flag.BoolVar(&flgPositions, "show-positions", false, "show match posisitons")
+	flag.BoolVar(&flgPositions, "show-positions", false, "show match positions")
 	flag.BoolVar(&flgScore, "show-score", false, "show match score")
 	flag.BoolVar(&flgStress, "stress", false, "run a stress test")
 	flag.BoolVar(&flgDouble, "double", false, "run the same search twice")
