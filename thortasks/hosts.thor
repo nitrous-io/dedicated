@@ -7,7 +7,7 @@ class Hosts < Thor
     when /\Avol-/
       :provider_storage_identifier
     else
-      :slug
+      :hosts__slug
     end
     results = Host.query.where(query_field => ident)
     Host.from_rows(results).each do |h|
@@ -20,7 +20,6 @@ class Hosts < Thor
     results = Host.query.
       where { Sequel.|({username: ident}, {email: ident}) }.
       where(terminated_at: nil)
-    puts "Running: #{results.sql}"
     Host.from_rows(results).each do |h|
       puts h
       puts "-" * 10

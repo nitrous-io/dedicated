@@ -1,11 +1,9 @@
 class Host
-  ATTRS = %i(id slug state terminated_at username provider_identifier provider_storage_identifier)
-
-  # maps db column to output label
-  ALIASED = {
-    :provider_identifier => :instance_id,
-    :provider_storage_identifier => :volume_id,
-  }
+  ATTRS = %i(hid slug username
+    state terminated_at region_identifier provider_identifier provider_storage_identifier
+    hotswap
+    plan_name subscription_state
+  )
 
   attr_reader *ATTRS
 
@@ -19,17 +17,23 @@ class Host
     lines = ATTRS.map do |col|
       val = send(col)
       val = val.nil? ? "<null>" : val
-      label = ALIASED[col] || col.to_s
-      "#{label}: #{val}"
+      "#{col}: #{val}"
     end
     lines.join("\n")
   end
 
   def self.query
     DB[:hosts].
-      select_all(:hosts).
+      select_all(:hosts, :plans, :regions).
       select_more(:users__username___username).
-      join(:users, id: :user_id)
+      select_more(:hosts__slug___slug).
+      select_more(:hosts__id___hid).
+      select_more(:plans__name___plan_name).
+      select_more(:subscriptions__state___subscription_state).
+      join(:subscriptions, id: :subscription_id).
+      join(:users, id: :hosts__user_id).
+      join(:plans, id: :hosts__plan_id).
+      join(:regions, id: :hosts__region_id)
   end
 
   def self.from_rows(dataset)
