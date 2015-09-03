@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -21,11 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/provisioner"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
-)
-
-var (
-	// matches the agreed format for testing images `create-test-#{region}-#{image_id}-#{unix_epoch}`
-	nonNitrousHosts = regexp.MustCompile(`(?i)^create-test-(\w+)-(\d+)-(\d{10,})$`)
 )
 
 var (
@@ -123,9 +117,6 @@ func hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	liveHosts := []*liveHost{}
 	for _, h := range hostbuilderHosts {
-		if nonNitrousHosts.MatchString(h.Name) {
-			continue
-		}
 		lh := &liveHost{
 			Provider:       h.Provider,
 			ID:             h.ID,
