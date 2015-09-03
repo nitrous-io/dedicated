@@ -92,7 +92,7 @@ func doFileFind(msg *Message, resp chan *Message) chan *Message {
 		return sendErr(resp, msg, fmt.Errorf("%q is not a directory", dir))
 	}
 
-	// reply the original message to signal that we are processsing it
+	// reply the original message to signal that we are processing it
 	resp <- msg
 
 	go func() {
@@ -170,7 +170,7 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 			})
 		}()
 
-		// reply the original message to signal that we are processsing it
+		// reply the original message to signal that we are processing it
 		resp <- msg
 		return resp
 	}
