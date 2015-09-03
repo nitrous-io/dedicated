@@ -1,7 +1,8 @@
 App.ContainerKeysNewController = Em.ObjectController.extend
+  containerBinding: Em.Binding.oneWay 'model.container'
+
   key: null
   saving: false
-  indexRoute: 'container.keys'
   record: Em.computed.alias 'model'
 
   clear: ->
@@ -11,7 +12,7 @@ App.ContainerKeysNewController = Em.ObjectController.extend
 
   actions:
     cancel: ->
-      @transitionToRoute(@get('indexRoute'))
+      @transitionToRoute 'container.keys'
       false
 
     create: ->
@@ -21,7 +22,7 @@ App.ContainerKeysNewController = Em.ObjectController.extend
         containerId: container.get('id')
         key: @get 'key'
       pubKey.save().then =>
-        @transitionToRoute(@get('indexRoute'))
+        @transitionToRoute 'container.keys'
         @set 'saving', false
       , (jqxhr) =>
         App.postError(jqxhr.responseJSON, 'Failed to add public key!')

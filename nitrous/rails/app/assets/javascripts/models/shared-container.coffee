@@ -9,6 +9,7 @@ App.SharedContainer = klass = App.Container.extend
   _host: attr('host', as: 'host', serialize: false)
 
   canEdit: false
+  shared: true
 
   description: (->
     "#{@get('name')} shared by #{@get('userUsername')}"
@@ -23,6 +24,11 @@ App.SharedContainer = klass = App.Container.extend
     h.load @get('_host')
     h
   ).property '_host'
+
+  paidFeaturesEnabled: (->
+    host = @get 'host'
+    !host.get('free')
+  ).property 'host'
 
 klass.reopenClass
   primaryKey: 'slug'

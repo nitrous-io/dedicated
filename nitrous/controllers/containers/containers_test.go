@@ -115,6 +115,7 @@ var _ = Describe("controllers/containers", func() {
 			handler       *mux.Router
 			c             *container.Container
 			allowCollab   bool
+			blockFreeUser bool
 			handlerCalled bool
 		)
 
@@ -126,11 +127,15 @@ var _ = Describe("controllers/containers", func() {
 
 			handlerCalled = false
 			allowCollab = false
+			blockFreeUser = false
 
 			h := func(w http.ResponseWriter, r *http.Request) {
 				opts := []containers.WithContainerAndHostOpt{}
 				if allowCollab == true {
 					opts = append(opts, containers.AllowCollab)
+				}
+				if blockFreeUser == true {
+					opts = append(opts, containers.BlockFreeUser)
 				}
 				mw := containers.WithContainerAndHost(func(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 					Expect(cn).NotTo(BeNil())
@@ -190,6 +195,36 @@ var _ = Describe("controllers/containers", func() {
 
 				Expect(res.Code).To(Equal(http.StatusOK))
 				Expect(handlerCalled).To(BeTrue())
+			})
+
+			It("it should return a forbidden if the handler blocks free users", func() {
+				blockFreeUser = true
+
+				_, err := db.Exec(`INSERT INTO billing_profiles (state, user_id) VALUES ('free', $1) ;`, u.ID)
+				Expect(err).To(BeNil())
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("only paid users have permission to access this section"))
+				Expect(handlerCalled).To(BeFalse())
+			})
+
+			It("it should return an internal server error if the handler blocks free users but there is no billing profile record", func() {
+				blockFreeUser = true
+
+				_, err := db.Exec(`DELETE FROM billing_profiles where user_id = $1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+				Expect(handlerCalled).To(BeFalse())
 			})
 		})
 
@@ -251,6 +286,38 @@ var _ = Describe("controllers/containers", func() {
 				handler.ServeHTTP(res, req)
 
 				Expect(res.Code).To(Equal(http.StatusNotFound))
+				Expect(handlerCalled).To(BeFalse())
+			})
+
+			It("it should return a forbidden if the handler permits sharing but blocks free users", func() {
+				allowCollab = true
+				blockFreeUser = true
+
+				_, err := db.Exec(`INSERT INTO billing_profiles (state, user_id) VALUES ('free', $1) ;`, owner.ID)
+				Expect(err).To(BeNil())
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+				_, errDesc := ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("only paid users have permission to access this section"))
+				Expect(handlerCalled).To(BeFalse())
+			})
+
+			It("it should return an internal server error if the handler permits sharing but blocks free users and there is no billing profile record", func() {
+				allowCollab = true
+				blockFreeUser = true
+
+				_, err := db.Exec(`DELETE FROM billing_profiles where user_id = $1;`, owner.ID)
+				Expect(err).To(BeNil())
+
+				req, err := NewRequest("GET", "/rails-box/action", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
 				Expect(handlerCalled).To(BeFalse())
 			})
 		})

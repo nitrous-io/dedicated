@@ -2,44 +2,51 @@
   label.field-label
       | User Public Keys
 
-  p.hint-text
-   | Add public keys from your machine so you can access your container via ssh
-
-  if records.loaded
-    if records.length
-      ul.ui.list.item-2-line
-        each key in records
-          li.list-item
-            .left-accessory
-              .ui.checkbox
-                input.record-checkbox type='checkbox' id={key.inputId} value={key.id}
-                label
-            .lines
-              label for={key.inputId}
-                h4
-                  = key.name
-                p
-                  | Added &nbsp;
-                  = dateabbr key.createdAt
+  if model.paidFeaturesEnabled
+    p.hint-text
+     | Add public keys from your machine so you can access your container via ssh
+    if records.loaded
+      if records.length
+        ul.ui.list.item-2-line
+          each key in records
+            li.list-item
+              .left-accessory
+                .ui.checkbox
+                  input.record-checkbox type='checkbox' id={key.inputId} value={key.id}
+                  label
+              .lines
+                label for={key.inputId}
+                  h4
+                    = key.name
+                  p
+                    | Added &nbsp;
+                    = dateabbr key.createdAt
+      else
+        p.hint-text
+          i.fa.fa-info-circle
+          | There aren't any user public keys registered.
     else
       p.hint-text
-        i.fa.fa-info-circle
-        | There aren't any user public keys registered.
+        i.spinner
+        | Loading...
+
+    .card-footer
+      .left
+        if removing
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Removing...
+        else
+          button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
+      .right
+        button.ui.btn.primary click='add' Register Key...
+
   else
     p.hint-text
-      i.spinner
-      | Loading...
-
-.card-footer
-  .left
-    if removing
-      button.ui.btn disabled='disabled'
-        i.spinner
-        | Removing...
-    else
-      button.ui.btn click='askRemove target="view"' disabled=noneSelected Remove
-  .right
-    button.ui.btn.primary click='add' Register Key...
+      | SSH access to your container is only available to paid users. If you are sharing a container, the owner of the container has to be a paying user.
+      unless model.shared
+        .right
+          button.ui.btn.primary click='upgradePaid' Upgrade
 
 #confirm-remove-modal-dialog.ui.modal
   .ui.card
