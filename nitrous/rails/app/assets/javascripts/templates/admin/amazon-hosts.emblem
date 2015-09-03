@@ -64,7 +64,11 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
-                td.id = entry.db_host.id
+                td.id
+                  = entry.db_host.id
+                  if entry.db_host.hotswap
+                    | /H
+                td
                 td.id = entry.live_host.volume_id
                 td.id = entry.live_host.id
                 td.slug = entry.db_host.slug
@@ -142,7 +146,10 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showDanglingHostDialog host' Actions
-                td.id = host.id
+                td.id
+                  = host.id
+                  if host.hotswap
+                    | /H
                 td.id = host.provider_identifier
                 td.id = host.provider_storage_identifier
                 td.slug = host.slug
@@ -184,7 +191,10 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showInconsistentDialog entry.db_host' Actions
-                td.id = entry.db_host.id
+                td.id
+                  = entry.db_host.id
+                  if entry.db_host.hotswap
+                    | /H
                 td.id = entry.live_host.id
                 td.id = entry.live_host.volume_id
                 td.slug = entry.db_host.slug
