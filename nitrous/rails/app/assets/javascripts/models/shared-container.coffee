@@ -9,6 +9,7 @@ App.SharedContainer = klass = App.Container.extend
   _host: attr('host', as: 'host', serialize: false)
 
   canEdit: false
+  shared: true
 
   description: (->
     "#{@get('name')} shared by #{@get('userUsername')}"

@@ -26,3 +26,7 @@ App.ContainerKeysController = Lib.RecordListController.extend
         App.postError(jqxhr.responseJSON, "Failed to add container public key to GitHub!")
       ).finally =>
         @set 'saving', false
+
+    upgradePaid: ->
+      subscriptionSlug = @get('host.subscriptionSlug')
+      @transitionToRoute 'subscriptions.upgrade', subscriptionSlug
