@@ -85,6 +85,8 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 		onOp(c, msg.FileName, msg.Args)
 	case "sel":
 		onSel(c, msg.FileName, msg.Args)
+	case "active":
+		onActive(c)
 	}
 
 	return nil
@@ -99,7 +101,7 @@ func onConnect(ws MessageReaderWriter, username, connID string) *Connection {
 	activeConnectionsLock.Lock()
 	ActiveConnections[c.ID]++
 	activeConnectionsLock.Unlock()
-	c.Send("", "connected", map[string]string{
+	c.Send("", "connected", map[string]interface{}{
 		"conn_id": c.ID,
 	})
 	return c
@@ -144,7 +146,7 @@ func onJoin(c *Connection, fileName, username, doc string) {
 		"conn_id": c.ID,
 	})
 
-	c.Broadcast(s, "joined", map[string]string{
+	broadcastAll(s, c, "joined", map[string]string{
 		"conn_id":  c.ID,
 		"username": c.Username,
 	})
@@ -157,9 +159,26 @@ func onLeave(c *Connection, fileName string) {
 	}
 
 	c.Send(fileName, "unregistered", nil)
-	c.Broadcast(s, "left", map[string]string{
-		"conn_id": c.ID,
+	broadcastAll(s, c, "left", map[string]string{
+		"conn_id":  c.ID,
+		"username": c.Username,
 	})
+}
+
+func broadcastAll(thisSession *Session, c *Connection, event string, data interface{}) {
+	connMap := map[*Connection]bool{}
+	for _, s := range Sessions {
+		for _, conn := range s.Connections {
+			if conn == c {
+				continue
+			}
+
+			if ok, _ := connMap[conn]; !ok {
+				connMap[conn] = true
+				conn.Send(thisSession.ID, event, data)
+			}
+		}
+	}
 }
 
 func onRejoin(c *Connection, fileName string) {
@@ -169,6 +188,20 @@ func onRejoin(c *Connection, fileName string) {
 	} else {
 		c.Send(fileName, "rejoin_failed", nil)
 	}
+}
+
+func onActive(c *Connection) {
+	sessions := map[string]interface{}{}
+	for _, s := range Sessions {
+		sessions[s.ID] = map[string]interface{}{
+			"document": s.Document,
+			"revision": len(s.Session.Operations),
+			"clients":  s.Session.Clients,
+		}
+	}
+	c.Send("", "active", map[string]interface{}{
+		"sessions": sessions,
+	})
 }
 
 func onOp(c *Connection, fileName string, data []interface{}) {
