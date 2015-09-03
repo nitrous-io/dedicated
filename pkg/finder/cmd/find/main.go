@@ -61,7 +61,7 @@ func decorate(s string, match *finder.FileNameMatch) string {
 
 func doFind(dir, term string) {
 	timeStart := time.Now()
-	matches, err := finder.FindFiles(dir, term)
+	matches, err := finder.FuzzyFindFile(dir, term)
 	panicIfErr(err)
 	dur := time.Since(timeStart)
 	for _, match := range matches {
@@ -85,9 +85,9 @@ func stressSearches() {
 	for _, term := range terms {
 		wg.Add(1)
 		go func(term string) {
-			matches, err := finder.FindFiles(dir, term)
+			matches, err := finder.FuzzyFindFile(dir, term)
 			if err != nil {
-				fmt.Printf("finder.FindFiles('%s', '%s') failed with '%s'\n", dir, term, err)
+				fmt.Printf("finder.FuzzyFindFile('%s', '%s') failed with '%s'\n", dir, term, err)
 			} else {
 				fmt.Printf("%d matches for '%s'\n", len(matches), term)
 			}
