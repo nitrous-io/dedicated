@@ -28,5 +28,12 @@ App.CollabSocket = klass = App.EventedSocket.extend
       @set 'connID', data.conn_id
       return
 
+    unless namespace
+      namespace = 'global'
+
     if namespace && event
       @trigger("#{event}|#{namespace}", data)
+
+    if event == "joined" || event == "left"
+      d = {data: data, namespace: namespace}
+      @trigger "#{event}|global", d

@@ -24,6 +24,13 @@
             a href='#' click='didClickUpload target="view"'
               | Upload Files
 
+  .ide-pane
+    h3 Active Files
+    ul
+      each file in controller.activeFilesMonitor.sortedFiles
+        li
+         = file.name
+
   .tree contextMenu='didRightClickBackground target="view"'
     ul.root
       App.IdePathView path=rootPath

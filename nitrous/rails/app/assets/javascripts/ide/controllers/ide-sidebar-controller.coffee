@@ -11,6 +11,8 @@ App.IdeSidebarController = Em.ArrayController.extend
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
+  collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
+
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
   hiddenFilesVisible: false
@@ -38,6 +40,11 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   onDirChanged: (error, absolutePathString) ->
     this.refreshPath absolutePathString
+
+  collabSocketDidStartForTheFirstTime: (->
+    if @get 'collabSocket.startedFirstTime'
+      @set 'activeFilesMonitor', App.ActiveFilesMonitor.create(collabSocket: @get('collabSocket'), username: App.get('user.username'))
+  ).observes 'collabSocket.startedFirstTime'
 
   opsSocketDidStartForTheFirstTime: (->
     if @get 'opsSocket.startedFirstTime'
@@ -116,7 +123,7 @@ App.IdeSidebarController = Em.ArrayController.extend
       if doc = editorController.findProperty 'path', path
         unless settings.active == false
           editorController.makeTabActive doc
-        
+
         if (selections = settings.selections) && (selOne = selections[0])
           doc.set 'goToLine', {line: selOne.anchor.line, cursor: selOne.anchor.ch}
         if settings.done
