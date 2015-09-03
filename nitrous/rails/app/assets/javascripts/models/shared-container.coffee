@@ -9,6 +9,11 @@ App.SharedContainer = klass = App.Container.extend
   _host: attr('host', as: 'host', serialize: false)
 
   canEdit: false
+  shared: true
+
+  description: (->
+    "#{@get('name')} shared by #{@get('userUsername')}"
+  ).property 'name', 'userUsername'
 
   loadConfig: ->
     @ajax('GET', 'config').then (json) =>
@@ -19,6 +24,11 @@ App.SharedContainer = klass = App.Container.extend
     h.load @get('_host')
     h
   ).property '_host'
+
+  paidFeaturesEnabled: (->
+    host = @get 'host'
+    !host.get('free')
+  ).property 'host.free'
 
 klass.reopenClass
   primaryKey: 'slug'

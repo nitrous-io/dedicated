@@ -16,6 +16,6 @@ if App.user.advanced
 else
   li class={portsSelected:selected}
     link-to 'container.ports' | Ports
-unless App.billingProfile.free
+if model.paidFeaturesEnabled
   li class={customDomainSelected:selected}
     link-to 'container.custom-domain' | Custom Domain

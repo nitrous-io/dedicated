@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	stripe "github.com/stripe/stripe-go"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/idlehosts"
@@ -27,6 +29,11 @@ var (
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
+
+	stripe.Key = envvars.StripeSecretKey
+	if stripe.Key == "" {
+		logrus.Fatal("STRIPE_SECRET_KEY environment variable not set")
+	}
 }
 
 type wrkMsg struct {

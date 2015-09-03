@@ -202,7 +202,7 @@ App.Host = klass = App.Model.extend
           @set 'stats', App.HostStats.create(stats)
         data
       , (jqxhr) =>
-        @set 'connectivityErrorCount', @get('connectivityErrorCount')+1
+        @incrementProperty 'connectivityErrorCount'
         throw jqxhr
     )
 
