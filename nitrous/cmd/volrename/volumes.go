@@ -13,7 +13,7 @@ func volumes() (map[string]ec2.Volume, error) {
 	var (
 		vols    = map[string]ec2.Volume{}
 		errmsgs []string
-		mutex   sync.Mutex // protects vols and errmsgs
+		mutex   = &sync.Mutex{} // protects infos and errmsgs
 		wg      sync.WaitGroup
 	)
 

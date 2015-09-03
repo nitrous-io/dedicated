@@ -48,7 +48,6 @@ type Response struct {
 	Status         string     `json:"status,omitempty"`
 	Provider       string     `json:"provider,omitempty"`
 	ID             string     `json:"id,omitempty"`
-	VolumeID       string     `json:"volume_id,omitempty"`
 	Name           string     `json:"name,omitempty"`
 	IPAddress      string     `json:"ip_address,omitempty"`
 	FreighterdPort uint16     `json:"freighterd_port,omitempty"`
@@ -146,7 +145,6 @@ func (s *Server) createHost(w http.ResponseWriter, r *http.Request) error {
 		resp.Status = "created"
 		resp.Provider = info.Provider
 		resp.ID = info.ID
-		resp.VolumeID = info.VolumeID
 		resp.Name = info.Name
 		resp.IPAddress = info.IPAddress
 		resp.FreighterdPort = info.FreighterdPort
@@ -200,7 +198,6 @@ func (s *Server) updateHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "updated",
 		Provider:       info.Provider,
 		ID:             info.ID,
-		VolumeID:       info.VolumeID,
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
@@ -237,7 +234,6 @@ func (s *Server) respecHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "respecced",
 		Provider:       info.Provider,
 		ID:             info.ID,
-		VolumeID:       info.VolumeID,
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
@@ -289,7 +285,6 @@ func (s *Server) stopHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "stopped",
 		Provider:       info.Provider,
 		ID:             info.ID,
-		VolumeID:       info.VolumeID,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
 		Region:         info.Region,
@@ -324,7 +319,6 @@ func (s *Server) startHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "started",
 		Provider:       info.Provider,
 		ID:             info.ID,
-		VolumeID:       info.VolumeID,
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
@@ -364,7 +358,6 @@ func (s *Server) restartHost(w http.ResponseWriter, r *http.Request) error {
 		Status:         "restarted",
 		Provider:       info.Provider,
 		ID:             info.ID,
-		VolumeID:       info.VolumeID,
 		Name:           info.Name,
 		IPAddress:      info.IPAddress,
 		FreighterdPort: info.FreighterdPort,
@@ -421,7 +414,6 @@ func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 		responses = append(responses, Response{
 			Provider:       hst.Provider,
 			ID:             hst.ID,
-			VolumeID:       hst.VolumeID,
 			Name:           hst.Name,
 			IPAddress:      hst.IPAddress,
 			FreighterdPort: hst.FreighterdPort,

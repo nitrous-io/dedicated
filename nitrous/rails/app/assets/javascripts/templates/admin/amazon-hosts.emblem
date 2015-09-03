@@ -6,7 +6,7 @@
     unless fetchingHosts
       button.ui.btn.raised click='refreshHosts' Refresh
     else
-      button.ui.btn.raised disabled=true Refreshing...
+      button.ui.btn.raised disabled=true Refreshing..
 
     button.ui.btn.raised click='toggleHealthyHosts'
       if showHealthyHosts
@@ -48,7 +48,6 @@
               th.checkbox
               th.actions Actions
               th HID
-              th Vol ID
               th PID
               th Slug
               th Username
@@ -64,19 +63,17 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showHealthyHostDialog entry.db_host' Actions
-                td.id
-                  = entry.db_host.id
-                  if entry.db_host.hotswap
-                    | /H
-                td
-                td.id = entry.live_host.volume_id
+                td.id = entry.db_host.id
                 td.id = entry.live_host.id
                 td.slug = entry.db_host.slug
                 td.username = entry.db_host.username
                 td.state = entry.db_host.state
                 td.region = entry.live_host.region
+
                 td.region
-                  = region-slug entry.db_host.region_id
+                  a click='filterRegion entry.db_host.region_id'
+                    = region-slug entry.db_host.region_id
+
                 td.plan
                   = plan-slug entry.db_host.plan_id
 
@@ -94,7 +91,6 @@
               th.checkbox
               th.actions Actions
               th PID
-              th Vol ID
               th Slug
               th State
               th EC2 Region
@@ -110,7 +106,6 @@
                   button.ui.btn.raised click='showUnaccountedHostDialog host' Actions
                 td title=id
                   = host.id
-                td = host.volume_id
                 td = host.name
                 td = host.state
                 td = host.region
@@ -132,7 +127,6 @@
               th.actions Actions
               th HID
               th PID
-              th Vol ID
               th Slug
               th Username
               th DB State
@@ -146,12 +140,8 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showDanglingHostDialog host' Actions
-                td.id
-                  = host.id
-                  if host.hotswap
-                    | /H
+                td.id = host.id
                 td.id = host.provider_identifier
-                td.id = host.provider_storage_identifier
                 td.slug = host.slug
                 td.username = host.username
                 td.state = host.state
@@ -175,7 +165,6 @@
               th.actions Actions
               th HID
               th PID
-              th Vol ID
               th Slug
               th Username
               th DB State
@@ -191,12 +180,8 @@
                   label
                 td.actions
                   button.ui.btn.raised click='showInconsistentDialog entry.db_host' Actions
-                td.id
-                  = entry.db_host.id
-                  if entry.db_host.hotswap
-                    | /H
+                td.id = entry.db_host.id
                 td.id = entry.live_host.id
-                td.id = entry.live_host.volume_id
                 td.slug = entry.db_host.slug
                 td.username = entry.db_host.username
                 td.state = entry.db_host.state

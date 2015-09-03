@@ -12,114 +12,21 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
-// List returns all instances and volumes in all known regions, except instances
-// that are in an instance pool.
+// List returns all instances in all known regions, except instances that are
+// in an instance pool.
 func (h *Host) List() ([]*host.Info, error) {
 	label := h.MetricsLabel("list")
 	defer mh.UpdateSince(label, time.Now())
 
 	var (
-		infos  []*host.Info
-		wg     sync.WaitGroup
-		errors []error
-		mu     sync.Mutex // protects infos and errors
-	)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		allInstances, err := h.listInstances()
-		if err != nil {
-			mu.Lock()
-			errors = append(errors, err)
-			mu.Unlock()
-			return
-		}
-
-		instanceInfos := []*host.Info{}
-		for region, instances := range allInstances {
-			for _, instance := range instances {
-				info := &host.Info{
-					Name:           tagValue("Name", instance.Tags),
-					Provider:       h.DriverName(),
-					ID:             instance.InstanceId,
-					IPAddress:      instance.PublicIpAddress,
-					FreighterdPort: host.DefaultPort,
-					State:          getState(&instance),
-					Region:         region.Name,
-					LaunchTime:     &instance.LaunchTime,
-				}
-
-				instanceInfos = append(instanceInfos, info)
-			}
-		}
-
-		mu.Lock()
-		infos = append(infos, instanceInfos...)
-		mu.Unlock()
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		allVols, err := h.listVolumes()
-		if err != nil {
-			mu.Lock()
-			errors = append(errors, err)
-			mu.Unlock()
-			return
-		}
-
-		volInfos := []*host.Info{}
-		for region, vols := range allVols {
-			for _, vol := range vols {
-				info := &host.Info{
-					VolumeID: vol.VolumeId,
-					Name:     tagValue("Name", vol.Tags),
-					Provider: h.DriverName(),
-					Region:   region.Name,
-				}
-
-				if len(vol.Attachments) > 0 {
-					info.ID = vol.Attachments[0].InstanceId
-				}
-
-				volInfos = append(volInfos, info)
-			}
-		}
-
-		mu.Lock()
-		infos = append(infos, volInfos...)
-		mu.Unlock()
-	}()
-	wg.Wait()
-
-	if len(errors) > 0 {
-		return nil, fmt.Errorf("List(): %v", errors)
-	}
-	return infos, nil
-}
-
-func (h *Host) listInstances() (map[aws.Region][]ec2.Instance, error) {
-	start := time.Now()
-	label := h.MetricsLabel("list_instances")
-	defer func() {
-		mh.UpdateSince(label, start)
-		h.Printf("listing instances from EC2 took %v", time.Now().Sub(start))
-	}()
-
-	var (
-		allInstances = make(map[aws.Region][]ec2.Instance)
-		errmsgs      []string
-		mu           sync.Mutex // protects allInstances and errmsgs
-		wg           sync.WaitGroup
+		infos   = []*host.Info{}
+		errmsgs []string
+		mutex   = &sync.Mutex{} // protects infos and errmsgs
+		wg      sync.WaitGroup
 	)
 
 	for _, region := range KnownRegions {
 		wg.Add(1)
-
 		go func(region aws.Region) {
 			defer wg.Done()
 
@@ -129,28 +36,31 @@ func (h *Host) listInstances() (map[aws.Region][]ec2.Instance, error) {
 			label := fmt.Sprintf("%s.amazon.%s", "list", region.Name)
 			defer mh.UpdateSince(label, time.Now())
 
-			instances := []ec2.Instance{}
-
+			regionInfos := []*host.Info{}
 			conn := ec2.New(h.auth, region)
-			params := map[string]string{"MaxResults": "200"}
+			params := make(map[string]string)
+			params["MaxResults"] = "200"
 
-			nextToken := "initial"
-			for nextToken != "" {
-				if nextToken != "" && nextToken != "initial" {
+			firstTime := true
+			nextToken := ""
+
+			for firstTime || nextToken != "" {
+				if nextToken != "" {
 					params["NextToken"] = nextToken
 				}
 
 				instancesResp, err := conn.InstancesWithExtraParams(nil, nil, params)
 				if err != nil {
-					errmsg := fmt.Sprintf("failed to get instances for region %s, err: %v", region.Name, err)
+					errmsg := fmt.Sprintf("failed to get instances in region %s, err %+v", region.Name, err)
 					h.Printf(errmsg)
-					mu.Lock()
+					mutex.Lock()
 					errmsgs = append(errmsgs, errmsg)
-					mu.Unlock()
+					mutex.Unlock()
 					break
 				}
 
 				nextToken = instancesResp.NextToken
+				firstTime = false
 
 				for _, reservation := range instancesResp.Reservations {
 					for _, instance := range reservation.Instances {
@@ -161,101 +71,39 @@ func (h *Host) listInstances() (map[aws.Region][]ec2.Instance, error) {
 							continue
 						}
 
-						// Ignore instances that are in an instance pool.
+						// Don't return instances that are in an instance pool.
 						inPool := tagValue(poolTag, instance.Tags)
 						if inPool == "true" {
 							continue
 						}
 
-						instances = append(instances, instance)
+						info := &host.Info{
+							Name:           tagValue("Name", instance.Tags),
+							Provider:       h.DriverName(),
+							ID:             instance.InstanceId,
+							IPAddress:      instance.PublicIpAddress,
+							FreighterdPort: host.DefaultPort,
+							State:          getState(&instance),
+							Region:         region.Name,
+							LaunchTime:     &instance.LaunchTime,
+						}
+
+						regionInfos = append(regionInfos, info)
 					}
 				}
 			}
-
-			mu.Lock()
-			allInstances[region] = instances
-			mu.Unlock()
+			mutex.Lock()
+			infos = append(infos, regionInfos...)
+			mutex.Unlock()
 		}(region)
 	}
 	wg.Wait()
 
+	var err error
 	if len(errmsgs) > 0 {
-		return nil, fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))
+		err = fmt.Errorf("Errors getting instances: %s", strings.Join(errmsgs, "; "))
 	}
-
-	return allInstances, nil
-}
-
-func (h *Host) listVolumes() (map[aws.Region][]ec2.Volume, error) {
-	start := time.Now()
-	label := h.MetricsLabel("list_volumes")
-	defer func() {
-		mh.UpdateSince(label, start)
-		h.Printf("listing volumes from EC2 took %v", time.Now().Sub(start))
-	}()
-
-	var (
-		allVols = make(map[aws.Region][]ec2.Volume)
-		errmsgs []string
-		mu      sync.Mutex // protects allVols and errmsgs
-		wg      sync.WaitGroup
-	)
-
-	for _, region := range KnownRegions {
-		wg.Add(1)
-
-		go func(region aws.Region) {
-			defer wg.Done()
-
-			vols := []ec2.Volume{}
-
-			conn := ec2.New(h.auth, region)
-			filter := ec2.NewFilter()
-			filter.Add(`tag:dedicated`, h.driverConfig.Env)
-			// Specify the version for the MaxResults parameter on DescribeVolumes.
-			params := map[string]string{"Version": "2015-04-15", "MaxResults": "200"}
-
-			nextToken := "initial"
-			for nextToken != "" {
-				if nextToken != "" && nextToken != "initial" {
-					params["NextToken"] = nextToken
-				}
-
-				vr, err := conn.VolumesWithExtraParams(nil, filter, params)
-				if err != nil {
-					errmsg := fmt.Sprintf("failed to get volumes for region %s, err: %v", region.Name, err)
-					h.Printf(errmsg)
-					mu.Lock()
-					errmsgs = append(errmsgs, errmsg)
-					mu.Unlock()
-					break
-				}
-
-				nextToken = vr.NextToken
-
-				for _, vol := range vr.Volumes {
-					name := tagValue("Name", vol.Tags)
-					if !strings.HasPrefix(name, "userdata") {
-						// Ignore volumes that are not user volumes.
-						continue
-					}
-
-					vols = append(vols, vol)
-				}
-			}
-
-			mu.Lock()
-			allVols[region] = vols
-			mu.Unlock()
-		}(region)
-	}
-	wg.Wait()
-
-	if len(errmsgs) > 0 {
-		return nil, fmt.Errorf("Errors getting volumes: %s", strings.Join(errmsgs, "; "))
-	}
-
-	return allVols, nil
+	return infos, err
 }
 
 func tagValue(key string, tags []ec2.Tag) string {
