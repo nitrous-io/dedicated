@@ -170,21 +170,34 @@ App.Host = klass = App.Model.extend
     true
 
   fetchStats: (retryCount = FETCH_STATS_RETRY_COUNT) ->
-    return if @fetchStatsPending
-    @getStats()?.fail =>
+    @getStats()?.then( =>
+      # we successfully got through, kill all timeouts
+      if @fetchStatsRetryTimeout
+        window.clearTimeout @fetchStatsRetryTimeout
+        @fetchStatsRetryTimeout = null
+
+      if @fetchStatsRescheduleTimeout
+        window.clearTimeout @fetchStatsRescheduleTimeout
+        @fetchStatsRescheduleTimeout = null
+
+    , =>
+      # failure, handle case
       if retryCount == 0
         # reschedule a check in a minute
         # this prevents the user from needing to do any "reloading"
-        window.setTimeout =>
+        return if @fetchStatsRescheduleTimeout
+        @fetchStatsRescheduleTimeout = window.setTimeout =>
+          @fetchStatsRescheduleTimeout = null
           @fetchStats()
         , FETCH_STATS_NEXT
         return
 
-      @fetchStatsPending = true
-      window.setTimeout =>
-        @fetchStatsPending = false
+      return if @fetchStatsPending
+      @fetchStatsRetryTimeout = window.setTimeout =>
+        @fetchStatsRetryTimeout = null
         @fetchStats(retryCount-1)
       , FETCH_STATS_RETRY
+    )
 
   getStats: ->
     return unless @get('isRunning')
