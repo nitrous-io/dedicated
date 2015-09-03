@@ -31,6 +31,14 @@ if App.hosts.length
                         .state-indicator class={container.state} title={container.state}
                           span
                             = container.state
+                            
+                a.add-container-btn click='createContainer host'
+                  if host.hasContainerCreating
+                    i.spinner
+                  else
+                    i.fa.fa-plus
+                    span Add Container
+                    
               else
                 a.add-container-btn click='createContainer host'
                   if host.hasContainerCreating
