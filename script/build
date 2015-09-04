@@ -130,10 +130,7 @@ build_nitrous() {
     "nitrous/cmd/hssh" \
     "nitrous/cmd/adminuserseed" \
     "nitrous/cmd/createinvitecodes" \
-    "nitrous/cmd/populatehosttransitions" \
-    "nitrous/cmd/biller" \
     "nitrous/cmd/removeexpiredtokens" \
-    "nitrous/cmd/migrate" \
     "nitrous/cmd/hostshutdown" \
     "nitrous/cmd/populatemxprofiles" \
     "nitrous/cmd/healthcheck" \
