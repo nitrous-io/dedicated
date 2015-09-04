@@ -1421,7 +1421,7 @@ var _ = Describe("controllers/containers", func() {
 
 			mockClient.CommitImage = &freighterclient.Image{
 				ID:          "1a",
-				Name:        "elixir-staging",
+				Name:        "elixir-staging:__snapshot__20140813-000000",
 				Tag:         "latest",
 				CreatedAt:   1903,
 				ActualSize:  13,
@@ -1453,12 +1453,13 @@ var _ = Describe("controllers/containers", func() {
 		It("creates a new image record", func() {
 			doRequest("elixir-staging")
 
-			i, err := image.Find(db, u, hs.H, "elixir-staging:latest")
+			i, err := image.Find(db, u, hs.H, "elixir-staging:__snapshot__20140813-000000:latest")
 			Expect(err).To(BeNil())
 			Expect(i.UserID).To(Equal(u.ID))
 			Expect(i.HostID).To(Equal(hs.H.ID))
 			Expect(i.FreighterID).To(Equal("1a"))
-			Expect(i.Slug).To(Equal("elixir-staging"))
+			Expect(i.Name).To(Equal("elixir-staging"))
+			Expect(i.Slug).To(MatchRegexp("elixir-staging:__snapshot__20140813-000000"))
 			Expect(i.Tag).To(Equal("latest"))
 		})
 
@@ -1467,7 +1468,7 @@ var _ = Describe("controllers/containers", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 			Expect(mockClient.CommitCalled).To(Equal(1))
 			Expect(mockClient.ReceivedID).To(Equal("deadbeef"))
-			Expect(mockClient.ReceivedName).To(Equal("elixir-staging"))
+			Expect(mockClient.ReceivedName).To(MatchRegexp("elixir-staging:__snapshot__[0-9]{8}-[0-9]{6}"))
 			var j struct {
 				Image     *serializers.Image     `json:"image"`
 				Container *serializers.Container `json:"container"`
@@ -1475,7 +1476,8 @@ var _ = Describe("controllers/containers", func() {
 			err := json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 			Expect(j.Image).NotTo(BeNil())
-			Expect(j.Image.Slug).To(Equal("elixir-staging"))
+			Expect(j.Image.Name).To(Equal("elixir-staging"))
+			Expect(j.Image.Slug).To(MatchRegexp("elixir-staging:__snapshot__20140813-000000"))
 			Expect(j.Image.Tag).To(Equal("latest"))
 			Expect(j.Container).NotTo(BeNil())
 			Expect(j.Container.Slug).To(Equal("elixir-web-1"))
@@ -1528,7 +1530,7 @@ var _ = Describe("controllers/containers", func() {
 			img, ok := evtData["image"]
 			Expect(ok).To(BeTrue())
 			Expect(img).NotTo(BeNil())
-			Expect(img.Slug).To(Equal("elixir-staging"))
+			Expect(img.Slug).To(Equal("elixir-staging:__snapshot__20140813-000000"))
 			Expect(img.Tag).To(Equal("latest"))
 
 			close(done)

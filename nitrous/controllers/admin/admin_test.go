@@ -278,14 +278,6 @@ var _ = Describe("controllers/admin", func() {
 								"ip_address": "1.6.6.6",
 								"freighterd_port": 65334,
 								"state": "Stopped"
-							},
-							{
-								"provider": "%s",
-								"id": "digitalocean-831",
-								"name": "create-test-ams3-10418105-1423059042",
-								"ip_address": "1.2.3.1",
-								"freighterd_port": 65335,
-								"state": "Running"
 							}
 						]
 					}`, provider, provider, provider),

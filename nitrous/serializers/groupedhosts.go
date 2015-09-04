@@ -10,6 +10,7 @@ import (
 type LiveHost struct {
 	Provider       string `json:"provider"`
 	ID             string `json:"id"`
+	VolumeID       string `json:"volume_id"`
 	Name           string `json:"name"`
 	IPAddress      string `json:"ip_address"`
 	FreighterdPort uint16 `json:"freighterd_port"`
@@ -49,6 +50,7 @@ func SerializeLiveHost(h *hostbuilder.Response) *LiveHost {
 	return &LiveHost{
 		Provider:       h.Provider,
 		ID:             h.ID,
+		VolumeID:       h.VolumeID,
 		Name:           h.Name,
 		IPAddress:      h.IPAddress,
 		FreighterdPort: h.FreighterdPort,
