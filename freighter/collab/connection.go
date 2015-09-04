@@ -16,6 +16,15 @@ var (
 	nextConnID = int64(0)
 )
 
+var (
+	connectionsLock sync.Mutex
+	Connections     map[string]*Connection
+)
+
+func init() {
+	Connections = map[string]*Connection{}
+}
+
 type Connection struct {
 	ID         string
 	Username   string
@@ -25,6 +34,9 @@ type Connection struct {
 }
 
 func NewConnection(conn io.Writer, username, id string) *Connection {
+	connectionsLock.Lock()
+	defer connectionsLock.Unlock()
+
 	if id == "" {
 		id = strconv.FormatInt(atomic.AddInt64(&nextConnID, 1), 36)
 	}
@@ -34,6 +46,7 @@ func NewConnection(conn io.Writer, username, id string) *Connection {
 		Conn:     conn,
 		Buffer:   [][]byte{},
 	}
+	Connections[id] = c
 	return c
 }
 

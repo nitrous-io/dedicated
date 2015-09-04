@@ -1,0 +1,7 @@
+h3 Active Files
+ul
+  each file in view.files
+    li
+     = file.path.name
+     each client in file.clients
+       = client

@@ -166,18 +166,8 @@ func onLeave(c *Connection, fileName string) {
 }
 
 func broadcastAll(thisSession *Session, c *Connection, event string, data interface{}) {
-	connMap := map[*Connection]bool{}
-	for _, s := range Sessions {
-		for _, conn := range s.Connections {
-			if conn == c {
-				continue
-			}
-
-			if ok, _ := connMap[conn]; !ok {
-				connMap[conn] = true
-				conn.Send(thisSession.ID, event, data)
-			}
-		}
+	for _, c := range Connections {
+		c.Send(thisSession.ID, event, data)
 	}
 }
 

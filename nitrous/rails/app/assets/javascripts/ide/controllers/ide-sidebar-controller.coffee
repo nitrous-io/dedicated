@@ -12,6 +12,8 @@ App.IdeSidebarController = Em.ArrayController.extend
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
+  
+  activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
 
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
@@ -40,11 +42,6 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   onDirChanged: (error, absolutePathString) ->
     this.refreshPath absolutePathString
-
-  collabSocketDidStartForTheFirstTime: (->
-    if @get 'collabSocket.startedFirstTime'
-      @set 'activeFilesMonitor', App.ActiveFilesMonitor.create(collabSocket: @get('collabSocket'), username: App.get('user.username'))
-  ).observes 'collabSocket.startedFirstTime'
 
   opsSocketDidStartForTheFirstTime: (->
     if @get 'opsSocket.startedFirstTime'

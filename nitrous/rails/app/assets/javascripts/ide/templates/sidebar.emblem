@@ -25,11 +25,7 @@
               | Upload Files
 
   .ide-pane
-    h3 Active Files
-    ul
-      each file in controller.activeFilesMonitor.sortedFiles
-        li
-         = file.name
+    App.IdeSidebarActiveFilesView
 
   .tree contextMenu='didRightClickBackground target="view"'
     ul.root

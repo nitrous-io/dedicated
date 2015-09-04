@@ -17,9 +17,20 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
 
     @set 'remoteFiles', {}
     @set 'localFiles', {}
+    @userMap = {}
 
     # refresh list
     collabSocket.send "", "active"
+
+  tabsDidChange: (tabs)->
+    hsh = {}
+    for tab in tabs.get('content')
+      pth = tab.get('path')?.get('absolutePath')
+      if pth
+        hsh[pth] = true
+
+    @set 'localFiles', hsh
+    @propertyDidChange 'localFiles'
 
   handleActiveReceived: (data)->
     hsh = {}
@@ -28,27 +39,38 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
       clients = []
       for cID in Object.keys(data.sessions[id].clients)
         client = data.sessions[id].clients[cID]
+        @userMap[cID] = client.name
+
         unless client.name == @get("username")
-          clients.push client.name
+          clients.push cID
       if clients.length
         hsh[file] = clients
     @set 'remoteFiles', hsh
 
   handleJoined: (msg)->
-    file = msg.namespace.match(/^[^:]+:(.+)/)[1]
     data = msg.data
+    return if data.username == @get("username")
+
+    @userMap[data.conn_id] = data.username
+
+    file = msg.namespace.match(/^[^:]+:(.+)/)[1]
     remoteFiles = @get 'remoteFiles'
     existing = remoteFiles[file] || []
-    existing.push(data.username)
+    existing.push data.conn_id
     remoteFiles[file] = existing
+
     @propertyDidChange 'remoteFiles'
 
   handleLeft: (msg)->
-    file = msg.namespace.match(/^[^:]+:(.+)/)[1]
     data = msg.data
+    return if data.username == @get("username")
+
+    @userMap[data.conn_id] = data.username
+
+    file = msg.namespace.match(/^[^:]+:(.+)/)[1]
     remoteFiles = @get 'remoteFiles'
     if existing = remoteFiles[file]
-      loc = existing.indexOf(data.username)
+      loc = existing.indexOf data.conn_id
       if loc != -1
         existing.splice(loc, 1)
 
@@ -57,14 +79,35 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
         @propertyDidChange 'remoteFiles'
 
   sortedFiles: (->
+    localFiles = @get 'localFiles'
     remoteFiles = @get 'remoteFiles'
-    sortedKeys = Object.keys(remoteFiles).sort()
+
+    allKeys = Object.keys(localFiles)
+    for key in Object.keys(remoteFiles)
+      if allKeys.indexOf(key) == -1
+        allKeys.push key
+
+    sortedKeys = allKeys.sort()
     sortedKeys.map (k)=>
+      connIDs = []
+      openedLocal = localFiles[k] || false
+      if openedLocal
+        connIDs.push @get 'collabSocket.connID'
+      if remote = remoteFiles[k]
+        connIDs = connIDs.concat remote
+
+      clients = connIDs.sort().reverse().map (cID)=>
+        if cID == @get 'collabSocket.connID'
+          @get 'username'
+        else
+          @userMap[cID]
+
       {
-        name: k,
-        clients: remoteFiles[k].sort()
+        path: App.Path.create(absolutePath: k),
+        clients: clients,
+        openedLocal: openedLocal
       }
-  ).property 'remoteFiles'
+  ).property 'remoteFiles', 'localFiles'
 
   handleReconnected: (data)->
     debugger

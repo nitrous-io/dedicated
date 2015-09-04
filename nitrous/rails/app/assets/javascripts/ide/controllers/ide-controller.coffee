@@ -130,6 +130,11 @@ App.IdeController = Em.ObjectController.extend
             App.localStorage.set(cacheKey, true)
   ).observes 'opsSocketReady'
 
+  collabSocketDidStartForTheFirstTime: (->
+    if @get 'collabSocket.startedFirstTime'
+      @set 'activeFilesMonitor', App.ActiveFilesMonitor.create(collabSocket: @get('collabSocket'), username: App.get('user.username'))
+  ).observes 'collabSocket.startedFirstTime'
+
   warnWhenOffline: (->
     if App.get 'offline'
       App.set 'flashMessage', { type: 'alert-error', text: "Unable to connect to the server. Changes will not be saved.", sticky: true }

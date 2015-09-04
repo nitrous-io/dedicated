@@ -20,6 +20,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   supportsGoToDefinitionBinding: Em.Binding.oneWay 'activeTab.supportsGoToDefinition'
 
+  activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
+
   softTabs: true
   tabSize: 2
   theme: 'solarized dark'
@@ -90,6 +92,12 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   activeTabDidChange: (->
     @get('tabWatcher')?.notifyOfChange()
   ).observes 'activeTab', 'activeTab.selections.@each', 'activeTab.scrollPosition'
+
+  tabsDidChange: (->
+    return unless @get 'activeFilesMonitor'
+    console.log "Tabs did change:", @get('content')
+    @get('activeFilesMonitor').tabsDidChange(@get('content'))
+  ).observes 'activeFilesMonitor', 'activeTab', 'content.length'
 
   goToDefinition: (doc) ->
     opsSocket = @get 'opsSocket'
