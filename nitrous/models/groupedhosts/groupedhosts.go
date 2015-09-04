@@ -166,7 +166,7 @@ func isHotswapConsistent(db *ndb.Database, liveHost *hostbuilder.Response, dbHos
 	switch dbHost.State {
 	case host.StateRunning:
 		// A running host should be actually running.
-		if liveHost.State != "running" {
+		if liveHost.State != "Running" {
 			return false
 		}
 
