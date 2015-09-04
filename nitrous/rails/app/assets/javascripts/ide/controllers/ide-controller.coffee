@@ -76,6 +76,11 @@ App.IdeController = Em.ObjectController.extend
         if @get('content.id') == data?.container?.id
           App.snackbar.post "Container reconfigured, reconnecting..."
 
+      ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
+        evSocket.on evt, (data) =>
+          if @get('content.id') == data?.container?.id
+            App.get('container').loadCollaborators()
+
   reset: ->
     if opsSocket = @get 'opsSocket'
       opsSocket.disconnect()

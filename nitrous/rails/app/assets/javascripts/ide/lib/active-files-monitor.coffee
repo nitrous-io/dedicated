@@ -89,11 +89,13 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
 
     sortedKeys = allKeys.sort()
     sortedKeys.map (k)=>
+      anyRemote = false
       connIDs = []
       openedLocal = localFiles[k] || false
       if openedLocal
         connIDs.push @get 'collabSocket.connID'
-      if remote = remoteFiles[k]
+      if (remote = remoteFiles[k])?.length
+        anyRemote = true
         connIDs = connIDs.concat remote
 
       clients = connIDs.sort().reverse().map (cID)=>
@@ -105,7 +107,8 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
       {
         path: App.Path.create(absolutePath: k),
         clients: clients,
-        openedLocal: openedLocal
+        openedLocal: openedLocal,
+        anyRemote: anyRemote
       }
   ).property 'remoteFiles', 'localFiles'
 

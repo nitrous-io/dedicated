@@ -12,12 +12,13 @@ App.IdeSidebarController = Em.ArrayController.extend
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
   collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
-  
+
   activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
 
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
   hiddenFilesVisible: false
+  overrideActiveFilesPane: null
 
   currentlySelectedPath: null
 

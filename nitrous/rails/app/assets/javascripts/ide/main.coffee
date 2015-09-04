@@ -72,6 +72,7 @@ window.NitrousIO = Em.Application.extend Em.Evented,
 
   reloadContainer: ->
     @loadContainer(@get 'slug').then (container) ->
+      container.loadCollaborators()
       container.loadHost()
 
   loadContainer: (slug)->

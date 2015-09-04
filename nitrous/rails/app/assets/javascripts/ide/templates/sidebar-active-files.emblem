@@ -2,6 +2,10 @@ h3 Active Files
 ul
   each file in view.files
     li
-     = file.path.name
-     each client in file.clients
-       = client
+     a href="#" click='openPath file target=view'
+       = file.path.name
+     ul
+       each client in file.clients
+         li
+           = client.username
+           img.gravatar src={client.gravatar}
