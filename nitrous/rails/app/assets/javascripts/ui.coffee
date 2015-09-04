@@ -1,6 +1,7 @@
 $ = window.jQuery
 
 window.ui =
+
   clearDropdowns: (options) ->
     $('body').off 'click.ui-dropdown-bg'
     $dropdowns = $('.ui.dropdown')
@@ -21,6 +22,10 @@ window.ui =
       $menu = $dropdown.find('> ul.dropdown-menu').show()
       window.clearTimeout($menu.data('timeout'))
       $dropdown.addClass('open')
+
+      # Close menu when console is clicked/on focus.
+      window.onblur = =>
+        ui.clearDropdowns()
 
       $('body').one 'click.ui-dropdown-bg', (e) ->
         if $(e.target).closest('.dropdown').length == 0
