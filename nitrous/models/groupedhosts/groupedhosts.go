@@ -117,11 +117,15 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	// Add all live host data to a map.
 	for _, h := range liveHosts {
 		identifier := h.ID
-		if identifier == "" {
-			identifier = h.VolumeID
+		if identifier != "" {
+			entry := index.getEntry(identifier)
+			entry.LiveHost = h
 		}
-		entry := index.getEntry(identifier)
-		entry.LiveHost = h
+
+		if identifier := h.VolumeID; identifier != "" {
+			entry := index.getEntry(identifier)
+			entry.LiveHost = h
+		}
 	}
 
 	// Now, add all db host data to the same map, and also identify "dangling"
@@ -131,14 +135,23 @@ func indexHosts(liveHosts []*hostbuilder.Response, dbHosts []*host.Host) (HostIn
 	// A hotswap host is "dangling" when a record exists in db but we don't know
 	// what its volume ID is.
 	for _, h := range dbHosts {
-		identifier := h.ProviderIdentifier.String
-		if h.Hotswap {
-			identifier = h.ProviderStorageIdentifier.String
-		}
+		var identifiable bool
 
-		if identifier != "" {
+		if identifier := h.ProviderIdentifier.String; identifier != "" {
 			entry := index.getEntry(identifier)
 			entry.DBHost = h
+			identifiable = true
+		}
+
+		if h.Hotswap {
+			if identifier := h.ProviderStorageIdentifier.String; identifier != "" {
+				entry := index.getEntry(identifier)
+				entry.DBHost = h
+				identifiable = true
+			}
+		}
+
+		if identifiable {
 			continue
 		}
 
