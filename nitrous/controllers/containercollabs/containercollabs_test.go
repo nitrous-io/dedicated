@@ -181,6 +181,27 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			})
 
+			It("should include the owner if the requester is not the owner", func() {
+				t = &token.Token{
+					UserID: u1.ID,
+					Token:  "valid-token2",
+				}
+				err := t.Insert(db)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					ContainerCollabs []*serializers.ContainerCollabUser `json:"collaborators"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.ContainerCollabs).To(HaveLen(4))
+				Expect(j.ContainerCollabs[3].UserID).To(Equal(u.ID))
+				Expect(j.ContainerCollabs[3].Owner).To(BeTrue())
+			})
+
 		})
 	})
 
