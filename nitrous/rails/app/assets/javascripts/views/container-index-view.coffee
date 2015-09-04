@@ -34,7 +34,7 @@ App.ContainerIndexView = Em.View.extend
       @get('controller').send 'terminate'
 
     showSnapshotDialog: ->
-      @set 'controller.snapshotImageName', makeDefaultImageName(@get 'controller.slug')
+      @set 'controller.snapshotImageName', @get 'controller.slug'
       ui.showModal('#snapshot-modal-dialog')
       Em.run.scheduleOnce 'afterRender', =>
         @$('#snapshot-name').select()

@@ -305,7 +305,9 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		return errImageNameRequired
 	}
 
-	created, err := cl.Commit(cn.CID, name)
+	slug := fmt.Sprintf("%s:__snapshot__%s", name, time.Now().Format("20060102-150405"))
+
+	created, err := cl.Commit(cn.CID, slug)
 	if err == freighterclient.ErrImageExists {
 		env.Status = http.StatusBadRequest
 		env.Data = map[string]interface{}{
@@ -336,6 +338,7 @@ func commit(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		UserID:      env.User.ID,
 		HostID:      h.ID,
 		FreighterID: created.ID,
+		Name:        name,
 		Slug:        created.Name,
 		Tag:         created.Tag,
 		ActualSize:  created.ActualSize,

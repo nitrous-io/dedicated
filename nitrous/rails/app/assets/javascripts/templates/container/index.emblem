@@ -179,7 +179,7 @@
         .ui.input-group
           label.field-label for='snapshot-name'
             | Image Name/Tag
-          = input type='text' id='snapshot-name' value=snapshotImageName required=true disabled=snapshotting pattern="^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$"
+          = input type='text' id='snapshot-name' value=snapshotImageName required=true disabled=snapshotting pattern="^[A-Za-z0-9_.-]+$"
       .card-footer
         .right
           if snapshotting
