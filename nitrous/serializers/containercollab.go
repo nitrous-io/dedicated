@@ -20,6 +20,8 @@ type ContainerCollabUser struct {
 	Name         string `json:"name,omitempty"`
 	GravatarHash string `json:"gravatar_hash,omitempty"`
 
+	Owner bool `json:"owner,omitempty"`
+
 	PendingEmail string `json:"pending_email,omitempty"`
 }
 
