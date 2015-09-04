@@ -51,6 +51,11 @@ func (h *Host) List() ([]*host.Info, error) {
 					LaunchTime:     &instance.LaunchTime,
 				}
 
+				userDevice := blockDevice(&instance, userDeviceName)
+				if userDevice != nil {
+					info.VolumeID = userDevice.VolumeId
+				}
+
 				instanceInfos = append(instanceInfos, info)
 			}
 		}
