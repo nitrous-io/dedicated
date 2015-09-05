@@ -369,6 +369,16 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.windowToggleFullScreenConsole()
         separator
+        menuItem 'Show Active Files',
+          hideBinding: Em.Binding.oneWay('App.router.ideSidebarController.showActiveFilesPane')
+          callback: ->
+            App.get('router.ideSidebarController')?.set('overrideActiveFilesPane', true)
+        menuItem 'Hide Active Files',
+          hide: (->
+            !App.get('router.ideSidebarController.showActiveFilesPane')
+          ).property('App.router.ideSidebarController.showActiveFilesPane')
+          callback: ->
+            App.get('router.ideSidebarController')?.set('overrideActiveFilesPane', false)
         menuItem 'Hide File Tree',
           hideBinding: Em.Binding.oneWay('App.fileTreeHidden')
           callback: (controller) ->

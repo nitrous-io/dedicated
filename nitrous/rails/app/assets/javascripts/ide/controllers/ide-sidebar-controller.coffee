@@ -440,5 +440,13 @@ App.IdeSidebarController = Em.ArrayController.extend
   _makeAbsolutePath: (parentAbsolutePath, fileName) ->
     _.chain([parentAbsolutePath, fileName]).compact().join('/').value()
 
+  showActiveFilesPane: (->
+    if (override = @get 'overrideActiveFilesPane') != null
+      return @get('overrideActiveFilesPane')
+
+    return @get('activeFilesMonitor')?.get('sortedFiles').any (file)->
+      file.anyRemote
+  ).property 'overrideActiveFilesPane', 'activeFilesMonitor.sortedFiles'
+
 App.IdeSidebarController.reopenClass
   REFRESH_DELAY: 200

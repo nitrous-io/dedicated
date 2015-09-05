@@ -24,7 +24,7 @@
             a href='#' click='didClickUpload target="view"'
               | Upload Files
 
-  if view.showActiveFilesPane
+  if showActiveFilesPane
     .ide-pane
       App.IdeSidebarActiveFilesView
 
