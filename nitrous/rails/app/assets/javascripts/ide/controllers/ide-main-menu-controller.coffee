@@ -134,6 +134,13 @@ App.IdeMainMenuController = Em.Controller.extend
   windowShowFileTree: ->
     App.set 'fileTreeHidden', false
 
+  windowHideActiveFiles: ->
+    App.get('router.ideSidebarController')?.set('overrideActiveFilesPane', false)
+
+  windowShowActiveFiles: ->
+    @windowShowFileTree()
+    App.get('router.ideSidebarController')?.set('overrideActiveFilesPane', true)
+
   viewSplitEditorPaneVertically: ->
     App.get('router.ideEditorController').splitActivePaneVertically()
 
