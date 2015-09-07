@@ -2,6 +2,11 @@
   .card-body
     .ui.input-group
       = input type='text' class='focus' placeholder=view.content.placeholder value=view.content.pattern spellcheck='false'
+    .ui.input-group
+      .ui.checkbox
+        = input type='checkbox' id='adjacent-search' checked=view.content.searchOptions.adjacentSearch
+        label
+      label for='adjacent-search' &nbsp; Find in adjacent files
 
     if view.content.showStatus
       .status

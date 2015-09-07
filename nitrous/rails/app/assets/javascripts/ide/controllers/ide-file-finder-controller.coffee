@@ -35,11 +35,9 @@ App.IdeFileFinderController = Em.Controller.extend
   onCompleted: (error, data) ->
     @get('fileFinderDialog')?.searchComplete(data.term, data.root)
 
-  showFindDialog: (path) ->
-    if !path?
-      path = this.get('controllers.ideSidebar.rootPath')?.absolutePath
-      if !path?
-        path = App.get('container.homePath')
+  showFindDialog: ->
+    path = this.get('controllers.ideSidebar.rootPath')?.absolutePath
+    path = App.get('container.homePath') if !path?
     @set 'fileFinderDialog', App.FileFinderDialog.create basePath: path
 
   startFind: (pattern, path) ->
@@ -59,6 +57,7 @@ App.IdeFileFinderController = Em.Controller.extend
     socket = @get 'opsSocket'
     pattern = @get 'findPattern'
     path = @get 'findPath'
+
     if dialog && socket && pattern && path
       dialog.searchStart(pattern, path)
       socket.fileFind pattern, path, (err) ->
@@ -68,3 +67,37 @@ App.IdeFileFinderController = Em.Controller.extend
 
   closeFindDialog: ->
     this.reset()
+
+  getFindPathFrom: (basePath, level = 2) ->
+    return nil unless editorController = @get 'controllers.ideEditor'
+
+    # No current active tab
+    path = editorController.get('activeTab.path')
+    return nil unless path
+
+    currentFilePath = path.absolutePath
+    # When README.md is open
+    return nil unless currentFilePath
+
+    startIndex = currentFilePath.indexOf(basePath)
+
+    # When the file is not in findPath
+    return nil if startIndex == -1
+
+    relativePath = currentFilePath.substring(basePath.length + startIndex)
+    folders = relativePath.split('/')
+    # Remove first empty string, current folder and filename
+    folders = folders.slice(1, (folders.length - 2))
+
+    searchFolder = basePath
+
+    paths = []
+    for folder, i in folders
+      searchFolder = "#{searchFolder}/#{folder}"
+      paths.unshift searchFolder
+
+    results = []
+    for path, i in paths
+      results.push path if i % level == 0
+
+    return results[0]

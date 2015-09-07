@@ -68,10 +68,21 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
 
   poller: ->
     nextSearch = @get('patternForSearch')
-    if nextSearch != @get('content.currentSearch')
-      @get('controller').startFind nextSearch, @get('content.basePath')
+    searchOptions = @get('content.searchOptions')
+    basePath = @get 'content.basePath'
+    nextFindPath = basePath
+    if searchOptions && searchOptions.adjacentSearch
+      findPath = @get('controller').getFindPathFrom(basePath)
+      nextFindPath = findPath if findPath
+
+    if nextSearch != @get('content.currentSearch') || nextFindPath != @get('content.currentFindPath')
+      path = @get('content.basePath')
+
+      @get('controller').startFind nextSearch, nextFindPath
       return unless @get('content')
+
       @set 'content.currentSearch', nextSearch
+      @set 'content.currentFindPath', nextFindPath
 
   didClickResult: (filename) ->
     # filename will be relative to home directory

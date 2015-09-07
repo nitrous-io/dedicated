@@ -5,6 +5,7 @@ App.FileFinderDialog = klass = Em.Object.extend
 
   selectedIndex: null
   currentSearch: null
+  currentFindPath: null
 
   error: null
 
@@ -14,6 +15,7 @@ App.FileFinderDialog = klass = Em.Object.extend
     # possible values enumerated in searchStatus
     @set 'results', Em.Object.create()
     @set 'selectedIndex', 0
+    @set 'searchOptions', Em.Object.create()
 
   # calls cb if the pattern cannot be found locally
   find: (pattern, path, cb) ->
@@ -54,7 +56,7 @@ App.FileFinderDialog = klass = Em.Object.extend
         'error'
 
   currentStatus: (->
-    this.searchStatus(@get('currentSearch'), @get('basePath'))
+    this.searchStatus(@get('currentSearch'), @get('currentFindPath'))
   ).property 'currentResults', 'error'
 
   showStatus: (->
@@ -107,8 +109,8 @@ App.FileFinderDialog = klass = Em.Object.extend
   ).property 'newResults', 'currentKey'
 
   currentKey: (->
-    this.resultsKey @get('currentSearch'), @get('basePath')
-  ).property 'currentSearch', 'basePath'
+    this.resultsKey @get('currentSearch'), @get('currentFindPath')
+  ).property 'currentSearch', 'currentFindPath'
 
   addResults: (pattern, path, newResults) ->
     results = @get this.resultsKey(pattern, path)
