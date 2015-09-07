@@ -1,6 +1,7 @@
 $ = window.jQuery
 
 window.ui =
+
   clearDropdowns: (options) ->
     $('body').off 'click.ui-dropdown-bg'
     $dropdowns = $('.ui.dropdown')
@@ -13,14 +14,18 @@ window.ui =
         $menu.hide()
       ,200))
 
-  openDropdown: (evt, $dropdown) ->
-    if $dropdown.hasClass('open')
+  openDropdown: (evt, $dropdown, trigger) ->
+    if $dropdown.hasClass('open') && trigger != "mouseover"
       ui.clearDropdowns()
     else
       ui.clearDropdowns(except: $dropdown)
       $menu = $dropdown.find('> ul.dropdown-menu').show()
       window.clearTimeout($menu.data('timeout'))
       $dropdown.addClass('open')
+
+      # Close menu when console is clicked/on focus.
+      window.onblur = =>
+        ui.clearDropdowns()
 
       $('body').one 'click.ui-dropdown-bg', (e) ->
         if $(e.target).closest('.dropdown').length == 0
@@ -39,6 +44,11 @@ window.ui =
 
     $('body').on 'click.ui-dropdown', '.ui.dropdown', (evt) ->
       ui.openDropdown(evt, $(this))
+
+    $('body').on 'mouseover.ui-dropdown', '.primary-nav .ui.dropdown', (evt) ->
+      $('.primary-nav .ui.dropdown').each (i, el) =>
+        if $(el).hasClass('open')
+          ui.openDropdown(evt, $(this), "mouseover")
 
   showModal: ($modal, cb) ->
     if !($modal instanceof jQuery)
