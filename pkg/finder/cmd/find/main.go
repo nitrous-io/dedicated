@@ -29,32 +29,33 @@ func panicIfErr(err error) {
 	}
 }
 
-func decorate(s string, match *finder.FileNameMatch) string {
-	matches := match.Matches
-	if len(matches) == 0 {
-		return s
+func decorate(match *finder.FileMatch) string {
+	offsets := match.Offsets
+	if len(offsets) == 0 {
+		return match.Path
 	}
-	res := ""
-	prevEnd := 0
+
 	positions := ""
 	if flgPositions {
-		for _, m := range matches {
-			positions += fmt.Sprintf("[%d %d] ", m.Pos, m.Len)
+		for _, offset := range offsets {
+			positions += fmt.Sprintf("[%d, %d] ", offset[0], offset[1])
 		}
-		fmt.Printf("s: %s\n", s)
+		fmt.Printf("s: %s\n", match.Path)
 		fmt.Printf("pos: %s\n", positions)
 	}
 
-	for _, m := range matches {
-		res += s[prevEnd:m.Pos]
+	res := ""
+	prevEnd := 0
+	for _, offset := range offsets {
+		res += match.Path[prevEnd:offset[0]]
 		res += colorMatch
-		prevEnd = m.Pos + m.Len
-		res += s[m.Pos:prevEnd]
+		prevEnd = offset[1]
+		res += match.Path[offset[0]:prevEnd]
 		res += colorReset
 	}
-	res += s[prevEnd:len(s)]
+	res += match.Path[prevEnd:len(match.Path)]
 	if flgScore {
-		res += fmt.Sprintf(" score: %g", match.Score)
+		res += fmt.Sprintf(" | score: %d", match.Score)
 	}
 	return res
 }
@@ -65,7 +66,7 @@ func doFind(dir, term string) {
 	panicIfErr(err)
 	dur := time.Since(timeStart)
 	for _, match := range matches {
-		fmt.Printf("match: '%s'\n", decorate(match.FilePath, match))
+		fmt.Printf("match: '%+v'\n", decorate(match))
 	}
 	fmt.Printf("new: found %d matches for '%s' in %s\n", len(matches), term, dur)
 }
@@ -119,6 +120,9 @@ func main() {
 	args := flag.Args()
 	if len(args) > 0 {
 		term = args[0]
+	}
+	if len(args) > 1 {
+		dir = args[1]
 	}
 	doFind(dir, term)
 	if flgDouble {
