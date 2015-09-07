@@ -45,8 +45,8 @@ window.ui =
     $('body').on 'click.ui-dropdown', '.ui.dropdown', (evt) ->
       ui.openDropdown(evt, $(this))
 
-    $('body').on 'mouseover.ui-dropdown', '.ui.dropdown', (evt) ->
-      $('.ui.dropdown').each (i, el) =>
+    $('body').on 'mouseover.ui-dropdown', '.primary-nav .ui.dropdown', (evt) ->
+      $('.primary-nav .ui.dropdown').each (i, el) =>
         if $(el).hasClass('open')
           ui.openDropdown(evt, $(this), "mouseover")
 
