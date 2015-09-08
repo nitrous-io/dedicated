@@ -283,29 +283,6 @@ func TestFuzzyFindFileInSymlinkDir(t *testing.T) {
 	}
 }
 
-func TestFiletree(t *testing.T) {
-	paths, err := filetree(testDir)
-	if err != nil {
-		t.Fatalf("filetree(): unexpected err %v", err)
-	}
-	if len(paths) != len(testFiles) {
-		t.Fatalf("filetree(%q): expected %d paths but got %d", testDir, len(testFiles), len(paths))
-	}
-
-	dir := filepath.Join(testDir, "dist")
-	paths, err = filetree(dir)
-	if err != nil {
-		t.Fatalf("filetree(%q): unexpected err %v", dir, err)
-	}
-	if len(paths) != 1 {
-		t.Fatalf("filetree(%q): expected 1 path in %s but got %d", dir, dir, len(paths))
-	}
-	// Returned paths are relative to directory given to filetree().
-	if paths[0] != "server" {
-		t.Fatalf("filetree(%q): expected %v to contain %q, but it didn't", dir, paths, "server")
-	}
-}
-
 // derefMatches dereferences pointers in a []*FileMatch slice so that we get
 // helpful error messages when printing.
 func derefMatches(matches []*FileMatch) []FileMatch {

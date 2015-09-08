@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/Sirupsen/logrus"
 )
 
 /* The fuzzy file finder searches a directory tree for files matching a query,
@@ -62,50 +60,6 @@ func search(pattern *Pattern, haystack []string) []*FileMatch {
 	}
 
 	return matches
-}
-
-// filetree returns a list of paths of all files and directories under a
-// directory. The paths are relative to the given directory.
-func filetree(dir string) ([]string, error) {
-	var paths []string
-
-	// If given a symlink to a dir, resolve it to its real path because
-	// filepath.Walk does not handle symlinks.
-	realDir, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	walkFn := func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			logrus.Warnf("error walking %s, err: %v", path, err)
-			return nil // Don't return an error so that we continue walking elsewhere.
-		}
-
-		// TODO Support ignoring directories and patterns (e.g. .git, .svn).
-
-		mode := info.Mode()
-		if !mode.IsRegular() {
-			return nil
-		}
-
-		// Strip out directory from path since filepath.Walk will prefix all paths
-		// with it.
-		relPath, err := filepath.Rel(realDir, path)
-		if err != nil {
-			paths = append(paths, path)
-		} else {
-			paths = append(paths, relPath)
-		}
-
-		return nil
-	}
-
-	if err := filepath.Walk(realDir, walkFn); err != nil {
-		return nil, err
-	}
-
-	return paths, nil
 }
 
 // byRelevance implements sort.Interface so that we can sort a FileMatch slice.
