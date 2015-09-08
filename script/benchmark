@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+export PKG=${1:="."}
+export PATTERN=${2}
+export GOPATH=$(godep path):$GOPATH
+
+PATTERN=${PATTERN:-.}
+
+if [ "$PKG" != "" ]; then
+  cd $PKG
+fi
+go test -bench=$PATTERN
