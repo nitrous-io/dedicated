@@ -95,12 +95,12 @@ App.FileFinderDialog = klass = Em.Object.extend
   ).property 'prettyPath'
 
   prettyPath: (->
-    path = @get 'basePath'
+    path = @get('currentFindPath') || @get('basePath')
     if path == '.'
       'all directories'
     else
       if path.slice(-1) == '/' then path else path + '/'
-  ).property 'basePath'
+  ).property 'currentFindPath', 'basePath'
 
   currentResults: (->
     @get(@get('currentKey'))
