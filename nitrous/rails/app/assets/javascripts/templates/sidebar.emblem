@@ -1,67 +1,69 @@
 if App.hosts.length
-  ul.sidebar-list.hosts
-    each host in App.hosts
-      li class={host.selected:selected host.isTerminated:disabled}
-        if host.isTerminated
-          a.noclick href='#'
-            h3
-              = host.displayName
-            .state-indicator.terminated title='terminated'
-        else
-          link-to 'host.index' host.slug
-            h3
-              = host.displayName
-            .state-indicator class={host.state} title={host.state}
-              span
-                = host.state
-          ul.containers
-            if host.isRunning
-              if host.sortedContainers.length
-                each container in host.sortedContainers
-                  li class={container.selected container.isTerminated:disabled}
-                    if container.isTerminated
-                      a.noclick href='#'
-                        h4
-                          = container.displayName
-                        .state-indicator.terminated title='terminated'
+  .block-wrapper.el-hosts
+    ul.sidebar-list.hosts
+      each host in App.hosts
+        li class={host.selected:selected host.isTerminated:disabled}
+          if host.isTerminated
+            a.noclick href='#'
+              h3
+                = host.displayName
+              .state-indicator.terminated title='terminated'
+          else
+            link-to 'host.index' host.slug
+              h3
+                = host.displayName
+              .state-indicator class={host.state} title={host.state}
+                span
+                  = host.state
+            ul.containers
+              if host.isRunning
+                if host.sortedContainers.length
+                  each container in host.sortedContainers
+                    li class={container.selected container.isTerminated:disabled}
+                      if container.isTerminated
+                        a.noclick href='#'
+                          h4
+                            = container.displayName
+                          .state-indicator.terminated title='terminated'
+                      else
+                        link-to 'container.index' container.slug
+                          h4
+                            = container.displayName
+                          .state-indicator class={container.state} title={container.state}
+                            span
+                              = container.state
+
+                  a.add-container-btn click='createContainer host'
+                    if host.hasContainerCreating
+                      i.spinner
                     else
-                      link-to 'container.index' container.slug
-                        h4
-                          = container.displayName
-                        .state-indicator class={container.state} title={container.state}
-                          span
-                            = container.state
-                            
-                a.add-container-btn click='createContainer host'
-                  if host.hasContainerCreating
-                    i.spinner
-                  else
-                    i.fa.fa-plus
-                    span Add Container
-                    
-              else
-                a.add-container-btn click='createContainer host'
-                  if host.hasContainerCreating
-                    i.spinner
-                  else
-                    i.fa.fa-plus
-                    span Add Container
+                      i.fa.fa-plus
+                      span Add Container
+
+                else
+                  a.add-container-btn click='createContainer host'
+                    if host.hasContainerCreating
+                      i.spinner
+                    else
+                      i.fa.fa-plus
+                      span Add Container
 
 if App.groupedSharedContainers.length
-  h2.sep.for-shared Shared with me
-  ul.sidebar-list.shared-containers
+  .block-wrapper.el-shared
+    h2.sep.for-shared Shared with me
+    ul.sidebar-list.shared-containers
 
-    ul.containers
-      each group in App.groupedSharedContainers
-        each container in group.items
-          li class={container.selected container.isTerminated:disabled} title={group.username}
-            = link-to 'container.index' container.slug title=container.description
-              h4
-                = container.displayName
-              img.gravatar src=group.gravatar
-              .state-indicator class={container.state} title={container.state}
-                span
-                  = container.state
+      ul.containers
+        each group in App.groupedSharedContainers
+          each container in group.items
+            li class={container.selected container.isTerminated:disabled} title={group.username}
+              = link-to 'container.index' container.slug title=container.description
+                h4
+                  = container.displayName
+                img.gravatar src=group.gravatar
+                .state-indicator class={container.state} title={container.state}
+                  span
+                    = container.state
 
 = orgs-list collection=controllers.orgs.collection selectedItem=controllers.org.model
 

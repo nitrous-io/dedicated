@@ -1,5 +1,5 @@
 if collection.length
-  h2.sep.for-orgs Organizations
+  h2.sep Organizations
   ul.sidebar-list.orgs
     each item in collection
       = orgs-list-item item=item selectedItem=selectedItem
