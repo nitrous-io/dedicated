@@ -41,4 +41,5 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
     @_super.apply this, arguments
     if @get('content.length') == 0
       App.get('container').setMetadata({noConsole: true})
-      @set 'minimized', true
+      unless @get 'fullscreen'
+        @set 'minimized', true
