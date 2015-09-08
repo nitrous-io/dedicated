@@ -27,7 +27,7 @@ App.FileFinderDialog = klass = Em.Object.extend
   filterResults: (pattern, path) ->
     results = @get('currentResults')
     return if !results
-    canFilter = pattern.length > 1 && this.hasResults(pattern.slice(0, -1), path) &&
+    canFilter = pattern && pattern.length > 1 && this.hasResults(pattern.slice(0, -1), path) &&
       results.length < klass.maxResults
     return if !canFilter
 
