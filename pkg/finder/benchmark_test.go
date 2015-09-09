@@ -41,8 +41,8 @@ func BenchmarkFileFind(b *testing.B) {
 	}
 }
 
-func setupTestDir() (string, error) {
-	testDir, err := ioutil.TempDir("/tmp", "benchmark-file-finder")
+func setupTestDir(files ...string) (string, error) {
+	testDir, err := ioutil.TempDir("/tmp", "file-finder")
 	if err != nil {
 		return "", err
 	}
@@ -56,6 +56,9 @@ func setupTestDir() (string, error) {
 		"models/config.json",
 		"dist/server",
 		".git/HEAD",
+	}
+	if len(files) > 0 {
+		testFiles = files
 	}
 
 	for _, p := range testFiles {
