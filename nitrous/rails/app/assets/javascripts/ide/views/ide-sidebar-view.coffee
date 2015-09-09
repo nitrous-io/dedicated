@@ -18,6 +18,14 @@ App.IdeSidebarView = Em.View.extend
     $this.css('margin-left': ml)
   ).observes 'App.fileTreeHidden'
 
+  showActiveFilesPane: (->
+    if (override = @get 'controller.overrideActiveFilesPane') != null
+      return @get('controller.overrideActiveFilesPane')
+
+    return @get('controller.activeFilesMonitor')?.get('sortedFiles').any (file)->
+      file.anyRemote
+  ).property 'controller.overrideActiveFilesPane', 'controller.activeFilesMonitor.sortedFiles'
+
   actions:
     didClickSetHomeAsRoot: ->
       @get('controller').setHomeAsRoot()

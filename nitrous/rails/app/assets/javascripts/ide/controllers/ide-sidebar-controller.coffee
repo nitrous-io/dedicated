@@ -11,9 +11,14 @@ App.IdeSidebarController = Em.ArrayController.extend
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
+  collabSocketBinding: Em.Binding.oneWay 'App.router.ideController.collabSocket'
+
+  activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
+
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
   hiddenFilesVisible: false
+  overrideActiveFilesPane: null
 
   currentlySelectedPath: null
 
@@ -252,6 +257,9 @@ App.IdeSidebarController = Em.ArrayController.extend
     homePath = @get 'homePath'
     if path = homePath.findByRelativePath pathString
       this.refresh path
+
+    if fileMon = @get 'activeFilesMonitor'
+      fileMon.refresh()
 
   refreshAll: ->
     this.refresh @get('rootPath')

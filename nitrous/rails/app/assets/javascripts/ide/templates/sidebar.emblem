@@ -24,6 +24,10 @@
             a href='#' click='didClickUpload target="view"'
               | Upload Files
 
+  if view.showActiveFilesPane
+    .ide-pane
+      App.IdeSidebarActiveFilesView
+
   .tree contextMenu='didRightClickBackground target="view"'
     ul.root
       App.IdePathView path=rootPath
