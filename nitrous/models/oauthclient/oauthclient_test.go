@@ -61,6 +61,25 @@ var _ = Describe("models/oauthclient", func() {
 		}
 	})
 
+	Describe("AllowedOrgSlug", func() {
+		BeforeEach(func() {
+			client.AllowedOrgSlugs = "abc def 123x"
+		})
+
+		It("should return true if it contains", func() {
+			Expect(client.AllowedOrgSlug("abc")).To(BeTrue())
+			Expect(client.AllowedOrgSlug("def")).To(BeTrue())
+			Expect(client.AllowedOrgSlug("123x")).To(BeTrue())
+		})
+
+		It("should return false if it does not contain", func() {
+			Expect(client.AllowedOrgSlug("ab")).To(BeFalse())
+			Expect(client.AllowedOrgSlug("def 12")).To(BeFalse())
+			Expect(client.AllowedOrgSlug("12")).To(BeFalse())
+			Expect(client.AllowedOrgSlug(" ")).To(BeFalse())
+		})
+	})
+
 	Describe("InsertWithSecret()", func() {
 		It("should insert to db correctly with secret", func() {
 			err := client.InsertWithSecret(db, "secret_sauce")

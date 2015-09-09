@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -16,7 +18,10 @@ import (
 )
 
 var (
-	errClientNotFound = httperror.New(http.StatusNotFound, "invalid_request", "client not found")
+	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
+	errInvalidOrgPermission = httperror.New(http.StatusBadRequest, "invalid_org_permission", "org_permission must be `member`")
+	errOrgNotFound          = httperror.New(http.StatusNotFound, "org_not_found", "org not found")
+	errClientNotFound       = httperror.New(http.StatusNotFound, "client_not_found", "client not found")
 
 	invalidPromoCode  = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 	invalidRemoteAddr = httperror.New(http.StatusBadRequest, "invalid_remote_addr", "remote_addr must be provided")
@@ -105,6 +110,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	if client != nil {
+		if err := addToOrg(tx, u, r, client); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -167,4 +179,32 @@ func getOAuthClient(env *middleware.Env, r *http.Request) (*oauthclient.Client, 
 	}
 
 	return client, nil
+}
+
+func addToOrg(tx *sqlx.Tx, u *user.User, r *http.Request, client *oauthclient.Client) error {
+	orgSlug := r.FormValue("org_slug")
+	if orgSlug == "" {
+		return nil
+	}
+
+	orgPermission := r.FormValue("org_permission")
+	if orgPermission != orgmembership.RoleMember {
+		return errInvalidOrgPermission
+	}
+
+	if !client.AllowedOrgSlug(orgSlug) {
+		return errInvalidOrgSlug
+	}
+
+	var orgID int64
+	err := tx.Get(&orgID, "SELECT id FROM orgs WHERE slug = $1;", orgSlug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errOrgNotFound
+		}
+		return err
+	}
+
+	_, err = tx.Exec("INSERT INTO org_memberships (user_id, org_id, role) VALUES ($1, $2, $3)", u.ID, orgID, orgPermission)
+	return err
 }

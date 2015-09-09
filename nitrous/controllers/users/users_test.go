@@ -20,6 +20,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
@@ -528,6 +529,82 @@ var _ = Describe("controllers/users", func() {
 				Expect(u.Suspicious.Valid).To(BeFalse())
 				Expect(u.CreatedByClientID.Int64).To(Equal(client.ID))
 				Expect(u.ConfirmedAt.Valid).To(BeTrue())
+			})
+
+			Context("with an org", func() {
+				var o *org.Org
+
+				BeforeEach(func() {
+					o = &org.Org{
+						Name:  "Foo Bar, Inc.",
+						Slug:  "foobar",
+						Email: "eng@foobar.com",
+					}
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("UPDATE oauth_clients SET allowed_org_slugs = 'foobar' WHERE id = $1", client.ID)
+					Expect(err).To(BeNil())
+
+					params.Set("org_slug", "foobar")
+					params.Set("org_permission", orgmembership.RoleMember)
+				})
+
+				It("should not allow an Admin membership", func() {
+					params.Set("org_permission", orgmembership.RoleAdmin)
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_permission"))
+					Expect(errDesc).To(Equal("org_permission must be `member`"))
+				})
+
+				It("should not allow an Owner membership", func() {
+					params.Set("org_permission", orgmembership.RoleOwner)
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_permission"))
+					Expect(errDesc).To(Equal("org_permission must be `member`"))
+				})
+
+				It("should require the org slug be allowed for the client", func() {
+					params.Set("org_slug", "fooebar")
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_slug"))
+					Expect(errDesc).To(Equal("org_slug is not allowed"))
+				})
+
+				It("should require the org exist", func() {
+					_, err := db.Exec("UPDATE oauth_clients SET allowed_org_slugs = 'fooebar' WHERE id = $1", client.ID)
+					Expect(err).To(BeNil())
+					params.Set("org_slug", "fooebar")
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("org_not_found"))
+					Expect(errDesc).To(Equal("org not found"))
+				})
+
+				It("should add the user as a member", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					Expect(err).To(BeNil())
+					Expect(mem.Role).To(Equal(orgmembership.RoleMember))
+				})
 			})
 		})
 	})
