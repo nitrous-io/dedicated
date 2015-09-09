@@ -1,4 +1,5 @@
 containerStoppedMessage = 'Container is not running. Please start your container first.'
+freighterFeaturesRetry = 3000 # 3s
 
 App.IdeController = Em.ObjectController.extend
   needs: ['ideFindInProject', 'ideFileFinder']
@@ -46,16 +47,7 @@ App.IdeController = Em.ObjectController.extend
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()
 
-      @getFreighterFeatures(container).then =>
-        features = App.get('freighterdFeatures') ? []
-
-        if features.contains('collab')
-          @set 'collabEnabled', true
-          @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
-          collabSocket.connect()
-
-        if features.contains('ping')
-          App.set 'pinger', pinger = App.Pinger.create(container: container)
+      @loadFreighterFeatures(container)
 
       ['container.stopped', 'container.restarted', 'container.reconfigured'].forEach (evt) =>
         evSocket.on evt, (data) =>
@@ -136,6 +128,26 @@ App.IdeController = Em.ObjectController.extend
     else
       App.set 'flashMessage', null
   ).observes 'App.offline'
+
+  loadFreighterFeatures: (container)->
+    @getFreighterFeatures(container).then =>
+      if @loadFreighterFeaturesRetry
+        window.clearTimeout @loadFreighterFeaturesRetry
+      features = App.get('freighterdFeatures') ? []
+
+      if features.contains('collab')
+        @set 'collabEnabled', true
+        @set 'collabSocket', collabSocket = App.CollabSocket.create(container: container)
+        collabSocket.connect()
+
+      if features.contains('ping')
+        App.set 'pinger', pinger = App.Pinger.create(container: container)
+    , (jqxhr) =>
+      return if @loadFreighterFeaturesRetry
+      @loadFreighterFeaturesRetry = window.setTimeout(=>
+        @loadFreighterFeaturesRetry = null
+        @loadFreighterFeatures(container)
+      , freighterFeaturesRetry)
 
   getFreighterFeatures: (container) ->
     protocol = location.protocol

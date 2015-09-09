@@ -22,23 +22,13 @@
       cursor: default
       user-select: none
 
-    &.for-shared:before, &.for-orgs:before
-      content: ""
-      width: 22px
-      height: 16px
-      position: absolute
-      top: 21px
-      left: 10px
-
-    &.for-shared
       &:before
-        background: image_url('app/shared-container-icn.png') top center no-repeat
-        background-size: 16px 16px
-
-    &.for-orgs
-      &:before
-        background: image_url('app/orgs-icn.png') top center no-repeat
-        background-size: 14px 17px
+        content: ""
+        width: 22px
+        height: 16px
+        position: absolute
+        top: 21px
+        left: 10px
 
   li
     position: relative
@@ -264,6 +254,10 @@
     span
       padding-left: 6px
 
+  ul.containers
+    li ~ .add-container-btn
+      margin-top: 8px
+
   aside
     padding-top: 40px
     padding-left: 12px
@@ -291,6 +285,36 @@
       color: $n2oGray500
       &:hover
         color: $n2oGray100
+
+  .block-wrapper
+
+    &.el-shared
+      &:first-of-type
+        .sep
+          border-top: 0
+          margin-top: 0
+          padding-top: 11px
+
+          &:before
+            top: 11px
+
+      .sep:before
+        background: image_url('app/shared-container-icn.png') top center no-repeat
+        background-size: 16px 16px
+
+    &.el-orgs
+      &:first-of-type
+        .sep
+          border-top: 0
+          margin-top: 0
+          padding-top: 11px
+
+          &:before
+            top: 11px
+
+      .sep:before
+        background: image_url('app/orgs-icn.png') top center no-repeat
+        background-size: 14px 17px
 
 #sidebar-view h3 + .state-indicator.running
   background: transparent
