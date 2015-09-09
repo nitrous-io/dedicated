@@ -105,6 +105,10 @@ App.Container = klass = Em.Object.extend
         reject(jqxhr)
     promise
 
+  fetchContainerCollaborators: ->
+    App.ContainerCollaborator.fetch(@get 'id').then (data)=>
+      debugger
+
   loadHost: ->
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(
