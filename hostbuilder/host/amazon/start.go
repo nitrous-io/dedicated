@@ -34,9 +34,6 @@ func (h *Host) Start() (*host.Info, error) {
 }
 
 func (h *Host) startWithPool() (*host.Info, error) {
-	label := h.MetricsLabel("start_with_pool")
-	defer mh.UpdateSince(label, time.Now())
-
 	instanceType := h.Config.InstanceType
 
 	h.Printf("attempting to acquire instance of type %q from pool", instanceType)
@@ -50,6 +47,9 @@ func (h *Host) startWithPool() (*host.Info, error) {
 		// instance and attach the user's existing volume.
 		return h.attachToNewInstance(h.Config.VolumeID)
 	}
+
+	label := h.MetricsLabel("start_with_pool")
+	defer mh.UpdateSince(label, time.Now())
 
 	h.instance = instance
 
@@ -111,6 +111,9 @@ func (h *Host) startWithPool() (*host.Info, error) {
 // attachToNewInstance creates a new EC2 instance and attaches the given volume
 // to the instance as its user volume.
 func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
+	label := h.MetricsLabel("start_with_pool.new_instance")
+	defer mh.UpdateSince(label, time.Now())
+
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
