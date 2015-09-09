@@ -17,14 +17,12 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -38,13 +36,7 @@ var (
 		"index_users_on_phone_and_phone_country_code": httperror.New(http.StatusBadRequest, "validation_failed", "phone number already exists"),
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
-	invalidPromoCode     = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
-
-	bannedEmailAddress = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
-	bannedPhone        = httperror.New(http.StatusBadRequest, "phone_banned", "this phone number is banned")
-
-	phoneAlreadyAuthed = httperror.New(http.StatusBadRequest, "phone_authed", "phone number has already been verified")
-	errUpdateForbidden = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
+	errUpdateForbidden   = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -71,112 +63,6 @@ func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	if err != nil {
 		logrus.Errorf("Error recording '%s', err: %v", email, err)
 	}
-
-	return nil
-}
-
-func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
-	email := strings.ToLower(r.FormValue("email"))
-	username := strings.ToLower(r.FormValue("username"))
-	password := r.FormValue("password")
-	name := r.FormValue("name")
-	promocode := r.FormValue("promo_code")
-	invitecode := r.FormValue("invite_code")
-	distinctID := r.FormValue("distinct_id")
-
-	u := &user.User{
-		Email:     email,
-		Username:  username,
-		Name:      name,
-		Password:  password,
-		PromoCode: sql.NullString{promocode, true},
-	}
-
-	err := u.Validate()
-	if err != nil {
-		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
-	}
-
-	// check email is not banned
-	var banned bool
-	err = db.Get(&banned, `SELECT COUNT(*) > 0 FROM users WHERE banned_at IS NOT NULL AND email = $1 LIMIT 1;`, u.Email)
-	if err != nil {
-		return err
-	}
-	if banned {
-		return bannedEmailAddress
-	}
-
-	// if user is in CIDR blacklist, they are suspicious
-	if err := cidrblacklist.Contains(env.RemoteAddr); err != nil {
-		u.Suspicious = sql.NullString{String: err.Error(), Valid: true}
-	}
-
-	tx, err := db.Beginx()
-	if err != nil {
-		return err
-	}
-
-	if promocode != "" {
-		if _, err := credittype.FindValidCreditTypeByName(tx, promocode); err != nil {
-			tx.Rollback()
-			if err == sql.ErrNoRows {
-				return invalidPromoCode
-			}
-			return err
-		}
-	}
-
-	err = u.Insert(tx)
-	if err != nil {
-		tx.Rollback()
-		if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
-			if validationErr, ok := validations[e.Constraint]; ok {
-				return validationErr
-			}
-		}
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	confirmable := false
-	if invitecode != "" {
-		err = db.Get(&confirmable, `SELECT COUNT(*) = 1 FROM container_collabs WHERE invite_email = $1 AND invite_code = $2 LIMIT 1`, u.Email, invitecode)
-		if err != nil {
-			return err
-		}
-	}
-
-	if confirmable {
-		_, err = db.Exec("UPDATE users SET confirmed_at = now() WHERE id = $1", u.ID)
-		if err != nil {
-			return err
-		}
-		_, err = db.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
-		if err != nil {
-			return err
-		}
-		notifySharedContainers(env, u)
-	} else {
-		err = u.SendConfirmationEmail(db, true)
-		if err != nil {
-			return err
-		}
-	}
-
-	env.Tracker.CreateProfile(u, distinctID)
-
-	env.Status = http.StatusCreated
-	env.Data = map[string]interface{}{
-		"user": serializers.SerializeUser(u),
-	}
-	env.User = u
 
 	return nil
 }

@@ -11,6 +11,8 @@ type Client struct {
 	Description string `db:"description" json:"description"`
 	ClientID    string `db:"client_id" json:"client_id"`
 	RedirectURI string `db:"redirect_uri" json:"redirect_uri"`
+
+	CreateUser bool `db:"create_user"`
 }
 
 type ClientWithSecret struct {
@@ -35,7 +37,7 @@ func FindByClientID(d *db.Database, clientID string) (*Client, error) {
 	client := &Client{}
 
 	err := d.Get(client, `SELECT
-		id, user_id, name, description, client_id, redirect_uri
+		id, user_id, name, description, client_id, redirect_uri, create_user
 		FROM oauth_clients WHERE client_id=$1;
 	`, clientID)
 
@@ -50,7 +52,7 @@ func FindWithSecret(d *db.Database, clientID, secret string) (*Client, error) {
 	client := &Client{}
 
 	err := d.Get(client, `SELECT
-		id, user_id, name, description, client_id, redirect_uri
+		id, user_id, name, description, client_id, redirect_uri, create_user
 		FROM oauth_clients WHERE client_id=$1 AND client_secret=$2;`, clientID, secret)
 	if err != nil {
 		return nil, err
