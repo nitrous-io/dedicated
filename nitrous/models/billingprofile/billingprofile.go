@@ -50,6 +50,7 @@ type BillingProfile struct {
 	ExpMonth          sql.NullInt64  `db:"exp_month"`
 	ExpYear           sql.NullInt64  `db:"exp_year"`
 	PendingActivation bool           `db:"pending_activation"` // not activated yet
+	FailedAttempts    int            `db:"failed_attempts"`
 	MaxHours          sql.NullInt64  `db:"max_hours"`
 	CreatedAt         *time.Time     `db:"created_at"`
 	UpdatedAt         *time.Time     `db:"updated_at"`
@@ -263,6 +264,10 @@ func (p *BillingProfile) HasBillingIssues() bool {
 
 func (p *BillingProfile) IsFreeOrCardRequired() bool {
 	return p.IsFreeTier() || p.IsCardRequired()
+}
+
+func (p *BillingProfile) MaxAttempts() bool {
+	return p.FailedAttempts == 4
 }
 
 func HandleStripeError(err error) error {
