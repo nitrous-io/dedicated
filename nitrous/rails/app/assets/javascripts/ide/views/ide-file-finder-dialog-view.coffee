@@ -16,8 +16,7 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
 
   viewDidDisappear: ->
     @_super()
-    if pollerKey = @get('pollerKey')
-      Ember.run.cancel(pollerKey)
+    @set('stopPoller', true)
     @get('controller.controllers.ideEditor.activeTab')?.set 'focused', true
 
   click: (e) ->
@@ -49,9 +48,10 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
             @hide()
 
   setupPoller: ->
+    @set('stopPoller', false)
     @set 'pollerKey', Ember.run.later(this, (=>
       this.poller()
-      this.setupPoller()
+      this.setupPoller() unless @get('stopPoller')
     ), 200)
 
   patternForSearch: (->
@@ -68,10 +68,21 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
 
   poller: ->
     nextSearch = @get('patternForSearch')
-    if nextSearch != @get('content.currentSearch')
-      @get('controller').startFind nextSearch, @get('content.basePath')
+    searchOptions = @get('content.searchOptions')
+    basePath = @get 'content.basePath'
+    nextFindPath = basePath
+    if searchOptions && searchOptions.adjacentSearch
+      findPath = @get('controller').getFindPathFrom(basePath)
+      nextFindPath = findPath if findPath
+
+    if nextSearch != @get('content.currentSearch') || nextFindPath != @get('content.currentFindPath')
+      path = @get('content.basePath')
+
+      @get('controller').startFind nextSearch, nextFindPath
       return unless @get('content')
+
       @set 'content.currentSearch', nextSearch
+      @set 'content.currentFindPath', nextFindPath
 
   didClickResult: (filename) ->
     # filename will be relative to home directory
