@@ -68,6 +68,11 @@ App.IdeController = Em.ObjectController.extend
         if @get('content.id') == data?.container?.id
           App.snackbar.post "Container reconfigured, reconnecting..."
 
+      ['collaborator.added', 'collaborator.removed'].forEach (evt) =>
+        evSocket.on evt, (data) =>
+          if @get('content.id') == data?.container?.id
+            App.get('container').loadCollaborators()
+
   reset: ->
     if opsSocket = @get 'opsSocket'
       opsSocket.disconnect()
@@ -121,6 +126,12 @@ App.IdeController = Em.ObjectController.extend
             App.set 'flashMessage', { type: 'error', text: "Cloning the repository failed: #{repo.get('failure_reason')}" }
             App.localStorage.set(cacheKey, true)
   ).observes 'opsSocketReady'
+
+  collabSocketDidStartForTheFirstTime: (->
+    if @get 'collabSocket.startedFirstTime'
+      fileMon = App.ActiveFilesMonitor.create(collabSocket: @get('collabSocket'), username: App.get('user.username'))
+      @set 'activeFilesMonitor', fileMon
+  ).observes 'collabSocket.startedFirstTime'
 
   warnWhenOffline: (->
     if App.get 'offline'

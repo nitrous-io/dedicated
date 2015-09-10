@@ -12,6 +12,8 @@ type Org struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 
+	Role string `json:"role,omitempty"`
+
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 
@@ -33,10 +35,11 @@ func SerializeOrg(o *org.Org) *Org {
 	return serialized
 }
 
-func SerializeOrgs(orgs []*org.Org) []*Org {
+func SerializeOrgWithRoles(orgs []*org.OrgWithRole) []*Org {
 	ret := make([]*Org, len(orgs))
 	for i, o := range orgs {
-		ret[i] = SerializeOrg(o)
+		ret[i] = SerializeOrg(o.Org)
+		ret[i].Role = o.Role
 	}
 	return ret
 }

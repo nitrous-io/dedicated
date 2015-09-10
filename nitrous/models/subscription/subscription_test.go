@@ -367,6 +367,58 @@ var _ = Describe("models/subscription", func() {
 				Expect(s).To(Equal(orgSub))
 			})
 
+			It("should find if the subscription is tied to a org and host and the other user is an owner", func() {
+				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleOwner)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(BeNil())
+				Expect(s).To(Equal(orgSub))
+			})
+
+			It("should not find if the subscription is tied to a org and host and the other user is an owner of a different org", func() {
+				o2 := &org.Org{
+					Name:  "Foo Bar2, Inc.",
+					Slug:  "foobar2",
+					Email: "eng@foobar2.com",
+				}
+				err := o2.Insert(db)
+				Expect(err).To(BeNil())
+
+				err = orgmembership.AddMember(db, o2.ID, u2.ID, orgmembership.RoleOwner)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				Expect(s).To(BeNil())
+			})
+
+			It("should not find if the subscription is tied to a org and host and the other user is an admin", func() {
+				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleAdmin)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				Expect(s).To(BeNil())
+			})
+
+			It("should find if the subscription is tied to a org and host and the other user is a member", func() {
+				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				Expect(s).To(BeNil())
+			})
+
+			It("should find if the subscription is tied to a org and host and the other user is a limited user", func() {
+				err := orgmembership.AddMember(db, o.ID, u2.ID, orgmembership.RoleLimited)
+				Expect(err).To(BeNil())
+
+				s, err := subscription.FindBySlug(db, "ORG-SUB1", u2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+				Expect(s).To(BeNil())
+			})
 		})
 	})
 

@@ -58,9 +58,36 @@ func index(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 		return err
 	}
 
+	collabs := serializers.SerializeContainerCollabUsers(sc)
+
+	// we include the owner so we don't have to perform additional requests for active files
+	// on the IDE
+	if env.User.ID != h.UserID {
+		u, err := user.FindByID(env.DB, h.UserID)
+		if err != nil {
+			logrus.Errorf("Unable to fetch container owner %d, err: %v", h.UserID, err)
+		} else {
+			// fake the user for serialization
+			cc := &containercollab.ContainerCollabUser{
+				ContainerCollab: containercollab.ContainerCollab{
+					ContainerID: cn.ID,
+					UserID:      sql.NullInt64{u.ID, true},
+					CreatedAt:   cn.CreatedAt,
+					UpdatedAt:   cn.UpdatedAt,
+				},
+				Username: sql.NullString{u.Username, true},
+				Name:     sql.NullString{u.DisplayName(), true},
+				Email:    sql.NullString{u.Email, true},
+			}
+			ser := serializers.SerializeContainerCollabUser(cc)
+			ser.Owner = true
+			collabs = append(collabs, ser)
+		}
+	}
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"collaborators": serializers.SerializeContainerCollabUsers(sc),
+		"collaborators": collabs,
 	}
 	return nil
 }

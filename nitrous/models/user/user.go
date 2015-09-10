@@ -109,6 +109,8 @@ type User struct {
 	MaxRunningTime sql.NullInt64 `db:"max_running_time"` // FIXME: DEPRECATED
 	RefreshPeriod  sql.NullInt64 `db:"refresh_period"`   // FIXME: DEPRECATED
 
+	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
+
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
 }
@@ -226,8 +228,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	u.CheckSuspicious()
 
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name, promo_code, suspicious)
-		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious)
+		(email, username, encrypted_password, name, promo_code, suspicious, created_by_client_id)
+		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious, :created_by_client_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

@@ -18,7 +18,9 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
@@ -137,14 +139,17 @@ var _ = Describe("controllers/users", func() {
 			handler.ServeHTTP(res, req)
 		}
 
+		BeforeEach(func() {
+			params = &url.Values{}
+			params.Set("email", "foo@example.com")
+			params.Set("username", "foo")
+			params.Set("password", "123456")
+			params.Set("name", "Foo Bar")
+			params.Set("promo_code", "")
+		})
+
 		Context("when valid params are received", func() {
 			BeforeEach(func() {
-				params = &url.Values{}
-				params.Set("email", "foo@example.com")
-				params.Set("username", "foo")
-				params.Set("password", "123456")
-				params.Set("name", "Foo Bar")
-				params.Set("promo_code", "")
 				doRequest()
 			})
 
@@ -441,6 +446,176 @@ var _ = Describe("controllers/users", func() {
 				err = db.Get(&found, `SELECT COUNT(*) = 1 FROM container_collabs WHERE user_id = $1 AND container_id = $2`, u.ID, cnr.ID)
 				Expect(err).To(BeNil())
 				Expect(found).To(BeFalse())
+			})
+		})
+
+		Context("creation by oauth client", func() {
+			var (
+				client       *oauthclient.Client
+				clientSecret = "BUILDxcvv45vs2"
+			)
+
+			BeforeEach(func() {
+				client = &oauthclient.Client{
+					UserID:      u.ID,
+					Name:        "Builders League United",
+					Description: "A fictional company",
+					ClientID:    "blu_team",
+					RedirectURI: "https://blu.co/oauth/callback",
+				}
+				Expect(client.InsertWithSecret(db, clientSecret)).To(BeNil())
+
+				params.Set("client_id", client.ClientID)
+				params.Set("client_secret", clientSecret)
+				params.Set("remote_addr", "142.254.116.10")
+
+				_, err := db.Exec("UPDATE oauth_clients SET create_user = TRUE WHERE id = $1", client.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should return not found if the client ID is incorrect", func() {
+				params.Set("client_id", "not_even")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("should return not found if the client secret is incorrect", func() {
+				params.Set("client_secret", "wrong")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("should return not found if the client does not have permission to create users", func() {
+				_, err := db.Exec("UPDATE oauth_clients SET create_user = FALSE WHERE id = $1", client.ID)
+				Expect(err).To(BeNil())
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("should require the remote_addr be provided", func() {
+				params.Set("remote_addr", "")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("invalid_remote_addr"))
+				Expect(errDesc).To(Equal("remote_addr must be provided"))
+			})
+
+			It("should create the user as suspicious if the provided remote_addr is blacklisted", func() {
+				params.Set("remote_addr", "1.2.3.4")
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.Suspicious.String).To(Equal("blocked by CIDR 1.2.3.0/24"))
+			})
+
+			It("should create the user", func() {
+				doRequest()
+
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.Suspicious.Valid).To(BeFalse())
+				Expect(u.CreatedByClientID.Int64).To(Equal(client.ID))
+				Expect(u.ConfirmedAt.Valid).To(BeTrue())
+			})
+
+			Context("with an org", func() {
+				var o *org.Org
+
+				BeforeEach(func() {
+					o = &org.Org{
+						Name:  "Foo Bar, Inc.",
+						Slug:  "foobar",
+						Email: "eng@foobar.com",
+					}
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("UPDATE oauth_clients SET allowed_org_slugs = 'foobar' WHERE id = $1", client.ID)
+					Expect(err).To(BeNil())
+
+					params.Set("org_slug", "foobar")
+					params.Set("org_permission", orgmembership.RoleLimited)
+				})
+
+				It("should not allow an Admin membership", func() {
+					params.Set("org_permission", orgmembership.RoleAdmin)
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_permission"))
+					Expect(errDesc).To(Equal("org_permission must be `member`"))
+				})
+
+				It("should not allow an Owner membership", func() {
+					params.Set("org_permission", orgmembership.RoleOwner)
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_permission"))
+					Expect(errDesc).To(Equal("org_permission must be `member`"))
+				})
+
+				It("should require the org slug be allowed for the client", func() {
+					params.Set("org_slug", "fooebar")
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusBadRequest))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("invalid_org_slug"))
+					Expect(errDesc).To(Equal("org_slug is not allowed"))
+				})
+
+				It("should require the org exist", func() {
+					_, err := db.Exec("UPDATE oauth_clients SET allowed_org_slugs = 'fooebar' WHERE id = $1", client.ID)
+					Expect(err).To(BeNil())
+					params.Set("org_slug", "fooebar")
+
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+					errType, errDesc := test.ErrorSlug(res.Body)
+					Expect(errType).To(Equal("org_not_found"))
+					Expect(errDesc).To(Equal("org not found"))
+				})
+
+				It("should add the user as a limited member", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					Expect(err).To(BeNil())
+					Expect(mem.Role).To(Equal(orgmembership.RoleLimited))
+				})
+
+				It("should allow for a user to be added as a member", func() {
+					params.Set("org_permission", orgmembership.RoleMember)
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					Expect(err).To(BeNil())
+					Expect(mem.Role).To(Equal(orgmembership.RoleMember))
+				})
 			})
 		})
 	})
