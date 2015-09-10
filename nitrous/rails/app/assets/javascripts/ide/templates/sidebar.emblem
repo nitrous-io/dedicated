@@ -4,7 +4,7 @@
       = App.router.ideController.content.name
     .ide-toolbar-btns
       .ui.dropdown.btn.icon title='Settings' disabled=opsSocketNotReady
-        i.fa.fa-cog
+        span.more-icn
         ul.dropdown-menu.right
           li
             a href='#' click='didClickSetHomeAsRoot target="view"'
@@ -24,10 +24,14 @@
             a href='#' click='didClickUpload target="view"'
               | Upload Files
 
-  .tree contextMenu='didRightClickBackground target="view"'
-    ul.root
-      App.IdePathView path=rootPath
-  App.IdeSidebarBorderView
+  #sidebar-group
+    .ide-pane class={showActiveFilesPane::hidden}
+      App.IdeSidebarActiveFilesView
+
+    .tree contextMenu='didRightClickBackground target="view"'
+      ul.root
+        App.IdePathView path=rootPath
+    App.IdeSidebarBorderView
 
 App.IdePathContextMenuView viewName="contextMenuView"
 App.IdeUploadDialogView

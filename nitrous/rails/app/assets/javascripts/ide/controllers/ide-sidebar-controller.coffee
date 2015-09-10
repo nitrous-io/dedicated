@@ -11,9 +11,12 @@ App.IdeSidebarController = Em.ArrayController.extend
   opsSocketReadyBinding: Em.Binding.oneWay 'opsSocket.started'
   opsSocketNotReady: Em.computed.not 'opsSocketReady'
 
+  activeFilesMonitorBinding: Em.Binding.oneWay 'App.router.ideController.activeFilesMonitor'
+
   repositoryBinding: Em.Binding.oneWay 'App.router.indexontroller.repository'
 
   hiddenFilesVisible: false
+  overrideActiveFilesPane: null
 
   currentlySelectedPath: null
 
@@ -253,6 +256,9 @@ App.IdeSidebarController = Em.ArrayController.extend
     if path = homePath.findByRelativePath pathString
       this.refresh path
 
+    if fileMon = @get 'activeFilesMonitor'
+      fileMon.refresh()
+
   refreshAll: ->
     this.refresh @get('rootPath')
 
@@ -434,6 +440,14 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   _makeAbsolutePath: (parentAbsolutePath, fileName) ->
     _.chain([parentAbsolutePath, fileName]).compact().join('/').value()
+
+  showActiveFilesPane: (->
+    if (override = @get 'overrideActiveFilesPane') != null
+      return override
+
+    return @get('activeFilesMonitor')?.get('sortedFiles').any (file)->
+      file.hasRemoteClients
+  ).property 'overrideActiveFilesPane', 'activeFilesMonitor.sortedFiles'
 
 App.IdeSidebarController.reopenClass
   REFRESH_DELAY: 200

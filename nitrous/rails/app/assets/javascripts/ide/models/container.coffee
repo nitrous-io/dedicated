@@ -105,6 +105,10 @@ App.Container = klass = Em.Object.extend
         reject(jqxhr)
     promise
 
+  loadCollaborators: ->
+    App.ContainerCollaborator.fetch(@get 'id').then (collabs)=>
+      @set 'collaborators', collabs
+
   loadHost: ->
     new Em.RSVP.Promise (resolve, reject) =>
       Em.$.ajax(

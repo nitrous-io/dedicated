@@ -28,6 +28,7 @@ App.IdeRoute = Em.Route.extend
         window.location.href = '/404.html'
 
   afterModel: (container, transition)->
+    container?.loadCollaborators()
     container?.loadHost().catch ->
       transition.abort()
 
