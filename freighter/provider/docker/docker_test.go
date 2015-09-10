@@ -956,8 +956,13 @@ var _ = Describe("provider/docker", func() {
 			Expect(err).To(BeNil())
 			Expect(out.String()).To(Equal(body))
 
-			req := fakeRT.requests[0]
-			b, _ := ioutil.ReadAll(req.Body)
+			// docker client's BuildImage() now does a version check first, so
+			// there are 2 requests made to the Docker Remote API.
+			Expect(fakeRT.requests).To(HaveLen(2))
+
+			req := fakeRT.requests[1]
+			b, err := ioutil.ReadAll(req.Body)
+			Expect(err).To(BeNil())
 			Expect(string(b)).To(Equal(`build context tarball contents`))
 			assertBuildImageOptions(req, dockerclient.BuildImageOptions{
 				Name:                "myimage",
