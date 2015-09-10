@@ -25,7 +25,7 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
   tabsDidChange: (tabs)->
     hsh = {}
     for tab in tabs.get('content')
-      pth = tab.get('path')?.get('absolutePath')
+      pth = tab.get && tab.get('path')?.get('absolutePath')
       if pth
         hsh[pth] = true
 
