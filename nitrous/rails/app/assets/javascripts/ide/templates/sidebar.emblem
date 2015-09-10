@@ -23,15 +23,16 @@
           li
             a href='#' click='didClickUpload target="view"'
               | Upload Files
+              
+  #sidebar-group
+    if showActiveFilesPane
+      .ide-pane
+        App.IdeSidebarActiveFilesView
 
-  if showActiveFilesPane
-    .ide-pane
-      App.IdeSidebarActiveFilesView
-
-  .tree contextMenu='didRightClickBackground target="view"'
-    ul.root
-      App.IdePathView path=rootPath
-  App.IdeSidebarBorderView
+    .tree contextMenu='didRightClickBackground target="view"'
+      ul.root
+        App.IdePathView path=rootPath
+    App.IdeSidebarBorderView
 
 App.IdePathContextMenuView viewName="contextMenuView"
 App.IdeUploadDialogView
