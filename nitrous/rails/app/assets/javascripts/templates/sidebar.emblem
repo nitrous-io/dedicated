@@ -65,7 +65,7 @@ if App.groupedSharedContainers.length
                   span
                     = container.state
 
-= orgs-list collection=controllers.orgs.collection selectedItem=controllers.org.model
+= orgs-list collection=controllers.orgs.displayableOrgs selectedItem=controllers.org.model
 
 aside
   p

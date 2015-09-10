@@ -45,6 +45,12 @@ type Org struct {
 	DeletedAt pq.NullTime `db:"deleted_at"`
 }
 
+type OrgWithRole struct {
+	*Org
+
+	Role string `db:"role"`
+}
+
 func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 	org := &Org{}
 	err := d.Get(org, "SELECT * FROM orgs WHERE slug = $1 AND deleted_at IS NULL", slug)
@@ -63,10 +69,10 @@ func Find(d db.QueryReceiver, id int64) (*Org, error) {
 	return org, nil
 }
 
-func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*Org, error) {
-	orgs := []*Org{}
+func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*OrgWithRole, error) {
+	orgs := []*OrgWithRole{}
 	err := d.Select(&orgs, `
-		SELECT orgs.*
+		SELECT orgs.*, org_memberships.role
 		FROM orgs
 		INNER JOIN org_memberships ON orgs.id = org_memberships.org_id
 		WHERE org_memberships.user_id = $1 AND orgs.deleted_at IS NULL

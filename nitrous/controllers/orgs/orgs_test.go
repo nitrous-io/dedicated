@@ -1006,6 +1006,17 @@ var _ = Describe("controllers/orgs", func() {
 		})
 
 		Context("when user belongs to the org", func() {
+			It("responds with 404 not found if the user is limited", func() {
+				_, err := db.Exec("UPDATE org_memberships SET role=$1 WHERE user_id = $2", orgmembership.RoleLimited, u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(o.Slug)
+
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+				errType, _ := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("not_found"))
+			})
+
 			It("responds with 200 and members of the org", func() {
 				doRequest(o.Slug)
 				Expect(res.Code).To(Equal(http.StatusOK))
