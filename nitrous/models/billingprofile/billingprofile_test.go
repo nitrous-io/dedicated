@@ -599,6 +599,27 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
+	Describe("MaxAttempts()", func() {
+		It("should be true if the failed attempts is 4", func() {
+			bp := &billingprofile.BillingProfile{
+				FailedAttempts: 4,
+			}
+			Expect(bp.MaxAttempts()).To(BeTrue())
+		})
+
+		It("should be false otherwise", func() {
+			bp := &billingprofile.BillingProfile{
+				FailedAttempts: 3,
+			}
+			Expect(bp.MaxAttempts()).To(BeFalse())
+
+			bp = &billingprofile.BillingProfile{
+				FailedAttempts: 5,
+			}
+			Expect(bp.MaxAttempts()).To(BeFalse())
+		})
+	})
+
 	Describe("FindForOrgs()", func() {
 		var (
 			o *org.Org

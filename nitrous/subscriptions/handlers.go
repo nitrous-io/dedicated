@@ -109,6 +109,57 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 	return sub, nil
 }
 
+func (s *SubscriptionProvider) HandleChargeSucceeded(d *db.Database, e *stripe.Event) error {
+	stripeID, err := getStripeID(e)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.Exec(`UPDATE billing_profiles SET failed_attempts=0 WHERE stripe_id=$1`, stripeID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Event) error {
+	stripeID, err := getStripeID(e)
+	if err != nil {
+		return err
+	}
+
+	bp := &billingprofile.BillingProfile{}
+	if err := d.QueryRowx(`UPDATE billing_profiles SET failed_attempts=failed_attempts+1 WHERE stripe_id=$1 RETURNING user_id, failed_attempts;`, stripeID).StructScan(bp); err != nil {
+		return err
+	}
+
+	if bp.MaxAttempts() {
+		suspicious := sql.NullString{"failed_charge", true}
+		_, err := d.Exec(`UPDATE users SET suspicious=$1 WHERE id=$2;`, suspicious, bp.UserID)
+		if err != nil {
+			return err
+		}
+
+		// TODO: use helpscout api to send support ticket.
+	}
+
+	return nil
+}
+
+func getStripeID(e *stripe.Event) (string, error) {
+	_, ok := e.Data.Obj["source"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("Stripe failed to provide source: %+v", e.Data.Obj)
+	}
+
+	stripeID, ok := e.Data.Obj["source"].(map[string]interface{})["customer"].(string)
+	if !ok {
+		return "", fmt.Errorf("Stripe failed to provide customer: %+v", e.Data.Obj)
+	}
+	return stripeID, nil
+}
+
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
 	existingInv, err := invoice.FindByStripeID(d, invID)
 	switch err {

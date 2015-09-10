@@ -32,6 +32,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/stripe/stripe-go/event"
 )
 
 func Test(t *testing.T) {
@@ -1164,6 +1165,131 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub.CancelledAt.Time).To(BeTemporally("~", time.Now(), time.Second))
 			Expect(sub.State).To(Equal(subscription.StateDeleted))
 			Expect(sub).To(Equal(s))
+		})
+	})
+
+	Describe("HandleChargeSucceeded()", func() {
+		var stripeID sql.NullString
+
+		BeforeEach(func() {
+			stripeID = sql.NullString{"cus_123", true}
+			_, err := db.Exec(`UPDATE billing_profiles SET stripe_id=$1 WHERE user_id=$2;`, stripeID, u.ID)
+			Expect(err).To(BeNil())
+
+		})
+
+		It("reset attempts counter to zero", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+			}
+
+			e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET failed_attempts=1 WHERE stripe_id=$1;`, stripeID)
+			Expect(err).To(BeNil())
+			var attempts int
+			err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+			Expect(err).To(BeNil())
+			Expect(attempts).To(Equal(1))
+
+			err = subProvider.HandleChargeSucceeded(db, e)
+			Expect(err).To(BeNil())
+
+			err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+			Expect(err).To(BeNil())
+			Expect(attempts).To(Equal(0))
+		})
+
+		It("returns error if customer key does not exist in Stripe response", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"id":"abc"}}}}`,
+			}
+
+			e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+			Expect(err).To(BeNil())
+
+			err = subProvider.HandleChargeSucceeded(db, e)
+			Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
+			Expect(err.Error()).To(ContainSubstring("map[id:Xcccs source:map[id:abc]]"))
+		})
+
+		It("returns error if source key does not exist in Stripe response", func() {
+			fakeStripe.Responses = []string{
+				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+			}
+
+			e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+			Expect(err).To(BeNil())
+
+			err = subProvider.HandleChargeSucceeded(db, e)
+			Expect(err.Error()).To(ContainSubstring("Stripe failed to provide source: "))
+			Expect(err.Error()).To(ContainSubstring("map[id:Xcccs]"))
+		})
+
+		Describe("HandleChargeFailed()", func() {
+			var stripeID sql.NullString
+
+			BeforeEach(func() {
+				stripeID = sql.NullString{"cus_123", true}
+				_, err := db.Exec(`UPDATE billing_profiles SET stripe_id=$1 WHERE user_id=$2;`, stripeID, u.ID)
+				Expect(err).To(BeNil())
+
+			})
+
+			It("increments attempts counter by one and marks user as suspicious if max attempts", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+				}
+
+				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				Expect(err).To(BeNil())
+
+				for i := 0; i < 4; i++ {
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					var attempts int
+					err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+					Expect(err).To(BeNil())
+					Expect(attempts).To(Equal(i + 1))
+				}
+
+				var uID int64
+				err = db.Get(&uID, `SELECT user_id FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+				Expect(err).To(BeNil())
+
+				suspicious := sql.NullString{}
+				err = db.Get(&suspicious, `SELECT suspicious FROM users WHERE id=$1;`, uID)
+				Expect(suspicious.Valid).To(BeTrue())
+				Expect(suspicious.String).To(Equal("failed_charge"))
+			})
+
+			It("returns error if customer key does not exist in Stripe response", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"id":"abc"}}}}`,
+				}
+
+				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				Expect(err).To(BeNil())
+
+				err = subProvider.HandleChargeSucceeded(db, e)
+				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
+				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs source:map[id:abc]]"))
+			})
+
+			It("returns error if source key does not exist in Stripe response", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+				}
+
+				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				Expect(err).To(BeNil())
+
+				err = subProvider.HandleChargeSucceeded(db, e)
+				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide source: "))
+				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs]"))
+			})
 		})
 	})
 

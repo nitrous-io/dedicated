@@ -44,6 +44,9 @@ type Provider interface {
 	HandleSubscriptionDeleted(d *db.Database, subID string) (*subscription.Subscription, error)
 	HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error)
 	HandleSubscriptionInvoiceFailed(d *db.Database, invID string) (*invoice.Invoice, error)
+
+	HandleChargeSucceeded(d *db.Database, e *stripe.Event) error
+	HandleChargeFailed(d *db.Database, e *stripe.Event) error
 }
 
 type couponGetFunc func(string, *stripe.CouponParams) (*stripe.Coupon, error)

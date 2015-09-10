@@ -267,6 +267,7 @@ func (p *BillingProfile) IsFreeOrCardRequired() bool {
 }
 
 func (p *BillingProfile) MaxAttempts() bool {
+	// There is an automatic retry on every attempt by the user to add a new card. So we give the user a maximum of 2 tries to add a new card.
 	return p.FailedAttempts == 4
 }
 

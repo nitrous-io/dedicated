@@ -8,6 +8,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	stripe "github.com/stripe/stripe-go"
 )
 
 type FakeSubscriptionProvider struct {
@@ -52,6 +53,14 @@ type FakeSubscriptionProvider struct {
 	HandleSubscriptionInvoiceFailedInvoiceID string
 	HandleSubscriptionInvoiceFailedError     error
 	HandleSubscriptionInvoiceFailedReturn    *invoice.Invoice
+
+	HandleChargeSucceededCalled bool
+	HandleChargeSucceededEvent  *stripe.Event
+	HandleChargeSucceededError  error
+
+	HandleChargeFailedCalled bool
+	HandleChargeFailedEvent  *stripe.Event
+	HandleChargeFailedError  error
 }
 
 func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (sub *subscription.Subscription, err error) {
@@ -105,4 +114,16 @@ func (s *FakeSubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Databas
 	s.HandleSubscriptionInvoiceFailedCalled = true
 	s.HandleSubscriptionInvoiceFailedInvoiceID = invID
 	return s.HandleSubscriptionInvoiceFailedReturn, s.HandleSubscriptionInvoiceFailedError
+}
+
+func (s *FakeSubscriptionProvider) HandleChargeSucceeded(d *db.Database, e *stripe.Event) error {
+	s.HandleChargeSucceededCalled = true
+	s.HandleChargeSucceededEvent = e
+	return s.HandleChargeSucceededError
+}
+
+func (s *FakeSubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Event) error {
+	s.HandleChargeFailedCalled = true
+	s.HandleChargeFailedEvent = e
+	return s.HandleChargeFailedError
 }
