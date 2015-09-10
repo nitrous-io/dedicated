@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 )
 
 // State can hold both our own State as well
@@ -87,8 +88,11 @@ func FindBySlug(d db.QueryReceiver, slug string, userID int64) (*Subscription, e
 		WHERE s.slug = $1 AND
                 (
                         (billing_profiles.user_id = $2) OR
-                        (hosts.user_id = $2 AND billing_profiles.org_id IS NOT NULL)
-                );`, slug, userID)
+                        (hosts.user_id = $2 AND billing_profiles.org_id IS NOT NULL) OR
+                        (billing_profiles.org_id IS NOT NULL AND
+                                billing_profiles.org_id IN (SELECT org_id FROM org_memberships WHERE user_id = $2 AND role = $3)
+                        )
+                );`, slug, userID, orgmembership.RoleOwner)
 	if err != nil {
 		return nil, err
 	}
