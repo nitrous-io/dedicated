@@ -25,6 +25,8 @@ var (
 		"customer.subscription.updated": handleSubscriptionUpdatedEvent,
 		"customer.subscription.deleted": handleSubscriptionDeletedEvent,
 		"invoice.created":               handleInvoiceCreatedEvent,
+		"charge.succeeded":              handleChargeSucceededEvent,
+		"charge.failed":                 handleChargeFailedEvent,
 	}
 )
 

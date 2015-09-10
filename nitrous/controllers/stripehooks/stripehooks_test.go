@@ -132,6 +132,63 @@ var _ = Describe("controllers/stripehooks", func() {
 			Expect(fsub.HandleSubscriptionInvoiceFailedCalled).To(BeFalse())
 		})
 
+		Describe("with charges", func() {
+
+			It("should handle successful charge", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+				}
+
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "charge.succeeded"}`)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(fsub.HandleChargeSucceededCalled).To(BeTrue())
+
+				e := fsub.HandleChargeSucceededEvent
+				Expect(e.GetObjValue("source", "customer")).To(Equal("cus_123"))
+			})
+
+			It("should handle failed charge", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.failed", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+				}
+
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "charge.failed"}`)
+
+				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(fsub.HandleChargeFailedCalled).To(BeTrue())
+
+				e := fsub.HandleChargeFailedEvent
+				Expect(e.GetObjValue("source", "customer")).To(Equal("cus_123"))
+			})
+
+			It("should return an error if the HandleChargeSucceeded returns an error", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+				}
+
+				fsub.HandleChargeSucceededError = errors.New("Woops!")
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "charge.succeeded"}`)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				e := fsub.HandleChargeSucceededEvent
+				Expect(e.GetObjValue("source", "customer")).To(Equal("cus_123"))
+			})
+
+			It("should return an error if the HandleChargeFailed returns an error", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.failed", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+				}
+
+				fsub.HandleChargeFailedError = errors.New("Woops!")
+				res := doRequest(`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "type": "charge.failed"}`)
+				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+				e := fsub.HandleChargeFailedEvent
+				Expect(e.GetObjValue("source", "customer")).To(Equal("cus_123"))
+			})
+		})
+
 		Describe("with invoices", func() {
 
 			It("should not handle invoices that are not found in the database and return an error", func() {
