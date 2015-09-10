@@ -599,24 +599,26 @@ var _ = Describe("models/billingprofile", func() {
 		})
 	})
 
-	Describe("MaxAttempts()", func() {
-		It("should be true if the failed attempts is 4", func() {
+	Describe("MaxAttemptsReached()", func() {
+		It("should be true if the failed attempts is equivalent to MaxFailedAttempts", func() {
 			bp := &billingprofile.BillingProfile{
-				FailedAttempts: 4,
+				FailedAttempts: billingprofile.MaxFailedAttempts,
 			}
-			Expect(bp.MaxAttempts()).To(BeTrue())
+			Expect(bp.MaxAttemptsReached()).To(BeTrue())
+		})
+
+		It("should be true if the failed attempts is more than MaxFailedAttempts", func() {
+			bp := &billingprofile.BillingProfile{
+				FailedAttempts: billingprofile.MaxFailedAttempts + 1,
+			}
+			Expect(bp.MaxAttemptsReached()).To(BeTrue())
 		})
 
 		It("should be false otherwise", func() {
 			bp := &billingprofile.BillingProfile{
-				FailedAttempts: 3,
+				FailedAttempts: billingprofile.MaxFailedAttempts - 1,
 			}
-			Expect(bp.MaxAttempts()).To(BeFalse())
-
-			bp = &billingprofile.BillingProfile{
-				FailedAttempts: 5,
-			}
-			Expect(bp.MaxAttempts()).To(BeFalse())
+			Expect(bp.MaxAttemptsReached()).To(BeFalse())
 		})
 	})
 

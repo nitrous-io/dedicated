@@ -21,6 +21,8 @@ var (
 	ErrIncorrectCvc    = errors.New("billingprofile: cvc is incorrect")
 	ErrIncorrectZipErr = errors.New("billingprofile: zip code is incorrect")
 	ErrCardBanned      = errors.New("billingprofile: card banned")
+
+	MaxFailedAttempts = 2
 )
 
 const (
@@ -266,9 +268,8 @@ func (p *BillingProfile) IsFreeOrCardRequired() bool {
 	return p.IsFreeTier() || p.IsCardRequired()
 }
 
-func (p *BillingProfile) MaxAttempts() bool {
-	// There is an automatic retry on every attempt by the user to add a new card. So we give the user a maximum of 2 tries to add a new card.
-	return p.FailedAttempts == 4
+func (p *BillingProfile) MaxAttemptsReached() bool {
+	return p.FailedAttempts >= MaxFailedAttempts
 }
 
 func HandleStripeError(err error) error {

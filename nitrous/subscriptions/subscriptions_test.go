@@ -1211,7 +1211,7 @@ var _ = Describe("subscriptions", func() {
 
 			err = subProvider.HandleChargeSucceeded(db, e)
 			Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
-			Expect(err.Error()).To(ContainSubstring("source:map[id:abc]]"))
+			Expect(err.Error()).To(ContainSubstring("source:map[id:abc]"))
 		})
 
 		It("returns error if source key does not exist in Stripe response", func() {
@@ -1228,7 +1228,14 @@ var _ = Describe("subscriptions", func() {
 		})
 
 		Describe("HandleChargeFailed()", func() {
-			var stripeID sql.NullString
+			var (
+				stripeID sql.NullString
+
+				fakeHelpScout *test.FakeHelpScout
+			)
+
+			fakeHelpScout = &test.FakeHelpScout{}
+			subscriptions.HelpScout = fakeHelpScout
 
 			BeforeEach(func() {
 				stripeID = sql.NullString{"cus_123", true}
@@ -1257,56 +1264,169 @@ var _ = Describe("subscriptions", func() {
 				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
 				Expect(err).To(BeNil())
 
-				err = subProvider.HandleChargeSucceeded(db, e)
+				err = subProvider.HandleChargeFailed(db, e)
 				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide source: "))
 				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs]"))
 			})
 
-			It("increments failed_attempts counter by one and if max attempts, marks user as suspicious and sends a failed charge ticket to nitrous support with helpscout API", func() {
-				var fakeHelpScout *test.FakeHelpScout
-				fakeHelpScout = &test.FakeHelpScout{}
-				subscriptions.HelpScout = fakeHelpScout
+			Context("when first attempt", func() {
+				It("increments failed_attempts counter by one and does not mark user as suspicious or send a failed charge ticket to nitrous support", func() {
 
-				fakeStripe.Responses = []string{
-					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
-				}
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
 
-				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
-				Expect(err).To(BeNil())
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
 
-				for i := 0; i < 4; i++ {
 					err = subProvider.HandleChargeFailed(db, e)
 					Expect(err).To(BeNil())
 
 					var attempts int
 					err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
 					Expect(err).To(BeNil())
-					Expect(attempts).To(Equal(i + 1))
-				}
+					Expect(attempts).To(Equal(1))
 
-				var uID int64
-				err = db.Get(&uID, `SELECT user_id FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
-				Expect(err).To(BeNil())
+					suspicious := &sql.NullString{}
+					err = db.QueryRow(`SELECT suspicious FROM users WHERE id=$1;`, u.ID).Scan(suspicious)
+					Expect(err).To(BeNil())
+					Expect(suspicious.Valid).To(BeFalse())
 
-				usr := &user.User{}
-				err = db.QueryRowx(`SELECT id, username, email, suspicious FROM users WHERE id=$1;`, uID).StructScan(usr)
-				Expect(err).To(BeNil())
-				Expect(usr.Suspicious.Valid).To(BeTrue())
-				Expect(usr.Suspicious.String).To(Equal("failed_charge"))
+					Eventually(func() int {
+						return fakeHelpScout.CreateConversationCalled
+					}).Should(Equal(0))
+				})
+			})
 
-				Eventually(func() int {
-					return fakeHelpScout.CreateConversationCalled
-				}).Should(Equal(1))
+			Context("when max failed attempts", func() {
+				BeforeEach(func() {
+					_, err := db.Exec(`UPDATE billing_profiles SET failed_attempts=$1 WHERE stripe_id=$2;`, billingprofile.MaxFailedAttempts-1, stripeID)
+					Expect(err).To(BeNil())
+				})
 
-				Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}))
-				Expect(fakeHelpScout.Subject).To(Equal("[ALERT]: Stripe - Multiple Failed Charge Attempts"))
-				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
+				It("marks user as suspicious and sends a failed charge ticket to nitrous support if user has no invoice record", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
 
-				Expect(fakeHelpScout.Threads).To(HaveLen(1))
-				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring("<strong>User</strong>:"))
-				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("ID: %v", usr.ID)))
-				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Username: %s", usr.Username)))
-				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Email: %s", usr.Email)))
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					var attempts int
+					err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+					Expect(err).To(BeNil())
+					Expect(attempts).To(Equal(billingprofile.MaxFailedAttempts))
+
+					usr := &user.User{}
+					err = db.QueryRowx(`SELECT id, username, email, suspicious FROM users WHERE id=$1;`, u.ID).StructScan(usr)
+					Expect(err).To(BeNil())
+					Expect(usr.Suspicious.Valid).To(BeTrue())
+					Expect(usr.Suspicious.String).To(Equal("failed_charge"))
+
+					Eventually(func() int {
+						return fakeHelpScout.CreateConversationCalled
+					}).Should(Equal(1))
+
+					Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}))
+					Expect(fakeHelpScout.Subject).To(Equal("[ALERT]: Stripe - Multiple Failed Charge Attempts"))
+					Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
+
+					Expect(fakeHelpScout.Threads).To(HaveLen(1))
+					Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring("<strong>User</strong>:"))
+					Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("ID: %v", usr.ID)))
+					Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Username: %s", usr.Username)))
+					Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Email: %s", usr.Email)))
+				})
+
+				It("marks user as suspicious and sends a failed charge ticket to nitrous support if user's invoice state is unpaid", func() {
+					start := time.Now().Add(-900 * time.Hour)
+					end := start.Add(30 * time.Hour)
+
+					inv := &invoice.Invoice{
+						UserID:      u.ID,
+						TotalCharge: int64(99),
+						State:       invoice.StateUnpaid,
+						PeriodStart: &start,
+						PeriodEnd:   &end,
+						// StripeID should be empty.
+					}
+					Expect(inv.Insert(db)).To(BeNil())
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					var attempts int
+					err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+					Expect(err).To(BeNil())
+					Expect(attempts).To(Equal(billingprofile.MaxFailedAttempts))
+
+					usr := &user.User{}
+					err = db.QueryRowx(`SELECT id, username, email, suspicious FROM users WHERE id=$1;`, u.ID).StructScan(usr)
+					Expect(err).To(BeNil())
+					Expect(usr.Suspicious.Valid).To(BeTrue())
+					Expect(usr.Suspicious.String).To(Equal("failed_charge"))
+
+					Eventually(func() int {
+						return fakeHelpScout.CreateConversationCalled
+					}).Should(Equal(2))
+				})
+
+				It("does not mark user as suspicious but sends a failed charge ticket to nitrous support if user has paid before", func() {
+					start := time.Now().Add(-900 * time.Hour)
+					end := start.Add(30 * time.Hour)
+
+					inv1 := &invoice.Invoice{
+						UserID:      u.ID,
+						TotalCharge: int64(99),
+						State:       invoice.StateUnpaid,
+						PeriodStart: &start,
+						PeriodEnd:   &end,
+						// StripeID should be empty.
+					}
+					Expect(inv1.Insert(db)).To(BeNil())
+
+					inv2 := &invoice.Invoice{
+						UserID:      u.ID,
+						TotalCharge: int64(99),
+						State:       invoice.StatePaid,
+						PeriodStart: &start,
+						PeriodEnd:   &end,
+					}
+					Expect(inv2.Insert(db)).To(BeNil())
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					suspicious := &sql.NullString{}
+					err = db.QueryRow(`SELECT suspicious FROM users WHERE id=$1;`, u.ID).Scan(suspicious)
+					Expect(err).To(BeNil())
+					Expect(suspicious.Valid).To(BeFalse())
+
+					Eventually(func() int {
+						return fakeHelpScout.CreateConversationCalled
+					}).Should(Equal(3))
+				})
+
 			})
 		})
 	})

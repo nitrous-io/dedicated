@@ -152,15 +152,28 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 		return err
 	}
 
-	if bp.MaxAttempts() {
-		suspicious := sql.NullString{"failed_charge", true}
-		u := &user.User{}
-		if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
+	if bp.MaxAttemptsReached() {
+		var paidBefore bool
+		if err := d.QueryRow(`SELECT EXISTS(select 1 FROM invoices where user_id=$1 AND state='paid' ORDER BY created_at DESC);`, bp.UserID).Scan(&paidBefore); err != nil {
 			return err
 		}
+
+		// Don't block user from creating host if user has paid before.
+		u := &user.User{}
+		if paidBefore {
+			if err := d.QueryRowx(`SELECT id, username, email FROM users WHERE id=$1;`, bp.UserID).StructScan(u); err != nil {
+				logrus.Errorf("handleChargedFailed: Unable to obtain user data from users for sending charge failed ticket. User ID: %v. Err: ", bp.UserID, err)
+			}
+		} else {
+			suspicious := sql.NullString{"failed_charge", true}
+			if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
+				return err
+			}
+		}
+
 		go func() {
 			if err := SendChargeFailedTicket(u, e); err != nil {
-				logrus.Errorf(err.Error())
+				logrus.Errorf("Failed to send charge failed ticket: %v", err)
 			}
 		}()
 	}
@@ -169,13 +182,13 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 }
 
 func getStripeID(e *stripe.Event) (string, error) {
-	_, ok := e.Data.Obj["source"].(map[string]interface{})
-	if !ok {
+	source := e.Data.Obj["source"]
+	if source == nil {
 		return "", fmt.Errorf("Stripe failed to provide source: %+v", e.Data.Obj)
 	}
 
-	stripeID, ok := e.Data.Obj["source"].(map[string]interface{})["customer"].(string)
-	if !ok {
+	stripeID := e.GetObjValue("source", "customer")
+	if stripeID == "" {
 		return "", fmt.Errorf("Stripe failed to provide customer: %+v", e.Data.Obj)
 	}
 	return stripeID, nil
@@ -187,9 +200,8 @@ func SendChargeFailedTicket(u *user.User, e *stripe.Event) error {
 	nitrousMessage := helpscout.NewThread("message", nitrousUser, body)
 	threads := []*helpscout.Thread{nitrousMessage}
 
-	err := HelpScout.CreateConversation(nitrousCustomer, subject, nitrousMailbox, threads)
-	if err != nil {
-		return fmt.Errorf("helpscout: failed to send charge failed ticket: author: %+v, subject: %s, mailbox: %+v, threads: %+v. err: %v", nitrousCustomer, subject, nitrousMailbox, threads[0], err)
+	if err := HelpScout.CreateConversation(nitrousCustomer, subject, nitrousMailbox, threads); err != nil {
+		return fmt.Errorf("author: %+v, subject: %s, mailbox: %+v, threads: %+v. err: %v", nitrousCustomer, subject, nitrousMailbox, threads[0], err)
 	}
 	return nil
 }
