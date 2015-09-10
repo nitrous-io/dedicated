@@ -188,12 +188,16 @@ func ShowMembers(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	_, err = orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
+	mem, err := orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotFound
 		}
 		return err
+	}
+
+	if mem.Role == orgmembership.RoleLimited {
+		return errNotFound
 	}
 
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)

@@ -188,7 +188,7 @@ func addToOrg(tx *sqlx.Tx, u *user.User, r *http.Request, client *oauthclient.Cl
 	}
 
 	orgPermission := r.FormValue("org_permission")
-	if orgPermission != orgmembership.RoleMember {
+	if !(orgPermission == orgmembership.RoleMember || orgPermission == orgmembership.RoleLimited) {
 		return errInvalidOrgPermission
 	}
 

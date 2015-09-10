@@ -9,15 +9,17 @@ import (
 )
 
 const (
-	RoleOwner  = "owner"
-	RoleAdmin  = "admin"
-	RoleMember = "member"
+	RoleOwner   = "owner"
+	RoleAdmin   = "admin"
+	RoleMember  = "member"
+	RoleLimited = "limited"
 )
 
 var ValidRoles = map[string][]string{
-	RoleOwner:  {RoleOwner, RoleAdmin, RoleMember},
-	RoleAdmin:  {RoleAdmin, RoleMember},
-	RoleMember: {},
+	RoleOwner:   {RoleOwner, RoleAdmin, RoleMember},
+	RoleAdmin:   {RoleAdmin, RoleMember},
+	RoleMember:  {},
+	RoleLimited: {},
 }
 
 type InvalidRoleError struct {

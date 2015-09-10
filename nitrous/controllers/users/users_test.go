@@ -547,7 +547,7 @@ var _ = Describe("controllers/users", func() {
 					Expect(err).To(BeNil())
 
 					params.Set("org_slug", "foobar")
-					params.Set("org_permission", orgmembership.RoleMember)
+					params.Set("org_permission", orgmembership.RoleLimited)
 				})
 
 				It("should not allow an Admin membership", func() {
@@ -596,7 +596,18 @@ var _ = Describe("controllers/users", func() {
 					Expect(errDesc).To(Equal("org not found"))
 				})
 
-				It("should add the user as a member", func() {
+				It("should add the user as a limited member", func() {
+					doRequest()
+
+					Expect(res.Code).To(Equal(http.StatusCreated))
+
+					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
+					Expect(err).To(BeNil())
+					Expect(mem.Role).To(Equal(orgmembership.RoleLimited))
+				})
+
+				It("should allow for a user to be added as a member", func() {
+					params.Set("org_permission", orgmembership.RoleMember)
 					doRequest()
 
 					Expect(res.Code).To(Equal(http.StatusCreated))
