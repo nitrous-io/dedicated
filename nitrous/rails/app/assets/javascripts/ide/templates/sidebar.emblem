@@ -4,7 +4,7 @@
       = App.router.ideController.content.name
     .ide-toolbar-btns
       .ui.dropdown.btn.icon title='Settings' disabled=opsSocketNotReady
-        i.fa.fa-cog
+        span.more-icn
         ul.dropdown-menu.right
           li
             a href='#' click='didClickSetHomeAsRoot target="view"'
@@ -23,7 +23,7 @@
           li
             a href='#' click='didClickUpload target="view"'
               | Upload Files
-              
+
   #sidebar-group
     if showActiveFilesPane
       .ide-pane
