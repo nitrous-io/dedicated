@@ -8,6 +8,8 @@ App.Org = klass = App.NewModel.extend
   createdAt: null
   updatedAt: null
 
+  role: null
+
   members: null
 
   serialize: ->
@@ -23,6 +25,10 @@ App.Org = klass = App.NewModel.extend
   displayName: (->
     @get('name') || @get('slug')
   ).property 'name', 'slug'
+
+  displayable: (->
+    return @get('role') != 'limited'
+  ).property 'role'
 
   gravatar: (->
     "https://secure.gravatar.com/avatar/#{md5(@get 'email')}?default=retro&secure=true&size=40"
@@ -54,6 +60,7 @@ klass.reopenClass
     slug: data.slug
     name: data.name
     email: data.email
+    role: data.role
     createdAt: new Date(data.created_at) if data.created_at != undefined
     updatedAt: new Date(data.updated_at) if data.updated_at != undefined
     billingProfile: App.OrgBillingProfile.create(orgSlug: data.slug).load(data.billing_profile) if data.billing_profile != undefined

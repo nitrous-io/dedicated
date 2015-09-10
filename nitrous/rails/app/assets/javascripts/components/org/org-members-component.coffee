@@ -1,9 +1,10 @@
 #= require ./org-members-mixin
 
 allowedRoleMap =
-  owner: ['owner', 'admin', 'member']
-  admin: ['admin', 'member']
+  owner: ['owner', 'admin', 'member', 'limited']
+  admin: ['admin', 'member', 'limited']
   member: []
+  limited: []
 
 App.OrgMembersComponent = Em.Component.extend App.OrgMembersMixin,
   layoutName: 'components/org/members'

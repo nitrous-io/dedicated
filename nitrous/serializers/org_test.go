@@ -96,7 +96,7 @@ var _ = Describe("org serializer", func() {
 		})
 	})
 
-	Describe("SerializeOrgs", func() {
+	Describe("SerializeOrgWithRoles", func() {
 		var model2 *org.Org
 
 		BeforeEach(func() {
@@ -111,7 +111,15 @@ var _ = Describe("org serializer", func() {
 		})
 
 		It("serializes to JSON", func() {
-			b, err := json.Marshal(serializers.SerializeOrgs([]*org.Org{model, model2}))
+			or1 := &org.OrgWithRole{
+				Org:  model,
+				Role: "limited",
+			}
+			or2 := &org.OrgWithRole{
+				Org:  model2,
+				Role: "owner",
+			}
+			b, err := json.Marshal(serializers.SerializeOrgWithRoles([]*org.OrgWithRole{or1, or2}))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[
 				{
@@ -119,6 +127,7 @@ var _ = Describe("org serializer", func() {
 					"name": "Macrosoft Corp.",
 					"slug": "macrosoft",
 					"email": "bill@macrosoft.com",
+					"role": "limited",
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				},
@@ -127,6 +136,7 @@ var _ = Describe("org serializer", func() {
 					"name": "Foo Bar, Inc.",
 					"slug": "foobar",
 					"email": "eng@foobar.com",
+					"role": "owner",
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				}

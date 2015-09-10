@@ -16,8 +16,8 @@ const (
 )
 
 var ValidRoles = map[string][]string{
-	RoleOwner:   {RoleOwner, RoleAdmin, RoleMember},
-	RoleAdmin:   {RoleAdmin, RoleMember},
+	RoleOwner:   {RoleOwner, RoleAdmin, RoleMember, RoleLimited},
+	RoleAdmin:   {RoleAdmin, RoleMember, RoleLimited},
 	RoleMember:  {},
 	RoleLimited: {},
 }

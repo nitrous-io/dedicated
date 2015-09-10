@@ -97,7 +97,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err != sql.ErrNoRows {
 			return err
 		}
-		orgs = []*org.Org{}
+		orgs = []*org.OrgWithRole{}
 	}
 
 	orgIDs := make([]int64, len(orgs))
@@ -114,7 +114,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		bpMap[bp.OrgID.Int64] = bp
 	}
 
-	ser := serializers.SerializeOrgs(orgs)
+	ser := serializers.SerializeOrgWithRoles(orgs)
 	for _, o := range ser {
 		bp, ok := bpMap[o.ID]
 		if !ok {
