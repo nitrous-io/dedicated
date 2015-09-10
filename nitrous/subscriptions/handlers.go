@@ -16,12 +16,30 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
 	stripesub "github.com/stripe/stripe-go/sub"
 )
+
+var (
+	HelpScout helpscout.HelpScout
+
+	nitrousMailbox  helpscout.MailboxRef
+	nitrousCustomer helpscout.Person
+	nitrousUser     helpscout.Person
+)
+
+func init() {
+	HelpScout = &helpscout.Conversation{}
+
+	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
+	nitrousCustomer = helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}
+	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+}
 
 const minTimeBeforeFinalAttempt = (5 * 24) * time.Hour
 
@@ -136,12 +154,15 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 
 	if bp.MaxAttempts() {
 		suspicious := sql.NullString{"failed_charge", true}
-		_, err := d.Exec(`UPDATE users SET suspicious=$1 WHERE id=$2;`, suspicious, bp.UserID)
-		if err != nil {
+		u := &user.User{}
+		if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
 			return err
 		}
-
-		// TODO: use helpscout api to send support ticket.
+		go func() {
+			if err := SendChargeFailedTicket(u, e); err != nil {
+				logrus.Errorf(err.Error())
+			}
+		}()
 	}
 
 	return nil
@@ -158,6 +179,19 @@ func getStripeID(e *stripe.Event) (string, error) {
 		return "", fmt.Errorf("Stripe failed to provide customer: %+v", e.Data.Obj)
 	}
 	return stripeID, nil
+}
+
+func SendChargeFailedTicket(u *user.User, e *stripe.Event) error {
+	subject := "[ALERT]: Stripe - Multiple Failed Charge Attempts"
+	body := fmt.Sprintf("<strong>User</strong>: ID: %v, Username: %s, Email: %s", u.ID, u.Username, u.Email)
+	nitrousMessage := helpscout.NewThread("message", nitrousUser, body)
+	threads := []*helpscout.Thread{nitrousMessage}
+
+	err := HelpScout.CreateConversation(nitrousCustomer, subject, nitrousMailbox, threads)
+	if err != nil {
+		return fmt.Errorf("helpscout: failed to send charge failed ticket: author: %+v, subject: %s, mailbox: %+v, threads: %+v. err: %v", nitrousCustomer, subject, nitrousMailbox, threads[0], err)
+	}
+	return nil
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {

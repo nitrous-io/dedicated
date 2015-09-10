@@ -51,10 +51,11 @@ var (
 	SendgridUsername = os.Getenv("SENDGRID_USERNAME")
 	SendgridPassword = os.Getenv("SENDGRID_PASSWORD")
 
-	HelpScoutAPIKey      = os.Getenv("HELPSCOUT_API_KEY")
-	HelpScoutMailboxName = os.Getenv("HELPSCOUT_MAILBOX_NAME")
-	HelpScoutMailboxID   = parseInt64(os.Getenv("HELPSCOUT_MAILBOX_ID"))
-	HelpScoutUserID      = parseInt64(os.Getenv("HELPSCOUT_USER_ID"))
+	HelpScoutAPIKey        = os.Getenv("HELPSCOUT_API_KEY")
+	HelpScoutMailboxName   = os.Getenv("HELPSCOUT_MAILBOX_NAME")
+	HelpScoutCustomerEmail = os.Getenv("HELPSCOUT_CUSTOMER_EMAIL")
+	HelpScoutMailboxID     = parseInt64(os.Getenv("HELPSCOUT_MAILBOX_ID"))
+	HelpScoutUserID        = parseInt64(os.Getenv("HELPSCOUT_USER_ID"))
 
 	StripePublicKey = os.Getenv("STRIPE_PUBLIC_KEY")
 	StripeSecretKey = os.Getenv("STRIPE_SECRET_KEY")

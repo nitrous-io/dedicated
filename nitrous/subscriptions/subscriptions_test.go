@@ -26,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	stripe "github.com/stripe/stripe-go"
 
@@ -1175,10 +1176,9 @@ var _ = Describe("subscriptions", func() {
 			stripeID = sql.NullString{"cus_123", true}
 			_, err := db.Exec(`UPDATE billing_profiles SET stripe_id=$1 WHERE user_id=$2;`, stripeID, u.ID)
 			Expect(err).To(BeNil())
-
 		})
 
-		It("reset attempts counter to zero", func() {
+		It("reset failed_attempts counter to zero", func() {
 			fakeStripe.Responses = []string{
 				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
 			}
@@ -1211,7 +1211,7 @@ var _ = Describe("subscriptions", func() {
 
 			err = subProvider.HandleChargeSucceeded(db, e)
 			Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
-			Expect(err.Error()).To(ContainSubstring("map[id:Xcccs source:map[id:abc]]"))
+			Expect(err.Error()).To(ContainSubstring("source:map[id:abc]]"))
 		})
 
 		It("returns error if source key does not exist in Stripe response", func() {
@@ -1234,10 +1234,39 @@ var _ = Describe("subscriptions", func() {
 				stripeID = sql.NullString{"cus_123", true}
 				_, err := db.Exec(`UPDATE billing_profiles SET stripe_id=$1 WHERE user_id=$2;`, stripeID, u.ID)
 				Expect(err).To(BeNil())
-
 			})
 
-			It("increments attempts counter by one and marks user as suspicious if max attempts", func() {
+			It("returns error if customer key does not exist in Stripe response", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"id":"abc"}}}}`,
+				}
+
+				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				Expect(err).To(BeNil())
+
+				err = subProvider.HandleChargeSucceeded(db, e)
+				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
+				Expect(err.Error()).To(ContainSubstring("source:map[id:abc]"))
+			})
+
+			It("returns error if source key does not exist in Stripe response", func() {
+				fakeStripe.Responses = []string{
+					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs"}}}`,
+				}
+
+				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				Expect(err).To(BeNil())
+
+				err = subProvider.HandleChargeSucceeded(db, e)
+				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide source: "))
+				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs]"))
+			})
+
+			It("increments failed_attempts counter by one and if max attempts, marks user as suspicious and sends a failed charge ticket to nitrous support with helpscout API", func() {
+				var fakeHelpScout *test.FakeHelpScout
+				fakeHelpScout = &test.FakeHelpScout{}
+				subscriptions.HelpScout = fakeHelpScout
+
 				fakeStripe.Responses = []string{
 					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
 				}
@@ -1259,36 +1288,25 @@ var _ = Describe("subscriptions", func() {
 				err = db.Get(&uID, `SELECT user_id FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
 				Expect(err).To(BeNil())
 
-				suspicious := sql.NullString{}
-				err = db.Get(&suspicious, `SELECT suspicious FROM users WHERE id=$1;`, uID)
-				Expect(suspicious.Valid).To(BeTrue())
-				Expect(suspicious.String).To(Equal("failed_charge"))
-			})
-
-			It("returns error if customer key does not exist in Stripe response", func() {
-				fakeStripe.Responses = []string{
-					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"id":"abc"}}}}`,
-				}
-
-				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+				usr := &user.User{}
+				err = db.QueryRowx(`SELECT id, username, email, suspicious FROM users WHERE id=$1;`, uID).StructScan(usr)
 				Expect(err).To(BeNil())
+				Expect(usr.Suspicious.Valid).To(BeTrue())
+				Expect(usr.Suspicious.String).To(Equal("failed_charge"))
 
-				err = subProvider.HandleChargeSucceeded(db, e)
-				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide customer: "))
-				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs source:map[id:abc]]"))
-			})
+				Eventually(func() int {
+					return fakeHelpScout.CreateConversationCalled
+				}).Should(Equal(1))
 
-			It("returns error if source key does not exist in Stripe response", func() {
-				fakeStripe.Responses = []string{
-					`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs"}}}`,
-				}
+				Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}))
+				Expect(fakeHelpScout.Subject).To(Equal("[ALERT]: Stripe - Multiple Failed Charge Attempts"))
+				Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
 
-				e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
-				Expect(err).To(BeNil())
-
-				err = subProvider.HandleChargeSucceeded(db, e)
-				Expect(err.Error()).To(ContainSubstring("Stripe failed to provide source: "))
-				Expect(err.Error()).To(ContainSubstring("map[id:Xcccs]"))
+				Expect(fakeHelpScout.Threads).To(HaveLen(1))
+				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring("<strong>User</strong>:"))
+				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("ID: %v", usr.ID)))
+				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Username: %s", usr.Username)))
+				Expect(fakeHelpScout.Threads[0].Body).To(ContainSubstring(fmt.Sprintf("Email: %s", usr.Email)))
 			})
 		})
 	})
