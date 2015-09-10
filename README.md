@@ -127,6 +127,15 @@ Prior to this migrations were stored in `nitrous/db/migrations.go`.
 We use [Godep](https://github.com/tools/godep) and vendor dependencies (i.e.
 dependencies are checked in).
 
+### Add google DNS
+
+On Mac, `Open System Preferences > Network`
+
+Open the DNS tab, and add the following entries: 
+
+8.8.4.4
+8.8.8.8
+
 #### Using Godep
 
 * Install Godep: `go get github.com/tools/godep`
