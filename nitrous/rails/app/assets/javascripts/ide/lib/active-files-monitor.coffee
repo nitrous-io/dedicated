@@ -23,6 +23,7 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
     @refresh()
 
   tabsDidChange: (tabs)->
+    return unless tabs.get('content')
     hsh = {}
     for tab in tabs.get('content')
       pathObj = tab.get && tab.get('path')
