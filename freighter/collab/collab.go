@@ -85,8 +85,6 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 		onOp(c, msg.FileName, msg.Args)
 	case "sel":
 		onSel(c, msg.FileName, msg.Args)
-	case "activefiles":
-		onActiveFiles(c)
 	}
 
 	return nil
@@ -101,7 +99,7 @@ func onConnect(ws MessageReaderWriter, username, connID string) *Connection {
 	activeConnectionsLock.Lock()
 	ActiveConnections[c.ID]++
 	activeConnectionsLock.Unlock()
-	c.Send("", "connected", map[string]interface{}{
+	c.Send("", "connected", map[string]string{
 		"conn_id": c.ID,
 	})
 	return c
@@ -122,7 +120,7 @@ func onDisconnect(c *Connection) {
 		}
 		for _, s := range Sessions {
 			if _, ok := s.Connections[c.ID]; ok {
-				c.BroadcastToSession(s, "disconnected", map[string]string{
+				c.Broadcast(s, "disconnected", map[string]string{
 					"conn_id": c.ID,
 				})
 			}
@@ -146,7 +144,7 @@ func onJoin(c *Connection, fileName, username, doc string) {
 		"conn_id": c.ID,
 	})
 
-	BroadcastGlobally(s, "joined", map[string]string{
+	c.Broadcast(s, "joined", map[string]string{
 		"conn_id":  c.ID,
 		"username": c.Username,
 	})
@@ -159,9 +157,8 @@ func onLeave(c *Connection, fileName string) {
 	}
 
 	c.Send(fileName, "unregistered", nil)
-	BroadcastGlobally(s, "left", map[string]string{
-		"conn_id":  c.ID,
-		"username": c.Username,
+	c.Broadcast(s, "left", map[string]string{
+		"conn_id": c.ID,
 	})
 }
 
@@ -172,20 +169,6 @@ func onRejoin(c *Connection, fileName string) {
 	} else {
 		c.Send(fileName, "rejoin_failed", nil)
 	}
-}
-
-func onActiveFiles(c *Connection) {
-	sessions := map[string]interface{}{}
-	for _, s := range Sessions {
-		sessions[s.ID] = map[string]interface{}{
-			"document": s.Document,
-			"revision": len(s.Session.Operations),
-			"clients":  s.Session.Clients,
-		}
-	}
-	c.Send("", "activefiles", map[string]interface{}{
-		"sessions": sessions,
-	})
 }
 
 func onOp(c *Connection, fileName string, data []interface{}) {
@@ -239,9 +222,9 @@ func onOp(c *Connection, fileName string, data []interface{}) {
 
 	if sel, ok := top2.Meta.(*selection.Selection); ok {
 		s.SetSelection(c.ID, sel)
-		c.BroadcastToSession(s, "op", []interface{}{c.ID, top2.Marshal(), sel.Marshal()})
+		c.Broadcast(s, "op", []interface{}{c.ID, top2.Marshal(), sel.Marshal()})
 	} else {
-		c.BroadcastToSession(s, "op", []interface{}{c.ID, top2.Marshal()})
+		c.Broadcast(s, "op", []interface{}{c.ID, top2.Marshal()})
 	}
 }
 
@@ -279,6 +262,6 @@ func onSel(c *Connection, fileName string, data []interface{}) {
 
 	s.Lock.Lock()
 	s.SetSelection(c.ID, sel)
-	c.BroadcastToSession(s, "sel", []interface{}{c.ID, selm, rev})
+	c.Broadcast(s, "sel", []interface{}{c.ID, selm, rev})
 	s.Lock.Unlock()
 }
