@@ -149,36 +149,34 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 		return err
 	}
 
+	var paidBefore bool
+	if err := d.QueryRow(`SELECT EXISTS(select 1 FROM invoices LEFT JOIN billing_profiles ON invoices.user_id=billing_profiles.user_id AND invoices.state='paid' where billing_profiles.stripe_id=$1 ORDER BY invoices.created_at DESC);`, stripeID).Scan(&paidBefore); err != nil {
+		return err
+	}
+	if paidBefore {
+		return nil
+	}
+
 	bp := &billingprofile.BillingProfile{}
 	if err := d.QueryRowx(`UPDATE billing_profiles SET failed_attempts=failed_attempts+1 WHERE stripe_id=$1 RETURNING user_id, failed_attempts;`, stripeID).StructScan(bp); err != nil {
 		return err
 	}
 
-	if bp.MaxAttemptsReached() {
-		var paidBefore bool
-		if err := d.QueryRow(`SELECT EXISTS(select 1 FROM invoices where user_id=$1 AND state='paid' ORDER BY created_at DESC);`, bp.UserID).Scan(&paidBefore); err != nil {
-			return err
-		}
-
-		// Don't block user from creating host if user has paid before.
-		u := &user.User{}
-		if paidBefore {
-			if err := d.QueryRowx(`SELECT id, username, email FROM users WHERE id=$1;`, bp.UserID).StructScan(u); err != nil {
-				logrus.Errorf("handleChargedFailed: Unable to obtain user data from users for sending charge failed ticket. User ID: %v. Err: ", bp.UserID, err)
-			}
-		} else {
-			suspicious := sql.NullString{"failed_charge", true}
-			if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
-				return err
-			}
-		}
-
-		go func() {
-			if err := SendChargeFailedTicket(u, e); err != nil {
-				logrus.Errorf("Failed to send charge failed ticket: %v", err)
-			}
-		}()
+	if !bp.MaxAttemptsReached() {
+		return nil
 	}
+
+	u := &user.User{}
+	suspicious := sql.NullString{"failed_charge", true}
+	if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := SendChargeFailedTicket(u, e); err != nil {
+			logrus.Errorf("Failed to send charge failed ticket: %v", err)
+		}
+	}()
 
 	return nil
 }

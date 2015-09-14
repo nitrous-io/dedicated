@@ -1384,7 +1384,7 @@ var _ = Describe("subscriptions", func() {
 					}).Should(Equal(2))
 				})
 
-				It("does not mark user as suspicious but sends a failed charge ticket to nitrous support if user has paid before", func() {
+				It("does not mark user as suspicious or send a failed charge ticket to nitrous support if user has paid before", func() {
 					start := time.Now().Add(-900 * time.Hour)
 					end := start.Add(30 * time.Hour)
 
@@ -1424,7 +1424,7 @@ var _ = Describe("subscriptions", func() {
 
 					Eventually(func() int {
 						return fakeHelpScout.CreateConversationCalled
-					}).Should(Equal(3))
+					}).Should(Equal(2))
 				})
 
 			})
