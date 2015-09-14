@@ -25,6 +25,8 @@ func TestMain(m *testing.M) {
 		"models/workspace.go",
 		"models/config.json",
 		"dist/server",
+		"pkg/dockerclient/doc.a",
+		"pkg/dockerclient/docker/pkg.a",
 		".git/HEAD",
 	}
 	testDir, err = ioutil.TempDir("/tmp", "test-fuzzy-file-finder")
@@ -210,6 +212,24 @@ var fuzzyFindTestCases = []struct {
 			{
 				Path:  "controllers/containers/containers_test.go",
 				Score: ScoreFuzzyPath,
+			},
+		},
+	},
+
+	// Fuzzy matching with backward scanning.
+	{
+		query: "docker",
+		expected: []FileMatch{
+			{
+				// Sorts first because "docker" is nearer the end of path.
+				Path:    "pkg/dockerclient/docker/pkg.a",
+				Offsets: []Offset{{17, 23}},
+				Score:   ScoreFuzzyDir,
+			},
+			{
+				Path:    "pkg/dockerclient/doc.a",
+				Offsets: []Offset{{4, 10}},
+				Score:   ScoreFuzzyDir,
 			},
 		},
 	},

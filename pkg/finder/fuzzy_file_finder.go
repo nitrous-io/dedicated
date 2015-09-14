@@ -100,7 +100,18 @@ func (b byRelevance) Less(i, j int) bool {
 		return false
 	}
 
-	// Use tree depth of file as 2nd tiebreaker, e.g. sort "foo/host.go" before
+	// Prefer offsets that are nearer the end of string, e.g. sort
+	// "pkg/dockerclient/docker/pkg.a" before "pkg/dockerclient/doc.a".
+	iDistFromEnd := len(iMatch.Path) - iMatch.Offsets[0][1]
+	jDistFromEnd := len(jMatch.Path) - jMatch.Offsets[0][1]
+	if iDistFromEnd < jDistFromEnd {
+		return true
+	}
+	if iDistFromEnd > jDistFromEnd {
+		return false
+	}
+
+	// Use tree depth of file as 3rd tiebreaker, e.g. sort "foo/host.go" before
 	// "foo/bar/host.go".
 	iDepth := len(strings.Split(iMatch.Path, string(filepath.Separator)))
 	jDepth := len(strings.Split(jMatch.Path, string(filepath.Separator)))

@@ -5,12 +5,6 @@ import (
 	"testing"
 )
 
-// 	ScoreFuzzyPath Score = (1 << iota) // Lowest to highest score.
-// 	ScoreFuzzyDir
-// 	ScoreFuzzyFile
-// 	ScoreExactFile
-// 	ScoreExactPath
-
 func TestMatchPath(t *testing.T) {
 	testCases := []struct {
 		pattern  Pattern
@@ -76,5 +70,59 @@ func TestMatchPath(t *testing.T) {
 	match := p.matchPath("models/containers.rb")
 	if match != nil {
 		t.Fatalf("matchPath(): expected nil got %#v", match)
+	}
+}
+
+func TestFuzzyMatch(t *testing.T) {
+	testCases := []struct {
+		pattern  string
+		text     string
+		forward  bool
+		expected []int
+	}{
+		{
+			pattern:  "dock",
+			text:     "dockerclient/server/docker.go",
+			forward:  true,
+			expected: []int{0, 4},
+		},
+		{
+			pattern:  "dock",
+			text:     "dockerclient/server/docker.go",
+			forward:  false,
+			expected: []int{20, 24},
+		},
+		{
+			pattern:  "apprb",
+			text:     "application_controller.rb",
+			forward:  true,
+			expected: []int{0, len("application_controller.rb")},
+		},
+		{
+			pattern:  "controller",
+			text:     "application_controller.rb",
+			forward:  true,
+			expected: []int{12, 22},
+		},
+		{
+			pattern:  "homecon",
+			text:     "home_controller.rb",
+			forward:  true,
+			expected: []int{0, 8},
+		},
+	}
+
+	for _, tc := range testCases {
+		sidx, eidx := fuzzyMatch(tc.forward, []rune(tc.text), []rune(tc.pattern))
+
+		if sidx != tc.expected[0] {
+			t.Fatalf("fuzzyMatch(%v, %s, %s): expected start index of %d but got %d",
+				tc.forward, tc.text, tc.pattern, tc.expected[0], sidx)
+		}
+
+		if eidx != tc.expected[1] {
+			t.Fatalf("fuzzyMatch(%v, %s, %s): expected end index of %d but got %d",
+				tc.forward, tc.text, tc.pattern, tc.expected[1], eidx)
+		}
 	}
 }
