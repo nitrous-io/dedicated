@@ -35,7 +35,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/nitrous-io/dedicated/pkg/finder"
 )
@@ -92,11 +91,11 @@ func doFileFind(msg *Message, resp chan *Message) chan *Message {
 		return sendErr(resp, msg, fmt.Errorf("%q is not a directory", dir))
 	}
 
-	// reply the original message to signal that we are processsing it
+	// reply the original message to signal that we are processing it
 	resp <- msg
 
 	go func() {
-		matches, err := finder.FindFiles(dir, term)
+		matches, err := finder.FuzzyFindFile(dir, term)
 		if err != nil {
 			sendErr(resp, msg, err)
 			return
@@ -106,13 +105,10 @@ func doFileFind(msg *Message, resp chan *Message) chan *Message {
 		}
 
 		for _, match := range matches {
-			relativePath := strings.TrimPrefix(match.FilePath, dir)
-			// dir might or might not include "/" at the end
-			relativePath = strings.TrimPrefix(relativePath, "/")
 			sendMessage(resp, msg, "file_find.output", FileFindResponse{
 				Term:  term,
 				Root:  dir,
-				Paths: []string{relativePath},
+				Paths: []string{match.Path},
 			})
 		}
 		sendFinalMessage(resp, msg, "file_find.completed", FileFindResponse{
@@ -170,7 +166,7 @@ func (c *Finder) HandleAsync(msg *Message) chan *Message {
 			})
 		}()
 
-		// reply the original message to signal that we are processsing it
+		// reply the original message to signal that we are processing it
 		resp <- msg
 		return resp
 	}

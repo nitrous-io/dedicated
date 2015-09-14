@@ -16,8 +16,7 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
 
   viewDidDisappear: ->
     @_super()
-    if pollerKey = @get('pollerKey')
-      Ember.run.cancel(pollerKey)
+    @set('stopPoller', true)
     @get('controller.controllers.ideEditor.activeTab')?.set 'focused', true
 
   click: (e) ->
@@ -49,9 +48,10 @@ App.IdeFileFinderDialogView = App.IdeModalDialogView.extend
             @hide()
 
   setupPoller: ->
+    @set('stopPoller', false)
     @set 'pollerKey', Ember.run.later(this, (=>
       this.poller()
-      this.setupPoller()
+      this.setupPoller() unless @get('stopPoller')
     ), 200)
 
   patternForSearch: (->
