@@ -25,6 +25,9 @@ func TestMain(m *testing.M) {
 		"models/workspace.go",
 		"models/config.json",
 		"dist/server",
+		"pkg/docker/a.out",
+		"pkg/dockerclient/base.a",
+		"pkg/dockerclient/docker.a",
 		".git/HEAD",
 	}
 	testDir, err = ioutil.TempDir("/tmp", "test-fuzzy-file-finder")
@@ -146,11 +149,11 @@ var fuzzyFindTestCases = []struct {
 		expected: []FileMatch{
 			{
 				Path:  "controllers/containers/containers.go",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 			{
 				Path:  "controllers/containers/containers_test.go",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 		},
 	},
@@ -160,16 +163,16 @@ var fuzzyFindTestCases = []struct {
 		query: "models",
 		expected: []FileMatch{
 			{
-				Path:  "models/config.json", // Sorted alphabetically with all else being equal.
-				Score: ScoreFuzzyDir,
+				Path:  "models/workspace.go",
+				Score: ScoreFuzzyPartialFile,
+			},
+			{
+				Path:  "models/config.json",
+				Score: ScoreFuzzyPartialFile,
 			},
 			{
 				Path:  "models/container.go",
-				Score: ScoreFuzzyDir,
-			},
-			{
-				Path:  "models/workspace.go",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 		},
 	},
@@ -179,15 +182,15 @@ var fuzzyFindTestCases = []struct {
 		expected: []FileMatch{
 			{
 				Path:  "models/config.json",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 			{
 				Path:  "models/container.go",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 			{
 				Path:  "models/workspace.go",
-				Score: ScoreFuzzyDir,
+				Score: ScoreFuzzyPath,
 			},
 		},
 	},
@@ -198,7 +201,29 @@ var fuzzyFindTestCases = []struct {
 		expected: []FileMatch{
 			{
 				Path:  "controllers/containers/containers_test.go",
-				Score: ScoreFuzzyPath,
+				Score: ScoreFuzzyPartialFile,
+			},
+		},
+	},
+
+	// Fuzzy matching of full path, with backward scanning.
+	{
+		query: "pkgdocker",
+		expected: []FileMatch{
+			{
+				Path:    "pkg/dockerclient/docker.a",
+				Offsets: []Offset{{0, 23}},
+				Score:   ScoreFuzzyPartialFile,
+			},
+			{
+				Path:    "pkg/docker/a.out",
+				Offsets: []Offset{{0, 10}},
+				Score:   ScoreFuzzyPath,
+			},
+			{
+				Path:    "pkg/dockerclient/base.a",
+				Offsets: []Offset{{0, 10}},
+				Score:   ScoreFuzzyPath,
 			},
 		},
 	},
@@ -209,7 +234,7 @@ var fuzzyFindTestCases = []struct {
 		expected: []FileMatch{
 			{
 				Path:  "controllers/containers/containers_test.go",
-				Score: ScoreFuzzyPath,
+				Score: ScoreFuzzyPartialFile,
 			},
 		},
 	},
@@ -249,7 +274,7 @@ var fuzzyFindTestCases = []struct {
 		expected: []FileMatch{
 			{
 				Path:  "models/workspace.go",
-				Score: ScoreFuzzyPath,
+				Score: ScoreFuzzyPartialFile,
 			},
 		},
 	},

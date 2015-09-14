@@ -10,7 +10,7 @@ type Score uint8
 
 const (
 	ScoreFuzzyPath Score = (1 << iota) // Lowest to highest score.
-	ScoreFuzzyDir
+	ScoreFuzzyPartialFile
 	ScoreFuzzyFile
 	ScoreExactFile
 	ScoreExactPath
@@ -23,9 +23,8 @@ type Pattern struct {
 // matchPath returns a FileMatch if the given path matches this Pattern.
 func (p *Pattern) matchPath(path string) *FileMatch {
 	pathLower := strings.ToLower(path)
-	dirname, filename := filepath.Split(pathLower)
+	filename := filepath.Base(pathLower)
 
-	caseSensitive := false
 	query := strings.ToLower(p.text)
 
 	// Compare path.
@@ -60,12 +59,13 @@ func (p *Pattern) matchPath(path string) *FileMatch {
 	}, query)
 
 	// Compare filename, using fuzzy matching.
-	if sidx, eidx := fuzzyMatch(caseSensitive, []rune(filename), []rune(queryStripped)); sidx >= 0 {
+	forward, backward := true, false
+	greedy := true
+	if sidx, eidx := fuzzyMatch(forward, !greedy, []rune(filename), []rune(queryStripped)); sidx >= 0 {
 		// Override start/end indices because we'd only used the filename.
 		filenameIdx := strings.Index(pathLower, filename)
 		sidx := sidx + filenameIdx
 		eidx := eidx + filenameIdx
-
 		return &FileMatch{
 			Path:    path,
 			Offsets: []Offset{{sidx, eidx}},
@@ -73,17 +73,23 @@ func (p *Pattern) matchPath(path string) *FileMatch {
 		}
 	}
 
-	// Compare directory name, using fuzzy matching.
-	if sidx, eidx := fuzzyMatch(caseSensitive, []rune(dirname), []rune(queryStripped)); sidx >= 0 {
-		return &FileMatch{
-			Path:    path,
-			Offsets: []Offset{{sidx, eidx}},
-			Score:   ScoreFuzzyDir,
+	// Compare path, using fuzzy matching, greedy.
+	// E.g. "libdocker" will match "lib/docker/docker.go" at "lib/docker/docker".
+	if sidx, eidx := fuzzyMatch(backward, greedy, []rune(pathLower), []rune(queryStripped)); sidx >= 0 {
+		// If match part of filename.
+		filenameIdx := strings.Index(pathLower, filename)
+		if eidx > filenameIdx {
+			return &FileMatch{
+				Path:    path,
+				Offsets: []Offset{{sidx, eidx}},
+				Score:   ScoreFuzzyPartialFile,
+			}
 		}
 	}
 
-	// Compare path, using fuzzy matching.
-	if sidx, eidx := fuzzyMatch(caseSensitive, []rune(pathLower), []rune(queryStripped)); sidx >= 0 {
+	// Compare path, using fuzzy match, non-greedy.
+	// E.g. "libdocker" will match "lib/docker/docker.go" at "lib/docker".
+	if sidx, eidx := fuzzyMatch(backward, !greedy, []rune(pathLower), []rune(queryStripped)); sidx >= 0 {
 		return &FileMatch{
 			Path:    path,
 			Offsets: []Offset{{sidx, eidx}},
@@ -94,7 +100,14 @@ func (p *Pattern) matchPath(path string) *FileMatch {
 	return nil
 }
 
-func fuzzyMatch(caseSensitive bool, runes []rune, pattern []rune) (int, int) {
+func runeAt(runes []rune, index int, max int, forward bool) rune {
+	if forward {
+		return runes[index]
+	}
+	return runes[max-index-1]
+}
+
+func fuzzyMatch(forward, greedy bool, runes []rune, pattern []rune) (int, int) {
 	if len(pattern) == 0 {
 		return 0, 0
 	}
@@ -103,24 +116,18 @@ func fuzzyMatch(caseSensitive bool, runes []rune, pattern []rune) (int, int) {
 	sidx := -1
 	eidx := -1
 
-	for index, char := range runes {
-		// This is considerably faster than blindly applying strings.ToLower to the
-		// whole string
-		if !caseSensitive {
-			// Partially inlining `unicode.ToLower`. Ugly, but makes a noticeable
-			// difference in CPU cost. (Measured on Go 1.4.1. Also note that the Go
-			// compiler as of now does not inline non-leaf functions.)
-			if char >= 'A' && char <= 'Z' {
-				char += 32
-			} else if char > unicode.MaxASCII {
-				char = unicode.To(unicode.LowerCase, char)
-			}
-		}
-		if char == pattern[pidx] {
+	lenRunes := len(runes)
+	lenPattern := len(pattern)
+
+	for index := range runes {
+		char := runeAt(runes, index, lenRunes, forward)
+		pchar := runeAt(pattern, pidx, lenPattern, forward)
+
+		if char == pchar {
 			if sidx < 0 {
 				sidx = index
 			}
-			if pidx++; pidx == len(pattern) {
+			if pidx++; pidx == lenPattern {
 				eidx = index + 1
 				break
 			}
@@ -128,24 +135,26 @@ func fuzzyMatch(caseSensitive bool, runes []rune, pattern []rune) (int, int) {
 	}
 
 	if sidx >= 0 && eidx >= 0 {
-		pidx--
-		for index := eidx - 1; index >= sidx; index-- {
-			char := runes[index]
-			if !caseSensitive {
-				if char >= 'A' && char <= 'Z' {
-					char += 32
-				} else if char > unicode.MaxASCII {
-					char = unicode.To(unicode.LowerCase, char)
-				}
-			}
-			if char == pattern[pidx] {
-				if pidx--; pidx < 0 {
-					sidx = index
-					break
+		// Try to shorten match.
+		if !greedy {
+			pidx--
+			for index := eidx - 1; index >= sidx; index-- {
+				char := runeAt(runes, index, lenRunes, forward)
+				pchar := runeAt(pattern, pidx, lenPattern, forward)
+
+				if char == pchar {
+					if pidx--; pidx < 0 {
+						sidx = index
+						break
+					}
 				}
 			}
 		}
-		return sidx, eidx
+
+		if forward {
+			return sidx, eidx
+		}
+		return lenRunes - eidx, lenRunes - sidx
 	}
 	return -1, -1
 }
