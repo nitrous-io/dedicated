@@ -292,9 +292,8 @@ App.IdeSidebarController = Em.ArrayController.extend
     path.addObject newPath
 
   saveNewPath: (path, name) ->
-    homePath = @get 'homePath'
-    parentAbsolutePath = path.get 'parentAbsolutePath'
-    if parentPath = homePath.findByRelativePath parentAbsolutePath
+    if parentPath = @findParentPath(path)
+      parentAbsolutePath = path.get 'parentAbsolutePath'
       opsSocket = @get 'opsSocket'
       absolutePath = _.chain([parentAbsolutePath, name]).compact().join('/').value()
 
@@ -316,8 +315,7 @@ App.IdeSidebarController = Em.ArrayController.extend
         opsSocket.writeNewFile absolutePath, '', callback
 
   cancelNewPath: (path) ->
-    homePath = @get 'homePath'
-    if parentPath = homePath.findByRelativePath path.get('parentAbsolutePath')
+    if parentPath = @findParentPath(path)
       parentPath.get('content').removeObject path
 
   renamePath: (path) ->
@@ -448,6 +446,11 @@ App.IdeSidebarController = Em.ArrayController.extend
     return @get('activeFilesMonitor')?.get('sortedFiles').any (file)->
       file.hasRemoteClients
   ).property 'overrideActiveFilesPane', 'activeFilesMonitor.sortedFiles'
+
+  findParentPath: (path)->
+    rootPath = @get 'rootPath'
+    parentAbsolutePath = path.get 'parentAbsolutePath'
+    return rootPath.findByRelativePath parentAbsolutePath
 
 App.IdeSidebarController.reopenClass
   REFRESH_DELAY: 200
