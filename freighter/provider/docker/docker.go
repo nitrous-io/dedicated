@@ -1596,16 +1596,44 @@ func gatewayFromIPOutput(output []byte) (string, error) {
 // https://github.com/nitrous-io/dedicated/issues/1918
 func (p *DockerProvider) FixImage(imageName string) error {
 	logrus.Infof("DockerProvider: Removing .nitrous-container-slug from %s", imageName)
-	info, err := p.client.InspectImage(imageName)
 
-	if err != nil {
-		logrus.Errorf("DockerProvider: failed to inspect the image %s: %v", imageName, err)
-		return err
+	currentImageName := imageName
+	pathToRemove := ""
+
+	for {
+		info, err := p.client.InspectImage(currentImageName)
+
+		if err != nil {
+			logrus.Errorf("DockerProvider: failed to inspect the image %s: %+v", currentImageName, err)
+			return err
+		}
+
+		currentFilePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", info.ID)
+		if _, err := os.Stat(currentFilePath); err != nil {
+			if os.IsNotExist(err) {
+				logrus.Info("DockerProvider: file does not exist %s. Try to find from parent image %s", currentFilePath, info.Parent)
+				if info.Parent == "" {
+					break
+				}
+				currentImageName = info.Parent
+				continue
+			} else {
+				logrus.Errorf("DockerProvider: failed to get status of .nitrous-container-slug: %+v", err)
+				return err
+			}
+		} else {
+			pathToRemove = currentFilePath
+			break
+		}
 	}
 
-	filePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", info.ID)
-	if err := os.Remove(filePath); err != nil {
-		logrus.Errorf("DockerProvider: failed to remove invalid file %s: %v", filePath, err)
+	if pathToRemove == "" {
+		logrus.Errorf("DockerProvider: failed to file .nitrous-container-slug")
+		return fmt.Errorf(".nitrous-container-slug not found")
+	}
+
+	if err := os.Remove(pathToRemove); err != nil {
+		logrus.Errorf("DockerProvider: failed to remove invalid file %s: %v", pathToRemove, err)
 		return err
 	}
 
