@@ -18,7 +18,7 @@ klass = class Go extends PluginBase
     ]
     cwd = ''
     env = []
-    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+    opsSocket.loginrun cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
       @document.processErrMessage stderr
       if err || cmdErr
         @document.set 'clean', true
@@ -46,7 +46,7 @@ klass = class Go extends PluginBase
     ]
     cwd = ''
     env = []
-    opsSocket.run cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+    opsSocket.loginrun cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
       if err || cmdErr
         if stderr
           @processOracleErr(context, stderr)

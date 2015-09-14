@@ -116,6 +116,21 @@ func buildWithSuUserShell(cmdStr string) *exec.Cmd {
 	return exec.Command("/bin/su", "-p", "-c", cmdStr, getNitrousUser())
 }
 
+func buildWithLoginUserShell(cmdStr string) *exec.Cmd {
+	nitrousEnv := []string{}
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "NITROUS_") {
+			nitrousEnv = append(nitrousEnv, env)
+		}
+	}
+	if len(nitrousEnv) > 0 {
+		cmdStr = fmt.Sprintf("%s %s", strings.Join(nitrousEnv, " "), cmdStr)
+	}
+	shell := getShellForUserCached(getNitrousUser())
+	cmdStr = shell + " -i -l -c " + shellquote.QuoteCmd(cmdStr)
+	return exec.Command("/bin/su", "--login", "-c", cmdStr, getNitrousUser())
+}
+
 func runCmd(cmd *exec.Cmd) (string, string, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -158,7 +173,12 @@ func doRun(msg *Message, ch chan *Message) {
 		sendErr(ch, msg, errors.New("invalid cwd argument"))
 		return
 	}
-	cmd := buildWithSuUserShell(cmdStr)
+	var cmd *exec.Cmd
+	if msg.Event == "loginrun" {
+		cmd = buildWithLoginUserShell(cmdStr)
+	} else {
+		cmd = buildWithSuUserShell(cmdStr)
+	}
 	cmd.Dir = strings.TrimSpace(cwd)
 
 	// setup additional environment variables (if given)
@@ -192,7 +212,7 @@ func doRun(msg *Message, ch chan *Message) {
 func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 	switch msg.Event {
-	case "run":
+	case "run", "loginrun":
 		go doRun(msg, resp)
 	default:
 		logrus.Errorf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)
