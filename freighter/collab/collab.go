@@ -2,7 +2,9 @@ package collab
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -85,6 +87,8 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 		onOp(c, msg.FileName, msg.Args)
 	case "sel":
 		onSel(c, msg.FileName, msg.Args)
+	case "activefiles":
+		onActiveFiles(c, msg.FileName)
 	}
 
 	return nil
@@ -120,7 +124,7 @@ func onDisconnect(c *Connection) {
 		}
 		for _, s := range Sessions {
 			if _, ok := s.Connections[c.ID]; ok {
-				c.Broadcast(s, "disconnected", map[string]string{
+				c.BroadcastAllConnections(s, "disconnected", map[string]string{
 					"conn_id": c.ID,
 				})
 			}
@@ -144,7 +148,7 @@ func onJoin(c *Connection, fileName, username, doc string) {
 		"conn_id": c.ID,
 	})
 
-	c.Broadcast(s, "joined", map[string]string{
+	c.BroadcastAllConnections(s, "joined", map[string]string{
 		"conn_id":  c.ID,
 		"username": c.Username,
 	})
@@ -157,7 +161,7 @@ func onLeave(c *Connection, fileName string) {
 	}
 
 	c.Send(fileName, "unregistered", nil)
-	c.Broadcast(s, "left", map[string]string{
+	c.BroadcastAllConnections(s, "left", map[string]string{
 		"conn_id": c.ID,
 	})
 }
@@ -169,6 +173,26 @@ func onRejoin(c *Connection, fileName string) {
 	} else {
 		c.Send(fileName, "rejoin_failed", nil)
 	}
+}
+
+func onActiveFiles(c *Connection, pfx string) {
+	filter := fmt.Sprintf("%s:", pfx)
+	sessions := map[string]interface{}{}
+	for _, s := range Sessions {
+		// only those matching the filter can see the information
+		if !strings.HasPrefix(s.ID, filter) {
+			continue
+		}
+
+		sessions[s.ID] = map[string]interface{}{
+			"document": s.Document,
+			"revision": len(s.Session.Operations),
+			"clients":  s.Session.Clients,
+		}
+	}
+	c.Send("", "activefiles", map[string]interface{}{
+		"sessions": sessions,
+	})
 }
 
 func onOp(c *Connection, fileName string, data []interface{}) {
@@ -222,9 +246,9 @@ func onOp(c *Connection, fileName string, data []interface{}) {
 
 	if sel, ok := top2.Meta.(*selection.Selection); ok {
 		s.SetSelection(c.ID, sel)
-		c.Broadcast(s, "op", []interface{}{c.ID, top2.Marshal(), sel.Marshal()})
+		c.BroadcastToSession(s, "op", []interface{}{c.ID, top2.Marshal(), sel.Marshal()})
 	} else {
-		c.Broadcast(s, "op", []interface{}{c.ID, top2.Marshal()})
+		c.BroadcastToSession(s, "op", []interface{}{c.ID, top2.Marshal()})
 	}
 }
 
@@ -262,6 +286,6 @@ func onSel(c *Connection, fileName string, data []interface{}) {
 
 	s.Lock.Lock()
 	s.SetSelection(c.ID, sel)
-	c.Broadcast(s, "sel", []interface{}{c.ID, selm, rev})
+	c.BroadcastToSession(s, "sel", []interface{}{c.ID, selm, rev})
 	s.Lock.Unlock()
 }

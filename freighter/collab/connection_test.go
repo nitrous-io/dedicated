@@ -112,27 +112,92 @@ func TestSend(t *testing.T) {
 	}
 }
 
-func TestBroadcast(t *testing.T) {
+func TestBroadcastToSession(t *testing.T) {
 	collab.Sessions = map[string]*collab.Session{}
 
 	b := &Writer{}
 	b2 := &Writer{}
 	b3 := &Writer{}
+	b4 := &Writer{}
 
 	s := collab.NewSession("foo.rb", "")
+	s2 := collab.NewSession("global", "")
+
 	c := collab.NewConnection(b, "u1", "")
 	c2 := collab.NewConnection(b2, "u2", "")
 	c3 := collab.NewConnection(b3, "u3", "")
+
+	c4 := collab.NewConnection(b4, "u4", "")
 
 	s.RegisterConnection(c)
 	s.RegisterConnection(c2)
 	s.RegisterConnection(c3)
 
+	s2.RegisterConnection(c4)
+
 	data := map[string]interface{}{
 		"bar": "baz",
 		"qux": float64(123),
 	}
-	c.Broadcast(s, "foo", data)
+	c.BroadcastToSession(s, "foo", data)
+
+	if len(b.Written) != 0 {
+		t.Errorf("nothing should have been written to connection 1's buffer")
+	}
+
+	if len(b4.Written) != 0 {
+		t.Errorf("nothing should have been written to connection 4's buffer")
+	}
+
+	expected := []interface{}{
+		s.ID,
+		"foo",
+		data,
+	}
+
+	for _, b := range []*Writer{b2, b3} {
+		var d []interface{}
+		j := b.Written[0]
+		if actual := string(j[:2]); actual != "d|" {
+			t.Fatalf(`should begin with "d|", got %s`, actual)
+		}
+		if err := json.Unmarshal(j[2:], &d); err != nil {
+			t.Fatalf("expected no error, got +%v", err)
+		}
+		if !reflect.DeepEqual(d, expected) {
+			t.Errorf("expected %+v to equal %+v", d, expected)
+		}
+	}
+}
+
+func TestBroadcastBroadcastAllConnections(t *testing.T) {
+	collab.Sessions = map[string]*collab.Session{}
+
+	b := &Writer{}
+	b2 := &Writer{}
+	b3 := &Writer{}
+	b4 := &Writer{}
+
+	s := collab.NewSession("foo.rb", "")
+	s2 := collab.NewSession("global", "")
+
+	c := collab.NewConnection(b, "u1", "")
+	c2 := collab.NewConnection(b2, "u2", "")
+	c3 := collab.NewConnection(b3, "u3", "")
+
+	c4 := collab.NewConnection(b4, "u4", "")
+
+	s.RegisterConnection(c)
+	s.RegisterConnection(c2)
+	s.RegisterConnection(c3)
+
+	s2.RegisterConnection(c4)
+
+	data := map[string]interface{}{
+		"bar": "baz",
+		"qux": float64(123),
+	}
+	c.BroadcastAllConnections(s, "foo", data)
 
 	if len(b.Written) != 0 {
 		t.Errorf("nothing should have been written to connection 1's buffer")
@@ -156,5 +221,23 @@ func TestBroadcast(t *testing.T) {
 		if !reflect.DeepEqual(d, expected) {
 			t.Errorf("expected %+v to equal %+v", d, expected)
 		}
+	}
+
+	expected = []interface{}{
+		"global",
+		"foo",
+		nil,
+	}
+
+	var d []interface{}
+	j := b4.Written[0]
+	if actual := string(j[:2]); actual != "d|" {
+		t.Fatalf(`should begin with "d|", got %s`, actual)
+	}
+	if err := json.Unmarshal(j[2:], &d); err != nil {
+		t.Fatalf("expected no error, got +%v", err)
+	}
+	if !reflect.DeepEqual(d, expected) {
+		t.Errorf("expected %+v to equal %+v", d, expected)
 	}
 }

@@ -70,13 +70,46 @@ func (c *Connection) Send(namespace, event string, data interface{}) error {
 	return nil
 }
 
-func (c *Connection) Broadcast(s *Session, event string, data interface{}) {
+func (c *Connection) BroadcastToSession(s *Session, event string, data interface{}) {
 	if s == nil {
 		return
 	}
+
 	for _, conn := range s.Connections {
 		if conn != c {
 			conn.Send(s.ID, event, data)
+		}
+	}
+}
+
+func (c *Connection) BroadcastAllConnections(s *Session, event string, data interface{}) {
+	usedConnections := map[*Connection]bool{}
+	if s == nil {
+		return
+	}
+
+	for _, conn := range s.Connections {
+		if conn != c {
+			usedConnections[conn] = true
+			conn.Send(s.ID, event, data)
+		}
+	}
+
+	globalSession := GetSession("global")
+	if globalSession != nil {
+		for _, conn := range globalSession.Connections {
+			if ok, _ := usedConnections[conn]; ok {
+				continue
+			}
+
+			if c == conn {
+				continue
+			}
+
+			// we send just the event with zero information
+			// to prevent leaking of data but to give
+			// other connections a chance to refresh
+			conn.Send("global", event, nil)
 		}
 	}
 }
