@@ -20,14 +20,14 @@ var (
 	HelpScout helpscout.HelpScout
 
 	nitrousMailbox helpscout.MailboxRef
-	nitrousPerson  helpscout.Person
+	nitrousUser    helpscout.Person
 )
 
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
 	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
-	nitrousPerson = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -51,7 +51,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// Prepare HelpScout API arguments.
 	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
 	customerMessage := helpscout.NewThread("customer", customer, body)
-	nitrousNote := helpscout.NewThread("note", nitrousPerson, metadata)
+	nitrousNote := helpscout.NewThread("note", nitrousUser, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
 	go func() {
