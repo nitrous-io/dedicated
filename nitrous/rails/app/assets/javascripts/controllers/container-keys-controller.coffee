@@ -6,13 +6,22 @@ App.ContainerKeysController = Lib.RecordListController.extend
 
   error: false
   notRunningError: false
+  githubKey: null
 
   clear: ->
     @_super.apply this, arguments
+    @getExistingGithubKeys()
     @setProperties
       error: false
       notRunningError: false
       saving: false
+
+  getExistingGithubKeys: ->
+    @get('model').ajax('GET', 'container_keys/github').then( (data)=>
+      @set('githubKey', data.keys[0])
+    , (jqxhr) ->
+    ).finally =>
+      @set 'saving', false
 
   actions:
     add: ->
