@@ -33,11 +33,13 @@ var (
 	nitrousUser     helpscout.Person
 )
 
+const HelpscoutProxyEmail = "support@nitrous.io"
+
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
 	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
-	nitrousCustomer = helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}
+	nitrousCustomer = helpscout.Person{Type: "customer", Email: HelpscoutProxyEmail}
 	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 

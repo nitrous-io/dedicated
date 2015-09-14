@@ -1333,7 +1333,7 @@ var _ = Describe("subscriptions", func() {
 						return fakeHelpScout.CreateConversationCalled
 					}).Should(Equal(1))
 
-					Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: envvars.HelpScoutCustomerEmail}))
+					Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: subscriptions.HelpscoutProxyEmail}))
 					Expect(fakeHelpScout.Subject).To(Equal("[ALERT]: Stripe - Multiple Failed Charge Attempts"))
 					Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
 
