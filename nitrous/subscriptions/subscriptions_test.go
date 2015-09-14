@@ -1178,7 +1178,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("reset failed_attempts counter to zero", func() {
+		It("resets failed_attempts counter to zero", func() {
 			fakeStripe.Responses = []string{
 				`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
 			}
@@ -1334,7 +1334,7 @@ var _ = Describe("subscriptions", func() {
 					}).Should(Equal(1))
 
 					Expect(fakeHelpScout.Customer).To(Equal(helpscout.Person{Type: "customer", Email: subscriptions.HelpscoutProxyEmail}))
-					Expect(fakeHelpScout.Subject).To(Equal("[ALERT]: Stripe - Multiple Failed Charge Attempts"))
+					Expect(fakeHelpScout.Subject).To(Equal("[ALERT] Stripe - Multiple Failed Charge Attempts"))
 					Expect(fakeHelpScout.Mailbox).To(Equal(helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: (envvars.HelpScoutMailboxName)}))
 
 					Expect(fakeHelpScout.Threads).To(HaveLen(1))
@@ -1425,6 +1425,35 @@ var _ = Describe("subscriptions", func() {
 					Eventually(func() int {
 						return fakeHelpScout.CreateConversationCalled
 					}).Should(Equal(2))
+				})
+
+				It("should append to existing suspicious column value when marking user as suspicious", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE users SET suspicious=$1 WHERE id=$2;`, sql.NullString{"a_spy", true}, u.ID)
+					Expect(err).To(BeNil())
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					var attempts int
+					err = db.Get(&attempts, `SELECT failed_attempts FROM billing_profiles WHERE stripe_id=$1;`, stripeID)
+					Expect(err).To(BeNil())
+					Expect(attempts).To(Equal(billingprofile.MaxFailedAttempts))
+
+					usr := &user.User{}
+					err = db.QueryRowx(`SELECT id, username, email, suspicious FROM users WHERE id=$1;`, u.ID).StructScan(usr)
+					Expect(err).To(BeNil())
+					Expect(usr.Suspicious.Valid).To(BeTrue())
+					Expect(usr.Suspicious.String).To(Equal("a_spy,failed_charge"))
 				})
 
 			})

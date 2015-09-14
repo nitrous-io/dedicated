@@ -167,8 +167,7 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 	}
 
 	u := &user.User{}
-	suspicious := sql.NullString{"failed_charge", true}
-	if err := d.QueryRowx(`UPDATE users SET suspicious=$1 WHERE id=$2 RETURNING id, username, email;`, suspicious, bp.UserID).StructScan(u); err != nil {
+	if err := d.QueryRowx(`UPDATE users SET suspicious=CONCAT_WS(',', suspicious, 'failed_charge') WHERE id=$1 RETURNING id, username, email;`, bp.UserID).StructScan(u); err != nil {
 		return err
 	}
 
@@ -195,7 +194,7 @@ func getStripeID(e *stripe.Event) (string, error) {
 }
 
 func SendChargeFailedTicket(u *user.User, e *stripe.Event) error {
-	subject := "[ALERT]: Stripe - Multiple Failed Charge Attempts"
+	subject := "[ALERT] Stripe - Multiple Failed Charge Attempts"
 	body := fmt.Sprintf("<strong>User</strong>: ID: %v, Username: %s, Email: %s", u.ID, u.Username, u.Email)
 	nitrousMessage := helpscout.NewThread("message", nitrousUser, body)
 	threads := []*helpscout.Thread{nitrousMessage}
