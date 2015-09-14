@@ -31,6 +31,8 @@ func Test(t *testing.T) {
 }
 
 var _ = Describe("controllers/containerkeys", func() {
+	type getGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error)
+
 	var (
 		db              *db.Database
 		svr             *server.Server
@@ -241,6 +243,62 @@ var _ = Describe("controllers/containerkeys", func() {
 
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
+	})
+
+	Describe("GET /api/v0/containers/{container}/container_keys/github", func() {
+		var originalGetGitHubKeysFunc getGitHubKeysFunc
+		doRequest := func() {
+			uri := fmt.Sprintf("/api/v0/containers/%s/container_keys/github", c.Slug)
+			req, err := test.NewAuthedRequest(t, "GET", uri, nil)
+			Expect(err).To(BeNil())
+			svr.Router().ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			originalGetGitHubKeysFunc = containerkeys.GetGitHubKeysFunc
+		})
+
+		AfterEach(func() {
+			containerkeys.GetGitHubKeysFunc = originalGetGitHubKeysFunc
+		})
+
+		It("returns container key that is added to github", func() {
+			containerkeys.GetGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+				return []string{key0}, nil
+			}
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			j := struct {
+				Keys []string `json:"keys"`
+			}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Keys).To(HaveLen(1))
+			Expect(j.Keys[0]).To(Equal(key0))
+		})
+
+		Context("when user hasn't authenticated with GitHub", func() {
+			It("responds with an error saying user to connect GitHub", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, errDesc := test.ErrorSlug(res.Body)
+				Expect(err).To(Equal("github_token_empty"))
+				Expect(errDesc).To(Equal("connect your GitHub account"))
+			})
+		})
+
+		Context("when user's github token is not valid", func() {
+			It("responds with token not valid", func() {
+				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE user_id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("github_token_not_valid"))
+				Expect(errDesc).To(Equal("GitHub token is not valid"))
 			})
 		})
 	})

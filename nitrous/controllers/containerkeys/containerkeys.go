@@ -15,11 +15,13 @@ import (
 )
 
 var (
-	Index       middleware.Middleware = containers.WithContainerAndHost(list, containers.AllowCollab)
-	AddToGitHub middleware.Middleware = containers.WithContainerAndHost(addToGitHub, containers.AllowCollab, containers.TouchHost)
+	Index            middleware.Middleware = containers.WithContainerAndHost(list, containers.AllowCollab)
+	AddToGitHub      middleware.Middleware = containers.WithContainerAndHost(addToGitHub, containers.AllowCollab, containers.TouchHost)
+	GetGitHubSSHKeys middleware.Middleware = containers.WithContainerAndHost(getGitHubSSHKeys, containers.AllowCollab, containers.TouchHost)
 
 	// separated out for mocking
-	AddGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) = addGitHubKeys
+	AddGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error)   = addGitHubKeys
+	GetGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) = getGitHubKeys
 
 	errGitHubTokenEmpty      = httperror.New(http.StatusBadRequest, "github_token_empty", "connect your GitHub account")
 	errGitHubTokenNotValid   = httperror.New(http.StatusBadRequest, "github_token_not_valid", "GitHub token is not valid")
@@ -72,15 +74,11 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 	if err != nil {
 		return "", err
 	}
+
 	// get current keys on GitHub to avoid adding duplicates
 	gitHubClient := github.GitHubClientFromToken(token)
-	// we pass empty user name even though we know it because that will call
-	// https://developer.github.com/v3/users/keys/#list-your-public-keys
-	// rather than
-	// https://developer.github.com/v3/users/keys/#list-public-keys-for-a-user
-	// which returns more information. User name will be deducted from
-	// oauth token
-	existingKeys, _, err := gitHubClient.Users.ListKeys("", nil)
+
+	existingKeys, err := githubKeys(gitHubClient)
 	if err != nil {
 		return "", err
 	}
@@ -137,4 +135,64 @@ func addToGitHub(cn *container.Container, h *host.Host, env *middleware.Env, w h
 		"msg": msg,
 	}
 	return nil
+}
+
+func getGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+	token, err := github.GetTokenIfValid(env)
+	if err != nil {
+		return nil, err
+	}
+
+	// get current keys on GitHub to avoid adding duplicates
+	gitHubClient := github.GitHubClientFromToken(token)
+
+	existingKeys, err := githubKeys(gitHubClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var keys []string
+	for _, githubKey := range existingKeys {
+		keys = append(keys, *githubKey.Key)
+	}
+
+	return keys, nil
+}
+
+// getGitHubSSHKeys gets public keys from github for a given user
+// Expect 0 or 1 keys since a user can add one key per container
+func getGitHubSSHKeys(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	keys, err := GetGitHubKeysFunc(cn, h, env)
+
+	if err != nil {
+		switch err {
+		case github.ErrTokenEmpty:
+			return errGitHubTokenEmpty
+		case github.ErrTokenNotValid:
+			return errGitHubTokenNotValid
+		default:
+			return err
+		}
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"keys": keys,
+	}
+	return nil
+}
+
+func githubKeys(gitHubClient *githubapi.Client) ([]githubapi.Key, error) {
+	// we pass empty user name even though we know it because that will call
+	// https://developer.github.com/v3/users/keys/#list-your-public-keys
+	// rather than
+	// https://developer.github.com/v3/users/keys/#list-public-keys-for-a-user
+	// which returns more information. User name will be deduced from
+	// oauth token
+	existingKeys, _, err := gitHubClient.Users.ListKeys("", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return existingKeys, nil
 }
