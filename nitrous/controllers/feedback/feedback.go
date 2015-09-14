@@ -20,14 +20,14 @@ var (
 	HelpScout helpscout.HelpScout
 
 	nitrousMailbox helpscout.MailboxRef
-	nitrousPerson  helpscout.Person
+	nitrousUser    helpscout.Person
 )
 
 func init() {
 	HelpScout = &helpscout.Conversation{}
 
 	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
-	nitrousPerson = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
 }
 
 func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -51,13 +51,13 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// Prepare HelpScout API arguments.
 	customer := helpscout.NewCustomer(env.User.Email, env.User.Username, env.User.Name)
 	customerMessage := helpscout.NewThread("customer", customer, body)
-	nitrousNote := helpscout.NewThread("note", nitrousPerson, metadata)
+	nitrousNote := helpscout.NewThread("note", nitrousUser, metadata)
 	threads := []*helpscout.Thread{customerMessage, nitrousNote}
 
 	go func() {
 		err := HelpScout.CreateConversation(customer, subject, nitrousMailbox, threads)
 		if err != nil {
-			logrus.Errorf("helpscout: failed to create conversation: customer: %s, subject: %s, mailbox: %s, threads: %s. err: %v", customer, subject, nitrousMailbox, threads, err)
+			logrus.Errorf("helpscout: failed to create conversation: customer: %+v, subject: %s, mailbox: %+v, threads: %+v, %+v. err: %v", customer, subject, nitrousMailbox, threads[0], threads[1], err)
 		}
 	}()
 
