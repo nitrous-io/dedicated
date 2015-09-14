@@ -411,8 +411,7 @@ App.IdeSidebarController = Em.ArrayController.extend
     return if path == @get 'rootPath'
     deleteMethod = if path.get('directory') then 'deleteDir' else 'deleteFile'
     opsSocket = @get 'opsSocket'
-    homePath = @get 'homePath'
-    parentPath = homePath.findByRelativePath path.get('parentAbsolutePath')
+    parentPath = @findParentPath path
     path.set 'beingDeleted', true
     path.incrementProperty 'loadCount'
 
