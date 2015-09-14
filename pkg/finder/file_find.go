@@ -99,18 +99,25 @@ type FileNameMatch struct {
 	Score    float64
 }
 
-type fileNameMatchByScore []*FileNameMatch
+type byScoreAndPath []*FileNameMatch
 
-func (s fileNameMatchByScore) Len() int {
-	return len(s)
+func (b byScoreAndPath) Len() int {
+	return len(b)
 }
 
-func (s fileNameMatchByScore) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
+func (b byScoreAndPath) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }
 
-func (s fileNameMatchByScore) Less(i, j int) bool {
-	return s[i].Score > s[j].Score
+func (b byScoreAndPath) Less(i, j int) bool {
+	switch {
+	case b[i].Score > b[j].Score:
+		return true
+	case b[i].Score < b[j].Score:
+		return false
+	default:
+		return b[i].FilePath < b[j].FilePath
+	}
 }
 
 func init() {
@@ -228,7 +235,7 @@ func getCachedDir(path string) (*DirInfo, error) {
 	return di, nil
 }
 
-func collectDirInfos(dir string) ([]*DirInfo, error) {
+func subdirs(dir string) ([]*DirInfo, error) {
 	var res []*DirInfo
 	dirsToVisit := []string{dir}
 
@@ -445,8 +452,8 @@ func fileNameMatch(dir, name string, terms []MatchTerm) *FileNameMatch {
 
 // a match can come from cache. to avoid false positives, we verify that
 // matched file still exists on disk
-func fileStillExists(match *FileNameMatch) bool {
-	_, err := os.Stat(match.FilePath)
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
 	return err == nil
 }
 
@@ -465,23 +472,24 @@ func FindFiles(dir string, term string) ([]*FileNameMatch, error) {
 	}
 
 	terms := parseSearchTerm(term)
-	dirs, err := collectDirInfos(dir)
+	dirs, err := subdirs(dir)
 	if err != nil {
 		return nil, err
 	}
+
 	var matches []*FileNameMatch
-	nTotalFiles := 0
 	for _, di := range dirs {
-		nTotalFiles += di.nFiles
 		for i := 0; i < di.nFiles; i++ {
 			match := fileNameMatch(di.dir, di.GetFile(i), terms)
 			// we might have used file names cached in memory so avoid false positives
 			// by rejecting matches for files that no longer exist on disk
-			if match != nil && fileStillExists(match) {
+			if match != nil && fileExists(match.FilePath) {
 				matches = append(matches, match)
 			}
 		}
 	}
-	sort.Sort(fileNameMatchByScore(matches))
+
+	sort.Sort(byScoreAndPath(matches))
+
 	return matches, nil
 }

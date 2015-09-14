@@ -6,6 +6,7 @@ VERSION=$(shell git rev-parse --short HEAD)
 
 APP=all
 SUITE=
+PATTERN=
 
 all: binary
 
@@ -41,6 +42,11 @@ test: image
 	@echo "$(OK_COLOR)==> Running tests $(VERSION)...$(NO_COLOR)"
 	@./script/test-in-container $(APP) $(VERSION) $(SUITE)
 .PHONY: test
+
+benchmark: image
+	@echo "$(OK_COLOR)==> Running benchmarks...$(NO_COLOR)"
+	./script/benchmark-in-container $(PKG) $(PATTERN)
+.PHONY: benchmark
 
 shell: image
 	@./script/test-in-container shell
@@ -102,3 +108,5 @@ dropdb:
 dbseed: nitrous
 	forego run -e nitrous/.env build/dbseed
 .PHONY: dbseed
+
+print-%: ; @echo $*=$($*)
