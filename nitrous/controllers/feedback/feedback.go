@@ -57,7 +57,7 @@ func Send(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	go func() {
 		err := HelpScout.CreateConversation(customer, subject, nitrousMailbox, threads)
 		if err != nil {
-			logrus.Errorf("helpscout: failed to create conversation: customer: %s, subject: %s, mailbox: %s, threads: %s. err: %v", customer, subject, nitrousMailbox, threads, err)
+			logrus.Errorf("helpscout: failed to create conversation: customer: %+v, subject: %s, mailbox: %+v, threads: %+v, %+v. err: %v", customer, subject, nitrousMailbox, threads[0], threads[1], err)
 		}
 	}()
 
