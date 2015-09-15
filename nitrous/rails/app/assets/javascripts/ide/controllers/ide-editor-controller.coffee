@@ -82,8 +82,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     tab = @get 'activeTab' unless tab
     return unless tab
     if tab.get('clean') || forceRemove
-      opsSocket = @get 'opsSocket'
-      opsSocket.unwatchFile tab.get('path.absolutePath')
+      if absPath = tab.get('path.absolutePath')
+        opsSocket = @get 'opsSocket'
+        opsSocket.unwatchFile absPath
 
       @_super(tab)
     else

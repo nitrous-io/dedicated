@@ -9,7 +9,6 @@ App.BillingRoute = App.AuthedRoute.extend
 
     App.refreshUsage()
     App.refreshInvoices()
-    App.refreshSubscriptions()
 
   activate: ->
     App.set 'title', 'Billing'

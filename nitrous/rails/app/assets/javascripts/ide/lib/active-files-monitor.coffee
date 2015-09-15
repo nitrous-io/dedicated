@@ -9,11 +9,16 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
     @_super.apply this, arguments
 
     collabSocket = @get 'collabSocket'
-    collabSocket.on "activefiles|global", @handleActiveReceived.bind(this)
-    collabSocket.on "joined|global", @handleJoined.bind(this)
-    collabSocket.on "left|global", @handleLeft.bind(this)
 
-    collabSocket.on "reconnected", @handleReconnected.bind(this)
+    # we join the global namespace so we receive broadcasted events
+    collabSocket.send 'global', 'join', ''
+
+    collabSocket.on 'activefiles|global', @handleActiveReceived.bind(this)
+    collabSocket.on 'joined|global', @handleJoined.bind(this)
+    collabSocket.on 'left|global', @handleLeft.bind(this)
+    collabSocket.on 'disconnected|global', @handleLeft.bind(this)
+
+    collabSocket.on 'reconnected', @handleReconnected.bind(this)
 
     @set 'remoteFiles', {}
     @set 'localFiles', {}
@@ -27,7 +32,7 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
     hsh = {}
     for tab in tabs.get('content')
       pathObj = tab.get && tab.get('path')
-      if pathObj.get && (pth = pathObj.get('absolutePath'))
+      if pth = pathObj?.get?('absolutePath')
         hsh[pth] = true
 
     @set 'localFiles', hsh
@@ -36,48 +41,25 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
   handleActiveReceived: (data)->
     hsh = {}
     for id in Object.keys(data.sessions)
-      file = @fileFromNamespace(id)
-      clients = []
-      for cID in Object.keys(data.sessions[id].clients)
-        client = data.sessions[id].clients[cID]
-        @userMap[cID] = client.name
+      unless id == "global"
+        file = @fileFromNamespace(id)
+        if file
+          clients = []
+          for cID in Object.keys(data.sessions[id].clients)
+            client = data.sessions[id].clients[cID]
+            @userMap[cID] = client.name
 
-        unless client.name == @get("username")
-          clients.push cID
-      if clients.length
-        hsh[file] = clients
+            unless client.name == @get("username")
+              clients.push cID
+          if clients.length
+            hsh[file] = clients
     @set 'remoteFiles', hsh
 
   handleJoined: (msg)->
-    data = msg.data
-    return if data.username == @get("username")
-
-    @userMap[data.conn_id] = data.username
-
-    file = @fileFromNamespace(msg.namespace)
-    remoteFiles = @get 'remoteFiles'
-    existing = remoteFiles[file] || []
-    existing.push data.conn_id
-    remoteFiles[file] = existing
-
-    @propertyDidChange 'remoteFiles'
+    @refresh()
 
   handleLeft: (msg)->
-    data = msg.data
-    return if data.username == @get("username")
-
-    @userMap[data.conn_id] = data.username
-
-    file = @fileFromNamespace(msg.namespace)
-    remoteFiles = @get 'remoteFiles'
-    if existing = remoteFiles[file]
-      loc = existing.indexOf data.conn_id
-      if loc != -1
-        existing.splice(loc, 1)
-
-        if existing.length == 0
-          delete remoteFiles[file]
-        @propertyDidChange 'remoteFiles'
+    @refresh()
 
   sortedFiles: (->
     localFiles = @get 'localFiles'
@@ -122,7 +104,9 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
 
   refresh: ->
     collabSocket = @get 'collabSocket'
-    collabSocket.send "", "activefiles"
+    collabSocket.send App.get('container.slug'), "activefiles"
 
   fileFromNamespace: (namespace)->
-    namespace.match(/^[^:]+:(.+)/)[1]
+    match = namespace.match(/^[^:]+:(.+)/)
+    return unless match
+    match[1]
