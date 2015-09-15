@@ -154,6 +154,44 @@ var _ = Describe("CreateStart", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(os.IsNotExist(err)).To(BeTrue())
 		})
+
+		It("removes .nitrous-container-slug file from parent if current image does not have it", func() {
+			// Create a empty file in the image directly
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
+
+			output, err := exec.Command("docker", "inspect", "-f", "{{.Parent}}", "busybox:latest").Output()
+			Expect(err).To(BeNil())
+
+			imageID := strings.TrimSpace(string(output))
+			invalidFilePath := fmt.Sprintf("/var/lib/docker/aufs/diff/%s/.nitrous-container-slug", imageID)
+
+			f, err := os.Create(invalidFilePath)
+			Expect(err).To(BeNil())
+			f.Close()
+
+			defer os.Remove(invalidFilePath)
+
+			err = prov.FixImage("busybox:latest")
+			Expect(err).To(BeNil())
+
+			_, err = os.Stat(invalidFilePath)
+			Expect(err).NotTo(BeNil())
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+
+		It("return error if .nitrous-container-slug does not exist", func() {
+			// Create a empty file in the image directly
+			datadir, err := test.TempDir()
+			Expect(err).To(BeNil())
+			defer os.RemoveAll(datadir)
+			prov, _ := docker.NewDockerProvider(datadir)
+
+			err = prov.FixImage("busybox:latest")
+			Expect(err).NotTo(BeNil())
+		})
 	})
 
 	Describe("RemoveContainerWithName", func() {
@@ -185,4 +223,5 @@ var _ = Describe("CreateStart", func() {
 			Expect(err).NotTo(BeNil())
 		})
 	})
+
 })
