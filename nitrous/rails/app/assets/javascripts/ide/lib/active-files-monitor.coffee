@@ -32,7 +32,7 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
     hsh = {}
     for tab in tabs.get('content')
       pathObj = tab.get && tab.get('path')
-      if pathObj.get && (pth = pathObj.get('absolutePath'))
+      if pathObj && pathObj.get && (pth = pathObj.get('absolutePath'))
         hsh[pth] = true
 
     @set 'localFiles', hsh
