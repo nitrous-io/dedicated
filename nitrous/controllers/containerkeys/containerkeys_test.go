@@ -32,6 +32,7 @@ func Test(t *testing.T) {
 
 var _ = Describe("controllers/containerkeys", func() {
 	type getGitHubKeysFunc func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error)
+	type removeGitHubKeyFunc func(cn *container.Container, h *host.Host, env *middleware.Env) error
 
 	var (
 		db              *db.Database
@@ -277,6 +278,63 @@ var _ = Describe("controllers/containerkeys", func() {
 			Expect(err).To(BeNil())
 			Expect(j.Keys).To(HaveLen(1))
 			Expect(j.Keys[0]).To(Equal(key0))
+		})
+
+		Context("when user hasn't authenticated with GitHub", func() {
+			It("responds with an error saying user to connect GitHub", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				err, errDesc := test.ErrorSlug(res.Body)
+				Expect(err).To(Equal("github_token_empty"))
+				Expect(errDesc).To(Equal("connect your GitHub account"))
+			})
+		})
+
+		Context("when user's github token is not valid", func() {
+			It("responds with token not valid", func() {
+				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE user_id = $1", u.ID)
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("github_token_not_valid"))
+				Expect(errDesc).To(Equal("GitHub token is not valid"))
+			})
+		})
+	})
+
+	Describe("DELETE /api/v0/containers/{container}/container_keys/github", func() {
+		var originalRemoveFromGitHubFunc removeGitHubKeyFunc
+		var removeGitHubKeyFuncCalled int
+
+		doRequest := func() {
+			uri := fmt.Sprintf("/api/v0/containers/%s/container_keys/github", c.Slug)
+			req, err := test.NewAuthedRequest(t, "DELETE", uri, nil)
+			Expect(err).To(BeNil())
+			svr.Router().ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			removeGitHubKeyFuncCalled = 0
+			originalRemoveFromGitHubFunc = containerkeys.RemoveFromGitHubFunc
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
+		})
+
+		AfterEach(func() {
+			containerkeys.RemoveFromGitHubFunc = originalRemoveFromGitHubFunc
+		})
+
+		It("remove specfied key from github", func() {
+			containerkeys.RemoveFromGitHubFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) error {
+				removeGitHubKeyFuncCalled++
+				return nil
+			}
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+			Expect(removeGitHubKeyFuncCalled).To(Equal(1))
 		})
 
 		Context("when user hasn't authenticated with GitHub", func() {
