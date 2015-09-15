@@ -119,3 +119,59 @@ func FIXMETestShellAttachThenExit(t *testing.T) {
 		t.Fatal("timed out waiting for attach")
 	}
 }
+
+func TestShellResize(t *testing.T) {
+	if err := buildBase(); err != nil {
+		t.Fatalf("failed to build base %v", err)
+	}
+
+	out, err := exec.Command("docker", "run", "-d", "-t", "-i", "--name", "testing", "base:latest", "top").CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to start container %s %v", string(out), err)
+	}
+	defer exec.Command("docker", "rm", "-f", "testing").Run()
+
+	id := strings.TrimSpace(string(out))
+	command := "sh"
+	sh, err := OpenShell(id, "", command, false)
+	if err != nil {
+		t.Fatalf("failed to open a shell %v", err)
+	}
+
+	// Resize before start exec session
+	err = sh.Resize(100, 100)
+	if err != ErrExecNotRunning {
+		t.Fatalf("unexpect error after resizing: %+v", err)
+	}
+
+	// Check if the container is crashed
+	out, err = exec.Command("docker", "inspect", "--format={{.State.Running}}", "testing").CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to inspect container: %+v", err)
+	}
+
+	if strings.TrimSpace(string(out)) != "true" {
+		t.Fatalf("the container is crashed after resizing: %+v", err)
+	}
+
+	// Start exec
+	stdinR, stdinW := io.Pipe()
+	stdout := bytes.NewBuffer(nil)
+	ch := make(chan error, 1)
+	attached := make(chan struct{})
+	go func() { ch <- sh.Attach(stdinR, stdout, attached) }()
+
+	select {
+	case <-attached:
+		// Resize again to make sure it works after start exec session
+		err = sh.Resize(100, 100)
+		if err != nil {
+			t.Fatalf("unexpect error after resizing: %+v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+		stdinW.Write([]byte("exit\r\n"))
+
+	case <-time.After(1 * time.Second):
+		t.Fatal("timed out waiting for attach")
+	}
+}
