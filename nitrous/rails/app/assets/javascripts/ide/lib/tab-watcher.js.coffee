@@ -17,23 +17,26 @@ class @TabWatcher
 
   syncChanges: ->
     allTabs = @rootPane.allTabs()
-    content = allTabs.map (tab)->
+    changes = []
+    for tab in allTabs
       pathValue = null
       path = tab.get('path')
-      if typeof path is 'string'
-        pathValue = path
-      else
-        pathValue = path.get('absolutePath')
+      if path
+        if typeof path is 'string'
+          pathValue = path
+        else
+          pathValue = path.get('absolutePath')
 
-      {
-        path: pathValue,
-        scrollPosition: tab.get('scrollPosition'),
-        selections: tab.get('selections'),
-        active: tab.get('active'),
-        readme: tab.get('readme')
-      }
+        change = {
+          path: pathValue,
+          scrollPosition: tab.get('scrollPosition'),
+          selections: tab.get('selections'),
+          active: tab.get('active'),
+          readme: tab.get('readme')
+        }
+        changes.push change
 
-    @container.setUserData('openTabs', content).fail =>
+    @container.setUserData('openTabs', changes).fail =>
       @scheduleSync(10000)
 
   @notifyOfChange: ->
