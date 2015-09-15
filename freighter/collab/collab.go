@@ -2,7 +2,9 @@ package collab
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,7 +88,7 @@ func HandleCollabMessage(c *Connection, data []byte) error {
 	case "sel":
 		onSel(c, msg.FileName, msg.Args)
 	case "activefiles":
-		onActiveFiles(c)
+		onActiveFiles(c, msg.FileName)
 	}
 
 	return nil
@@ -101,7 +103,7 @@ func onConnect(ws MessageReaderWriter, username, connID string) *Connection {
 	activeConnectionsLock.Lock()
 	ActiveConnections[c.ID]++
 	activeConnectionsLock.Unlock()
-	c.Send("", "connected", map[string]interface{}{
+	c.Send("", "connected", map[string]string{
 		"conn_id": c.ID,
 	})
 	return c
@@ -122,7 +124,7 @@ func onDisconnect(c *Connection) {
 		}
 		for _, s := range Sessions {
 			if _, ok := s.Connections[c.ID]; ok {
-				c.BroadcastToSession(s, "disconnected", map[string]string{
+				c.BroadcastAllConnections(s, "disconnected", map[string]string{
 					"conn_id": c.ID,
 				})
 			}
@@ -146,7 +148,7 @@ func onJoin(c *Connection, fileName, username, doc string) {
 		"conn_id": c.ID,
 	})
 
-	BroadcastGlobally(s, "joined", map[string]string{
+	c.BroadcastAllConnections(s, "joined", map[string]string{
 		"conn_id":  c.ID,
 		"username": c.Username,
 	})
@@ -159,9 +161,8 @@ func onLeave(c *Connection, fileName string) {
 	}
 
 	c.Send(fileName, "unregistered", nil)
-	BroadcastGlobally(s, "left", map[string]string{
-		"conn_id":  c.ID,
-		"username": c.Username,
+	c.BroadcastAllConnections(s, "left", map[string]string{
+		"conn_id": c.ID,
 	})
 }
 
@@ -174,9 +175,15 @@ func onRejoin(c *Connection, fileName string) {
 	}
 }
 
-func onActiveFiles(c *Connection) {
+func onActiveFiles(c *Connection, pfx string) {
+	filter := fmt.Sprintf("%s:", pfx)
 	sessions := map[string]interface{}{}
 	for _, s := range Sessions {
+		// only those matching the filter can see the information
+		if !strings.HasPrefix(s.ID, filter) {
+			continue
+		}
+
 		sessions[s.ID] = map[string]interface{}{
 			"document": s.Document,
 			"revision": len(s.Session.Operations),

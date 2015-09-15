@@ -34,6 +34,7 @@ App.CollabSocket = klass = App.EventedSocket.extend
     if namespace && event
       @trigger("#{event}|#{namespace}", data)
 
-    if event == "joined" || event == "left"
+    # force leave, join, disconnected to be global
+    if namespace != "global" && (event == "joined" || event == "left" || event == "disconnected")
       d = {data: data, namespace: namespace}
       @trigger "#{event}|global", d
