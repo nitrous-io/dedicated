@@ -41,16 +41,18 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
   handleActiveReceived: (data)->
     hsh = {}
     for id in Object.keys(data.sessions)
-      file = @fileFromNamespace(id)
-      clients = []
-      for cID in Object.keys(data.sessions[id].clients)
-        client = data.sessions[id].clients[cID]
-        @userMap[cID] = client.name
+      unless id == "global"
+        file = @fileFromNamespace(id)
+        if file
+          clients = []
+          for cID in Object.keys(data.sessions[id].clients)
+            client = data.sessions[id].clients[cID]
+            @userMap[cID] = client.name
 
-        unless client.name == @get("username")
-          clients.push cID
-      if clients.length
-        hsh[file] = clients
+            unless client.name == @get("username")
+              clients.push cID
+          if clients.length
+            hsh[file] = clients
     @set 'remoteFiles', hsh
 
   handleJoined: (msg)->
@@ -105,4 +107,6 @@ App.ActiveFilesMonitor = klass = Em.Object.extend
     collabSocket.send App.get('container.slug'), "activefiles"
 
   fileFromNamespace: (namespace)->
-    namespace.match(/^[^:]+:(.+)/)[1]
+    match = namespace.match(/^[^:]+:(.+)/)
+    return unless match
+    match[1]
