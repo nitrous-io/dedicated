@@ -1683,54 +1683,6 @@ var _ = Describe("client", func() {
 		})
 	})
 
-	Describe("UpgradeServer()", func() {
-		BeforeEach(func() {
-			handlers := ghttp.CombineHandlers(
-				func(w http.ResponseWriter, req *http.Request) {
-					req.ParseForm()
-				},
-				ghttp.VerifyRequest("POST", "/upgrade"),
-				ghttp.VerifyContentType("application/x-www-form-urlencoded"),
-				ghttp.RespondWithPtr(&statusCode, &responseBody),
-			)
-			st, _ = NewServerTest(handlers)
-			cl, host, server = st.client, st.host, st.server
-		})
-
-		AfterEach(func() {
-			st.Close()
-		})
-
-		It("returns nil when server responds with HTTP 202 Accepted", func() {
-			statusCode = http.StatusAccepted
-			err := cl.UpgradeServer(&freighterclient.HostVersions{
-				DockerVersion:     "1.5.0-nitrous2",
-				FreighterdVersion: "1.0.88-deadbef0",
-			})
-			Expect(err).To(BeNil())
-
-			reqs := server.ReceivedRequests()
-			Expect(reqs).To(HaveLen(1))
-			Expect(reqs[0].PostFormValue("docker_version")).To(Equal("1.5.0-nitrous2"))
-			Expect(reqs[0].PostFormValue("freighterd_version")).To(Equal("1.0.88-deadbef0"))
-		})
-
-		It("returns ErrAlreadyUpgraded when server responds with HTTP 204 No Content", func() {
-			statusCode = http.StatusNoContent
-			err := cl.UpgradeServer(&freighterclient.HostVersions{})
-			Expect(err).To(Equal(freighterclient.ErrAlreadyUpgraded))
-			Expect(server.ReceivedRequests()).To(HaveLen(1))
-		})
-
-		It("returns a StatusError when server responds with HTTP 204 No Content", func() {
-			statusCode = http.StatusInternalServerError
-			err := cl.UpgradeServer(&freighterclient.HostVersions{})
-			_, ok := err.(*freighterclient.StatusError)
-			Expect(ok).To(BeTrue())
-			Expect(server.ReceivedRequests()).To(HaveLen(1))
-		})
-	})
-
 	Describe("HostUtilization()", func() {
 		BeforeEach(func() {
 			handlers := ghttp.CombineHandlers(
