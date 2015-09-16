@@ -29,6 +29,7 @@ App.Host = klass = App.Model.extend
   pendingRespec: attr('boolean', as: 'pending_respec', serialize: false)
   subscriptionSlug: attr('string', as: 'subscription_slug', serialize: false)
   free: attr('boolean', serialize: false)
+  autoShutdown: attr('boolean', as: 'auto_shutdown', serialize: false)
 
   # only used in create
   planSlug: attr(as: 'size')
