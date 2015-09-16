@@ -29,8 +29,9 @@ var (
 )
 
 var (
-	ErrMissingArg  = errors.New("Missing arguments: check id and command")
-	ErrInvalidTerm = errors.New("Invalid term")
+	ErrMissingArg     = errors.New("Missing arguments: check id and command")
+	ErrInvalidTerm    = errors.New("Invalid term")
+	ErrExecNotRunning = errors.New("Exec is not started")
 
 	dockerHost = "unix:///var/run/docker.sock"
 	// time to wait for process to close normally before we terminate it
@@ -255,5 +256,18 @@ func (s *Shell) Resize(w, h int) error {
 	if h == 0 {
 		h = defaultHeight
 	}
+
+	// Docker panic when resizing before exec is started.
+	// This is fixed on https://github.com/docker/docker/pull/14899.
+	// But it is only on master branch. To avoid it, this make sure not to panic when resizing
+	info, err := s.client.InspectExec(s.execID)
+	if err != nil {
+		return err
+	}
+
+	if !info.Running {
+		return ErrExecNotRunning
+	}
+
 	return s.client.ResizeExecTTY(s.execID, h, w)
 }
