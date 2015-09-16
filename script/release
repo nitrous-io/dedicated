@@ -79,6 +79,8 @@ bundle_binary() {
   pkg=${BINARY}-${VERSION}.tar.gz
   latestpkg=${BINARY}-latest.tar.gz
 
+  echo "BINARY_VERSION=${VERSION}" > jenkins.properties
+
   (
   cd $BUILD_DIR
   tar zvcf $pkg $BINARY $@
@@ -110,6 +112,8 @@ bundle_freighter() {
   PACKAGE_LICENSE="All Rights Reserved - Irrational Industries d/b/a Nitrous.IO"
   PACKAGE_URL="nitrous.io"
   APP=$PACKAGE_NAME
+
+  echo "FREIGHTER_VERSION=${VERSION}" > jenkins.properties
 
   rm -rf $PKGDIR/*.deb
 
