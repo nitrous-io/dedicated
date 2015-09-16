@@ -3,12 +3,10 @@ package host_test
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -150,58 +148,6 @@ var _ = Describe("RestartServices", func() {
 		start := time.Now()
 		err := ctx.Run(host.Step{
 			Func:    host.RestartServices,
-			Timeout: time.Millisecond,
-		})
-
-		Expect(time.Since(start) < time.Second).To(BeTrue(), "failed to timed out. Taken %v", time.Since(start))
-		Expect(err).To(Equal(context.DeadlineExceeded))
-	})
-})
-
-var _ = Describe("UpdateSoftware", func() {
-	It("update the freighterd service", func() {
-		e := &dumbExecutor{}
-		ctx := host.NewContext(context.Background(), &dummy.Host{Version: "0.0.1"}, &dumbLogger{}, ioutil.Discard)
-		ctx.Executor = e
-
-		err := host.UpdateSoftware(ctx)
-		Expect(err).To(BeNil())
-		parts := []string{
-			"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
-			"-o APT::List-Cleanup=0",
-			`-o Dir::Etc::sourceparts="/dev/null"`,
-			`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
-			`&&`,
-			"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
-			`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-			`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-		}
-		Expect(e.cmds[0]).To(ContainSubstring(strings.Join(parts, " ")))
-	})
-
-	It("fails when specifying version results in error", func() {
-		ctx := host.NewContext(context.Background(), &dummy.Host{Version: "0.0.1"}, &dumbLogger{}, ioutil.Discard)
-		ctx.Executor = &dumbExecutor{
-			nextError: errors.New("invalid version"),
-		}
-		err := host.UpdateSoftware(ctx)
-		Expect(err).ToNot(BeNil())
-
-		ctx = host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
-		ctx.Executor = &dumbExecutor{
-			nextError: errors.New("invalid version"),
-		}
-		err = host.UpdateSoftware(ctx)
-		Expect(err).To(BeNil())
-	})
-
-	It("cancels early when the operation times out", func() {
-		ctx := host.NewContext(context.Background(), &dummy.Host{}, &dumbLogger{}, ioutil.Discard)
-		ctx.Executor = &dumbExecutor{nextDuration: time.Second}
-
-		start := time.Now()
-		err := ctx.Run(host.Step{
-			Func:    host.UpdateSoftware,
 			Timeout: time.Millisecond,
 		})
 
