@@ -14,9 +14,10 @@ const (
 )
 
 type Plan struct {
-	ID         int64         `db:"id"`
-	BasePlanID sql.NullInt64 `db:"base_plan_id"`
-	PaidPlanID sql.NullInt64 `db:"paid_plan_id"`
+	ID                int64         `db:"id"`
+	BasePlanID        sql.NullInt64 `db:"base_plan_id"`
+	PaidPlanID        sql.NullInt64 `db:"paid_plan_id"`
+	HostingModePlanID sql.NullInt64 `db:"hosting_mode_plan_id"`
 
 	Name         string         `db:"name"`
 	Description  string         `db:"description"`
