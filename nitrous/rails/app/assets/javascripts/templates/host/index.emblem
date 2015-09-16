@@ -142,7 +142,7 @@
       else
         if isStopped
           .left
-            if App.billingProfile.free
+            if free
               button.ui.btn click='upgradePaid' Upgrade
 
             if canCancelSubscription
