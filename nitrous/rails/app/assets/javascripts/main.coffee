@@ -168,6 +168,10 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 
+  usingOldDomain: (->
+    window.location.hostname.match /^pro\./
+  ).observes 'window.location.hostname'
+
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0
 
