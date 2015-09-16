@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,21 @@ func (h *Host) List() ([]*host.Info, error) {
 		instanceInfos := []*host.Info{}
 		for region, instances := range allInstances {
 			for _, instance := range instances {
+				// acquired pool instances have the time of acquisition in the
+				// poolTag.  We use this as a proxy for launch time.
+				ltime := &instance.LaunchTime
+				poolValue := tagValue(poolTag, instance.Tags)
+				// empty string will return err in Atoi; takes care of case
+				// where instance is not in pool
+				timeInt, err := strconv.Atoi(poolValue)
+				if err == nil {
+					// sanity check time value; after 2015, before 'now'
+					atime := time.Unix(int64(timeInt), 0)
+					threshold := time.Unix(1420070400, 0) // Jan 1 2015 00:00:00 GMT
+					if atime.Before(time.Now()) && atime.After(threshold) {
+						ltime = &atime
+					}
+				}
 				info := &host.Info{
 					Name:           tagValue("Name", instance.Tags),
 					Provider:       h.DriverName(),
@@ -48,7 +64,7 @@ func (h *Host) List() ([]*host.Info, error) {
 					FreighterdPort: host.DefaultPort,
 					State:          getState(&instance),
 					Region:         region.Name,
-					LaunchTime:     &instance.LaunchTime,
+					LaunchTime:     ltime,
 				}
 
 				userDevice := blockDevice(&instance, userDeviceName)
