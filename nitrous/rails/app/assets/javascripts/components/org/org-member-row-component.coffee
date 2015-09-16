@@ -47,9 +47,18 @@ App.OrgMemberRowComponent = Em.Component.extend
   ).observes 'newRole'
 
   actions:
-    remove: ->
+    showRemoveMember: ->
+      ui.showModal '.remove-member-modal-dialog'
+
+    hideRemoveMember: ->
+      ui.hideModal '.remove-member-modal-dialog'
+
+    removeMember: ->
+      ui.hideModal '.remove-member-modal-dialog'
+      username = @get('member.username')
+
       @set 'saving', true
-      url = "/api/v0/orgs/#{@get('org.slug')}/members/#{@get 'member.username'}"
+      url = "/api/v0/orgs/#{@get('org.slug')}/members/#{username}"
       Em.RSVP.Promise.cast(Em.$.ajax
         type: 'DELETE'
         url: url
@@ -58,7 +67,8 @@ App.OrgMemberRowComponent = Em.Component.extend
       ).then((data) =>
         if data.members
           App.OrgMember.load(@get('org.members'), data.members)
+        App.snackbar.post("You removed “#{username}“")
       , (jqxhr) ->
-        App.postError(jqxhr.responseJSON, "Could not remove member, please try again.")
+        App.postError(jqxhr.responseJSON, "Could not remove “#{username}“, please try again.")
       ).finally =>
         @set 'saving', false

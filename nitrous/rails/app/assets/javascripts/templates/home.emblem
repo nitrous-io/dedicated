@@ -9,6 +9,19 @@
         i.fa.fa-warning
         '
         | Your Nitrous Pro account is currently restricted until you correct issues with your billing account.
+    if App.usingOldDomain
+      .notice-text.error
+        i.fa.fa-warning
+        '
+        | We are changing our default domain from pro.nitrous.io to
+        '
+        a href="http://www.nitrous.io"
+          | www.nitrous.io
+        | . Please login and switch to
+        '
+        a href="http://www.nitrous.io"
+          | www.nitrous.io
+        | .
     = outlet content
 
 if App.user.admin

@@ -31,6 +31,9 @@ App.IdeController = Em.ObjectController.extend
 
   initialize: ->
     if container = @get 'content'
+      if window.location.hostname.match /^pro\./
+        App.postError "We are changing our default domain from pro.nitrous.io to www.nitrous.io. Please login and switch to www.nitrous.io"
+
       router = App.get 'router'
       router.get('ideLayoutController').initialize()
       router.get('ideMainMenuController').initialize()
