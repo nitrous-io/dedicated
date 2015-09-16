@@ -113,6 +113,8 @@ bundle_freighter() {
   PACKAGE_URL="nitrous.io"
   APP=$PACKAGE_NAME
 
+  echo "FREIGHTER_VERSION=${VERSION}" > jenkins.properties
+
   rm -rf $PKGDIR/*.deb
 
   # install our control files over to $PKDIR
