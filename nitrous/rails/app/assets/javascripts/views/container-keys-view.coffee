@@ -1,13 +1,13 @@
 App.ContainerKeysView = Lib.RecordListView.extend
   elementId: 'container-keys-view'
 
-  addToGithubDisabled: (->
-    @get('controller.saving') || @get('controller.githubKey')
-  ).property 'controller.saving', 'controller.githubKey'
+  addToGithubDisabled: ( ->
+    @get('controller.saving') || @get('controller.removing') || @get('controller.isKeyAddedToGitHub')
+  ).property 'controller.saving', 'controller.removing', 'controller.isKeyAddedToGitHub'
 
-  removeKeyDisabled: (->
-    @get('controller.saving') || @get('controller.removing') || !@get('controller.githubKey')
-  ).property 'controller.saving', 'controller.removing', 'controller.githubKey'
+  removeKeyDisabled: ( ->
+    @get('controller.saving') || @get('controller.removing') || !@get('controller.isKeyAddedToGitHub')
+  ).property 'controller.saving', 'controller.removing', 'controller.isKeyAddedToGitHub'
 
   $removeContainerKeyModal: ->
     $('#confirm-remove-container-key-modal-dialog')
@@ -21,5 +21,5 @@ App.ContainerKeysView = Lib.RecordListView.extend
 
     confirmRemoveContainerKey: ->
       ui.hideModal(@$removeContainerKeyModal())
-      # @get('controller').send 'removeFromGitHub'
+      @get('controller').send 'removeFromGitHub'
 
