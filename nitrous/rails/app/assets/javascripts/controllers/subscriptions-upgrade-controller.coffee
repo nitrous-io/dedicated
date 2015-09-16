@@ -28,13 +28,12 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
     (@get('selectedPlan.totalPrice') - @get('model.plan.totalPrice')) / 100.0
   ).property 'selectedPlan', 'model.plan'
 
-  computeFutureCharge: (->
+  computeProrataCharge: (->
     @set 'prorataCharge', null
     return unless @get('model') && @get('selectedPlan')
     return if @get('model.plan') == @get('selectedPlan')
-    id = @get('selectedPlan.id')
-    @get('model').upgradeEstimate(id).then (data) =>
-      if data.total != null && id == @get 'selectedPlan.id'
+    @get('model').upgradeEstimate(@get('selectedPlan.id')).then (data) =>
+      if data.total != null
         @set 'prorataCharge', (data.total/100.0)
   ).observes 'selectedPlan', 'model.plan'
 
