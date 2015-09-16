@@ -12,7 +12,7 @@
   if canEdit
     .ui.select
       Ember.Select content=allowedRoles value=newRole name='role' disabled=saving
-    button.ui.btn click='remove' disabled=saving
+    button.ui.btn click='showRemoveMember' disabled=saving
       i.fa.fa-close
   else
     span.role
@@ -20,3 +20,22 @@
       if isSelf
         '
         | (You)
+
+.remove-member-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Remove Member
+    .card-body
+      p
+        ' Are you sure you want to remove 
+        strong
+          = member.username
+          if member.name
+            | (#{member.name})
+        '  from 
+        strong
+          = member.orgSlug
+        '?
+    .card-footer
+      .right
+        button.ui.btn click='hideRemoveMember' Cancel
+        button.ui.btn.secondary click='removeMember' Remove
