@@ -3,6 +3,8 @@ package amazon
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/test"
@@ -383,7 +385,7 @@ var _ = Describe("acquireInstance", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("deletes the dedicated:pool tag from the acquired instance", func() {
+	It("sets the dedicated:pool tag of the acquired instance to the present time", func() {
 		driverCfg := driverConfig{
 			Env: "test",
 			Regions: []regionConfig{
@@ -419,7 +421,13 @@ var _ = Describe("acquireInstance", func() {
 		Expect(instance.InstanceId).To(Equal("i-abcde"))
 
 		Expect(fakeEC2.receivedIDs).To(ConsistOf("i-abcde"))
-		Expect(fakeEC2.receivedTags).To(ConsistOf(ec2.Tag{Key: poolTag}))
+		Expect(fakeEC2.receivedTags).To(HaveLen(1))
+		t := fakeEC2.receivedTags[0]
+		Expect(t.Key).To(Equal("dedicated:pool"))
+
+		atimeInt, err := strconv.Atoi(t.Value)
+		Expect(err).To(BeNil())
+		Expect(atimeInt).To(BeNumerically("~", time.Now().Unix(), 5)) // 5 seconds
 	})
 
 	It("returns an error when it fails to delete tags from the acquired instance", func() {
@@ -447,7 +455,7 @@ var _ = Describe("acquireInstance", func() {
 		}
 
 		fakeEC2 := &fakeInstanceProvider{
-			deleteTagsErr: errors.New("EC2 tagging API timed out"),
+			createTagsErr: errors.New("EC2 tagging API timed out"),
 			instances: []ec2.Instance{
 				{InstanceId: "i-abcde", InstanceType: "t2.micro"},
 				{InstanceId: "i-bcdef", InstanceType: "t2.micro"},
