@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -141,9 +142,12 @@ func (h *Host) acquireInstance(provider instanceProvider, instancetype string) (
 
 	h.Printf("acquired instance %s from pool for %s", instance.InstanceId, instancetype)
 
-	// Remove tag that indicates this instance is in the pool.
-	tags := []ec2.Tag{{Key: poolTag}}
-	if _, err := provider.DeleteTags([]string{instance.InstanceId}, tags); err != nil {
+	// Change tag from 'true' to a timestamp to indicate time instance was acquired
+	// This time is later used as the `LaunchTime` of the instance
+	tags := []ec2.Tag{
+		{Key: poolTag, Value: strconv.FormatInt(time.Now().Unix(), 10)},
+	}
+	if _, err := provider.CreateTags([]string{instance.InstanceId}, tags); err != nil {
 		return nil, err
 	}
 
