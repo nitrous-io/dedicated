@@ -9,6 +9,13 @@ class @PluginBase
   path: ->
     @document.get 'path'
 
+  exec: (context, cmd, cwd, env, callback)->
+    execCmd = context.opsSocket.run
+    if App.get('freighterdFeatures')?.contains('loginrun')
+      execCmd = context.opsSocket.loginrun
+
+    execCmd.apply context.opsSocket, [cmd, cwd, env, callback]
+
   handleSnackbarError: (err)->
     App.postError err
 
