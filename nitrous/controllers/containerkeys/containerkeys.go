@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 )
 
 var (
@@ -33,6 +34,7 @@ var (
 	errContainerNotRunning   = httperror.New(http.StatusConflict, "container_not_running", "container should be running to perform this operation")
 	errPubKeyOpsNotSupported = httperror.New(http.StatusBadRequest, "pub_key_ops_not_supported", "public key operations are not supported")
 	ErrKeyNotExists          = httperror.New(http.StatusConflict, "key_not_exists", "key does not exists in GitHub")
+	ErrInvalidPublicKey      = httperror.New(http.StatusConflict, "key_invalid", "container public key is not valid")
 )
 
 // list returns a list of public keys in a given container
@@ -86,10 +88,11 @@ func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (
 		return "", err
 	}
 
-	keyToAdd, err := containerPublicKey(cn, h, env)
+	publicKey, err := containerPublicKey(cn, h, env)
 	if err != nil {
 		return "", err
 	}
+	keyToAdd := publicKey.Key
 
 	if keyAlreadyExists(existingKeys, keyToAdd) {
 		return "", ErrKeyAlreadyExists
@@ -196,8 +199,11 @@ func removeGitHubKey(cn *container.Container, h *host.Host, env *middleware.Env)
 	var keyID int
 
 	for _, existingKey := range existingKeys {
-		if *existingKey.Key == keyToAdd {
+		// Assume that GitHub is returning valid ssh key
+		fingerprint, _ := sshkey.Md5Fingerprint(*existingKey.Key)
+		if fingerprint == keyToAdd.Fingerprint {
 			keyID = *existingKey.ID
+			break
 		}
 	}
 
@@ -247,22 +253,22 @@ func githubKeys(gitHubClient *githubapi.Client) ([]githubapi.Key, error) {
 	return existingKeys, nil
 }
 
-func containerPublicKey(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
+func containerPublicKey(cn *container.Container, h *host.Host, env *middleware.Env) (*freighterclient.ContainerKey, error) {
 	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	keys, err := cl.ListContainerKeys(cn.CID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// ListContainerKeys() returns array of public keys, but currently we only
 	// expect one key per container
 	if len(keys) != 1 {
-		return "", ErrMultipleKeysExist
+		return nil, ErrMultipleKeysExist
 	}
 
-	return keys[0].Key, nil
+	return keys[0], nil
 }
