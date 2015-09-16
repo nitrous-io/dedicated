@@ -1,21 +1,130 @@
 = container-tab-bar selected='custom-domain' model=model
-.card-body
-  p.message
-    | Custom domain support is automatically enabled for your plan. Simply create a
-    '
-    code CNAME
-    |  record pointing your subdomain to
-    '
-    code.primary #{previewHostname}
-    | . You will be able to access your container via this custom subdomain once DNS has propagated
-    |  (~24 hours after creating your container).
 
-  p.hint-text
-    i.fa.fa-info-circle
-    | Custom domain support is not available for apex domains (e.g.
-    '
-    code example.com
-    | ). Please use a subdomain (e.g.
-    '
-    code www.example.com
-    | ).
+if enabling
+  .card-body
+    p
+      i.spinner
+      | Loading...
+else
+  if canEnable
+
+    if host.autoShutdown
+
+      .card-body
+        p
+          ' You need to enable
+          strong Hosting Mode
+          |  on your workspace to add a custom domain for this container.
+        p
+          ' With
+          strong Hosting Mode
+          | , you can:
+        ul.dashboard
+          li
+            ' access your application via your own domain instead of via
+            code = previewHostname
+            ' . If you don't want to use your own domain, you will still be able to access your application via
+            code = host.hostname
+            | .
+          li give your workspace a static IP address.
+          li keep your workspace and its containers running 24/7.
+          li avoid restrictions of the Preview functionality (e.g. there are no upload limits).
+          li secure your application with your own SSL certificate.
+
+      .card-footer.bordered
+        .right
+          button.ui.btn.primary.raised click='enableHostingMode target="view"' disabled={enabling}
+            | Enable Hosting Mode for $
+            = host.plan.hostingModePriceInDollars
+            | /month
+
+    else
+
+      .card-body
+        p
+          ' To access your workspace via a custom domain, either:
+        ul.dashboard
+          li
+            ' create an
+            code.highlight A
+            '  record pointing to
+            code.highlight = host.ipAddress
+            | , or
+          li
+            ' create a
+            code.highlight CNAME
+            '  record pointing to
+            code.highlight = host.hostname
+            | .
+
+      .card-body.bordered
+        h4 Container Ports
+
+        p
+          ' To specify which ports in this container will be available on your custom domain, go to the
+          a click='goToPortsTab target=view' href='#' Ports tab
+          | .
+
+        ul.dashboard
+          li http://52.76.80.248 &rarr; port 3000 of this container
+          li http://52.76.80.248:32785 &rarr; port 22 of this container
+
+  else
+
+    if host.free
+      .card-body
+        p The custom domain feature is not available for containers in a free workspace.
+        p To use a custom domain, please upgrade to a paid plan.
+
+      .card-footer.bordered
+        .right
+          button.ui.btn.primary.raised click='upgrade' Upgrade
+    else
+      .card-body
+        p The custom domain feature is not available for containers in this workspace.
+        p
+          ' Please
+          a click='contactSupport target=view' href="#"
+            | contact support
+          |  to find out more about custom domains for your workspace.
+
+
+#confirm-enable-hosting-mode-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Enable Hosting Mode
+    .card-body
+      p
+        ' You're enabling Hosting Mode on the
+        strong = host.slug
+        '
+        ' workspace.
+      p
+        ' You will be immediately charged
+        if prorataCharge
+          strong
+            | $
+            = prorataCharge
+          |  (prorated portion of full monthly charge of $
+          = host.plan.hostingModePriceInDollars
+          | )
+        else
+          | a prorated amount
+        '  for this month, and an additional
+        strong
+          | $
+          = host.plan.hostingModePriceInDollars
+        |  in subsequent months.
+      p
+        ' The total monthly charge for this workspace will be
+        strong
+          |$
+          = host.plan.totalPriceInDollars
+        | .
+
+    .card-footer
+      .right
+        button.ui.btn click='cancel target="view"'
+          | Cancel
+        button.ui.btn.primary click='confirmHostingMode target="view"'
+          | Continue
