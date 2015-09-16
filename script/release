@@ -79,6 +79,8 @@ bundle_binary() {
   pkg=${BINARY}-${VERSION}.tar.gz
   latestpkg=${BINARY}-latest.tar.gz
 
+  echo "BINARY_VERSION=${VERSION}" > jenkins.properties
+
   (
   cd $BUILD_DIR
   tar zvcf $pkg $BINARY $@
