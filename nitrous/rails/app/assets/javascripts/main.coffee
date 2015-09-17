@@ -170,7 +170,7 @@ window.Nitrous = Em.Application.extend Em.Evented,
 
   usingOldDomain: (->
     window.location.hostname.match /^pro\./
-  ).observes 'window.location.hostname'
+  ).property 'window.location.hostname'
 
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0
