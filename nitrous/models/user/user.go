@@ -81,6 +81,7 @@ type User struct {
 
 	LoginAttempts  int  `db:"login_attempts"`
 	Admin          bool `db:"admin"`
+	CommunityAdmin bool `db:"community_admin"`
 	ServiceAccount bool `db:"service_account"`
 
 	MaxContainers sql.NullInt64 `db:"max_containers"`
