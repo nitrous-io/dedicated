@@ -96,17 +96,22 @@ func (h *Host) List() ([]*host.Info, error) {
 		volInfos := []*host.Info{}
 		for region, vols := range allVols {
 			for _, vol := range vols {
+				if len(vol.Attachments) > 0 {
+					// if the volume is attached to an instance, it will be
+					// covered by the above goroutine that handles instances,
+					// which has more information.
+
+					// For volInfos we only care about unattached volumes, aka
+					// stopped hotswap hosts
+					continue
+				}
+
 				info := &host.Info{
 					VolumeID: vol.VolumeId,
 					Name:     tagValue("Name", vol.Tags),
 					Provider: h.DriverName(),
 					Region:   region.Name,
 				}
-
-				if len(vol.Attachments) > 0 {
-					info.ID = vol.Attachments[0].InstanceId
-				}
-
 				volInfos = append(volInfos, info)
 			}
 		}
