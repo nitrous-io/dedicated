@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/state"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
@@ -41,6 +42,18 @@ func (h *Host) List() ([]*host.Info, error) {
 		instanceInfos := []*host.Info{}
 		for region, instances := range allInstances {
 			for _, instance := range instances {
+				istate := getState(&instance)
+				if istate == state.Starting {
+					// these instances are pending on ec2 (see
+					// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
+					// We do not include these in the list as:
+					// - they are not billed for
+					// - they are not in a usable state
+					// - they cause false alarms in healthcheck due to lack of
+					// launch time for grace period allowances
+					continue
+				}
+
 				// acquired pool instances have the time of acquisition in the
 				// poolTag.  We use this as a proxy for launch time.
 				ltime := &instance.LaunchTime
@@ -62,7 +75,7 @@ func (h *Host) List() ([]*host.Info, error) {
 					ID:             instance.InstanceId,
 					IPAddress:      instance.PublicIpAddress,
 					FreighterdPort: host.DefaultPort,
-					State:          getState(&instance),
+					State:          istate,
 					Region:         region.Name,
 					LaunchTime:     ltime,
 				}
