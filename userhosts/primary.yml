@@ -1,5 +1,7 @@
 ---
 - hosts: userhosts
+  vars:
+    - freighterd_version: 1.8.1.1+1442462745-432-b13b7b5
   gather_facts: no
   sudo: yes
   tasks:
@@ -13,4 +15,6 @@
   - name: run block-ec2-metadata
     service: name=block-ec2-metadata state=started
     when: blocked_routes.stdout.find('169.254.169.254') == -1
+  - name: latest freighter
+    apt: name=freighterd={{ freighterd_version }} state=present update_cache=yes
 
