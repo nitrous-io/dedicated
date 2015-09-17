@@ -198,7 +198,7 @@ func (p *DockerProvider) mkHostConfig(container *dockerclient.Container, cfg *pr
 			// this is a workaround for old containers created by Freighter
 			// prior to this change https://github.com/nitrous-io/dedicated/commit/d7a36b72414bf9daa85b7e0a339e5e742a7d0cda
 			// when we were adding to Config.Volumes.
-			if vname == nitrousSSHFilepath || vname == nitrousSlugFilepath {
+			if vname == nitrousSSHFilepath || vname == nitrousSlugFilepath || vname == nitrousToolsContainerPath {
 				continue
 			}
 			// container's name starts with `/` which we dont want
