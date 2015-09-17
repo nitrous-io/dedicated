@@ -169,8 +169,9 @@ window.Nitrous = Em.Application.extend Em.Evented,
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
 
   usingOldDomain: (->
-    window.location.hostname.match /^pro\./
-  ).property 'window.location.hostname'
+    # TODO fix when chrome app has been updated for www
+    window.location.hostname.match /^pro\./ && !@get('chromeApp')
+  ).property 'window.location.hostname', 'chromeApp'
 
   disableNewContainer: (->
     return false if !@get('hosts') || @get('hosts.length') == 0
