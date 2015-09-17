@@ -1009,3 +1009,66 @@ article.with-pulled-visual
       animation: pulse 2s infinite
       z-index: 1
       +webkitFix
+
+// --------------------------------------
+// Datasheet
+.datasheet
+  margin-top: 40px
+  padding: 40px 0 0 0
+
+  & + .centered
+    margin-top: 40px
+
+  a
+    width: 474px
+    height: 120px
+    margin: 0 auto
+    padding: 8px 6px 0 6px
+    display: block
+    text-align: left
+    background: #FFF image_url('home/datasheet-preview-and-download.png') 12px 8px no-repeat
+    background-size: 82px 114px
+    border: 1px solid #F2F2F2
+    border-radius: 6px
+    transition: background-color .15s ease-in
+
+    &:hover
+      background-color: #F7F7F7
+
+    p
+      display: block
+      padding: 0
+      margin: 0 0 0 110px
+      position: relative
+      top: 20px
+      color: #000
+
+    span
+      display: block
+
+    .datasheet-title
+      font-weight: bold
+      font-size: 18px
+      color: $blue
+
+    .datasheet-size
+      padding-top: 4px
+      color: rgba(0,0,0,.4)
+      font-size: 12px
+
+
+.page-hero
+  .datasheet
+    margin-top: 10px
+    padding: 0
+
+    a
+      color: #FFF
+      border: 0
+
+.datasheet-cta
+  background: #FFF
+  
+  .datasheet
+    margin: 0
+    padding: 0
