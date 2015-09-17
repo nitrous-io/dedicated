@@ -3,7 +3,6 @@ package hosts_test
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -1462,50 +1461,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(count).To(Equal(1))
 			})
 
-			It("updates software on the host", func() {
-				mockClient := &freighterclient.MockClient{}
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateUpdating))
-			})
-
-			It("doesn't do anything if host has already been updated", func() {
-				mockClient := &freighterclient.MockClient{}
-				mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
-
-			It("doesn't do anything if software update fails", func() {
-				mockClient := &freighterclient.MockClient{}
-				mockClient.UpgradeServerError = errors.New("host cannot be updated")
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
-
 			It("does not update unrelated fields", func() {
 				// initial value
 				hs.H.MaxContainers = sql.NullInt64{3, true}
@@ -2067,50 +2022,6 @@ var _ = Describe("controllers/hosts", func() {
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 			})
-
-			It("updates software on the host", func() {
-				mockClient := &freighterclient.MockClient{}
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug, t.Token, nil)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateUpdating))
-			})
-
-			It("doesn't do anything if host has already been updated", func() {
-				mockClient := &freighterclient.MockClient{}
-				mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug, t.Token, nil)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
-
-			It("doesn't do anything if software update fails", func() {
-				mockClient := &freighterclient.MockClient{}
-				mockClient.UpgradeServerError = errors.New("host cannot be updated")
-				test.StubDefaultFreighterFn(mockClient)
-				defer test.UnstubFreighterFn()
-
-				doRequest(hs.H.Slug, t.Token, nil)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-				h, err := host.Find(db, hs.U, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
 		})
 
 		Context("when the host does not belong to the user", func() {
@@ -2657,122 +2568,6 @@ var _ = Describe("controllers/hosts", func() {
 					},
 				}))
 			}
-		})
-	})
-
-	Describe("POST /api/v0/hosts/{slug}/update_software", func() {
-		var (
-			hs         *test.HostStack
-			mockClient *freighterclient.MockClient
-			tok        *token.Token
-		)
-
-		doRequest := func() {
-			req, err := test.NewRequest("POST", "/api/v0/hosts/"+hs.H.Slug+"/update_software", nil)
-			Expect(err).To(BeNil())
-			req.Header.Set("Authorization", "Bearer "+tok.Token)
-			handler.ServeHTTP(res, req)
-		}
-
-		BeforeEach(func() {
-			var err error
-
-			mockClient = &freighterclient.MockClient{}
-			test.StubDefaultFreighterFn(mockClient)
-
-			hs, err = test.CreateHostStack(db, &test.HostStack{U: u})
-			Expect(err).To(BeNil())
-			tok = t
-		})
-
-		AfterEach(func() {
-			test.UnstubFreighterFn()
-		})
-
-		It("updates last_pinged_at", func() {
-			doRequest()
-			h, err := host.FindByIdentifier(db, strconv.FormatInt(hs.H.ID, 10))
-			Expect(err).To(BeNil())
-			Expect(time.Now().Sub(h.LastPingedAt.Time)).To(BeNumerically("<=", 1*time.Second))
-		})
-
-		It("responds with HTTP 202 Accepted and publishes a host software updating event", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			doRequest()
-			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-			Expect(res.Code).To(Equal(http.StatusAccepted))
-
-			h, err := queryHost(db, hs.H.ID)
-			Expect(err).To(BeNil())
-			Expect(h.State).To(Equal(host.StateUpdating))
-
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timed out waiting for host software updating event")
-			case msg := <-ch:
-				Expect(msg).To(Equal(&controllers.Event{
-					Name: controllers.EventHostSoftwareUpdating,
-					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(h),
-					},
-				}))
-			}
-		})
-
-		It("responds with HTTP 200 OK, the host, and publishes a host software updated event when host has already been updated", func() {
-			ch := svr.Events.Subscribe(u.Topic())
-			defer svr.Events.Unsubscribe(ch, u.Topic())
-
-			mockClient.UpgradeServerError = freighterclient.ErrAlreadyUpgraded
-
-			doRequest()
-			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-
-			Expect(res.Code).To(Equal(http.StatusOK))
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err := json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
-
-			h, err := queryHost(db, hs.H.ID)
-			Expect(err).To(BeNil())
-
-			select {
-			case <-time.After(50 * time.Millisecond):
-				Fail("Timed out waiting for host software updated event")
-			case msg := <-ch:
-				Expect(msg).To(Equal(&controllers.Event{
-					Name: controllers.EventHostSoftwareUpdated,
-					Data: map[string]*serializers.Host{
-						"host": serializers.SerializeHost(h),
-					},
-				}))
-			}
-		})
-
-		It("responds with HTTP 500 when software update fails", func() {
-			mockClient.UpgradeServerError = errors.New("host cannot be updated")
-
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
-			errType, errDesc := test.ErrorSlug(res.Body)
-			Expect(errType).To(Equal("internal_server_error"))
-			Expect(errDesc).To(Equal("an error occurred while attempting to update your workspace"))
-
-			Expect(mockClient.UpgradeServerCalled).To(Equal(1))
-		})
-
-		It("should not be accessible by a collaborator", func() {
-			_, t := createCollaborator(hs)
-			tok = t
-
-			doRequest()
-			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
 	})
 

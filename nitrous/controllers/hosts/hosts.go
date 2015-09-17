@@ -14,7 +14,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
-	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -270,22 +269,7 @@ func Start(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	// Update Freighter and Docker on host, but don't fail if there are any
-	// errors.
-	err = updateSoftware(h, env)
-	switch err {
-	case freighterclient.ErrAlreadyUpgraded:
-		logrus.Infof("hosts.Start: host already up to date")
-		PublishHostEvent(env, controllers.EventHostStarted, h)
-	case nil:
-		if err := h.UpdateState(db, host.StateUpdating); err != nil {
-			return err
-		}
-		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
-	default:
-		logrus.Errorf("hosts.Start: failed to update server: %v", err)
-		PublishHostEvent(env, controllers.EventHostStarted, h)
-	}
+	PublishHostEvent(env, controllers.EventHostStarted, h)
 
 	serializeHost(env, h)
 	return nil
@@ -383,23 +367,7 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
-	// Update Freighter and Docker on host, but don't fail if there are any
-	// errors.
-	err = updateSoftware(h, env)
-	switch err {
-	case freighterclient.ErrAlreadyUpgraded:
-		logrus.Infof("hosts.Restart: host already up to date")
-		PublishHostEvent(env, controllers.EventHostRestarted, h)
-	case nil:
-		if err := h.UpdateState(db, host.StateUpdating); err != nil {
-			return err
-		}
-		PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
-	default:
-		logrus.Errorf("hosts.Restart: failed to update server: %v", err)
-		PublishHostEvent(env, controllers.EventHostRestarted, h)
-	}
-
+	PublishHostEvent(env, controllers.EventHostRestarted, h)
 	for _, cn := range cns {
 		state := container.State(cn.TempState.Int64)
 		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
@@ -451,53 +419,6 @@ func Respec(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Re
 	env.Data = map[string]interface{}{
 		"host": serializers.SerializeHost(h),
 	}
-
-	return nil
-}
-
-func UpdateSoftware(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	if h.State != host.StateRunning {
-		return errHostUpdateInvalidState
-	}
-
-	if err := updateSoftware(h, env); err != nil {
-		if err == freighterclient.ErrAlreadyUpgraded {
-			PublishHostEvent(env, controllers.EventHostSoftwareUpdated, h)
-			serializeHost(env, h)
-			return nil
-		}
-
-		logrus.Errorf("failed to update server, err: %v", err)
-		return httperror.New(http.StatusInternalServerError, "internal_server_error", "an error occurred while attempting to update your workspace")
-	}
-
-	env.Status = http.StatusAccepted
-	env.Data = map[string]interface{}{
-		"status": "accepted",
-	}
-	return nil
-}
-
-func updateSoftware(h *host.Host, env *middleware.Env) error {
-	cl, err := controllers.NewFreighterClient(env.DB, h, env.UUID)
-	if err != nil {
-		return err
-	}
-
-	if err := cl.UpgradeServer(&freighterclient.HostVersions{
-		DockerVersion:     h.DockerVersion,
-		FreighterdVersion: h.FreighterdVersion,
-	}); err != nil {
-		return err
-	}
-
-	// FIXME: Update the state before sending request to freighter to
-	// ensure there is no other concurrent operations going on.
-	if err := h.UpdateState(env.DB, host.StateUpdating); err != nil {
-		return err
-	}
-
-	PublishHostEvent(env, controllers.EventHostSoftwareUpdating, h)
 
 	return nil
 }

@@ -84,13 +84,13 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 
 		steps = []host.Step{
 			{
-				Description: "Initializing disk",
-				Func:        attachNewUserVolume,
-			},
-			{
 				Description: "Connecting to workspace",
 				Func:        host.WaitForSSH,
 				Timeout:     5 * time.Minute,
+			},
+			{
+				Description: "Initializing disk",
+				Func:        attachNewUserVolume,
 			},
 			{
 				Description: "Mounting disk",
@@ -118,10 +118,6 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 		{
 			Description: "Populating settings",
 			Func:        host.WriteSettings,
-		},
-		{
-			Description: "Fetching updates",
-			Func:        host.UpdateSoftware,
 		},
 		{
 			Description: "Applying settings",

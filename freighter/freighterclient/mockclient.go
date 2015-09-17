@@ -85,9 +85,6 @@ type MockClient struct {
 	HostVersionsError  error
 	HostVersionsReturn *HostVersions
 
-	UpgradeServerCalled int
-	UpgradeServerError  error
-
 	HostUtilizationCalled int
 	HostUtilizationError  error
 	HostUtilizationReturn []HostUtilization
@@ -310,11 +307,6 @@ func (c *MockClient) HostInfo(period time.Duration) (*HostInfo, error) {
 func (c *MockClient) HostVersions() (*HostVersions, error) {
 	c.HostVersionsCalled++
 	return c.HostVersionsReturn, c.HostVersionsError
-}
-
-func (c *MockClient) UpgradeServer(versions *HostVersions) error {
-	c.UpgradeServerCalled++
-	return c.UpgradeServerError
 }
 
 func (c *MockClient) HostUtilization() ([]HostUtilization, error) {
