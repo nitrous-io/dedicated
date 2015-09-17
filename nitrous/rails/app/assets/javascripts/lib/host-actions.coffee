@@ -5,18 +5,6 @@ modal dialog that shows different actions that can be performed
 on selected hosts.
 ###
 hostActions =
-  update:
-    name: 'Update'
-    progressName: 'Updating'
-    description: 'This will update the host and may restart freighter and/or docker.'
-    successMessage: 'Successfully updated host'
-    failureMessage: 'Failed to update host!'
-    perform: (host) ->
-      Em.$.ajax
-        type: 'POST'
-        url: "/api/v0/hosts/#{host.slug}/update_software"
-        headers: { Authorization: "Bearer #{App.get 'token'}" }
-
   start:
     name: 'Start'
     progressName: 'Starting'
@@ -123,7 +111,7 @@ Lib.HostActions =
   # the current state of the host
   healthyHostActions: (host) ->
     if host.state == 'running'
-      [hostActions.update, hostActions.restart, hostActions.stop, hostActions.terminate]
+      [hostActions.restart, hostActions.stop, hostActions.terminate]
     else if host.state == 'stopped'
       [hostActions.start, hostActions.terminate]
     else
@@ -138,7 +126,7 @@ Lib.HostActions =
     return actions
 
   # Put other types of common collection of host actions into array
-  healthyHostBulkActions: [hostActions.update, hostActions.terminate]
+  healthyHostBulkActions: [hostActions.terminate]
   inconsistentHostBulkActions: [hostActions.stateChanger('running'), hostActions.stateChanger('stopped'), hostActions.terminate]
   problemHostActions: [hostActions.terminate, hostActions.terminateReassign]
   unaccountedHostActions: [hostActions.terminateUnaccounted]

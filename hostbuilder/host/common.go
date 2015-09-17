@@ -152,61 +152,6 @@ func RestartServices(ctx *HostContext) error {
 	return nil
 }
 
-// UpdateSoftware updates the package list and necessary packages that may be
-// outdated since the last image builds.
-func UpdateSoftware(ctx *HostContext) error {
-	l := ctx.Logger
-	conn := ctx.Executor
-	version := ctx.Host.Settings().Version
-	label := l.MetricsLabel("update_software")
-	defer mh.UpdateSince(label, time.Now())
-	if conn == nil {
-		return mh.Error(errors.New("invalid SSH connection"), label)
-	}
-
-	// TODO move all of cmdParts into a shell script that is written and run
-	// (similar to /tmp/already-installed.sh below)
-	path := "/tmp/already-installed.sh"
-	cmdParts := []string{
-		fmt.Sprintf(`{ cat > %s <<- 'EOF'
-			#!/bin/sh
-			installed_version=$(/usr/sbin/freighterd -v)
-			installed_version=${installed_version#'freighterd version '}
-			test $installed_version = '%s'
-		EOF
-		} && chmod +x %s && %s`, path, version, path, path),
-		`||`,
-		// apt-get update with single source
-		// https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=714877#12
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get update",
-		"-o APT::List-Cleanup=0",
-		`-o Dir::Etc::sourceparts="/dev/null"`,
-		`-o Dir::Etc::sourcelist="sources.list.d/nitrousio.list"`,
-		`&&`,
-		"DEBIAN_FRONTEND=noninteractive sudo apt-get install -y --force-yes",
-		`-o Dpkg::Options::="--force-confdef"`, // avoid prompt
-		`-o Dpkg::Options::="--force-confold"`, // do not modify existing config file
-	}
-	pkgspec := "freighterd"
-	if version != "" {
-		pkgspec = fmt.Sprintf("freighterd=%s", version)
-	}
-	cmdParts = append(cmdParts, pkgspec)
-	cmd := strings.Join(cmdParts, " ")
-
-	l.Printf("Updating freighterd package")
-	if out, err := conn.CombinedOutput(cmd); err != nil {
-		err = fmt.Errorf("update failed with %q, output: %s", err, out)
-		l.Printf("Failed to update freighterd %s", err)
-		if version != "" {
-			return mh.Error(err, label)
-		}
-	}
-	// failure to update freighterd when a version is not specified is considered continuable
-	l.Printf("Updated freighterd package")
-	return nil
-}
-
 func uploadFiles(l Logger, conn Executor, files map[string]io.Reader) ([]string, error) {
 	flist := []string{}
 	// upload to tmp directory then mv to dest path to avoid permissions issues

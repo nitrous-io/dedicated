@@ -7,13 +7,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
-	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 )
 
@@ -60,52 +58,6 @@ func Webhook(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		if err := h.UpdateColumn(env.DB, "last_pinged_at", pq.NullTime{time.Now(), true}); err != nil {
 			return err
 		}
-
-		env.Status = http.StatusOK
-		env.Data = map[string]interface{}{
-			"status": "ok",
-		}
-		return nil
-
-	case "started":
-		if h.State != host.StateUpdating {
-			return errNotFound
-		}
-
-		if err := h.UpdateColumn(env.DB, "state", host.StateRunning); err != nil {
-			return err
-		}
-
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventHostSoftwareUpdated, map[string]*serializers.Host{
-				"host": serializers.SerializeHost(h),
-			}),
-			u.Topic(),
-		)
-
-		env.Status = http.StatusOK
-		env.Data = map[string]interface{}{
-			"status": "ok",
-		}
-		return nil
-
-	case "upgrade":
-		if h.State != host.StateUpdating {
-			return errNotFound
-		}
-
-		if err := h.UpdateState(env.DB, host.StateRunning); err != nil {
-			return err
-		}
-
-		logrus.Errorf("freighter software update failed with err: %s", m.Error)
-		env.Events.Publish(
-			controllers.NewEvent(controllers.EventHostSoftwareUpdateFailed, map[string]interface{}{
-				"host":  serializers.SerializeHost(h),
-				"error": m.Error,
-			}),
-			u.Topic(),
-		)
 
 		env.Status = http.StatusOK
 		env.Data = map[string]interface{}{

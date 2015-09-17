@@ -98,6 +98,4 @@ func (s *Server) drawRoutes() {
 	s.secretRoute("/info", s.wrapError(s.serverInfo), "GET")
 	s.secretRoute("/versions", s.wrapError(s.serverVersions), "GET")
 	s.secretRoute("/utilization", s.wrapError(s.serverUtilization), "GET")
-
-	s.secretRoute("/upgrade", s.wrapError(s.upgradeServer), "POST")
 }

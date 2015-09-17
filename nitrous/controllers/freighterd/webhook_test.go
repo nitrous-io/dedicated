@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/freighterd"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
@@ -92,59 +91,6 @@ var _ = Describe("controllers/freighterd", func() {
 			handler.ServeHTTP(res, req)
 		}
 
-		Context("with a verified 'started' message", func() {
-			var msg string
-
-			BeforeEach(func() {
-				hs.H.State = host.StateUpdating
-				hs.H.Update(db)
-
-				m := &freighterd.Message{
-					Event:             "started",
-					DockerVersion:     "1.4.1-nitrous1",
-					FreighterdVersion: "0.1.26-abcd",
-				}
-				msg = genMessage(hs.H.Secret, m)
-			})
-
-			It("accepts host ID in addition to slug", func() {
-				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
-				Expect(res.Code).To(Equal(http.StatusOK))
-			})
-
-			It("responds with HTTP 200 and sets host state to running when host is in updating state", func() {
-				doRequest(hs.H.Slug, msg)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				h, err := host.FindByIdentifier(db, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
-
-			It("publishes a host software updated event", func() {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doRequest(hs.H.Slug, msg)
-
-				select {
-				case <-time.After(50 * time.Millisecond):
-					Fail("Timed out waiting for host software updated event")
-				case msg := <-ch:
-					Expect(msg).NotTo(BeNil())
-					ev, ok := msg.(*controllers.Event)
-					Expect(ok).To(BeTrue())
-					Expect(ev.Name).To(Equal(controllers.EventHostSoftwareUpdated))
-				}
-			})
-
-			It("is 404 when host is not in updating state", func() {
-				hs.H.State = host.StateRunning
-				hs.H.Update(db)
-				doRequest(hs.H.Slug, msg)
-				Expect(res.Code).To(Equal(http.StatusNotFound))
-			})
-		})
-
 		Context("with a verified 'ping' message", func() {
 			var msg string
 
@@ -191,61 +137,6 @@ var _ = Describe("controllers/freighterd", func() {
 				h, err = host.FindByIdentifier(db, hs.H.Slug)
 				Expect(err).To(BeNil())
 				Expect(h.LastPingedAt.Valid).To(BeFalse())
-			})
-		})
-
-		Context("with a verified 'upgrade' message", func() {
-			var msg string
-
-			BeforeEach(func() {
-				hs.H.State = host.StateUpdating
-				hs.H.Update(db)
-
-				m := &freighterd.Message{
-					Event: "upgrade",
-					Error: "failed to apt-get",
-				}
-				msg = genMessage(hs.H.Secret, m)
-			})
-
-			It("accepts host ID in addition to slug", func() {
-				doRequest(strconv.FormatInt(hs.H.ID, 10), msg)
-				Expect(res.Code).To(Equal(http.StatusOK))
-			})
-
-			It("responds with HTTP 200 and sets host state to running when host is in updating state", func() {
-				doRequest(hs.H.Slug, msg)
-				Expect(res.Code).To(Equal(http.StatusOK))
-				h, err := host.FindByIdentifier(db, hs.H.Slug)
-				Expect(err).To(BeNil())
-				Expect(h.State).To(Equal(host.StateRunning))
-			})
-
-			It("publishes a host software update failed event", func() {
-				ch := svr.Events.Subscribe(u.Topic())
-				defer svr.Events.Unsubscribe(ch, u.Topic())
-
-				doRequest(hs.H.Slug, msg)
-
-				select {
-				case <-time.After(50 * time.Millisecond):
-					Fail("Timed out waiting for host software update failed event")
-				case msg := <-ch:
-					Expect(msg).NotTo(BeNil())
-					ev, ok := msg.(*controllers.Event)
-					Expect(ok).To(BeTrue())
-					Expect(ev.Name).To(Equal(controllers.EventHostSoftwareUpdateFailed))
-					e, ok := ev.Data.(map[string]interface{})
-					Expect(ok).To(BeTrue())
-					Expect(e["error"]).To(Equal("failed to apt-get"))
-				}
-			})
-
-			It("is 404 when host is not in updating state", func() {
-				hs.H.State = host.StateRunning
-				hs.H.Update(db)
-				doRequest(hs.H.Slug, msg)
-				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 

@@ -120,10 +120,6 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 			Func:        host.WriteSettings,
 		},
 		{
-			Description: "Fetching updates",
-			Func:        host.UpdateSoftware,
-		},
-		{
 			Description: "Applying settings",
 			Func:        host.RestartServices,
 		},

@@ -131,7 +131,6 @@ var _ = Describe("controllers/maintenance", func() {
 					host.StateStopping:   controllers.EventHostStopping,
 					host.StateStarting:   controllers.EventHostStarting,
 					host.StateRestarting: controllers.EventHostRestarting,
-					host.StateUpdating:   controllers.EventHostSoftwareUpdating,
 					host.StateTerminated: controllers.EventHostDestroyed,
 				}
 
