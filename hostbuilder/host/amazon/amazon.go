@@ -319,7 +319,7 @@ func (h *Host) releaseEIP() error {
 		h.Printf("releasing IP address %s for instance %s", ip, h.instance.InstanceId)
 		if err := releaseAddress(h.provider, ip, isVPC(h.instance)); err != nil {
 			return fmt.Errorf("amazon: failed to release ElasticIP %s for %s, err %v",
-				h.Config.IPAddress, h.instance.InstanceId, err)
+				ip, h.instance.InstanceId, err)
 		}
 	}
 
@@ -575,6 +575,49 @@ func allocateElasticIP(ctx *host.HostContext) error {
 	// reload the instance to get a new public IP address
 	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
 		return mh.Error(err, label)
+	}
+
+	return nil
+}
+
+func attachElasticIP(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	if h.Config.DisableEIP {
+		return nil
+	}
+	label := h.MetricsLabel("attach_ip")
+	defer mh.UpdateSince(label, time.Now())
+
+	if ip := h.Config.IPAddress; ip != "" {
+		h.Printf("attaching IP address %s to instance %s", ip, h.instance.InstanceId)
+		if _, err := associateAddress(h.provider, ip, h.instance.InstanceId, isVPC(h.instance)); err != nil {
+			return fmt.Errorf("amazon: failed to attach IP addresss %s to %s, err: %v",
+				ip, h.instance.InstanceId, err)
+		}
+	}
+
+	// Reload instance info so it's updated with the configured IP address.
+	if err := h.reloadInstance(h.instance.InstanceId); err != nil {
+		return mh.Error(err, label)
+	}
+
+	return nil
+}
+
+func detachElasticIP(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	if h.Config.DisableEIP {
+		return nil
+	}
+	label := h.MetricsLabel("detach_ip")
+	defer mh.UpdateSince(label, time.Now())
+
+	if ip := h.Config.IPAddress; ip != "" {
+		h.Printf("detaching IP address %s from instance %s", ip, h.instance.InstanceId)
+		if err := disassociateAddress(h.provider, ip, isVPC(h.instance)); err != nil {
+			return fmt.Errorf("amazon: failed to detach IP address %s from %s, err: %v",
+				ip, h.instance.InstanceId, err)
+		}
 	}
 
 	return nil
