@@ -207,6 +207,57 @@ var _ = Describe("assignAddress", func() {
 	})
 })
 
+var _ = Describe("associateAddress", func() {
+	It("associates a classic IP address to an instance", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp: "10.0.0.1",
+					Domain:   "standard",
+				},
+			},
+		}
+		vpc := false
+
+		res, err := associateAddress(p, "10.0.0.1", "i-322", vpc)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(Equal(&elasticIP{
+			PublicIP:      "10.0.0.1",
+			AssociationID: "eip-assoc-001",
+		}))
+
+		Expect(p.calls[0].name).To(Equal("AssociateAddress"))
+		Expect(p.calls[0].args[0].(*ec2.AssociateAddress).AllocationId).To(BeEmpty())
+		Expect(p.calls[0].args[0].(*ec2.AssociateAddress).PublicIp).To(Equal("10.0.0.1"))
+	})
+
+	It("associates a VPC IP address to an instance", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:     "10.0.0.1",
+					AllocationId: "eip-alloc-001",
+					Domain:       "vpc",
+				},
+			},
+		}
+		vpc := true
+
+		res, err := associateAddress(p, "10.0.0.1", "i-322", vpc)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res).To(Equal(&elasticIP{
+			PublicIP:      "10.0.0.1",
+			AllocationID:  "eip-alloc-001",
+			AssociationID: "eip-assoc-001",
+		}))
+
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+		Expect(p.calls[1].name).To(Equal("AssociateAddress"))
+		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).AllocationId).To(Equal("eip-alloc-001"))
+		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).PublicIp).To(BeEmpty())
+	})
+})
+
 var _ = Describe("releaseAddress", func() {
 	It("succeeds if the address is not found", func() {
 		p := &dummyIPProvider{
@@ -217,7 +268,7 @@ var _ = Describe("releaseAddress", func() {
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 	})
 
-	It("releases classic address", func() {
+	It("releases a classic IP address", func() {
 		p := &dummyIPProvider{
 			addresses: []ec2.Address{
 				ec2.Address{
@@ -228,7 +279,9 @@ var _ = Describe("releaseAddress", func() {
 				},
 			},
 		}
-		Expect(releaseAddress(p, "10.0.0.1", false)).ToNot(HaveOccurred())
+		vpc := false
+
+		Expect(releaseAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 		Expect(p.calls[1].name).To(Equal("DisassociateAddressClassic"))
 		Expect(p.calls[1].args[0].(string)).To(Equal("10.0.0.1"))
@@ -236,7 +289,7 @@ var _ = Describe("releaseAddress", func() {
 		Expect(p.calls[2].args[0].(string)).To(Equal("10.0.0.1"))
 	})
 
-	It("releases vpc address", func() {
+	It("releases a VPC IP address", func() {
 		p := &dummyIPProvider{
 			addresses: []ec2.Address{
 				ec2.Address{
@@ -248,7 +301,9 @@ var _ = Describe("releaseAddress", func() {
 				},
 			},
 		}
-		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "failed to release address")
+		vpc := true
+
+		Expect(releaseAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 		Expect(p.calls[1].name).To(Equal("DisassociateAddress"))
 		Expect(p.calls[1].args[0].(string)).To(Equal("eip-asso-001"))
@@ -256,7 +311,7 @@ var _ = Describe("releaseAddress", func() {
 		Expect(p.calls[2].args[0].(string)).To(Equal("eip-001"))
 	})
 
-	It("does not try to dissassociate VPC IP when it's not attached", func() {
+	It("does not try to dissassociate VPC IP address when it's not attached", func() {
 		p := &dummyIPProvider{
 			addresses: []ec2.Address{
 				ec2.Address{
@@ -267,10 +322,84 @@ var _ = Describe("releaseAddress", func() {
 				},
 			},
 		}
-		Expect(releaseAddress(p, "10.0.0.1", true)).ToNot(HaveOccurred(), "failed to release address")
+		vpc := true
+
+		Expect(releaseAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
 		Expect(p.calls[0].name).To(Equal("Addresses"))
 		Expect(p.calls[1].name).To(Equal("ReleaseAddress"))
 		Expect(p.calls[1].args[0].(string)).To(Equal("eip-001"))
+	})
+})
+
+var _ = Describe("disassociateAddress", func() {
+	It("succeeds if the IP address is not found", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{},
+		}
+		vpc := false
+
+		Expect(disassociateAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
+		Expect(len(p.calls)).To(Equal(1), "unexpected number of remote calls")
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+	})
+
+	It("disassociates a classic IP address from its instance", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:     "10.0.0.1",
+					AllocationId: "eip-001",
+					Domain:       "standard",
+					InstanceId:   "i-322",
+				},
+			},
+		}
+		vpc := false
+
+		Expect(disassociateAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
+		Expect(p.calls).To(HaveLen(2), "unexpected number of remote calls")
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+		Expect(p.calls[1].name).To(Equal("DisassociateAddressClassic"))
+		Expect(p.calls[1].args[0].(string)).To(Equal("10.0.0.1"))
+	})
+
+	It("disassociates a VPC IP address from its instance", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:      "10.0.0.1",
+					AllocationId:  "eip-001",
+					AssociationId: "eip-asso-001",
+					Domain:        "vpc",
+					InstanceId:    "i-322",
+				},
+			},
+		}
+		vpc := true
+
+		Expect(disassociateAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
+		Expect(p.calls).To(HaveLen(2), "unexpected number of remote calls")
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+		Expect(p.calls[1].name).To(Equal("DisassociateAddress"))
+		Expect(p.calls[1].args[0].(string)).To(Equal("eip-asso-001"))
+	})
+
+	It("does not try to dissassociate VPC IP address when it's not attached", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{
+				ec2.Address{
+					PublicIp:     "10.0.0.1",
+					AllocationId: "eip-001",
+					Domain:       "vpc",
+					InstanceId:   "i-322",
+				},
+			},
+		}
+		vpc := true
+
+		Expect(disassociateAddress(p, "10.0.0.1", vpc)).ToNot(HaveOccurred())
+		Expect(p.calls).To(HaveLen(1), "unexpected number of remote calls")
+		Expect(p.calls[0].name).To(Equal("Addresses"))
 	})
 })
 
