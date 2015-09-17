@@ -48,13 +48,13 @@ App.OrgMemberRowComponent = Em.Component.extend
 
   actions:
     showRemoveMember: ->
-      ui.showModal '.remove-member-modal-dialog'
+      ui.showModal(@$('.remove-member-modal-dialog'))
 
     hideRemoveMember: ->
-      ui.hideModal '.remove-member-modal-dialog'
+      ui.hideModal(@$('.remove-member-modal-dialog'))
 
     removeMember: ->
-      ui.hideModal '.remove-member-modal-dialog'
+      ui.hideModal(@$('.remove-member-modal-dialog'))
       username = @get('member.username')
 
       @set 'saving', true
