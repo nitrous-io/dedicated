@@ -15,11 +15,11 @@
         '
         | We are changing our default domain from pro.nitrous.io to
         '
-        a href="http://www.nitrous.io"
+        a href="https://www.nitrous.io"
           | www.nitrous.io
         | . Please login and switch to
         '
-        a href="http://www.nitrous.io"
+        a href="https://www.nitrous.io"
           | www.nitrous.io
         | .
     = outlet content
