@@ -462,6 +462,50 @@ var _ = Describe("provider/docker config", func() {
 			})
 		})
 
+		Context("a host has /opt/nitrous folder and a container with an existing Volumes config", func() {
+			BeforeEach(func() {
+				var err error
+				volumes := map[string]struct{}{
+					"/.nitrous-container-slug": {}, // Nitrous-specific volume.
+					"/nitrous/ssh":             {}, // Nitrous-specific volume.
+					"/.nitrous":                {}, // Nitrous-specific volume.
+					"/opt/data":                {},
+				}
+
+				cn := &dockerclient.Container{
+					Name:       "/" + cnrName,
+					HostConfig: oldHostCfg,
+					Config: &dockerclient.Config{
+						Volumes: volumes,
+					},
+				}
+
+				err = os.MkdirAll(nitrousToolsHostPath, 0777)
+				Expect(err).To(BeNil())
+
+				hostCfg, err = prov.MkHostConfig(cn,
+					&provider.ContainerConfig{
+						Hostname: cnrName,
+						Image:    "nitrousio/php",
+					}, true)
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				err := os.Remove("/opt/nitrous")
+				Expect(err).To(BeNil())
+			})
+
+			It("does not create explicit mount binds for nitrous-specific built-in volumes", func() {
+				binds := hostCfg.Binds
+				Expect(binds).To(HaveLen(4))
+				Expect(binds[0]).To(MatchRegexp(`.+/containers/php-box/ssh:/nitrous/ssh:ro$`))
+				Expect(binds[1]).To(MatchRegexp(`.+/containers/php-box/.nitrous-container-slug:/.nitrous-container-slug:ro$`))
+				Expect(binds[2]).To(MatchRegexp(`.+/volumes/php-box+-\w+:/opt/data$`))
+				Expect(binds[3]).To(MatchRegexp(`/opt/nitrous:/.nitrous:ro$`))
+			})
+		})
+
 		It("sets the Nitrous tools folder if present", func() {
 			pth, err := ioutil.TempDir("", "tools")
 			Expect(err).To(BeNil())

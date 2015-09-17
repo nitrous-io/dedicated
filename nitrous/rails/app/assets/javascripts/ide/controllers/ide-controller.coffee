@@ -31,7 +31,8 @@ App.IdeController = Em.ObjectController.extend
 
   initialize: ->
     if container = @get 'content'
-      if window.location.hostname.match /^pro\./
+      # TODO fix once chrome app supports www
+      if window.location.hostname.match(/^pro\./) && !App.get('chromeApp')
         App.postError "We are changing our default domain from pro.nitrous.io to www.nitrous.io. Please login and switch to www.nitrous.io"
 
       router = App.get 'router'
