@@ -120,12 +120,13 @@
 .card-footer.bordered
   if isRunning
     .left
-      if canSafeStop
-        button.ui.btn click='stop' Stop
-        button.ui.btn click='restart' Restart
-      else
-        button.ui.btn click='showStopDialog target="view"' Stop
-        button.ui.btn click='showRestartDialog target="view"' Restart
+      unless free
+        if canSafeStop
+          button.ui.btn click='stop' Stop
+          button.ui.btn click='restart' Restart
+        else
+          button.ui.btn click='showStopDialog target="view"' Stop
+          button.ui.btn click='showRestartDialog target="view"' Restart
     .right
       if free
         button.ui.btn click='upgradePaid' Upgrade
