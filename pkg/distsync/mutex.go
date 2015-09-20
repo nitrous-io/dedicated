@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 )
 
@@ -91,11 +92,13 @@ func (mu *Mutex) Lock() error {
 	for i := 0; i < tries; i++ {
 		reply, err := redis.String(conn.Do("SET", mu.Name, value, "NX", "EX", int(expiry.Seconds())))
 		if err != nil {
+			logrus.Infof("lock: failed to lock %d times. err: %+v", i+1, err)
 			time.Sleep(delay)
 			continue
 		}
 
 		if reply != "OK" {
+			logrus.Infof("lock: failed to lock %d times. reply: %s", i+1, reply)
 			time.Sleep(delay)
 			continue
 		}
