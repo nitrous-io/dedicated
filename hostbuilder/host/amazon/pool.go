@@ -163,6 +163,8 @@ func (h *Host) releaseInstance(provider instanceProvider) error {
 	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
 	mu := distsync.NewMutex(h.poolMutexName(instancetype), addr)
 	mu.Expiry = 30 * time.Second // Not less than expected time needed to create tags.
+	mu.Tries = 30
+	mu.Delay = 2 * time.Second
 
 	if err := mu.Lock(); err != nil {
 		return err
