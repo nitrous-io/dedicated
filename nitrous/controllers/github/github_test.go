@@ -147,13 +147,14 @@ var _ = Describe("controllers/github", func() {
 			res := doRequest("githubcode", state, state)
 			Expect(res.Code).To(Equal(http.StatusFound))
 
-			var gitHubUserName, gitHubToken sql.NullString
-			err = db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;",
-				u.ID).Scan(&gitHubUserName, &gitHubToken)
+			var gitHubUserName, gitHubToken, gitHubUserScopes sql.NullString
+			err = db.QueryRow("SELECT github_user_name, github_oauth_token_json, github_user_scopes_json FROM user_profiles WHERE user_id = $1;",
+				u.ID).Scan(&gitHubUserName, &gitHubToken, &gitHubUserScopes)
 			Expect(err).To(BeNil())
 
 			Expect(gitHubUserName.String).To(Equal("alice"))
 			Expect(gitHubToken.String).To(Equal(`{ "access_token": "keytogithub" }`))
+			Expect(gitHubUserScopes.String).To(Equal(`["user:email","repo","admin:public_key"]`))
 
 			// and tracks authorization on mixpanel
 			Expect(ft.PropsCalled).To(HaveLen(2))

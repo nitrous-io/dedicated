@@ -29,7 +29,7 @@ var (
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
 		ClientSecret: envvars.GitHubOAuthClientSecret,
-		Scopes:       []string{"user:email", "repo", "write:public_key"},
+		Scopes:       []string{"user:email", "repo", "admin:public_key"},
 		Endpoint:     githuboauth.Endpoint,
 	}
 
@@ -149,8 +149,11 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			userID, p.GitHubUserName.String, gitHubUserName)
 	}
 
+	currentScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
+
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
+	p.GitHubUserScopesJson = sql.NullString{string(currentScopesJsonBytes), true}
 	if err = p.UpdateGithubInfo(db); err != nil {
 		logrus.Errorf("p.UpdateGithubInfo() faled with '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
