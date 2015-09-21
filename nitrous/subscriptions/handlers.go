@@ -149,35 +149,36 @@ func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Even
 		return err
 	}
 
-	var paidBefore bool
-	if err := d.QueryRow(`SELECT EXISTS(select 1 FROM invoices LEFT JOIN billing_profiles ON invoices.user_id=billing_profiles.user_id AND invoices.state='paid' where billing_profiles.stripe_id=$1 ORDER BY invoices.created_at DESC);`, stripeID).Scan(&paidBefore); err != nil {
-		return err
-	}
-	if paidBefore {
-		return nil
-	}
-
-	bp := &billingprofile.BillingProfile{}
-	if err := d.QueryRowx(`UPDATE billing_profiles SET failed_attempts=failed_attempts+1 WHERE stripe_id=$1 RETURNING user_id, failed_attempts;`, stripeID).StructScan(bp); err != nil {
-		return err
-	}
-
-	if !bp.MaxAttemptsReached() {
-		return nil
-	}
-
-	u := &user.User{}
-	if err := d.QueryRowx(`UPDATE users SET suspicious=CONCAT_WS(',', suspicious, 'failed_charge') WHERE id=$1 RETURNING id, username, email;`, bp.UserID).StructScan(u); err != nil {
-		return err
-	}
-
-	go func() {
-		if err := SendChargeFailedTicket(u, e); err != nil {
-			logrus.Errorf("Failed to send charge failed ticket: %v", err)
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		var paidBefore bool
+		if err := tx.QueryRow(`SELECT EXISTS(select 1 FROM invoices LEFT JOIN billing_profiles ON invoices.user_id=billing_profiles.user_id AND invoices.state='paid' where billing_profiles.stripe_id=$1 ORDER BY invoices.created_at DESC);`, stripeID).Scan(&paidBefore); err != nil {
+			return err
 		}
-	}()
+		if paidBefore {
+			return nil
+		}
 
-	return nil
+		bp := &billingprofile.BillingProfile{}
+		if err := tx.QueryRowx(`UPDATE billing_profiles SET failed_attempts=failed_attempts+1 WHERE stripe_id=$1 RETURNING user_id, failed_attempts;`, stripeID).StructScan(bp); err != nil {
+			return err
+		}
+		if !bp.MaxAttemptsReached() {
+			return nil
+		}
+
+		u := &user.User{}
+		if err := tx.QueryRowx(`UPDATE users SET suspicious=CONCAT_WS(',', suspicious, 'failed_charge') WHERE id=$1 RETURNING id, username, email;`, bp.UserID).StructScan(u); err != nil {
+			return err
+		}
+
+		go func() {
+			if err := SendChargeFailedTicket(u, e); err != nil {
+				logrus.Errorf("Failed to send charge failed ticket: %v", err)
+			}
+		}()
+
+		return nil
+	})
 }
 
 func getStripeID(e *stripe.Event) (string, error) {

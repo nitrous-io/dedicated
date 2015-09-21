@@ -1271,7 +1271,6 @@ var _ = Describe("subscriptions", func() {
 
 			Context("when first attempt", func() {
 				It("increments failed_attempts counter by one and does not mark user as suspicious or send a failed charge ticket to nitrous support", func() {
-
 					fakeStripe.Responses = []string{
 						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
 					}
