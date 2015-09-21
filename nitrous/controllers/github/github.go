@@ -299,3 +299,24 @@ func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
 	}
 	return getTokenIfValidFromUserProfile(p)
 }
+
+func CanDeleteGitHubPublicKeys(p *userprofile.UserProfile) bool {
+	if !p.GitHubUserScopesJson.Valid || p.GitHubUserScopesJson.String == "" {
+		return false
+	}
+
+	var scopes []string
+	err := json.Unmarshal([]byte(p.GitHubUserScopesJson.String), &scopes)
+	if err != nil {
+		logrus.Infof("Failed to parse github scopes for user %+v: %+v", p, err)
+		return false
+	}
+
+	for _, scope := range scopes {
+		if scope == "admin:public_key" {
+			return true
+		}
+	}
+
+	return false
+}

@@ -47,13 +47,14 @@ if showGitHub
     .integration
       .icon.fa.fa-github-square
       .actions
-        if App.userProfile.authorizedGitHubUserName
-          p
-            | GitHub connected as '
-            = App.userProfile.authorizedGitHubUserName
-            | '
-        else
-          button.ui.btn.raised click='githubAuthorize' Connect with GitHub
+        p
+          | GitHub connected as '
+          = App.userProfile.authorizedGitHubUserName
+          | '
+
+        unless App.userProfile.canDeleteGitHubPublicKeys
+          button.ui.btn.raised click='updateGitHubPermission' Update Github Permission
+        button.ui.btn.raised click='githubAuthorize' Connect with GitHub
 
 unless App.billingProfile.isFreeOrNoCardState
   .card-header.bordered
