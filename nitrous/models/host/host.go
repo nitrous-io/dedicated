@@ -22,7 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/pkg/securerandom"
 )
 
-var slugRe = regexp.MustCompile(`\A[a-z0-9][a-z0-9\-]*[a-z0-9]\z`)
+var slugRe = regexp.MustCompile(`\A[a-z][a-z0-9\-]*[a-z0-9]\z`)
 
 var (
 	ErrSlugBlank    = errors.New("slug can't be blank")
