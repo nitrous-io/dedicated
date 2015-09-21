@@ -72,9 +72,50 @@ func assignAddress(provider ipProvider, instanceID string, vpc bool) (*elasticIP
 		}
 		return nil, err
 	}
+
 	return &elasticIP{
 		PublicIP:      allocateResp.PublicIp,
 		AllocationID:  allocateResp.AllocationId,
+		AssociationID: associationResp.AssociationId,
+	}, nil
+}
+
+// associateAddress associates an ElasticIP to an instance. The ElasticIP must
+// be an allocated (i.e. previously acquired) IP address.
+func associateAddress(provider ipProvider, ipAddress, instanceID string, vpc bool) (*elasticIP, error) {
+	var allocationID string // Only set for VPC.
+
+	req := &ec2.AssociateAddress{InstanceId: instanceID}
+	if vpc {
+		filter := ec2.NewFilter()
+		filter.Add("public-ip", ipAddress)
+		filter.Add("domain", "vpc")
+
+		addresses, err := provider.Addresses(nil, nil, filter)
+		if err != nil {
+			return nil, err
+		}
+		if len(addresses.Addresses) == 0 {
+			return nil, fmt.Errorf("could not associate Elastic IP %s that ", ipAddress)
+		}
+
+		addr := addresses.Addresses[0]
+		allocationID = addr.AllocationId
+
+		req.AllocationId = allocationID
+		req.AllowReassociation = false
+	} else {
+		req.PublicIp = ipAddress
+	}
+
+	associationResp, err := tryAssociateAddress(provider, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &elasticIP{
+		PublicIP:      ipAddress,
+		AllocationID:  allocationID,
 		AssociationID: associationResp.AssociationId,
 	}, nil
 }
@@ -97,7 +138,7 @@ func releaseAddress(provider ipProvider, ipAddress string, vpc bool) error {
 	if err != nil {
 		return err
 	}
-	// if we can't find the Elastic IP, consider the release to be successful.
+	// If we can't find the Elastic IP, consider the release to be successful.
 	if len(addresses.Addresses) == 0 {
 		return nil
 	}
@@ -126,6 +167,47 @@ func releaseAddress(provider ipProvider, ipAddress string, vpc bool) error {
 			}
 		}
 	}
+	return nil
+}
+
+// disassociateAddress disassociates an ElasticIP from the instance that it's
+// associated with.
+func disassociateAddress(provider ipProvider, ipAddress string, vpc bool) error {
+	filter := ec2.NewFilter()
+	filter.Add("public-ip", ipAddress)
+	if vpc {
+		filter.Add("domain", "vpc")
+	} else {
+		filter.Add("domain", "standard")
+	}
+
+	addresses, err := provider.Addresses(nil, nil, filter)
+	if err != nil {
+		return err
+	}
+	// If we can't find the Elastic IP, consider the release to be successful.
+	if len(addresses.Addresses) == 0 {
+		logrus.Warnf("disassociateAddress: attempted to disassociate EIP %s but it doesn't exist", ipAddress)
+		return nil
+	}
+
+	addr := addresses.Addresses[0]
+	if vpc {
+		if addr.AssociationId != "" {
+			// VPC.
+			if _, err := provider.DisassociateAddress(addr.AssociationId); err != nil {
+				return err
+			}
+		}
+	} else {
+		if addr.PublicIp != "" {
+			// EC2 Classic.
+			if _, err := provider.DisassociateAddressClassic(addr.PublicIp); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

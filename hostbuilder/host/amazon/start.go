@@ -77,7 +77,7 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	steps := []host.Step{
 		{
 			Description: "Assigning network address",
-			Func:        allocateElasticIP,
+			Func:        attachElasticIP,
 		},
 		{
 			Description: "Connecting to workspace",
@@ -148,7 +148,7 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 		},
 		{
 			Description: "Assigning network address",
-			Func:        allocateElasticIP,
+			Func:        attachElasticIP,
 		},
 		{
 			Description: "Connecting via SSH",
