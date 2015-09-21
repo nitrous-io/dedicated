@@ -140,4 +140,17 @@ var _ = Describe("buildCreateOptions", func() {
 		_, err = buildCreateOptions(r, &user.User{})
 		Expect(err).To(Equal(errNameRequired))
 	})
+
+	It("generates slug with username if slugbuilder returns numeric result", func() {
+		data := url.Values{}
+		data.Set("region", "us-west-2")
+		data.Set("name", "外人")
+		data.Set("size", "1gb")
+		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		opts, err := buildCreateOptions(r, &user.User{Username: "alien"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(opts.Slug).To(MatchRegexp(`\Aalien-\d+\z`))
+	})
 })

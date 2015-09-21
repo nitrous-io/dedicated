@@ -1567,6 +1567,7 @@ var _ = Describe("models/host", func() {
 				{"-foo", host.ErrSlugInvalid},
 				{"foo_bar", host.ErrSlugInvalid},
 				{"FOO", host.ErrSlugInvalid},
+				{"1234", host.ErrSlugInvalid},
 			}
 
 			for _, t := range tests {
