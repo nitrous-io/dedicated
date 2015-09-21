@@ -28,15 +28,18 @@
               | Added&nbsp;
               = ago collaborator.createdAt
 
-          if model.canEdit
-            .right-accessory
+          .right-accessory
+            if model.canEdit
               button.ui.btn click='showRemoveCollaborator collaborator'
                 | Remove
 
-          if collaborator.isSelf
-            .right-accessory
+            if collaborator.isSelf
               button.ui.btn click='showLeaveContainer collaborator'
-                | Leave container
+                | Leave
+
+            if collaborator.isOwner
+              .label
+                | Owner
 
   else
     p.hint-text
