@@ -297,6 +297,11 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 
 	// ignore user-provided slug. Use generated slug from name instead
 	opts.Slug = slugbuilder.Build(opts.Name)
+	if _, err := strconv.Atoi(opts.Slug); err == nil {
+		// purely digits, use username instead
+		opts.Slug = fmt.Sprintf("%s-%s", u.Username, opts.Slug)
+	}
+
 	if !u.Admin {
 		// if user is not admin, always enforce bypass_preprovision
 		opts.BypassPreprovision = false

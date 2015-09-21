@@ -24,6 +24,7 @@ func TestBuild(t *testing.T) {
 		{"hello@example.com", `hello-example-com-\d{4,}$`},
 		{"hello world", `hello-world-\d{4,}$`},
 		{"향기로운-바람-69", `69-\d{4,}$`},
+		{"향기로운-바람", `\d{4,}$`}, // FIXME: this case should be normalized so that the slug is not purely numeric
 	} {
 		o := slugbuilder.Build(tc[0])
 		if m, err := regexp.MatchString(tc[1], o); !m || err != nil {

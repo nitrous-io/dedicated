@@ -22,10 +22,13 @@ App.ContainerCollaborator = klass = App.Model.extend
   ).property 'id', 'containerId'
 
   isSelf: (->
-    userId = App.get 'user.id'
-    if userId == @get('userId')
-      true
+    App.get('user.id') == @get('userId')
   ).property 'App.user.id'
+
+  isOwner: (->
+    if sharedContainer = App.get('sharedContainers').findBy('id', @get('containerId'))
+      sharedContainer.get('userId') == @get('userId')
+  ).property 'containerId', 'App.sharedContainers.@each'
 
 klass.reopenClass
   url: '/containers/:containerId/collaborators'

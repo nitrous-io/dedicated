@@ -35,7 +35,7 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
       ui.hideModal '.remove-collaborator-modal-dialog'
       @set('collaborator', null)
 
-    removeCollaborator: ()->
+    removeCollaborator: ->
       ui.hideModal '.remove-collaborator-modal-dialog'
       collaborator = @get('collaborator')
       username = collaborator.get('username') || collaborator.get('pendingEmail')
@@ -52,7 +52,7 @@ App.ContainerCollaboratorsController = Em.ObjectController.extend
       ui.hideModal '.leave-container-modal-dialog'
       @set('collaborator', null)
 
-    leaveContainer: ()->
+    leaveContainer: ->
       ui.hideModal '.leave-container-modal-dialog'
       containerSlug = @get 'model.slug'
       collaborator = @get('collaborator')

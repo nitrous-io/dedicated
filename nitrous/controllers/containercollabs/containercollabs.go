@@ -76,8 +76,10 @@ func index(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 					UpdatedAt:   cn.UpdatedAt,
 				},
 				Username: sql.NullString{u.Username, true},
-				Name:     sql.NullString{u.DisplayName(), true},
 				Email:    sql.NullString{u.Email, true},
+			}
+			if u.Name != "" {
+				cc.Name = sql.NullString{u.Name, true}
 			}
 			ser := serializers.SerializeContainerCollabUser(cc)
 			ser.Owner = true
