@@ -97,11 +97,8 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 			Func:        detachUserVolume,
 		},
 		{
-			Description: "Release Elastic IP",
-			Func: func(ctx *host.HostContext) error {
-				h := ctx.Host.(*Host)
-				return h.releaseEIP()
-			},
+			Description: "Disassociate Elastic IP",
+			Func:        detachElasticIP,
 		},
 	}
 	for _, step := range steps {

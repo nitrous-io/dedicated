@@ -1,7 +1,6 @@
 package amazon
 
 import (
-	"errors"
 	"time"
 
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
@@ -17,10 +16,6 @@ func (h *Host) Destroy() error {
 	defer mh.UpdateSince(label, time.Now())
 
 	h.Printf("destroy - checking if instance %s / vol %s supports EBS hotswapping", h.Config.ID, h.Config.VolumeID)
-
-	if h.Config.VolumeID == "" {
-		return mh.Error(errors.New("cannot safely destroy a host with unknown volume ID"), label)
-	}
 
 	// [Feature flag] - requires EBS hotswapping.
 	if h.Config.Hotswap {
