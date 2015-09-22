@@ -25,19 +25,27 @@
                   = textarea type='text' class='text-highlight key-field' id='public-key' name='public-key' rows='6' value=key.key readonly=true
               .right
                 if App.userProfile.authorizedGitHubUserName
-                  if removing
-                    button.ui.btn disabled='disabled'
-                      i.spinner
-                      | Removing...
+                  if view.showAddGitHubKey
+                    if saving
+                      button.ui.btn disabled='disabled' disabled={view.removeKeyDisabled}
+                        i.spinner
+                        | Adding to GitHub...
+                    else
+                      button.ui.btn click='addToGitHub key' disabled={view.addToGithubDisabled} Add to GitHub
                   else
-                    button.ui.btn click='askRemoveContainerKey target="view"' disabled={view.removeKeyDisabled} Remove from GitHub
-
-                  if saving
-                    button.ui.btn disabled='disabled'
-                      i.spinner
-                      | Adding to GitHub...
-                  else
-                    button.ui.btn click='addToGitHub key' disabled={view.addToGithubDisabled} Add to GitHub
+                    if removing
+                      button.ui.btn disabled='disabled'
+                        i.spinner
+                        | Removing...
+                    else
+                      unless App.userProfile.canDeleteGitHubPublicKeys
+                        p.hint-text
+                          i.fa.fa-info-circle
+                          '  Please update GitHub permissions on
+                          a href='/app/#/account'
+                            ' the account settings page
+                          | to delete your public key from GitHub
+                      button.ui.btn click='askRemoveContainerKey target="view"' disabled={view.removeKeyDisabled} Remove from GitHub
 
       else
         p.hint-text
