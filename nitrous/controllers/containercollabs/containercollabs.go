@@ -282,7 +282,7 @@ func sendEmail(d *db.Database, c *container.Container, collab *containercollab.C
 
 	host := envvars.WebHostname
 	if host == "" {
-		host = "pro.nitrous.io"
+		host = "www.nitrous.io"
 	}
 	url := &url.URL{
 		Scheme:   "https",

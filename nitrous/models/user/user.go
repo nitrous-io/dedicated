@@ -502,7 +502,7 @@ func (u *User) GenerateConfirmationURL(d db.QueryReceiver) (*url.URL, error) {
 
 	host := envvars.WebHostname
 	if host == "" {
-		host = "pro.nitrous.io"
+		host = "www.nitrous.io"
 	}
 	return &url.URL{
 		Scheme:   "https",
@@ -643,7 +643,7 @@ func (u *User) SendPasswordResetEmail(d db.QueryReceiver) error {
 
 	host := envvars.WebHostname
 	if host == "" {
-		host = "pro.nitrous.io"
+		host = "www.nitrous.io"
 	}
 	resetURL := &url.URL{
 		Scheme:   "https",

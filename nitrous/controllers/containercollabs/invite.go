@@ -41,7 +41,7 @@ func inviteUser(d *db.Database, c *container.Container, email string, sharer *us
 
 		host := envvars.WebHostname
 		if host == "" {
-			host = "pro.nitrous.io"
+			host = "www.nitrous.io"
 		}
 		url := &url.URL{
 			Scheme:   "https",
