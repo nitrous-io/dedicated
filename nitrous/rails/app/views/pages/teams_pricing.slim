@@ -16,11 +16,15 @@
 
   article.featurette.centered
     .container
-      
+
       .wufoo-container
         #wufoo-m14c6b3806k8i07
           javascript:
             var m14c6b3806k8i07;(function(d, t) {var s = d.createElement(t), options = {'userName':'actionio','formHash':'m14c6b3806k8i07','autoResize':true,'height':'4056','async':true,'host':'wufoo.com','header':'show','ssl':true};s.src = ('https:' == d.location.protocol ? 'https://' : 'http://') + 'www.wufoo.com/scripts/embed/form.js';s.onload = s.onreadystatechange = function() {var rs = this.readyState; if (rs) if (rs != 'complete') if (rs != 'loaded') return;try { m14c6b3806k8i07 = new WufooForm();m14c6b3806k8i07.initialize(options);m14c6b3806k8i07.display(); } catch (e) {}};var scr = d.getElementsByTagName(t)[0], par = scr.parentNode; par.insertBefore(s, scr);})(document, 'script');
+
+  article.datasheet-cta
+    .container
+      = render partial: 'layouts/datasheet'
 
 
 = render partial: 'layouts/footer', locals: { active: '' }

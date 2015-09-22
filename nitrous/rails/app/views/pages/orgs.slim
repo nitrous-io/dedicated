@@ -86,7 +86,7 @@
         a class="btn grey-outline" href="/features"
           | Learn more
 
-  article
+  article.with-border
     .container
       .box-wrapper
         .box.auto
@@ -117,7 +117,7 @@
         a class="btn grey-outline" href="/flatiron"
           | Flatiron Case Study
 
-  article.used-by
+  article.used-by.with-border
     .container
       h3.section-title
        | Used by teams at startups and corporations alike
@@ -136,10 +136,13 @@
           = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
           = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'
 
+  article.datasheet-cta.with-border
+    .container
+      = render partial: 'layouts/datasheet'
+
   article.cta
     .container
       h3.section-title Let's get started
       a.btn.blue.submit href="/app/#/signup/?intent=org" Sign Up for Orgs
-
 
 = render partial: 'layouts/footer', locals: { active: 'orgs' }
