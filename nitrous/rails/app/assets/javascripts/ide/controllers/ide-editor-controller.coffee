@@ -96,8 +96,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   tabsDidChange: (->
     return unless @get 'activeFilesMonitor'
-    @get('activeFilesMonitor').tabsDidChange(@get('content'))
-  ).observes 'activeFilesMonitor', 'activeTab', 'content.length'
+    if rootPane = @get 'rootPane'
+      @get('activeFilesMonitor').tabsDidChange(rootPane.allTabs())
+  ).observes 'rootPane', 'activeFilesMonitor', 'activeTab', 'content.length'
 
   goToDefinition: (doc) ->
     opsSocket = @get 'opsSocket'
