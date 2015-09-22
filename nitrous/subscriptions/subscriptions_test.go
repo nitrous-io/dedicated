@@ -1046,7 +1046,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub).To(BeNil())
 		})
 
-		It("should update the state and period dates", func() {
+		It("should update the state and period/trial dates", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
@@ -1055,6 +1055,7 @@ var _ = Describe("subscriptions", func() {
 					"status": "updating",
 					"current_period_start": 1434418422,
 					"current_period_end": 1437010429,
+					"trial_end": 1441234567,
 					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
@@ -1069,11 +1070,12 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.State).To(Equal("updating"))
 			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418422, 0)))
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010429, 0)))
+			Expect(s.TrialEnd.Time).To(BeTemporally("==", time.Unix(1441234567, 0)))
 			Expect(s.CancelPending).To(BeFalse())
 			Expect(sub).To(Equal(s))
 		})
 
-		It("should null out the period start & end if it is null", func() {
+		It("should null out the period/trial start & end if it is null", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
@@ -1082,6 +1084,7 @@ var _ = Describe("subscriptions", func() {
 					"status": "updating",
 					"current_period_start": null,
 					"current_period_end": null,
+					"trial_end": null,
 					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
@@ -1096,6 +1099,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.State).To(Equal("updating"))
 			Expect(s.CurrentPeriodStart.Valid).To(BeFalse())
 			Expect(s.CurrentPeriodEnd.Valid).To(BeFalse())
+			Expect(s.TrialEnd.Valid).To(BeFalse())
 			Expect(s.CancelPending).To(BeFalse())
 			Expect(sub).To(Equal(s))
 		})

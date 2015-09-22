@@ -75,14 +75,20 @@ func (s *SubscriptionProvider) HandleSubscriptionUpdated(d *db.Database, subID s
 		} else {
 			sub.CurrentPeriodEnd = pq.NullTime{Valid: false}
 		}
+		if strSub.TrialEnd > 0 {
+			sub.TrialEnd = pq.NullTime{time.Unix(strSub.TrialEnd, 0), true}
+		} else {
+			sub.TrialEnd = pq.NullTime{Valid: false}
+		}
 		sub.CancelPending = strSub.Canceled > 0
 
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
-      SET state = :state, current_period_start = :current_period_start,
-      current_period_end = :current_period_end,
-      cancel_pending = :cancel_pending, updated_at = now()
-      WHERE id = :id
-      RETURNING *;`)
+			SET state = :state, current_period_start = :current_period_start,
+			current_period_end = :current_period_end,
+			trial_end = :trial_end,
+			cancel_pending = :cancel_pending, updated_at = now()
+			WHERE id = :id
+			RETURNING *;`)
 		if err != nil {
 			return err
 		}
