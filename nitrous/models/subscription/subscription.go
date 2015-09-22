@@ -30,6 +30,7 @@ type Subscription struct {
 
 	CurrentPeriodStart pq.NullTime `db:"current_period_start"`
 	CurrentPeriodEnd   pq.NullTime `db:"current_period_end"`
+	TrialEnd           pq.NullTime `db:"trial_end"`
 
 	CancelPending bool        `db:"cancel_pending"`
 	CancelledAt   pq.NullTime `db:"cancelled_at"`

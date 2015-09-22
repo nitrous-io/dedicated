@@ -543,6 +543,10 @@ var _ = Describe("subscriptions", func() {
 				trialEnd, err := strconv.Atoi(trialEndStr)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(trialEnd).To(BeNumerically("~", time.Now().Add(72*time.Hour).Unix(), 10)) // 10 seconds within current time
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s.TrialEnd.Time).To(BeTemporally("==", time.Unix(1441234567, 0)))
 			})
 		}
 
