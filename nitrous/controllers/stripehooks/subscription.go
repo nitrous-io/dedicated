@@ -54,6 +54,14 @@ func handleSubscriptionDeletedEvent(env *middleware.Env, e *stripe.Event, stripe
 	return nil
 }
 
+func handleChargeSucceededEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
+	return subProvider.HandleChargeSucceeded(env.DB, e)
+}
+
+func handleChargeFailedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
+	return subProvider.HandleChargeFailed(env.DB, e)
+}
+
 func handleInvoiceCreatedEvent(env *middleware.Env, e *stripe.Event, stripeID string) error {
 	_, err := subProvider.HandleSubscriptionInvoiceCreated(env.DB, stripeID)
 	return err
