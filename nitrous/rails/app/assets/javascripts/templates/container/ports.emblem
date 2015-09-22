@@ -55,9 +55,9 @@
                   = input type='checkbox' checked=setPreviewPort disabled=view.formDisabled
                   label
               td
-                = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort disabled=view.formDisabled
+                = input type='number' min='1' max='65535' step='1' placeholder='e.g. 80, 443 (optional)' value=hostPort disabled=view.formDisabled
               td
-                = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort disabled=view.formDisabled
+                = input type='number' min='1' max='65535' step='1' placeholder='a port from 1 - 65535' required=true value=containerPort disabled=view.formDisabled
               td
                 .ui.select
                   Ember.Select required=true value=protocol content=protocolOptions optionValuePath='content.id' optionLabelPath='content.displayName' disabled=formDisabled
