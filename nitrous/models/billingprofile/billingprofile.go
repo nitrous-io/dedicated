@@ -21,6 +21,8 @@ var (
 	ErrIncorrectCvc    = errors.New("billingprofile: cvc is incorrect")
 	ErrIncorrectZipErr = errors.New("billingprofile: zip code is incorrect")
 	ErrCardBanned      = errors.New("billingprofile: card banned")
+
+	MaxFailedAttempts = 2
 )
 
 const (
@@ -50,6 +52,7 @@ type BillingProfile struct {
 	ExpMonth          sql.NullInt64  `db:"exp_month"`
 	ExpYear           sql.NullInt64  `db:"exp_year"`
 	PendingActivation bool           `db:"pending_activation"` // not activated yet
+	FailedAttempts    int            `db:"failed_attempts"`
 	MaxHours          sql.NullInt64  `db:"max_hours"`
 	CreatedAt         *time.Time     `db:"created_at"`
 	UpdatedAt         *time.Time     `db:"updated_at"`
@@ -263,6 +266,10 @@ func (p *BillingProfile) HasBillingIssues() bool {
 
 func (p *BillingProfile) IsFreeOrCardRequired() bool {
 	return p.IsFreeTier() || p.IsCardRequired()
+}
+
+func (p *BillingProfile) MaxAttemptsReached() bool {
+	return p.FailedAttempts >= MaxFailedAttempts
 }
 
 func HandleStripeError(err error) error {

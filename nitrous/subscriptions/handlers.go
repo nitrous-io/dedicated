@@ -16,12 +16,32 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/helpscout"
 	stripe "github.com/stripe/stripe-go"
 	stripeinvoice "github.com/stripe/stripe-go/invoice"
 	stripeinvoiceitem "github.com/stripe/stripe-go/invoiceitem"
 	stripesub "github.com/stripe/stripe-go/sub"
 )
+
+var (
+	HelpScout helpscout.HelpScout
+
+	nitrousMailbox  helpscout.MailboxRef
+	nitrousCustomer helpscout.Person
+	nitrousUser     helpscout.Person
+)
+
+const HelpscoutProxyEmail = "support@nitrous.io"
+
+func init() {
+	HelpScout = &helpscout.Conversation{}
+
+	nitrousMailbox = helpscout.MailboxRef{ID: int(envvars.HelpScoutMailboxID), Name: envvars.HelpScoutMailboxName}
+	nitrousCustomer = helpscout.Person{Type: "customer", Email: HelpscoutProxyEmail}
+	nitrousUser = helpscout.Person{Type: "user", ID: envvars.HelpScoutUserID}
+}
 
 const minTimeBeforeFinalAttempt = (5 * 24) * time.Hour
 
@@ -107,6 +127,83 @@ func (s *SubscriptionProvider) HandleSubscriptionDeleted(d *db.Database, subID s
 	}
 
 	return sub, nil
+}
+
+func (s *SubscriptionProvider) HandleChargeSucceeded(d *db.Database, e *stripe.Event) error {
+	stripeID, err := getStripeID(e)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.Exec(`UPDATE billing_profiles SET failed_attempts=0 WHERE stripe_id=$1`, stripeID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SubscriptionProvider) HandleChargeFailed(d *db.Database, e *stripe.Event) error {
+	stripeID, err := getStripeID(e)
+	if err != nil {
+		return err
+	}
+
+	return d.WithTransaction(func(tx *sqlx.Tx) error {
+		var paidBefore bool
+		if err := tx.QueryRow(`SELECT EXISTS(select 1 FROM invoices LEFT JOIN billing_profiles ON invoices.user_id=billing_profiles.user_id AND invoices.state='paid' where billing_profiles.stripe_id=$1 ORDER BY invoices.created_at DESC);`, stripeID).Scan(&paidBefore); err != nil {
+			return err
+		}
+		if paidBefore {
+			return nil
+		}
+
+		bp := &billingprofile.BillingProfile{}
+		if err := tx.QueryRowx(`UPDATE billing_profiles SET failed_attempts=failed_attempts+1 WHERE stripe_id=$1 RETURNING user_id, failed_attempts;`, stripeID).StructScan(bp); err != nil {
+			return err
+		}
+		if !bp.MaxAttemptsReached() {
+			return nil
+		}
+
+		u := &user.User{}
+		if err := tx.QueryRowx(`UPDATE users SET suspicious=CONCAT_WS(',', suspicious, 'failed_charge') WHERE id=$1 RETURNING id, username, email;`, bp.UserID).StructScan(u); err != nil {
+			return err
+		}
+
+		go func() {
+			if err := SendChargeFailedTicket(u, e); err != nil {
+				logrus.Errorf("Failed to send charge failed ticket: %v", err)
+			}
+		}()
+
+		return nil
+	})
+}
+
+func getStripeID(e *stripe.Event) (string, error) {
+	source := e.Data.Obj["source"]
+	if source == nil {
+		return "", fmt.Errorf("Stripe failed to provide source: %+v", e.Data.Obj)
+	}
+
+	stripeID := e.GetObjValue("source", "customer")
+	if stripeID == "" {
+		return "", fmt.Errorf("Stripe failed to provide customer: %+v", e.Data.Obj)
+	}
+	return stripeID, nil
+}
+
+func SendChargeFailedTicket(u *user.User, e *stripe.Event) error {
+	subject := "[ALERT] Stripe - Multiple Failed Charge Attempts"
+	body := fmt.Sprintf("<strong>User</strong>: ID: %v, Username: %s, Email: %s", u.ID, u.Username, u.Email)
+	nitrousMessage := helpscout.NewThread("message", nitrousUser, body)
+	threads := []*helpscout.Thread{nitrousMessage}
+
+	if err := HelpScout.CreateConversation(nitrousCustomer, subject, nitrousMailbox, threads); err != nil {
+		return fmt.Errorf("author: %+v, subject: %s, mailbox: %+v, threads: %+v. err: %v", nitrousCustomer, subject, nitrousMailbox, threads[0], err)
+	}
+	return nil
 }
 
 func (s *SubscriptionProvider) HandleSubscriptionInvoiceCreated(d *db.Database, invID string) (*invoice.Invoice, error) {
