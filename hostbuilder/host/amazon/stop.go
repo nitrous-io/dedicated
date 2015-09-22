@@ -105,10 +105,22 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 		if err := hctx.Run(step); err != nil {
 			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
 
+			// best not to recover from a timeout of a detach volume
+			// as it may detach part way through
+			canRecover := true
+			if step.Description == "Detaching user volume" && err == context.DeadlineExceeded {
+				h.Printf("choosing not to recover from detachUserVolume, timeout exceeded")
+				canRecover = false
+			}
+
 			// Attempt to recover workspace back to its original condition
 			// prior to being stopped.
-			if err := h.recoverFromStop(); err != nil {
-				h.Printf("failed to recover from stop failure, err: %v", err)
+			if canRecover {
+				if err := h.recoverFromStop(); err != nil {
+					h.Printf("failed to recover from stop failure, err: %v", err)
+				}
+			} else {
+				h.Printf("will not recover from stop")
 			}
 
 			h.publishHostError(qp, queueInfo, event.HostStopFailed, queue.Stop, err)
