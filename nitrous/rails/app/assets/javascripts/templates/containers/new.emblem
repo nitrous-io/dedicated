@@ -102,9 +102,20 @@
           | Custom Port Bindings
 
       ul.ui.chips
-        each portMapping in portMappings.rawPorts
+        each portMapping in portMappings.content
           li
-            = portMapping
+            unless portMapping.public
+              i.fa.fa-lock
+              '
+            if portMapping.hostPort
+              = portMapping.hostPort
+            else
+              | dynamic
+            '
+            ' &rarr;
+            = portMapping.containerPort
+            | /
+            = portMapping.protocol
             a.close href='#' click='removePortMapping portMapping' &times;
 
       form.container-config submit='addPortMapping'
@@ -113,7 +124,7 @@
             thead
               tr
                 th Public
-                th Workspace Host Port
+                th Workspace Port
                 th colspan='2' Container Port
             tbody
               tr

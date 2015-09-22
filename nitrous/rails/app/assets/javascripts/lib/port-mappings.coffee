@@ -3,76 +3,102 @@ rawPortRegex = /^(public|private):(\d{0,5}):(\d{1,5})(?:\/(tcp|udp))?$/
 parsePort = (port) ->
   parseInt(port, 10) || ''
 
-createPortMapping = (scope, hostPort, containerPort, protocol='tcp') ->
-  return {
-    scope: scope
-    hostPort: parsePort(hostPort)
-    containerPort: parsePort(containerPort)
-    protocol: protocol
-  }
-
 parsePortMapping = (rawPortMapping) ->
   matches = rawPortRegex.exec(rawPortMapping)
-
   if !matches
     return null
 
   [_, scope, hostPort, containerPort, protocol] = matches
 
-  return createPortMapping(scope, hostPort, containerPort, protocol)
+  Lib.PortMapping.create
+    scope: scope
+    hostPort: parsePort(hostPort)
+    containerPort: parsePort(containerPort)
+    protocol: protocol
 
 # Two port mappings are conflicting if they have either the
 # same container or host port and in the same protocol.
 conflictPortMapping = (pm1, pm2) ->
-  return (pm1.protocol == pm2.protocol) && 
+  return (pm1.protocol == pm2.protocol) &&
     ((pm1.containerPort == pm2.containerPort) ||
      (pm1.hostPort != '' && pm1.hostPort == pm2.hostPort))
 
-serializePortMapping = (portMapping) ->
-  { scope, hostPort, containerPort, protocol } = portMapping
-  "#{scope}:#{hostPort}:#{containerPort}/#{protocol}"
+Lib.PortMapping = Em.Object.extend
+  scope: null
+  hostPort: null # This is the configured host port. If null, it means it will be dynamically assigned.
+  assignedHostPort: null
+  containerPort: null
+  protocol: 'tcp'
+
+  public: (->
+    @get('scope') == 'public'
+  ).property 'scope'
+
+  # Returns true if this port mapping is the assigned version of the given port
+  # mapping.
+  isAssignedVersionOf: (mapping) ->
+    @get('hostPort') && !mapping.get('hostPort') &&
+      @get('scope') == mapping.get('scope') &&
+      @get('containerPort') == mapping.get('containerPort') &&
+      @get('protocol') == mapping.get('protocol')
 
 Lib.PortMappings = Em.Object.extend
-  parsedPorts: []
+  content: Em.A()
+  configuredPorts: Em.A() # port mappings of the form "public::22/tcp", "private:80:3000/tcp"
+  livePorts: Em.A() # port mappings of the form "public:32768:22/tcp", "private:80:3000/tcp"
 
-  init: () ->
-    rawPorts = @getWithDefault 'ports', []
+  init: ->
+    livePorts = @get('livePorts')
+    mappings = []
+    for port in livePorts
+      mapping = parsePortMapping(port)
+      continue if !mapping
+      mappings.pushObject(mapping)
 
-    parsedPorts = []
-    @set 'parsedPorts', parsedPorts
+    configuredPorts = @get('configuredPorts')
+    for port in configuredPorts
+      configuredMapping = parsePortMapping(port)
+      if !configuredMapping || configuredMapping.get('hostPort')
+        # Skip if this is not a dynamic port mapping.
+        continue
 
-    for rawPort in rawPorts
-      parsedPort = parsePortMapping(rawPort)
+      # Lookup the "live" port mapping of this dynamic port mapping.
+      liveMapping = mappings.find((mapping) ->
+        mapping.isAssignedVersionOf(configuredMapping)
+      )
+      continue if !liveMapping
+      liveMapping.set('assignedHostPort', liveMapping.get('hostPort'))
+      liveMapping.set('hostPort', '')
 
-      if parsedPort
-        parsedPorts.pushObject parsedPort
+    @set 'content', Em.ArrayProxy.createWithMixins Em.SortableMixin,
+      content: Em.A(mappings)
+      sortProperties: ['containerPort']
 
   add: (scope, hostPort, containerPort, protocol='tcp') ->
-    hostPort = parsePort(hostPort)
-    containerPort = parsePort(containerPort)
+    newPortMapping = Lib.PortMapping.create
+      scope: scope
+      hostPort: parsePort(hostPort)
+      containerPort: parsePort(containerPort)
+      protocol: protocol
 
-    parsedPorts = @get('parsedPorts')
-    newPortMapping = createPortMapping(scope, hostPort, containerPort, protocol)
-    
-    for portMapping in parsedPorts
-      if conflictPortMapping(newPortMapping, portMapping)
-        # skip if both port mappings are the same
-        # ignore if either host or container port already inside the current list
-        return
+    mappings = @get('content')
+    return false if mappings.any((mapping) ->
+      conflictPortMapping(newPortMapping, mapping)
+    )
 
-    parsedPorts.pushObject(newPortMapping)
+    mappings.pushObject(newPortMapping)
+    true
 
   remove: (portMapping) ->
-    parsedPorts = @get 'parsedPorts'
-    index = parsedPorts.map(serializePortMapping)
-      .indexOf(portMapping)
+    mappings = @get('content')
+    mappings = mappings.reject((m) ->
+      portMapping == m
+    )
+    @set('content', mappings)
 
-    if index != -1
-      parsedPorts.removeAt(index)
-
-  rawPorts: (->
-    parsedPorts = @get 'parsedPorts'
-    return parsedPorts.sortBy('scope:desc', 'containerPort')
-      .map(serializePortMapping)
-      
-  ).property 'parsedPorts.@each'
+  # Converts port mappings so that they are usable as HTTP form params.
+  serialized: (->
+    @get('content').map((mapping) ->
+      "#{mapping.scope}:#{mapping.hostPort}:#{mapping.containerPort}/#{mapping.protocol}"
+    )
+  ).property 'content.@each'

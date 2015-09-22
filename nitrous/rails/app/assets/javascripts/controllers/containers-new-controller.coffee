@@ -96,7 +96,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       host: @get 'selectedHostSlug'
       volume: @get 'volumeMounts'
       env: @get 'envVars'
-      port: @get 'portMappings.rawPorts'
+      port: @get 'portMappings.serialized'
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
     ).then =>

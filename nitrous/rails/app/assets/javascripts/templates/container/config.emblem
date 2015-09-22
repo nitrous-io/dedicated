@@ -9,7 +9,7 @@
 
   .ui.input-group
     label.field-label
-      | Custom Port Mappings
+      | Port Mappings
 
   unless config
     p.hint-text
@@ -17,9 +17,24 @@
       | Loading...
 
   ul.ui.chips
-    each portMapping in portMappings.rawPorts
+    each portMapping in portMappings.content
       li class={view.formDisabled:disabled}
-        = portMapping
+        unless portMapping.public
+          i.fa.fa-lock
+          '
+        if portMapping.hostPort
+          = portMapping.hostPort
+        else
+          if portMapping.assignedHostPort
+            = portMapping.assignedHostPort
+            |  (dynamic)
+          else
+            | dynamic
+        '
+        ' &rarr;
+        = portMapping.containerPort
+        | /
+        = portMapping.protocol
         unless view.formDisabled
           a.close href='#' click='removePortMapping portMapping' &times;
 
@@ -30,7 +45,7 @@
           thead
             tr
               th Public
-              th Workspace Host Port
+              th Workspace Port
               th Container Port
               th colspan='2' Protocol
           tbody
