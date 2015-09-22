@@ -81,7 +81,7 @@ func (s *SubscriptionProvider) sendFailureEmail(d db.QueryReceiver, tryCount int
 func billingUrl() string {
 	host := envvars.WebHostname
 	if host == "" {
-		host = "pro.nitrous.io"
+		host = "www.nitrous.io"
 	}
 	u := &url.URL{
 		Scheme:   "https",

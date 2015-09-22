@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="USAGE: ./script/migrate_user USERNAME TO_DB (TO_DB is pro-n2ostaging-com for staging and pro-nitrous-io for production)"
+usage="USAGE: ./script/migrate_user USERNAME TO_DB (TO_DB is pro-n2ostaging-com for staging and www.nitrous.io for production)"
 
 username=${1:?"username is required. ${usage}"}
 db=${2:?"db is required. ${usage}"}

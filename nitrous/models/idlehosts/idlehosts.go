@@ -270,7 +270,7 @@ func (t *Target) sendWarning(db *ndb.Database, opt *warningOpts) error {
 
 	host := envvars.WebHostname
 	if host == "" {
-		host = "pro.nitrous.io"
+		host = "www.nitrous.io"
 	}
 	dashboardUrl := &url.URL{
 		Scheme: "https",

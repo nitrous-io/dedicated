@@ -92,7 +92,7 @@ func main() {
 		if !u.ConfirmedAt.Valid {
 			ru := &url.URL{
 				Scheme:   "https",
-				Host:     "pro.nitrous.io",
+				Host:     "www.nitrous.io",
 				Path:     "/app/",
 				Fragment: fmt.Sprintf("/confirm-email?token=%s", u.ConfirmationToken.String),
 			}
