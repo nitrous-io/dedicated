@@ -157,6 +157,10 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
+		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 {
+			params.TrialEnd = trialEnd
+		}
+
 		var cp *coupon.Coupon
 		if !p.IsFree() {
 			cp, err = coupon.Find(tx, u.ID)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -512,6 +513,36 @@ var _ = Describe("subscriptions", func() {
 				Expect(err).To(BeNil())
 				Expect(cp2.UsedAt.Valid).To(BeFalse())
 				Expect(cp2.UsedAt.Time).To(BeZero())
+			})
+
+			It("sends correct trial end param to Stripe for plans with free trial", func() {
+				pl.TrialPeriodDays = 3
+
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419,
+					"trial_end": 1441234567,
+					"plan": { "id": "stripe-plan-id" }
+				}`,
+				}
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				trialEndStr, ok := r["trial_end"]
+				Expect(ok).To(BeTrue())
+				trialEnd, err := strconv.Atoi(trialEndStr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(trialEnd).To(BeNumerically("~", time.Now().Add(72*time.Hour).Unix(), 10)) // 10 seconds within current time
 			})
 		}
 
