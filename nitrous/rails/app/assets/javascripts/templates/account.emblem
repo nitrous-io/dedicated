@@ -46,15 +46,24 @@ if showGitHub
   .card-body
     .integration
       .icon.fa.fa-github-square
-      .actions
-        p
-          | GitHub connected as '
-          = App.userProfile.authorizedGitHubUserName
-          | '
-
-        unless App.userProfile.canDeleteGitHubPublicKeys
-          button.ui.btn.raised click='updateGitHubPermission' Update Github Permission
+      if view.showGitHubName
+        .actions
+          p
+            | GitHub connected as '
+            = App.userProfile.authorizedGitHubUserName
+            | '
+      else
         button.ui.btn.raised click='githubAuthorize' Connect with GitHub
+
+  if view.showGitHubName
+    .card-footer.bordered
+      .right
+        if view.showReconnectMessage
+          p.note-text
+          .notice-text
+            i.fa.fa-warning
+            | Please reconnect with GitHub to manage your public keys
+        button.ui.btn.primary click='githubAuthorize' Reconnect with GitHub
 
 unless App.billingProfile.isFreeOrNoCardState
   .card-header.bordered
