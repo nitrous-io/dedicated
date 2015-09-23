@@ -102,10 +102,9 @@
           | Custom Port Bindings
 
       ul.ui.chips
-        each portMapping in portMappings.rawPorts
+        each portMapping in portMappings.content
           li
-            = portMapping
-            a.close href='#' click='removePortMapping portMapping' &times;
+            App.PortMappingView content=portMapping readonly=false
 
       form.container-config submit='addPortMapping'
         .ui.input-group.container-config-form
@@ -113,7 +112,7 @@
             thead
               tr
                 th Public
-                th Workspace Host Port
+                th Workspace Port
                 th colspan='2' Container Port
             tbody
               tr
@@ -122,9 +121,9 @@
                     = input type='checkbox' checked=publicPort
                     label
                 td
-                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort
+                  = input type='number' min='1' max='65535' step='1' placeholder='e.g. 80, 443 (optional)' value=hostPort
                 td
-                  = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort
+                  = input type='number' min='1' max='65535' step='1' placeholder='a port from 1 - 65535' required=true value=containerPort
                 td
                   input.ui.btn.raised type='submit' disabled={view.addPortMappingButtonDisabled} value='Add'
 

@@ -55,12 +55,11 @@ func reconfig(cn *container.Container, h *host.Host, env *middleware.Env, w http
 			PublishContainerEvent(env, controllers.EventContainerReconfiguring, cn, nil)
 
 			err := reconfigureContainer(ctx, env)
-
 			if err != nil {
 				_ = cn.Update(db) // Ignore error here.
 				errMsg := err.Error()
-				if hError, ok := err.(*httperror.Error); ok {
-					errMsg = hError.Description
+				if e, ok := err.(*httperror.Error); ok {
+					errMsg = e.Description
 				}
 				add := map[string]interface{}{
 					"error": errMsg,

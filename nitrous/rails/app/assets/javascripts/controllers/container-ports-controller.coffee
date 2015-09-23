@@ -5,66 +5,43 @@ transformEnvHashToArray = (hash) ->
       envVars.push("#{key}=#{value}") if value
   envVars
 
-App.ContainerPortsController = Em.ObjectController.extend
+App.ContainerPortsController = Lib.ContainerConfigController.extend
   saving: (->
     m = @get 'model'
     m && m.get('underReconfig')
   ).property 'model', 'model.underReconfig'
-  port: null
+  loaded: false
   newPreviewPort: null
   setPreviewPort: false
   removePreviewPort: false
-  publicPorts: null
-
-  setPublicPorts: (->
-    return if @get 'saving'
-    publicPorts = Em.A()
-    return publicPorts unless ports = @get 'model.config.port'
-
-    previewPort = @get('newPreviewPort') || @get('model.previewPort')
-
-    for port in ports
-      regex = ///
-        ^public:  # should be a public port binding
-        (\d*):    # host port
-        (\d*)     # container port
-        (\/(?:tcp|udp))?  # can be followed by tcp or udp
-        $         # end of string
-      ///
-      if m = port.match(regex)
-        hostPort = m[1] || 'To be assigned'
-        containerPort = parseInt(m[2])
-        publicPorts.push { port: port, hostPort: hostPort, containerPort: containerPort, preview: m[1] == previewPort }
-    @set 'publicPorts', publicPorts.sortBy "containerPort"
-  ).observes 'saving', 'model.config.port.@each', 'model.previewPort', 'newPreviewPort'
 
   clear: ->
     @_super.apply this, arguments
     @setProperties
-      port: null
+      loaded: false
       newPreviewPort: null
       setPreviewPort: false
       removePreviewPort: false
 
+  loadConfig: ->
+    container = @get 'model'
+    container.loadConfig().then (config) =>
+      @set 'portMappings', Lib.PortMappings.create
+        configuredPorts: config.config_port_bindings
+        livePorts: config.port
+      @set 'loaded', true
+    , (jqxhr) ->
+      App.postError(jqxhr.responseJSON, 'Failed to fetch configuration!')
+
   actions:
     add: ->
-      port = @get 'port'
-      container = @get 'model'
-      portMappings = container.get('config.port')
+      containerPort = @get 'containerPort'
       if @get('setPreviewPort')
-        @set 'newPreviewPort', port
-      pb = "public::#{port}"
-      unless portMappings.contains(pb)
-        portMappings.pushObject(pb)
-      @set 'port', null
+        @set('newPreviewPort', containerPort)
       @set 'setPreviewPort', false
 
-    remove: (port) ->
-      pb = port.port
-      container = @get 'model'
-      container.get('config.port').removeObject pb
-      if port.preview
-        @set 'removePreviewPort', true
+      @set('publicPort', true) # all port mappings are public
+      @send('addPortMapping') # in Lib.ContainerConfigController
 
     apply: ->
       return if @get 'saving'
@@ -83,7 +60,11 @@ App.ContainerPortsController = Em.ObjectController.extend
 
       onReconfigured = (data) =>
         reconfigureComplete()
-        container.setConfig(data.config)
+        config = data.config
+        container.setConfig(config)
+        @set 'portMappings', Lib.PortMappings.create
+          configuredPorts: config.config_port_bindings
+          livePorts: config.port
         App.snackbar.post 'Port changes applied!'
 
       onReconfigureFailed = (data) =>
@@ -95,12 +76,12 @@ App.ContainerPortsController = Em.ObjectController.extend
 
       env = Em.copy container.get('config.env')
       if newPreviewPort = @get('newPreviewPort')
-        env["NITROUS_PREVIEW_PORT"] = newPreviewPort
+        env['NITROUS_PREVIEW_PORT'] = newPreviewPort
       if @get 'removePreviewPort'
-        delete env["NITROUS_PREVIEW_PORT"]
+        delete env['NITROUS_PREVIEW_PORT']
 
       container.saveConfig(
-        port: container.get('config.port')
+        port: @get 'portMappings.serialized'
         env: transformEnvHashToArray env
       ).then =>
         App.snackbar.post 'Applying port changes...'

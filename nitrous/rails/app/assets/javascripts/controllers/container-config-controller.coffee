@@ -32,8 +32,9 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
 
   updateConfigForm: (config) ->
     @set 'portMappings', Lib.PortMappings.create
-      ports: config.config_port_bindings || config.port
-      
+      configuredPorts: config.config_port_bindings
+      livePorts: config.port
+
     if config.env
       [mutableEnv, readOnlyEnv] = filterEnvVarHash(config.env)
       @set 'envVarHash', mutableEnv
@@ -78,7 +79,7 @@ App.ContainerConfigController = Lib.ContainerConfigController.extend
       container.saveConfig(
         env: @get 'envVars'
         volume: @get 'volumeMounts'
-        port: @get 'portMappings.rawPorts'
+        port: @get 'portMappings.serialized'
         privileged: @get 'privileged'
         publish_all: @get 'publishAll'
       ).then(=>
