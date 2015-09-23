@@ -5,4 +5,5 @@ var FreighterFeatures = []string{
 	"ping",
 	"cmdrun",
 	"loginrun",
+	"minirun",
 }
