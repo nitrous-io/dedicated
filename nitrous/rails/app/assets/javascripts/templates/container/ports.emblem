@@ -14,24 +14,7 @@
   ul.ui.chips
     each portMapping in portMappings.content
       li class={view.formDisabled:disabled}
-        unless portMapping.public
-          i.fa.fa-lock
-          '
-        if portMapping.hostPort
-          = portMapping.hostPort
-        else
-          if portMapping.assignedHostPort
-            = portMapping.assignedHostPort
-            |  (dynamic)
-          else
-            | dynamic
-        '
-        ' &rarr;
-        = portMapping.containerPort
-        | /
-        = portMapping.protocol
-        unless view.formDisabled
-          a.close href='#' click='removePortMapping portMapping' &times;
+        App.PortMappingView content=portMapping readonly=view.formDisabled
     else
       p.hint-text
         i.fa.fa-exclamation-circle
