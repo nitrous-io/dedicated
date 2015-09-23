@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containerkeys"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -158,7 +159,6 @@ var _ = Describe("controllers/containerkeys", func() {
 				Expect(errDesc).To(Equal("public key operations are not supported"))
 			})
 		})
-
 	})
 
 	Describe("POST /api/v0/containers/{container}/container_keys/github", func() {
@@ -352,6 +352,101 @@ var _ = Describe("controllers/containerkeys", func() {
 				_, err := db.Exec("UPDATE user_profiles SET github_oauth_token_json = '{}' WHERE user_id = $1", u.ID)
 				Expect(err).To(BeNil())
 
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("github_token_not_valid"))
+				Expect(errDesc).To(Equal("GitHub token is not valid"))
+			})
+		})
+	})
+
+	Describe("GET /api/v0/containers/{container}/container_keys/status", func() {
+		var originalGetGitHubKeysFunc getGitHubKeysFunc
+
+		doRequest := func() {
+			uri := fmt.Sprintf("/api/v0/containers/%s/container_keys/status", c.Slug)
+			req, err := test.NewAuthedRequest(t, "GET", uri, nil)
+			Expect(err).To(BeNil())
+			svr.Router().ServeHTTP(res, req)
+		}
+
+		BeforeEach(func() {
+			originalGetGitHubKeysFunc = containerkeys.GetGitHubKeysFunc
+			containerkeys.GetGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+				return []string{}, nil
+			}
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
+		})
+
+		AfterEach(func() {
+			containerkeys.GetGitHubKeysFunc = originalGetGitHubKeysFunc
+		})
+
+		It("returns added_to_github=false", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := struct {
+				AddedToGitHub bool `json:"added_to_github"`
+			}{}
+
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.AddedToGitHub).To(Equal(false))
+		})
+
+		Context("container key is added to GitHub", func() {
+			BeforeEach(func() {
+				containerkeys.GetGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+					return []string{key0}, nil
+				}
+			})
+
+			It("returns added_to_github=true", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := struct {
+					AddedToGitHub bool `json:"added_to_github"`
+				}{}
+
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.AddedToGitHub).To(Equal(true))
+			})
+		})
+
+		Context("when user hasn't authenticated with GitHub", func() {
+			BeforeEach(func() {
+				containerkeys.GetGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+					return nil, github.ErrTokenEmpty
+				}
+			})
+
+			It("return added_to_github=false", func() {
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+				j := struct {
+					AddedToGitHub bool `json:"added_to_github"`
+				}{}
+
+				err := json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.AddedToGitHub).To(Equal(false))
+			})
+		})
+
+		Context("when user's github token is not valid", func() {
+			BeforeEach(func() {
+				containerkeys.GetGitHubKeysFunc = func(cn *container.Container, h *host.Host, env *middleware.Env) ([]string, error) {
+					return nil, github.ErrTokenNotValid
+				}
+			})
+
+			It("responds with token not valid", func() {
 				doRequest()
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				errType, errDesc := test.ErrorSlug(res.Body)

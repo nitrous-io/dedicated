@@ -18,18 +18,8 @@ App.ContainerKeysController = Lib.RecordListController.extend
       isKeyAddedToGitHub: false
 
   checkIfKeyIsAddedToGitHub: ->
-    @get('model').ajax('GET', 'container_keys/github').then( (data) =>
-      return unless data.keys
-      for githubKey in data.keys
-        containerKey = @get('containerKeys').find( (item) =>
-          if item.get('key').indexOf(githubKey) > -1
-            return true
-        )
-
-        if containerKey
-          @set("isKeyAddedToGitHub", true)
-          break
-
+    @get('model').ajax('GET', 'container_keys/status').then( (data) =>
+      @set("isKeyAddedToGitHub", data.added_to_github)
     , (jqxhr) ->
     ).finally =>
       @set 'saving', false

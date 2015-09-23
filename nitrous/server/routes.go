@@ -152,6 +152,7 @@ func (s *Server) drawRoutes() {
 				"/containers/{slug}/keys":                  r("userkeys.Index", userkeys.Index),
 				"/containers/{slug}/container_keys":        r("containerkeys.Index", containerkeys.Index, EventContainerKeyListed),
 				"/containers/{slug}/container_keys/github": r("containerkeys.GetGitHubSSHKeys", containerkeys.GetGitHubSSHKeys, EventContainerGitHubKeyListed),
+				"/containers/{slug}/container_keys/status": r("containerkeys.Status", containerkeys.Status),
 				"/containers/{slug}/collaborators":         r("containercollabs.Index", containercollabs.Index),
 				"/billing/invoices":                        r("billing.Invoices", billing.Invoices),
 				"/billing/current_usage":                   r("billing.CurrentUsage", billing.CurrentUsage),

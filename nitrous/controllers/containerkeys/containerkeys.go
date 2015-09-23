@@ -21,6 +21,7 @@ var (
 	AddToGitHub      middleware.Middleware = containers.WithContainerAndHost(addToGitHub, containers.AllowCollab, containers.TouchHost)
 	GetGitHubSSHKeys middleware.Middleware = containers.WithContainerAndHost(getGitHubSSHKeys, containers.AllowCollab, containers.TouchHost)
 	RemoveFromGitHub middleware.Middleware = containers.WithContainerAndHost(removeFromGitHub, containers.AllowCollab, containers.TouchHost)
+	Status           middleware.Middleware = containers.WithContainerAndHost(status, containers.AllowCollab, containers.TouchHost)
 
 	// separated out for mocking
 	AddGitHubKeysFunc    func(cn *container.Container, h *host.Host, env *middleware.Env) (string, error)   = addGitHubKeys
@@ -238,6 +239,45 @@ func removeFromGitHub(cn *container.Container, h *host.Host, env *middleware.Env
 	return nil
 }
 
+// status return status of container keys
+func status(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	existingKeys, err := GetGitHubKeysFunc(cn, h, env)
+
+	if err != nil {
+		switch err {
+		case github.ErrTokenEmpty:
+			env.Status = http.StatusOK
+			env.Data = map[string]interface{}{
+				"added_to_github": false,
+			}
+			return nil
+		case github.ErrTokenNotValid:
+			return errGitHubTokenNotValid
+		default:
+			return err
+		}
+	}
+
+	containerKey, err := containerPublicKey(cn, h, env)
+	if err != nil {
+		return err
+	}
+
+	addedToGitHub := false
+	for _, existingKey := range existingKeys {
+		fingerprint, _ := sshkey.Md5Fingerprint(existingKey)
+		if fingerprint == containerKey.Fingerprint {
+			addedToGitHub = true
+			break
+		}
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"added_to_github": addedToGitHub,
+	}
+	return nil
+}
 func githubKeys(gitHubClient *githubapi.Client) ([]githubapi.Key, error) {
 	// we pass empty user name even though we know it because that will call
 	// https://developer.github.com/v3/users/keys/#list-your-public-keys
