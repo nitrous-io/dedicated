@@ -41,7 +41,7 @@ type Host struct {
 	PendingRespec bool `json:"pending_respec"`
 
 	SubscriptionSlug string `json:"subscription_slug,omitempty"`
-	Free             bool   `json:"free,omitempty"`
+	Free             bool   `json:"free"`
 }
 
 func SerializeHost(h *host.Host) *Host {

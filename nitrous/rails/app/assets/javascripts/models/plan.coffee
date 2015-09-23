@@ -4,6 +4,7 @@ attr = SM.attr
 App.Plan = klass = App.Model.extend
   id: attr('number', serialize: false)
   basePlanId: attr('number', as: 'base_plan_id', serialize: false)
+  hostingModePlanId: attr('number', as: 'hosting_mode_plan_id', serialize: false)
 
   slug: attr()
   name: attr()
@@ -38,6 +39,11 @@ App.Plan = klass = App.Model.extend
       App.get('plans').findBy('id', basePlanId)
   ).property 'basePlanId', 'App.plans.@each'
 
+  hostingModePlan: (->
+    if hostingModePlanId = @get('hostingModePlanId')
+      App.get('plans').findBy('id', hostingModePlanId)
+  ).property 'hostingModePlanId', 'App.plans.@each'
+
   displayName: (->
     name = @get 'name'
     price = @get 'price'
@@ -54,6 +60,14 @@ App.Plan = klass = App.Model.extend
     cp + bp
   ).property 'price', 'basePrice'
 
+  hostingModePrice: (->
+    price = 0
+    if @get('hostingModePlan')
+      price = @get('hostingModePlan.totalPrice') - @get('totalPrice')
+    price = 0 if price < 0
+    price
+  ).property 'totalPrice', 'hostingModePlan.totalPrice'
+
   totalPriceInDollars: (->
     formatPrice((@getWithDefault 'totalPrice', 0), 2)
   ).property 'totalPrice'
@@ -65,6 +79,11 @@ App.Plan = klass = App.Model.extend
   hourlyPriceInCents: (->
     formatPrice((@getWithDefault 'hourlyPrice', 0), 3, false)
   ).property 'hourlyPrice'
+
+  # Cost of adding on hosting mode to this plan.
+  hostingModePriceInDollars: (->
+    formatPrice((@getWithDefault 'hostingModePrice', 0), 2, false)
+  ).property 'hostingModePrice'
 
   isPaidPlan: (->
     return (@get('price') > 0) || (@get('basePrice') > 0)

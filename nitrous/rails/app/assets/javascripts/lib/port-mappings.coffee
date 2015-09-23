@@ -34,6 +34,16 @@ Lib.PortMapping = Em.Object.extend
     @get('scope') == 'public'
   ).property 'scope'
 
+  isHttpPort: (->
+    port = @get('hostPort') || @get('assignedPort')
+    port == 80
+  ).property 'hostPort', 'assignedPort'
+
+  isHttpsPort: (->
+    port = @get('hostPort') || @get('assignedPort')
+    port == 443
+  ).property 'hostPort', 'assignedPort'
+
   # Returns true if this port mapping is the assigned version of the given port
   # mapping.
   isAssignedVersionOf: (mapping) ->

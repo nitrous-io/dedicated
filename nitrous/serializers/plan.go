@@ -3,8 +3,9 @@ package serializers
 import "github.com/nitrous-io/dedicated/nitrous/models/plan"
 
 type Plan struct {
-	ID         int64 `json:"id"`
-	BasePlanID int64 `json:"base_plan_id,omitempty"`
+	ID                int64 `json:"id"`
+	BasePlanID        int64 `json:"base_plan_id,omitempty"`
+	HostingModePlanID int64 `json:"hosting_mode_plan_id,omitempty"`
 
 	Slug         string `json:"slug"`
 	Name         string `json:"name"`
@@ -63,6 +64,9 @@ func SerializePlan(p *plan.Plan) *Plan {
 	}
 	if p.BasePlanID.Valid {
 		serialized.BasePlanID = p.BasePlanID.Int64
+	}
+	if p.HostingModePlanID.Valid {
+		serialized.HostingModePlanID = p.HostingModePlanID.Int64
 	}
 	return serialized
 }
