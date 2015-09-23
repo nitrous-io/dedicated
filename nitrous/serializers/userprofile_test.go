@@ -1,6 +1,7 @@
 package serializers_test
 
 import (
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -16,12 +17,15 @@ var _ = Describe("userprofile serializer", func() {
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
 		model = &userprofile.UserProfile{
-			ID:        10, // Not serialized.
-			UserID:    10, // Not serialized.
-			MaxHosts:  15,
-			Advanced:  false,
-			CreatedAt: &createdAt,
-			UpdatedAt: &updatedAt,
+			ID:                   10, // Not serialized.
+			UserID:               10, // Not serialized.
+			MaxHosts:             15,
+			Advanced:             false,
+			GitHubUserName:       sql.NullString{"foo", true},
+			GitHubOAuthTokenJson: sql.NullString{`{"access_token": "token"}`, true},
+			GitHubUserScopesJson: sql.NullString{`["user:email","repo","admin:public_key"]`, true},
+			CreatedAt:            &createdAt,
+			UpdatedAt:            &updatedAt,
 		}
 	)
 
@@ -32,7 +36,9 @@ var _ = Describe("userprofile serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
 				"max_hosts": 15,
-				"advanced": false
+				"advanced": false,
+				"authorized_github_user_name": "foo",
+				"can_delete_github_public_keys": true
 			}`))
 		})
 	})

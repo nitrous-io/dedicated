@@ -13,6 +13,8 @@ App.AccountView = Em.View.extend
   didInsertElement: ->
     @_super()
     @$('[autofocus]').focus()
+    @set('showGitHubName', App.get('userProfile.authorizedGitHubUserName'))
+    @set('showReconnectMessage', !App.get('userProfile.canDeleteGitHubPublicKeys'))
 
   showDeleteAccount: ->
     @set 'deleteAccountConfirmation', null

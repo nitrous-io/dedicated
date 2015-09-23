@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 
@@ -147,13 +148,14 @@ var _ = Describe("controllers/github", func() {
 			res := doRequest("githubcode", state, state)
 			Expect(res.Code).To(Equal(http.StatusFound))
 
-			var gitHubUserName, gitHubToken sql.NullString
-			err = db.QueryRow("SELECT github_user_name, github_oauth_token_json FROM user_profiles WHERE user_id = $1;",
-				u.ID).Scan(&gitHubUserName, &gitHubToken)
+			var gitHubUserName, gitHubToken, gitHubUserScopes sql.NullString
+			err = db.QueryRow("SELECT github_user_name, github_oauth_token_json, github_user_scopes_json FROM user_profiles WHERE user_id = $1;",
+				u.ID).Scan(&gitHubUserName, &gitHubToken, &gitHubUserScopes)
 			Expect(err).To(BeNil())
 
 			Expect(gitHubUserName.String).To(Equal("alice"))
 			Expect(gitHubToken.String).To(Equal(`{ "access_token": "keytogithub" }`))
+			Expect(gitHubUserScopes.String).To(Equal(`["user:email","repo","admin:public_key"]`))
 
 			// and tracks authorization on mixpanel
 			Expect(ft.PropsCalled).To(HaveLen(2))
@@ -243,6 +245,33 @@ var _ = Describe("controllers/github", func() {
 
 			urlState := u.Query().Get("state")
 			Expect(urlState).To(Equal(existingState))
+		})
+	})
+
+	Describe("CanDeleteGitHubPublicKeys", func() {
+		var up *userprofile.UserProfile
+
+		BeforeEach(func() {
+			up = &userprofile.UserProfile{}
+		})
+
+		It("returns false when github scopes is nil", func() {
+			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns false when github scopes is empty", func() {
+			up.GitHubUserScopesJson = sql.NullString{"", true}
+			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns false when github scopes does not contain `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "write:public_key"]`, true}
+			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(false))
+		})
+
+		It("returns true when github scopes contains `admin:public_key`", func() {
+			up.GitHubUserScopesJson = sql.NullString{`["repo", "admin:public_key"]`, true}
+			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(true))
 		})
 	})
 })

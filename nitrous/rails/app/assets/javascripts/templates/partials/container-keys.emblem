@@ -25,12 +25,27 @@
                   = textarea type='text' class='text-highlight key-field' id='public-key' name='public-key' rows='6' value=key.key readonly=true
               .right
                 if App.userProfile.authorizedGitHubUserName
-                  if saving
-                    button.ui.btn disabled='disabled'
-                      i.spinner
-                      | Adding to GitHub...
+                  if view.showAddGitHubKey
+                    if saving
+                      button.ui.btn disabled='disabled' disabled={view.removeKeyDisabled}
+                        i.spinner
+                        | Adding to GitHub...
+                    else
+                      button.ui.btn click='addToGitHub key' disabled={view.addToGithubDisabled} Add to GitHub
                   else
-                    button.ui.btn click='addToGitHub key' disabled={saving} Add to GitHub
+                    if removing
+                      button.ui.btn disabled='disabled'
+                        i.spinner
+                        | Removing...
+                    else
+                      unless App.userProfile.canDeleteGitHubPublicKeys
+                        p.hint-text
+                          i.fa.fa-info-circle
+                          '  Please update GitHub permissions on
+                          a href='/app/#/account'
+                            ' the account settings page
+                          | to delete your public key from GitHub
+                      button.ui.btn click='askRemoveContainerKey target="view"' disabled={view.removeKeyDisabled} Remove from GitHub
 
       else
         p.hint-text
@@ -40,3 +55,16 @@
       p.hint-text
         i.spinner
         | Loading...
+
+#confirm-remove-container-key-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header
+      | Are you sure?
+    .card-body
+      p
+        | Are you sure you want to remove the container key from GitHub?
+
+    .card-footer
+      .right
+        button.ui.btn click='cancelRemoveContainerKey target="view"' Cancel
+        button.ui.btn.danger.terminate-btn click='confirmRemoveContainerKey target="view"' Remove
