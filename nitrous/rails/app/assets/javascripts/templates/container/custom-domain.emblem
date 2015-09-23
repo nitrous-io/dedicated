@@ -58,16 +58,32 @@ else
             | .
 
       .card-body.bordered
-        h4 Container Ports
+        h4 Published Container Ports
 
         p
-          ' To specify which ports in this container will be available on your custom domain, go to the
-          a click='goToPortsTab target=view' href='#' Ports tab
+          ' To specify which ports in this container will be available on your custom domain,
+          a click='goToPortsTab target=view' href='#' configure its port mappings
           | .
 
         ul.dashboard
-          li http://52.76.80.248 &rarr; port 3000 of this container
-          li http://52.76.80.248:32785 &rarr; port 22 of this container
+          each portMapping in portMappings.content
+            if portMapping.public
+              li
+                if portMapping.isHttpsPort
+                  | https://
+                else
+                  | http://
+                = host.ipAddress
+                unless portMapping.isHttpPort
+                  unless portMapping.isHttpsPort
+                    | :
+                    if portMapping.hostPort
+                      = portMapping.hostPort
+                    else
+                      = portMapping.assignedHostPort
+                ' / forwards to port
+                = portMapping.containerPort
+                |  of this container
 
   else
 

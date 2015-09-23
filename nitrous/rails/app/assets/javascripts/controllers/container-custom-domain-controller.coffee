@@ -1,6 +1,7 @@
 App.ContainerCustomDomainController = Em.ObjectController.extend App.PerformActionMixin,
   enabling: false
   prorataCharge: null
+  portMappings: null
 
   # Whether we can enable Hosting Mode for this container's workspace.
   canEnable: (->
@@ -19,12 +20,25 @@ App.ContainerCustomDomainController = Em.ObjectController.extend App.PerformActi
       if data.total != null
         @set('prorataCharge', (data.total/100.0))
 
+  loadContainerConfig: ->
+    return if @get('host.autoShutdown')
+
+    container = @get 'model'
+    container.loadConfig().then (config) =>
+      @set 'portMappings', Lib.PortMappings.create
+        configuredPorts: config.config_port_bindings
+        livePorts: config.port
+    , (jqxhr) ->
+      App.postError(jqxhr.responseJSON, 'Failed to fetch configuration!')
+
   clear: ->
     @_super.apply this, arguments
     @setProperties
       enabling: false
       prorataCharge: null
+      portMappings: null
     @computeProrataCharge()
+    @loadContainerConfig()
 
   actions:
     upgrade: ->
