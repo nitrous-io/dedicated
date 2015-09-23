@@ -6,6 +6,7 @@ App.UserProfile = klass = App.Model.extend
   advanced: attr('boolean', default: false)
   maxHosts: attr('number', as: 'max_hosts', serialize: false)
   authorizedGitHubUserName: attr(as: 'authorized_github_user_name', serialize: false)
+  canDeleteGitHubPublicKeys: attr('boolean', as: 'can_delete_github_public_keys', default: false)
 
   githubAuthorize: ->
     Em.$.ajax(

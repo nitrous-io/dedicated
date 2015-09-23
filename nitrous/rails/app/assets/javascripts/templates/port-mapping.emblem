@@ -1,0 +1,20 @@
+with view.content
+  unless public
+    i.fa.fa-lock
+    '
+  if hostPort
+    = hostPort
+  else
+    if assignedHostPort
+      = assignedHostPort
+      |  (auto-assigned)
+    else
+      | auto-assigned
+  '
+  ' &rarr;
+  = containerPort
+  | /
+  = protocol
+
+unless view.readonly
+  a.close href='#' click='removePortMapping view.content' &times;

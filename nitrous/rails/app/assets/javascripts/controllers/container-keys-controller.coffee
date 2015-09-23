@@ -6,13 +6,23 @@ App.ContainerKeysController = Lib.RecordListController.extend
 
   error: false
   notRunningError: false
+  isKeyAddedToGitHub: false
 
   clear: ->
     @_super.apply this, arguments
+    @checkIfKeyIsAddedToGitHub()
     @setProperties
       error: false
       notRunningError: false
       saving: false
+      isKeyAddedToGitHub: false
+
+  checkIfKeyIsAddedToGitHub: ->
+    @get('model').ajax('GET', 'container_keys/status').then( (data) =>
+      @set("isKeyAddedToGitHub", data.added_to_github)
+    , (jqxhr) ->
+    ).finally =>
+      @set 'saving', false
 
   actions:
     add: ->
@@ -20,7 +30,8 @@ App.ContainerKeysController = Lib.RecordListController.extend
 
     addToGitHub: ->
       @set 'saving', true
-      @get('model').ajax('POST', 'container_keys/github').then(->
+      @get('model').ajax('POST', 'container_keys/github').then(=>
+        @set 'isKeyAddedToGitHub', true
         App.snackbar.post("Key was successfully added to GitHub.")
       , (jqxhr) ->
         App.postError(jqxhr.responseJSON, "Failed to add container public key to GitHub!")
@@ -30,3 +41,14 @@ App.ContainerKeysController = Lib.RecordListController.extend
     upgradePaid: ->
       subscriptionSlug = @get('host.subscriptionSlug')
       @transitionToRoute 'subscriptions.upgrade', subscriptionSlug
+
+    removeFromGitHub: ->
+      @set 'removing', true
+      @get('model').ajax('DELETE', 'container_keys/github').then(=>
+        @set 'isKeyAddedToGitHub', false
+        App.snackbar.post("Key successfully removed from GitHub.")
+      , (jqxhr) ->
+        App.postError(jqxhr.responseJSON, "Failed to remove container public key from GitHub!")
+      ).finally =>
+        @set 'removing', false
+

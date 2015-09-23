@@ -86,22 +86,33 @@ Lib.ContainerConfigController = Em.ObjectController.extend
       @get('volumeMounts').removeObject(vol)
 
     addPortMapping: ->
-      portMappings = @get 'portMappings'
+      portMappings = @get('portMappings')
       scope = if @get('publicPort')
-        "public"
+        'public'
       else
-        "private"
-
+        'private'
       hostPort = @get('hostPort') ? ''
-      containerPort = @get 'containerPort'
-
+      containerPort = @get('containerPort')
       protocol = @get('protocol')
 
+      postErr = (hostPort, containerPort, protocol) ->
+        msg = if hostPort
+          "Cannot add port mapping for #{hostPort} → #{containerPort}/#{protocol} because a conflicting mapping exists."
+        else
+          "Cannot add port mapping for container port #{containerPort}/#{protocol} because a conflicting mapping exists."
+        App.snackbar.post(msg, sticky: false)
+
       if protocol == 'both'
-        portMappings.add(scope, hostPort, containerPort, 'tcp')
-        portMappings.add(scope, hostPort, containerPort, 'udp')
+        if !portMappings.add(scope, hostPort, containerPort, 'tcp')
+          postErr(hostPort, containerPort, 'tcp')
+          return
+        if !portMappings.add(scope, hostPort, containerPort, 'udp')
+          postErr(hostPort, containerPort, 'udp')
+          return
       else
-        portMappings.add(scope, hostPort, containerPort, protocol)
+        if !portMappings.add(scope, hostPort, containerPort, protocol)
+          postErr(hostPort, containerPort, protocol)
+          return
 
       @setProperties
         hostPort: null

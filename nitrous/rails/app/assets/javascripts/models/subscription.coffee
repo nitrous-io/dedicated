@@ -57,19 +57,20 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
       url: "/api/v0/subscriptions/#{@get 'slug'}/reactivate",
       headers: { Authorization: "Bearer #{App.get 'token'}" }
 
-  upgrade: (plan_id)->
+  upgrade: (planId)->
     Em.RSVP.Promise.cast Em.$.ajax
       type: 'POST',
       url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
       headers: { Authorization: "Bearer #{App.get 'token'}" },
-      data: { plan_id: plan_id }
+      data: { plan_id: planId }
 
-  upgradeEstimate: (plan_id)->
+  # Get the estimated pro-rated cost of upgrading to the given plan.
+  upgradeEstimate: (planId)->
     Em.RSVP.Promise.cast Em.$.ajax
       type: 'GET',
       url: "/api/v0/subscriptions/#{@get 'slug'}/upgrade",
       headers: { Authorization: "Bearer #{App.get 'token'}" },
-      data: { plan_id: plan_id }
+      data: { plan_id: planId }
 
 klass.reopenClass
   url: '/subscriptions'

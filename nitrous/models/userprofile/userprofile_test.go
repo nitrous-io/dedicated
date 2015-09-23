@@ -135,4 +135,34 @@ var _ = Describe("models/userprofile", func() {
 			Expect(p.MaxHosts).To(Equal(oldMaxHosts))
 		})
 	})
+
+	Describe("UpdateGithubInfo", func() {
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("updates github info", func() {
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p).NotTo(BeNil())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			p.GitHubOAuthTokenJson = sql.NullString{`{"access_token": "token" }`, true}
+			p.GitHubUserScopesJson = sql.NullString{`["repo","admin:public_key"]`, true}
+
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(p.GitHubUserName.String).To(Equal("foo-github"))
+			Expect(p.GitHubOAuthTokenJson.String).To(Equal(`{"access_token": "token" }`))
+			Expect(p.GitHubUserScopesJson.String).To(Equal(`["repo","admin:public_key"]`))
+		})
+	})
 })

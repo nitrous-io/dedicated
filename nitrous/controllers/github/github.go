@@ -29,7 +29,7 @@ var (
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
 		ClientSecret: envvars.GitHubOAuthClientSecret,
-		Scopes:       []string{"user:email", "repo", "write:public_key"},
+		Scopes:       []string{"user:email", "repo", "admin:public_key"},
 		Endpoint:     githuboauth.Endpoint,
 	}
 
@@ -149,8 +149,11 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			userID, p.GitHubUserName.String, gitHubUserName)
 	}
 
+	currentScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
+
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
+	p.GitHubUserScopesJson = sql.NullString{string(currentScopesJsonBytes), true}
 	if err = p.UpdateGithubInfo(db); err != nil {
 		logrus.Errorf("p.UpdateGithubInfo() faled with '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
@@ -295,4 +298,25 @@ func GetTokenIfValid(env *middleware.Env) (*oauth2.Token, error) {
 		return nil, err
 	}
 	return getTokenIfValidFromUserProfile(p)
+}
+
+func CanDeleteGitHubPublicKeys(p *userprofile.UserProfile) bool {
+	if !p.GitHubUserScopesJson.Valid || p.GitHubUserScopesJson.String == "" {
+		return false
+	}
+
+	var scopes []string
+	err := json.Unmarshal([]byte(p.GitHubUserScopesJson.String), &scopes)
+	if err != nil {
+		logrus.Infof("Failed to parse github scopes for user %+v: %+v", p, err)
+		return false
+	}
+
+	for _, scope := range scopes {
+		if scope == "admin:public_key" {
+			return true
+		}
+	}
+
+	return false
 }

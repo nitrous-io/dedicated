@@ -2,11 +2,16 @@
 @import 'variables'
 
 #container-custom-domain-view
-  p.message
+  p
+    color: $n2oGray400
+    font-size: $fontSizeSmall
     margin-top: 0
-    line-height: 28px
 
-    code.primary
-      background-color: $n2oGray700
-      padding: 4px
-      user-select: all
+    strong
+      color: $green500
+
+  code.highlight
+    background-color: $n2oGray700
+    color: $n2oGray100
+    padding: 2px 4px
+    user-select: all

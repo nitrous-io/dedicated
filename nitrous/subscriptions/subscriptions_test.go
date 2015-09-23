@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -513,6 +514,40 @@ var _ = Describe("subscriptions", func() {
 				Expect(cp2.UsedAt.Valid).To(BeFalse())
 				Expect(cp2.UsedAt.Time).To(BeZero())
 			})
+
+			It("sends correct trial end param to Stripe for plans with free trial", func() {
+				pl.TrialPeriodDays = 3
+
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419,
+					"trial_end": 1441234567,
+					"plan": { "id": "stripe-plan-id" }
+				}`,
+				}
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+				trialEndStr, ok := r["trial_end"]
+				Expect(ok).To(BeTrue())
+				trialEnd, err := strconv.Atoi(trialEndStr)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(trialEnd).To(BeNumerically("~", time.Now().Add(72*time.Hour).Unix(), 10)) // 10 seconds within current time
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s.TrialEnd.Time).To(BeTemporally("==", time.Unix(1441234567, 0)))
+			})
 		}
 
 		Context("as a user", func() {
@@ -1011,7 +1046,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(sub).To(BeNil())
 		})
 
-		It("should update the state and period dates", func() {
+		It("should update the state and period/trial dates", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
@@ -1020,6 +1055,7 @@ var _ = Describe("subscriptions", func() {
 					"status": "updating",
 					"current_period_start": 1434418422,
 					"current_period_end": 1437010429,
+					"trial_end": 1441234567,
 					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
@@ -1034,11 +1070,12 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.State).To(Equal("updating"))
 			Expect(s.CurrentPeriodStart.Time).To(BeTemporally("==", time.Unix(1434418422, 0)))
 			Expect(s.CurrentPeriodEnd.Time).To(BeTemporally("==", time.Unix(1437010429, 0)))
+			Expect(s.TrialEnd.Time).To(BeTemporally("==", time.Unix(1441234567, 0)))
 			Expect(s.CancelPending).To(BeFalse())
 			Expect(sub).To(Equal(s))
 		})
 
-		It("should null out the period start & end if it is null", func() {
+		It("should null out the period/trial start & end if it is null", func() {
 			fakeStripe.Errors = []*stripe.Error{nil}
 			fakeStripe.Responses = []string{
 				`{
@@ -1047,6 +1084,7 @@ var _ = Describe("subscriptions", func() {
 					"status": "updating",
 					"current_period_start": null,
 					"current_period_end": null,
+					"trial_end": null,
 					"plan": { "id": "stripe-plan-id" }
 				}`,
 			}
@@ -1061,6 +1099,7 @@ var _ = Describe("subscriptions", func() {
 			Expect(s.State).To(Equal("updating"))
 			Expect(s.CurrentPeriodStart.Valid).To(BeFalse())
 			Expect(s.CurrentPeriodEnd.Valid).To(BeFalse())
+			Expect(s.TrialEnd.Valid).To(BeFalse())
 			Expect(s.CancelPending).To(BeFalse())
 			Expect(sub).To(Equal(s))
 		})

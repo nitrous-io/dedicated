@@ -24,26 +24,14 @@ func (s *FakeStripe) Call(method, path, key string, body *url.Values, v interfac
 		m["card"] = body.Get("card")
 		m["email"] = body.Get("email")
 		m["desc"] = body.Get("description")
-		if s := body.Get("amount"); s != "" {
-			m["amount"] = s
-		}
-		if s := body.Get("customer"); s != "" {
-			m["customer"] = s
-		}
-		if s := body.Get("subscription"); s != "" {
-			m["subscription"] = s
-		}
-		if s := body.Get("subscription_plan"); s != "" {
-			m["subscription_plan"] = s
-		}
-		if s := body.Get("plan"); s != "" {
-			m["plan"] = s
-		}
-		if s := body.Get("coupon"); s != "" {
-			m["coupon"] = s
-		}
-		if s := body.Get("at_period_end"); s != "" {
-			m["at_period_end"] = s
+
+		optionalKeys := []string{"amount", "customer",
+			"subscription", "subscription_plan", "plan", "coupon",
+			"at_period_end", "trial_end"}
+		for _, k := range optionalKeys {
+			if s := body.Get(k); s != "" {
+				m[k] = s
+			}
 		}
 
 		for k, v := range *body {

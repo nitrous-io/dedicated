@@ -13,7 +13,7 @@ App.HostIndexView = Em.View.extend
 
   actions:
     contactSupport: ->
-      App.trigger 'open-feedback-dialog', "Contact support"
+      App.trigger 'open-feedback-dialog', 'Contact Support'
 
     refresh: ->
       $btn = @$('.refresh-btn')

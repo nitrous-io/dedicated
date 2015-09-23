@@ -194,7 +194,8 @@ var _ = Describe("user serializer", func() {
 				"admin": true,
 				"user_profile": {
 					"max_hosts": 2,
-					"advanced": false
+					"advanced": false,
+					"can_delete_github_public_keys": false
 				},
 				"billing_profile": {
 					"id": 10,

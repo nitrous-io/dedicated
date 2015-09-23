@@ -14,9 +14,10 @@ const (
 )
 
 type Plan struct {
-	ID         int64         `db:"id"`
-	BasePlanID sql.NullInt64 `db:"base_plan_id"`
-	PaidPlanID sql.NullInt64 `db:"paid_plan_id"`
+	ID                int64         `db:"id"`
+	BasePlanID        sql.NullInt64 `db:"base_plan_id"`
+	PaidPlanID        sql.NullInt64 `db:"paid_plan_id"`
+	HostingModePlanID sql.NullInt64 `db:"hosting_mode_plan_id"`
 
 	Name         string         `db:"name"`
 	Description  string         `db:"description"`
@@ -38,6 +39,8 @@ type Plan struct {
 
 	// Hidden plans are not displayed (but can be used, unless disabled).
 	Hidden bool `db:"hidden"`
+
+	TrialPeriodDays int64 `db:"trial_period_days"`
 
 	// Features of a plan below. As a rule, any boolean features should default
 	// to false (i.e. disabled), so choose names accordingly.
@@ -202,4 +205,14 @@ func (p *Plan) Insert(d db.QueryReceiver) error {
 // hourly price is millicents, so *1000
 func (p *Plan) HourlyPrice() int64 {
 	return int64(math.Ceil(float64(p.Price) / 672 * 1000))
+}
+
+// TrialEnd returns the Unix time of when a trial should end, given startTime
+// as Unix time.  Returns 0 if the plan does not support free trials
+// (trial_period_days = 0)
+func (p *Plan) TrialEnd(startTime int64) int64 {
+	if p.TrialPeriodDays == 0 {
+		return 0
+	}
+	return (time.Unix(startTime, 0).Add(time.Duration(p.TrialPeriodDays*24) * time.Hour)).Unix()
 }

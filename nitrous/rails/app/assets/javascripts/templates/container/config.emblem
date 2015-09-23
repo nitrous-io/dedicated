@@ -9,7 +9,7 @@
 
   .ui.input-group
     label.field-label
-      | Custom Port Mappings
+      | Port Mappings
 
   unless config
     p.hint-text
@@ -17,11 +17,9 @@
       | Loading...
 
   ul.ui.chips
-    each portMapping in portMappings.rawPorts
+    each portMapping in portMappings.content
       li class={view.formDisabled:disabled}
-        = portMapping
-        unless view.formDisabled
-          a.close href='#' click='removePortMapping portMapping' &times;
+        App.PortMappingView content=portMapping readonly=view.formDisabled
 
   if model.canEdit
     form.container-config submit='addPortMapping'
@@ -30,7 +28,7 @@
           thead
             tr
               th Public
-              th Workspace Host Port
+              th Workspace Port
               th Container Port
               th colspan='2' Protocol
           tbody
@@ -40,9 +38,9 @@
                   = input type='checkbox' checked=publicPort disabled=view.formDisabled
                   label
               td
-                = input type='number' min='1' max='65535' step='1' placeholder='e.g., 63000 (optional)' value=hostPort disabled=view.formDisabled
+                = input type='number' min='1' max='65535' step='1' placeholder='e.g. 80, 443 (optional)' value=hostPort disabled=view.formDisabled
               td
-                = input type='number' min='1' max='65535' step='1' placeholder='e.g., 3000' required=true value=containerPort disabled=view.formDisabled
+                = input type='number' min='1' max='65535' step='1' placeholder='a port from 1 - 65535' required=true value=containerPort disabled=view.formDisabled
               td
                 .ui.select
                   Ember.Select required=true value=protocol content=protocolOptions optionValuePath='content.id' optionLabelPath='content.displayName' disabled=view.formDisabled
