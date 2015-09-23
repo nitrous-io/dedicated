@@ -33,15 +33,21 @@
           | Password
         = input type='password' id='login-password' value=password
 
-    .card-footer
+    .card-body
       .right
         if loggingIn
           button.ui.btn disabled='disabled'
             i.spinner
             | Logging In...
         else
-          button.ui.btn.primary.login-submit-btn click='login' disabled={view.disableSubmitButton}
+          button.ui.btn.raised.full click='login' disabled={view.disableSubmitButton}
             | Log In
+
+    .card-body.bordered
+      .right
+        button.ui.btn.raised.full
+          .icon.fa.fa-github.fa-lg
+          '   Log In With GitHub
 
 p.note
   | Don't have an account?&nbsp;
