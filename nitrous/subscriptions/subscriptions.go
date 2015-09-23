@@ -157,6 +157,10 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
+		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 {
+			params.TrialEnd = trialEnd
+		}
+
 		var cp *coupon.Coupon
 		if !p.IsFree() {
 			cp, err = coupon.Find(tx, u.ID)
@@ -190,9 +194,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		sub.StripeID = sql.NullString{string(strSub.ID), true}
 		sub.CurrentPeriodStart = pq.NullTime{time.Unix(strSub.PeriodStart, 0), true}
 		sub.CurrentPeriodEnd = pq.NullTime{time.Unix(strSub.PeriodEnd, 0), true}
+		if strSub.TrialEnd != 0 {
+			sub.TrialEnd = pq.NullTime{time.Unix(strSub.TrialEnd, 0), true}
+		}
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
 			SET state = :state, stripe_id = :stripe_id,
-			current_period_start = :current_period_start, current_period_end = :current_period_end, updated_at = now()
+			current_period_start = :current_period_start,
+			current_period_end = :current_period_end,
+			trial_end = :trial_end,
+			updated_at = now()
 			WHERE id = :id
 			RETURNING *;`)
 		if err != nil {
