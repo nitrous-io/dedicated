@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -621,12 +622,42 @@ var _ = Describe("subscriptions", func() {
 		It("should cancel immediately if the plan is free", func() {
 			_, err := db.Exec("UPDATE plans SET price = 0, base_price = 0 WHERE id = $1;", pl.ID)
 			Expect(err).To(BeNil())
+			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
+			fakeStripe.Responses = []string{
+				`{
+					"cancelled": true,
+					"id": "sub1"
+				}`,
+			}
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				BillingProfileID: bp.ID,
+				StripeID:         sql.NullString{"sub1", true},
+				PlanID:           pl.ID,
+				Slug:             "SLUG",
+			}
+
+			err = subProvider.Cancel(db, sub)
+			Expect(err).To(Equal(fakeStripe.Errors[0]))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("DELETE"))
+			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
+			Expect(r1["at_period_end"]).To(BeEmpty())
+		})
+
+		It("should cancel immediately if on free trial", func() {
+			_, err := db.Exec("UPDATE plans SET price = 123, base_price = 456 WHERE id = $1;", pl.ID)
+			Expect(err).To(BeNil())
 
 			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
 			fakeStripe.Responses = []string{
 				`{
-          "cancelled": true,
-				  "id": "sub1"
+					"cancelled": true,
+					"id": "sub1"
 				}`,
 			}
 
@@ -638,6 +669,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"sub1", true},
 				PlanID:           pl.ID,
 				Slug:             "SLUG",
+				TrialEnd:         pq.NullTime{time.Now().Add(24 * time.Hour), true},
 			}
 
 			err = subProvider.Cancel(db, sub)

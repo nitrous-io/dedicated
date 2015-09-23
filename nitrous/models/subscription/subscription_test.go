@@ -625,5 +625,29 @@ var _ = Describe("models/subscription", func() {
 				Expect(subscriptions[2].OrgID.Int64).To(Equal(o.ID))
 			})
 		})
+
+		Describe("WithinFreeTrial()", func() {
+			It("returns true if TrialEnd is valid and current time is before TrialEnd time", func() {
+				s := &subscription.Subscription{
+					TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), true},
+				}
+				Expect(s.WithinFreeTrial()).To(BeTrue())
+			})
+
+			It("returns false if TrialEnd is valid but current time is after TrialEnd time", func() {
+				s := &subscription.Subscription{
+					TrialEnd: pq.NullTime{time.Unix(1, 0), true},
+				}
+				Expect(s.WithinFreeTrial()).To(BeFalse())
+			})
+
+			It("returns false if TrialEnd is not valid", func() {
+				s := &subscription.Subscription{
+					TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), false},
+				}
+				Expect(s.WithinFreeTrial()).To(BeFalse())
+			})
+		})
+
 	})
 })

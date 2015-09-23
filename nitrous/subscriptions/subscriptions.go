@@ -238,19 +238,21 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 }
 
 func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) error {
+	logrus.Infof("Subscription %d has been requested to be cancelled", sub.ID)
+
 	bp, err := billingprofile.FindByID(d, sub.BillingProfileID)
 	if err != nil {
 		return err
 	}
-
-	logrus.Infof("Subscription %d has been requested to be cancelled", sub.ID)
 
 	pl, err := plan.FindByID(d, sub.PlanID)
 	if err != nil {
 		return err
 	}
 
-	endCancel := !pl.IsFree()
+	// Set EndCancel to false to terminate subscription immediately if
+	// subscription is terminated during free trial or is a free plan.
+	endCancel := !(pl.IsFree() || sub.WithinFreeTrial())
 
 	return stripesub.Cancel(
 		sub.StripeID.String,
