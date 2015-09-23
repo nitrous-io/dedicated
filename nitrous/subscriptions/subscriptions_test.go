@@ -1343,6 +1343,8 @@ var _ = Describe("subscriptions", func() {
 				})
 
 				It("marks user as suspicious and sends a failed charge ticket to nitrous support if user has no invoice record", func() {
+					envvars.HostHostname = "nitrous.io"
+
 					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
 					Expect(err).To(BeNil())
 
@@ -1492,6 +1494,42 @@ var _ = Describe("subscriptions", func() {
 					Expect(err).To(BeNil())
 					Expect(usr.Suspicious.Valid).To(BeTrue())
 					Expect(usr.Suspicious.String).To(Equal("a_spy,failed_charge"))
+				})
+
+				It("sends a failed charge ticket to nitrous support with staging label if staging environment", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+					envvars.HostHostname = "n2ostaging.com"
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					Expect(fakeHelpScout.Subject).To(Equal("[STAGING] [ALERT] Stripe - Multiple Failed Charge Attempts"))
+				})
+
+				It("sends a failed charge ticket to nitrous support with dev label if development environment", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+					envvars.HostHostname = "n2odev.com"
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					Expect(fakeHelpScout.Subject).To(Equal("[DEV] [ALERT] Stripe - Multiple Failed Charge Attempts"))
 				})
 
 			})
