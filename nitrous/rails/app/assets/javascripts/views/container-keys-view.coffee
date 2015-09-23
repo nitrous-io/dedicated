@@ -12,7 +12,7 @@ App.ContainerKeysView = Lib.RecordListView.extend
   removeKeyDisabled: ( ->
     @get('controller.saving') || @get('controller.removing') ||
       !@get('controller.isKeyAddedToGitHub') || !App.get('userProfile.canDeleteGitHubPublicKeys')
-  ).property 'controller.saving', 'controller.removing', 'controller.isKeyAddedToGitHub'
+  ).property 'controller.saving', 'controller.removing', 'controller.isKeyAddedToGitHub', 'App.userProfile.canDeleteGitHubPublicKeys'
 
   $removeContainerKeyModal: ->
     $('#confirm-remove-container-key-modal-dialog')

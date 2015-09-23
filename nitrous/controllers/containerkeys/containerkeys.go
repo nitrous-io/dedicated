@@ -186,6 +186,8 @@ func removeGitHubKey(cn *container.Container, h *host.Host, env *middleware.Env)
 		return err
 	}
 
+	// TODO: We can parellely get github keys and container key
+	// Change this to use two goroutines
 	gitHubClient := github.GitHubClientFromToken(token)
 	existingKeys, err := githubKeys(gitHubClient)
 	if err != nil {
