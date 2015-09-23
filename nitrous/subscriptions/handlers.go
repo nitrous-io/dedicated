@@ -201,7 +201,15 @@ func getStripeID(e *stripe.Event) (string, error) {
 }
 
 func SendChargeFailedTicket(u *user.User, e *stripe.Event) error {
-	subject := "[ALERT] Stripe - Multiple Failed Charge Attempts"
+	host := ""
+	switch envvars.HostHostname {
+	case "n2odev.com":
+		host = "[DEV] "
+	case "n2ostaging.com":
+		host = "[STAGING] "
+	}
+
+	subject := fmt.Sprintf("%s[ALERT] Stripe - Multiple Failed Charge Attempts", host)
 	body := fmt.Sprintf("<strong>User</strong>: ID: %v, Username: %s, Email: %s", u.ID, u.Username, u.Email)
 	nitrousMessage := helpscout.NewThread("message", nitrousUser, body)
 	threads := []*helpscout.Thread{nitrousMessage}
