@@ -253,7 +253,8 @@ App.IdeSidebarController = Em.ArrayController.extend
 
   refreshPath: (pathString) ->
     homePath = @get 'homePath'
-    if path = homePath.findByRelativePath pathString
+    rootPath = @get 'rootPath'
+    if path = (homePath.findByRelativePath(pathString) || rootPath.findByRelativePath(pathString))
       this.refresh path
 
     if fileMon = @get 'activeFilesMonitor'
