@@ -6,8 +6,11 @@ class @PluginBase
 
     if key == 'opsSocket'
       @resolvePath()
-      value.on 'fileChanged.output', _.bind(@handleFileChanged, this)
-      value.on 'dirChanged.output', _.bind(@handleDirChanged, this)
+
+      @_fileChangedBinging = _.bind(@handleFileChanged, this)
+      @_dirChangedBinding = _.bind(@handleDirChanged, this)
+      value.on 'fileChanged.output', @_fileChangedBinging
+      value.on 'dirChanged.output', @_dirChangedBinding
 
     if key == 'codeMirror'
       @afterSetCodeMirror()
@@ -18,6 +21,17 @@ class @PluginBase
   afterSave: (context)->
   afterSetCodeMirror: (content)->
   afterChanges: (changes)->
+
+  documentDidClose: ->
+    if @autoCompleteRun
+      window.clearTimeout(@autoCompleteRun)
+
+    @codeMirror = null
+    if @opsSocket
+      @opsSocket.off 'fileChanged.output', @_fileChangedBinging
+      @opsSocket.off 'dirChanged.output', @_handleDirChangedBinding
+
+    App.CodePluginsManager.pluginClosed @
 
   handleFileChanged: (change, file)->
   handleDirChanged: (change, dir)->

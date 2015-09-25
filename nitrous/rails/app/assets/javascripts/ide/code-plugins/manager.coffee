@@ -8,8 +8,9 @@ App.CodePluginsManager =
 
   # track all plugins so we can perform updates
   # on key variables (opSocket etc)
-  # maps App.Document objects to plugin instances
+  # maps pluginType objects to plugin instances
   activePlugins: {}
+  # maps pluginType to global plugin instances
   activeGlobalPlugins: {}
 
   availableOptions: {}
@@ -42,8 +43,10 @@ App.CodePluginsManager =
 
       pl = new plType(doc)
       @setOptions(pl)
+      pl.pluginType = plType.pluginType
 
-      @activePlugins[doc] = pl
+      @activePlugins[pl.pluginType] ||= []
+      @activePlugins[pl.pluginType].push pl
 
       if gblType = @globalPlugins[plType.pluginType]
         unless @activeGlobalPlugins[plType.pluginType]
@@ -54,10 +57,23 @@ App.CodePluginsManager =
 
       pl.globalPlugin = @activeGlobalPlugins[plType.pluginType]
 
+      pl.globalPlugin?.afterInitialize()
       pl.afterInitialize()
       return pl
 
     null
+
+  pluginClosed: (plugin)->
+    return unless @activePlugins[plugin.pluginType]
+    if (indx = @activePlugins[plugin.pluginType].indexOf(plugin)) != null
+      @activePlugins[plugin.pluginType].splice(indx, 1)
+
+      if @activePlugins[plugin.pluginType].length == 0
+        gbl = @activeGlobalPlugins[plugin.pluginType]
+        if gbl
+          gbl.unload()
+          @activeGlobalPlugins[plugin.pluginType] = null
+
 
   setOptions: (pluginInstance)->
     for opt, value of @availableOptions

@@ -90,6 +90,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         opsSocket.unwatchFile absPath
 
       @_super(tab)
+      if call = tab.didClose
+        call.apply(tab, [])
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 

@@ -72,6 +72,10 @@ App.Document = App.TabContent.extend
     @set 'documentLastUpdated', Date.now()
   ).property 'replaceContentTrigger'
 
+  didClose: ->
+    if plugin = @get('plugin')
+      plugin.documentDidClose()
+
   isOTMaster: ->
     cl = @get 'otClient'
     return true unless cl
