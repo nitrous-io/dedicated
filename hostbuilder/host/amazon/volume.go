@@ -16,6 +16,19 @@ type volumeProvider interface {
 	CreateSnapshot(id, description string) (*ec2.CreateSnapshotResp, error)
 }
 
+func infoVolume(provider volumeProvider, volumeID, env string) (*ec2.Volume, error) {
+	filter := ec2.NewFilter()
+	filter.Add(`tag:dedicated`, env)
+	vr, err := provider.Volumes([]string{volumeID}, filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(vr.Volumes) != 1 {
+		return nil, fmt.Errorf("amazon: Expected one volume for id %s, got %d", volumeID, len(vr.Volumes))
+	}
+	return &vr.Volumes[0], nil
+}
+
 func detachVolume(provider volumeProvider, volumeID, instanceID string) (*ec2.Volume, error) {
 	if _, err := provider.DetachVolume(volumeID); err != nil {
 		return nil, fmt.Errorf("amazon: failed to detach volume %s, err: %v", volumeID, err)
