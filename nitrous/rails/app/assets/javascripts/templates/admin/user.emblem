@@ -43,7 +43,6 @@ each user in model
     .right
       unless user.deletedAt
         a.ui.btn href='#' click='switchUser user target="view"' Switch User
-        a.ui.btn href='#' click='creditUser user target="view"' Credit User
       unless user.bannedAt
         a.ui.btn href='#' click='showBanDialog user target="view"' Ban User
 

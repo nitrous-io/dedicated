@@ -16,9 +16,6 @@ App.AdminUserView = Em.View.extend
     switchUser: (user)->
       App.trigger 'switch-to-user', user.get('username')
 
-    creditUser: (user)->
-      App.trigger 'open-credit-user-dialog', user.get('username')
-
     showBanDialog: (user)->
       @set 'banUser', user
       @set 'banUserConfirmation', null
