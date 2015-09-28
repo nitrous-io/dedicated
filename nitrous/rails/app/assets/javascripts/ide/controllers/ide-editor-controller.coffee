@@ -139,10 +139,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         Mp.increment Mp.PropertyIDEFileSaveCount
         doc.set 'documentLastUpdated', Date.now()
 
+        doc.set 'clean', true
         if pl = doc.get('plugin')
           pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
-        else
-          doc.set 'clean', true
     else
       @set 'saveDialog', App.SaveDialog.create document: doc
 

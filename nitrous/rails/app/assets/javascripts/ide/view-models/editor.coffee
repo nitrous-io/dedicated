@@ -297,6 +297,11 @@ App.Editor = klass = Em.Object.extend
       cm.refresh()
   ).observes 'wrapperStyling'
 
+  setCodeMirrorOnPlugin: (->
+    if (cm = @get('codeMirror')) && (plugin = @get('documentPlugin'))
+      plugin.setOption 'codeMirror', cm
+  ).observes 'codeMirror', 'documentPlugin'
+
   _bootstrapCodeMirror: ->
     cm = CodeMirror @get('domTarget'),
       lint              : @get 'lintableMode'

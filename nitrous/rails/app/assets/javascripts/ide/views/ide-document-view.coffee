@@ -125,6 +125,11 @@ App.IdeDocumentView = Em.View.extend
       this.remove()
   ).observes 'document.path.deleted'
 
+  setPlugin: (->
+    if editor = @get('editor')
+      editor.set 'documentPlugin', @get('document.plugin')
+  ).observes 'document.plugin'
+
   jumpToLine: (->
     if line = @get 'document.goToLine'
       @set 'document.goToLine', null

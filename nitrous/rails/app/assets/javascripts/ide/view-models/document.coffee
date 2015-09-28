@@ -49,8 +49,7 @@ App.Document = App.TabContent.extend
     @setPluginManager()
 
   setPluginManager: ->
-    if pl = (App.CodePluginsManager.forType @get('editorMode'))
-      @set 'plugin', new pl(@)
+    @set 'plugin', App.CodePluginsManager.initPluginForType(@, @get('editorMode'))
 
   updatePluginManager: (->
     @setPluginManager()
