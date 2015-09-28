@@ -144,3 +144,7 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 func (s *Subscription) CanBeCanceled() bool {
 	return s.State == "canceled" || s.CancelPending
 }
+
+func (s *Subscription) WithinFreeTrial() bool {
+	return s.TrialEnd.Valid && time.Now().Before(s.TrialEnd.Time)
+}
