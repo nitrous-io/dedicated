@@ -1,21 +1,9 @@
 App.AdminDialogsController = Em.Controller.extend
   hostsToUpdate: null
-  freigtherdVersion: null
+  freighterdVersion: null
   login: null
   switching: false
   closeSwitchUser: false
-
-  crediting: false
-  creditUser: null
-  creditTypes: null
-  creditAmount: null
-  selectedCreditType: null
-
-  creditTypesDidChange: (->
-    return unless (f = @get('creditTypes.firstObject'))
-    if @get('selectedCreditType') == null
-      @set 'selectedCreditType', f.get("name")
-  ).observes 'creditTypes.@each', 'selectedCreditType'
 
   init: ->
     @_super.apply this, arguments
@@ -29,51 +17,8 @@ App.AdminDialogsController = Em.Controller.extend
       login: null
       switching: false
       closeSwitchUser: false
-      crediting: false
-      creditUser: null
-      creditAmount: null
-      selectedCreditType: null
 
   actions:
-    loadCreditTypes: ->
-      @set 'creditTypes', App.AdminCreditType.fetch().value
-
-    applyCredits: (ev)->
-      type = @get('creditTypes').findBy('name', @get('selectedCreditType'))
-      unless type
-        App.postError("Credit Type not selected")
-        return
-
-
-      amnt = parseInt(@get('creditAmount'))
-      if amnt == 0
-        App.postError("Amount cannot be zero")
-        return
-
-      if amnt > type.get('defaultValue')
-        App.postError("Amount must be less than Default Value")
-        return
-
-      @set 'crediting', true
-
-      data =
-        username: @get 'creditUser'
-        credit_type: @get 'selectedCreditType'
-        amount: amnt
-
-      App.AdminCreditType.adapter.ajax('POST', '/admin/credit', data).then (resp)=>
-        App.snackbar.post("#{data.username} credited, total credits: #{resp.available_credits}")
-
-        @setProperties
-          crediting: false
-          creditUser: null
-          creditAmount: null
-        Em.$('#credit-username').focus()
-      , (jqxhr)=>
-        @set 'crediting', false
-        App.postError(jqxhr.responseJSON, 'Failed to credit user. Please try again.')
-
-
     updateHosts: ->
       hostsToUpdate = @get('hostsToUpdate')
       freighterdVersion = @get('freighterdVersion')
