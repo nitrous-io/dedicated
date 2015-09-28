@@ -37,7 +37,8 @@ klass = class GlobalRuby
 
   unload: ->
     if @activeTimers
-      window.clearTimeout @activeTimers
+      for path, timer of @activeTimers
+        window.clearTimeout timer
 
   triggerCtagsUpdate: (parent)->
     return unless @opsSocket
@@ -49,10 +50,17 @@ klass = class GlobalRuby
 
     @activeTimers[parent] = window.setTimeout =>
       cmd = [
-        "cd #{parent} && #{CMD}"
+        "cd #{parent} && #{ctagsCmd}"
       ]
       @opsSocket.loginrun cmd, parent, [], (err, cmdErr, stdout, stderr) =>
         @activeTimers[parent] = null
+
+        if cmdErr || err
+          console.log "Error invoking ctags update:", err, cmdErr, stderr, stdout
+          return
+
+        for plugin in (App.CodePluginsManager.activePlugins['ruby'] || [])
+          plugin.ctagsUpdated()
     , 50
 
 App.CodePluginsManager.registerGlobalPlugin "ruby", klass

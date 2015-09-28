@@ -71,7 +71,7 @@ class @PluginBase
       @autoCompleteRun = null
       @exec cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
         unless stdout
-          return
+          console.log "Error reading ctags file:", err, cmdErr, stderr, stdout
 
         callback(err, cmdErr, stdout, stderr)
       , minimal: true

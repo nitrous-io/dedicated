@@ -136,6 +136,11 @@ klass = class Ruby extends PluginBase
   cTagsLocation: ->
     @getRootPath().get('absolutePath') + "/.ruby-tags"
 
+  ctagsUpdated: ->
+    if exec = @afterCtagsUpdated
+      @afterCtagsUpdated = null
+      exec()
+
   autocomplete: (cm, callback, options)->
     cursor = cm.getCursor()
     line = cm.getRange({line: cursor.line, ch: 0}, cursor)
@@ -150,9 +155,15 @@ klass = class Ruby extends PluginBase
     @autocompleteLine(line, cursor, cm, callback, options)
 
   autocompleteRequire: (reqDef, cursor, cm, callback, options)->
+    if @afterCtagsUpdated
+      return
+
     return unless reqDef[1].length >= 2
     @searchCTags "(\t|lib/)#{reqDef[1]}", (err, cmdErr, stdout, stderr) =>
-      unless stdout
+      if stderr && stderr.match(/\.ruby-tags:\s+No\s+such/)
+        @afterCtagsUpdated = =>
+          @autocompleteRequire(reqDef, cursor, cm, callback, options)
+        @triggerCtagsUpdate()
         return
 
       results = []
@@ -196,9 +207,15 @@ klass = class Ruby extends PluginBase
     callback(list: suggestedResults, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
     results = [] # all other results
+    if @afterCtagsUpdated
+      return
+
     if symbol.length >= 2
       @searchCTags "^#{symbol}", (err, cmdErr, stdout, stderr) =>
-        unless stdout
+        if stderr && stderr.match(/\.ruby-tags:\s+No\s+such/)
+          @afterCtagsUpdated = =>
+            @autocompleteLine(line, cursor, cm, callback, options)
+          @triggerCtagsUpdate()
           return
 
         @parseCTags stdout, (varName, path, allParts)=>
