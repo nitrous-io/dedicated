@@ -20,6 +20,7 @@ App.Editor = klass = Em.Object.extend
   wrapLines: null
   wrapperStyling: null
   fontSize: null
+  autoCompleteBeta: null
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -339,6 +340,30 @@ App.Editor = klass = Em.Object.extend
       if @get('text') != (content = cm.getValue())
         @set 'text', content
 
+    cm.on 'changes', (cm, changes) =>
+      if (plugin = @get('documentPlugin'))
+        plugin.afterChanges(changes)
+
+    cm.on 'keydown', (cm, e)=>
+      if @get 'autoCompleteBeta'
+        if e.keyCode == 224 || (e.keyCode >= 91 && e.keyCode <= 93)
+          @osKeyActive = true
+
+    cm.on 'keyup', (cm, e)=>
+      if @get 'autoCompleteBeta'
+        if @osKeyActive
+          @osKeyActive = false
+          return
+
+        if e.keyCode >= 48 && e.keyCode <= 90
+          if (plugin = @get('documentPlugin')) && (pluginCmd = plugin.autocomplete)
+            command = (cm, callback, options)->
+              pluginCmd.apply plugin, [cm, callback, options]
+            command.async = true
+            cm.showHint hint: command
+          else
+            cm.showHint(e)
+
     cm.on 'gutterClick', (cm, line, gutter, e) ->
       return if gutter != 'CodeMirror-linenumbers'
 
@@ -397,4 +422,6 @@ klass.reopenClass
     'keybindings'
     'removeTrailingWhitespaceOnSave'
     'fontSize'
+    'autoCompleteBeta'
+    'beta'
   ]

@@ -11,6 +11,7 @@ App.IdeController = Em.ObjectController.extend
   opsTimeoutAlert: null
   repository: null
   errorDialog: null
+  showBetaDialog: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false

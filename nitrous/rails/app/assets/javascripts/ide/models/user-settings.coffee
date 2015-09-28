@@ -11,6 +11,8 @@ keysToSubmit = [
   'theme'
   'wrap_lines'
   'font_size'
+  'auto_complete_beta'
+  'beta'
 ]
 
 App.UserSettings = klass = Em.Object.extend

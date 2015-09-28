@@ -3,9 +3,18 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar']
   initialize: ->
   reset: ->
+
+  toggleBetaMode: ->
+    if editorController = @get 'controllers.ideEditor'
+      if editorController.get('beta')
+        editorController.set 'autoCompleteBeta', false
+        editorController.set 'beta', false
+      else
+        @get('controllers.ide').set('showBetaDialog', true)
+
 
   fileNew: ->
     if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
@@ -188,6 +197,9 @@ App.IdeMainMenuController = Em.Controller.extend
   viewResetFontSize: ->
     if editorController = @get 'controllers.ideEditor'
       editorController.resetFontSize()
+
+  betaToggleAutoCompleteBeta: ->
+    @_toggleEditorProperty 'autoCompleteBeta'
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'

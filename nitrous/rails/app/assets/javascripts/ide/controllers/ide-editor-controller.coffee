@@ -36,6 +36,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   keybindings: 'default'
   fontSize: null
 
+  autoCompleteBeta: null
+  beta: false
+
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
