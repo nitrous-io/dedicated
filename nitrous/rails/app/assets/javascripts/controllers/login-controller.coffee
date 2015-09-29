@@ -31,9 +31,22 @@ App.LoginController = Em.Controller.extend
     ).then =>
       @set 'loggingIn', false
 
+  doLoginWithGitHub: ->
+    Em.$.ajax(
+      type: 'POST'
+      url: '/api/v0/github/authorize_to_login'
+      cache: false
+    ).done((json) ->
+      window.location.href = json.redirect_url
+    ).fail (jqxhr) ->
+      App.postError(jqxhr.responseJSON, 'Failed to login with GitHub!')
+
   actions:
     login: ->
       @doLogin(@get('login'), @get('password'))
+
+    loginWithGitHub: ->
+      @doLoginWithGitHub()
 
     resendConfirmationEmail: ->
       @set 'resendingConfirm', true

@@ -45,9 +45,13 @@
 
     .card-body.bordered
       .right
-        button.ui.btn.raised.full
-          .icon.fa.fa-github.fa-lg
-          '   Log In With GitHub
+        if loggingInWithGitHub
+          button.ui.btn disabled='disabled'
+            i.spinner
+            | Logging In With GitHub...
+        else
+          button.ui.btn.raised.full click='loginWithGitHub' disabled={view.disableGitHubLogin}
+            | Log In With GitHub
 
 p.note
   | Don't have an account?&nbsp;
