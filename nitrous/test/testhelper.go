@@ -118,7 +118,8 @@ func truncateTables(db *db.Database) error {
 // is called from TestDatabase
 func populateSeedData(db *db.Database) error {
 	_, err := db.Exec(`
-		INSERT INTO segments (slug, is_default) VALUES ('default', true)
+		INSERT INTO segments (slug, user_default, org_default) VALUES
+			('user-default', true, false), ('org-default', false, true);
 	`)
 	return err
 }
