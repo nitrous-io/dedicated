@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/redispool"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
@@ -36,6 +39,8 @@ var (
 		Endpoint:     githuboauth.Endpoint,
 	}
 
+	redisPool *redispool.Pool
+
 	errUpdateFailed     = httperror.New(http.StatusInternalServerError, "update_failed", "update failed")
 	errInvalidOauthCode = httperror.New(http.StatusBadRequest, "invalid_code", "invalid code parameter")
 	errInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "invalid state parameter")
@@ -51,6 +56,7 @@ var (
 
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
+	Token     string    `json:"token,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
@@ -112,6 +118,14 @@ var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Conta
 	return nil
 }
 
+var GetRedisKeyForOAuth = func(token string) string {
+	return fmt.Sprintf("github:login:uuid:%s", token)
+}
+
+func init() {
+	redisPool = redispool.New(net.JoinHostPort(envvars.RedisHost, envvars.RedisPort))
+}
+
 // /api/v0/github/authorize
 // Authorize returns GitHub authorization url that front-end needs to redirect to.
 // FIXME: allow this API to be called only if user is not yet linked with a GitHub account
@@ -121,6 +135,22 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	state, err := setOrReuseState(w, r, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"redirect_url": url,
+	}
+	return nil
+}
+
+// /api/v0/github/authorize_to_login
+// Authorize returns GitHub authorization url that front-end needs to redirect to.
+func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	state, err := setStateForLogin(w, r)
 	if err != nil {
 		return err
 	}
@@ -208,10 +238,11 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func makeOAuthState(userID int64) (string, error) {
+func makeOAuthState(userID int64, token string) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
+		Token:     token,
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
 	})
@@ -234,6 +265,32 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
+func setStateForLogin(w http.ResponseWriter, r *http.Request) (string, error) {
+	tempKey := uuid.Make()
+	state, err := makeOAuthState(0, tempKey)
+	if err != nil {
+		return "", err
+	}
+
+	// Since we don't have userID here, it create a random UUID and keep in Redis.
+	// It will check if the request is vaild with this random UUID on callback.
+	// This is to prevent user's manully call. It will be expired after 10 minutes.
+	conn := redisPool.Get()
+	defer conn.Close()
+	ttl := 10 * 60 // 600 seconds
+	if _, err := conn.Do("SETEX", GetRedisKeyForOAuth(tempKey), ttl, "1"); err != nil {
+		return "", err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  state,
+		MaxAge: ValidityPeriodSeconds,
+	})
+
+	return state, nil
+}
+
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
 func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
@@ -249,7 +306,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID)
+	state, err := makeOAuthState(userID, "")
 	if err != nil {
 		return "", err
 	}
@@ -282,7 +339,6 @@ func tokenToJSON(token *oauth2.Token) (string, error) {
 
 // FIXME: The functions below should not belong to this controller package.
 // They are used by few external packages.
-
 func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
 	var token oauth2.Token
 	if err := json.Unmarshal([]byte(jsonStr), &token); err != nil {

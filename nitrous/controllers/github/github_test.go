@@ -11,11 +11,13 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
+	redistest "github.com/nitrous-io/dedicated/test"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -118,10 +120,10 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("responds with error message when state is different from cookie", func() {
-			state1, err := github.MakeOAuthState(u.ID)
+			state1, err := github.MakeOAuthState(u.ID, "")
 			Expect(err).To(BeNil())
 
-			state2, err := github.MakeOAuthState(u.ID)
+			state2, err := github.MakeOAuthState(u.ID, "")
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state1, state2)
@@ -132,7 +134,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects with error message when code is missing", func() {
-			state, err := github.MakeOAuthState(u.ID)
+			state, err := github.MakeOAuthState(u.ID, "")
 			Expect(err).To(BeNil())
 
 			res := doRequest("", state, state)
@@ -142,7 +144,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("inserts github username and token to database", func() {
-			state, err := github.MakeOAuthState(u.ID)
+			state, err := github.MakeOAuthState(u.ID, "")
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state, state)
@@ -219,7 +221,7 @@ var _ = Describe("controllers/github", func() {
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 
-			existingState, err := github.MakeOAuthState(u.ID)
+			existingState, err := github.MakeOAuthState(u.ID, "")
 			Expect(err).To(BeNil())
 
 			req.AddCookie(&http.Cookie{
@@ -245,6 +247,71 @@ var _ = Describe("controllers/github", func() {
 
 			urlState := u.Query().Get("state")
 			Expect(urlState).To(Equal(existingState))
+		})
+	})
+
+	Describe("GET /api/v0/github/authorize_to_login", func() {
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_login", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("returns valid json response", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := map[string]interface{}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			redirectURL := j["redirect_url"].(string)
+			Expect(redirectURL).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			Expect(cookieState).ToNot(Equal(""))
+
+			u, err := url.Parse(redirectURL)
+			Expect(err).To(BeNil())
+
+			urlState := u.Query().Get("state")
+			Expect(urlState).To(Equal(cookieState))
+		})
+
+		It("saves temporal key in redis with expiry", func() {
+			orgGetRedisKeyForOAuthFunc := github.GetRedisKeyForOAuth
+			github.GetRedisKeyForOAuth = func(token string) string {
+				return "github:oauth:tempkey"
+			}
+
+			defer func() {
+				github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
+			}()
+
+			redisClient, err := redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() {
+				redisClient.Close()
+			}()
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			val, err := redisClient.Get("github:oauth:tempkey").Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(Equal("1"))
+
+			ttl, err := redisClient.TTL("github:oauth:tempkey").Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ttl).To(BeNumerically("~", 10*time.Minute, 5*time.Second)) // TTL should be around 10 minutes
 		})
 	})
 
