@@ -804,14 +804,21 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("returns true, for admin users", func() {
+		It("does not return error for admin users", func() {
 			u.Admin = true
-			b, err := u.CanCreateHosts(db)
+			err := u.CanCreateHosts(db)
 			Expect(err).To(BeNil())
-			Expect(b).To(BeTrue())
 		})
 
-		It("returns false, for non paid users", func() {
+		It("returns no credit card error when billing profile is in no card state", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = 'no_card' WHERE user_id = $1;`, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.CanCreateHosts(db)
+			Expect(err.Error()).To(Equal("not added credit card"))
+		})
+
+		It("returns max hosts error for non paid users when max hosts is reached", func() {
 			_, err := db.Exec(`UPDATE billing_profiles SET state = 'exempt' WHERE user_id = $1;`, u.ID)
 			Expect(err).To(BeNil())
 
@@ -827,13 +834,12 @@ var _ = Describe("models/user", func() {
 			})
 			Expect(err).To(BeNil())
 
-			b, err := u.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(b).To(BeFalse())
+			err = u.CanCreateHosts(db)
+			Expect(err.Error()).To(Equal("reached maximum number of hosts"))
 		})
 
 		ItChecksNumberOfHosts := func() {
-			It("returns false, when owned hosts == max hosts", func() {
+			It("returns returns max hosts error when owned hosts == max hosts", func() {
 				hs, err := test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
@@ -847,24 +853,21 @@ var _ = Describe("models/user", func() {
 
 				// max hosts for the user is set to 2
 				// and user already has 2 hosts
-				b, err := u.CanCreateHosts(db)
-				Expect(err).To(BeNil())
-				Expect(b).To(BeFalse())
+				err = u.CanCreateHosts(db)
+				Expect(err.Error()).To(Equal("reached maximum number of hosts"))
 			})
 
-			It("returns true, when owned hosts < max hosts", func() {
+			It("does not return error when owned hosts < max hosts", func() {
 				_, err := test.CreateHostStack(db, &test.HostStack{U: u})
 				Expect(err).To(BeNil())
 
-				b, err := u.CanCreateHosts(db)
+				err = u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
-				Expect(b).To(BeTrue())
 			})
 
-			It("returns true, when user has no hosts", func() {
-				b, err := u.CanCreateHosts(db)
+			It("does not return error when user has no hosts", func() {
+				err := u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
-				Expect(b).To(BeTrue())
 			})
 
 			It("ignores terminated hosts", func() {
@@ -883,9 +886,8 @@ var _ = Describe("models/user", func() {
 				err = hs2.H.Delete(db)
 				Expect(err).To(BeNil())
 
-				b, err := u.CanCreateHosts(db)
+				err = u.CanCreateHosts(db)
 				Expect(err).To(BeNil())
-				Expect(b).To(BeTrue())
 			})
 		}
 

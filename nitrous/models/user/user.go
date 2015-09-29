@@ -54,6 +54,9 @@ var (
 	ErrPhoneInvalid     = errors.New("phone number is not valid")
 	ErrCardBanned       = errors.New("credit card is banned")
 
+	ErrMaxHostsReached = errors.New("reached maximum number of hosts")
+	ErrNoCard          = errors.New("not added credit card")
+
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
 )
@@ -353,34 +356,38 @@ func (u *User) Topic() pubsub.Topic {
 	return pubsub.Topic(fmt.Sprintf("user-%d", u.ID))
 }
 
-func (u *User) CanCreateHosts(d db.QueryReceiver) (bool, error) {
-	// admins and service accounts have free rein
+func (u *User) CanCreateHosts(d db.QueryReceiver) error {
+	// Admins and service accounts have free rein
 	if u.Admin || u.ServiceAccount {
-		return true, nil
+		return nil
 	}
 
 	bp, err := u.BillingProfile(d)
 	if err != nil {
-		return false, err
+		return err
+	}
+	if err = bp.CanCreateHosts(); err != nil {
+		if err == billingprofile.ErrNoCard {
+			return ErrNoCard
+		}
+		return err
 	}
 
-	if !bp.CanCreateHosts() {
-		return false, nil
-	}
-
-	// ensure max_hosts limit has not been reached
+	// Ensure max_hosts limit has not been reached
 	var b bool
-	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
+	if err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(up.max_hosts), 0))
 		FROM users u
 		JOIN user_profiles up ON (up.user_id = u.id)
 		LEFT JOIN hosts h ON (h.user_id = u.id AND h.terminated_at IS NULL)
 		WHERE u.id = $1;`,
-		u.ID).Scan(&b)
-	if err != nil {
-		return false, err
+		u.ID).Scan(&b); err != nil {
+		return err
+	}
+	if !b {
+		return ErrMaxHostsReached
 	}
 
-	return b, nil
+	return nil
 }
 
 func (u *User) HasFailedPayments(d db.QueryReceiver) (bool, error) {

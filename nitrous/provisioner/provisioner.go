@@ -57,7 +57,6 @@ var (
 var (
 	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
-	ErrHostCreationNotAllowed         = errors.New("not allowed to create more hosts")
 	ErrOrgPermissionDenied            = errors.New("you do not have access to this organization")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
 	ErrUnknownProvider                = errors.New("unknown provider")
@@ -747,27 +746,10 @@ func (p *Provisioner) updateProviderDetails(h *host.Host) error {
 }
 
 func (p *Provisioner) canCreateHosts(opts ProvisionOptions) error {
-	var (
-		canCreateHosts = false
-		err            error
-	)
 	if opts.Org != nil {
-		canCreateHosts, err = opts.Org.CanCreateHosts(p.db)
-		if err != nil {
-			return err
-		}
-	} else {
-		canCreateHosts, err = opts.User.CanCreateHosts(p.db)
-		if err != nil {
-			return err
-		}
+		return opts.Org.CanCreateHosts(p.db)
 	}
-
-	if !canCreateHosts {
-		return ErrHostCreationNotAllowed
-	}
-
-	return nil
+	return opts.User.CanCreateHosts(p.db)
 }
 
 // generateKey generates and returns a private key together with its public key.

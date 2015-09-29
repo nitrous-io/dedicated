@@ -396,22 +396,23 @@ var _ = Describe("models/org", func() {
 			Expect(bp.Update(db)).To(BeNil())
 		})
 
-		It("should be false if the BP is a invalid state", func() {
-			states := []string{
-				billingprofile.StateNoCard,
-				billingprofile.StateDelinquent,
-			}
-			for _, st := range states {
-				bp.State = st
-				Expect(bp.Update(db)).To(BeNil())
+		It("should return no credit card error if the BP is in a no card state", func() {
+			bp.State = billingprofile.StateNoCard
+			Expect(bp.Update(db)).To(BeNil())
 
-				can, err := o1.CanCreateHosts(db)
-				Expect(err).To(BeNil())
-				Expect(can).To(BeFalse())
-			}
+			err := o1.CanCreateHosts(db)
+			Expect(err.Error()).To(Equal("has not added credit card"))
 		})
 
-		It("should be true if the BP is in a valid state", func() {
+		It("should return unpaid invoices error if the BP is in a delinquent state", func() {
+			bp.State = billingprofile.StateDelinquent
+			Expect(bp.Update(db)).To(BeNil())
+
+			err := o1.CanCreateHosts(db)
+			Expect(err.Error()).To(Equal("outstanding invoices"))
+		})
+
+		It("not return error if the BP is in a valid state", func() {
 			states := []string{
 				billingprofile.StateExempt,
 				billingprofile.StatePaid,
@@ -422,13 +423,12 @@ var _ = Describe("models/org", func() {
 				bp.State = st
 				Expect(bp.Update(db)).To(BeNil())
 
-				can, err := o1.CanCreateHosts(db)
+				err := o1.CanCreateHosts(db)
 				Expect(err).To(BeNil())
-				Expect(can).To(BeTrue())
 			}
 		})
 
-		It("should be false if the org exceeds the max hosts", func() {
+		It("should return max hosts error if the org exceeds the max hosts", func() {
 			_, err := db.Exec(`UPDATE orgs SET max_hosts = 1 WHERE id = $1;`, o1.ID)
 			Expect(err).To(BeNil())
 
@@ -438,11 +438,11 @@ var _ = Describe("models/org", func() {
 			})
 			Expect(err).To(BeNil())
 
-			can, err := o1.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-			Expect(can).To(BeFalse())
+			err = o1.CanCreateHosts(db)
+			Expect(err.Error()).To(Equal("reached maximum number of hosts"))
 		})
-		It("should be true if the org does not exceed the max hosts", func() {
+
+		It("not return error if the org does not exceed the max hosts", func() {
 			_, err := db.Exec(`UPDATE orgs SET max_hosts = 2 WHERE id = $1;`, o1.ID)
 			Expect(err).To(BeNil())
 
@@ -452,9 +452,8 @@ var _ = Describe("models/org", func() {
 			})
 			Expect(err).To(BeNil())
 
-			can, err := o1.CanCreateHosts(db)
+			err = o1.CanCreateHosts(db)
 			Expect(err).To(BeNil())
-			Expect(can).To(BeTrue())
 		})
 	})
 
