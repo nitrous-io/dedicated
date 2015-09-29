@@ -36,6 +36,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   keybindings: 'default'
   fontSize: null
 
+  autoCompleteBeta: null
+  beta: false
+
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
@@ -87,6 +90,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         opsSocket.unwatchFile absPath
 
       @_super(tab)
+      if call = tab.didClose
+        call.apply(tab, [])
     else
       @set 'confirmCloseDialog', App.ConfirmCloseDialog.create document: tab
 
@@ -139,10 +144,9 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
         Mp.increment Mp.PropertyIDEFileSaveCount
         doc.set 'documentLastUpdated', Date.now()
 
+        doc.set 'clean', true
         if pl = doc.get('plugin')
           pl.afterSave({opsSocket: opsSocket, sidebar: App.get('router.ideSidebarController')})
-        else
-          doc.set 'clean', true
     else
       @set 'saveDialog', App.SaveDialog.create document: doc
 

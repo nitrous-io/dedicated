@@ -49,8 +49,7 @@ App.Document = App.TabContent.extend
     @setPluginManager()
 
   setPluginManager: ->
-    if pl = (App.CodePluginsManager.forType @get('editorMode'))
-      @set 'plugin', new pl(@)
+    @set 'plugin', App.CodePluginsManager.initPluginForType(@, @get('editorMode'))
 
   updatePluginManager: (->
     @setPluginManager()
@@ -72,6 +71,10 @@ App.Document = App.TabContent.extend
     return unless @get('replaceContentTrigger')
     @set 'documentLastUpdated', Date.now()
   ).property 'replaceContentTrigger'
+
+  didClose: ->
+    if plugin = @get('plugin')
+      plugin.documentDidClose()
 
   isOTMaster: ->
     cl = @get 'otClient'
