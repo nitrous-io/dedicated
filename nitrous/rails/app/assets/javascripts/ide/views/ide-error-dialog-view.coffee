@@ -6,7 +6,7 @@ App.IdeErrorDialogView = App.IdeModalDialogView.extend
   viewDidAppear: (e)->
     @_super()
     App.set('router.ideEditorController.activeTab.focused', false)
-    
+
     # we can't get focus without a text element
     # so we grab Escape from window
     $(window).bind 'keydown.ideErrorDialog', (e)=>

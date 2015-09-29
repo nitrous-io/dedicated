@@ -131,7 +131,7 @@ dependencies are checked in).
 
 On Mac, `Open System Preferences > Network`
 
-Open the DNS tab, and add the following entries: 
+Open the DNS tab, and add the following entries:
 
 8.8.4.4
 8.8.8.8
@@ -154,6 +154,41 @@ remmeber to reset it to global GOPATH before get/update/save the dependencies
 We use Godep for now, until the Go community recommends an official approach.
 
 See https://groups.google.com/d/msg/golang-dev/nMWoEAG55v8/iJGgur7W_SEJ.
+
+### Setup for GitHub OAuth with webhooks
+
+We can test with HTTPS through preview URL to test GitHub OAuth with webhooks
+
+* Change nginx config
+  - /etc/nginx/sites-enabled/default
+  ```conf
+    listen 7000 default_server; # listen 7000 ssl default_server;
+
+    #  ssl_certificate /etc/nginx/certs/n2odev.crt;
+    #  ssl_certificate_key /etc/nginx/certs/n2odev.key;
+    #  server_name pro.n2odev.com;
+  ```
+  - This is to disable `pro.n2odev.com` CA and use `*.nitrousapp.com` CA
+
+* Change asset host in rails app
+  - Update `<Dedicated Folder>/nitrous/rails/config/environments/development.rb`
+  - i.e. when the container name is `nitrous-on-nitrous-9277`
+  ```
+    config.action_controller.asset_host = 'nitrous-on-nitrous-9277.nitrousapp.com' # '//pro%d.n2odev.com:7000'
+  ```
+  - This is to change assets urls for development.
+* Add your `<Container Name>.nitrousapp.com` to GitHub Application.
+  - `https://github.com/settings/developers`
+  - Update `<Dedicated Folder>/nitrous/env` to have the credentials
+
+* Reconfigure preview port
+  - Option 1: your container to have 32700(any port you want) -> 7000 (TCP, Public) and update database
+    - i.e. `update containers set port_mappings = '{"22":"32775","preview":"32700"}' where slug = 'nitrous-on-nitrous-9277';`
+    - Wait for 1 minute to update atlas(proxy)
+  - Option 2: Set `NITROUS_PREVIEW_PORT` to 7000
+
+NOTE: Since your dev nitrous server become public, other people can access to your dev site.
+Please shutdown the server or switch to original setting after you finish the testing.
 
 - - -
 Copyright (c) 2012-2015 Nitrous, Inc. All Rights Reserved.

@@ -101,6 +101,12 @@ func getShellForUserCached(user string) string {
 	return shell
 }
 
+// provides a very minimal shell for commands that don't require
+// booting up a login/interactive shell
+func buildWithMinimalShell(cmdStr string) *exec.Cmd {
+	return exec.Command("/bin/su", "-p", "-c", cmdStr, getNitrousUser())
+}
+
 // we're running as root and need to execute user's commands under their
 // user privileges/shell environment
 // su [options] ${username}
@@ -116,6 +122,9 @@ func buildWithSuUserShell(cmdStr string) *exec.Cmd {
 	return exec.Command("/bin/su", "-p", "-c", cmdStr, getNitrousUser())
 }
 
+// boots up the full login environment (source all the important profiles)
+// to run any commands that need access to variables defined by the user
+// in various profile locations
 func buildWithLoginUserShell(cmdStr string) *exec.Cmd {
 	nitrousEnv := []string{}
 	for _, env := range os.Environ() {
@@ -173,13 +182,19 @@ func doRun(msg *Message, ch chan *Message) {
 		sendErr(ch, msg, errors.New("invalid cwd argument"))
 		return
 	}
+
 	var cmd *exec.Cmd
-	if msg.Event == "loginrun" {
+	switch msg.Event {
+	case "loginrun":
 		cmd = buildWithLoginUserShell(cmdStr)
-	} else {
+	case "minirun":
+		cmd = buildWithMinimalShell(cmdStr)
+	default:
 		cmd = buildWithSuUserShell(cmdStr)
 	}
 	cmd.Dir = strings.TrimSpace(cwd)
+
+	logrus.Warnf("Invoking: %+v", cmd)
 
 	// setup additional environment variables (if given)
 	env, ok := getArgAsStrArray(msg.Args[2])
@@ -212,7 +227,7 @@ func doRun(msg *Message, ch chan *Message) {
 func (h *CmdHandler) HandleAsync(msg *Message) chan *Message {
 	resp := make(chan *Message, chanSize)
 	switch msg.Event {
-	case "run", "loginrun":
+	case "run", "loginrun", "minirun":
 		go doRun(msg, resp)
 	default:
 		logrus.Errorf("CmdHandler.HandleAsync(): unknown event '%s'", msg.Event)

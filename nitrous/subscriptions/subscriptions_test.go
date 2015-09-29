@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/hostcontrol"
@@ -621,12 +622,42 @@ var _ = Describe("subscriptions", func() {
 		It("should cancel immediately if the plan is free", func() {
 			_, err := db.Exec("UPDATE plans SET price = 0, base_price = 0 WHERE id = $1;", pl.ID)
 			Expect(err).To(BeNil())
+			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
+			fakeStripe.Responses = []string{
+				`{
+					"cancelled": true,
+					"id": "sub1"
+				}`,
+			}
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				BillingProfileID: bp.ID,
+				StripeID:         sql.NullString{"sub1", true},
+				PlanID:           pl.ID,
+				Slug:             "SLUG",
+			}
+
+			err = subProvider.Cancel(db, sub)
+			Expect(err).To(Equal(fakeStripe.Errors[0]))
+
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			r1 := fakeStripe.ReceivedRequests[0]
+			Expect(r1["method"]).To(Equal("DELETE"))
+			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
+			Expect(r1["at_period_end"]).To(BeEmpty())
+		})
+
+		It("should cancel immediately if on free trial", func() {
+			_, err := db.Exec("UPDATE plans SET price = 123, base_price = 456 WHERE id = $1;", pl.ID)
+			Expect(err).To(BeNil())
 
 			fakeStripe.Errors = []*stripe.Error{&stripe.Error{}}
 			fakeStripe.Responses = []string{
 				`{
-          "cancelled": true,
-				  "id": "sub1"
+					"cancelled": true,
+					"id": "sub1"
 				}`,
 			}
 
@@ -638,6 +669,7 @@ var _ = Describe("subscriptions", func() {
 				StripeID:         sql.NullString{"sub1", true},
 				PlanID:           pl.ID,
 				Slug:             "SLUG",
+				TrialEnd:         pq.NullTime{time.Now().Add(24 * time.Hour), true},
 			}
 
 			err = subProvider.Cancel(db, sub)
@@ -1343,6 +1375,8 @@ var _ = Describe("subscriptions", func() {
 				})
 
 				It("marks user as suspicious and sends a failed charge ticket to nitrous support if user has no invoice record", func() {
+					envvars.HostHostname = "nitrous.io"
+
 					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
 					Expect(err).To(BeNil())
 
@@ -1492,6 +1526,42 @@ var _ = Describe("subscriptions", func() {
 					Expect(err).To(BeNil())
 					Expect(usr.Suspicious.Valid).To(BeTrue())
 					Expect(usr.Suspicious.String).To(Equal("a_spy,failed_charge"))
+				})
+
+				It("sends a failed charge ticket to nitrous support with staging label if staging environment", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+					envvars.HostHostname = "n2ostaging.com"
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					Expect(fakeHelpScout.Subject).To(Equal("[STAGING] [ALERT] Stripe - Multiple Failed Charge Attempts"))
+				})
+
+				It("sends a failed charge ticket to nitrous support with dev label if development environment", func() {
+					_, err := db.Exec(`DELETE FROM invoices WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+					envvars.HostHostname = "n2odev.com"
+
+					fakeStripe.Responses = []string{
+						`{"id": "evt_158gxvAOjoYioo6erVsU1zBV", "api_version": "2014-12-08", "object": "event", "type": "charge.succeeded", "data": {"object": {"id": "Xcccs", "source": {"customer":"cus_123"}}}}`,
+					}
+
+					e, err := event.Get("evt_158gxvAOjoYioo6erVsU1zBV")
+					Expect(err).To(BeNil())
+
+					err = subProvider.HandleChargeFailed(db, e)
+					Expect(err).To(BeNil())
+
+					Expect(fakeHelpScout.Subject).To(Equal("[DEV] [ALERT] Stripe - Multiple Failed Charge Attempts"))
 				})
 
 			})

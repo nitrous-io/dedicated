@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,6 +35,19 @@ func (h *Host) Start() (*host.Info, error) {
 }
 
 func (h *Host) startWithPool() (*host.Info, error) {
+	h.Printf("checking if volume is detached")
+	vol, err := h.getVolume(h.Config.VolumeID)
+	if err != nil {
+		errstr := fmt.Sprintf("could not retrieve volume info for %s, err: %v",
+			h.Config.VolumeID, err)
+		h.Printf(errstr)
+		return nil, errors.New(errstr)
+	}
+	if len(vol.Attachments) != 0 {
+		return nil, fmt.Errorf("amazon: failed to start as volume %s is currently attached to %s",
+			vol.VolumeId, vol.Attachments[0].InstanceId)
+	}
+
 	instanceType := h.Config.InstanceType
 
 	h.Printf("attempting to acquire instance of type %q from pool", instanceType)

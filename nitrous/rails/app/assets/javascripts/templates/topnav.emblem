@@ -47,9 +47,6 @@
               a href='#' click='viewUser target="view"'
                 | View User
             li
-              a href='#' click='creditUser target="view"'
-                | Credit User
-            li
               = link-to 'admin.announcements'
                 | Create Announcements
             li

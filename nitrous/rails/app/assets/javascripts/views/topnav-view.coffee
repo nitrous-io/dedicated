@@ -47,9 +47,6 @@ App.TopnavView = Em.View.extend
     switchUser: ->
       App.trigger 'open-switch-user-dialog'
 
-    creditUser: ->
-      App.trigger 'open-credit-user-dialog'
-
     viewUser: ->
       App.trigger 'open-view-user-dialog'
 

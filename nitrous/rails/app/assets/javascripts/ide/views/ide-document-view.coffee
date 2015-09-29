@@ -23,6 +23,7 @@ App.IdeDocumentView = Em.View.extend
   themeBinding: 'controller.theme'
   wrapLinesBinding: 'controller.wrapLines'
   fontSizeBinding: 'controller.fontSize'
+  autoCompleteBetaBinding: 'controller.autoCompleteBeta'
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -124,6 +125,11 @@ App.IdeDocumentView = Em.View.extend
     if @get 'document.path.deleted'
       this.remove()
   ).observes 'document.path.deleted'
+
+  setPlugin: (->
+    if editor = @get('editor')
+      editor.set 'documentPlugin', @get('document.plugin')
+  ).observes 'document.plugin'
 
   jumpToLine: (->
     if line = @get 'document.goToLine'
@@ -328,6 +334,10 @@ App.IdeDocumentView = Em.View.extend
   keybindingsDidChange: (->
     @updateEditor('keybindings')
   ).observes 'keybindings'
+
+  autoCompleteBetaDidChange: (->
+    @updateEditor('autoCompleteBeta')
+  ).observes 'autoCompleteBeta'
 
   contentDidChange: (->
     if editor = @get 'editor'

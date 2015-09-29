@@ -63,6 +63,9 @@ func (s *infoCmd) Run(args []string) int {
 	fmt.Printf("ssh -p 65100 -i %s %s@%s\n", f.Name(),
 		sshUser, h.IPAddress.String)
 
+	fmt.Printf("sftp -P 65100 -o \"IdentityFile=%s\" %s@%s\n", f.Name(),
+		sshUser, h.IPAddress.String)
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, os.Kill)
 	go func() {

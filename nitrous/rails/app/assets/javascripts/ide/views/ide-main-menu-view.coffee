@@ -127,8 +127,12 @@ App.IdeMainMenuView = Em.View.extend
   ).property 'App.container', 'App.container.env', 'App.container.env.NITROUS_README_URL'
 
   menu: (->
-    [
+    base = [
       menu 'N', [
+        menuItem 'Beta Mode',
+          callback: (controller) ->
+            controller.toggleBetaMode()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.beta')
         menuItem 'About Nitrous', callback: ->
           ui.showModal($('#about-nitrous'))
       ]
@@ -397,7 +401,19 @@ App.IdeMainMenuView = Em.View.extend
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')
     ]
-  ).property('previewItems', 'helpMenuItems')
+
+    if App.get('router.ideEditorController.beta')
+      betaMenu = menu 'Beta', [
+        menuItem 'Autocomplete',
+          callback: (controller) ->
+            controller.betaToggleAutoCompleteBeta()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCompleteBeta')
+      ]
+
+      base.push betaMenu
+
+    base
+  ).property('previewItems', 'helpMenuItems', 'App.router.ideEditorController.beta')
 
   currentYear: (->
     new Date().getFullYear()
