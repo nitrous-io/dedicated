@@ -397,4 +397,92 @@ var _ = Describe("controllers/github", func() {
 			Expect(github.CanDeleteGitHubPublicKeys(up)).To(Equal(true))
 		})
 	})
+
+	Describe("GET /api/v0/github/authorize_to_signup", func() {
+		var orgGetRedisKeyForOAuthFunc GetRedisKeyForOAuthFunc
+
+		BeforeEach(func() {
+			orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
+			github.GetRedisKeyForOAuth = func(token string) string {
+				return "github:oauth:tempkey"
+			}
+		})
+
+		AfterEach(func() {
+			github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
+		})
+
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_signup", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("returns valid json response", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := map[string]interface{}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			redirectURL := j["redirect_url"].(string)
+			Expect(redirectURL).To(ContainSubstring("https://github.com/login/oauth/authorize?access_type=online"))
+
+			u, err := url.Parse(redirectURL)
+			Expect(err).To(BeNil())
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			Expect(cookieState).ToNot(Equal(""))
+
+			urlState := u.Query().Get("state")
+			Expect(urlState).To(Equal(cookieState))
+		})
+
+		It("sets github state to cookie", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			state, err := github.ReadOAuthState(cookieState)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(state.UserID).To(BeZero())
+			Expect(state.Token).NotTo(BeZero())
+			Expect(state.Purpose).To(Equal(github.OAuthStatePurposeSignUp))
+		})
+
+		It("saves temporal key in redis with expiry", func() {
+			redisClient, err := redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() {
+				redisClient.Close()
+			}()
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			val, err := redisClient.Get("github:oauth:tempkey").Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(Equal("1"))
+
+			ttl, err := redisClient.TTL("github:oauth:tempkey").Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ttl).To(BeNumerically("~", 10*time.Minute, 5*time.Second)) // TTL should be around 10 minutes
+		})
+	})
 })

@@ -68,6 +68,7 @@ type OAuthState struct {
 const (
 	OAuthStatePurposeConnect = "connect"
 	OAuthStatePurposeLogin   = "login"
+	OAuthStatePurposeSignUp  = "signup"
 )
 
 // return gitHubUserName and gitHubTokenJson
@@ -162,9 +163,25 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 }
 
 // /api/v0/github/authorize_to_login
-// Authorize returns GitHub authorization url that front-end needs to redirect to.
+// Authorize returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
 func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	state, err := setStateForLogin(w, r)
+	state, err := setState(w, r, OAuthStatePurposeLogin)
+	if err != nil {
+		return err
+	}
+
+	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"redirect_url": url,
+	}
+	return nil
+}
+
+// /api/v0/github/authorize_to_signup
+// AuthorizeToSignUp returns GitHub authorization url that front-end needs to redirect to for sign up with GitHub.
+func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	state, err := setState(w, r, OAuthStatePurposeSignUp)
 	if err != nil {
 		return err
 	}
@@ -231,7 +248,6 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			logrus.Errorf("replacing github user for %s - old: %s, new: %s",
 				userID, p.GitHubUserName.String, gitHubUserName)
 		}
-
 	} else {
 		// TODO: When a user does not exists, redirect to signup page
 		// Add Purpose to state
@@ -313,9 +329,9 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
-func setStateForLogin(w http.ResponseWriter, r *http.Request) (string, error) {
+func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, error) {
 	tempKey := uuid.Make()
-	state, err := makeOAuthState(0, tempKey, OAuthStatePurposeLogin)
+	state, err := makeOAuthState(0, tempKey, purpose)
 	if err != nil {
 		return "", err
 	}
