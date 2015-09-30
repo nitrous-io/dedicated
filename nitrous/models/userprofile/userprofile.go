@@ -43,6 +43,15 @@ func Find(d db.QueryReceiver, userID int64) (*UserProfile, error) {
 	return p, nil
 }
 
+func FindByGitHubUserName(d db.QueryReceiver, gitHubUserName string) (*UserProfile, error) {
+	p := &UserProfile{}
+	err := d.Get(p, `SELECT * FROM user_profiles WHERE github_user_name = $1`, gitHubUserName)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 func (p *UserProfile) UpdateGithubInfo(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE user_profiles
 		SET (github_user_name, github_oauth_token_json, github_user_scopes_json)

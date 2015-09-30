@@ -15,6 +15,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -39,7 +41,8 @@ var (
 		Endpoint:     githuboauth.Endpoint,
 	}
 
-	redisPool *redispool.Pool
+	redisPool       *redispool.Pool
+	oauthScopesJson string
 
 	errUpdateFailed     = httperror.New(http.StatusInternalServerError, "update_failed", "update failed")
 	errInvalidOauthCode = httperror.New(http.StatusBadRequest, "invalid_code", "invalid code parameter")
@@ -57,9 +60,15 @@ var (
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
 	Token     string    `json:"token,omitempty"`
+	Purpose   string    `json:"purpose,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
+
+const (
+	OAuthStatePurposeConnect = "connect"
+	OAuthStatePurposeLogin   = "login"
+)
 
 // return gitHubUserName and gitHubTokenJson
 var FetchGithubUser = func(code string) (string, string, error) {
@@ -124,6 +133,11 @@ var GetRedisKeyForOAuth = func(token string) string {
 
 func init() {
 	redisPool = redispool.New(net.JoinHostPort(envvars.RedisHost, envvars.RedisPort))
+	oauthScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
+	if err != nil {
+		logrus.Errorf("failed to marshal oauth scope: %+v", err)
+	}
+	oauthScopesJson = string(oauthScopesJsonBytes)
 }
 
 // /api/v0/github/authorize
@@ -191,12 +205,6 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		MaxAge: -1,
 	})
 
-	userID := state.UserID
-	p, err := userprofile.Find(db, userID)
-	if err != nil {
-		return mh.Error(err, errLabel)
-	}
-
 	code := r.FormValue("code")
 	if code == "" {
 		redirectError(w, r, "failed to connect with GitHub")
@@ -210,16 +218,33 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return mh.Error(err, errLabel)
 	}
 
-	if p.GitHubUserName.Valid && gitHubUserName != p.GitHubUserName.String {
-		logrus.Errorf("replacing github user for %s - old: %s, new: %s",
-			userID, p.GitHubUserName.String, gitHubUserName)
-	}
+	var p *userprofile.UserProfile
+	userID := state.UserID
 
-	currentScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
+	if userID != 0 {
+		p, err = userprofile.Find(db, userID)
+		if err != nil {
+			return mh.Error(err, errLabel)
+		}
+
+		if p.GitHubUserName.Valid && gitHubUserName != p.GitHubUserName.String {
+			logrus.Errorf("replacing github user for %s - old: %s, new: %s",
+				userID, p.GitHubUserName.String, gitHubUserName)
+		}
+
+	} else {
+		// TODO: When a user does not exists, redirect to signup page
+		// Add Purpose to state
+		p, err = userprofile.FindByGitHubUserName(db, gitHubUserName)
+		if err != nil {
+			return mh.Error(err, errLabel)
+		}
+		userID = p.UserID
+	}
 
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
-	p.GitHubUserScopesJson = sql.NullString{string(currentScopesJsonBytes), true}
+	p.GitHubUserScopesJson = sql.NullString{oauthScopesJson, true}
 	if err = p.UpdateGithubInfo(db); err != nil {
 		logrus.Errorf("p.UpdateGithubInfo() faled with '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
@@ -234,15 +259,38 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		"github_authorized_date": time.Now(),
 	})
 
-	http.Redirect(w, r, "/app#/account", http.StatusFound)
+	if state.Purpose == OAuthStatePurposeLogin {
+		u, err := user.FindByID(db, userID)
+
+		if err != nil {
+			return err
+		}
+
+		err = env.Login(u, w)
+		if err != nil {
+			return err
+		}
+
+		t, err := token.FindByUser(db, userID)
+		if err != nil {
+			return err
+		}
+
+		urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
+		http.Redirect(w, r, urlWithToken, http.StatusOK)
+	} else {
+		http.Redirect(w, r, "/app#/account", http.StatusFound)
+	}
+
 	return nil
 }
 
-func makeOAuthState(userID int64, token string) (string, error) {
+func makeOAuthState(userID int64, token string, purpose string) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
 		Token:     token,
+		Purpose:   purpose,
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
 	})
@@ -267,7 +315,7 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 
 func setStateForLogin(w http.ResponseWriter, r *http.Request) (string, error) {
 	tempKey := uuid.Make()
-	state, err := makeOAuthState(0, tempKey)
+	state, err := makeOAuthState(0, tempKey, OAuthStatePurposeLogin)
 	if err != nil {
 		return "", err
 	}
@@ -306,7 +354,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID, "")
+	state, err := makeOAuthState(userID, "", OAuthStatePurposeConnect)
 	if err != nil {
 		return "", err
 	}
