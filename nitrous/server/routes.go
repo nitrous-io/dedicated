@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/oauth"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/orgs"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/passwords"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/pinger"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/plans"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/promocodes"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
@@ -95,6 +96,7 @@ func (s *Server) drawRoutes() {
 
 	s.namespace("/api/v0", func() {
 		s.route("/events", routeWritesResponse, mw.AuthQS(mw.Call("events.Stream", events.Stream)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
+		s.route("/hosts/{id}/activity", routeWritesResponse, mw.AuthQS(mw.Call("pinger.ForHost", pinger.ForHost)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 		s.route("/oauth/authorize", routeJSON, chainMiddleware(false, r("oauth.GetAuthorize", oauth.GetAuthorize)), RouteOpts{Methods: []string{"GET"}, LogParams: true})
 
 		nonAuth := map[string]map[string]routeData{
