@@ -22,6 +22,9 @@ var (
 	ErrIncorrectZipErr = errors.New("billingprofile: zip code is incorrect")
 	ErrCardBanned      = errors.New("billingprofile: card banned")
 
+	ErrNoCard     = errors.New("billingprofile: has not added credit card")
+	ErrDelinquent = errors.New("billingprofile: outstanding invoices")
+
 	MaxFailedAttempts = 2
 )
 
@@ -77,18 +80,14 @@ func (bp *BillingProfile) EligibleForSubscription() bool {
 		bp.State == StatePaymentDue
 }
 
-func (bp *BillingProfile) CanCreateHosts() bool {
+func (bp *BillingProfile) CanCreateHosts() error {
 	switch bp.State {
-	// noop for these cases
-	case StatePaid:
-	case StatePaymentDue:
-	case StateExempt:
-	case StateFree:
-	default:
-		// return disallowed if not in any of previous state
-		return false
+	case StateNoCard:
+		return ErrNoCard
+	case StateDelinquent:
+		return ErrDelinquent
 	}
-	return true
+	return nil
 }
 
 func FindByID(d db.QueryReceiver, id int64) (*BillingProfile, error) {

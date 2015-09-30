@@ -148,9 +148,8 @@ var _ = Describe("provisioner", func() {
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
 
-			canCreate, err := hs.U.CanCreateHosts(db)
+			err = hs.U.CanCreateHosts(db)
 			Expect(err).To(BeNil())
-			Expect(canCreate).To(BeTrue())
 
 			_, err = prov.ProvisionHost(provisioner.ProvisionOptions{
 				OutputStream: GinkgoWriter,
@@ -229,9 +228,8 @@ var _ = Describe("provisioner", func() {
 			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
 			Expect(err).To(BeNil())
 
-			canCreate, err := hs.U.CanCreateHosts(db)
+			err = hs.U.CanCreateHosts(db)
 			Expect(err).To(BeNil())
-			Expect(canCreate).To(BeTrue())
 
 			// Add a plan belonging to a different provider - it should not be returned.
 			p2 := &plan.Plan{

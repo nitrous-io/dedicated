@@ -1016,6 +1016,125 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 	})
 
+	Context("when creating host under org", func() {
+		BeforeEach(func() {
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE plans SET price=123, org=true;`)
+			Expect(err).To(BeNil())
+
+			params.Set("org", o.Slug)
+		})
+
+		It("creates the host", func() {
+			validStates := []string{
+				billingprofile.StatePaid,
+				billingprofile.StateExempt,
+				billingprofile.StatePaymentDue,
+				billingprofile.StateFree,
+			}
+			for _, st := range validStates {
+				_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, st, o.ID)
+				Expect(err).To(BeNil())
+
+				params.Set("async", "true")
+				res := doRequest(params)
+
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+			}
+		})
+
+		It("responds with no credit card error when org does not have billing profile", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, billingprofile.StateNoCard, o.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("request_not_allowed"))
+			Expect(errDesc).To(Equal("your organization has not added a credit card"))
+		})
+
+		It("responds with unpaid invoices error when org has delinquent billing profile", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, billingprofile.StateDelinquent, o.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("outstanding_invoices"))
+			Expect(errDesc).To(Equal("your organization has outstanding invoices"))
+		})
+
+		It("responds with hosts limit reached when org has hit a limit ", func() {
+			_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE org_id = $2`, billingprofile.StatePaid, o.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`UPDATE orgs SET max_hosts = 1 WHERE id = $1;`, o.ID)
+			Expect(err).To(BeNil())
+			_, err = test.CreateHostStack(db, &test.HostStack{O: o})
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("max_hosts_reached"))
+			Expect(errDesc).To(Equal("your organization has reached the maximum number of workspaces"))
+		})
+
+		It("does not allow orgs to create a free host", func() {
+			bp, err := billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StateFree
+			Expect(bp.Update(db)).To(BeNil())
+
+			_, err = db.Exec(`UPDATE plans SET price=0, org=true;`)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("free_plan_not_allowed"))
+			Expect(errDesc).To(Equal("You are not allowed to create a free tier workspace"))
+		})
+	})
+
+	It("responds with no credit card error when user does not have billing profile", func() {
+		_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateNoCard, u.ID)
+		Expect(err).To(BeNil())
+
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusForbidden))
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("request_not_allowed"))
+		Expect(errDesc).To(Equal("you have not added a credit card"))
+	})
+
+	It("responds with unpaid invoices error when user has delinquent billing profile", func() {
+		_, err := db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2`, billingprofile.StateDelinquent, u.ID)
+		Expect(err).To(BeNil())
+
+		res := doRequest(params)
+
+		Expect(res.Code).To(Equal(http.StatusBadRequest))
+		errType, errDesc := test.ErrorSlug(res.Body)
+		Expect(errType).To(Equal("outstanding_invoices"))
+		Expect(errDesc).To(Equal("you have outstanding invoices, please check your billing settings"))
+	})
+
 	It("responds with hosts limit reached when a user has hit a limit ", func() {
 		_, err := db.Exec(`UPDATE user_profiles SET max_hosts = 1 WHERE user_id = $1;`, u.ID)
 		Expect(err).To(BeNil())
@@ -1026,36 +1145,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		res := doRequest(params)
 
 		Expect(res.Code).To(Equal(http.StatusForbidden))
-
 		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("request_not_allowed"))
-		Expect(errDesc).To(ContainSubstring("not allowed"))
-	})
-
-	It("does not allow orgs to create a free host", func() {
-		err := db.WithTransaction(func(t *sqlx.Tx) error {
-			return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
-		})
-		Expect(err).To(BeNil())
-		err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
-		Expect(err).To(BeNil())
-
-		bp, err := billingprofile.FindForOrg(db, o.ID)
-		Expect(err).To(BeNil())
-		bp.State = billingprofile.StateFree
-		Expect(bp.Update(db)).To(BeNil())
-
-		_, err = db.Exec(`UPDATE plans SET price=0, org=true;`)
-		Expect(err).To(BeNil())
-
-		params.Set("org", o.Slug)
-		res := doRequest(params)
-
-		Expect(res.Code).To(Equal(http.StatusForbidden))
-
-		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("free_plan_not_allowed"))
-		Expect(errDesc).To(ContainSubstring("not allowed"))
+		Expect(errType).To(Equal("max_hosts_reached"))
+		Expect(errDesc).To(Equal("you have reached the maximum number of workspaces"))
 	})
 
 	Context("oauth token failure modes", func() {
