@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
@@ -41,12 +40,13 @@ type SshHost struct {
 	EncryptedPrivateKey   string         `db:"encrypted_private_key"`
 	EncryptedPrivateKeyIv string         `db:"encrypted_private_key_iv"`
 	Provider              string         `db:"provider"`
+	Hotswap               bool           `db:"hotswap"`
 }
 
 // performs a query that populates SshHost fields
 // be very wary of SQL injection (not to be run with user input)
 func Query(extra string) string {
-	return fmt.Sprintf(`SELECT hosts.id, hosts.slug, hosts.region_identifier, hosts.ip_address, hosts.state,
+	return fmt.Sprintf(`SELECT hosts.id, hosts.slug, hosts.region_identifier, hosts.ip_address, hosts.state, hosts.hotswap,
 	pt.provider, pt.name AS pt_name,
 	key_pairs.encrypted_private_key, key_pairs.encrypted_private_key_iv
 	FROM hosts
@@ -145,9 +145,9 @@ func (h *SshHost) useLocalKey() bool {
 	// For the "amazon" provider, the private key can be either:
 	// 1. that of an EC2 keypair, or
 	// 2. the private key stored in the database.
-	// We check if the provider template has 'hotswap' in the name and if
-	// we have a private key for it in SSH_KEYS_DIR, we return that instead.
+	// We check if the host supports hotswap and if we have a private key for it
+	// in SSH_KEYS_DIR, we return that instead.
 	return h.Provider == "amazon" &&
-		strings.Contains(h.TemplateName, "hotswap") &&
+		h.Hotswap &&
 		SSHKeysDir != ""
 }
