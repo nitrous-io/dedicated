@@ -5,6 +5,8 @@
 #= require ./vendor/strftime
 #= require ./vendor/jquery.ui.widget
 #= require ./vendor/jquery.fileupload
+#= require ./vendor/visibility.core
+#= require ./vendor/visibility.timers
 #= require ./ember-bootstrap
 #= require ../lib/mp
 #= require_self

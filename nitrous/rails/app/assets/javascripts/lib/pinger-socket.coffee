@@ -4,6 +4,7 @@ App.PingerSocket = Lib.Socket.extend
   hostId: null
   interval: 30000 # milliseconds
   timer: null
+  firstTime: true
 
   init: ->
     @_super.apply this, arguments
@@ -17,14 +18,17 @@ App.PingerSocket = Lib.Socket.extend
   didOpen: (ev) ->
     @_super.apply this, arguments
 
+    if @firstTime
+      @ping()
+      @firstTime = false
+
     # Clean up any existing timer, so that we only have at most 1 timer.
     if @timer
-      window.clearInterval(@timer)
+      Visibility.stop(@timer)
 
-    @ping()
-    @timer = window.setInterval(=>
+    @timer = Visibility.every(@interval, =>
       @ping()
-    , @interval)
+    )
 
   ping: ->
     @send('active')
