@@ -1,4 +1,6 @@
 App.LoginController = Em.Controller.extend
+  queryParams: ['token']
+  token: null
   confirmationLapsed: false
 
   confirmationLapsedResendable: (->
@@ -11,19 +13,17 @@ App.LoginController = Em.Controller.extend
   error: null
   loggingIn: false
 
+  tokenChanged: (->
+    if @get('token')
+      @afterLogin(@get('token'))
+  ).observes('token')
+
   doLogin: (login, password) ->
     App.set 'confirmationLapsed', false
     @set 'loggingIn', true
     @set 'error', null
     App.authenticate(login, password).then((token) =>
-      App.setToken(token)
-      Mp.track Mp.EventUserLoggedIn
-
-      if coupon = App.get('pendingCoupon')
-        @transitionToRoute 'coupon', queryParams: { code: coupon }
-        return
-
-      @transitionToRoute 'home.index'
+      @afterLogin(token)
     , (err) =>
       if err
         @set 'error', err
@@ -32,14 +32,29 @@ App.LoginController = Em.Controller.extend
       @set 'loggingIn', false
 
   doLoginWithGitHub: ->
+    @set 'loggingInWithGitHub', true
+    @set 'error', null
+
     Em.$.ajax(
       type: 'POST'
       url: '/api/v0/github/authorize_to_login'
       cache: false
-    ).done((json) ->
+    ).then (json) =>
       window.location.href = json.redirect_url
-    ).fail (jqxhr) ->
-      App.postError(jqxhr.responseJSON, 'Failed to login with GitHub!')
+    , (err) =>
+      if err
+        @set 'error', err
+        App.postError(err.message)
+
+  afterLogin: (token) ->
+    App.setToken(token)
+    Mp.track Mp.EventUserLoggedIn
+
+    if coupon = App.get('pendingCoupon')
+      @transitionToRoute 'coupon', queryParams: { code: coupon }
+      return
+
+    @transitionToRoute 'home.index'
 
   actions:
     login: ->

@@ -36,7 +36,7 @@
     .card-body
       .right
         if loggingIn
-          button.ui.btn disabled='disabled'
+          button.ui.btn.raised.full disabled='disabled'
             i.spinner
             | Logging In...
         else
@@ -46,7 +46,7 @@
     .card-body.bordered
       .right
         if loggingInWithGitHub
-          button.ui.btn disabled='disabled'
+          button.ui.btn.raised.full disabled='disabled'
             i.spinner
             | Logging In With GitHub...
         else
