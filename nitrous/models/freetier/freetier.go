@@ -113,6 +113,9 @@ func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 		WHERE auto_shutdown = $1
 			AND state = $2
 			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND 
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		ORDER BY last_pinged_at ASC
 	`, true, host.StateRunning)
@@ -130,6 +133,9 @@ func IsIdle(d *db.Database, h *host.Host) (bool, error) {
 			AND auto_shutdown = $2
 			AND state = $3
 			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
+			AND 
+			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		`, h.ID, true, host.StateRunning).Scan(&count)
 	if err != nil {

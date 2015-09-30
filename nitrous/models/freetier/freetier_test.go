@@ -496,6 +496,14 @@ var _ = Describe("models/freetier", func() {
 			idle, err := freetier.IsIdle(db, h)
 			Expect(err).To(BeNil())
 			Expect(idle).To(BeTrue())
+
+			// unless the host has been running for less than 45 minutes
+			_, err = db.Exec(`UPDATE hosts SET last_running_at = now() - interval '43 minutes' WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+
+			idle, err = freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeFalse())
 		})
 
 		It("returns false if host does have the auto_shutdown=true", func() {
