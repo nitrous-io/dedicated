@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/redis.v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -177,30 +178,73 @@ var _ = Describe("controllers/github", func() {
 
 		Context("purpose is 'login'", func() {
 			var (
-				state string
-				err   error
+				state                      string
+				err                        error
+				orgGetRedisKeyForOAuthFunc GetRedisKeyForOAuthFunc
+				redisClient                *redis.Client
 			)
 
 			BeforeEach(func() {
-				state, err = github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeLogin)
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin)
+				Expect(err).NotTo(HaveOccurred())
+				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
+				github.GetRedisKeyForOAuth = func(token string) string {
+					return "github:oauth:tempkey"
+				}
+				redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = redisClient.Set("github:oauth:tempkey", "1").Result()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Context("User is not logged in", func() {
+			AfterEach(func() {
+				github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
+				if redisClient != nil {
+					redisClient.Close()
+				}
+			})
+
+			Context("User is not logged in and the user exists", func() {
 				BeforeEach(func() {
 					_, err = db.Exec("DELETE FROM tokens WHERE user_id = $1;", u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					up, err := userprofile.Find(db, u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					up.GitHubUserName = sql.NullString{"alice", true}
+					err = up.UpdateGithubInfo(db)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				It("creates a token and redirect to login page with token", func() {
 					res := doRequest("githubcode", state, state)
-					Expect(res.Code).To(Equal(http.StatusOK))
+					Expect(res.Code).To(Equal(http.StatusFound))
 
 					t, err = token.FindByUser(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedUrl := fmt.Sprintf("/app#/login?token=%s", t.Token)
-					Expect(res.Header.Get("Location")).To(Equal(expectedUrl))
+					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
+				})
+
+				Context("the redis key is expired or does not exist", func() {
+					BeforeEach(func() {
+						_, err := redisClient.Del("github:oauth:tempkey").Result()
+						Expect(err).NotTo(HaveOccurred())
+					})
+
+					It("returns 403", func() {
+						res := doRequest("githubcode", state, state)
+						Expect(res.Code).To(Equal(http.StatusFound))
+
+						t, err = token.FindByUser(db, u.ID)
+						Expect(err).To(Equal(token.ErrInvalidToken))
+						Expect(t).To(BeNil())
+
+						Expect(res.Header().Get("Location")).To(Equal("/app#/login?oauthError=true"))
+					})
 				})
 			})
 		})

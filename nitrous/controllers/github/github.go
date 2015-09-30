@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/garyburd/redigo/redis"
 	"github.com/google/go-github/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -50,7 +51,8 @@ var (
 	errStateExpired     = httperror.New(http.StatusBadRequest, "auth_timeout", "GitHub authorization timeout")
 	errStateMismatch    = httperror.New(http.StatusBadRequest, "state_mismatch", "state provided does not match cookie state")
 
-	errAuthorizeForbidden = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
+	errAuthorizeForbidden   = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
+	errInvalidOAuthCallback = httperror.New(http.StatusBadRequest, "invalid_oauth_callback", "unexpected call from GitHub")
 
 	ErrTokenEmpty       = errors.New("token is empty")
 	ErrTokenNotValid    = errors.New("token not valid")
@@ -249,6 +251,21 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 				userID, p.GitHubUserName.String, gitHubUserName)
 		}
 	} else {
+		conn := redisPool.Get()
+		defer conn.Close()
+		val, err := redis.Int64(conn.Do("DEL", GetRedisKeyForOAuth(state.Token)))
+		if err != nil {
+			return mh.Error(err, errLabel)
+		}
+
+		// When the key does not exist.
+		// The key could be expired or user request to this url manually
+		if val != 1 {
+			logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s", gitHubUserName)
+			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
+			return nil
+		}
+
 		// TODO: When a user does not exists, redirect to signup page
 		// Add Purpose to state
 		p, err = userprofile.FindByGitHubUserName(db, gitHubUserName)
@@ -293,7 +310,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		}
 
 		urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
-		http.Redirect(w, r, urlWithToken, http.StatusOK)
+		http.Redirect(w, r, urlWithToken, http.StatusFound)
 	} else {
 		http.Redirect(w, r, "/app#/account", http.StatusFound)
 	}

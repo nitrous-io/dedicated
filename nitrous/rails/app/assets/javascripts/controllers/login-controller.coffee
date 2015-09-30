@@ -1,6 +1,7 @@
 App.LoginController = Em.Controller.extend
-  queryParams: ['token']
+  queryParams: ['token', 'oauthError']
   token: null
+  oauthError: null
   confirmationLapsed: false
 
   confirmationLapsedResendable: (->
@@ -12,11 +13,18 @@ App.LoginController = Em.Controller.extend
 
   error: null
   loggingIn: false
+  oauthErrMsg: "Failed to log in with GitHub. Please try again"
 
   tokenChanged: (->
     if @get('token')
       @afterLogin(@get('token'))
   ).observes('token')
+
+  oauthErrorChanged: ( ->
+    if @get('oauthError')
+      @set 'error', @oauthErrMsg
+      App.postError(@oauthErrMsg)
+  ).observes('oauthError')
 
   doLogin: (login, password) ->
     App.set 'confirmationLapsed', false
