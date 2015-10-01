@@ -111,8 +111,8 @@ func (h *Host) acquireInstance(provider instanceProvider, instancetype string) (
 	}
 
 	// Attempt to acquire a lock on the instance pool (for the required
-	// instance type) so that no other hostbuilder processes can acquire /
-	// release from the same pool at any time.
+	// instance type) so that no other hostbuilder processes can acquire
+	// from the same pool at any time.
 	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
 	mu := distsync.NewMutex(h.poolMutexName(instancetype), addr)
 
@@ -157,20 +157,6 @@ func (h *Host) acquireInstance(provider instanceProvider, instancetype string) (
 // releaseInstance releases an instance to the pool of available instances. We
 // indicate that an instance is in a pool by adding a "dedicated:pool=true" tag.
 func (h *Host) releaseInstance(provider instanceProvider) error {
-	instancetype := h.instance.InstanceType
-
-	// Attempt to acquire a lock on the instance pool.
-	addr := net.JoinHostPort(h.driverConfig.Redis.Host, h.driverConfig.Redis.Port)
-	mu := distsync.NewMutex(h.poolMutexName(instancetype), addr)
-	mu.Expiry = 30 * time.Second // Not less than expected time needed to create tags.
-	mu.Tries = 30
-	mu.Delay = 2 * time.Second
-
-	if err := mu.Lock(); err != nil {
-		return err
-	}
-	defer mu.Unlock()
-
 	tags := []ec2.Tag{
 		{Key: poolTag, Value: "true"},
 		{Key: "Name", Value: "userhost-pool"},
