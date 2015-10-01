@@ -54,11 +54,17 @@
       .right
         input#signup-submit.ui.btn.primary.raised.full type='submit' disabled={view.disableSubmitButton} value='Create New Account'
 
+  unless gitHubUserName
     .card-body.bordered
       .right
-        button.ui.btn.raised.full
-          .icon.fa.fa-github.fa-lg
-          '   Sign Up With GitHub
+        if signingUpWithGitHub
+          button.ui.btn.raised.full disabled='disabled'
+            i.spinner
+            | Signing Up With GitHub...
+        else
+          button.ui.btn.raised.full click='signupWithGitHub' disabled={view.disableGitHubSignUp}
+            .icon.fa.fa-github.fa-lg
+            '   Sign Up With GitHub
 
 p.note
   ' By creating an account, you agree to the Nitrous

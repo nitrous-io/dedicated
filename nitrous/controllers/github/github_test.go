@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -624,6 +625,73 @@ var _ = Describe("controllers/github", func() {
 			ttl, err := redisClient.TTL("github:oauth:tempkey").Result()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ttl).To(BeNumerically("~", 10*time.Minute, 5*time.Second)) // TTL should be around 10 minutes
+		})
+	})
+
+	Describe("UpdateGitHubInfoFromRedis", func() {
+		var (
+			redisClient *redis.Client
+			err         error
+			env         *middleware.Env
+		)
+
+		BeforeEach(func() {
+			redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			gitHubUserInfo := github.GitHubUserInfo{
+				UserName:  "github-user",
+				TokenJSON: `{ "access_token": "keytogithub" }`,
+			}
+
+			b, err := json.Marshal(gitHubUserInfo)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = redisClient.Set("github:userinfo:github-user", string(b)).Result()
+			Expect(err).NotTo(HaveOccurred())
+
+			env = &middleware.Env{DB: db}
+		})
+
+		AfterEach(func() {
+			if redisClient != nil {
+				redisClient.Close()
+			}
+		})
+
+		It("updates user profile with github info", func() {
+			github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+			up, err := userprofile.FindByGitHubUserName(db, "github-user")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(up.GitHubUserName.String).To(Equal("github-user"))
+			Expect(up.GitHubOAuthTokenJson.String).To(Equal(`{ "access_token": "keytogithub" }`))
+			Expect(up.GitHubUserScopesJson.String).To(Equal(`["user:email","repo","admin:public_key"]`))
+		})
+
+		It("removes github info from redis", func() {
+			github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+			val, err := redisClient.Exists("github:userinfo:github-user").Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(val).To(BeFalse())
+		})
+
+		Context("the github info is not present in redis", func() {
+			BeforeEach(func() {
+				_, err = redisClient.Del("github:userinfo:github-user").Result()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("does not update user profile", func() {
+				github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+				u, err := user.FindByID(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				up, err := userprofile.Find(db, u.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(up.GitHubUserName.Valid).To(BeFalse())
+			})
 		})
 	})
 })

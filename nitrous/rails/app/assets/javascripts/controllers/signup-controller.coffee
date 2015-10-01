@@ -1,5 +1,5 @@
 App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
-  queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code', intent: 'intent' }]
+  queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code', intent: 'intent', gitHubUserName: 'gitHubUserName', gitHubUserEmail: 'gitHubUserEmail' }]
   user: null
   signingUp: false
   error: null
@@ -8,13 +8,19 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
   promoCode: null
   inviteCode: null
   intent: null
+  signingUpWithGitHub: false
+  gitHubUserName: null
+  gitHubUserEmail: null
 
   clear: ->
+    user = App.User.create()
     @setProperties
-      user: App.User.create()
+      user: user
       signingUp: false
       error: null
       invalidField: null
+    user.set('username', @get('gitHubUserName'))
+    user.set('email', @get('gitHubUserEmail'))
 
   emailDisabled: (->
     return true if @get 'signingUp'
@@ -33,6 +39,22 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       username: email.match(/^([^@]+)@/)?[1]
     App.User.adapter.ajax('POST', '/users/email_signup', email: email)
 
+  signupWithGitHub: ->
+    @set 'signingUpWithGitHub', true
+    @set 'error', null
+
+    Em.$.ajax(
+      type: 'POST'
+      url: '/api/v0/github/authorize_to_signup'
+      cache: false
+    ).then (json) =>
+      window.location.href = json.redirect_url
+    , (err) =>
+      @set 'signingUpWithGitHub', false
+      if err
+        @set 'error', err
+        App.postError(err.message)
+
   actions:
     acceptSuggestedEmail: ->
       if @get('suggestedEmail')
@@ -47,7 +69,7 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       if distinctId = window.mixpanel?.get_distinct_id?()
         user.set('distinctId', distinctId)
 
-      user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode')).then(=>
+      user.save(promo_code: @get('promoCode'), invite_code: @get('inviteCode'), github_username: @get('gitHubUserName')).then(=>
         if @get('inviteCode')
           App.set 'sharedContainerTip', true
 

@@ -391,7 +391,7 @@ func storeGitHubInRedis(state *OAuthState, gitHubUserName string, tokenJSON stri
 		return err
 	}
 
-	key := fmt.Sprintf("github:userinfo:%s", gitHubUserName)
+	key := getRedisKeyForGitHubInfo(gitHubUserName)
 	if _, err := conn.Do("SETEX", key, RedisTempDataTTL, info); err != nil {
 		return err
 	}
@@ -604,4 +604,40 @@ func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {
 	}
 
 	return existingKeys, nil
+}
+
+func UpdateGitHubInfoFromRedis(env *middleware.Env, userID int64, gitHubUserName string) error {
+	db := env.DB
+	key := getRedisKeyForGitHubInfo(gitHubUserName)
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	val, err := redis.Bytes(conn.Do("GET", key))
+	if err != nil {
+		return err
+	}
+
+	// Delete after get the value
+	if _, err := conn.Do("DEL", key); err != nil {
+		return err
+	}
+
+	var gitHubInfo GitHubUserInfo
+	if err := json.Unmarshal(val, &gitHubInfo); err != nil {
+		return err
+	}
+
+	p, err := userprofile.Find(db, userID)
+	if err != nil {
+		return err
+	}
+
+	p.GitHubUserName = sql.NullString{gitHubInfo.UserName, true}
+	p.GitHubOAuthTokenJson = sql.NullString{gitHubInfo.TokenJSON, true}
+	p.GitHubUserScopesJson = sql.NullString{oauthScopesJson, true}
+	return p.UpdateGithubInfo(db)
+}
+
+func getRedisKeyForGitHubInfo(gitHubUserName string) string {
+	return fmt.Sprintf("github:userinfo:%s", gitHubUserName)
 }
