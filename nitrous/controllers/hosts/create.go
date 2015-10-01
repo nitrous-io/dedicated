@@ -36,19 +36,23 @@ import (
 var (
 	CreateVolumeFn = volumes.CreateVolume
 
-	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed",
-		"You are not allowed to create a free tier workspace")
-	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed",
-		"You are not allowed to create a paid workspace")
-	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached",
-		"You can't create any more free workspaces")
-	errPhoneAuthRequired = httperror.New(http.StatusForbidden, "phone_auth_required",
-		"You need to verify your phone before creating free workspace")
-	errSuspiciousUser      = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
-	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden",
-		"You do not have access to this organization")
-	errOrgNotFound = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
-	errNotOrgPlan  = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
+	errFreePlanNotAllowed = httperror.New(http.StatusForbidden, "free_plan_not_allowed", "You are not allowed to create a free tier workspace")
+	errPaidPlanNotAllowed = httperror.New(http.StatusForbidden, "paid_plan_not_allowed", "You are not allowed to create a paid workspace")
+	errMaxFreeHostReached = httperror.New(http.StatusForbidden, "max_free_host_reached", "You can't create any more free workspaces")
+	errPhoneAuthRequired  = httperror.New(http.StatusForbidden, "phone_auth_required", "You need to verify your phone before creating free workspace")
+
+	errSuspiciousUser = httperror.New(http.StatusForbidden, "invalid_request", "Unexpected error")
+
+	errUserMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "you have reached the maximum number of workspaces")
+	errUserNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "you have not added a credit card")
+
+	errOrgMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "your organization has reached the maximum number of workspaces")
+	errOrgNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "your organization has not added a credit card")
+	errOrgDelinquent      = httperror.New(http.StatusForbidden, "outstanding_invoices", "your organization has outstanding invoices")
+
+	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden", "You do not have access to this organization")
+	errOrgNotFound         = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
+	errNotOrgPlan          = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -230,10 +234,22 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errHostSlugTaken
 		case provisioner.ErrMultipleHostCreationNotAllowed:
 			return errMultipleRequests
-		case provisioner.ErrHostCreationNotAllowed:
-			return errHostCreationNotAllowed
+		case org.ErrMaxHostsReached:
+			return errOrgMaxHostsReached
+		case org.ErrNoCard:
+			return errOrgNoCard
+		case org.ErrDelinquent:
+			return errOrgDelinquent
 		case provisioner.ErrOrgPermissionDenied:
 			return errOrgPermissionDenied
+		case user.ErrMaxHostsReached:
+			return errUserMaxHostsReached
+		// Delinquent users are blocked by middleware,
+		// and users with no card are directed to add
+		// card page when attempting to create host.
+		// Block no_card users in the backend anyway.
+		case user.ErrNoCard:
+			return errUserNoCard
 		}
 		return err
 	}

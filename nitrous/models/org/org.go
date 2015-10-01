@@ -29,6 +29,10 @@ var (
 	ErrEmailInvalid     = errors.New("email is not valid")
 	ErrEmailBlacklisted = errors.New("email is blacklisted")
 	ErrNameBlank        = errors.New("name can't be blank")
+
+	ErrMaxHostsReached = errors.New("reached maximum number of hosts")
+	ErrNoCard          = errors.New("has not added credit card")
+	ErrDelinquent      = errors.New("outstanding invoices")
 )
 
 type Org struct {
@@ -131,28 +135,35 @@ func (o *Org) Validate() error {
 	return nil
 }
 
-func (o *Org) CanCreateHosts(d db.QueryReceiver) (bool, error) {
+func (o *Org) CanCreateHosts(d db.QueryReceiver) error {
 	bp, err := billingprofile.FindForOrg(d, o.ID)
 	if err != nil {
-		return false, err
+		return err
+	}
+	if err = bp.CanCreateHosts(); err != nil {
+		switch err {
+		case billingprofile.ErrNoCard:
+			return ErrNoCard
+		case billingprofile.ErrDelinquent:
+			return ErrDelinquent
+		default:
+			return err
+		}
 	}
 
-	if !bp.CanCreateHosts() {
-		return false, nil
-	}
-
-	// ensure max_hosts limit has not been reached
 	var b bool
-	err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(o.max_hosts), 0))
+	if err = d.QueryRowx(`SELECT (count(h.id) < coalesce(min(o.max_hosts), 0))
 		FROM orgs o
 		LEFT JOIN hosts h ON (h.org_id = o.id AND h.terminated_at IS NULL)
 		WHERE o.id = $1;`,
-		o.ID).Scan(&b)
-	if err != nil {
-		return false, err
+		o.ID).Scan(&b); err != nil {
+		return err
+	}
+	if !b {
+		return ErrMaxHostsReached
 	}
 
-	return b, nil
+	return nil
 }
 
 func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) (err error) {
