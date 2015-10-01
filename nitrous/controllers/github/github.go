@@ -32,6 +32,7 @@ import (
 // Give user 5 minutes time to authorize at GitHub
 const ValidityPeriod = 5 * time.Minute
 const ValidityPeriodSeconds = int(ValidityPeriod / time.Second)
+const RedisTempDataTTL = 600 // 600 seconds
 
 var (
 	verifier  = msgverifier.New(envvars.SecretToken)
@@ -67,6 +68,11 @@ type OAuthState struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type GitHubUserInfo struct {
+	UserName  string `json:"username"`
+	TokenJSON string `json:"token_json"`
+}
+
 const (
 	OAuthStatePurposeConnect = "connect"
 	OAuthStatePurposeLogin   = "login"
@@ -74,15 +80,15 @@ const (
 )
 
 // return gitHubUserName and gitHubTokenJson
-var FetchGithubUser = func(code string) (string, string, error) {
+var FetchGitHubUser = func(code string) (string, string, string, error) {
 	token, err := oauthConf.Exchange(oauth2.NoContext, code)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	tokenJSON, err := tokenToJSON(token)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
@@ -91,11 +97,12 @@ var FetchGithubUser = func(code string) (string, string, error) {
 	// get github user name of authenticated user
 	user, _, err := client.Users.Get("")
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	gitHubUserName := *user.Login
-	return gitHubUserName, tokenJSON, nil
+	gitHubUserEmail := *user.Email
+	return gitHubUserName, tokenJSON, gitHubUserEmail, nil
 }
 
 var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
@@ -229,7 +236,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return mh.Error(errInvalidOauthCode, errLabel)
 	}
 
-	gitHubUserName, tokenJSON, err := FetchGithubUser(code)
+	gitHubUserName, tokenJSON, gitHubUserEmail, err := FetchGitHubUser(code)
 	if err != nil {
 		logrus.Errorf("failed to fetch GitHub user: '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
@@ -245,11 +252,46 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 		t, err := token.FindByUser(db, env.User.ID)
 		if err != nil {
-			return err
+			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
+			return mh.Error(err, errLabel)
 		}
 
 		urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
 		http.Redirect(w, r, urlWithToken, http.StatusFound)
+	case OAuthStatePurposeSignUp:
+		// Fetch data from github and keep in Redis since there is no user profile record
+		// It will be used when a user create an account with github username
+		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
+		if err == sql.ErrNoRows {
+			err = storeGitHubInRedis(state, gitHubUserName, tokenJSON)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			url := fmt.Sprintf("/app#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
+			http.Redirect(w, r, url, http.StatusFound)
+		} else if err == nil {
+			// If the user exists, process login instead of showing sign up page.
+			// However any errors has occured, it redirects to sign up page.
+			err = loginWithGitHub(env, w, state, gitHubUserName, tokenJSON)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			t, err := token.FindByUser(db, env.User.ID)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
+			http.Redirect(w, r, urlWithToken, http.StatusFound)
+		} else {
+			http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+			return mh.Error(err, errLabel)
+		}
 	default:
 		if err := connectToGitHub(env, state, gitHubUserName, tokenJSON); err != nil {
 			redirectError(w, r, "failed to connect with GitHub")
@@ -298,18 +340,9 @@ func connectToGitHub(env *middleware.Env, state *OAuthState, gitHubUserName stri
 func loginWithGitHub(env *middleware.Env, w http.ResponseWriter, state *OAuthState, gitHubUserName string, tokenJSON string) error {
 	db := env.DB
 
-	conn := redisPool.Get()
-	defer conn.Close()
-	val, err := redis.Int64(conn.Do("DEL", GetRedisKeyForOAuth(state.Token)))
-	if err != nil {
+	if err := validateOAuthCallback(state); err != nil {
+		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
 		return err
-	}
-
-	// When the key does not exist.
-	// The key could be expired or user request to this url manually
-	if val != 1 {
-		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s", gitHubUserName)
-		return errInvalidOAuthCallback
 	}
 
 	p, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
@@ -339,6 +372,33 @@ func loginWithGitHub(env *middleware.Env, w http.ResponseWriter, state *OAuthSta
 	return nil
 }
 
+func storeGitHubInRedis(state *OAuthState, gitHubUserName string, tokenJSON string) error {
+	if err := validateOAuthCallback(state); err != nil {
+		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
+		return err
+	}
+
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	gitHubInfo := GitHubUserInfo{
+		UserName:  gitHubUserName,
+		TokenJSON: tokenJSON,
+	}
+
+	info, err := json.Marshal(gitHubInfo)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("github:userinfo:%s", gitHubUserName)
+	if _, err := conn.Do("SETEX", key, RedisTempDataTTL, info); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func makeOAuthState(userID int64, token string, purpose string) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
@@ -348,6 +408,23 @@ func makeOAuthState(userID int64, token string, purpose string) (string, error) 
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
 	})
+}
+
+func validateOAuthCallback(state *OAuthState) error {
+	conn := redisPool.Get()
+	defer conn.Close()
+	val, err := redis.Int64(conn.Do("DEL", GetRedisKeyForOAuth(state.Token)))
+	if err != nil {
+		return err
+	}
+
+	// When the key does not exist.
+	// The key could be expired or user request to this url manually
+	if val != 1 {
+		return errInvalidOAuthCallback
+	}
+
+	return nil
 }
 
 func readOAuthState(signedState string) (*OAuthState, error) {
@@ -379,8 +456,7 @@ func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, e
 	// This is to prevent user's manully call. It will be expired after 10 minutes.
 	conn := redisPool.Get()
 	defer conn.Close()
-	ttl := 10 * 60 // 600 seconds
-	if _, err := conn.Do("SETEX", GetRedisKeyForOAuth(tempKey), ttl, "1"); err != nil {
+	if _, err := conn.Do("SETEX", GetRedisKeyForOAuth(tempKey), RedisTempDataTTL, "1"); err != nil {
 		return "", err
 	}
 

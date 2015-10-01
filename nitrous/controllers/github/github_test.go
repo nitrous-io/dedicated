@@ -31,8 +31,8 @@ func Test(t *testing.T) {
 }
 
 // return gitHubUserName and gitHubTokenJson
-func mockFetchGitHubUser(code string) (string, string, error) {
-	return "alice", `{ "access_token": "keytogithub" }`, nil
+func mockFetchGitHubUser(code string) (string, string, string, error) {
+	return "alice", `{ "access_token": "keytogithub" }`, "alice@example.com", nil
 }
 
 type GetRedisKeyForOAuthFunc func(token string) string
@@ -48,7 +48,7 @@ var _ = Describe("controllers/github", func() {
 
 	BeforeEach(func() {
 		var err error
-		github.FetchGithubUser = mockFetchGitHubUser
+		github.FetchGitHubUser = mockFetchGitHubUser
 
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
@@ -235,7 +235,7 @@ var _ = Describe("controllers/github", func() {
 						Expect(err).NotTo(HaveOccurred())
 					})
 
-					It("returns 403", func() {
+					It("does not create a token and redirects to login page", func() {
 						res := doRequest("githubcode", state, state)
 						Expect(res.Code).To(Equal(http.StatusFound))
 
@@ -245,6 +245,103 @@ var _ = Describe("controllers/github", func() {
 
 						Expect(res.Header().Get("Location")).To(Equal("/app#/login?oauthError=true"))
 					})
+				})
+			})
+		})
+
+		Context("purpose is 'signup'", func() {
+			var (
+				state                      string
+				err                        error
+				orgGetRedisKeyForOAuthFunc GetRedisKeyForOAuthFunc
+				redisClient                *redis.Client
+			)
+
+			BeforeEach(func() {
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp)
+				Expect(err).NotTo(HaveOccurred())
+				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
+				github.GetRedisKeyForOAuth = func(token string) string {
+					return "github:oauth:tempkey"
+				}
+				redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = redisClient.Set("github:oauth:tempkey", "1").Result()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
+				if redisClient != nil {
+					redisClient.Close()
+				}
+			})
+
+			Context("the user does not exist", func() {
+				BeforeEach(func() {
+					github.FetchGitHubUser = func(code string) (string, string, string, error) {
+						return "new-github-user", `{ "access_token": "new-token" }`, "newgithub@example.com", nil
+					}
+				})
+
+				It("redirects to sign up page", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+				})
+
+				It("keeps github info in redis", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					val, err := redisClient.Get("github:userinfo:new-github-user").Result()
+					var gitHubUserInfo github.GitHubUserInfo
+					err = json.Unmarshal([]byte(val), &gitHubUserInfo)
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
+					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
+				})
+			})
+
+			Context("the user exist", func() {
+				BeforeEach(func() {
+					_, err = db.Exec("DELETE FROM tokens WHERE user_id = $1;", u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					up, err := userprofile.Find(db, u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					up.GitHubUserName = sql.NullString{"alice", true}
+					err = up.UpdateGithubInfo(db)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("redirects to sign in page with token", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					t, err = token.FindByUser(db, u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedUrl := fmt.Sprintf("/app#/login?token=%s", t.Token)
+					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
+				})
+			})
+
+			Context("the redis key is expired or does not exist", func() {
+				BeforeEach(func() {
+					_, err := redisClient.Del("github:oauth:tempkey").Result()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("redirects to signin page with oauthError=true", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app#/signup?oauthError=true"))
 				})
 			})
 		})
