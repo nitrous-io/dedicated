@@ -1,6 +1,7 @@
 package pinger
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -32,7 +33,13 @@ func ForHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	hostID := mux.Vars(r)["id"]
 	h, err := host.Find(env.DB, env.User, hostID)
 	if err != nil {
-		return err
+		if err != sql.ErrNoRows {
+			return err
+		}
+		h, err = host.FindShared(env.DB, env.User, hostID)
+		if err != nil {
+			return err
+		}
 	}
 
 	ws, err := upgrader.Upgrade(w, r, nil)

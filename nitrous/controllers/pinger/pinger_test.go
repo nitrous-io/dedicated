@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -59,6 +60,22 @@ var _ = Describe("controllers/pinger", func() {
 		}
 	})
 
+	// Read acknowledgement message from WebSocket connection.
+	var readAck = func(conn *websocket.Conn, ch chan<- struct{}, errCh chan<- error) {
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			if string(msg) == "ok" {
+				ch <- struct{}{}
+				return
+			}
+		}
+	}
+
 	Describe("ForHost", func() {
 		It("is a WebSocket endpoint updates a host's last_pinged_at when messages are sent to it", func() {
 			ts := httptest.NewServer(svr.Router())
@@ -88,22 +105,8 @@ var _ = Describe("controllers/pinger", func() {
 
 			ch := make(chan struct{})
 			errCh := make(chan error)
-			readAck := func() {
-				for {
-					_, msg, err := conn.ReadMessage()
-					if err != nil {
-						errCh <- err
-						return
-					}
 
-					if string(msg) == "ok" {
-						ch <- struct{}{}
-						return
-					}
-				}
-			}
-
-			go readAck()
+			go readAck(conn, ch, errCh)
 			select {
 			case <-ch:
 				// Acknowledgement message received, continue.
@@ -134,7 +137,7 @@ var _ = Describe("controllers/pinger", func() {
 			err = conn.WriteMessage(websocket.TextMessage, []byte("active"))
 			Expect(err).To(BeNil())
 
-			go readAck()
+			go readAck(conn, ch, errCh)
 			select {
 			case <-ch:
 				// Acknowledgement message received, continue.
@@ -149,6 +152,73 @@ var _ = Describe("controllers/pinger", func() {
 			t3 := h.LastPingedAt.Time
 			Expect(t3).To(BeTemporally("~", time.Now(), time.Second))
 			Expect(t3).To(BeTemporally(">", t1))
+		})
+
+		It("also updates last_pinged_at if user is a collaborator of a container in the host", func() {
+			collaborator := &user.User{
+				Username: "shared",
+				Email:    "shared@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, collaborator.Insert)).To(BeNil())
+
+			tok := &token.Token{
+				UserID: collaborator.ID,
+				Token:  "collaborator-token",
+			}
+			Expect(tok.Insert(db)).To(BeNil())
+
+			cn := &container.Container{
+				CID:    "abcde",
+				UserID: hs.U.ID,
+				HostID: hs.H.ID,
+				Image:  "nitrous-base",
+				Slug:   "test-container",
+			}
+			Expect(cn.Insert(db)).To(BeNil())
+
+			_, err := db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2);`,
+				cn.ID, collaborator.ID)
+			Expect(err).To(BeNil())
+
+			ts := httptest.NewServer(svr.Router())
+			defer ts.Close()
+
+			params := &url.Values{}
+			params.Set("token", tok.Token) // Use collaborator's token.
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/hosts/%d/activity",
+				ts.Listener.Addr().String(), hs.H.ID))
+			Expect(err).To(BeNil())
+			wsURL.RawQuery = params.Encode()
+			dialer := websocket.Dialer{HandshakeTimeout: 100 * time.Millisecond}
+			conn, dialResp, err := dialer.Dial(wsURL.String(), nil)
+			Expect(err).To(BeNil())
+			defer conn.Close()
+			Expect(dialResp.Header.Get("Sec-WebSocket-Accept")).NotTo(BeEmpty())
+
+			// Assert that last_pinged_at is initially null.
+			Expect(hs.H.LastPingedAt.Time).To(BeZero())
+
+			err = conn.WriteMessage(websocket.TextMessage, []byte("active"))
+			Expect(err).To(BeNil())
+
+			ch := make(chan struct{})
+			errCh := make(chan error)
+
+			go readAck(conn, ch, errCh)
+			select {
+			case <-ch:
+				// Acknowledgement message received, continue.
+			case err := <-errCh:
+				Fail(fmt.Sprintf("error reading from WebSocket: %v", err))
+			case <-time.After(100 * time.Millisecond):
+				Fail("timed out waiting for message to be acknowledged")
+			}
+
+			h, err := host.FindByIdentifier(db, fmt.Sprintf("%d", hs.H.ID))
+			Expect(err).To(BeNil())
+			t1 := h.LastPingedAt.Time
+			Expect(t1).To(BeTemporally("~", time.Now(), time.Second))
 		})
 
 		It("returns an error if not sent a valid bearer token", func() {
