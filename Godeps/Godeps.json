@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/nitrous-io/dedicated",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.1",
 	"Packages": [
 		"./..."
 	],
@@ -59,42 +59,7 @@
 			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
 		},
 		{
-			"ImportPath": "github.com/docker/docker/pkg/archive",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/fileutils",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/ioutils",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
 			"ImportPath": "github.com/docker/docker/pkg/parsers",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/pools",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/promise",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/system",
-			"Comment": "v1.7.0",
-			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
-		},
-		{
-			"ImportPath": "github.com/docker/docker/pkg/units",
 			"Comment": "v1.7.0",
 			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
 		},
@@ -112,7 +77,8 @@
 		},
 		{
 			"ImportPath": "github.com/fsouza/go-dockerclient",
-			"Rev": "b4f78443e552b988ad79682858f9d3fc5053fa67"
+			"Comment": "0.2.1-722-gbf7f7bb",
+			"Rev": "bf7f7bb65f1e2bbdae3c95b27234bb3e284ba7c7"
 		},
 		{
 			"ImportPath": "github.com/garyburd/redigo/internal",
