@@ -23,6 +23,8 @@ App.Snackbar = Em.Object.extend
         @fadeOutItem(item)
       , p.duration)
 
+    item
+
   fadeOutItem: (item) ->
     return if item.get 'closing'
     item.set 'closing', true
