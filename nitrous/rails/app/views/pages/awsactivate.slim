@@ -1,0 +1,47 @@
+- @title = 'AWS Activate · Nitrous'
+- @html_class = 'light'
+- @body_id = 'awsactivate'
+
+.page
+  .page-hero
+    .container
+      = render partial: 'layouts/webnav', locals: { active: 'pricing' }
+      .hero-copy
+        h2
+          | AWS Activate
+        h3
+          | Collaboratively develop powerful web applications within any modern web browser
+
+  article.featurette
+    .container
+			h2
+				| Self Starter: 3-months free of our "Plus" Individual Plan (a $240 value)
+
+			p
+				| The AWS Activate self-starter package is perfect for the individual professional who wants to develop within isolated, replicable environments from any modern web browser. Individual plans include:
+
+			ul
+				li Increased performance on a powerful cloud hosted VM
+				li Instant Provisioning - Sign Up and Start Coding in the cloud 30 seconds in Ruby/Rails, Python/Django, NodeJS or Go.
+				li Intuitive Web IDE - Work from any modern web browser
+				li Native App Integration - Use you favorite text editor when you're on your home computer.
+				li Shareable Dev Environments - Easily pair program with up to 1 additional colleagues to enable Front End Developers & Designers to access development backend services.
+				li Live Preview - Get immediate feedback from colleagues and clients with shareable "staging" urls.
+
+			h2
+				| Portfolio: 3-months free of our Organization Plan for up to 3 users (a $900 value)
+
+			p
+				| The AWS Activate portfolio package is a powerful collaborative development environment for teams. The AWS Portfolio package includes:
+
+			ul
+				li A dedicated cloud hosted VM for each developer
+				li Private organization snapshotting -- snapshot and share environments with teammates
+				li Intuitive Web IDE - Work from any modern web browser
+				li Native App Integration - Use you favorite text editor when you're on your home computer.
+				li Shareable Dev Environments - Easily pair program with unlimited teammates within your organization to enable Front End Developers & Designers to access development backend services.
+				li Live Preview - Get immediate feedback from colleagues and clients with shareable "staging" urls.
+
+			a href='http://aws.amazon.com/activate/benefits/special-offers/appdev/' Read more about applying
+
+= render partial: 'layouts/footer', locals: { active: 'vpc' }
