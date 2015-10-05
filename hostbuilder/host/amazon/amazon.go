@@ -537,6 +537,17 @@ func createInstance(ctx *host.HostContext) error {
 		return fmt.Errorf("failed to allocate public IP for instance %s", h.instance.InstanceId)
 	}
 
+	return nil
+}
+
+// associateVolumeTags tags the volume where user data is stored.
+// For non-hotswap instances, this is the root volume.
+// For hotswap instances, this is the separate "user volume".
+func associateVolumeTags(ctx *host.HostContext) error {
+	h := ctx.Host.(*Host)
+	label := h.MetricsLabel("tag_user_volume")
+	defer mh.UpdateSince(label, time.Now())
+
 	userDevice := blockDevice(h.instance, userDeviceName)
 	if userDevice == nil {
 		// no user device = pre-hotswap.  Tag root volume
@@ -551,7 +562,6 @@ func createInstance(ctx *host.HostContext) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
