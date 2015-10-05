@@ -61,7 +61,7 @@ var _ = Describe("controllers/pinger", func() {
 	})
 
 	// Read acknowledgement message from WebSocket connection.
-	var readAck = func(conn *websocket.Conn, ch chan<- struct{}, errCh chan<- error) {
+	var readAck = func(timestamp string, conn *websocket.Conn, ch chan<- struct{}, errCh chan<- error) {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if err != nil {
@@ -69,7 +69,7 @@ var _ = Describe("controllers/pinger", func() {
 				return
 			}
 
-			if string(msg) == "ok" {
+			if string(msg) == "ok|"+timestamp {
 				ch <- struct{}{}
 				return
 			}
@@ -100,13 +100,13 @@ var _ = Describe("controllers/pinger", func() {
 			// Assert that last_pinged_at is initially null.
 			Expect(hs.H.LastPingedAt.Time).To(BeZero())
 
-			err = conn.WriteMessage(websocket.TextMessage, []byte("active"))
+			err = conn.WriteMessage(websocket.TextMessage, []byte("active|100"))
 			Expect(err).To(BeNil())
 
 			ch := make(chan struct{})
 			errCh := make(chan error)
 
-			go readAck(conn, ch, errCh)
+			go readAck("100", conn, ch, errCh)
 			select {
 			case <-ch:
 				// Acknowledgement message received, continue.
@@ -134,10 +134,10 @@ var _ = Describe("controllers/pinger", func() {
 			Expect(t2).To(Equal(t1))
 
 			// Send another proper message.
-			err = conn.WriteMessage(websocket.TextMessage, []byte("active"))
+			err = conn.WriteMessage(websocket.TextMessage, []byte("active|101"))
 			Expect(err).To(BeNil())
 
-			go readAck(conn, ch, errCh)
+			go readAck("101", conn, ch, errCh)
 			select {
 			case <-ch:
 				// Acknowledgement message received, continue.
@@ -199,13 +199,13 @@ var _ = Describe("controllers/pinger", func() {
 			// Assert that last_pinged_at is initially null.
 			Expect(hs.H.LastPingedAt.Time).To(BeZero())
 
-			err = conn.WriteMessage(websocket.TextMessage, []byte("active"))
+			err = conn.WriteMessage(websocket.TextMessage, []byte("active|100"))
 			Expect(err).To(BeNil())
 
 			ch := make(chan struct{})
 			errCh := make(chan error)
 
-			go readAck(conn, ch, errCh)
+			go readAck("100", conn, ch, errCh)
 			select {
 			case <-ch:
 				// Acknowledgement message received, continue.

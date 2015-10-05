@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -14,7 +15,7 @@ import (
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
-const activeMsg = "active"
+var msgRegex = regexp.MustCompile(`^active\|([0-9]+)$`)
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -29,6 +30,9 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// ForHost is a WebSocket endpoint handler that accepts messages of the form
+// "active|1443676945367" where "1443676945367" is a UNIX timestamp. It replies
+// with "ok|1443676945367" (i.e. the same timestamp) as an acknowledgement.
 func ForHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	hostID := mux.Vars(r)["id"]
 	h, err := host.Find(env.DB, env.User, hostID)
@@ -61,20 +65,21 @@ func ForHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			break
 		}
 
-		switch string(msg) {
-		case activeMsg:
-			if err := h.Touch(env.DB); err != nil {
-				return err
-			}
-
-			if _, err := conn.Write([]byte("ok")); err != nil {
-				return err
-			}
-		default:
-			logrus.Infof("pinger.ForHost: unhandled message: %s", msg)
+		submatches := msgRegex.FindSubmatch(msg)
+		if submatches == nil {
 			continue
 		}
 
+		timestamp := submatches[1]
+
+		if err := h.Touch(env.DB); err != nil {
+			return err
+		}
+
+		ack := fmt.Sprintf("ok|%s", timestamp)
+		if _, err := conn.Write([]byte(ack)); err != nil {
+			return err
+		}
 	}
 
 	return nil
