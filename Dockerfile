@@ -45,7 +45,7 @@ RUN apt-get update \
   && rm -r /usr/src/ruby
 
 # install go
-RUN curl -s https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz \
+RUN curl -s https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz \
   | tar -C /usr/local -xz
 
 ENV GOPATH /opt
@@ -62,18 +62,18 @@ ADD ./nitrous/rails/Gemfile.lock /opt/src/github.com/nitrous-io/dedicated/nitrou
 RUN cd ./nitrous/rails && bundle install
 
 # install redis
-RUN wget http://download.redis.io/releases/redis-3.0.0.tar.gz -P /tmp/ \
-  && tar xzf /tmp/redis-3.0.0.tar.gz -C /tmp/ \
-  && cd /tmp/redis-3.0.0 \
+RUN wget http://download.redis.io/releases/redis-3.0.4.tar.gz -P /tmp/ \
+  && tar xzf /tmp/redis-3.0.4.tar.gz -C /tmp/ \
+  && cd /tmp/redis-3.0.4 \
   && make \
   && make install \
-  && /tmp/redis-3.0.0/utils/install_server.sh \
+  && /tmp/redis-3.0.4/utils/install_server.sh \
   && service redis_6379 stop \
-  && rm -rf /tmp/redis-3.0.0 /tmp/redis-3.0.0.tar.gz
+  && rm -rf /tmp/redis-3.0.4 /tmp/redis-3.0.4.tar.gz
 
 # install rabbitmq
 # http://www.rabbitmq.com/install-debian.html
-ENV RABBITMQ_VERSION 3.5.4-1
+ENV RABBITMQ_VERSION 3.5.5-3
 RUN apt-key adv --keyserver ha.pool.sks-keyservers.net --recv-keys F78372A06FF50C80464FC1B4F7B8CEA6056E8E56
 RUN echo 'deb http://www.rabbitmq.com/debian/ testing main' > /etc/apt/sources.list.d/rabbitmq.list
 RUN apt-get update && apt-get install -y rabbitmq-server=$RABBITMQ_VERSION --no-install-recommends && rm -rf /var/lib/apt/lists/*

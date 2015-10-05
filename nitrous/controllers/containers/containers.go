@@ -793,6 +793,7 @@ func mkContainer(fc *freighterclient.Container, h *host.Host) *container.Contain
 }
 
 func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *container.Container, additionalData map[string]interface{}) {
+	fmt.Println("7", name)
 	userIDs, err := containercollab.GetCollaboratorIDs(env.DB, c.ID)
 	if err != nil {
 		logrus.Errorf("Error retrieving collab user IDs for publishing container events, err: %v", err)
@@ -816,6 +817,7 @@ func PublishContainerEvent(env *middleware.Env, name controllers.EventName, c *c
 }
 
 func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventName, c *container.Container, userIDs []int64, additionalData map[string]interface{}) {
+	fmt.Println("8", name)
 	data := map[string]interface{}{
 		"container": serializers.SerializeContainer(c),
 	}

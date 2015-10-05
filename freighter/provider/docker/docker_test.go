@@ -1615,7 +1615,7 @@ var _ = Describe("provider/docker", func() {
 				parsers.ParseRegistry = prevParseRegistry
 			})
 
-			It("should return not found if the image cannot be found", func() {
+			FIt("should return not found if the image cannot be found", func() {
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
 						ghttp.VerifyRequest("GET", "/v1/repositories/centos/images"),

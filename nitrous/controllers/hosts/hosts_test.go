@@ -2365,7 +2365,7 @@ var _ = Describe("controllers/hosts", func() {
 					Expect(h.State).To(Equal(host.StateRunning))
 				})
 
-				It("publishes container stopped events", func() {
+				FIt("publishes container stopped events", func() {
 					ch := svr.Events.Subscribe(u.Topic())
 					defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -2376,6 +2376,7 @@ var _ = Describe("controllers/hosts", func() {
 					finished := make(chan struct{})
 					go func() {
 						for msg := range ch {
+							fmt.Printf("msg: %+v %+v\n", msg.(*controllers.Event).Name, msg.(*controllers.Event).Name == controllers.EventContainerStopped)
 							if e := msg.(*controllers.Event); e.Name == controllers.EventContainerStopped {
 								stopEvents = append(stopEvents, e)
 							}
@@ -2383,13 +2384,14 @@ var _ = Describe("controllers/hosts", func() {
 					}()
 
 					go func() {
-						time.After(50 * time.Millisecond)
+						time.After(1000 * time.Millisecond)
 						close(finished)
 					}()
 
 					var slugs []string
 					select {
 					case <-finished:
+						fmt.Printf("stoppedEvent: %+v\n", stopEvents)
 						Expect(stopEvents).To(HaveLen(2))
 						slugs = append(slugs, checkStoppedEvent(stopEvents[0]))
 						slugs = append(slugs, checkStoppedEvent(stopEvents[1]))

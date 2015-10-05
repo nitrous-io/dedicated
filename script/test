@@ -81,6 +81,10 @@ test_with_docker() {
   test_app $@
 }
 
+test_with_nothing() {
+  test_app $@
+}
+
 if [ "$APP" == "all" ]; then
   run test_queue pkg
   run test_redis_queue hostbuilder
@@ -97,7 +101,7 @@ elif [ "$APP" == "tender" ]; then
 elif [ "$APP" == "compass" ]; then
   run test_db compass $SUITE
 elif [ "$APP" == "nitrous" ]; then
-  run test_db_and_redis_queue nitrous $SUITE
+  run test_with_nothing nitrous $SUITE
 elif [ "$APP" == "pkg" ]; then
   run test_queue pkg $SUITE
 elif [ "$APP" == "shell" ]; then

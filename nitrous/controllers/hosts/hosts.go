@@ -312,16 +312,20 @@ func Stop(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 }
 
 func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	fmt.Println("1")
 	db := env.DB
 	force, _ := strconv.ParseBool(r.FormValue("force"))
 	if !force && h.State != host.StateRunning {
 		return errHostRestartInvalidState
 	}
+	fmt.Println("2")
 
 	cns, err := container.FindAllByHostID(db, h.ID)
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("3")
 
 	if !force {
 		slugs := getTransientContainerSlugs(cns)
@@ -367,10 +371,13 @@ func Restart(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		return err
 	}
 
+	fmt.Println("4")
 	PublishHostEvent(env, controllers.EventHostRestarted, h)
+	fmt.Println("5")
 	for _, cn := range cns {
 		state := container.State(cn.TempState.Int64)
 		if !cn.TempState.Valid || (cn.TempState.Valid && state != container.StateStopping) {
+			fmt.Println("6")
 			PublishContainerStopped(env, cn)
 		}
 	}
