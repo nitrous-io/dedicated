@@ -59,6 +59,10 @@ func (h *Host) CreateWithQueue(qp queue.Publisher, queueInfo *host.QueueInfo) (*
 				Func:        createInstance,
 				Timeout:     5 * time.Minute,
 			},
+			{
+				Description: "Tagging disk",
+				Func:        associateVolumeTags,
+			},
 			/*
 				  From @dqminh
 					to prevent ec2 from assigning network interfaces to a not running instance
