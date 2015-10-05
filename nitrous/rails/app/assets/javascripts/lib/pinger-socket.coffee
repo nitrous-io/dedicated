@@ -65,6 +65,7 @@ App.PingerSocket = Lib.Socket.extend
       if @snackbarItem
         App.snackbar.fadeOutItem(@snackbarItem)
         @snackbarItem = null
+        Mp.track("User activity ping restored")
       return
 
     console.warn "Ping not acknowledged for #{diff}ms"
@@ -72,4 +73,5 @@ App.PingerSocket = Lib.Socket.extend
     msg = "There are issues detecting activity on your IDE. Your workspace may shut down unexpectedly. Please contact support with a screenshot of your JavaScript console."
     if !@snackbarItem
       @snackbarItem = App.snackbar.post(msg, sticky: true)
+      Mp.track("User activity ping failed")
   ).observes 'lastSent', 'lastAck'
