@@ -16,7 +16,7 @@ App.IdeView = Em.View.extend
   didInsertElement: ->
     @_super()
     controller = @get 'controller'
-    controller.validateContainerState()
+    controller.validateHostAndContainerState()
     @set('timeStarted', Date.now())
     Mp.track Mp.EventIDEStarted, container_id: @get 'controller.id'
     Mp.increment Mp.PropertyIDEStartCount
