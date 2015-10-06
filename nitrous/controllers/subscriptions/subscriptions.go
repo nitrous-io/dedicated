@@ -176,12 +176,11 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if s.CanBeCanceled() {
+	if s.AlreadyCanceled() {
 		return errCannotCancel
 	}
 
-	err = subProvider.Cancel(env.DB, s)
-	if err != nil {
+	if err := subProvider.Cancel(env.DB, s); err != nil {
 		return err
 	}
 

@@ -3,6 +3,7 @@ keysToSubmit = [
   'highlight_line'
   'keybindings'
   'match_brackets'
+  'remove_trailing_whitespace_on_save'
   'ruler_column'
   'show_line_numbers'
   'show_trailing_space'

@@ -141,7 +141,7 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 	return subscriptions, nil
 }
 
-func (s *Subscription) CanBeCanceled() bool {
+func (s *Subscription) AlreadyCanceled() bool {
 	return s.State == "canceled" || s.CancelPending
 }
 
