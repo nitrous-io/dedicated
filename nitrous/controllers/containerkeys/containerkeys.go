@@ -1,7 +1,6 @@
 package containerkeys
 
 import (
-	"fmt"
 	"net/http"
 
 	githubapi "github.com/google/go-github/github"
@@ -63,52 +62,21 @@ func list(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	return nil
 }
 
-// we only compare the value because we don't want to create duplicate key
-// under a different name
-func keyAlreadyExists(existingKeys []githubapi.Key, keyValue string) bool {
-	for _, k := range existingKeys {
-		if k.Key != nil && keyValue == *k.Key {
-			return true
-		}
-	}
-	return false
-}
-
 // returns an error or a message to return to the client if everything went well
 func addGitHubKeys(cn *container.Container, h *host.Host, env *middleware.Env) (string, error) {
-	token, err := github.GetTokenIfValid(env)
-	if err != nil {
-		return "", err
-	}
-
-	// get current keys on GitHub to avoid adding duplicates
-	gitHubClient := github.GitHubClientFromToken(token)
-
-	existingKeys, err := githubKeys(gitHubClient)
-	if err != nil {
-		return "", err
-	}
-
 	publicKey, err := containerPublicKey(cn, h, env)
 	if err != nil {
 		return "", err
 	}
-	keyToAdd := publicKey.Key
 
-	if keyAlreadyExists(existingKeys, keyToAdd) {
-		return "", ErrKeyAlreadyExists
-	}
+	if err := github.AddKeyToGitHub(env, h, cn, publicKey.Key); err != nil {
+		if err == github.ErrKeyAlreadyExists {
+			return "", ErrKeyAlreadyExists
+		}
 
-	keyTitle := fmt.Sprintf("nitrous-%s-%s", h.Name.String, cn.Name.String)
-	newKey := &githubapi.Key{
-		Title: &keyTitle,
-		Key:   &keyToAdd,
-	}
-
-	_, _, err = gitHubClient.Users.CreateKey(newKey)
-	if err != nil {
 		return "", err
 	}
+
 	return "github key added", nil
 }
 
