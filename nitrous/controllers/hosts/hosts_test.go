@@ -847,7 +847,50 @@ var _ = Describe("controllers/hosts", func() {
 			test.VerifyDelinquentUserResponse(res)
 		})
 
-		It("should request to cancel the subscription if the host is part of a subscription", func() {
+		It("should cancel the subscription & terminate the host when host is free", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			hosts.SetSubscriptionProvider(fsub)
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+				Slug:             "SLUG",
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1, free = TRUE WHERE id = $2;", sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(rt.Requests).To(HaveLen(1))
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.State).To(Equal(host.StateTerminated))
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
+		})
+
+		It("returns HTTP 400 when the host has an active paid subscription", func() {
 			fsub := &test.FakeSubscriptionProvider{}
 			hosts.SetSubscriptionProvider(fsub)
 
@@ -875,57 +918,16 @@ var _ = Describe("controllers/hosts", func() {
 
 			doRequest(hs.H.Slug, t.Token)
 
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("invalid_request"))
+			Expect(errDesc).To(Equal("cannot terminate a workspace with an active subscription"))
 			Expect(rt.Requests).To(HaveLen(0))
 
-			Expect(fsub.CancelCalled).To(BeTrue())
-			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
-
-			_, err = host.Find(db, hs.U, hs.H.Slug)
-			Expect(err).To(BeNil())
+			Expect(fsub.CancelCalled).To(BeFalse())
 		})
 
-		It("should request to cancel the subscription & terminate the host if the host is a free subscription", func() {
-			fsub := &test.FakeSubscriptionProvider{}
-			hosts.SetSubscriptionProvider(fsub)
-
-			bp, err := u.BillingProfile(db)
-			Expect(err).To(BeNil())
-
-			sub := &subscription.Subscription{
-				StripeID:         sql.NullString{"abc1", true},
-				PlanID:           hs.P.ID,
-				BillingProfileID: bp.ID,
-				Slug:             "SLUG",
-			}
-			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
-
-			_, err = db.Exec("UPDATE hosts SET subscription_id = $1, free = TRUE WHERE id = $2;", sub.ID, hs.H.ID)
-			Expect(err).To(BeNil())
-
-			hb := hostbuilderclient.NewHostbuilder("www.example.com")
-			rt := &test.FakeRoundTripper{
-				Message: okResponse,
-				Status:  http.StatusOK,
-			}
-			replaceTransport(hb, rt)
-			hosts.HostbuilderClient = hb
-
-			doRequest(hs.H.Slug, t.Token)
-
-			Expect(rt.Requests).To(HaveLen(1))
-			var j struct {
-				Host *serializers.Host `json:"host"`
-			}
-			err = json.NewDecoder(res.Body).Decode(&j)
-			Expect(err).To(BeNil())
-			Expect(j.Host.ID).To(Equal(hs.H.ID))
-			Expect(j.Host.State).To(Equal(host.StateTerminated))
-
-			Expect(fsub.CancelCalled).To(BeTrue())
-			Expect(fsub.CancelSubscription.ID).To(Equal(sub.ID))
-		})
-
-		It("should proceed with termination without hitting Stripe if the subscription is already deleted", func() {
+		It("should terminate the host without trying to cancel the subscription when the subscription is already deleted", func() {
 			fsub := &test.FakeSubscriptionProvider{}
 			hosts.SetSubscriptionProvider(fsub)
 
@@ -941,7 +943,7 @@ var _ = Describe("controllers/hosts", func() {
 			}
 			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
 
-			_, err = db.Exec("UPDATE hosts SET subscription_id = $1, free = TRUE WHERE id = $2;", sub.ID, hs.H.ID)
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
 			Expect(err).To(BeNil())
 
 			hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -953,6 +955,49 @@ var _ = Describe("controllers/hosts", func() {
 			hosts.HostbuilderClient = hb
 
 			doRequest(hs.H.Slug, t.Token)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(rt.Requests).To(HaveLen(1))
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.State).To(Equal(host.StateTerminated))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
+		It("should terminate the host without trying to cancel the subscription when the subscription is due to be canceled at the end of the subscription period", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			hosts.SetSubscriptionProvider(fsub)
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+				Slug:             "SLUG",
+				State:            "active",
+				CancelPending:    true,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(rt.Requests).To(HaveLen(1))
 			var j struct {
@@ -1224,40 +1269,6 @@ var _ = Describe("controllers/hosts", func() {
 					anotherUser.ID, hs.H.ID, host.StateTerminated).Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
-			})
-
-			Context("the host is part of a subscription", func() {
-				It("termiates the host when user is admin", func() {
-					_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", anotherUser.ID)
-					Expect(err).To(BeNil())
-
-					bp, err := u.BillingProfile(db)
-					Expect(err).To(BeNil())
-
-					sub := &subscription.Subscription{
-						StripeID:         sql.NullString{"abc1", true},
-						PlanID:           hs.P.ID,
-						BillingProfileID: bp.ID,
-						Slug:             "SLUG",
-					}
-					Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
-
-					_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
-					Expect(err).To(BeNil())
-
-					hb := hostbuilderclient.NewHostbuilder("www.example.com")
-					replaceTransport(hb, &test.FakeRoundTripper{
-						Message: okResponse,
-						Status:  http.StatusOK,
-					})
-					hosts.HostbuilderClient = hb
-
-					doRequest(hs.H.Slug, anotherToken.Token)
-					Expect(res.Code).To(Equal(http.StatusOK))
-
-					_, err = host.Find(db, hs.U, hs.H.Slug)
-					Expect(err).To(MatchError(sql.ErrNoRows))
-				})
 			})
 		})
 
