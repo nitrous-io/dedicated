@@ -1,5 +1,6 @@
 App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
   queryParams: [{ incomingEmail: 'email', promoCode: 'promo', inviteCode: 'invite_code', intent: 'intent', gitHubUserName: 'gitHubUserName', gitHubUserEmail: 'gitHubUserEmail' }]
+  passibleChars: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP1234567890"
   user: null
   signingUp: false
   error: null
@@ -55,6 +56,13 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
         @set 'error', err
         App.postError(err.message)
 
+  randomPassword: ->
+    password = ""
+    for i in [0..20]
+      i = Math.floor(Math.random() * @passibleChars.length)
+      password += @passibleChars.charAt(i)
+    password
+
   actions:
     acceptSuggestedEmail: ->
       if @get('suggestedEmail')
@@ -65,6 +73,9 @@ App.SignupController = Em.Controller.extend App.PromoCodeInfoMixin,
       @set 'invalidField', null
       @set 'signingUp', true
       user = @get 'user'
+
+      if @get('gitHubUserName')
+        user.set('password', @randomPassword())
 
       if distinctId = window.mixpanel?.get_distinct_id?()
         user.set('distinctId', distinctId)

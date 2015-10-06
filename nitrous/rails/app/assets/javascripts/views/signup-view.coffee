@@ -54,7 +54,10 @@ App.SignupView = Em.View.extend
   passwordFieldInvalid: Em.computed.equal('controller.invalidField', 'password')
 
   disableSubmitButton: (->
-    !@get('controller.user.username') || !@get('controller.user.email') || !@get('controller.user.password') || @get('controller.signingUp')
+    return true if !@get('controller.user.username') || !@get('controller.user.email') || @get('controller.signingUp')
+    # Password is not required if GitHub username is specified
+    return true if !@get('controller.user.password') && !@get('controller.gitHubUserName')
+    false
   ).property 'controller.user.username', 'controller.user.email', 'controller.user.password', 'controller.signingUp'
 
   disableGitHubSignUp: (->
