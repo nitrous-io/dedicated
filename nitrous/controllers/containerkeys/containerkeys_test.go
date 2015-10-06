@@ -169,6 +169,12 @@ var _ = Describe("controllers/containerkeys", func() {
 			svr.Router().ServeHTTP(res, req)
 		}
 
+		BeforeEach(func() {
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
+		})
+
 		Context("when user hasn't authenticated with GitHub", func() {
 			It("responds with an error saying user to connect GitHub", func() {
 				doRequest()

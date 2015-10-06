@@ -54,6 +54,9 @@ type Container struct {
 
 	PortMappings string `db:"port_mappings"`
 
+	// Public key in container
+	PublicKeyFingerprint sql.NullString `db:"public_key_fingerprint"`
+
 	// These fields come from Freighter.
 	State      State
 	User       string
