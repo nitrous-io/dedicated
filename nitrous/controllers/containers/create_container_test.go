@@ -11,6 +11,7 @@ import (
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
@@ -20,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/analytics"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -27,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
+	"github.com/nitrous-io/nitrous-common/sshkey"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -540,5 +543,67 @@ var _ = Describe("CreateContainer", func() {
 			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/docker"), "hexvarlibdocker"},
 			[]string{fmt.Sprintf("%s:%s", res.Container.Slug, "/var/lib/extra"), "hexvarlibextra"},
 		))
+	})
+
+	Context("when a user has connected to GitHub", func() {
+		type addGitHubKeyFunc func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error
+
+		var (
+			key0                   string
+			fn0                    string
+			addGitHubKeyFuncCalled int
+			origAddGitHubKeyFunc   addGitHubKeyFunc
+		)
+
+		BeforeEach(func() {
+			up, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+			up.GitHubUserName = sql.NullString{"github-user", true}
+			up.GitHubOAuthTokenJson = sql.NullString{"{}", true}
+			err = up.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			mockClient.CreatedContainer = &freighterclient.Container{
+				ID:      "deadbeef",
+				Name:    "elixir-web-1",
+				State:   "running",
+				Image:   "elixir",
+				ImageID: "abc123",
+			}
+
+			key0 = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDATOQiODD9fe8IrqVuQKCN/8PyqCXOYrREqpmsi4Jx3m4VdwP0IwrmOylvkDYGG7HVOHKvlncwrIkDJKXlyplaqs6O5D+daY1JLuosqckGPzBlOFchdUjuqiDxdLPBEfOYr2ANZjfLjAyuGqsNAXwhn5+LHKXiXg7Le6feuEsZhP0JyAnEg9diLcmyv8f2rOPqM3L2SmZ38GbWJm1rO7+LVUmroNNa1X1UJHyQFyNOEtXHbYuoZ0xEui6UDJU/DAoVxSfTRzg9XKUWArTsKeGRmJoQBmRRtoFVe8kbs1qnJQCnHnkyH6BhoqFZ/wl7YNRvsGAta1Q1qiqLFSOYZvbT"
+			fn0, err = sshkey.Md5Fingerprint(key0)
+			mockClient.ListContainerKeysReturn = []*freighterclient.ContainerKey{
+				&freighterclient.ContainerKey{Key: key0, Fingerprint: fn0},
+			}
+
+			addGitHubKeyFuncCalled = 0
+			origAddGitHubKeyFunc = github.AddKeyToGitHub
+			github.AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
+				addGitHubKeyFuncCalled++
+				return nil
+			}
+		})
+
+		AfterEach(func() {
+			github.AddKeyToGitHub = origAddGitHubKeyFunc
+		})
+
+		It("fetches a container key and update the record", func() {
+			res, err := containers.CreateContainer(h, params, env)
+			Expect(err).NotTo(HaveOccurred())
+
+			c, err := container.Find(db, u, res.Container.Slug)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(c.PublicKeyFingerprint.String).To(Equal(fn0))
+		})
+
+		It("adds public key to github", func() {
+			_, err := containers.CreateContainer(h, params, env)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(addGitHubKeyFuncCalled).To(Equal(1))
+		})
 	})
 })

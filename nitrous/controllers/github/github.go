@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -41,8 +44,9 @@ var (
 
 	errAuthorizeForbidden = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
 
-	ErrTokenEmpty    = errors.New("token is empty")
-	ErrTokenNotValid = errors.New("token not valid")
+	ErrTokenEmpty       = errors.New("token is empty")
+	ErrTokenNotValid    = errors.New("token not valid")
+	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
 )
 
 type OAuthState struct {
@@ -74,6 +78,38 @@ var FetchGithubUser = func(code string) (string, string, error) {
 
 	gitHubUserName := *user.Login
 	return gitHubUserName, tokenJSON, nil
+}
+
+var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
+	token, err := GetTokenIfValid(env)
+	if err != nil {
+		return err
+	}
+
+	// get current keys on GitHub to avoid adding duplicates
+	gitHubClient := GitHubClientFromToken(token)
+	existingKeys, err := githubKeys(gitHubClient)
+	if err != nil {
+		return err
+	}
+
+	for _, k := range existingKeys {
+		if k.Key != nil && publicKey == *k.Key {
+			return ErrKeyAlreadyExists
+		}
+	}
+
+	title := fmt.Sprintf("nitrous-%s-%s", h.Name.String, cn.Name.String)
+	newKey := &github.Key{
+		Title: &title,
+		Key:   &publicKey,
+	}
+
+	if _, _, err = gitHubClient.Users.CreateKey(newKey); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // /api/v0/github/authorize
@@ -319,4 +355,19 @@ func CanDeleteGitHubPublicKeys(p *userprofile.UserProfile) bool {
 	}
 
 	return false
+}
+
+func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {
+	// we pass empty user name even though we know it because that will call
+	// https://developer.github.com/v3/users/keys/#list-your-public-keys
+	// rather than
+	// https://developer.github.com/v3/users/keys/#list-public-keys-for-a-user
+	// oauth token
+	// which returns more information. User name will be deduced from
+	existingKeys, _, err := gitHubClient.Users.ListKeys("", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return existingKeys, nil
 }
