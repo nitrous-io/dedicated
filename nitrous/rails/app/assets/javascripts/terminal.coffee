@@ -152,9 +152,6 @@ window.NitrousTerminal =
   didChangeTitle: (title) ->
     # override me
 
-  didReceiveData: (data)->
-    # override me
-
   clear: ->
     @term.write '\x1b[r\x1b[H\x1b[J'
 
@@ -188,7 +185,6 @@ window.NitrousTerminal =
 
     flush = =>
       @dataBuffer = new ArrayBuffer(0)
-      @didReceiveData?(decoded)
       @term.write(decoded)
 
     # if invalid utf8 char is detected, buffer with timeout
@@ -223,7 +219,6 @@ window.NitrousTerminal =
         if @binaryMode
           @handleData(ev.binaryData.slice(2))
         else
-          @didReceiveData?(ev.data.slice(2))
           @term.write(ev.data.slice(2))
       when 'c|'
         @close()

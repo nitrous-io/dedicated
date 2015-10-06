@@ -1,7 +1,7 @@
 #= require ../../mixins/terminal-connection-mixin
 
 App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, App.TerminalConnectionMixin,
-  needs: ['ideFileFinder', 'ideSidebar']
+  needs: ['ideFileFinder']
 
   modelClass: App.ConsoleSession
   content: null
@@ -28,28 +28,6 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
       terminal.focus()
     , (jqxhr) ->
       terminal.retry()
-
-  # TODO: Find a better way to setup the root of a console
-  didReceiveData: (data, terminal) ->
-    if data && data.indexOf(@expectingRootPath) != -1
-      terminal.clear()
-      terminal.didReceiveData = null
-      @expectingRootPath = null
-      return
-
-    # prevent cding again if we are waiting
-    return if @expectingRootPath
-
-    # FIXME temporarily disable this feature
-    # due to conflicting with zshrc/bashrc default dir settings
-    return
-
-    # look for 'nitrous@' which indicates the prompt is ready
-    if data && data.match(/nitrous\@/)
-      if @expectingRootPath = @get('controllers.ideSidebar.rootPath.absolutePath')
-        terminal.conn.send "d|cd #{@expectingRootPath}\n"
-      else
-        terminal.didReceiveData = null
 
   addTab: ->
     empty = @get('content.length') == 0
