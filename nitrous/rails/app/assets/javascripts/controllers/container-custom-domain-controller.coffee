@@ -6,7 +6,7 @@ App.ContainerCustomDomainController = Em.ObjectController.extend App.PerformActi
   # Whether we can enable Hosting Mode for this container's workspace.
   canEnable: (->
     return false if @get('host.free')
-    return false if !@get('host.autoShutdown')
+    return true if !@get('host.autoShutdown')
     @get('host.plan.hostingModePlan')
   ).property 'host.free', 'host.autoShutdown', 'host.plan.hostingModePlan'
 
