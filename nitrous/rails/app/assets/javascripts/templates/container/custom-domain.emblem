@@ -135,7 +135,7 @@ else
         ' The total monthly charge for this workspace will be
         strong
           |$
-          = host.hostingModePlan.totalPriceInDollars
+          = host.plan.hostingModePlan.totalPriceInDollars
         | .
 
     .card-footer
