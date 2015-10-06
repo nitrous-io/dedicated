@@ -40,6 +40,10 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
     # prevent cding again if we are waiting
     return if @expectingRootPath
 
+    # FIXME temporarily disable this feature
+    # due to conflicting with zshrc/bashrc default dir settings
+    return
+
     # look for 'nitrous@' which indicates the prompt is ready
     if data && data.match(/nitrous\@/)
       if @expectingRootPath = @get('controllers.ideSidebar.rootPath.absolutePath')
