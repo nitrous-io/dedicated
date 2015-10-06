@@ -18,7 +18,8 @@ App.Container = klass = Em.Object.extend
   user_data: null
 
   env: (->
-    transformEnvArrayToHash @get('config').env
+    # Config will not be set if host is not running. Get env only if config is valid.
+    transformEnvArrayToHash @get('config')?.env
   ).property 'config'
 
   loginUsername: (->
