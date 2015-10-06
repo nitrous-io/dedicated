@@ -14,7 +14,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -632,7 +631,6 @@ var _ = Describe("controllers/github", func() {
 		var (
 			redisClient *redis.Client
 			err         error
-			env         *middleware.Env
 		)
 
 		BeforeEach(func() {
@@ -649,8 +647,6 @@ var _ = Describe("controllers/github", func() {
 
 			_, err = redisClient.Set("github:userinfo:github-user", string(b)).Result()
 			Expect(err).NotTo(HaveOccurred())
-
-			env = &middleware.Env{DB: db}
 		})
 
 		AfterEach(func() {
@@ -660,7 +656,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("updates user profile with github info", func() {
-			github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+			github.UpdateGitHubInfoFromRedis(db, u.ID, "github-user")
 			up, err := userprofile.FindByGitHubUserName(db, "github-user")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -670,7 +666,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("removes github info from redis", func() {
-			github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+			github.UpdateGitHubInfoFromRedis(db, u.ID, "github-user")
 			val, err := redisClient.Exists("github:userinfo:github-user").Result()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(val).To(BeFalse())
@@ -683,7 +679,7 @@ var _ = Describe("controllers/github", func() {
 			})
 
 			It("does not update user profile", func() {
-				github.UpdateGitHubInfoFromRedis(env, u.ID, "github-user")
+				github.UpdateGitHubInfoFromRedis(db, u.ID, "github-user")
 				u, err := user.FindByID(db, u.ID)
 				Expect(err).NotTo(HaveOccurred())
 

@@ -681,15 +681,10 @@ var _ = Describe("controllers/users", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("does not update user profile", func() {
+				It("does not create a user", func() {
 					doRequest()
-					u, err := user.FindByUsername(db, "foo")
-					Expect(err).NotTo(HaveOccurred())
-
-					up, err := userprofile.Find(db, u.ID)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(up.GitHubUserName.Valid).To(BeFalse())
+					_, err := user.FindByUsername(db, "foo")
+					Expect(err).To(Equal(sql.ErrNoRows))
 				})
 			})
 		})

@@ -12,6 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 	"github.com/google/go-github/github"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
@@ -606,8 +607,7 @@ func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {
 	return existingKeys, nil
 }
 
-func UpdateGitHubInfoFromRedis(env *middleware.Env, userID int64, gitHubUserName string) error {
-	db := env.DB
+func UpdateGitHubInfoFromRedis(db db.QueryReceiver, userID int64, gitHubUserName string) error {
 	key := getRedisKeyForGitHubInfo(gitHubUserName)
 	conn := redisPool.Get()
 	defer conn.Close()

@@ -119,6 +119,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	if gitHubUserName != "" {
+		if err := github.UpdateGitHubInfoFromRedis(tx, u.ID, gitHubUserName); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -145,12 +152,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	} else {
 		err = u.SendConfirmationEmail(db, true)
 		if err != nil {
-			return err
-		}
-	}
-
-	if gitHubUserName != "" {
-		if err := github.UpdateGitHubInfoFromRedis(env, u.ID, gitHubUserName); err != nil {
 			return err
 		}
 	}
