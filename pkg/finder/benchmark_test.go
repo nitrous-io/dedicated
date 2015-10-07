@@ -24,23 +24,6 @@ func BenchmarkFuzzyFileFind(b *testing.B) {
 	}
 }
 
-func BenchmarkFileFind(b *testing.B) {
-	testDir, err := setupTestDir()
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(testDir)
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		_, err := FindFiles(testDir, "contain")
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
 func setupTestDir(files ...string) (string, error) {
 	testDir, err := ioutil.TempDir("/tmp", "file-finder")
 	if err != nil {
