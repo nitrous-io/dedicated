@@ -4,7 +4,6 @@
 export APP=${1:="all"}
 export SUITE=${2}
 export GOPATH=$(godep path):$GOPATH
-RESULT="passed"
 
 # install ginkgo
 godep go install github.com/onsi/ginkgo/ginkgo
@@ -19,7 +18,7 @@ run() {
   shift
   ($cmd $@)
   if [[ "$?" == "1" ]]; then
-    RESULT="failed"
+    die 'One or more tests have failed'
   fi
 }
 
@@ -117,8 +116,3 @@ elif [ "$APP" == "shell" ]; then
 else
   run test_app $APP $SUITE
 fi
-
-if [[ "$RESULT" == "failed" ]]; then
-  die "one or more test suites failed"
-fi
-
