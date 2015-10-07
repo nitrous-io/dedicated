@@ -21,6 +21,8 @@ func TestMain(m *testing.M) {
 	}
 	defer server.Term()
 
+	server.WaitFor(tempredis.Ready)
+
 	exitCode := m.Run()
 
 	os.Exit(exitCode)
