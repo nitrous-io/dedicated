@@ -120,6 +120,8 @@ func (s *Server) drawRoutes() {
 				"/stripe_hook":                  r("stripehooks.ReceiveHook", stripehooks.ReceiveHook),
 				"/hosts/{slug}/freighterd_hook": r("freighterd.Webhook", freighterd.Webhook),
 				"/mailchimp_hook":               r("mailchimphooks.ReceiveHook", mailchimphooks.ReceiveHook),
+				"/github/authorize_to_login":    r("github.AuthorizeToLogin", github.AuthorizeToLogin),
+				"/github/authorize_to_signup":   r("github.AuthorizeToSignUp", github.AuthorizeToSignUp),
 			},
 		}
 

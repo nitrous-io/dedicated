@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
@@ -42,6 +43,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	promocode := r.FormValue("promo_code")
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
+	gitHubUserName := r.FormValue("github_username")
 
 	u := &user.User{
 		Email:     email,
@@ -112,6 +114,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	if client != nil {
 		if err := addToOrg(tx, u, r, client); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	if gitHubUserName != "" {
+		if err := github.UpdateGitHubInfoFromRedis(tx, u.ID, gitHubUserName); err != nil {
 			tx.Rollback()
 			return err
 		}
