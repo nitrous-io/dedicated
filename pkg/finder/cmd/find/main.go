@@ -1,4 +1,4 @@
-// A convenient command to test the file finder (i.e. finder.FindFiles()).
+// A convenient command to test the file finder (i.e. finder.FuzzyFindFile()).
 package main
 
 import (
