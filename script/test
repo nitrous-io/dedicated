@@ -59,11 +59,14 @@ test_queue() {
   echo "===> Starting rabbitmq dependencies"
   sudo service rabbitmq-server restart
   test_app $@
+  local code=$?
 
   # Rabbitmq is quite heavy application
   # Shutdown after testing to make other tests faster
   echo "===> Stopping rabbitmq dependencies"
   sudo service rabbitmq-server stop
+
+  return $code
 }
 
 test_db_and_redis_queue() {
