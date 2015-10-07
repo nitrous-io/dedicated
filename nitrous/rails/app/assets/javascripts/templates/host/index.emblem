@@ -152,6 +152,8 @@
               if canCancelSubscription
                 if subscription.cancelPending
                   button.ui.btn click='showTerminateDialog target="view"' Terminate...
+                else
+                  button.ui.btn disabled='disabled' title='To terminate this workspace, first go to the Billing page to cancel your subscription' Terminate...
           .right
             button.ui.btn.primary click='start' Start
         else
