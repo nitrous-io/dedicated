@@ -256,6 +256,18 @@ var _ = Describe("associateAddress", func() {
 		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).AllocationId).To(Equal("eip-alloc-001"))
 		Expect(p.calls[1].args[0].(*ec2.AssociateAddress).PublicIp).To(BeEmpty())
 	})
+
+	It("returns an error when the given IP address is no longer allocated", func() {
+		p := &dummyIPProvider{
+			addresses: []ec2.Address{}, // No IP addresses allocated.
+		}
+		vpc := true
+
+		_, err := associateAddress(p, "10.0.0.1", "i-322", vpc)
+		Expect(err).To(Equal(errAddressNotAllocated))
+
+		Expect(p.calls[0].name).To(Equal("Addresses"))
+	})
 })
 
 var _ = Describe("releaseAddress", func() {

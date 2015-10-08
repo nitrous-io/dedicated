@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,8 @@ var (
 
 	// max attempts to associate if allocation not found
 	AssociateMaxAttempts = 15
+
+	errAddressNotAllocated = errors.New("could not associate an Elastic IP that has not been previously allocated")
 )
 
 // interface of elastic IP provider
@@ -50,6 +53,8 @@ func assignAddress(provider ipProvider, instanceID string, vpc bool) (*elasticIP
 	if err != nil {
 		return nil, err
 	}
+
+	logrus.Infof("assignAddress: allocated new IP %s", allocateResp.PublicIp)
 
 	associateReq := &ec2.AssociateAddress{InstanceId: instanceID}
 	if vpc {
@@ -96,7 +101,7 @@ func associateAddress(provider ipProvider, ipAddress, instanceID string, vpc boo
 			return nil, err
 		}
 		if len(addresses.Addresses) == 0 {
-			return nil, fmt.Errorf("could not associate Elastic IP %s that has not been previously allocated", ipAddress)
+			return nil, errAddressNotAllocated
 		}
 
 		addr := addresses.Addresses[0]
