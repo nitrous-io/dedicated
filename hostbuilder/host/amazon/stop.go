@@ -193,7 +193,7 @@ func (h *Host) Stop() (*host.Info, error) {
 }
 
 // recoverFromStop attempts to recover from an error from any of the steps that
-// make up a Stop() operation by:
+// make up a Stop operation by:
 // 1. Re-attaching user volume if it was detached.
 // 2. Mounting user device if it was unmounted.
 // 3. Starting docker if it was stopped.
