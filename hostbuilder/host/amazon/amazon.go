@@ -601,8 +601,17 @@ func attachElasticIP(ctx *host.HostContext) error {
 	if ip := h.Config.IPAddress; ip != "" {
 		h.Printf("attaching IP address %s to instance %s", ip, h.instance.InstanceId)
 		if _, err := associateAddress(h.provider, ip, h.instance.InstanceId, isVPC(h.instance)); err != nil {
-			return fmt.Errorf("amazon: failed to attach IP addresss %s to %s, err: %v",
-				ip, h.instance.InstanceId, err)
+			if err != errAddressNotAllocated {
+				return fmt.Errorf("amazon: failed to attach IP addresss %s to %s, err: %v",
+					ip, h.instance.InstanceId, err)
+			}
+
+			h.Printf("IP address %s not already allocated, will allocate a new IP", ip)
+
+			// If address is not allocated, we allocate and assign a new one.
+			if err := allocateElasticIP(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
