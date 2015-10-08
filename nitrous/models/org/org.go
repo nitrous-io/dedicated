@@ -47,6 +47,8 @@ type Org struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
+
+	SegmentID int64 `db:"segment_id"`
 }
 
 type OrgWithRole struct {
@@ -91,8 +93,8 @@ func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*OrgWithRole, error
 func (o *Org) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO orgs
-		(slug, name, email)
-		VALUES (:slug, :name, :email)
+		(segment_id, slug, name, email)
+		VALUES ((SELECT id FROM segments WHERE org_default = true), :slug, :name, :email)
 		RETURNING *;
 	`)
 	if err != nil {

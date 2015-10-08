@@ -1,4 +1,5 @@
 containerStoppedMessage = 'Container is not running. Please start your container first.'
+hostStoppedMessage = 'Workspace is not running. Please start your workspace first, then start your container.'
 freighterFeaturesRetry = 3000 # 3s
 
 App.IdeController = Em.ObjectController.extend
@@ -100,20 +101,47 @@ App.IdeController = Em.ObjectController.extend
     @set 'content', null
     @set 'errorDialog', null
 
+  validateHostAndContainerState: ->
+    if App.container.host.state != 'running'
+      @handleHostStopped()
+    else if App.container.state != 'running'
+      @handleContainerStopped()
+
+  handleHostStopped: ->
+    @startHost(App.container.host_id).then =>
+      @startContainer(App.container.slug).then =>
+        App.snackbar.post "Resuming your IDE session"
+      , (jqxhr) =>
+        @set('errorDialog', @containerStoppedErrDialog())
+    , (jqxhr) =>
+      @set('errorDialog', @hostStoppedErrDialog())
+
   handleContainerStopped: ->
-    slug = App.get 'slug'
-    dialog = App.ErrorDialog.create
-      errorMessage: containerStoppedMessage
-      redirectUrl: "/app#/containers/#{slug}"
+    @set('errorDialog', @containerStoppedErrDialog())
+
+  startHost: (host_id)->
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'POST',
+      url: "/api/v0/hosts/#{host_id}/start",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  startContainer: (slug)->
+    Em.RSVP.Promise.cast Em.$.ajax
+      type: 'POST',
+      url: "/api/v0/containers/#{slug}/start",
+      headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  hostStoppedErrDialog: ->
+    App.ErrorDialog.create
+      errorMessage: hostStoppedMessage
+      redirectUrl: "/app/#/workspaces/#{App.container.host.slug}"
       okButtonText: 'Back to Dashboard'
 
-    @set('errorDialog', dialog)
-
-  validateContainerState: ->
-    container = @get 'content'
-
-    if container.state != 'running'
-      @handleContainerStopped()
+  containerStoppedErrDialog: ->
+    App.ErrorDialog.create
+      errorMessage: containerStoppedMessage
+      redirectUrl: "/app/#/containers/#{App.container.slug}"
+      okButtonText: 'Back to Dashboard'
 
   opsSocketDisconnected: (->
     unless @get('opsSocketReady')

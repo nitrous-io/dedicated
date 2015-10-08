@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/cvolume"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/template"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -254,6 +257,8 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 		return nil, err
 	}
 
+	updatePublicKeyAndAddToGitHub(env, h, cn, cl)
+
 	PublishContainerEvent(env, controllers.EventContainerCreated, cn, nil)
 
 	res.Container = serializers.SerializeContainer(cn)
@@ -263,4 +268,55 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	})
 
 	return res, nil
+}
+
+func updatePublicKeyAndAddToGitHub(env *middleware.Env, h *host.Host, cn *container.Container, cl *controllers.FreighterClient) {
+	db := env.DB
+	userID := env.User.ID
+
+	up, err := userprofile.Find(db, userID)
+	if err != nil {
+		logrus.Errorf("container.create: failed to get a user profile: %+v", err)
+		return
+	}
+
+	retry := 5
+	var keys []*freighterclient.ContainerKey
+	// Even if the container is running, it could not be ready to get public keys.
+	// Retry for 5 times due to temporal errors
+	for i := 0; i < retry; i++ {
+		keys, err = cl.ListContainerKeys(cn.CID)
+
+		if err == nil {
+			break
+		}
+
+		if i < retry-1 {
+			logrus.Infof("container.create: wait for container to be ready: %+v", err)
+			time.Sleep(200 * time.Millisecond)
+		} else {
+			logrus.Errorf("container.create: failed to get keys from container: %+v", err)
+			return
+		}
+	}
+
+	if len(keys) < 1 {
+		logrus.Errorf("container.create: failed to add public key to GitHub. No public keys in the container")
+		return
+	}
+
+	fingerprint := keys[0].Fingerprint
+	key := keys[0].Key
+	if err := cn.UpdateColumn(db, "public_key_fingerprint", sql.NullString{fingerprint, true}); err != nil {
+		logrus.Errorf("container.create: failed to update public key: %+v", err)
+		return
+	}
+
+	if up.GitHubUserName.Valid {
+		if err := github.AddKeyToGitHub(env, h, cn, key); err != nil {
+			logrus.Errorf("container.create: failed to add public key: %+v", err)
+		}
+	}
+
+	return
 }

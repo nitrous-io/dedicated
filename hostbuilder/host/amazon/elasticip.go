@@ -96,7 +96,7 @@ func associateAddress(provider ipProvider, ipAddress, instanceID string, vpc boo
 			return nil, err
 		}
 		if len(addresses.Addresses) == 0 {
-			return nil, fmt.Errorf("could not associate Elastic IP %s that ", ipAddress)
+			return nil, fmt.Errorf("could not associate Elastic IP %s that has not been previously allocated", ipAddress)
 		}
 
 		addr := addresses.Addresses[0]

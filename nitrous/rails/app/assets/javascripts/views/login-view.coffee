@@ -5,6 +5,10 @@ App.LoginView = Em.View.extend
     !@get('controller.login') || !@get('controller.password') || @get('controller.loggingIn')
   ).property 'controller.login', 'controller.password', 'controller.loggingIn'
 
+  disableGitHubLogin: (->
+    @get('controller.loggingInWithGitHub')
+  ).property 'controller.loggingInWithGitHub'
+
   focusLoginField: (->
     if @get 'controller.error'
       @$('#login-login').select()

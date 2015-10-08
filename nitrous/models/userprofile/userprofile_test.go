@@ -165,4 +165,31 @@ var _ = Describe("models/userprofile", func() {
 			Expect(p.GitHubUserScopesJson.String).To(Equal(`["repo","admin:public_key"]`))
 		})
 	})
+
+	Describe("FindByGitHubUserName", func() {
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+
+			err := WrapInTransaction(db, u.Insert)
+			Expect(err).NotTo(HaveOccurred())
+
+			p, err := userprofile.Find(db, u.ID)
+			Expect(err).NotTo(HaveOccurred())
+
+			p.GitHubUserName = sql.NullString{"foo-github", true}
+			err = p.UpdateGithubInfo(db)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("returns the user profile record", func() {
+			p, err := userprofile.FindByGitHubUserName(db, "foo-github")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p).NotTo(BeNil())
+			Expect(p.UserID).To(Equal(u.ID))
+		})
+	})
 })

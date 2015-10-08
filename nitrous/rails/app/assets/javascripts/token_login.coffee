@@ -18,7 +18,6 @@ main = ->
   if !loginToken
     return redirect '/403'
 
-  localStorage.removeItem('token')
   $.ajax(
     type: 'POST'
     url: '/api/v0/oauth/token'
@@ -32,8 +31,10 @@ main = ->
       localStorage.setItem('token', data.access_token)
       redirect(redirectUrl)
     else
+      localStorage.removeItem('token')
       redirect '/403'
   ).fail ->
+    localStorage.removeItem('token')
     # failed to obtain new oauth token. redirect to 403
     redirect '/403'
 

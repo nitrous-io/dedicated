@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/redis.v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,8 +14,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/users"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
@@ -23,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
@@ -30,6 +34,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
 	"github.com/nitrous-io/dedicated/nitrous/test"
+	redistest "github.com/nitrous-io/dedicated/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -296,7 +301,9 @@ var _ = Describe("controllers/users", func() {
 
 		Context("with an existing user", func() {
 			BeforeEach(func() {
-				_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
+				_, err := db.Exec(`
+					INSERT INTO users (segment_id, username, email, encrypted_password)
+					VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%')`)
 				Expect(err).To(BeNil())
 				params = &url.Values{}
 				params.Set("email", "lol@example.com")
@@ -346,7 +353,10 @@ var _ = Describe("controllers/users", func() {
 			err := test.WrapInTransaction(db, b.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec("INSERT INTO users (username, email, encrypted_password, deleted_at, banned_at, banned_by_id) VALUES ('foo', 'foo@example.com', '!@#$%', now(), now(), $1)", b.ID)
+			_, err = db.Exec(`
+				INSERT INTO users (segment_id, username, email, encrypted_password, deleted_at, banned_at, banned_by_id)
+				VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%', now(), now(), $1)`,
+				b.ID)
 			Expect(err).To(BeNil())
 
 			params = &url.Values{}
@@ -615,6 +625,66 @@ var _ = Describe("controllers/users", func() {
 					mem, err := orgmembership.FindByUsernameAndOrgSlug(db, "foo", "foobar")
 					Expect(err).To(BeNil())
 					Expect(mem.Role).To(Equal(orgmembership.RoleMember))
+				})
+			})
+		})
+
+		Context("github username is specified", func() {
+			var (
+				redisClient *redis.Client
+				err         error
+			)
+
+			BeforeEach(func() {
+				params.Set("github_username", "github-user")
+				redisClient, err = redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				gitHubUserInfo := github.GitHubUserInfo{
+					UserName:  "github-user",
+					TokenJSON: `{ "access_token": "keytogithub" }`,
+				}
+
+				b, err := json.Marshal(gitHubUserInfo)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = redisClient.Set("github:userinfo:github-user", string(b)).Result()
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				if redisClient != nil {
+					redisClient.Close()
+				}
+			})
+
+			It("updates user profile with github info", func() {
+				doRequest()
+				up, err := userprofile.FindByGitHubUserName(db, "github-user")
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(up.GitHubUserName.String).To(Equal("github-user"))
+				Expect(up.GitHubOAuthTokenJson.String).To(Equal(`{ "access_token": "keytogithub" }`))
+				Expect(up.GitHubUserScopesJson.String).To(Equal(`["user:email","repo","admin:public_key"]`))
+			})
+
+			It("removes github info from redis", func() {
+				doRequest()
+				val, err := redisClient.Exists("github:userinfo:github-user").Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(val).To(BeFalse())
+			})
+
+			Context("the github is not preset in redis", func() {
+				BeforeEach(func() {
+					_, err = redisClient.Del("github:userinfo:github-user").Result()
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("does not create a user", func() {
+					doRequest()
+					_, err := user.FindByUsername(db, "foo")
+					Expect(err).To(Equal(sql.ErrNoRows))
 				})
 			})
 		})

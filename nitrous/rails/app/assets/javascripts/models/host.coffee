@@ -156,9 +156,9 @@ App.Host = klass = App.Model.extend
   ).property 'containers.@each.state'
 
   canCancelSubscription: (->
-    return false unless @get 'subscriptionSlug'
+    return false unless @get('subscriptionSlug')
     !@get('free')
-  ).property 'subscriptionSlug'
+  ).property 'subscriptionSlug', 'free'
 
   prefetchResources: ->
     @get 'images'

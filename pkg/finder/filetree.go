@@ -27,9 +27,9 @@ func (c *filetreeCache) invalidate() {
 }
 
 func (c *filetreeCaches) get(dir string) ([]string, bool) {
-	mu.Lock()
+	c.mu.Lock()
 	cache, ok := c.caches[dir]
-	mu.Unlock()
+	c.mu.Unlock()
 
 	if !ok {
 		return nil, false
@@ -88,9 +88,9 @@ func (c *filetreeCaches) set(dir string, tree, subdirs []string) {
 		}
 	}()
 
-	mu.Lock()
+	c.mu.Lock()
 	c.caches[dir] = cache
-	mu.Unlock()
+	c.mu.Unlock()
 }
 
 var (

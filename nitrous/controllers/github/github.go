@@ -4,17 +4,27 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/garyburd/redigo/redis"
 	"github.com/google/go-github/github"
+	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/container"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
+	"github.com/nitrous-io/dedicated/pkg/redispool"
+	"github.com/nitrous-io/dedicated/pkg/uuid"
 	"github.com/nitrous-io/nitrous-common/msgverifier"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
@@ -23,6 +33,7 @@ import (
 // Give user 5 minutes time to authorize at GitHub
 const ValidityPeriod = 5 * time.Minute
 const ValidityPeriodSeconds = int(ValidityPeriod / time.Second)
+const RedisTempDataTTL = 600 // 600 seconds
 
 var (
 	verifier  = msgverifier.New(envvars.SecretToken)
@@ -33,34 +44,52 @@ var (
 		Endpoint:     githuboauth.Endpoint,
 	}
 
+	redisPool       *redispool.Pool
+	oauthScopesJson string
+
 	errUpdateFailed     = httperror.New(http.StatusInternalServerError, "update_failed", "update failed")
 	errInvalidOauthCode = httperror.New(http.StatusBadRequest, "invalid_code", "invalid code parameter")
 	errInvalidState     = httperror.New(http.StatusBadRequest, "invalid_state", "invalid state parameter")
 	errStateExpired     = httperror.New(http.StatusBadRequest, "auth_timeout", "GitHub authorization timeout")
 	errStateMismatch    = httperror.New(http.StatusBadRequest, "state_mismatch", "state provided does not match cookie state")
 
-	errAuthorizeForbidden = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
+	errAuthorizeForbidden   = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
+	errInvalidOAuthCallback = httperror.New(http.StatusBadRequest, "invalid_oauth_callback", "unexpected call from GitHub")
 
-	ErrTokenEmpty    = errors.New("token is empty")
-	ErrTokenNotValid = errors.New("token not valid")
+	ErrTokenEmpty       = errors.New("token is empty")
+	ErrTokenNotValid    = errors.New("token not valid")
+	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
 )
 
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
+	Token     string    `json:"token,omitempty"`
+	Purpose   string    `json:"purpose,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+type GitHubUserInfo struct {
+	UserName  string `json:"username"`
+	TokenJSON string `json:"token_json"`
+}
+
+const (
+	OAuthStatePurposeConnect = "connect"
+	OAuthStatePurposeLogin   = "login"
+	OAuthStatePurposeSignUp  = "signup"
+)
+
 // return gitHubUserName and gitHubTokenJson
-var FetchGithubUser = func(code string) (string, string, error) {
+var FetchGitHubUser = func(code string) (string, string, string, error) {
 	token, err := oauthConf.Exchange(oauth2.NoContext, code)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	tokenJSON, err := tokenToJSON(token)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	oauthClient := oauthConf.Client(oauth2.NoContext, token)
@@ -69,11 +98,57 @@ var FetchGithubUser = func(code string) (string, string, error) {
 	// get github user name of authenticated user
 	user, _, err := client.Users.Get("")
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	gitHubUserName := *user.Login
-	return gitHubUserName, tokenJSON, nil
+	gitHubUserEmail := *user.Email
+	return gitHubUserName, tokenJSON, gitHubUserEmail, nil
+}
+
+var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Container, publicKey string) error {
+	token, err := GetTokenIfValid(env)
+	if err != nil {
+		return err
+	}
+
+	// get current keys on GitHub to avoid adding duplicates
+	gitHubClient := GitHubClientFromToken(token)
+	existingKeys, err := githubKeys(gitHubClient)
+	if err != nil {
+		return err
+	}
+
+	for _, k := range existingKeys {
+		if k.Key != nil && publicKey == *k.Key {
+			return ErrKeyAlreadyExists
+		}
+	}
+
+	title := fmt.Sprintf("nitrous-%s-%s", h.Name.String, cn.Name.String)
+	newKey := &github.Key{
+		Title: &title,
+		Key:   &publicKey,
+	}
+
+	if _, _, err = gitHubClient.Users.CreateKey(newKey); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var GetRedisKeyForOAuth = func(token string) string {
+	return fmt.Sprintf("github:login:uuid:%s", token)
+}
+
+func init() {
+	redisPool = redispool.New(net.JoinHostPort(envvars.RedisHost, envvars.RedisPort))
+	oauthScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
+	if err != nil {
+		logrus.Errorf("failed to marshal oauth scope: %+v", err)
+	}
+	oauthScopesJson = string(oauthScopesJsonBytes)
 }
 
 // /api/v0/github/authorize
@@ -97,12 +172,43 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	return nil
 }
 
+// /api/v0/github/authorize_to_login
+// Authorize returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
+func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	state, err := setState(w, r, OAuthStatePurposeLogin)
+	if err != nil {
+		return err
+	}
+
+	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"redirect_url": url,
+	}
+	return nil
+}
+
+// /api/v0/github/authorize_to_signup
+// AuthorizeToSignUp returns GitHub authorization url that front-end needs to redirect to for sign up with GitHub.
+func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	state, err := setState(w, r, OAuthStatePurposeSignUp)
+	if err != nil {
+		return err
+	}
+
+	url := oauthConf.AuthCodeURL(state, oauth2.AccessTypeOnline)
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"redirect_url": url,
+	}
+	return nil
+}
+
 // /api/v0/github/oauth_cb
 // When user grants our app permission to use his GitHub account on GitHub
 // website, GitHub redirects the user here
 func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
-	tracker := env.Tracker
 	errLabel := "github.authcb"
 
 	signedState := r.FormValue("state")
@@ -125,23 +231,87 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		MaxAge: -1,
 	})
 
-	userID := state.UserID
-	p, err := userprofile.Find(db, userID)
-	if err != nil {
-		return mh.Error(err, errLabel)
-	}
-
 	code := r.FormValue("code")
 	if code == "" {
 		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(errInvalidOauthCode, errLabel)
 	}
 
-	gitHubUserName, tokenJSON, err := FetchGithubUser(code)
+	gitHubUserName, tokenJSON, gitHubUserEmail, err := FetchGitHubUser(code)
 	if err != nil {
 		logrus.Errorf("failed to fetch GitHub user: '%s'", err)
 		redirectError(w, r, "failed to connect with GitHub")
 		return mh.Error(err, errLabel)
+	}
+
+	switch state.Purpose {
+	case OAuthStatePurposeLogin:
+		if err := loginWithGitHub(env, w, state, gitHubUserName, tokenJSON); err != nil {
+			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
+			return mh.Error(err, errLabel)
+		}
+
+		t, err := token.FindByUser(db, env.User.ID)
+		if err != nil {
+			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
+			return mh.Error(err, errLabel)
+		}
+
+		urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
+		http.Redirect(w, r, urlWithToken, http.StatusFound)
+	case OAuthStatePurposeSignUp:
+		// Fetch data from github and keep in Redis since there is no user profile record
+		// It will be used when a user create an account with github username
+		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
+		if err == sql.ErrNoRows {
+			err = storeGitHubInRedis(state, gitHubUserName, tokenJSON)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			url := fmt.Sprintf("/app#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
+			http.Redirect(w, r, url, http.StatusFound)
+		} else if err == nil {
+			// If the user exists, process login instead of showing sign up page.
+			// However any errors has occured, it redirects to sign up page.
+			err = loginWithGitHub(env, w, state, gitHubUserName, tokenJSON)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			t, err := token.FindByUser(db, env.User.ID)
+			if err != nil {
+				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+
+			urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
+			http.Redirect(w, r, urlWithToken, http.StatusFound)
+		} else {
+			http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+			return mh.Error(err, errLabel)
+		}
+	default:
+		if err := connectToGitHub(env, state, gitHubUserName, tokenJSON); err != nil {
+			redirectError(w, r, "failed to connect with GitHub")
+			return mh.Error(err, errLabel)
+		}
+
+		http.Redirect(w, r, "/app#/account", http.StatusFound)
+	}
+
+	return nil
+}
+
+func connectToGitHub(env *middleware.Env, state *OAuthState, gitHubUserName string, tokenJSON string) error {
+	db := env.DB
+	userID := state.UserID
+	tracker := env.Tracker
+	p, err := userprofile.Find(db, userID)
+	if err != nil {
+		return err
 	}
 
 	if p.GitHubUserName.Valid && gitHubUserName != p.GitHubUserName.String {
@@ -149,15 +319,12 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			userID, p.GitHubUserName.String, gitHubUserName)
 	}
 
-	currentScopesJsonBytes, err := json.Marshal(oauthConf.Scopes)
-
 	p.GitHubUserName = sql.NullString{gitHubUserName, true}
 	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
-	p.GitHubUserScopesJson = sql.NullString{string(currentScopesJsonBytes), true}
-	if err = p.UpdateGithubInfo(db); err != nil {
-		logrus.Errorf("p.UpdateGithubInfo() faled with '%s'", err)
-		redirectError(w, r, "failed to connect with GitHub")
-		return mh.Error(errUpdateFailed, errLabel)
+	p.GitHubUserScopesJson = sql.NullString{oauthScopesJson, true}
+	if err := p.UpdateGithubInfo(db); err != nil {
+		logrus.Errorf("p.UpdateGithubInfo() failed with '%s'", err)
+		return errUpdateFailed
 	}
 
 	tracker.SetProfileProps("set", userID, map[string]interface{}{
@@ -168,17 +335,97 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		"github_authorized_date": time.Now(),
 	})
 
-	http.Redirect(w, r, "/app#/account", http.StatusFound)
 	return nil
 }
 
-func makeOAuthState(userID int64) (string, error) {
+func loginWithGitHub(env *middleware.Env, w http.ResponseWriter, state *OAuthState, gitHubUserName string, tokenJSON string) error {
+	db := env.DB
+
+	if err := validateOAuthCallback(state); err != nil {
+		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
+		return err
+	}
+
+	p, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
+	if err != nil {
+		return err
+	}
+
+	userID := p.UserID
+	p.GitHubUserName = sql.NullString{gitHubUserName, true}
+	p.GitHubOAuthTokenJson = sql.NullString{tokenJSON, true}
+	p.GitHubUserScopesJson = sql.NullString{oauthScopesJson, true}
+	if err := p.UpdateGithubInfo(db); err != nil {
+		logrus.Errorf("p.UpdateGithubInfo() failed with '%s'", err)
+		return errUpdateFailed
+	}
+
+	u, err := user.FindByID(db, userID)
+	if err != nil {
+		return err
+	}
+
+	if err := env.Login(u, w); err != nil {
+		return err
+	}
+
+	env.User = u
+	return nil
+}
+
+func storeGitHubInRedis(state *OAuthState, gitHubUserName string, tokenJSON string) error {
+	if err := validateOAuthCallback(state); err != nil {
+		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
+		return err
+	}
+
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	gitHubInfo := GitHubUserInfo{
+		UserName:  gitHubUserName,
+		TokenJSON: tokenJSON,
+	}
+
+	info, err := json.Marshal(gitHubInfo)
+	if err != nil {
+		return err
+	}
+
+	key := getRedisKeyForGitHubInfo(gitHubUserName)
+	if _, err := conn.Do("SETEX", key, RedisTempDataTTL, info); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func makeOAuthState(userID int64, token string, purpose string) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
+		Token:     token,
+		Purpose:   purpose,
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
 	})
+}
+
+func validateOAuthCallback(state *OAuthState) error {
+	conn := redisPool.Get()
+	defer conn.Close()
+	val, err := redis.Int64(conn.Do("DEL", GetRedisKeyForOAuth(state.Token)))
+	if err != nil {
+		return err
+	}
+
+	// When the key does not exist.
+	// The key could be expired or user request to this url manually
+	if val != 1 {
+		return errInvalidOAuthCallback
+	}
+
+	return nil
 }
 
 func readOAuthState(signedState string) (*OAuthState, error) {
@@ -198,6 +445,31 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
+func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, error) {
+	tempKey := uuid.Make()
+	state, err := makeOAuthState(0, tempKey, purpose)
+	if err != nil {
+		return "", err
+	}
+
+	// Since we don't have userID here, it create a random UUID and keep in Redis.
+	// It will check if the request is vaild with this random UUID on callback.
+	// This is to prevent user's manully call. It will be expired after 10 minutes.
+	conn := redisPool.Get()
+	defer conn.Close()
+	if _, err := conn.Do("SETEX", GetRedisKeyForOAuth(tempKey), RedisTempDataTTL, "1"); err != nil {
+		return "", err
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:   "github_state",
+		Value:  state,
+		MaxAge: ValidityPeriodSeconds,
+	})
+
+	return state, nil
+}
+
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
 func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
@@ -213,7 +485,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID)
+	state, err := makeOAuthState(userID, "", OAuthStatePurposeConnect)
 	if err != nil {
 		return "", err
 	}
@@ -246,7 +518,6 @@ func tokenToJSON(token *oauth2.Token) (string, error) {
 
 // FIXME: The functions below should not belong to this controller package.
 // They are used by few external packages.
-
 func tokenFromJSON(jsonStr string) (*oauth2.Token, error) {
 	var token oauth2.Token
 	if err := json.Unmarshal([]byte(jsonStr), &token); err != nil {
@@ -319,4 +590,54 @@ func CanDeleteGitHubPublicKeys(p *userprofile.UserProfile) bool {
 	}
 
 	return false
+}
+
+func githubKeys(gitHubClient *github.Client) ([]github.Key, error) {
+	// we pass empty user name even though we know it because that will call
+	// https://developer.github.com/v3/users/keys/#list-your-public-keys
+	// rather than
+	// https://developer.github.com/v3/users/keys/#list-public-keys-for-a-user
+	// oauth token
+	// which returns more information. User name will be deduced from
+	existingKeys, _, err := gitHubClient.Users.ListKeys("", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return existingKeys, nil
+}
+
+func UpdateGitHubInfoFromRedis(db db.QueryReceiver, userID int64, gitHubUserName string) error {
+	key := getRedisKeyForGitHubInfo(gitHubUserName)
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	val, err := redis.Bytes(conn.Do("GET", key))
+	if err != nil {
+		return err
+	}
+
+	// Delete after get the value
+	if _, err := conn.Do("DEL", key); err != nil {
+		return err
+	}
+
+	var gitHubInfo GitHubUserInfo
+	if err := json.Unmarshal(val, &gitHubInfo); err != nil {
+		return err
+	}
+
+	p, err := userprofile.Find(db, userID)
+	if err != nil {
+		return err
+	}
+
+	p.GitHubUserName = sql.NullString{gitHubInfo.UserName, true}
+	p.GitHubOAuthTokenJson = sql.NullString{gitHubInfo.TokenJSON, true}
+	p.GitHubUserScopesJson = sql.NullString{oauthScopesJson, true}
+	return p.UpdateGithubInfo(db)
+}
+
+func getRedisKeyForGitHubInfo(gitHubUserName string) string {
+	return fmt.Sprintf("github:userinfo:%s", gitHubUserName)
 }

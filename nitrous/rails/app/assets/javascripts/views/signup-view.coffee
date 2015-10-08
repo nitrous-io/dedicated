@@ -54,8 +54,15 @@ App.SignupView = Em.View.extend
   passwordFieldInvalid: Em.computed.equal('controller.invalidField', 'password')
 
   disableSubmitButton: (->
-    !@get('controller.user.username') || !@get('controller.user.email') || !@get('controller.user.password') || @get('controller.signingUp')
+    return true if !@get('controller.user.username') || !@get('controller.user.email') || @get('controller.signingUp')
+    # Password is not required if GitHub username is specified
+    return true if !@get('controller.user.password') && !@get('controller.gitHubUserName')
+    false
   ).property 'controller.user.username', 'controller.user.email', 'controller.user.password', 'controller.signingUp'
+
+  disableGitHubSignUp: (->
+    @get('controller.signingUp') || @get('controller.signingUpWithGitHub')
+  ).property 'controller.signingUp', 'controller.signingUpWithGitHub'
 
   focusInvalidField: (->
     if field = @get 'controller.invalidField'
@@ -83,3 +90,10 @@ App.SignupView = Em.View.extend
     @_super.apply this, arguments
     Em.run.schedule 'afterRender', this, ->
       @$('#signup-username').select().focus()
+
+  submitButtonLabel: (->
+    if @get('controller.gitHubUserName')
+      'Create New Account With GitHub'
+    else
+      'Create New Account'
+  ).property('controller.gitHubUserName')

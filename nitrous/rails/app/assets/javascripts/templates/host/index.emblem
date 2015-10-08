@@ -120,7 +120,9 @@
 .card-footer.bordered
   if isRunning
     .left
-      unless free
+      if free
+        button.ui.btn click='showTerminateDialog target="view"' Terminate...
+      else
         if canSafeStop
           button.ui.btn click='stop' Stop
           button.ui.btn click='restart' Restart
@@ -145,11 +147,13 @@
           .left
             if free
               button.ui.btn click='upgradePaid' Upgrade
-
-            if canCancelSubscription
-              button.ui.btn click='showTerminateDialog target="view"' disabled=subscription.cancelPending Cancel Subscription
-            else
               button.ui.btn click='showTerminateDialog target="view"' Terminate...
+            else
+              if canCancelSubscription
+                if subscription.cancelPending
+                  button.ui.btn click='showTerminateDialog target="view"' Terminate...
+                else
+                  button.ui.btn disabled='disabled' title='To terminate this workspace, first go to the Billing page to cancel your subscription' Terminate...
           .right
             button.ui.btn.primary click='start' Start
         else
@@ -166,32 +170,18 @@
         ' absolutely
       | sure?
     .card-body
-      if canCancelSubscription
-        p
-          ' Your workspace
-          strong
-            | &ldquo;
-            = displayName
-            ' &rdquo;
-          | will be deleted at the end of this billing cycle
-          if subscription
-            '  on
-            strong
-              = simpledate subscription.currentPeriodEnd
-          | .
-      else
-        p
-          ' This action
-          strong
-            ' CANNOT
-          | be undone!
-        p
-          ' This will permanently delete the workspace
-          strong
-            | &ldquo;
-            = displayName
-            ' &rdquo;
-          | and all containers, images, volumes, and archives within the workspace.
+      p
+        ' This action
+        strong
+          ' CANNOT
+        | be undone!
+      p
+        ' This will permanently delete the workspace
+        strong
+          | &ldquo;
+          = displayName
+          ' &rdquo;
+        | and all containers, images, volumes, and archives within the workspace.
       p
         ' Please type in the slug of the workspace
         strong

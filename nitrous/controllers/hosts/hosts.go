@@ -47,13 +47,14 @@ var (
 	errHostUpdateInvalidState   = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostRestartInvalidState  = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
 	errHostNotRunning           = httperror.New(http.StatusBadRequest, "invalid_state", "workspace is not running")
-	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more hosts")
+	errHostCreationNotAllowed   = httperror.New(http.StatusForbidden, "request_not_allowed", "not allowed to create more workspaces")
 	errMultipleRequests         = httperror.New(http.StatusConflict, "conflict", "another workspace creation request is currently being processed")
 	errHostSlugTaken            = httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken")
 	errHostNoPendingRespec      = httperror.New(http.StatusBadRequest, "invalid_request", "workspace has no upgrades available")
 	errRegionDisabled           = httperror.New(http.StatusBadRequest, "region_disabled", "region is disabled")
 	errBasicAuthFailed          = httperror.New(http.StatusUnauthorized, "unauthorized", "")
 	errFreeTimeLimitExceeded    = httperror.New(http.StatusForbidden, "free_time_limit_exceeded", "You have exceeded your daily usage")
+	errSubscriptionStillActive  = httperror.New(http.StatusBadRequest, "invalid_request", "cannot terminate a workspace with an active subscription")
 )
 
 var (
@@ -187,19 +188,22 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 }
 
 func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	// We only allow host to be terminated if:
+	// 1. it is a free host (in which case we cancel the subscription), or
+	// 2. it is a paid host whose subscription has already been canceled.
 	if h.SubscriptionID.Valid {
 		sub, err := subscription.Find(env.DB, h.SubscriptionID.Int64)
 		if err != nil {
 			return err
 		}
-		if sub.State != subscription.StateDeleted {
-			if err := subProvider.Cancel(env.DB, sub); err != nil {
-				return err
-			}
-			if !h.Free && !env.User.Admin {
-				serializeHost(env, h)
-				env.Data["subscription"] = "cancelled"
-				return nil
+
+		if !(sub.CancelPending || sub.State == subscription.StateDeleted) {
+			if h.Free {
+				if err := subProvider.Cancel(env.DB, sub); err != nil {
+					return err
+				}
+			} else {
+				return errSubscriptionStillActive
 			}
 		}
 	}
