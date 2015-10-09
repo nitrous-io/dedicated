@@ -1,5 +1,8 @@
 containerStoppedMessage = 'Container is not running. Please start your container first.'
 hostStoppedMessage = 'Workspace is not running. Please start your workspace first, then start your container.'
+resumingSessionMessage = 'Resuming Session...'
+hostRestartingMessage = 'Workspace resuming, please wait...'
+containerRestartingMessage = 'Container resuming, please wait...'
 freighterFeaturesRetry = 3000 # 3s
 
 App.IdeController = Em.ObjectController.extend
@@ -9,10 +12,18 @@ App.IdeController = Em.ObjectController.extend
   collabSocket: null
   collabEnabled: true
 
+  hostStarted: false
+  hostRestarted: false
+  containerStarted: false
+  containerRestarted: false
+
+  resumingSession: false
+
   opsTimeoutAlert: null
   repository: null
   errorDialog: null
   showBetaDialog: null
+  resumeSessionDialog: null
 
   opsConnectionGracePeriod: 15 * 1000 # TODO: This should come from a KeyValue object from the server-side
   opsConnectionLost: false
@@ -68,13 +79,34 @@ App.IdeController = Em.ObjectController.extend
             if data.config
               App.get('container').set('config', data.config)
 
-      evSocket.on 'container.stopped', (data) =>
+      evSocket.on 'host.started', (data) =>
+        @set('hostStarted', true)
+
+      evSocket.on 'host.restarted', (data) =>
+        @set('resumingSession', true)
+        @set('hostRestarted', true)
+        @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
+
+        @startContainer(App.container.slug).then =>
+          @set('containerStarted', true)
+        , (jqxhr) =>
+          @set('errorDialog', @containerStoppedErrDialog())
+
+      evSocket.on 'container.started', (data) =>
         if @get('content.id') == data?.container?.id
-          @handleContainerStopped()
+          @set('containerStarted', true)
+          App.snackbar.post "Container started, resuming session..."
 
       evSocket.on 'container.restarted', (data) =>
         if @get('content.id') == data?.container?.id
-          App.snackbar.post "Container restarted, reconnecting..."
+          @set('containerRestarted', true)
+          App.snackbar.post "Container restarted, resuming session..."
+
+      evSocket.on 'container.stopped', (data) =>
+        # Don't interrupt auto start container for user on host restart scenario.
+        unless @resumingSession
+          if @get('content.id') == data?.container?.id
+            @set('errorDialog', @containerStoppedErrDialog())
 
       evSocket.on 'container.reconfigured', (data) =>
         if @get('content.id') == data?.container?.id
@@ -101,24 +133,50 @@ App.IdeController = Em.ObjectController.extend
     @set 'repository', null
     @set 'content', null
     @set 'errorDialog', null
+    @set 'resumeSessionDialog', null
 
   validateHostAndContainerState: ->
     if App.container.host.state != 'running'
-      @handleHostStopped()
+      switch App.container.host.state
+        when 'stopped'
+          @handleHostStopped()
+        when 'restarting'
+          @set('resumeSessionDialog', @resumeSessionErrDialog(hostRestartingMessage))
+        else
+          @set('errorDialog', @hostStoppedErrDialog())
     else if App.container.state != 'running'
-      @handleContainerStopped()
+      switch App.container.state
+        when 'stopped'
+          @handleContainerStopped()
+        when 'restarting'
+          @set('resumeSessionDialog', @resumeSessionErrDialog(containerRestartingMessage))
+        else
+          @set('errorDialog', @containerStoppedErrDialog())
 
   handleHostStopped: ->
+    @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
+
     @startHost(App.container.host_id).then =>
+      ###
+      Even though host and container state values are set to true on
+      receiving the relevant event, we additionally set these values
+      on successful POST requests so that we don't miss the state
+      changes if for some reason the event is not received.
+      ###
+      @set('hostStarted', true)
       @startContainer(App.container.slug).then =>
-        App.snackbar.post "Resuming your IDE session"
+        @set('containerStarted', true)
       , (jqxhr) =>
         @set('errorDialog', @containerStoppedErrDialog())
     , (jqxhr) =>
       @set('errorDialog', @hostStoppedErrDialog())
 
   handleContainerStopped: ->
-    @set('errorDialog', @containerStoppedErrDialog())
+    @set('resumeSessionDialog', @resumeSessionErrDialog(resumingSessionMessage))
+    @startContainer(App.container.slug).then =>
+      @set('containerStarted', true)
+    , (jqxhr) =>
+      @set('errorDialog', @containerStoppedErrDialog())
 
   startHost: (host_id)->
     Em.RSVP.Promise.cast Em.$.ajax
@@ -131,6 +189,10 @@ App.IdeController = Em.ObjectController.extend
       type: 'POST',
       url: "/api/v0/containers/#{slug}/start",
       headers: { Authorization: "Bearer #{App.get 'token'}" }
+
+  resumeSessionErrDialog: (msg)->
+    App.ResumeSessionDialog.create
+      message: msg
 
   hostStoppedErrDialog: ->
     App.ErrorDialog.create
