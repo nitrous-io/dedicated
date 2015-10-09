@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -56,7 +55,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	handleLegacyParams(r, newData)
 
 	for k, v := range newData {
-		existingVal, ok := user.DefaultSettings[k]
+		existingVal, ok := existing[k]
 		// we don't want to store existing values
 		if ok && existingVal == v {
 			continue
