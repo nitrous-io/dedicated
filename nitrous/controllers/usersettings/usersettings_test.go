@@ -102,11 +102,11 @@ var _ = Describe("controllers/userprofiles", func() {
 			return res
 		}
 
-		It("updates the user's settings and responds with the new settings", func() {
+		It("updates the user's settings and responds with the new settings on toggle", func() {
 			_, err := db.Exec(`UPDATE user_settings SET ide_settings = '{"tab_size": 9}'::JSON WHERE user_id = $1`, u.ID)
 			Expect(err).To(BeNil())
 
-			jsonStr := `{
+			jsonStr1 := `{
                                 "tab_size": 3,
                                 "auto_close_brackets": false,
                                 "remove_trailing_whitespace_on_save": false,
@@ -115,15 +115,15 @@ var _ = Describe("controllers/userprofiles", func() {
                                 "theme": "solarized light"
                         }`
 
-			res := doRequest(jsonStr)
-			Expect(res.Code).To(Equal(http.StatusOK))
+			res1 := doRequest(jsonStr1)
+			Expect(res1.Code).To(Equal(http.StatusOK))
 
-			j := struct {
+			j1 := struct {
 				UserSettings map[string]interface{} `json:"user_settings"`
 			}{}
-			err = json.NewDecoder(res.Body).Decode(&j)
+			err = json.NewDecoder(res1.Body).Decode(&j1)
 			Expect(err).To(BeNil())
-			serialized := j.UserSettings
+			serialized := j1.UserSettings
 			Expect(serialized["tab_size"]).To(Equal(float64(3)))
 			Expect(serialized["auto_close_brackets"]).To(BeFalse())
 			Expect(serialized["remove_trailing_whitespace_on_save"]).To(BeFalse())
@@ -141,6 +141,42 @@ var _ = Describe("controllers/userprofiles", func() {
 			Expect(m["keybindings"]).To(Equal("vim"))
 			Expect(m["ruler_column"]).To(Equal(float64(120)))
 			Expect(m["theme"]).To(Equal("solarized light"))
+
+			jsonStr2 := `{
+                                "tab_size": 4,
+                                "auto_close_brackets": true,
+                                "remove_trailing_whitespace_on_save": true,
+                                "keybindings": "default",
+                                "ruler_column": 150,
+                                "theme": "solarized dark"
+                        }`
+
+			res2 := doRequest(jsonStr2)
+			Expect(res2.Code).To(Equal(http.StatusOK))
+
+			j2 := struct {
+				UserSettings map[string]interface{} `json:"user_settings"`
+			}{}
+			err = json.NewDecoder(res2.Body).Decode(&j2)
+			Expect(err).To(BeNil())
+			serialized = j2.UserSettings
+			Expect(serialized["tab_size"]).To(Equal(float64(4)))
+			Expect(serialized["auto_close_brackets"]).To(BeTrue())
+			Expect(serialized["remove_trailing_whitespace_on_save"]).To(BeTrue())
+			Expect(serialized["keybindings"]).To(Equal("default"))
+			Expect(serialized["ruler_column"]).To(Equal(float64(150)))
+			Expect(serialized["theme"]).To(Equal("solarized dark"))
+
+			settings, err = u.Settings(db)
+			Expect(err).To(BeNil())
+			m, err = settings.IdeSettingsMap()
+			Expect(err).To(BeNil())
+			Expect(m["tab_size"]).To(Equal(float64(4)))
+			Expect(m["auto_close_brackets"]).To(BeTrue())
+			Expect(m["remove_trailing_whitespace_on_save"]).To(BeTrue())
+			Expect(m["keybindings"]).To(Equal("default"))
+			Expect(m["ruler_column"]).To(Equal(float64(150)))
+			Expect(m["theme"]).To(Equal("solarized dark"))
 		})
 
 		It("should handle legacy params sent by older IDE clients", func() {
