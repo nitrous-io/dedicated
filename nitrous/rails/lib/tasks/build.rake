@@ -8,7 +8,10 @@ namespace :build do
       '/public/token_login/index.html' => {layout: 'layouts/bare',    template: 'web_app/token_login'},
       '/public/index.html'             => {layout: 'layouts/pages',   template: 'pages/home'},
 
-      '/templates/oauth_authorize.html.tmpl' => {layout: 'layouts/bare', template: 'templates/oauth_authorize'}
+      '/templates/oauth_authorize.html.tmpl' => {layout: 'layouts/bare', template: 'templates/oauth_authorize'},
+
+      '/public/awsactivate/index.html' => { layout: 'layouts/pages', template: "pages/awsactivate"},
+      '/public/partners/awsactivate/index.html' => { layout: 'layouts/pages', template: "pages/awsactivate"}
     }
 
     %w(pricing features company stacks press flatiron education agencies enterprises orgs vpc teams-pricing education-pricing jobs).each do |page|
@@ -22,7 +25,7 @@ namespace :build do
     PagesController::ALLOWED_JOBS.each do |job|
       locations["/public/jobs/#{job}/index.html"] = { layout: 'layouts/pages', template: "pages/jobs/#{job}" }
     end
-    
+
     public_htmls = %w(403 404 422 500)
 
     build_dir = ENV['BUILD_DIR']

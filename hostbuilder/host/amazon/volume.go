@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mitchellh/goamz/ec2"
 )
@@ -27,7 +28,8 @@ func detachVolume(provider volumeProvider, volumeID, instanceID string) (*ec2.Vo
 		Refresh: volumeAttachmentStateRefreshFunc(provider, volumeID, instanceID),
 		Target:  "detached",
 	}
-	vol, err := WaitForState(sc)
+	interval, tries := 2*time.Second, 60
+	vol, err := WaitForStateWithInterval(sc, interval, tries)
 	if err != nil {
 		return nil, fmt.Errorf("amazon: failed waiting for volume %s to be detached, err: %v", volumeID, err)
 	}

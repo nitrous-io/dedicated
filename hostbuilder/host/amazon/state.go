@@ -121,6 +121,10 @@ func snapshotStateRefreshFunc(provider volumeProvider, snapshotID string) StateR
 // WaitForState watches an object and waits for it to achieve a certain
 // state.
 func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
+	return WaitForStateWithInterval(conf, defaultSleep, 20)
+}
+
+func WaitForStateWithInterval(conf *StateChangeConf, interval time.Duration, tries int) (i interface{}, err error) {
 	var notfoundTick int
 	for {
 		var currentState string
@@ -133,7 +137,7 @@ func WaitForState(conf *StateChangeConf) (i interface{}, err error) {
 			// If we didn't find the resource, check if we have been
 			// not finding it for awhile, and if so, report an error.
 			notfoundTick += 1
-			if notfoundTick > 20 {
+			if notfoundTick > tries {
 				return nil, ErrResourceNotFound
 			}
 		} else {
