@@ -102,7 +102,10 @@ var FetchGitHubUser = func(code string) (string, string, string, error) {
 	}
 
 	gitHubUserName := *user.Login
-	gitHubUserEmail := *user.Email
+	gitHubUserEmail := ""
+	if user.Email != nil {
+		gitHubUserEmail = *user.Email
+	}
 	return gitHubUserName, tokenJSON, gitHubUserEmail, nil
 }
 
