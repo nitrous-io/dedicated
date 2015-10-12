@@ -7,14 +7,18 @@ Rails.application.routes.draw do
   get '/pricing' => 'pages#pricing'
   get '/company' => 'pages#company'
   get '/press' => 'pages#press'
-  
+
   get '/flatiron' => 'pages#flatiron'
   get '/education' => 'pages#education'
   get '/agencies' => 'pages#agencies'
   get '/enterprises' => 'pages#enterprises'
   get '/orgs' => 'pages#orgs'
   get '/vpc' => 'pages#vpc'
-  
+
+	get '/awsactivate' => 'pages#awsactivate'
+	# hotfixing old link
+	get '/partners/:partner' => 'pages#awsactivate', as: :partner_shortcut
+
   get '/jobs' => 'pages#jobs'
   get '/jobs/:job' => 'pages#job', as: 'job'
 

@@ -36,7 +36,7 @@ class PagesController < ApplicationController
 
   def jobs
   end
-  
+
   def job
     if ALLOWED_JOBS.include? params[:job]
       render "pages/jobs/#{params[:job].to_s}"
