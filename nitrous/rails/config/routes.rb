@@ -17,7 +17,7 @@ Rails.application.routes.draw do
 
 	get '/awsactivate' => 'pages#awsactivate'
 	# hotfixing old link
-	get '/partners/:partner' => 'pages#awsactivate', as: :partner_shortcut
+	get '/partners/awsactivate' => 'pages#awsactivate'
 
   get '/jobs' => 'pages#jobs'
   get '/jobs/:job' => 'pages#job', as: 'job'
