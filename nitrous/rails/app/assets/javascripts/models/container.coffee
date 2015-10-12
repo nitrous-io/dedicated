@@ -55,8 +55,8 @@ App.Container = klass = App.Model.extend
   sshEnabled: Em.computed.equal 'config.env.NITROUS_SSH_ENABLED', 'true'
 
   paidFeaturesEnabled: (->
-    !(App.get 'billingProfile.free')
-  ).property 'App.billingProfile.free'
+    @get('host') && !@get('host.free')
+  ).property 'host.free'
 
   sshKeysAdded: (->
     sshKeys = @get('userKeys')
