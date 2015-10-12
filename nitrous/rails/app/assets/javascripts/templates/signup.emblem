@@ -45,7 +45,11 @@
                 = suggestedEmail
               | ?
 
-      unless gitHubUserName
+      if gitHubUserName
+        .notice-text
+          p
+            | If you already have a Nitrous account, please login and then connect with GitHub on the account settings page
+      else
         .ui.input-group
           label.field-label for='signup-password'
             | Password
