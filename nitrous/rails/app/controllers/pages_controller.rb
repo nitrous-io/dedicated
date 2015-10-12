@@ -36,12 +36,15 @@ class PagesController < ApplicationController
 
   def jobs
   end
-  
+
   def job
     if ALLOWED_JOBS.include? params[:job]
       render "pages/jobs/#{params[:job].to_s}"
     else
       render status: :not_found
     end
+  end
+  
+  def awsactivate
   end
 end
