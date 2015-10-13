@@ -66,9 +66,9 @@ App.IdeController = Em.ObjectController.extend
       App.set 'eventsSocket', evSocket = App.EventsSocket.create()
       evSocket.connect()
 
-      if container.get('host')?.auto_shutdown
-        App.set 'pingerSocket', pingerSocket = App.PingerSocket.create(hostId: container.get('host_id'))
-        pingerSocket.connect()
+      pingerSocket = App.PingerSocket.create(hostId: container.get('host_id'), alert: container.get('host')?.auto_shutdown)
+      App.set 'pingerSocket', pingerSocket
+      pingerSocket.connect()
 
       @loadFreighterFeatures(container)
 
