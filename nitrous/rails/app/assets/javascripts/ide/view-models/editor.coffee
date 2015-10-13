@@ -359,7 +359,7 @@ App.Editor = klass = Em.Object.extend
         if e.ctrlKey && (e.keyCode == 90 || e.keyCode == 88 || e.keyCode == 67 || e.keyCode == 83)
           return
 
-        if (e.keyCode >= 48 && e.keyCode <= 90) || (e.keyCode >= 186 && e.keyCode <= 222)
+        if e.keyCode == 8 || (e.keyCode >= 48 && e.keyCode <= 90) || (e.keyCode >= 186 && e.keyCode <= 222)
           if (plugin = @get('documentPlugin')) && (pluginCmd = plugin.autocomplete)
             command = (cm, callback, options)->
               pluginCmd.apply plugin, [cm, callback, options]
