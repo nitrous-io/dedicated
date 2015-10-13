@@ -25,7 +25,7 @@
 
 .CodeMirror-hint
   border-radius: 0
-  color: #666
+  color: $n2oGray200
 
 .CodeMirror-hint-active
   background: #d6cdd0
@@ -58,7 +58,6 @@
   background-color: $yellow600
   color: black
 
-
 .cm-searching
   background: #FFE792 !important
   color: #000 !important
@@ -67,3 +66,55 @@
   &.CodeMirror-selectedtext
     background: rgba(255,231,146,.65) !important
 
+/* Linting addon */
+.CodeMirror-hints
+  position: absolute
+  overflow: hidden
+  overflow-y: auto
+  list-style: none
+  margin: 0
+  padding: 0
+  border-radius: 2px
+  border: 1px solid #1F252A
+  background: #3D464D
+  font-family: $monospaceFont
+  color: $n2oGray200
+  font-size: 13px
+  max-height: 20em
+  box-shadow: 0 1px 10px rgba(0,0,0,.2)
+
+.CodeMirror-hint
+  height: 30px
+  line-height: 30px
+  padding: 0 10px
+  color: $n2oGray200
+
+  &:hover
+    background: #4B545C
+
+  &.CodeMirror-hint-active
+    &, &:hover
+      color: #FFF
+      background: #03A9F4
+
+.CodeMirror-hints ul
+  max-height: 20em
+  overflow-y: auto
+
+.CodeMirror-hints ul li
+  margin: 0
+  padding: 0 4px
+  max-width: 60em
+  overflow: hidden
+  white-space: pre
+  color: $n2oGray200
+  cursor: pointer
+
+.CodeMirror-hints input
+  display: none
+
+.CodeMirror-hints .selected
+  background: #03A9F4
+  color: #FFF
+
+.CodeMirror-hints ul::-webkit-scrollbar-thumb
