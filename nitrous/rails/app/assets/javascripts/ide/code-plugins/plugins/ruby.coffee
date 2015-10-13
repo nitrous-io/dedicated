@@ -142,6 +142,14 @@ klass = class Ruby extends PluginBase
       exec()
 
   autocomplete: (cm, callback, options)->
+    options ||= {}
+    options.handlers = {
+      pick: [
+        ->
+          Mp.track("IDE Autocomplete Picked")
+        ]
+    }
+
     cursor = cm.getCursor()
     line = cm.getRange({line: cursor.line, ch: 0}, cursor)
     unless line && line.length
@@ -175,7 +183,7 @@ klass = class Ruby extends PluginBase
           if results.indexOf(reqName[1]) == -1
             results.push reqName[1]
       results.sort()
-      callback(list: results, to: cursor, from: {line: cursor.line, ch: (cursor.ch - reqDef[1].length)})
+      callback(_handlers: options.handlers, list: results, to: cursor, from: {line: cursor.line, ch: (cursor.ch - reqDef[1].length)})
 
   autocompleteLine: (line, cursor, cm, callback, options)->
     # look for symbols after a space, period or colon
@@ -183,7 +191,7 @@ klass = class Ruby extends PluginBase
     # autocomplete on the base class
     symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^(); .:]+)$/)
     unless symbols
-      callback(list: [])
+      callback(_handlers: options.handlers, list: [])
       return
 
     newClass = null
@@ -208,7 +216,7 @@ klass = class Ruby extends PluginBase
 
     # let local process run
     suggestedResults.sort()
-    callback(list: suggestedResults, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
+    callback(_handlers: options.handlers, list: suggestedResults, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
     results = [] # all other results
     if @afterCtagsUpdated
@@ -250,7 +258,7 @@ klass = class Ruby extends PluginBase
                 results.push varName
 
         finalList = suggestedResults.concat(results.sort())
-        callback(list: finalList, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
+        callback(_handlers: options.handlers, list: finalList, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
   ignoredSymbol: (symbol)->
     IGNORE_SYMBOLS.indexOf(symbol) != -1
