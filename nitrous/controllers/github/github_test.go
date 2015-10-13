@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -36,6 +37,7 @@ func mockFetchGitHubUser(code string) (string, string, string, error) {
 }
 
 type GetRedisKeyForOAuthFunc func(token string) string
+type FetchReposFunc func(env *middleware.Env) ([]github.GitHubRepository, error)
 
 var _ = Describe("controllers/github", func() {
 	var (
@@ -716,6 +718,72 @@ var _ = Describe("controllers/github", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(up.GitHubUserName.Valid).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("GET /api/v0/github/repos", func() {
+		var orgFetchReposFunc FetchReposFunc
+
+		BeforeEach(func() {
+			orgFetchReposFunc = github.FetchRepos
+			github.FetchRepos = func(env *middleware.Env) ([]github.GitHubRepository, error) {
+				var repos []github.GitHubRepository
+
+				repo := github.GitHubRepository{
+					Name:    "test-nitrous-io",
+					GitURL:  "git://github.com/test-nitrous-io/test.git",
+					Private: false,
+				}
+
+				repos = append(repos, repo)
+				return repos, nil
+			}
+		})
+
+		AfterEach(func() {
+			github.FetchRepos = orgFetchReposFunc
+		})
+
+		doRequest := func() *httptest.ResponseRecorder {
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/github/repos", nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("returns repos", func() {
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			j := map[string]interface{}{}
+			err := json.NewDecoder(res.Body).Decode(&j)
+			repos := j["repos"].([]interface{})
+			Expect(err).To(BeNil())
+			Expect(repos).To(HaveLen(1))
+			repo := repos[0].(map[string]interface{})
+			Expect(repo["name"]).To(Equal("test-nitrous-io"))
+			Expect(repo["git_url"]).To(Equal("git://github.com/test-nitrous-io/test.git"))
+			Expect(repo["private"]).To(Equal(false))
+		})
+
+		Context("a user hasn't connected with GitHub", func() {
+			BeforeEach(func() {
+				github.FetchRepos = func(env *middleware.Env) ([]github.GitHubRepository, error) {
+					return nil, github.ErrTokenEmpty
+				}
+			})
+
+			It("returns empty body", func() {
+				res := doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				j := map[string]interface{}{}
+				err := json.NewDecoder(res.Body).Decode(&j)
+				repos := j["repos"].([]interface{})
+				Expect(err).To(BeNil())
+				Expect(repos).To(HaveLen(0))
 			})
 		})
 	})
