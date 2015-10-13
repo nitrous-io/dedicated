@@ -196,10 +196,14 @@ klass = class Ruby extends PluginBase
 
     # store featured results
     localHints = CodeMirror.hint.auto(@codeMirror, {})
-    suggestedResults = localHints?.list || []
+    suggestedResults = []
+    if localHints?.list
+      for hint in localHints?.list
+        if hint != symbol
+          suggestedResults.push hint
 
     for word in HINT_WORDS
-      if word.indexOf(symbol) == 0 && suggestedResults.indexOf(word) == -1
+      if word != symbol && word.indexOf(symbol) == 0 && suggestedResults.indexOf(word) == -1
         suggestedResults.push word
 
     # let local process run
@@ -219,6 +223,10 @@ klass = class Ruby extends PluginBase
           return
 
         @parseCTags stdout, (varName, path, allParts)=>
+          # no point suggesting the same thing
+          if symbol == varName
+            return
+
           if suggestedResults.indexOf(varName) == -1
             definition = allParts[4]
             addToResults = true
