@@ -15,13 +15,13 @@ App.IdeView = Em.View.extend
 
   didInsertElement: ->
     @_super()
+    Em.run.scheduleOnce 'afterRender', ->
+      webapp?.loading.stop()
     controller = @get 'controller'
     controller.validateHostAndContainerState()
     @set('timeStarted', Date.now())
     Mp.track Mp.EventIDEStarted, container_id: @get 'controller.id'
     Mp.increment Mp.PropertyIDEStartCount
-    Em.run.scheduleOnce 'afterRender', ->
-      webapp?.loading.stop()
 
   willDestroyElement: ->
     @_super()
