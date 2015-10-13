@@ -25,6 +25,9 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
   nameFieldEdited: false
 
+  gitRepositories: []
+  selectedGitRepository: null
+
   stackTemplates: (->
     App.get('templates')?.filterBy('type', 'stack')
   ).property 'App.templates.@each'
@@ -63,6 +66,10 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
 
       autofillName: null
       selectedTemplateSlug: null
+
+      selectedGitRepository: null
+
+    @set 'gitRepositories', App.Repository.fetch().value
 
   hostImagesEmpty: Em.computed.empty('selectedHost.images')
   hostVolumesEmpty: Em.computed.empty('selectedHost.volumes')

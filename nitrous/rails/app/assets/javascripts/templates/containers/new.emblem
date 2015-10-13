@@ -86,6 +86,16 @@
             | Name
           App.ContainerNameTextField id='containers-new-name' name='name' classNameBindings='view.nameFieldInvalid:error' required=true disabled=saving value=name
 
+      .card-body.bordered
+        .ui.input-group
+          label#select-repo.field-label for='containers-new-repo'
+            | Clone from GitHub (optional)
+          if gitRepositories.length
+            .ui.select.indent
+              Ember.Select class='option-input' name='containers-new-repo' content=gitRepositories optionValuePath='content.gitUrl' optionLabelPath='content.name' value=view.selectedGitRepository prompt="Please Select Your GitHub Repository"
+          else
+            .notice-text
+              | You haven't connected with GitHub or no repositories in GitHub
 
       .card-footer.bordered
         .left
