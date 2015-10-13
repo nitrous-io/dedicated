@@ -78,6 +78,7 @@ class @PluginBase
     , 50
 
   parseCTags: (data, callback)->
+    return unless data
     lines = data.split(/\r?\n/)
     for line in lines
       parts = line.split(/\t/)
