@@ -196,6 +196,10 @@ var _ = Describe("controllers/github", func() {
 
 				_, err = redisClient.Set("github:oauth:tempkey", "1").Result()
 				Expect(err).NotTo(HaveOccurred())
+
+				// Remove the token
+				_, err = db.Exec("DELETE FROM tokens WHERE user_id = $1;", u.ID)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			AfterEach(func() {
@@ -205,11 +209,36 @@ var _ = Describe("controllers/github", func() {
 				}
 			})
 
-			Context("User is not logged in and the user exists", func() {
+			Context("the user does not exist", func() {
 				BeforeEach(func() {
-					_, err = db.Exec("DELETE FROM tokens WHERE user_id = $1;", u.ID)
+					github.FetchGitHubUser = func(code string) (string, string, string, error) {
+						return "new-github-user", `{ "access_token": "new-token" }`, "newgithub@example.com", nil
+					}
+				})
+
+				It("redirects to sign up page", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+				})
+
+				It("keeps github info in redis", func() {
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					val, err := redisClient.Get("github:userinfo:new-github-user").Result()
+					var gitHubUserInfo github.GitHubUserInfo
+					err = json.Unmarshal([]byte(val), &gitHubUserInfo)
 					Expect(err).NotTo(HaveOccurred())
 
+					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
+					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
+				})
+			})
+
+			Context("the user exists", func() {
+				BeforeEach(func() {
 					up, err := userprofile.Find(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 

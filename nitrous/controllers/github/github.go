@@ -248,52 +248,45 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 	}
 
 	switch state.Purpose {
-	case OAuthStatePurposeLogin:
-		if err := loginWithGitHub(env, w, state, gitHubUserName, tokenJSON); err != nil {
-			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
-			return mh.Error(err, errLabel)
+	case OAuthStatePurposeLogin, OAuthStatePurposeSignUp:
+		// If `Purpose` is `login` or `signup`, we proceed based on whether the user exists or not
+		// If the user exists, it proceeds to login otherwise redirects to signup page
+		redirectUrlForError := ""
+		if state.Purpose == OAuthStatePurposeLogin {
+			redirectUrlForError = "/app#/login?oauthError=true"
+		} else {
+			redirectUrlForError = "/app#/signup?oauthError=true"
 		}
 
-		t, err := token.FindByUser(db, env.User.ID)
-		if err != nil {
-			http.Redirect(w, r, "/app#/login?oauthError=true", http.StatusFound)
-			return mh.Error(err, errLabel)
-		}
-
-		urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
-		http.Redirect(w, r, urlWithToken, http.StatusFound)
-	case OAuthStatePurposeSignUp:
-		// Fetch data from github and keep in Redis since there is no user profile record
-		// It will be used when a user create an account with github username
 		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
 		if err == sql.ErrNoRows {
-			err = storeGitHubInRedis(state, gitHubUserName, tokenJSON)
+			// Fetch data from github and keep in Redis since there is no user profile record
+			// It will be used when a user create an account with github username
+			err = storeGitHubInfoInRedis(state, gitHubUserName, tokenJSON)
 			if err != nil {
-				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				http.Redirect(w, r, redirectUrlForError, http.StatusFound)
 				return mh.Error(err, errLabel)
 			}
 
 			url := fmt.Sprintf("/app#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
 			http.Redirect(w, r, url, http.StatusFound)
 		} else if err == nil {
-			// If the user exists, process login instead of showing sign up page.
-			// However any errors has occured, it redirects to sign up page.
 			err = loginWithGitHub(env, w, state, gitHubUserName, tokenJSON)
 			if err != nil {
-				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				http.Redirect(w, r, redirectUrlForError, http.StatusFound)
 				return mh.Error(err, errLabel)
 			}
 
 			t, err := token.FindByUser(db, env.User.ID)
 			if err != nil {
-				http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+				http.Redirect(w, r, redirectUrlForError, http.StatusFound)
 				return mh.Error(err, errLabel)
 			}
 
 			urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
 			http.Redirect(w, r, urlWithToken, http.StatusFound)
 		} else {
-			http.Redirect(w, r, "/app#/signup?oauthError=true", http.StatusFound)
+			http.Redirect(w, r, redirectUrlForError, http.StatusFound)
 			return mh.Error(err, errLabel)
 		}
 	default:
@@ -344,13 +337,13 @@ func connectToGitHub(env *middleware.Env, state *OAuthState, gitHubUserName stri
 func loginWithGitHub(env *middleware.Env, w http.ResponseWriter, state *OAuthState, gitHubUserName string, tokenJSON string) error {
 	db := env.DB
 
-	if err := validateOAuthCallback(state); err != nil {
-		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
+	p, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
+	if err != nil {
 		return err
 	}
 
-	p, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
-	if err != nil {
+	if err := validateOAuthCallback(state); err != nil {
+		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
 		return err
 	}
 
@@ -376,7 +369,7 @@ func loginWithGitHub(env *middleware.Env, w http.ResponseWriter, state *OAuthSta
 	return nil
 }
 
-func storeGitHubInRedis(state *OAuthState, gitHubUserName string, tokenJSON string) error {
+func storeGitHubInfoInRedis(state *OAuthState, gitHubUserName string, tokenJSON string) error {
 	if err := validateOAuthCallback(state); err != nil {
 		logrus.Errorf("Unexpected callback request. GitHub authorize call could take more than 10 minutes or a user sent this manually: %s, err: %+v", gitHubUserName, err)
 		return err
