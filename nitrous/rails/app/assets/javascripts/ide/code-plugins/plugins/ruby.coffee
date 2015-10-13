@@ -142,6 +142,14 @@ klass = class Ruby extends PluginBase
       exec()
 
   autocomplete: (cm, callback, options)->
+    options ||= {}
+    options.handlers = {
+      pick: [
+        ->
+          Mp.track("IDE Autocomplete Picked")
+        ]
+    }
+
     cursor = cm.getCursor()
     line = cm.getRange({line: cursor.line, ch: 0}, cursor)
     unless line && line.length
@@ -175,7 +183,7 @@ klass = class Ruby extends PluginBase
           if results.indexOf(reqName[1]) == -1
             results.push reqName[1]
       results.sort()
-      callback(list: results, to: cursor, from: {line: cursor.line, ch: (cursor.ch - reqDef[1].length)})
+      callback(_handlers: options.handlers, list: results, to: cursor, from: {line: cursor.line, ch: (cursor.ch - reqDef[1].length)})
 
   autocompleteLine: (line, cursor, cm, callback, options)->
     # look for symbols after a space, period or colon
@@ -183,7 +191,7 @@ klass = class Ruby extends PluginBase
     # autocomplete on the base class
     symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^(); .:]+)$/)
     unless symbols
-      callback(list: [])
+      callback(_handlers: options.handlers, list: [])
       return
 
     newClass = null
@@ -196,15 +204,19 @@ klass = class Ruby extends PluginBase
 
     # store featured results
     localHints = CodeMirror.hint.auto(@codeMirror, {})
-    suggestedResults = localHints?.list || []
+    suggestedResults = []
+    if localHints?.list
+      for hint in localHints?.list
+        if hint != symbol
+          suggestedResults.push hint
 
     for word in HINT_WORDS
-      if word.indexOf(symbol) == 0 && suggestedResults.indexOf(word) == -1
+      if word != symbol && word.indexOf(symbol) == 0 && suggestedResults.indexOf(word) == -1
         suggestedResults.push word
 
     # let local process run
     suggestedResults.sort()
-    callback(list: suggestedResults, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
+    callback(_handlers: options.handlers, list: suggestedResults, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
     results = [] # all other results
     if @afterCtagsUpdated
@@ -219,6 +231,10 @@ klass = class Ruby extends PluginBase
           return
 
         @parseCTags stdout, (varName, path, allParts)=>
+          # no point suggesting the same thing
+          if symbol == varName
+            return
+
           if suggestedResults.indexOf(varName) == -1
             definition = allParts[4]
             addToResults = true
@@ -242,7 +258,7 @@ klass = class Ruby extends PluginBase
                 results.push varName
 
         finalList = suggestedResults.concat(results.sort())
-        callback(list: finalList, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
+        callback(_handlers: options.handlers, list: finalList, to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
   ignoredSymbol: (symbol)->
     IGNORE_SYMBOLS.indexOf(symbol) != -1
