@@ -253,9 +253,9 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		// If the user exists, it proceeds to login otherwise redirects to signup page
 		redirectUrlForError := ""
 		if state.Purpose == OAuthStatePurposeLogin {
-			redirectUrlForError = "/app#/login?oauthError=true"
+			redirectUrlForError = "/app/#/login?oauthError=true"
 		} else {
-			redirectUrlForError = "/app#/signup?oauthError=true"
+			redirectUrlForError = "/app/#/signup?oauthError=true"
 		}
 
 		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
@@ -268,7 +268,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 				return mh.Error(err, errLabel)
 			}
 
-			url := fmt.Sprintf("/app#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
+			url := fmt.Sprintf("/app/#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
 			http.Redirect(w, r, url, http.StatusFound)
 		} else if err == nil {
 			err = loginWithGitHub(env, w, state, gitHubUserName, tokenJSON)
@@ -283,7 +283,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 				return mh.Error(err, errLabel)
 			}
 
-			urlWithToken := fmt.Sprintf("/app#/login?token=%s", t.Token)
+			urlWithToken := fmt.Sprintf("/app/#/login?token=%s", t.Token)
 			http.Redirect(w, r, urlWithToken, http.StatusFound)
 		} else {
 			http.Redirect(w, r, redirectUrlForError, http.StatusFound)
@@ -295,7 +295,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			return mh.Error(err, errLabel)
 		}
 
-		http.Redirect(w, r, "/app#/account", http.StatusFound)
+		http.Redirect(w, r, "/app/#/account", http.StatusFound)
 	}
 
 	return nil
@@ -497,7 +497,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 
 func redirectError(w http.ResponseWriter, r *http.Request, errMsg string) {
 	// note: don't url.QueryEscape() errMsg, Redirect will do it
-	uri := "/app#/account?errmsg=" + errMsg
+	uri := "/app/#/account?errmsg=" + errMsg
 	http.Redirect(w, r, uri, http.StatusFound)
 }
 
