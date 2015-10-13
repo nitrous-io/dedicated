@@ -6,6 +6,7 @@ App.PingerSocket = Lib.Socket.extend
   timer: null
   ackThreshold: 120000 # milliseconds
   firstTime: true
+  alert: true
 
   lastSent: null
   lastAck: null
@@ -66,6 +67,10 @@ App.PingerSocket = Lib.Socket.extend
         App.snackbar.fadeOutItem(@snackbarItem)
         @snackbarItem = null
         Mp.track("User activity ping restored")
+      return
+
+    # do not alert user unless controlled to
+    unless @alert
       return
 
     console.warn "Ping not acknowledged for #{diff}ms"
