@@ -1306,8 +1306,9 @@ var _ = Describe("models/user", func() {
 
 	Describe("ConfirmEmail", func() {
 		var (
-			u *user.User
-			f *test.FakeMailChimp
+			u          *user.User
+			f          *test.FakeMailChimp
+			fakeStripe *test.FakeStripe
 		)
 		curTime := time.Now()
 
@@ -1323,6 +1324,9 @@ var _ = Describe("models/user", func() {
 
 			f = test.NewFakeMailChimp()
 			user.MailChimp = f
+
+			fakeStripe = &test.FakeStripe{}
+			stripe.SetBackend(fakeStripe)
 
 			envvars.MailChimpIDNewsletter = "newsletters"
 			envvars.MailChimpIDAnnouncements = "announcements"
@@ -1345,6 +1349,33 @@ var _ = Describe("models/user", func() {
 			Expect(u.ConfirmedAt.Time).To(BeTemporally(">=", now))
 			Expect(u.ConfirmationSentAt.Valid).To(BeFalse())
 			Expect(u.Email).To(Equal("qux@example.com"))
+		})
+
+		It("should update user email on Stripe", func() {
+			_, err := db.Exec(`UPDATE users SET unconfirmed_email = 'buddy@hotmail.com', confirmation_sent_at = $1 WHERE id = $2;`, curTime.Add(-48*time.Hour), u.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE billing_profiles SET stripe_id = 'fakestripeid'
+				WHERE user_id = $1`, u.ID)
+			Expect(err).To(BeNil())
+
+			u, err = user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			err = u.ConfirmEmail(db)
+			Expect(err).To(BeNil())
+
+			Eventually(func() int {
+				return len(fakeStripe.ReceivedRequests)
+			}).Should(Equal(1))
+
+			Expect(fakeStripe.ReceivedRequests[0]).To(Equal(map[string]string{
+				"method": "POST",
+				"path":   "/customers/fakestripeid",
+				"card":   "",
+				"email":  "buddy@hotmail.com",
+				"desc":   "",
+			}))
 		})
 
 		It("should subscribe to the MailChimp newsletters", func() {

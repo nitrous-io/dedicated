@@ -601,6 +601,19 @@ func (u *User) ConfirmEmail(d db.QueryReceiver) error {
 		}
 	}()
 
+	// update user e-mail in Stripe so their invoices go to new address
+	if previousEmail != "" {
+		bp, err := u.BillingProfile(d)
+		if err != nil {
+			return err
+		}
+		go func() {
+			if err := bp.UpdateEmail(d, u.Email); err != nil {
+				logrus.Errorf("ConfirmEmail: error updating e-mail on stripe for user %s to %s", u.Username, u.Email)
+			}
+		}()
+	}
+
 	_, err = d.Exec("UPDATE container_collabs SET user_id = $1, invite_email = NULL, invite_code = NULL WHERE invite_email = $2", u.ID, u.Email)
 	return err
 }
