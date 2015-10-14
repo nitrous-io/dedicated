@@ -106,6 +106,7 @@ App.ContainersNewController = Lib.ContainerConfigController.extend
       port: @get 'portMappings.serialized'
       privileged: @get 'privileged'
       publish_all: @get 'publishAll'
+      git_url: @get 'selectedGitRepository'
     ).then =>
       App.snackbar.post("Your new container “#{name}” was created successfully.", sticky: true)
       @set 'createdContainer', container

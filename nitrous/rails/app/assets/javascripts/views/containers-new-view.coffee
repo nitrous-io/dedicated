@@ -16,6 +16,7 @@ App.ContainersNewView = Lib.ContainerConfigView.extend App.InjectTerminalIframeM
 
   selectedOptionBinding: "controller.selectedOption"
   selectedTemplateBinding: "controller.selectedTemplate"
+  selectedGitRepositoryBinding: "controller.selectedGitRepository"
 
   nameFieldInvalid: Em.computed.equal('controller.invalidField', 'name')
 
