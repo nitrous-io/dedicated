@@ -44,6 +44,7 @@ var _ = Describe("controllers/containercollabs", func() {
 		svr     *server.Server
 		handler *mux.Router
 		res     *httptest.ResponseRecorder
+		ft      *test.FakeTracker
 	)
 
 	BeforeEach(func() {
@@ -51,7 +52,8 @@ var _ = Describe("controllers/containercollabs", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		svr = server.NewServer("", db, nil, nil)
+		ft = test.NewFakeTracker()
+		svr = test.NewTestServer("", db, ft)
 		handler = svr.Router()
 		res = httptest.NewRecorder()
 
@@ -376,6 +378,12 @@ var _ = Describe("controllers/containercollabs", func() {
 			Expect(fakeMailer.Body).To(ContainSubstring("https://nitrous.example/app/#/containers/java-test-container"))
 			Expect(fakeMailer.HTML).To(ContainSubstring("<h3>Hello steve!</h3>"))
 			Expect(fakeMailer.HTML).To(ContainSubstring(`<a href="https://nitrous.example/app/#/containers/java-test-container" target="_blank">`))
+
+			Expect(ft.PropsCalled).To(HaveLen(1))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.Mode).To(Equal("inc"))
+			Expect(pc.PropsSet["collab_invites_count"]).To(Equal(1))
 		})
 
 		It("should not allow malicious HTML in the email", func() {

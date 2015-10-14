@@ -144,6 +144,10 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 	}
 	containers.PublishContainerEvent(env, controllers.EventCollaboratorAdded, cn, collabData)
 
+	env.Tracker.SetProfileProps("inc", env.User.ID, map[string]interface{}{
+		"collab_invites_count": 1,
+	})
+
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"success": true,
