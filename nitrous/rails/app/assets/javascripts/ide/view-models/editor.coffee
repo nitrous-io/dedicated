@@ -365,8 +365,6 @@ App.Editor = klass = Em.Object.extend
               pluginCmd.apply plugin, [cm, callback, options]
             command.async = true
             cm.showHint hint: command
-          else
-            cm.showHint(e)
 
     cm.on 'gutterClick', (cm, line, gutter, e) ->
       return if gutter != 'CodeMirror-linenumbers'
