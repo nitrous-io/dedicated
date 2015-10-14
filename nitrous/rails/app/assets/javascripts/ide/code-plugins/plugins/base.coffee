@@ -45,6 +45,9 @@ class @PluginBase
   getRootPath: ->
     App.get('router.ideSidebarController.rootPath')
 
+  getHomePath: ->
+    App.get('router.ideSidebarController.homePath')
+
   eachLine: (callback)->
     if @codeMirror
       @codeMirror.eachLine (line)=>
@@ -62,6 +65,7 @@ class @PluginBase
     ]
     cwd = ''
     env = ['']
+    return unless @relativePath
     parentRelDirectory = @relativePath.split('/').slice(0, -1).join('/')
     if @autoCompleteRun
       window.clearTimeout(@autoCompleteRun)
@@ -70,7 +74,7 @@ class @PluginBase
     @autoCompleteRun = window.setTimeout =>
       @autoCompleteRun = null
       @exec cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
-        unless stdout
+        if stderr || err || cmdErr
           console.log "Error reading ctags file:", err, cmdErr, stderr, stdout
 
         callback(err, cmdErr, stdout, stderr)
@@ -80,13 +84,36 @@ class @PluginBase
   parseCTags: (data, callback)->
     return unless data
     lines = data.split(/\r?\n/)
+    rootPath = @getRootPath()?.get('absolutePath')
     for line in lines
       parts = line.split(/\t/)
       if parts && parts.length >= 2
         varName = parts[0]
         if varName
           path = parts[1]
+          if rootPath && path && path[0] != "/"
+            path = "#{rootPath}/#{path}"
           callback(varName, path, parts)
+
+  scanListForSymbol: (list, results, symbol, renderFunc = null)->
+    for word in list
+      if results[symbol] == null && word != symbol && word.indexOf(symbol) == 0
+        results[symbol] = {text: symbol, file: null, render: renderFunc}
+
+  hashToResults: (suggestedResults, otherResults = null)->
+    primaryList = []
+    for k,v of suggestedResults
+      primaryList.push v
+    primaryList.sort()
+
+    if otherResults
+      secondaryList = []
+      for k,v of otherResults
+        secondaryList.push v
+      secondaryList.sort()
+      primaryList = primaryList.concat secondaryList
+
+    primaryList
 
   resolvePath: ->
     path = @document.get('path.absolutePath')
@@ -97,9 +124,10 @@ class @PluginBase
     cwd = ''
     env = []
     @exec cmd, cwd, env, (err, cmdErr, stdout, stderr) =>
+      console.log "resolvePath completed"
       if stdout
         absPath = stdout.trim()
-        @absolutePath = App.Path.create(absolutePath: absPath)
+        @absolutePath = absPath
         @relativePath = absPath.replace(@getRootPath().get('absolutePath'), "").replace(/^\//,"")
     , nologin: true
 
