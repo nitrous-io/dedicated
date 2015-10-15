@@ -397,7 +397,13 @@ func (h *Host) getVolumeByDeviceName(deviceName string) (*ec2.Volume, error) {
 		return nil, fmt.Errorf("amazon: expected volume %s but got unexpected volume: %+v", device.VolumeId, vol)
 	}
 
-	return vol, nil
+	for _, att := range vol.Attachments {
+		if att.InstanceId == h.instance.InstanceId {
+			return vol, nil
+		}
+	}
+
+	return vol, fmt.Errorf("expected volume %s to be attached to instance %s but it is not", device.VolumeId, h.instance.InstanceId)
 }
 
 func (h *Host) getVolume(volumeID string) (*ec2.Volume, error) {
