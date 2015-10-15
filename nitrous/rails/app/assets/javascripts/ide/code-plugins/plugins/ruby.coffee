@@ -146,7 +146,8 @@ klass = class Ruby extends PluginBase
     options.handlers = {
       pick: [
         ->
-          Mp.track("IDE Autocomplete Picked")
+          Mp.track Mp.EventIDEAutocompletePicked
+          Mp.increment Mp.PropertyIDEAutocompletePickedCount
         ]
     }
 
