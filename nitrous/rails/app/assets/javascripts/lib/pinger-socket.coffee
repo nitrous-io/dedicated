@@ -4,6 +4,7 @@ App.PingerSocket = Lib.Socket.extend
   hostId: null
   interval: 30000 # milliseconds
   timer: null
+  listener: null
   ackThreshold: 120000 # milliseconds
   firstTime: true
   alert: true
@@ -27,13 +28,8 @@ App.PingerSocket = Lib.Socket.extend
       @ping()
       @firstTime = false
 
-    # Clean up any existing timer, so that we only have at most 1 timer.
-    if @timer
-      Visibility.stop(@timer)
-
-    @timer = Visibility.every(@interval, =>
-      @ping()
-    )
+    @startPinging()
+    @handleVisibilityChange()
 
   didReceiveMessage: (ev) ->
     msg = ev.data
@@ -46,6 +42,28 @@ App.PingerSocket = Lib.Socket.extend
     # Artificially simulate a ping so that we will display an error message
     # after ackThreshold has passed.
     @set('lastSent', Date.now())
+
+  handleVisibilityChange: ->
+    return if @listener
+    @listener = Visibility.change((e, state) =>
+      if Visibility.hidden()
+        @stopPinging()
+      else
+        @startPinging()
+    )
+
+  startPinging: ->
+    # Clean up any existing timer, so that we only have at most 1 timer.
+    @stopPinging()
+    @timer = Visibility.every(@interval, =>
+      @ping()
+    )
+
+  stopPinging: ->
+    return if !@timer?
+    Visibility.stop(@timer)
+    @set('lastSent', null)
+    @set('lastAck', null)
 
   ping: ->
     timestamp = Date.now()
