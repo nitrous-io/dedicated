@@ -838,6 +838,8 @@ var _ = Describe("subscriptions", func() {
 			Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
 			Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
 			Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
+			_, ok := r["coupon"]
+			Expect(ok).To(BeFalse())
 			r2 := fakeStripe.ReceivedRequests[1]
 			Expect(r2["method"]).To(Equal("POST"))
 			Expect(r2["path"]).To(Equal("/invoices"))
@@ -845,6 +847,45 @@ var _ = Describe("subscriptions", func() {
 			r3 := fakeStripe.ReceivedRequests[2]
 			Expect(r3["method"]).To(Equal("POST"))
 			Expect(r3["path"]).To(Equal("/invoices/invoice-1/pay"))
+		})
+
+		Context("comping hosting mode", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE plans SET hosting_mode_plan_id = $1 WHERE id=$2;`, newPlan.ID, pl.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("should add a coupon for comped hosting mode if required", func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET comp_hosting_mode_before = now() WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				err = subProvider.Upgrade(db, sub, newPlan, u)
+				Expect(err).To(BeNil())
+
+				// only one request since we don't create invoice or pay it
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
+				Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
+				Expect(r["coupon"]).To(Equal("comped-hosting-mode"))
+			})
+
+			It("should not add a coupon for comped hosting mode if prior to subscription creation", func() {
+				_, err := db.Exec(`UPDATE billing_profiles SET comp_hosting_mode_before  ='2014-01-01' WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+
+				err = subProvider.Upgrade(db, sub, newPlan, u)
+				Expect(err).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(3))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST")) // https://stripe.com/docs/api/curl#update_subscription
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/%s", stripeCustomerID, sub.StripeID.String)))
+				Expect(r["plan"]).To(Equal(newPlan.StripePlanID.String))
+				_, ok := r["coupon"]
+				Expect(ok).To(BeFalse())
+			})
 		})
 
 		It("should handle exempt plan subscriptions", func() {
