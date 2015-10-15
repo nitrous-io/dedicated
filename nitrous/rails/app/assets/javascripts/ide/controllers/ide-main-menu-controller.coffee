@@ -201,6 +201,13 @@ App.IdeMainMenuController = Em.Controller.extend
     if editorController = @get 'controllers.ideEditor'
       editorController.resetFontSize()
 
+  betaToggleAutoCompleteBeta: ->
+    @_toggleEditorProperty 'autoCompleteBeta'
+
+  vcsCloneFromGitHub: ->
+    if controller = @get 'controllers.ideEditor'
+      controller.showCloneFromGitHubDialog()
+
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'
       editorController.toggleProperty(property)

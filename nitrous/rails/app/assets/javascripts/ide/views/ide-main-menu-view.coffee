@@ -399,6 +399,11 @@ App.IdeMainMenuView = Em.View.extend
             controller.windowShowFileTree()
       ]
       menu 'Preview', @get('previewItems')
+      menu 'VCS', [
+        menuItem 'Clone from GitHub',
+          callback: (controller) ->
+            controller.vcsCloneFromGitHub()
+      ]
       menu 'Help', @get('helpMenuItems')
     ]
     base

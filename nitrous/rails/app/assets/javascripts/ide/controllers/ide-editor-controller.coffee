@@ -8,6 +8,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   saveDialog: null
   confirmCloseDialog: null
   goToLineDialog: null
+  cloneFromGitHubDialog: null
   chatNotification: null
   tabWatcher: null
 
@@ -65,6 +66,10 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     if @get 'goToLineDialog'
       @set 'goToLineDialog.hide', true
       @set 'goToLineDialog', null
+
+    if @get 'cloneFromGitHubDialog'
+      @set 'cloneFromGitHubDialog.hide', true
+      @set 'cloneFromGitHubDialog', null
 
   useUserSettings: ->
     userSettings = App.get('userSettings') || {}
@@ -250,3 +255,7 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   resetFontSize: ->
     @set 'fontSize', null
+
+  showCloneFromGitHubDialog: ->
+    @set 'cloneFromGitHubDialog', App.CloneFromGitHubDialog.create
+
