@@ -117,6 +117,23 @@ func GenMixpanelProfileJobs(jobs chan job, u *User) error {
 	return nil
 }
 
+func GenCollabInvitesJobs(jobs chan job, u *User) error {
+	var invitesSent int
+	err := dbConn.Get(&invitesSent, `
+		SELECT COUNT(*) FROM container_collabs
+		JOIN containers ON container_collabs.container_id = containers.id
+		JOIN users ON containers.user_id = users.id
+		WHERE containers.user_id = $1
+	`, u.ID)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	jobs <- NewJob("set", u.ID, map[string]interface{}{
+		"collab_invites_count": invitesSent,
+	})
+	return nil
+}
+
 func GenUnsetDeletedJobs(jobs chan job) error {
 	users := []*User{}
 	err := dbConn.Select(&users, `

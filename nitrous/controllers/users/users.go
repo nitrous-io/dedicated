@@ -37,6 +37,8 @@ var (
 	}
 	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
 	errUpdateForbidden   = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
+	errExistsForbidden   = httperror.New(http.StatusForbidden, "forbidden", "forbidden")
+	errUserNotFound      = httperror.New(http.StatusNotFound, "user_not_found", "not found")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -451,6 +453,35 @@ func DismissFirstTime(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "ok",
+	}
+	return nil
+}
+
+func Exists(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	client, err := getOAuthClient(env, r)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return errExistsForbidden
+	}
+
+	email := r.FormValue("email")
+	_, err = user.FindByUsernameOrEmail(env.DB, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errUserNotFound
+		}
+		return err
+	}
+
+	env.Status = http.StatusOK
+	// since we are using `FindByUsernameOrEmail`, we should explicitly return
+	// the parameter given in the form instead of the db record's email column,
+	// otherwise consumers of this endpoint can find out what any given
+	// username's e-mail address is
+	env.Data = map[string]interface{}{
+		"found": email,
 	}
 	return nil
 }

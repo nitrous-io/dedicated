@@ -101,15 +101,16 @@ func makeJobs() <-chan job {
 	type stepFn func(chan job) error
 
 	userSteps := map[string]userStepFn{
-	//"gen confirmed":         GenConfirmedJobs,
-	//"gen templates":         GenTemplatesJobs,
-	//"gen github authorized": GenGithubAuthorizedJobs,
-	//"gen phone": GenPhoneJobs,
-	//"gen hosts created": GenHostCreatedJobs,
-	//"gen mixpanel profiles": GenMixpanelProfileJobs,
+		//"gen confirmed":         GenConfirmedJobs,
+		//"gen templates":         GenTemplatesJobs,
+		//"gen github authorized": GenGithubAuthorizedJobs,
+		//"gen phone": GenPhoneJobs,
+		//"gen hosts created": GenHostCreatedJobs,
+		//"gen mixpanel profiles": GenMixpanelProfileJobs,
+		"gen collab invites": GenCollabInvitesJobs,
 	}
 	otherSteps := map[string]stepFn{
-		"unset deleted_date": GenUnsetDeletedJobs,
+	//	"unset deleted_date": GenUnsetDeletedJobs,
 	}
 
 	go func() {

@@ -1702,4 +1702,58 @@ var _ = Describe("controllers/users", func() {
 			test.ItRequiresAuthToken(&authTokenInputs)
 		})
 	})
+
+	Describe("GET /api/v0/user/exists", func() {
+		var (
+			client       *oauthclient.Client
+			clientSecret = "abc123"
+		)
+
+		BeforeEach(func() {
+			client = &oauthclient.Client{
+				UserID:      u.ID,
+				Name:        "Builders League United",
+				Description: "A fictional company",
+				ClientID:    "blu_team",
+				RedirectURI: "https://blu.co/oauth/callback",
+			}
+			Expect(client.InsertWithSecret(db, clientSecret)).To(BeNil())
+		})
+
+		doRequest := func(email, clientID, clientSecret string) {
+			var err error
+			params := &url.Values{}
+			if email != "" {
+				params.Set("email", email)
+			}
+			if clientID != "" {
+				params.Set("client_id", client.ClientID)
+				params.Set("client_secret", clientSecret)
+			}
+			req, err = test.NewRequest("GET", "/api/v0/user/exists", params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+t.Token)
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should be 404 if user does not exist", func() {
+			doRequest("nosuch@example.com", client.ClientID, clientSecret)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should be 200 if user exists", func() {
+			doRequest(u.Email, client.ClientID, clientSecret)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
+		It("is only available to oauth clients", func() {
+			// no oauth_client info
+			doRequest(u.Email, "", "")
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			// invalid oauth_client info
+			doRequest(u.Email, "notaclient", "abcdef")
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+	})
 })

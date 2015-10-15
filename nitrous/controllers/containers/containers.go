@@ -195,12 +195,11 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 				return
 			}
 
-			liveContainers, freighterErr := freighterList(crt, h, env)
-
-			if freighterErr != nil {
+			liveContainers, err := freighterList(crt, h, env)
+			if err != nil {
 				// If we can't get through to the host, then pass them along without the Freighter specific
 				// info to the frontend
-				if freighterErr == controllers.ErrHostNotRunning || freighterErr == controllers.ErrHostIPUnknown {
+				if err == controllers.ErrHostNotRunning || err == controllers.ErrHostIPUnknown {
 					for _, sc := range savedContainers {
 						sc.State = container.StateHostStopped
 						containersRespMu.Lock()
@@ -208,11 +207,11 @@ func listContainers(env *middleware.Env, w http.ResponseWriter, r *http.Request,
 						containersRespMu.Unlock()
 					}
 				} else {
-					logrus.Errorf("freighter err is not nil: %v, for host %s", freighterErr, h.Slug)
 					errorMessagesMu.Lock()
-					if strings.HasPrefix(freighterErr.Error(), "freighter:") {
+					if strings.HasPrefix(err.Error(), "freighter:") {
 						errorMessages = append(errorMessages, fmt.Sprintf("Unable to communicate with freighter for host %s", h.Slug))
 					} else {
+						logrus.Errorf("error listing containers for host %s, err: %v", h.Slug, err)
 						errorMessages = append(errorMessages, fmt.Sprintf("Unable to locate containers for host %s", h.Slug))
 					}
 					errorMessagesMu.Unlock()
