@@ -132,6 +132,7 @@ func (s *Server) drawRoutes() {
 		authed := map[string]map[string]routeData{
 			"GET": {
 				"/user":                                    r("users.GetAuthenticatedUser", users.GetAuthenticatedUser),
+				"/user/exists":                             r("users.Exists", users.Exists),
 				"/user/profile":                            r("userprofiles.Show", userprofiles.Show),
 				"/user/settings":                           r("usersettings.Show", usersettings.Show),
 				"/user/billing_profile":                    r("billingprofiles.Show", billingprofiles.Show),

@@ -22,7 +22,6 @@ var (
 	errInvalidOrgSlug       = httperror.New(http.StatusBadRequest, "invalid_org_slug", "org_slug is not allowed")
 	errInvalidOrgPermission = httperror.New(http.StatusBadRequest, "invalid_org_permission", "org_permission must be `member`")
 	errOrgNotFound          = httperror.New(http.StatusNotFound, "org_not_found", "org not found")
-	errClientNotFound       = httperror.New(http.StatusNotFound, "client_not_found", "client not found")
 
 	invalidPromoCode  = httperror.New(http.StatusBadRequest, "invalid_promo_code", "promo code does not exist")
 	invalidRemoteAddr = httperror.New(http.StatusBadRequest, "invalid_remote_addr", "remote_addr must be provided")
@@ -61,6 +60,9 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	client, err := getOAuthClient(env, r)
 	if err != nil {
 		return err
+	}
+	if client != nil && !client.CreateUser {
+		return errClientNotFound
 	}
 
 	// check email is not banned
@@ -165,29 +167,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	env.User = u
 
 	return nil
-}
-
-func getOAuthClient(env *middleware.Env, r *http.Request) (*oauthclient.Client, error) {
-	clientID := r.FormValue("client_id")
-	if clientID == "" {
-		return nil, nil
-	}
-
-	clientSecret := r.FormValue("client_secret")
-
-	client, err := oauthclient.FindWithSecret(env.DB, clientID, clientSecret)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, errClientNotFound
-		}
-		return nil, err
-	}
-
-	if !client.CreateUser {
-		return nil, errClientNotFound
-	}
-
-	return client, nil
 }
 
 func addToOrg(tx *sqlx.Tx, u *user.User, r *http.Request, client *oauthclient.Client) error {
