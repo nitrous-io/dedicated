@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
-	"github.com/nitrous-io/dedicated/tender/pkg/httperror"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/nitrous-common/wsconn"
 )
 
