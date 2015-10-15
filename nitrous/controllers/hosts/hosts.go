@@ -14,6 +14,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/nitrous-io/dedicated/freighter/freighterclient"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
@@ -177,6 +178,9 @@ func Stats(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 
 	info, err := cl.HostInfo(period)
 	if err != nil {
+		if _, ok := err.(*freighterclient.RequestFailedError); ok {
+			return httperror.New(http.StatusGatewayTimeout, "connectivity_error", "cannot connect to workspace")
+		}
 		return err
 	}
 
