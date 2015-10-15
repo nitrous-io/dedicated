@@ -24,6 +24,7 @@ Object.assign window.Mp,
   EventIDEUserOpenedFile: "IDE User Opened File"
   EventIDEUserSavedFile: "IDE User Saved File"
   EventIDEUserUploadedFile: "IDE User Uploaded File"
+  EventIDEAutocompletePicked: "IDE Autocomplete Picked"
   EventUserConfirmedEmail: "User Confirmed Email"
   EventUserLoggedIn: "User Logged In"
   EventUserLoggedOut: "User Logged Out"
@@ -39,6 +40,7 @@ Object.assign window.Mp,
   PropertyIDEFileSaveCount: "ide_file_save_count"
   PropertyIDEStartCount: "ide_start_count"
   PropertyIDEUseTime: "ide_use_time"
+  PropertyIDEAutocompletePickedCount: "ide_autocomplete_picked_count"
   PropertyConfirmedEmail: "confirmed_email_date" # backend
   PropertyImagesList: "images_list"
   PropertyPhoneNumberSaved: "phone_number_date"
