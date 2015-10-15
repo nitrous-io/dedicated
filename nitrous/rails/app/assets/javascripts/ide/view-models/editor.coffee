@@ -335,6 +335,7 @@ App.Editor = klass = Em.Object.extend
 
     @_setupExtraKeys(cm)
     @_overrideKeys(cm)
+    CodeMirror.keyMap['vim'].fallthrough = 'default'
 
     cm.on 'change', (cm, data) =>
       if @get('text') != (content = cm.getValue())
