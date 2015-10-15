@@ -30,7 +30,7 @@ Rails.application.configure do
 
   config.assets.cache_store = :memory_store, { size: 500000000 }
 
-  config.action_controller.asset_host = '//pro%d.n2odev.com:7000'
+  #config.action_controller.asset_host = '//pro%d.n2odev.com:7000'
 
   config.font_assets.origin = '*'
 
