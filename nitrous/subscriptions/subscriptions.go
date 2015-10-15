@@ -58,6 +58,10 @@ type SubscriptionProvider struct {
 	Mailer       mailer.Mailer
 }
 
+const (
+	compHostingModeCouponSlug = "comped-hosting-mode"
+)
+
 var (
 	couponGetFn couponGetFunc
 
@@ -283,35 +287,46 @@ func (s *SubscriptionProvider) Upgrade(d *db.Database, sub *subscription.Subscri
 		planID = planID + "-exempt"
 	}
 
-	stripeSub, err := stripesub.Update(sub.StripeID.String, &stripe.SubParams{
+	params := &stripe.SubParams{
 		Customer: bp.StripeID.String,
 		Plan:     planID,
-	})
+	}
+	compHostingMode := shouldApplyHostingModeCoupon(sub, existingPlan, p, bp)
+	if compHostingMode {
+		params.Coupon = compHostingModeCouponSlug
+	}
+
+	stripeSub, err := stripesub.Update(sub.StripeID.String, params)
 	if err != nil {
 		logrus.Errorf("Failed to upgrade Stripe subscription for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
 		return err
 	}
 
-	// create the new invoice to apply the prorata amount
-	i, err := stripeinvoice.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
-	if err != nil {
-		// instead of performing another web request we just try to pay any oustanding invoices
-		// and ignore if there was nothing to pay (exempt user, Stripe credit)
-		if strings.Contains(err.Error(), "Nothing to invoice for customer") {
-			i = nil
-			logrus.Warnf("No need to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
-		} else {
-			logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
-			return decodeStripeError(err)
-		}
-	}
-
-	// immediately request the invoice be paid
-	if i != nil && i.Amount >= 100 {
-		_, err = stripeinvoice.Pay(i.ID, nil)
+	// if we're comping, we avoid immediately charging the user for any changes
+	// as this will be an unnecessary charge (their plan price should not
+	// change)
+	if !compHostingMode {
+		// create the new invoice to apply the prorata amount
+		i, err := stripeinvoice.New(&stripe.InvoiceParams{Customer: bp.StripeID.String})
 		if err != nil {
-			logrus.Errorf("Failed to pay Stripe invoice %s for subscription ID %d to plan %s: %v", i.ID, sub.ID, p.Slug, err)
-			return decodeStripeError(err)
+			// instead of performing another web request we just try to pay any oustanding invoices
+			// and ignore if there was nothing to pay (exempt user, Stripe credit)
+			if strings.Contains(err.Error(), "Nothing to invoice for customer") {
+				i = nil
+				logrus.Warnf("No need to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+			} else {
+				logrus.Errorf("Failed to create Stripe invoice for subscription ID %d to plan %s: %v", sub.ID, p.Slug, err)
+				return decodeStripeError(err)
+			}
+		}
+
+		// immediately request the invoice be paid
+		if i != nil && i.Amount >= 100 {
+			_, err = stripeinvoice.Pay(i.ID, nil)
+			if err != nil {
+				logrus.Errorf("Failed to pay Stripe invoice %s for subscription ID %d to plan %s: %v", i.ID, sub.ID, p.Slug, err)
+				return decodeStripeError(err)
+			}
 		}
 	}
 
@@ -505,4 +520,17 @@ func decodeStripeError(err error) error {
 	}
 
 	return err
+}
+
+func shouldApplyHostingModeCoupon(sub *subscription.Subscription, oldPlan, newPlan *plan.Plan, bp *billingprofile.BillingProfile) bool {
+	if !oldPlan.HostingModePlanID.Valid || oldPlan.HostingModePlanID.Int64 != newPlan.ID {
+		return false
+	}
+	if !bp.CompHostingModeBefore.Valid {
+		return false
+	}
+	if sub.CreatedAt == nil || sub.CreatedAt.After(bp.CompHostingModeBefore.Time) {
+		return false
+	}
+	return true
 }

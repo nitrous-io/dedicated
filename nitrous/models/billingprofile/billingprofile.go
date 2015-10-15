@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	stripe "github.com/stripe/stripe-go"
@@ -59,6 +61,11 @@ type BillingProfile struct {
 	MaxHours          sql.NullInt64  `db:"max_hours"`
 	CreatedAt         *time.Time     `db:"created_at"`
 	UpdatedAt         *time.Time     `db:"updated_at"`
+
+	// set by hand if we're giving this user ability to upgrade to hosting mode
+	// for free.  If non-null, all subscriptions created prior to this date are
+	// eligible for free hosting mode
+	CompHostingModeBefore pq.NullTime `db:"comp_hosting_mode_before"`
 }
 
 func (bp *BillingProfile) IsFreeTier() bool {
