@@ -2,18 +2,18 @@
 #= require ./global-ruby
 
 klass = class Ruby extends PluginBase
-  IGNORE_SYMBOLS = ["def", "end", "class"]
+  IGNORE_SYMBOLS = ['def', 'end', 'class', 'do', 'if', 'else']
 
   DEFAULT_GEMS = [
-    "rails",
-    "actionmailer",
-    "actionview",
-    "actionpack",
-    "activerecord",
-    "activejob",
-    "activemodel",
-    "activesupport",
-    "sinatra",
+    'rails',
+    'actionmailer',
+    'actionview',
+    'actionpack',
+    'activerecord',
+    'activejob',
+    'activemodel',
+    'activesupport',
+    'sinatra',
   ]
 
   HINT_WORDS = [
@@ -190,7 +190,7 @@ klass = class Ruby extends PluginBase
     # look for symbols after a space, period or colon
     # if we are doing a class definition with a base class
     # autocomplete on the base class
-    symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^\[\]{}\|(); .:'"]+)$/)
+    symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^\[\]{}\|(); .:'"\/]+)$/)
     unless symbols
       callback(_handlers: options.handlers, list: [])
       return
