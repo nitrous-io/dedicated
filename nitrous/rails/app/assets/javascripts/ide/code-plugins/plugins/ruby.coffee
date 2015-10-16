@@ -190,7 +190,7 @@ klass = class Ruby extends PluginBase
     # look for symbols after a space, period or colon
     # if we are doing a class definition with a base class
     # autocomplete on the base class
-    symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^\[\]{}\|(); .:'"\/]+)$/)
+    symbols = line.match(/(?:class\s+(\w+)\s+\<)?([^\[\]{}\|(); .:'"\/?!%\^*\-]+)$/)
     unless symbols
       callback(_handlers: options.handlers, list: [])
       return
