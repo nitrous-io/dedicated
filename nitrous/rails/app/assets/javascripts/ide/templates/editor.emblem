@@ -3,4 +3,3 @@ App.IdeEditorPaneView editorPane=rootPane
 App.IdeSaveDialogView
 App.IdeConfirmCloseDialogView
 App.IdeGoToLineDialogView
-App.IdeCloneFromGitHubView

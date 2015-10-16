@@ -6,7 +6,7 @@ containerRestartingMessage = 'Container resuming, please wait...'
 freighterFeaturesRetry = 3000 # 3s
 
 App.IdeController = Em.ObjectController.extend
-  needs: ['ideFindInProject', 'ideFileFinder']
+  needs: ['ideFindInProject', 'ideFileFinder', 'ideVCS']
 
   opsSocket: null
   collabSocket: null

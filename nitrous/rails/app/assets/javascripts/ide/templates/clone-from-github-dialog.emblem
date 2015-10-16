@@ -1,8 +1,9 @@
 .ui.card
   .card-body
     .ui.input-group
-      .ui.select
-        Ember.Select class='option-input' name='github-repo' content=view.content.repositories optionValuePath='content.git_url' optionLabelPath='content.name' value=selectedRepository prompt='Select Your GitHub Repository'
-    unless view.content.loaded
-      .status
-        | Loading....
+      if view.content.loaded
+        .ui.select
+          Ember.Select class='option-input' name='github-repo' content=view.content.repositories optionValuePath='content.git_url' optionLabelPath='content.name' value=selectedRepository prompt='Select Your GitHub Repository'
+      else
+        .status
+          | Loading....

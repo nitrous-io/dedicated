@@ -8,7 +8,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   saveDialog: null
   confirmCloseDialog: null
   goToLineDialog: null
-  cloneFromGitHubDialog: null
   chatNotification: null
   tabWatcher: null
 
@@ -40,8 +39,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   beta: false
 
-  selectedRepository: null
-
   initialize: ->
     editorPane = App.EditorPane.create(tabs: Em.A())
     @set 'rootPane', editorPane
@@ -68,10 +65,6 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
     if @get 'goToLineDialog'
       @set 'goToLineDialog.hide', true
       @set 'goToLineDialog', null
-
-    if @get 'cloneFromGitHubDialog'
-      @set 'cloneFromGitHubDialog.hide', true
-      @set 'cloneFromGitHubDialog', null
 
   useUserSettings: ->
     userSettings = App.get('userSettings') || {}
@@ -257,16 +250,3 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
 
   resetFontSize: ->
     @set 'fontSize', null
-
-  showCloneFromGitHubDialog: ->
-    cloneFromGitHubDialog = App.CloneFromGitHubDialog.create()
-    @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
-    Em.$.ajax(
-      type: 'GET'
-      url: '/api/v0/github/repos'
-      headers: { Authorization: "Bearer #{App.get 'token'}" }
-    ).done (data) =>
-      cloneFromGitHubDialog.set('loaded', true)
-      repos = cloneFromGitHubDialog.get('repositories')
-      for repo in data.repos
-        repos.pushObject(repo)

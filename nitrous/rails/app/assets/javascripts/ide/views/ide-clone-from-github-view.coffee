@@ -11,6 +11,7 @@ App.IdeCloneFromGitHubView = App.IdeModalDialogView.extend
     @_super()
 
   hide: ->
+    @set('selectedRepository', null)
     @_super()
 
   click: (e) ->
@@ -20,6 +21,7 @@ App.IdeCloneFromGitHubView = App.IdeModalDialogView.extend
 
   selectedRepositoryChanged: ( ->
     if @get('selectedRepository')
+      @get('controller').openTerminalAndCloneRepo(@get('selectedRepository'))
       @hide()
   ).observes('selectedRepository')
 
