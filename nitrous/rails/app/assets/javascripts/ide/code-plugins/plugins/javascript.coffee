@@ -15,7 +15,6 @@ klass = class Javascript extends PluginBase
 
   triggerCtagsUpdate: ->
     return unless @document?.isOTMaster()
-
     @globalPlugin.triggerCtagsUpdate(@getRootPath().get('absolutePath'))
 
   afterInitialize: ->
@@ -108,7 +107,7 @@ klass = class Javascript extends PluginBase
     # look for symbols after a space, period or colon
     # if we are doing a class definition with a base class
     # autocomplete on the base class
-    symbols = line.match(/\s?([^{}(); .:]+)$/)
+    symbols = line.match(/\s?([^\[\]{}\|(); .:'"\/?!%\^*\-]+)$/)
     unless symbols
       callback(_handlers: options.handlers, list: [])
       return
