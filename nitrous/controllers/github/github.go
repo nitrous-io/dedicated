@@ -56,6 +56,8 @@ var (
 	errAuthorizeForbidden   = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
 	errInvalidOAuthCallback = httperror.New(http.StatusBadRequest, "invalid_oauth_callback", "unexpected call from GitHub")
 
+	errNotConnectedWithGitHub = httperror.New(http.StatusForbidden, "not_connected_with_github", "You need to connect with GitHub")
+
 	ErrTokenEmpty       = errors.New("token is empty")
 	ErrTokenNotValid    = errors.New("token not valid")
 	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
@@ -246,8 +248,7 @@ func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 func Repos(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	repositories, err := FetchRepos(env)
 	if err == ErrTokenEmpty {
-		// This is to return "[]" instead of null
-		repositories = make([]GitHubRepository, 0)
+		return errNotConnectedWithGitHub
 	} else if err != nil {
 		return err
 	}

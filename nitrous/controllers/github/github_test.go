@@ -777,13 +777,10 @@ var _ = Describe("controllers/github", func() {
 
 			It("returns empty body", func() {
 				res := doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
+				Expect(res.Code).To(Equal(http.StatusForbidden))
 
-				j := map[string]interface{}{}
-				err := json.NewDecoder(res.Body).Decode(&j)
-				repos := j["repos"].([]interface{})
-				Expect(err).To(BeNil())
-				Expect(repos).To(HaveLen(0))
+				slug, _ := test.ErrorSlug(res.Body)
+				Expect(slug).To(Equal("not_connected_with_github"))
 			})
 		})
 	})
