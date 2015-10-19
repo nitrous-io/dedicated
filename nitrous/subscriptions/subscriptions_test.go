@@ -1079,6 +1079,35 @@ var _ = Describe("subscriptions", func() {
 			Expect(rs.State).To(Equal(respec.StatePending))
 			Expect(rs.ProviderTemplateID).To(Equal(pt2.ID))
 		})
+
+		It("updates host to plan specs even if unable to respec due to missing provider template", func() {
+			_, err := db.Exec("UPDATE hosts SET free = TRUE, auto_shutdown = TRUE, max_containers = 1, plan_id = $1, subscription_id = $2 WHERE id = $3;", sub.PlanID, sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			pl2 := &plan.Plan{
+				Slug:          "newStripePlan",
+				Name:          "newStripePlan",
+				MaxContainers: 19,
+				AutoShutdown:  false,
+				Price:         1899,
+				StripePlanID:  sql.NullString{"newPlan", true},
+			}
+			Expect(pl2.Insert(db)).To(BeNil())
+
+			// note: no provider template pointing to pl2
+
+			err = subProvider.Upgrade(db, sub, pl2, u)
+			Expect(err).To(BeNil())
+
+			_, err = respec.Find(db, hs.H.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+
+			h, err := host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+			Expect(h.MaxContainers.Int64).To(Equal(int64(19)))
+			Expect(h.AutoShutdown).To(BeFalse())
+			Expect(h.Size.String).To(Equal("newStripePlan"))
+		})
 	})
 
 	Describe("HandleSubscriptionUpdated()", func() {
