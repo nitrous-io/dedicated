@@ -27,6 +27,10 @@ func (h *Host) Info() (*host.Info, error) {
 	userVolume, err := h.getVolumeByDeviceName(userDeviceName)
 	if err == nil {
 		info.VolumeID = userVolume.VolumeId
+	} else {
+		if h.Config.Hotswap {
+			h.Printf("WARNING: Failed to find user volume in hotswap instance: %v", err)
+		}
 	}
 
 	// Return root volume ID if we don't have a user volume.
@@ -35,6 +39,8 @@ func (h *Host) Info() (*host.Info, error) {
 		rootVolume, err := h.getVolumeByDeviceName(rootDeviceName)
 		if err == nil {
 			info.VolumeID = rootVolume.VolumeId
+		} else {
+			h.Printf("WARNING: Failed to find root volume in old hosts: %v", err)
 		}
 	}
 
