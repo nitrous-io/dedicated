@@ -248,5 +248,24 @@ var _ = Describe("controllers/pinger", func() {
 			_, _, err = websocket.DefaultDialer.Dial(wsURL.String(), nil)
 			Expect(err).To(Equal(websocket.ErrBadHandshake))
 		})
+
+		It("responds with a HTTP 404 when the host has already been terminated", func() {
+			_, err := db.Exec(`UPDATE hosts SET terminated_at=now() WHERE id = $1;`, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			ts := httptest.NewServer(svr.Router())
+			defer ts.Close()
+
+			params := &url.Values{}
+			params.Set("token", "valid-token")
+			wsURL, err := url.Parse(fmt.Sprintf("ws://%s/api/v0/hosts/%d/activity",
+				ts.Listener.Addr().String(), hs.H.ID))
+			Expect(err).To(BeNil())
+			wsURL.RawQuery = params.Encode()
+			dialer := websocket.Dialer{HandshakeTimeout: 100 * time.Millisecond}
+			_, dialResp, err := dialer.Dial(wsURL.String(), nil)
+			Expect(err).To(Equal(websocket.ErrBadHandshake))
+			Expect(dialResp.StatusCode).To(Equal(http.StatusNotFound))
+		})
 	})
 })
