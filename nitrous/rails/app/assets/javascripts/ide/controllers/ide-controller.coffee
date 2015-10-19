@@ -54,6 +54,7 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
+      router.get('ideVCSController').initialize()
 
       PubSub.subscribe 'error.message', (msg, data) =>
         @set('errorDialog', data)
