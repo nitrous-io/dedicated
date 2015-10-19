@@ -6,7 +6,8 @@
       if view.content.error
         .notice-text
           i.fa.fa-warning
-            = view.content.error
+          '
+          = view.content.error
       else
         if view.content.loaded
           .ui.select
@@ -14,3 +15,7 @@
         else
           .status
             | Loading....
+  .card-footer
+    .right
+      button.ui.btn click='didClickCancel target="view"' Cancel
+      button.ui.btn.primary click='didClickOK target="view"' disabled={view.disableClone} Clone

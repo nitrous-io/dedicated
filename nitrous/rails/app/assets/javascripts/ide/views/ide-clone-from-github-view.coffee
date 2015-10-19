@@ -19,11 +19,9 @@ App.IdeCloneFromGitHubView = App.IdeModalDialogView.extend
       @hide()
     e.stopPropagation()
 
-  selectedRepositoryChanged: ( ->
-    if @get('selectedRepository')
-      @get('controller').openTerminalAndCloneRepo(@get('selectedRepository'))
-      @hide()
-  ).observes('selectedRepository')
+  didClickOK : ->
+    @get('controller').openTerminalAndCloneRepo(@get('selectedRepository'))
+    @hide()
 
   keyDown: (e) ->
     switch e.which
@@ -32,3 +30,8 @@ App.IdeCloneFromGitHubView = App.IdeModalDialogView.extend
 
   viewDidDisappear: ->
     @_super()
+
+  disableClone: ( ->
+    !@get('controller.containerKeyAddedToGitHub') || !@get('controller.selectedRepository')
+  ).property 'controller.containerKeyAddedToGitHub', 'controller.selectedRepository'
+

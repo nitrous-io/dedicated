@@ -29,7 +29,7 @@ App.IdeGitController = Em.Controller.extend
           repos.pushObject(repo)
     else
       cloneFromGitHubDialog.setProperties
-        error: "Please add your container key to GitHub on account setting page"
+        error: "Please add your container key to GitHub"
         loaded: true
       @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
 
