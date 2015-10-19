@@ -40,16 +40,22 @@ klass = class GlobalJavascript extends GlobalPluginBase
       @activeTimers[parent] = null
 
       if cmdErr || err
-        if stderr && stderr.indexOf('cannot open option file')
-          console.log "User deleted option file, will recreate"
+        if stderr && (stderr.indexOf('cannot open option file') != -1)
+          console.log("User deleted option file, will recreate")
           @createCtagsConfigFile(parent)
           return
+        else if stderr && (stderr.indexOf('doesn\'t look like a tag file; I refuse to overwrite it.') != -1)
+          @opsSocket.deleteFile "#{parent}/.js-tags", (err, absolutePath)=>
+            if err
+              console.log "Error deleting js-tags: ", absolutePath, err
+              return
+
+            @runCtags(parent)
 
         console.log "Error invoking ctags update:", err, cmdErr, stderr, stdout
         return
 
       for plugin in (App.CodePluginsManager.activePlugins['javascript'] || [])
-
         plugin.ctagsUpdated()
 
   getCtagsConfPath: ->
