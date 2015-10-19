@@ -414,10 +414,14 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 		if err != nil {
 			if err == sql.ErrNoRows {
 				logrus.Errorf("upgradeHosts host=%d: provider template for region %d / plan %d / provider %s does not exist", h.ID, h.RegionID, newPlan.ID, h.Provider)
+				// at this point we have charged the user for the upgrade, so
+				// we log the error and upgrade the host with new plan while
+				// skipping the respec.  This will bring the user closer to
+				// what they paid for
+			} else {
+				logrus.Errorf("upgradeHosts host=%d: Error locating new provider template for region %d / plan %d / provider %s, err: %v", h.ID, h.RegionID, newPlan.ID, h.Provider, err)
 				continue
 			}
-			logrus.Errorf("upgradeHosts host=%d: Error locating new provider template for region %d / plan %d / provider %s, err: %v", h.ID, h.RegionID, newPlan.ID, h.Provider, err)
-			continue
 		}
 
 		err = d.WithTransaction(func(tx *sqlx.Tx) error {
@@ -439,12 +443,15 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 				return err
 			}
 
-			rs := &respec.Respec{
-				HostID:             h.ID,
-				ProviderTemplateID: newPT.ID,
-				State:              respec.StatePending,
+			if newPT != nil {
+				rs := &respec.Respec{
+					HostID:             h.ID,
+					ProviderTemplateID: newPT.ID,
+					State:              respec.StatePending,
+				}
+				return rs.Insert(tx)
 			}
-			return rs.Insert(tx)
+			return nil
 		})
 
 		if err != nil {
