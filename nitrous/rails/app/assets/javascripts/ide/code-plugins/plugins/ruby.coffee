@@ -268,5 +268,4 @@ klass = class Ruby extends PluginBase
     return true if DEFAULT_GEMS.indexOf(name) != -1
     @requirements.indexOf(name) != -1
 
-klass.beta = true
 App.CodePluginsManager.registerCodePlugin "ruby", klass, ["ruby", "text/x-ruby"]

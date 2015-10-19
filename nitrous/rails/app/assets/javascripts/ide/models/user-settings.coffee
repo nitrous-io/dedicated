@@ -12,7 +12,7 @@ keysToSubmit = [
   'theme'
   'wrap_lines'
   'font_size'
-  'auto_complete_beta'
+  'autocomplete'
   'beta'
 ]
 

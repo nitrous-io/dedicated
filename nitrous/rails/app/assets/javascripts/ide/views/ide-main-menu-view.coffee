@@ -129,10 +129,6 @@ App.IdeMainMenuView = Em.View.extend
   menu: (->
     base = [
       menu 'N', [
-        menuItem 'Beta Mode',
-          callback: (controller) ->
-            controller.toggleBetaMode()
-          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.beta')
         menuItem 'About Nitrous', callback: ->
           ui.showModal($('#about-nitrous'))
       ]
@@ -219,6 +215,10 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.editToggleRemoveTrailingWhitespaceOnSave()
           checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.removeTrailingWhitespaceOnSave')
+        menuItem 'Autocomplete',
+          callback: (controller) ->
+            controller.editToggleAutocomplete()
+          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autocomplete')
         separator
         menuItem 'Use Vim Key Bindings',
           callback: (controller) ->
@@ -401,19 +401,8 @@ App.IdeMainMenuView = Em.View.extend
       menu 'Preview', @get('previewItems')
       menu 'Help', @get('helpMenuItems')
     ]
-
-    if App.get('router.ideEditorController.beta')
-      betaMenu = menu 'Beta', [
-        menuItem 'Autocomplete',
-          callback: (controller) ->
-            controller.betaToggleAutoCompleteBeta()
-          checkedBinding: Em.Binding.oneWay('App.router.ideEditorController.autoCompleteBeta')
-      ]
-
-      base.push betaMenu
-
     base
-  ).property('previewItems', 'helpMenuItems', 'App.router.ideEditorController.beta')
+  ).property('previewItems', 'helpMenuItems')
 
   currentYear: (->
     new Date().getFullYear()
