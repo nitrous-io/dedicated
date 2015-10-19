@@ -5,7 +5,7 @@ gem 'rails', '4.2.3'
 gem 'spring', group: :development
 gem 'bcrypt', '~> 3.1.10'
 
-gem 'thin', '~> 1.6.3'
+gem 'puma'
 gem 'rack-proxy', '~> 0.5.17'
 gem 'font_assets', '~> 0.1.11'
 
