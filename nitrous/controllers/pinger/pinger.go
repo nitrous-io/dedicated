@@ -42,6 +42,9 @@ func ForHost(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		}
 		h, err = host.FindShared(env.DB, env.User, hostID)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperror.New(http.StatusNotFound, "not_found", "workspace not found")
+			}
 			return err
 		}
 	}
