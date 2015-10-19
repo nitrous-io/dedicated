@@ -6,7 +6,7 @@ containerRestartingMessage = 'Container resuming, please wait...'
 freighterFeaturesRetry = 3000 # 3s
 
 App.IdeController = Em.ObjectController.extend
-  needs: ['ideFindInProject', 'ideFileFinder', 'ideVCS']
+  needs: ['ideFindInProject', 'ideFileFinder', 'ideGit']
 
   opsSocket: null
   collabSocket: null
@@ -54,7 +54,7 @@ App.IdeController = Em.ObjectController.extend
       router.get('ideSidebarController').initialize()
       router.get('ideEditorController').initialize()
       router.get('ideConsoleController').initialize()
-      router.get('ideVCSController').initialize()
+      router.get('ideGitController').initialize()
 
       PubSub.subscribe 'error.message', (msg, data) =>
         @set('errorDialog', data)

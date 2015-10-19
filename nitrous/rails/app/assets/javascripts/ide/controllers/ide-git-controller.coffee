@@ -1,4 +1,4 @@
-App.IdeVCSController = Em.Controller.extend
+App.IdeGitController = Em.Controller.extend
   needs: ['ideConsole']
 
   containerKeyAddedToGitHub: false

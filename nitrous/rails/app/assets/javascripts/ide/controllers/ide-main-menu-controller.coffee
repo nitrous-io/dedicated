@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar', 'ideVCS']
+  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar', 'ideGit']
   initialize: ->
   reset: ->
 
@@ -204,8 +204,8 @@ App.IdeMainMenuController = Em.Controller.extend
   betaToggleAutoCompleteBeta: ->
     @_toggleEditorProperty 'autoCompleteBeta'
 
-  vcsCloneFromGitHub: ->
-    if controller = @get 'controllers.ideVCS'
+  gitCloneFromGitHub: ->
+    if controller = @get 'controllers.ideGit'
       controller.showCloneFromGitHubDialog()
 
   _toggleEditorProperty: (property) ->
