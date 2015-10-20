@@ -76,6 +76,9 @@ type GitHubUserInfo struct {
 	TokenJSON string `json:"token_json"`
 }
 
+// This is subset of git.Repository.
+// Refer to https://github.com/google/go-github/blob/master/github/repos.go#L19.
+// Please don't change variable names.
 type GitHubRepository struct {
 	Name    string `json:"name"`
 	GitURL  string `json:"git_url"`
