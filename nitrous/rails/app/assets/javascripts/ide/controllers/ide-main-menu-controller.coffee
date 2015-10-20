@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar', 'ideGit']
   initialize: ->
   reset: ->
 
@@ -97,6 +97,9 @@ App.IdeMainMenuController = Em.Controller.extend
 
   editSplitSelectionIntoLines: (type) ->
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
+
+  editToggleAutocomplete: ->
+    @_toggleEditorProperty 'autocomplete'
 
   windowFocusConsole: ->
     if doc = @get 'controllers.ideEditor.activeTab'
@@ -200,6 +203,10 @@ App.IdeMainMenuController = Em.Controller.extend
 
   betaToggleAutoCompleteBeta: ->
     @_toggleEditorProperty 'autoCompleteBeta'
+
+  gitCloneFromGitHub: ->
+    if controller = @get 'controllers.ideGit'
+      controller.showCloneFromGitHubDialog()
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'

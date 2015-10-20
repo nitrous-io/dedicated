@@ -41,6 +41,10 @@ App.BackwardsCompatibleRouter = Em.Object.extend
     @getController 'ideBasicAuth'
   ).property()
 
+  ideGitController: (->
+    @getController 'ideGit'
+  ).property()
+
   getController: (name) ->
     App.__container__.lookup("controller:#{name}")
 

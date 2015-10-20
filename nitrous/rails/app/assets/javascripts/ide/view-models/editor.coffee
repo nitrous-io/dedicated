@@ -20,7 +20,7 @@ App.Editor = klass = Em.Object.extend
   wrapLines: null
   wrapperStyling: null
   fontSize: null
-  autoCompleteBeta: null
+  autocomplete: null
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -346,26 +346,30 @@ App.Editor = klass = Em.Object.extend
         plugin.afterChanges(changes)
 
     cm.on 'keydown', (cm, e)=>
-      if @get 'autoCompleteBeta'
-        if e.keyCode == 224 || (e.keyCode >= 91 && e.keyCode <= 93)
-          @osKeyActive = true
+      # unless explicitly disabled
+      return if @get('autocomplete') == false
+
+      if e.keyCode == 224 || (e.keyCode >= 91 && e.keyCode <= 93)
+        @osKeyActive = true
 
     cm.on 'keyup', (cm, e)=>
-      if @get 'autoCompleteBeta'
-        if @osKeyActive
-          @osKeyActive = false
-          return
+      # unless explicitly disabled
+      return if @get('autocomplete') == false
 
-        # disable autocomplete on Windows Ctrl+Z, Ctrl+X, Ctrl+C, Ctrl+S
-        if e.ctrlKey && (e.keyCode == 90 || e.keyCode == 88 || e.keyCode == 67 || e.keyCode == 83)
-          return
+      if @osKeyActive
+        @osKeyActive = false
+        return
 
-        if e.keyCode == 8 || (e.keyCode >= 48 && e.keyCode <= 90) || (e.keyCode >= 186 && e.keyCode <= 222)
-          if (plugin = @get('documentPlugin')) && (pluginCmd = plugin.autocomplete)
-            command = (cm, callback, options)->
-              pluginCmd.apply plugin, [cm, callback, options]
-            command.async = true
-            cm.showHint hint: command
+      # disable autocomplete on Windows Ctrl+Z, Ctrl+X, Ctrl+C, Ctrl+S
+      if e.ctrlKey && (e.keyCode == 90 || e.keyCode == 88 || e.keyCode == 67 || e.keyCode == 83)
+        return
+
+      if e.keyCode == 8 || (e.keyCode >= 48 && e.keyCode <= 90) || (e.keyCode >= 186 && e.keyCode <= 222)
+        if (plugin = @get('documentPlugin')) && (pluginCmd = plugin.autocomplete)
+          command = (cm, callback, options)->
+            pluginCmd.apply plugin, [cm, callback, options]
+          command.async = true
+          cm.showHint hint: command
 
     cm.on 'gutterClick', (cm, line, gutter, e) ->
       return if gutter != 'CodeMirror-linenumbers'
@@ -425,6 +429,6 @@ klass.reopenClass
     'keybindings'
     'removeTrailingWhitespaceOnSave'
     'fontSize'
-    'autoCompleteBeta'
+    'autocomplete'
     'beta'
   ]

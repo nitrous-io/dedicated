@@ -56,6 +56,8 @@ var (
 	errAuthorizeForbidden   = httperror.New(http.StatusForbidden, "authorize_forbidden", "You do not have permission to authorize GitHub")
 	errInvalidOAuthCallback = httperror.New(http.StatusBadRequest, "invalid_oauth_callback", "unexpected call from GitHub")
 
+	errNotConnectedWithGitHub = httperror.New(http.StatusForbidden, "not_connected_with_github", "You need to connect with GitHub")
+
 	ErrTokenEmpty       = errors.New("token is empty")
 	ErrTokenNotValid    = errors.New("token not valid")
 	ErrKeyAlreadyExists = errors.New("key is already added to GitHub")
@@ -72,6 +74,15 @@ type OAuthState struct {
 type GitHubUserInfo struct {
 	UserName  string `json:"username"`
 	TokenJSON string `json:"token_json"`
+}
+
+// This is subset of git.Repository.
+// Refer to https://github.com/google/go-github/blob/master/github/repos.go#L19.
+// Please don't change variable names.
+type GitHubRepository struct {
+	Name    string `json:"name"`
+	GitURL  string `json:"git_url"`
+	Private bool   `json:"private"`
 }
 
 const (
@@ -141,6 +152,34 @@ var AddKeyToGitHub = func(env *middleware.Env, h *host.Host, cn *container.Conta
 	return nil
 }
 
+var FetchRepos = func(env *middleware.Env) ([]GitHubRepository, error) {
+	token, err := GetTokenIfValid(env)
+	if err != nil {
+		return nil, err
+	}
+
+	gitHubClient := GitHubClientFromToken(token)
+	// If username is not given, it returns current user's repositories
+	// Search with default options ( it returns all repos by default )
+	repos, _, err := gitHubClient.Repositories.List("", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var repositories []GitHubRepository
+	for _, repo := range repos {
+		repository := GitHubRepository{
+			Name:    *repo.Name,
+			GitURL:  *repo.SSHURL,
+			Private: *repo.Private,
+		}
+
+		repositories = append(repositories, repository)
+	}
+
+	return repositories, nil
+}
+
 var GetRedisKeyForOAuth = func(token string) string {
 	return fmt.Sprintf("github:login:uuid:%s", token)
 }
@@ -203,6 +242,23 @@ func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"redirect_url": url,
+	}
+	return nil
+}
+
+// /api/v0/github/repos
+// Repos returns user's public/private github repositories
+func Repos(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	repositories, err := FetchRepos(env)
+	if err == ErrTokenEmpty {
+		return errNotConnectedWithGitHub
+	} else if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"repos": repositories,
 	}
 	return nil
 }
