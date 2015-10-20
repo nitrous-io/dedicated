@@ -34,8 +34,8 @@ App.IdeGitController = Em.Controller.extend
       @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
 
   openTerminalAndCloneRepo: (gitUrl) ->
-    # git://github.com/username/project-name.git => project-name
-    matches = gitUrl.match(/\/([^\/]+)\.git/)
+    # i.e. git://github.com/username/project-name.git => project-name
+    matches = gitUrl.match(/\/([^\/]+)\.git$/)
     if matches
       cloneDir = "/home/nitrous/code/#{matches[1]}"
       tab = App.ConsoleSession.create(initCommand: "git clone #{gitUrl} #{cloneDir} && cd #{cloneDir}")
