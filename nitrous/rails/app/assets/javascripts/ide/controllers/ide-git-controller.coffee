@@ -40,6 +40,7 @@ App.IdeGitController = Em.Controller.extend
       cloneDir = "/home/nitrous/code/#{matches[1]}"
       tab = App.ConsoleSession.create(initCommand: "git clone #{gitUrl} #{cloneDir} && cd #{cloneDir}")
       @get('controllers.ideConsole').addTab tab, {}
+      Mp.increment Mp.PropertyIDEGitCloneCount
 
   updateContainerKeyStatus: ->
     Em.$.ajax(
