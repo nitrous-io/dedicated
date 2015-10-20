@@ -35,8 +35,8 @@ App.IdeEditorController = Em.ArrayController.extend App.IdeTabControllerMixin,
   removeTrailingWhitespaceOnSave: true
   keybindings: 'default'
   fontSize: null
+  autocomplete: true
 
-  autoCompleteBeta: null
   beta: false
 
   initialize: ->

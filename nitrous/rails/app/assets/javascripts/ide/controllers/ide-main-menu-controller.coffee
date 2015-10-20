@@ -98,6 +98,9 @@ App.IdeMainMenuController = Em.Controller.extend
   editSplitSelectionIntoLines: (type) ->
     activeDocumentSet 'splitSelectionIntoLinesTrigger', true
 
+  editToggleAutocomplete: ->
+    @_toggleEditorProperty 'autocomplete'
+
   windowFocusConsole: ->
     if doc = @get 'controllers.ideEditor.activeTab'
       doc.set 'focused', false
@@ -197,9 +200,6 @@ App.IdeMainMenuController = Em.Controller.extend
   viewResetFontSize: ->
     if editorController = @get 'controllers.ideEditor'
       editorController.resetFontSize()
-
-  betaToggleAutoCompleteBeta: ->
-    @_toggleEditorProperty 'autoCompleteBeta'
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'

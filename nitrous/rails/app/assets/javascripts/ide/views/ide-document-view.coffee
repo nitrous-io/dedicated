@@ -23,7 +23,7 @@ App.IdeDocumentView = Em.View.extend
   themeBinding: 'controller.theme'
   wrapLinesBinding: 'controller.wrapLines'
   fontSizeBinding: 'controller.fontSize'
-  autoCompleteBetaBinding: 'controller.autoCompleteBeta'
+  autocompleteBinding: 'controller.autocomplete'
 
   foldGutterClass: 'CodeMirror-foldgutter'
 
@@ -344,9 +344,9 @@ App.IdeDocumentView = Em.View.extend
     @updateEditor('keybindings')
   ).observes 'keybindings'
 
-  autoCompleteBetaDidChange: (->
-    @updateEditor('autoCompleteBeta')
-  ).observes 'autoCompleteBeta'
+  autocompleteDidChange: (->
+    @updateEditor('autocomplete')
+  ).observes 'autocomplete'
 
   contentDidChange: (->
     if editor = @get 'editor'
