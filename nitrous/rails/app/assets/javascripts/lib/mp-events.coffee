@@ -51,3 +51,4 @@ Object.assign window.Mp,
   PropertyFreeQueueCanceled: "waitlist_canceled_date" # backend
   PropertyFreeQueueApproved: "waitlist_approved_date" # backend
   PropertyFreeQueueRejected: "waitlist_rejected_date" # backend
+  PropertyIDEGitCloneCount: "ide_git_clone"

@@ -3,7 +3,7 @@ activeDocumentSet = (attr, val) ->
     tab.set attr, val
 
 App.IdeMainMenuController = Em.Controller.extend
-  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar']
+  needs: ['ide', 'ideEditor', 'ideConsole', 'ideFindInProject', 'ideFileFinder', 'ideSidebar', 'ideGit']
   initialize: ->
   reset: ->
 
@@ -200,6 +200,13 @@ App.IdeMainMenuController = Em.Controller.extend
   viewResetFontSize: ->
     if editorController = @get 'controllers.ideEditor'
       editorController.resetFontSize()
+
+  betaToggleAutoCompleteBeta: ->
+    @_toggleEditorProperty 'autoCompleteBeta'
+
+  gitCloneFromGitHub: ->
+    if controller = @get 'controllers.ideGit'
+      controller.showCloneFromGitHubDialog()
 
   _toggleEditorProperty: (property) ->
     if editorController = @get 'controllers.ideEditor'
