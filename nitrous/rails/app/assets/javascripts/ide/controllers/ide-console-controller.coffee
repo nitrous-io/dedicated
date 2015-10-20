@@ -37,9 +37,10 @@ App.IdeConsoleController = Em.ArrayController.extend App.IdeTabControllerMixin, 
     if terminal.conn.ws.readyState == 1
       terminal.conn.send("d|#{command} \n")
     else
-      Ember.run.later( =>
-        @runCommand(terminal, command)
-      , 1000)
+      unless terminal.closed
+        Ember.run.later( =>
+          @runCommand(terminal, command)
+        , 1000)
 
   addTab: ->
     empty = @get('content.length') == 0
