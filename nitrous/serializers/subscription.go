@@ -19,6 +19,7 @@ type Subscription struct {
 
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
+	TrialEnd  *time.Time `json:"trial_end"`
 
 	HostSlug string `json:"host_slug,omitempty"`
 	OrgID    int64  `json:"org_id,omitempty"`
@@ -45,6 +46,10 @@ func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscripti
 
 	if s.CurrentPeriodEnd.Valid {
 		serialized.CurrentPeriodEnd = &(s.CurrentPeriodEnd.Time)
+	}
+
+	if s.TrialEnd.Valid {
+		serialized.TrialEnd = &(s.TrialEnd.Time)
 	}
 
 	return serialized

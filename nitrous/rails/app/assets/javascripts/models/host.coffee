@@ -113,6 +113,14 @@ App.Host = klass = App.Model.extend
       App.get('subscriptions').findBy('slug', subscriptionSlug)
   ).property 'subscriptionSlug', 'App.subscriptions.@each'
 
+  activeTrialEnd: (->
+    # Don't show trial info if trial already ended.
+    currentDate = new Date()
+    if trialEndDate = @get('subscription.trialEnd')
+      if trialEndDate > currentDate
+        trialEndDate
+  ).property 'subscription.trialEnd'
+
   freighterdUrl: (->
     hostname = @get 'proxyHostname'
     port = @get 'freighterdPort'

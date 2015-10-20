@@ -21,11 +21,15 @@
                 else
                   = subscription.plan.name
               td class={subscription.cancelPending:cancel-pending}
-                if subscription.cancelPending
-                  ' Cancels on
+                if subscription.activeTrialEnd
+                  ' Trial ends on
+                  = monDayYear subscription.activeTrialEnd
                 else
-                  ' Renews on
-                = monDayYear subscription.currentPeriodEnd
+                  if subscription.cancelPending
+                    ' Cancels on
+                  else
+                    ' Renews on
+                  = monDayYear subscription.currentPeriodEnd
               td.actions
                 if subscription.cancelPending
                   button.ui.btn.secondary click='showReactivateSubscription subscription'
@@ -41,7 +45,10 @@
                     else
                       button.ui.btn.primary disabled='disabled'
                         | Upgrade
-                  button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
+                  if subscription.activeTrialEnd
+                    button.ui.btn.danger disabled=subscription.cancelPending click='showCancelTrial subscription' Cancel
+                  else
+                    button.ui.btn.danger disabled=subscription.cancelPending click='showCancelSubscription subscription' Cancel
               td.charge
                 | $
                 = currency subscription.totalPriceInDollars
@@ -121,6 +128,48 @@
       .right
         button.ui.btn click='hideCancelSubscription' Back
         button.ui.btn.danger.terminate-btn click='cancelSubscription subscription' disabled=terminateSlugConfirmationInvalid Cancel Subscription
+
+.cancel-trial-modal-dialog.ui.modal
+  .ui.card
+    h2.card-header Cancel Trial
+    .card-body
+      p
+        ' Are you sure you want to cancel your free trial for
+        if subscription.hostSlug
+          | the workspace &ldquo;
+          if subscription.host.displayName
+            = subscription.host.displayName
+          else
+            = subscription.hostSlug
+          | &rdquo; (#{subscription.plan.name})?
+        else
+          | the plan &ldquo;#{subscription.plan.name}&rdquo;?
+      p
+        ' Your free trial ends on #{simpledate subscription.activeTrialEnd}. After cancelling, your
+        if subscription.hostSlug
+          | workspace &ldquo;
+          if subscription.host.displayName
+            = subscription.host.displayName
+          else
+            = subscription.hostSlug
+          | &rdquo;
+        else
+          | workspaces
+        |  will be terminated immediately. This means that you will not be able to resume your free trial or be eligible for any more free trials.
+      p
+        ' Please type in the slug of the workspace
+        strong
+          | (
+          span.click-highlight
+            = subscription.hostSlug
+          ' )
+        | to confirm:
+      .ui.input-group
+        Em.TextField class='focus' placeholder=slug value=terminateSlugConfirmation insertNewline=view.clickTerminate
+    .card-footer
+      .right
+        button.ui.btn click='hideCancelTrial' Back
+        button.ui.btn.danger.terminate-btn click='cancelTrial subscription' disabled=terminateSlugConfirmationInvalid Cancel Trial
 
 .reactivate-subscription-modal-dialog.ui.modal
   .ui.card

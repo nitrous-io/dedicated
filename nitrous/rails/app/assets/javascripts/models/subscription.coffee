@@ -15,6 +15,7 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   updatedAt: attr('date', as: 'updated_at')
   hostSlug: attr('string', as: 'host_slug')
   cancelPending: attr('boolean', as: 'cancel_pending')
+  trialEnd: attr('date', as: 'trial_end')
 
   _plan: attr('object', as: 'plan')
 
@@ -28,6 +29,13 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     if hostSlug = @get('hostSlug')
       App.get('hosts').findBy('slug', hostSlug)
   ).property 'hostSlug', 'App.hosts.@each'
+
+  activeTrialEnd: (->
+    currentDate = new Date()
+    if trialEndDate = @get('trialEnd')
+      if trialEndDate > currentDate
+        trialEndDate
+  ).property 'trialEnd'
 
   totalPriceInDollars: (->
     return unless @get 'plan'

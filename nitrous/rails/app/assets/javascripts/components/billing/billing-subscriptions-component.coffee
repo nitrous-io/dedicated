@@ -44,6 +44,22 @@ App.BillingSubscriptionsComponent = Em.Component.extend
       ui.hideModal(@$('.wait-for-host-modal-dialog'))
       @set('subscription', null)
 
+    showCancelTrial: (subscription) ->
+      @set('subscription', subscription)
+      ui.showModal(@$('.cancel-trial-modal-dialog'))
+
+    hideCancelTrial: ->
+      ui.hideModal(@$('.cancel-trial-modal-dialog'))
+      @set('subscription', null)
+
+    cancelTrial: (subscription) ->
+      ui.hideModal(@$('.cancel-trial-modal-dialog'))
+      return unless subscription
+      subscription.cancel().then ->
+        App.snackbar.post('Trial cancelled successfully.')
+      , (jqxhr) ->
+        App.postError(jqxhr.responseJSON, 'Failed to cancel Trial.')
+
     showCancelSubscription: (subscription) ->
       @set('subscription', subscription)
       ui.showModal(@$('.cancel-subscription-modal-dialog'))
