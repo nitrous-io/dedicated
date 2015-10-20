@@ -172,5 +172,4 @@ klass = class Javascript extends PluginBase
 
         callback(_handlers: options.handlers, list: @hashToResults(suggestedResults, results), to: cursor, from: {line: cursor.line, ch: (cursor.ch - symbol.length)})
 
-klass.beta = true
 App.CodePluginsManager.registerCodePlugin "javascript", klass, ["javascript", "text/x-javascript", "text/javascript"]
