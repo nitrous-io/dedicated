@@ -170,7 +170,7 @@ var FetchRepos = func(env *middleware.Env) ([]GitHubRepository, error) {
 	for _, repo := range repos {
 		repository := GitHubRepository{
 			Name:    *repo.Name,
-			GitURL:  *repo.GitURL,
+			GitURL:  *repo.SSHURL,
 			Private: *repo.Private,
 		}
 
