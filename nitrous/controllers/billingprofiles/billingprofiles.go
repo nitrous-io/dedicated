@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -68,8 +70,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	previousPendingActivation := bp.PendingActivation
 
 	if bp.StripeID.Valid {
-		err = bp.UpdateCard(db, cardToken)
-		if err != nil {
+		if err := updateCard(env, bp, cardToken); err != nil {
 			return handleBillingError(err)
 		}
 	} else {
@@ -136,8 +137,6 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 }
 
 func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
 	cardToken := r.FormValue("card_token")
 	if cardToken == "" {
 		return httperror.New(http.StatusBadRequest, "card_token_required", "credit card token can't be blank")
@@ -148,7 +147,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := bp.UpdateCard(db, cardToken); err != nil {
+	if err := updateCard(env, bp, cardToken); err != nil {
 		return handleBillingError(err)
 	}
 
@@ -226,4 +225,26 @@ func awardCredits(d *db.Database, user *user.User) int64 {
 func creditForUser(d db.QueryReceiver, user *user.User) (*credittype.CreditType, error) {
 	creditCode := user.PromoCode.String
 	return credittype.FindValidCreditTypeByName(d, creditCode)
+}
+
+func updateCard(env *middleware.Env, bp *billingprofile.BillingProfile, cardToken string) error {
+	db := env.DB
+	u := env.User
+
+	segmentID, err := segment.UserDefaultID(db)
+	if err != nil {
+		return err
+	}
+
+	return db.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := bp.UpdateCard(tx, cardToken); err != nil {
+			return err
+		}
+
+		u.SegmentID = segmentID
+		if err := u.Update(tx); err != nil {
+			return err
+		}
+		return nil
+	})
 }

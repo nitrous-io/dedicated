@@ -170,7 +170,7 @@ func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(b).StructScan(b)
 }
 
-func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
+func (b *BillingProfile) UpdateCard(tx *sqlx.Tx, token string) error {
 	if !b.StripeID.Valid {
 		return StripeProfileRequiredError
 	}
@@ -185,27 +185,22 @@ func (b *BillingProfile) UpdateCard(d *db.Database, token string) error {
 
 	crd := c.Cards.Values[0]
 
-	if err := b.SetCard(d, crd); err != nil {
+	if err := b.SetCard(tx, crd); err != nil {
 		return err
 	}
+
 	if b.State == StateNoCard || b.State == StateFree {
 		b.State = StatePaid
 	}
 
-	tx, err := d.Beginx()
-	if err != nil {
-		return err
-	}
-
 	if err := b.Update(tx); err != nil {
-		tx.Rollback()
 		return fmt.Errorf("Billing profile update failed. Reason - %s", err)
 	}
 
-	return tx.Commit()
+	return nil
 }
 
-func (b *BillingProfile) SetCard(d *db.Database, crd *stripe.Card) error {
+func (b *BillingProfile) SetCard(d db.QueryReceiver, crd *stripe.Card) error {
 	var banned bool
 	err := d.Get(&banned, `SELECT COUNT(*) > 0
 		FROM billing_profiles
