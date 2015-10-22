@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,8 +20,6 @@ const (
 	workers  = 4 // controls number of concurrent http calls
 	interval = 1 * time.Minute
 
-	usage = `monfrei [--live-run]`
-
 	// user will supply remainder of query
 	queryf = `
 	SELECT hosts.slug, users.email
@@ -32,7 +31,19 @@ const (
 )
 
 var (
-	dryrun = true
+	usage = fmt.Sprintf(`Usage: monitor-freighter -q <aux query> [--live-run]
+
+	Where <aux query> is an addition to this query:
+	
+	%s
+
+	Example usage:
+
+	  monitor-freighter -q 'AND users.id = 3'
+	`, queryf)
+
+	liverun  = false
+	auxQuery string
 
 	dbConn *db.Database
 
@@ -59,17 +70,8 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 
-	for _, arg := range os.Args[1:] {
-		if arg == "--live-run" {
-			dryrun = false
-		}
-	}
-
-	if dryrun {
-		logrus.Warnf("Operating as a dry-run, no e-mails will be sent")
-	} else {
-		logrus.Warnf("--live-run specified, users will be e-mailed")
-	}
+	flag.BoolVar(&liverun, "live-run", false, "enable live run")
+	flag.StringVar(&auxQuery, "q", "", "custom SQL for workspaces to dispatch")
 
 	envvars.CheckDB()
 	dbURL := envvars.NitrousPgUrl
@@ -91,12 +93,14 @@ func init() {
 }
 
 func dispatcher(ch chan Workspace) {
+	query := fmt.Sprintf(queryf, auxQuery)
+	logrus.Info("Determining workspaces to query with %s", query)
 	for {
 		ws := []Workspace{}
 		// run Select in transaction in case cmd user accidentally
 		// passes in a query that changes db
 		_ = dbConn.WithTransaction(func(tx *sqlx.Tx) error {
-			serr := tx.Select(&ws, fmt.Sprintf(queryf, "AND hosts.id < 0"))
+			serr := tx.Select(&ws, query)
 			if serr != nil {
 				logrus.Error("Error in dispatcher query: %v", serr)
 			}
@@ -139,39 +143,51 @@ func ping(w Workspace) {
 	if resp.StatusCode == http.StatusOK {
 		logrus.WithFields(fields).Info("passed")
 		consecFails[w.Slug] = 0
-	} else {
-		consecFails[w.Slug] += 1
-		numFails := consecFails[w.Slug]
-		fields["code"] = resp.StatusCode
-		fields["fails"] = numFails
-		logrus.WithFields(fields).Warn("bad")
+		return
+	}
+	consecFails[w.Slug] += 1
+	numFails := consecFails[w.Slug]
+	fields["code"] = resp.StatusCode
+	fields["fails"] = numFails
+	logrus.WithFields(fields).Warn("bad")
 
-		// we don't want to repeatedly e-mail, so only mail once after 5 failed
-		// attempts, and thereafter every N attempts (where N is calculated
-		// from polling interval to be less frequent than once an hour)
-		if (numFails-5)%failsBeforeMail == 0 {
-			if dryrun {
-				logrus.WithFields(fields).Info("not e-mailing user (dryrun)")
-				return
-			}
-			from := envvars.SupportEmail
-			to := w.Email
-			subject := fmt.Sprintf("Workspace %s unavailable for %s", w.Slug, time.Duration(float64(numFails)*interval.Seconds())*time.Second)
-			fields["from"] = from
-			fields["to"] = to
-			fields["subject"] = subject
-			logrus.WithFields(fields).Info("sending e-mail")
-			err := sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
-				subject, "(no body)", "(no body)")
-			if err != nil {
-				fields["err"] = err
-				logrus.WithFields(fields).Error("error sending email")
-			}
-		}
+	// we don't want to repeatedly e-mail, so only mail once after 5 failed
+	// attempts, and thereafter every N attempts (where N is calculated
+	// from polling interval to be less frequent than once an hour)
+	if (numFails-5)%failsBeforeMail != 0 {
+		return
+	}
+	if !liverun {
+		logrus.WithFields(fields).Info("not e-mailing user (dry run)")
+		return
+	}
+	from := envvars.SupportEmail
+	to := w.Email
+	subject := fmt.Sprintf("Workspace %s unavailable for %s", w.Slug, time.Duration(float64(numFails)*interval.Seconds())*time.Second)
+	fields["from"] = from
+	fields["to"] = to
+	fields["subject"] = subject
+	logrus.WithFields(fields).Info("sending e-mail")
+	err := sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
+		subject, "(no body)", "(no body)")
+	if err != nil {
+		fields["err"] = err
+		logrus.WithFields(fields).Error("error sending email")
 	}
 }
 
 func main() {
+	flag.Parse()
+	if auxQuery == "" {
+		fmt.Fprintf(os.Stderr, usage)
+		os.Exit(1)
+	}
+	if !liverun {
+		logrus.Warnf("Operating as a dry-run, no e-mails will be sent")
+	} else {
+		logrus.Warnf("--live-run specified, users will be e-mailed")
+	}
+
 	wch := make(chan Workspace)
 	for i := 0; i < workers; i++ {
 		go worker(wch)
