@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 const (
@@ -215,4 +216,33 @@ func (p *Plan) TrialEnd(startTime int64) int64 {
 		return 0
 	}
 	return (time.Unix(startTime, 0).Add(time.Duration(p.TrialPeriodDays*24) * time.Hour)).Unix()
+}
+
+func PlansFor(d db.QueryReceiver, u *user.User) ([]*Plan, error) {
+	plans := []*Plan{}
+
+	if u != nil {
+		err := d.Select(&plans, `
+		SELECT plans.* FROM plans
+			JOIN plan_segments ON plan_segments.plan_id = plans.id
+			WHERE NOT disabled
+			AND plan_segments.segment_id = $1
+		ORDER BY (price, max_containers, name);`, u.SegmentID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := d.Select(&plans, `
+		SELECT plans.* FROM plans
+			JOIN plan_segments ON plan_segments.plan_id = plans.id
+			JOIN segments ON segments.id = plan_segments.segment_id
+			WHERE NOT disabled
+			AND segments.user_default
+		ORDER BY (price, max_containers, name);`)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return plans, nil
 }

@@ -7,6 +7,7 @@ import (
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -490,6 +491,73 @@ var _ = Describe("models/plan", func() {
 			p := &plan.Plan{Price: 2000, Org: true}
 			p2 := &plan.Plan{Price: 2500, Org: true}
 			Expect(p.CanUpgradeToPlan(p2)).To(BeTrue())
+		})
+	})
+
+	Describe("PlansFor", func() {
+		var (
+			u                        *user.User
+			userDefaultSegmentID     int64
+			freeUserDefaultSegmentID int64
+		)
+
+		plans := []*plan.Plan{
+			{Slug: "free"},
+			{Slug: "1gb"},
+			{Slug: "2gb"},
+		}
+
+		BeforeEach(func() {
+			// Get default segment ID
+			err := db.QueryRow(`SELECT id from segments where user_default='t'`).Scan(&userDefaultSegmentID)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = db.QueryRow(`SELECT id from segments where free_user_default='t'`).Scan(&freeUserDefaultSegmentID)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, p := range plans {
+				pl, err := plan.FindBySlug(db, p.Slug)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Add plan segments
+				if pl.Slug != "free" {
+					ps := plan_segment.PlanSegment{SegmentID: userDefaultSegmentID, PlanID: pl.ID}
+					Expect(ps.Insert(db)).NotTo(HaveOccurred())
+				}
+				ps := plan_segment.PlanSegment{SegmentID: freeUserDefaultSegmentID, PlanID: pl.ID}
+				Expect(ps.Insert(db)).NotTo(HaveOccurred())
+			}
+
+			u = &user.User{
+				Username:  "foo",
+				Email:     "foo@example.com",
+				Password:  "123456",
+				SegmentID: freeUserDefaultSegmentID,
+			}
+			err = test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			u.SegmentID = freeUserDefaultSegmentID
+			Expect(u.Update(db)).NotTo(HaveOccurred())
+		})
+
+		It("returns default plans if user is nil", func() {
+			plans, err := plan.PlansFor(db, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(plans).To(HaveLen(2))
+			Expect(plans[0].Slug).To(Equal("1gb"))
+			Expect(plans[1].Slug).To(Equal("2gb"))
+		})
+
+		It("returns user plans if user is not nil", func() {
+			plans, err := plan.PlansFor(db, u)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(plans).To(HaveLen(3))
+			Expect(plans[0].Slug).To(Equal("free"))
+			Expect(plans[1].Slug).To(Equal("1gb"))
+			Expect(plans[2].Slug).To(Equal("2gb"))
 		})
 	})
 })
