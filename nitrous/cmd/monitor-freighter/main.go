@@ -168,7 +168,7 @@ func ping(w Workspace) {
 	fields["to"] = to
 	fields["subject"] = subject
 	logrus.WithFields(fields).Info("sending e-mail")
-	err := sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
+	err = sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
 		subject, "(no body)", "(no body)")
 	if err != nil {
 		fields["err"] = err
