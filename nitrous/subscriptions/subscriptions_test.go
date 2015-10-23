@@ -516,7 +516,7 @@ var _ = Describe("subscriptions", func() {
 				Expect(cp2.UsedAt.Time).To(BeZero())
 			})
 
-			It("sends correct trial end param to Stripe for plans with free trial", func() {
+			It("sends correct trial end param to Stripe for plans with free trial and updates trial_eligible to false", func() {
 				pl.TrialPeriodDays = 3
 
 				fakeStripe.Responses = []string{
@@ -548,6 +548,43 @@ var _ = Describe("subscriptions", func() {
 				s, err = findByHostID(db, hs.H.ID)
 				Expect(err).To(BeNil())
 				Expect(s.TrialEnd.Time).To(BeTemporally("==", time.Unix(1441234567, 0)))
+
+				updatedBp, err := billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
+
+				Expect(updatedBp.TrialEligible).To(BeFalse())
+			})
+
+			It("should not send trial end param to Stripe if user is not eligible for free trial and should not update trial_eligible to false", func() {
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419,
+					"trial_end": null,
+					"plan": { "id": "stripe-plan-id" }
+				}`,
+				}
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+				r := fakeStripe.ReceivedRequests[0]
+				Expect(r["method"]).To(Equal("POST"))
+				Expect(r["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions", stripeCustomerID)))
+
+				s, err = findByHostID(db, hs.H.ID)
+				Expect(err).To(BeNil())
+				Expect(s.TrialEnd.Valid).To(BeFalse())
+
+				latestBp, err := billingprofile.FindByID(db, bp.ID)
+				Expect(err).To(BeNil())
+
+				Expect(latestBp.TrialEligible).To(BeTrue())
 			})
 		}
 

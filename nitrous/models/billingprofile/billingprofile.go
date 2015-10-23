@@ -59,8 +59,11 @@ type BillingProfile struct {
 	PendingActivation bool           `db:"pending_activation"` // not activated yet
 	FailedAttempts    int            `db:"failed_attempts"`
 	MaxHours          sql.NullInt64  `db:"max_hours"`
-	CreatedAt         *time.Time     `db:"created_at"`
-	UpdatedAt         *time.Time     `db:"updated_at"`
+
+	TrialEligible bool `db:"trial_eligible"`
+
+	CreatedAt *time.Time `db:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at"`
 
 	// set by hand if we're giving this user ability to upgrade to hosting mode
 	// for free.  If non-null, all subscriptions created prior to this date are
@@ -160,8 +163,8 @@ func Create(tx *sqlx.Tx, userID int64, orgID sql.NullInt64) error {
 // To update the card or email in Stripe, use UpdateCard or UpdateEmail.
 func (b *BillingProfile) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE billing_profiles
-		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, max_hours, updated_at)
-		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, :max_hours, now())
+		SET (stripe_id, stripe_fingerprint, last_four, card_type, exp_month, exp_year, state, pending_activation, max_hours, trial_eligible, updated_at)
+		= (:stripe_id, :stripe_fingerprint, :last_four, :card_type, :exp_month, :exp_year, :state, :pending_activation, :max_hours, :trial_eligible, now())
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
