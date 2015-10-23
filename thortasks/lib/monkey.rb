@@ -5,7 +5,9 @@ module Kernel
   end
 
   def rows_expected!(actual, expected)
-    puts "Expected #{expected} rows, got #{actual}" if actual != expected
-    raise Sequel::Rollback
+    if actual != expected
+      puts "Expected #{expected} rows, got #{actual}"
+      raise Sequel::Rollback
+    end
   end
 end
