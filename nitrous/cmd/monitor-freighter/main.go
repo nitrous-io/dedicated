@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	usage = fmt.Sprintf(`Usage: monitor-freighter -q <aux query> [--live-run]
+	usage = fmt.Sprintf(`Usage: monitor-freighter -q <aux query> [--live-run] [-d duration between mails]
 
 	Where <aux query> is an addition to this query:
 	
@@ -47,6 +47,7 @@ var (
 
 	dbConn *db.Database
 
+	mailInterval    time.Duration
 	failsBeforeMail int // number of failed attempts to wait between e-mails
 	sgMailer        mailer.Mailer
 
@@ -62,16 +63,12 @@ type Workspace struct {
 func init() {
 	consecFails = make(map[string]int)
 
-	// e-mails are spaced out so they will not be more than once an hour
-	if interval.Seconds() < 3600 {
-		failsBeforeMail = 3600 / int(interval.Seconds())
-	}
-
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 
 	flag.BoolVar(&liverun, "live-run", false, "enable live run")
 	flag.StringVar(&auxQuery, "q", "", "custom SQL for workspaces to dispatch")
+	flag.DurationVar(&mailInterval, "d", 24*time.Hour, "duration between mails. Units are: 's', 'm', 'h'")
 
 	envvars.CheckDB()
 	dbURL := envvars.NitrousPgUrl
@@ -85,11 +82,6 @@ func init() {
 	envvars.CheckSendgrid()
 	sgMailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
 
-	logrus.WithFields(logrus.Fields{
-		"num workers":                   workers,
-		"polling interval":              interval,
-		"failed attempts between mails": failsBeforeMail,
-	}).Info("running with this config")
 }
 
 func dispatcher(ch chan Workspace) {
@@ -188,11 +180,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, usage)
 		os.Exit(1)
 	}
+	// e-mails are spaced out so they will not be more than specified mail interval
+	if interval.Seconds() < mailInterval.Seconds() {
+		failsBeforeMail = int(mailInterval.Seconds()) / int(interval.Seconds())
+	}
+
 	if !liverun {
 		logrus.Warnf("Operating as a dry-run, no e-mails will be sent")
 	} else {
 		logrus.Warnf("--live-run specified, users will be e-mailed")
 	}
+
+	logrus.WithFields(logrus.Fields{
+		"liverun":                       liverun,
+		"aux_query":                     auxQuery,
+		"num_workers":                   workers,
+		"polling_interval":              interval,
+		"mail_interval":                 mailInterval,
+		"failed_attempts_between_mails": failsBeforeMail,
+	}).Info("running with this config")
 
 	wch := make(chan Workspace)
 	for i := 0; i < workers; i++ {
