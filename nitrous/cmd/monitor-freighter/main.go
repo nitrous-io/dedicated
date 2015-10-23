@@ -99,13 +99,19 @@ func dispatcher(ch chan Workspace) {
 		ws := []Workspace{}
 		// run Select in transaction in case cmd user accidentally
 		// passes in a query that changes db
-		_ = dbConn.WithTransaction(func(tx *sqlx.Tx) error {
-			serr := tx.Select(&ws, query)
-			if serr != nil {
-				logrus.Error("Error in dispatcher query: %v", serr)
+		errRollback := fmt.Errorf("force rollback")
+		err := dbConn.WithTransaction(func(tx *sqlx.Tx) error {
+			if _, err := tx.Exec("SET TRANSACTION READ ONLY"); err != nil {
+				return err
 			}
-			return fmt.Errorf("force rollback")
+			if err := tx.Select(&ws, query); err != nil {
+				return err
+			}
+			return errRollback
 		})
+		if err != nil && err != errRollback {
+			logrus.Error("Error in dispatcher query: %v", err)
+		}
 		logrus.Debugf("dispatching %d workspaces for monitoring", len(ws))
 		if len(ws) > 0 {
 			for _, w := range ws {
