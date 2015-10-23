@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
@@ -64,6 +65,23 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 	if err != nil {
 		return nil, err
 	}
+	return org, nil
+}
+
+func FindByIdOrSlug(d db.QueryReceiver, identifier string) (*Org, error) {
+	org := &Org{}
+	id, err := strconv.ParseInt(identifier, 10, 64)
+
+	if err == nil {
+		if err := d.Get(org, "SELECT * FROM orgs WHERE id = $1 AND deleted_at IS NULL", id); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := d.Get(org, "SELECT * FROM orgs WHERE slug = $1 AND deleted_at IS NULL", identifier); err != nil {
+			return nil, err
+		}
+	}
+
 	return org, nil
 }
 
@@ -202,4 +220,20 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 
 	err = bp.Activate(d, c)
 	return
+}
+
+func (o *Org) Plans(d *db.Database) ([]*plan.Plan, error) {
+	plans := []*plan.Plan{}
+
+	err := d.Select(&plans, `
+		SELECT plans.* FROM plans
+			JOIN plan_segments ON plan_segments.plan_id = plans.id
+			WHERE NOT disabled
+			AND plan_segments.segment_id = $1
+		ORDER BY (price, max_containers, name);`, o.SegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return plans, nil
 }
