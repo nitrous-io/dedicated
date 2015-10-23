@@ -230,6 +230,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 				}
 				fields["params"] = params
 			}
+
 			logrus.WithFields(fields).Infof("Request")
 		}
 		env := &middleware.Env{
@@ -242,7 +243,7 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			UUID:        uuidStr,
 		}
 		if err := mw(env, w, r); err != nil {
-			s.HandleError(w, r, err)
+			s.HandleError(env, w, r, err)
 			return
 		}
 		routeIsJSON := env.Status != 0 && env.Data != nil
@@ -250,11 +251,11 @@ func (s *Server) route(route string, respondMode int, mw middleware.Middleware, 
 			return
 		}
 		if respondMode == routeStrictJSON && !routeIsJSON {
-			s.HandleError(w, r, errors.New("Status and/or Data not set"))
+			s.HandleError(env, w, r, errors.New("Status and/or Data not set"))
 			return
 		}
 		if routeIsJSON {
-			s.RespondEncodeJSON(w, r, env.Status, env.Data)
+			s.RespondEncodeJSON(env, w, r)
 		}
 	}
 
@@ -275,7 +276,10 @@ func (s *Server) static(prefix string, dir string) {
 		}
 		_, err := os.Stat(path.Join(s.root, dir, rpath))
 		if os.IsNotExist(err) {
-			s.RespondJSON(w, r, http.StatusNotFound, jsonNotFound)
+			env := &middleware.Env{
+				Status: http.StatusNotFound,
+			}
+			s.RespondJSON(env, w, r, jsonNotFound)
 			return
 		}
 		logrus.Infof("Static asset: %v", r.URL.Path)
@@ -286,7 +290,7 @@ func (s *Server) static(prefix string, dir string) {
 // process the request error. If the error is of type *httperror.Error, then we
 // convert and serialize that to JSON, otherwise, the error will be
 // `500 internal_server_error`
-func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) {
+func (s *Server) HandleError(env *middleware.Env, w http.ResponseWriter, r *http.Request, err error) {
 	e, ok := err.(*httperror.Error)
 	if !ok {
 		uuid := w.Header().Get(constants.NitrousUUIDHeader)
@@ -297,10 +301,14 @@ func (s *Server) HandleError(w http.ResponseWriter, r *http.Request, err error) 
 	if err != nil {
 		j = []byte(`{"error":"internal_server_error"}`)
 	}
-	s.RespondJSON(w, r, e.Code, j)
+	env.Status = e.Code
+	s.RespondJSON(env, w, r, j)
 }
 
-func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int, data []byte) {
+func (s *Server) RespondJSON(env *middleware.Env, w http.ResponseWriter, r *http.Request, data []byte) {
+	status := env.Status
+	user := env.User
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(status)
@@ -323,17 +331,22 @@ func (s *Server) RespondJSON(w http.ResponseWriter, r *http.Request, status int,
 			"status": status,
 			"body":   str,
 		})
+
+		if user != nil {
+			fields["user"] = user.Username
+		}
+
 		logrus.WithFields(fields).Infof("Response")
 	}
 }
 
-func (s *Server) RespondEncodeJSON(w http.ResponseWriter, r *http.Request, status int, data map[string]interface{}) {
-	j, err := json.Marshal(data)
+func (s *Server) RespondEncodeJSON(env *middleware.Env, w http.ResponseWriter, r *http.Request) {
+	j, err := json.Marshal(env.Data)
 	if err != nil {
-		s.HandleError(w, r, err)
+		s.HandleError(env, w, r, err)
 		return
 	}
-	s.RespondJSON(w, r, status, j)
+	s.RespondJSON(env, w, r, j)
 }
 
 // This is called when the error is not a *httperror.Error*, i.e. there's

@@ -146,7 +146,7 @@ var _ = Describe("controllers/containers", func() {
 				}, opts...)
 				err := mw(env, w, r)
 				if err != nil {
-					svr.HandleError(w, r, err)
+					svr.HandleError(env, w, r, err)
 				}
 			}
 			handler = mux.NewRouter()

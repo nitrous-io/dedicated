@@ -81,7 +81,7 @@ var _ = Describe("middleware", func() {
 			h := func(w http.ResponseWriter, r *http.Request) {
 				err := mw(emptyMw)(env, w, r)
 				if err != nil {
-					svr.HandleError(w, r, err)
+					svr.HandleError(env, w, r, err)
 				}
 			}
 			handler.HandleFunc("/authaction", h).Methods("GET")
@@ -314,7 +314,7 @@ var _ = Describe("middleware", func() {
 			h := func(w http.ResponseWriter, r *http.Request) {
 				err := middleware.Track("Action Called", emptyMw)(env, w, r)
 				if err != nil {
-					svr.HandleError(w, r, err)
+					svr.HandleError(env, w, r, err)
 				}
 			}
 			handler.HandleFunc("/action", h).Methods("GET")
@@ -389,13 +389,13 @@ var _ = Describe("middleware", func() {
 			protectedRoute := func(w http.ResponseWriter, r *http.Request) {
 				err := middleware.VerifyUserBilling("something", emptyMw)(env, w, r)
 				if err != nil {
-					svr.HandleError(w, r, err)
+					svr.HandleError(env, w, r, err)
 				}
 			}
 			allowedRoute := func(w http.ResponseWriter, r *http.Request) {
 				err := middleware.VerifyUserBilling("users.GetAuthenticatedUser", emptyMw)(env, w, r)
 				if err != nil {
-					svr.HandleError(w, r, err)
+					svr.HandleError(env, w, r, err)
 				}
 			}
 			handler.HandleFunc("/protected", protectedRoute).Methods("GET")
