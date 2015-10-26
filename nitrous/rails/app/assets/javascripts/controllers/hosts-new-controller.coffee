@@ -13,7 +13,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   host: null
   savingBinding: 'App.hostSaving'
   templateName: null
-  plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
+  plansBinding: Em.Binding.oneWay 'App.plans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
   sortedOrgPlans: null
@@ -61,7 +61,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     plans = @get 'plans'
 
     sortedPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
-      contentBinding: Em.Binding.oneWay 'App.eligiblePlans'
+      contentBinding: Em.Binding.oneWay 'App.plans'
       sortProperties: ['totalPrice']
 
     @setProperties
