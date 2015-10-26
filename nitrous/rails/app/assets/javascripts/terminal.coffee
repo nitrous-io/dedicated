@@ -62,6 +62,8 @@ window.NitrousTerminal =
             @focusEditor event
           when @matchesFullscreenConsoleKeybinding event
             @toggleFullscreenConsole event
+          when @matchesMinimizeConsoleKeybinding event
+            @toggleMinimizeConsole event
           when @matchesNextTabKeybinding event
             @makeNextTabActive event
           when @matchesPreviousTabKeybinding event
@@ -242,6 +244,12 @@ window.NitrousTerminal =
     parentWindow.App.get('router.ideMainMenuController')?.windowToggleFullScreenConsole()
     false
 
+  toggleMinimizeConsole: (ev) ->
+    return true unless parentWindow?.App?.get
+    Terminal.cancel(ev)
+    parentWindow.App.get('router.ideMainMenuController')?.windowToggleMinimizeConsole()
+    false
+
   makeNextTabActive: (ev) ->
     return true unless parentWindow?.App?.get
     Terminal.cancel(ev)
@@ -276,6 +284,12 @@ window.NitrousTerminal =
     (event.keyCode == 70 && (
       (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+f
       (!isMac && event.ctrlKey && event.altKey)     # pc:  ctrl+alt+f
+    ))
+
+  matchesMinimizeConsoleKeybinding: (event) ->
+    (event.keyCode == 77 && (
+      (isMac && event.shiftKey && event.ctrlKey) || # mac: shift+ctrl+m
+      (!isMac && event.ctrlKey && event.altKey)     # pc:  ctrl+alt+m
     ))
 
   matchesNextTabKeybinding: (event) ->

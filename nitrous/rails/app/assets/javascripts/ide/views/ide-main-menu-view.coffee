@@ -357,16 +357,11 @@ App.IdeMainMenuView = Em.View.extend
           chromeMacKey: ['command+t', 'shift+ctrl+c'], chromePcKey: ['ctrl+t', 'shift+ctrl+t', 'ctrl+alt+c']
           callback: (controller) ->
             controller.windowFocusConsole()
-        menuItem 'Minimize Console',
-          hideBinding: Em.Binding.oneWay('App.consoleMinimized')
+        menuItem 'Toggle Minimize Console',
+          macKey: 'shift+ctrl+m', pcKey: 'ctrl+alt+m'
+          chromeMacKey: 'shift+ctrl+m', chromePcKey: 'ctrl+alt+m'
           callback: (controller) ->
-            controller.windowMinimizeConsole()
-        menuItem 'Restore Console',
-          hide: (->
-            !App.get('consoleMinimized')
-          ).property('App.consoleMinimized')
-          callback: (controller) ->
-            controller.windowRestoreConsole()
+            controller.windowToggleMinimizeConsole()
         menuItem 'Toggle Full Screen Console',
           macKey: 'shift+ctrl+f', pcKey: 'ctrl+alt+f'
           chromeMacKey: 'shift+ctrl+f', chromePcKey: 'ctrl+alt+f'

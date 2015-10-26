@@ -15,7 +15,6 @@ App.IdeMainMenuController = Em.Controller.extend
       else
         @get('controllers.ide').set('showBetaDialog', true)
 
-
   fileNew: ->
     if App.get('consoleFocused') && consoleController = @get 'controllers.ideConsole'
       consoleController.createTab()
@@ -125,13 +124,13 @@ App.IdeMainMenuController = Em.Controller.extend
     else if editorController = @get 'controllers.ideEditor'
       editorController.makePreviousTabActive()
 
-  windowMinimizeConsole: ->
-    App.set 'consoleMinimized', true
-    App.set 'consoleFullscreen', false
-
-  windowRestoreConsole: ->
-    App.set 'consoleMinimized', false
-    @windowFocusConsole()
+  windowToggleMinimizeConsole: ->
+    App.toggleProperty 'consoleMinimized'
+    if App.get('consoleMinimized')
+      App.set 'consoleFullscreen', false
+      @windowFocusEditor()
+    else
+      @windowFocusConsole()
 
   windowToggleFullScreenConsole: ->
     App.toggleProperty 'consoleFullscreen'
