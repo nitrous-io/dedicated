@@ -33,12 +33,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   paidPlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isPaidPlan') && !plan.get('hidden') && !plan.get('org')
+      plan.get('isPaidPlan')
   ).property 'sortedPlans.@each'
 
   freePlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isFreePlan') && !plan.get('hidden') && !plan.get('org')
+      plan.get('isFreePlan')
   ).property 'sortedPlans.@each'
 
   selectedOrgSlugDidChange: (->
@@ -54,9 +54,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
         @set 'selectedPlan', @get('sortedOrgPlans.firstObject')
     else
       # if user wants to create a host personally and currently selected plan is an org plan
-      if @get 'selectedPlan.org'
-        # select a personal plan
-        @set 'selectedPlan', @get('paidPlans.firstObject')
+      @set 'selectedPlan', @get('paidPlans.firstObject')
   ).observes 'selectedOrgSlug'
 
   clear: ->
@@ -88,7 +86,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     plans?.reload().then =>
       # if user belongs to an org, choose org owner by default
       if @get('orgs.length') > 0
-        @set 'selectedPlan', @get('orgPlans.firstObject')
         @set 'selectedOrgSlug', @get('orgs.firstObject.slug')
       else
         @set 'selectedPlan', @get('paidPlans.firstObject')
@@ -98,7 +95,9 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
+    unless @get('selectedOrgSlug')
+      # update selected plan only if user's plans is updated
+      @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
   ).observes 'plans.@each'
 
   regionsDidChange: (->
@@ -123,9 +122,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).property 'cardRequired'
 
   actions:
-    selectPlan: (plan)->
-      @set 'selectedPlan', plan
-
     cancel: ->
       @transitionToRoute 'home.index'
       false
