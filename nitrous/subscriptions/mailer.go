@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/mail"
 	"net/url"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -14,7 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
-func (s *SubscriptionProvider) sendFailureEmail(d db.QueryReceiver, tryCount int64, final bool, inv *invoice.Invoice, bp *billingprofile.BillingProfile) error {
+func (s *SubscriptionProvider) sendFailureEmail(d db.QueryReceiver, tryCount, nextAttempt int64, final bool, inv *invoice.Invoice, bp *billingprofile.BillingProfile) error {
 	// TODO: when Organisations are introduced, use org or user for email contact
 	u, err := user.FindByID(d, bp.UserID)
 	if err != nil {
@@ -24,18 +25,22 @@ func (s *SubscriptionProvider) sendFailureEmail(d db.QueryReceiver, tryCount int
 	from := envvars.SupportEmailAddr
 	to := &mail.Address{Name: u.DisplayName(), Address: u.Email}
 
+	deadline := time.Unix(nextAttempt, 0).Format("Monday Jan _2 2006")
+
 	tmplData := struct {
 		Name          string
 		LastFour      string
 		InvoiceAmount string
 		SupportEmail  string
 		BillingUrl    string
+		NextAttempt   string
 	}{
 		u.DisplayName(),
 		"unspecified",
 		fmt.Sprintf("$%.2f", float64(inv.TotalCharge)/100.0),
 		from.Address,
 		billingUrl(),
+		deadline,
 	}
 	if tmplData.Name == "" {
 		tmplData.Name = u.Username

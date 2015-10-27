@@ -619,7 +619,7 @@ func (s *SubscriptionProvider) HandleSubscriptionInvoiceFailed(d *db.Database, i
 		}
 	}
 
-	if err := s.sendFailureEmail(d, int64(sInv.Attempts), final, inv, bp); err != nil {
+	if err := s.sendFailureEmail(d, int64(sInv.Attempts), sInv.NextAttempt, final, inv, bp); err != nil {
 		return nil, err
 	}
 
