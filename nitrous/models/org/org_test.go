@@ -278,6 +278,9 @@ var _ = Describe("models/org", func() {
 				{"-foo", org.ErrSlugInvalid},
 				{"foo_bar", org.ErrSlugInvalid},
 				{"FOO", org.ErrSlugInvalid},
+				{"123", org.ErrSlugInvalid},
+				{"123-foo", nil},
+				{"1-foo-2", nil},
 			}
 
 			for _, t := range tests {

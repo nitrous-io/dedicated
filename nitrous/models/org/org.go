@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -117,6 +118,10 @@ func (o *Org) Validate() error {
 	}
 
 	if !slugRe.MatchString(o.Slug) {
+		return ErrSlugInvalid
+	}
+
+	if _, err := strconv.ParseInt(o.Slug, 10, 64); err == nil {
 		return ErrSlugInvalid
 	}
 

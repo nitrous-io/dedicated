@@ -19,11 +19,7 @@ App.IdeConsoleView = Em.View.extend App.IdeTabViewMixin,
   actions:
     didClickMinimizeConsole: ->
       if mainMenuController = App.get 'router.ideMainMenuController'
-        mainMenuController.windowMinimizeConsole()
-
-    didClickRestoreConsole: ->
-      if mainMenuController = App.get 'router.ideMainMenuController'
-        mainMenuController.windowRestoreConsole()
+        mainMenuController.windowToggleMinimizeConsole()
 
     didClickFullScreen: ->
       if mainMenuController = App.get 'router.ideMainMenuController'
