@@ -555,7 +555,7 @@ var _ = Describe("subscriptions", func() {
 				Expect(updatedBp.TrialEligible).To(BeFalse())
 			})
 
-			It("should not send trial end param to Stripe if user is not eligible for free trial and should not update trial_eligible to false", func() {
+			It("should not send trial end param to Stripe if subscribing to a plan without free trial and should update trial_eligible to false", func() {
 				fakeStripe.Responses = []string{
 					`{
 					"object": "subscription",
@@ -584,7 +584,7 @@ var _ = Describe("subscriptions", func() {
 				latestBp, err := billingprofile.FindByID(db, bp.ID)
 				Expect(err).To(BeNil())
 
-				Expect(latestBp.TrialEligible).To(BeTrue())
+				Expect(latestBp.TrialEligible).To(BeFalse())
 			})
 		}
 
