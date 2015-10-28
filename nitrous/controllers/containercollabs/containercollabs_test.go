@@ -642,6 +642,53 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			Expect(fakeMailer.SendMailCalled).To(BeFalse())
 		})
+
+		It("should not email the user is the noemail param is specified", func() {
+			otherUser := &user.User{
+				Username: "steve",
+				Email:    "steve@stevey.com",
+				Password: "Password1",
+			}
+			err := test.WrapInTransaction(db, otherUser.Insert)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Add("user", "steve")
+			params.Add("noemail", "true")
+			req, err := test.NewFormRequest("POST", fmt.Sprintf("/api/v0/containers/%s/collaborators", cnr.Slug), params)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer "+t.Token)
+
+			handler.ServeHTTP(res, req)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+			var j struct {
+				Success bool `json:"success"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.Success).To(BeTrue())
+
+			Consistently(func() interface{} {
+				return fakeMailer.SendMailCalled
+			}).Should(BeFalse())
+
+			collab := &containercollab.ContainerCollab{}
+			err = db.Get(collab, "SELECT * FROM container_collabs WHERE user_id = $1 AND container_id = $2", otherUser.ID, cnr.ID)
+			Expect(err).To(BeNil())
+			Expect(collab).ToNot(BeNil())
+
+			Expect(collab.EmailSentAt.Valid).To(BeFalse())
+
+			Expect(ft.PropsCalled).To(HaveLen(1))
+			pc := ft.PropsCalled[0]
+			Expect(pc.UserID).To(Equal(u.ID))
+			Expect(pc.Mode).To(Equal("inc"))
+			Expect(pc.PropsSet["collab_invites_count"]).To(Equal(1))
+		})
 	})
 
 	Describe("DELETE /containers/{slug}/collaborators/{ccid}", func() {
