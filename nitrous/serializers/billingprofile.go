@@ -7,16 +7,17 @@ import (
 )
 
 type BillingProfile struct {
-	ID        int64      `json:"id"`
-	UserID    int64      `json:"user_id"`
-	OrgID     *int64     `json:"org_id"` // can be null
-	LastFour  string     `json:"last_four"`
-	CardType  string     `json:"card_type"`
-	ExpMonth  int64      `json:"exp_month"`
-	ExpYear   int64      `json:"exp_year"`
-	State     string     `json:"state"`
-	CreatedAt *time.Time `json:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at"`
+	ID            int64      `json:"id"`
+	UserID        int64      `json:"user_id"`
+	OrgID         *int64     `json:"org_id"` // can be null
+	LastFour      string     `json:"last_four"`
+	CardType      string     `json:"card_type"`
+	ExpMonth      int64      `json:"exp_month"`
+	ExpYear       int64      `json:"exp_year"`
+	State         string     `json:"state"`
+	TrialEligible bool       `json:"trial_eligible"`
+	CreatedAt     *time.Time `json:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at"`
 
 	AmountCredited int64 `json:"amount_credited,omitempty"`
 
@@ -36,6 +37,7 @@ func SerializeBillingProfile(b *billingprofile.BillingProfile) *BillingProfile {
 		ExpMonth:         b.ExpMonth.Int64,
 		ExpYear:          b.ExpYear.Int64,
 		State:            b.State,
+		TrialEligible:    b.TrialEligible,
 		CreatedAt:        b.CreatedAt,
 		UpdatedAt:        b.UpdatedAt,
 		CardRequired:     b.IsCardRequired(),

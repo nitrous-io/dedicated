@@ -625,29 +625,100 @@ var _ = Describe("models/subscription", func() {
 				Expect(subscriptions[2].OrgID.Int64).To(Equal(o.ID))
 			})
 		})
+	})
 
-		Describe("WithinFreeTrial()", func() {
-			It("returns true if TrialEnd is valid and current time is before TrialEnd time", func() {
-				s := &subscription.Subscription{
-					TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), true},
-				}
-				Expect(s.WithinFreeTrial()).To(BeTrue())
-			})
+	Describe("FindAllTrialEnding", func() {
+		BeforeEach(func() {
+			u2 := &user.User{
+				Username: "u2",
+				Email:    "u2@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
 
-			It("returns false if TrialEnd is valid but current time is after TrialEnd time", func() {
-				s := &subscription.Subscription{
-					TrialEnd: pq.NullTime{time.Unix(1, 0), true},
-				}
-				Expect(s.WithinFreeTrial()).To(BeFalse())
-			})
+			u3 := &user.User{
+				Username: "u3",
+				Email:    "u3@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u3.Insert)).To(BeNil())
 
-			It("returns false if TrialEnd is not valid", func() {
-				s := &subscription.Subscription{
-					TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), false},
-				}
-				Expect(s.WithinFreeTrial()).To(BeFalse())
-			})
+			bp1, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s1 := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp1.ID,
+				State:            "trialing",
+				StripeID:         sql.NullString{"a", true},
+				Slug:             "SUB1",
+			}
+			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
+			_, err = db.Exec(`UPDATE subscriptions SET trial_end=$1 WHERE billing_profile_id=$2;`, time.Now().Add((2*24+12)*time.Hour), bp1.ID)
+			Expect(err).To(BeNil())
+
+			bp2, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s2 := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp2.ID,
+				State:            "trialing",
+				StripeID:         sql.NullString{"b", true},
+				Slug:             "SUB2",
+			}
+			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
+			_, err = db.Exec(`UPDATE subscriptions SET trial_end=$1 WHERE billing_profile_id=$2;`, time.Now().Add((1*24+2)*time.Hour), bp2.ID)
+			Expect(err).To(BeNil())
+
+			bp3, err := u3.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s3 := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp3.ID,
+				State:            "trialing",
+				StripeID:         sql.NullString{"c", true},
+				Slug:             "SUB3",
+			}
+			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
+			_, err = db.Exec(`UPDATE subscriptions SET trial_end=$1 WHERE billing_profile_id=$2;`, time.Now().Add(15*time.Hour), bp3.ID)
+			Expect(err).To(BeNil())
 		})
 
+		It("returns subscriptions ending between 1 to 3 days", func() {
+			subscriptions, err := subscription.FindAllTrialEnding(db, 1*24, 3*24)
+			Expect(err).To(BeNil())
+
+			Expect(subscriptions).To(HaveLen(2))
+		})
+
+		It("returns subscriptions ending in less than 1 day", func() {
+			subscriptions, err := subscription.FindAllTrialEnding(db, 0, 1*24)
+			Expect(err).To(BeNil())
+
+			Expect(subscriptions).To(HaveLen(1))
+			Expect(subscriptions[0].Slug).To(Equal("SUB3"))
+		})
+	})
+
+	Describe("WithinFreeTrial()", func() {
+		It("returns true if TrialEnd is valid and current time is before TrialEnd time", func() {
+			s := &subscription.Subscription{
+				TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), true},
+			}
+			Expect(s.WithinFreeTrial()).To(BeTrue())
+		})
+
+		It("returns false if TrialEnd is valid but current time is after TrialEnd time", func() {
+			s := &subscription.Subscription{
+				TrialEnd: pq.NullTime{time.Unix(1, 0), true},
+			}
+			Expect(s.WithinFreeTrial()).To(BeFalse())
+		})
+
+		It("returns false if TrialEnd is not valid", func() {
+			s := &subscription.Subscription{
+				TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), false},
+			}
+			Expect(s.WithinFreeTrial()).To(BeFalse())
+		})
 	})
 })

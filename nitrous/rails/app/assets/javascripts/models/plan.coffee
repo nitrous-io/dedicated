@@ -20,6 +20,7 @@ App.Plan = klass = App.Model.extend
   subscription: attr('boolean')
   org: attr('boolean')
   hidden: attr('boolean')
+  trialPeriodDays: attr('number', as: 'trial_period_days')
 
   maxContainers: attr('number', as: 'max_containers')
   maxSnapshots: attr('number', as: 'max_snapshots')
@@ -92,6 +93,11 @@ App.Plan = klass = App.Model.extend
   isFreePlan: (->
     return (@get('price') == 0) && (@get('basePrice') == 0)
   ).property 'price', 'basePrice'
+
+  trialAvailable: (->
+    # Don't show misleading free trial ribbon on plan if user is no longer eligible.
+    return (App.get('billingProfile.trialEligible') && (@get('trialPeriodDays') > 0))
+  ).property 'trialPeriodDays', 'App.billingProfile.trialEligible'
 
 formatPrice = (price, digits, ignoreZero=true) ->
   return if price == 0 && ignoreZero

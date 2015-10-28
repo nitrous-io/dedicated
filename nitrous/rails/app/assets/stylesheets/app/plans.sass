@@ -134,7 +134,6 @@ ul.plans
 
         p
           margin: 0
-          transform: rotateZ(45deg) translateX(43px) translateY(-20px)
           text-transform: uppercase
           font-size: 8px
           font-weight: bold
@@ -144,6 +143,12 @@ ul.plans
           color: black
           background: $n2oGray500
           transition: background-color .3s
+
+          &.most-popular
+            transform: rotateZ(45deg) translateX(43px) translateY(-20px)
+
+          &.free-trial
+            transform: rotateZ(45deg) translateX(37px) translateY(-20px)
 
     &.selected
       .content

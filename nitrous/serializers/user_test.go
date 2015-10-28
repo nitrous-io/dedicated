@@ -202,6 +202,7 @@ var _ = Describe("user serializer", func() {
 					"user_id": 10,
 					"org_id": null,
 					"state": "paid",
+					"trial_eligible": false,
 					"last_four": "1234",
 					"card_type": "Visa",
 					"exp_month": 4,

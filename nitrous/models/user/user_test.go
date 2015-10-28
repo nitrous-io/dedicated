@@ -46,8 +46,7 @@ var _ = Describe("models/user", func() {
 			$1, $2, $3, $4);`,
 			"foo", "foo@example.com", "foo bar", "foofoo")
 		Expect(err).To(BeNil())
-		_, err = db.Exec(`
-			INSERT INTO users (segment_id, username, email, name, encrypted_password)
+		_, err = db.Exec(` INSERT INTO users (segment_id, username, email, name, encrypted_password)
 			VALUES ((SELECT id FROM segments WHERE user_default = true),
 			$1, $2, $3, $4);`,
 			"bar", "bar@example.com", "bar baz", "barbar")

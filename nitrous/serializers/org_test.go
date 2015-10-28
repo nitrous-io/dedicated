@@ -86,6 +86,7 @@ var _ = Describe("org serializer", func() {
 					"exp_month": 10,
 					"exp_year": 2018,
 					"state": "no_card",
+					"trial_eligible": false,
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z",
 					"card_required": true,

@@ -14,6 +14,7 @@ App.BillingProfile = klass = App.Model.extend
   updatedAt: attr('date', as: 'created_at', serialize: false)
   cardRequired: attr('boolean', as: 'card_required', serialize: false)
   amountCredited: attr('number', as: 'amount_credited', serialize: false)
+  trialEligible: attr('boolean', as: 'trial_eligible', serialize: false)
 
   cardToken: attr(as: 'card_token')
 

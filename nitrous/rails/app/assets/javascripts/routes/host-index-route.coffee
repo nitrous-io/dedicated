@@ -14,3 +14,15 @@ App.HostIndexRoute = App.AuthedRoute.extend
   resetController: (controller) ->
     # Explicitly reset query params so that bad things won't happen.
     controller.set('justUpgraded', false)
+
+  afterModel: (model, transition) ->
+   @_super.apply this, arguments
+
+   # Block route to host with canceled subscription. Context: On canceling
+   # trial subscription, which is immediate, user should not be able to
+   # see workspace dashboard. If subscription is canceled the subscription data
+   # will not be serialized. 
+   if !model.get('subscription')?
+     transition.abort()
+     App.snackbar.post("Workspace has been terminated")
+     @transitionTo 'home.index'

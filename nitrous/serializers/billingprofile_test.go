@@ -16,17 +16,18 @@ var _ = Describe("billingprofile serializer", func() {
 
 	var (
 		model = &billingprofile.BillingProfile{
-			ID:        10,
-			UserID:    25,
-			OrgID:     sql.NullInt64{12, true},
-			StripeID:  sql.NullString{"sc_001", true}, // Not serialized.
-			LastFour:  sql.NullString{"4242", true},
-			CardType:  sql.NullString{"Visa", true},
-			ExpMonth:  sql.NullInt64{10, true},
-			ExpYear:   sql.NullInt64{2018, true},
-			State:     billingprofile.StateNoCard,
-			CreatedAt: &timestamp,
-			UpdatedAt: &timestamp,
+			ID:            10,
+			UserID:        25,
+			OrgID:         sql.NullInt64{12, true},
+			StripeID:      sql.NullString{"sc_001", true}, // Not serialized.
+			LastFour:      sql.NullString{"4242", true},
+			CardType:      sql.NullString{"Visa", true},
+			ExpMonth:      sql.NullInt64{10, true},
+			ExpYear:       sql.NullInt64{2018, true},
+			State:         billingprofile.StateNoCard,
+			TrialEligible: false,
+			CreatedAt:     &timestamp,
+			UpdatedAt:     &timestamp,
 		}
 	)
 
@@ -44,6 +45,7 @@ var _ = Describe("billingprofile serializer", func() {
 				"exp_month": 10,
 				"exp_year": 2018,
 				"state": "no_card",
+				"trial_eligible": false,
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
 				"card_required": true,
@@ -69,6 +71,7 @@ var _ = Describe("billingprofile serializer", func() {
 					"exp_month": 10,
 					"exp_year": 2018,
 					"state": "no_card",
+					"trial_eligible": false,
 					"created_at": "2014-11-01T00:00:00Z",
 					"updated_at": "2014-11-01T00:00:00Z",
 					"card_required": true,
