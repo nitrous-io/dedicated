@@ -117,6 +117,14 @@
       td colspan='3'
         = dateabbr createdAt
 
+    if model.activeTrialEnd
+      tr
+        th
+          .trial-ends Trial Ends
+        td colspan='3'
+          span.click-highlight
+            = simpledate model.activeTrialEnd 
+
 .card-footer.bordered
   if isRunning
     .left

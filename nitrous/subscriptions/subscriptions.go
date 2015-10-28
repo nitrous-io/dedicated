@@ -161,7 +161,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
-		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 {
+		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 && bp.TrialEligible {
 			params.TrialEnd = trialEnd
 		}
 
@@ -200,6 +200,12 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		sub.CurrentPeriodEnd = pq.NullTime{time.Unix(strSub.PeriodEnd, 0), true}
 		if strSub.TrialEnd != 0 {
 			sub.TrialEnd = pq.NullTime{time.Unix(strSub.TrialEnd, 0), true}
+
+			bp.TrialEligible = false
+			if err := bp.Update(tx); err != nil {
+				logrus.Errorf("bp.Update: Failed to update billing profile trial_eligible on new subscription: err: %v", strSub, err)
+				return err
+			}
 		}
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
 			SET state = :state, stripe_id = :stripe_id,

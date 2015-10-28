@@ -49,6 +49,12 @@ type SubscriptionWithHostSlug struct {
 	OrgID    sql.NullInt64  `db:"org_id"`
 }
 
+type SubscriptionWithUserInfo struct {
+	*Subscription
+	UserID   int64  `db:"user_id"`
+	Username string `db:"user_username"`
+}
+
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
 		(plan_id, billing_profile_id, state, stripe_id, slug)
@@ -135,6 +141,25 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
                         (bp.org_id IS NOT NULL AND hosts.user_id = $1)
                 ) AND s.cancelled_at IS NULL
                 ORDER BY s.created_at ASC;`, userID)
+	if err != nil {
+		return nil, err
+	}
+	return subscriptions, nil
+}
+
+func FindAllTrialEnding(d db.QueryReceiver, minHours, maxHours int) ([]*SubscriptionWithUserInfo, error) {
+	subscriptions := []*SubscriptionWithUserInfo{}
+	err := d.Select(&subscriptions, `SELECT s.*, users.id AS user_id, users.username AS user_username
+                FROM subscriptions s
+                JOIN billing_profiles bp ON bp.id = s.billing_profile_id
+                LEFT JOIN users ON users.id = bp.user_id
+                WHERE (
+                  (
+                    date_part('days', s.trial_end - now()) * 24 +
+                    date_part('hours', s.trial_end - now())
+                  )
+                  BETWEEN $1 AND $2
+                );`, minHours, maxHours)
 	if err != nil {
 		return nil, err
 	}

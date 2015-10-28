@@ -75,6 +75,10 @@
         tr
           td Custom Templates
 
-  if plan.mostPopular
+  if plan.trialAvailable
     .ribbon
-      p Most Popular
+      p.free-trial Free Trial
+  else
+    if plan.mostPopular
+      .ribbon
+        p.most-popular Most Popular

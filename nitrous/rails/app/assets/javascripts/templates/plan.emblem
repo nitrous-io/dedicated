@@ -36,6 +36,11 @@ h3
   if canSelectPlan
     button.ui.btn.primary.raised class={view.isSelected:active} click='selectPlan plan'
       | Select This Plan
-if plan.mostPopular
+
+if plan.trialAvailable
   .ribbon
-    p Most Popular
+    p.free-trial Free Trial
+else
+  if plan.mostPopular
+    .ribbon
+      p.most-popular Most Popular
