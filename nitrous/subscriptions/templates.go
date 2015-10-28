@@ -44,7 +44,7 @@ const paymentSecondFailedHtmlTmpl = `
     <h3>Hello {{ .Name }},</h3>
     <p>We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.</p>
     <p>We will retry billing your card in 3 days, but in the meantime please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
-    <p>Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspaces will be <strong>terminated soon</strong>.</p>
+    <p>Your workspaces have been stopped and if we are unable to bill your credit card by {{ .NextAttempt }} (UTC) your workspaces will be <strong>terminated soon</strong>.</p>
     <p>If you have any questions please email our support team at <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.</p>
     <br />
     <p>Thanks,</p>
@@ -57,7 +57,7 @@ const paymentSecondFailedTxtTmpl = `
 Hello {{ .Name }},
 We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.
 We will retry billing your card in 3 days, but in the meantime please verify your credit card at {{ .BillingUrl }}.
-Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspace will be **terminated soon**.
+Your workspaces have been stopped and if we are unable to bill your credit card by {{ .NextAttempt }} (UTC) your workspace will be **terminated soon**.
 If you have any questions please email our support team at {{ .SupportEmail }}.
 
 Thanks,
@@ -75,7 +75,7 @@ const paymentThirdFailedHtmlTmpl = `
     <h3>Hello {{ .Name }},</h3>
     <p>We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.</p>
     <p>We will retry billing your card very shortly, but in the meantime please <a href="{{ .BillingUrl }}">verify your credit card</a>.</p>
-    <p>If we are unable to bill your credit card by the 10th your workspaces will be <strong>terminated after our next retry</strong>.</p>
+    <p>Your workspaces have been stopped and if we are unable to bill your credit card by {{ .NextAttempt }} (UTC) your workspaces will be <strong>terminated after our next retry</strong>.</p>
     <p>If you have any questions please email our support team at <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.</p>
     <br />
     <p>Thanks,</p>
@@ -88,7 +88,7 @@ const paymentThirdFailedTxtTmpl = `
 Hello {{ .Name }},
 We are still having issues successfully billing your provided credit card ending in {{ .LastFour }} to the value of {{ .InvoiceAmount }}.
 We will retry billing your card very shortly, but in the meantime please verify your credit card at {{ .BillingUrl }}.
-Your workspaces have been stopped and if we are unable to bill your credit card by the 10th your workspace will be **terminated after our next retry**.
+Your workspaces have been stopped and if we are unable to bill your credit card by {{ .NextAttempt }} (UTC) your workspace will be **terminated after our next retry**.
 If you have any questions please email our support team at {{ .SupportEmail }}.
 
 Thanks,
