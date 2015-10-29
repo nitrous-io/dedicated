@@ -89,11 +89,12 @@ func Push(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Requ
 	// include in async is the image data
 	var writer io.Writer
 	pp := &controllers.ProgressPublisher{
-		EventName: controllers.EventImagePushing,
-		Topic:     env.User.Topic(),
-		Events:    env.Events,
-		ID:        img.ID,
-		Slug:      img.Slug,
+		EventName:  controllers.EventImagePushing,
+		Topic:      env.User.Topic(),
+		Events:     env.Events,
+		ID:         img.ID,
+		Slug:       img.Slug,
+		Repository: repo,
 	}
 	if async {
 		writer = pp
