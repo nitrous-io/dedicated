@@ -200,13 +200,8 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		sub.CurrentPeriodEnd = pq.NullTime{time.Unix(strSub.PeriodEnd, 0), true}
 		if strSub.TrialEnd != 0 {
 			sub.TrialEnd = pq.NullTime{time.Unix(strSub.TrialEnd, 0), true}
-
-			bp.TrialEligible = false
-			if err := bp.Update(tx); err != nil {
-				logrus.Errorf("bp.Update: Failed to update billing profile trial_eligible on new subscription: err: %v", strSub, err)
-				return err
-			}
 		}
+
 		nstmt, err := tx.PrepareNamed(`UPDATE subscriptions
 			SET state = :state, stripe_id = :stripe_id,
 			current_period_start = :current_period_start,
@@ -219,6 +214,12 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			return err
 		}
 		if err := nstmt.QueryRow(sub).StructScan(sub); err != nil {
+			return err
+		}
+
+		bp.TrialEligible = false
+		if err := bp.Update(tx); err != nil {
+			logrus.Errorf("bp.Update: Failed to update billing profile trial_eligible on new subscription: err: %v", strSub, err)
 			return err
 		}
 
