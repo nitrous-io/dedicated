@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 )
 
 var (
-	errInvalidToken = httperror.New(http.StatusNotFound, "invalid_token", "invalid request - make sure the password reset link is correct")
+	errInvalidToken = httperror.New(http.StatusNotFound, "invalid_token", "The password reset link is invalid.")
 )
 
 func SendResetPasswordToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -33,8 +34,7 @@ func SendResetPasswordToken(env *middleware.Env, w http.ResponseWriter, r *http.
 		return err
 	}
 
-	err = u.SendPasswordResetEmail(db)
-	if err != nil {
+	if err := u.SendPasswordResetEmail(db); err != nil {
 		return err
 	}
 
@@ -43,13 +43,12 @@ func SendResetPasswordToken(env *middleware.Env, w http.ResponseWriter, r *http.
 }
 
 func ResetPassword(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	db := env.DB
-
-	rToken := r.FormValue("reset_token")
-	if rToken == "" {
+	token := r.FormValue("reset_token")
+	if token == "" {
 		return errInvalidToken
 	}
-	u, err := user.FindByResetPasswordToken(db, rToken)
+
+	u, err := user.FindByResetPasswordToken(env.DB, token)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errInvalidToken
@@ -65,11 +64,23 @@ func ResetPassword(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		return httperror.New(http.StatusBadRequest, "validation_failed", err.Error())
 	}
 
-	if err := u.Update(db); err != nil {
-		return err
-	}
+	err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
+		if err := u.Update(tx); err != nil {
+			return err
+		}
 
-	_, err = db.Exec(`DELETE FROM tokens WHERE user_id = $1;`, u.ID)
+		// Clear the reset password token so that it cannot be used again.
+		if err := u.ClearResetPasswordToken(tx); err != nil {
+			return err
+		}
+
+		// Clear all other login tokens.
+		_, err = tx.Exec(`DELETE FROM tokens WHERE user_id = $1;`, u.ID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}

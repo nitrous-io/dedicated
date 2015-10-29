@@ -143,7 +143,7 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
-			It("changes user's password'", func() {
+			It("changes user's password and clears the reset password token", func() {
 				oldPassword := u.EncryptedPassword
 				err := u.SetResetPasswordToken(db)
 				Expect(err).To(BeNil())
@@ -155,6 +155,7 @@ var _ = Describe("controllers/passwords", func() {
 				u, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(u.EncryptedPassword).NotTo(Equal(oldPassword))
+				Expect(u.ResetPasswordToken.String).To(BeEmpty())
 			})
 
 			It("removes all other login tokens", func() {
