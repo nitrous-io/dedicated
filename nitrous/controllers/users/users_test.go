@@ -756,6 +756,28 @@ var _ = Describe("controllers/users", func() {
 			Expect(tokens).To(ConsistOf([]con{{Token: t.Token}}))
 		})
 
+		It("should return an error if existing_password is provided and incorrect", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u.ID, "toke1")
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("password", "abcdef")
+			params.Set("existing_password", "iamwrong")
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should not return an error if existing_password is provided and is correct", func() {
+			_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u.ID, "toke1")
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("password", "abcdef")
+			params.Set("existing_password", "123456")
+			doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
+
 		Context("when an existing email is given", func() {
 			BeforeEach(func() {
 				u = &user.User{
