@@ -112,7 +112,12 @@ func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 		INNER JOIN provider_templates AS pts on hosts.provider_template_id = pts.id
 		WHERE auto_shutdown = $1
 			AND state = $2
-			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
 			AND 
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
@@ -132,7 +137,12 @@ func IsIdle(d *db.Database, h *host.Host) (bool, error) {
 		WHERE id = $1
 			AND auto_shutdown = $2
 			AND state = $3
-			AND EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+			AND (
+				EXTRACT(EPOCH FROM (now() - last_pinged_at)) > idle_timeout
+				-- if host started but IDE is never started, last_pinged_at will be null
+				OR
+				last_pinged_at IS NULL
+			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
 			AND 
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
