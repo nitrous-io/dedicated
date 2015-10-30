@@ -158,6 +158,31 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(u.ResetPasswordToken.String).To(BeEmpty())
 			})
 
+			It("allows a reset password token to be only used once", func() {
+				err := u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				token := u.ResetPasswordToken.String
+
+				res := doRequest(token, "newpass1")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				// Reload user.
+				u, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				newEncryptedPassword := u.EncryptedPassword
+
+				res = doRequest(token, "newpass2")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				// Reload user.
+				u, err = user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+
+				// Verify that password is unchanged.
+				Expect(newEncryptedPassword).To(Equal(u.EncryptedPassword))
+			})
+
 			It("removes all other login tokens", func() {
 				_, err := db.Exec("INSERT INTO tokens (user_id, token) values ($1, $2);", u.ID, "toke1")
 				Expect(err).To(BeNil())
