@@ -100,6 +100,8 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		return errMissingUserParam
 	}
 
+	noEmail := (r.FormValue("noemail") == "true")
+
 	usr, err := user.FindByUsernameOrEmail(env.DB, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -129,12 +131,14 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		return err
 	}
 
-	go func() {
-		err := sendEmail(env.DB, cn, collab, env.User, usr)
-		if err != nil {
-			logrus.Errorf("Failed to send email for collaborator %d, user id: %d err: %+v", collab.ID, env.User.ID, err)
-		}
-	}()
+	if (!noEmail) {
+		go func() {
+			err := sendEmail(env.DB, cn, collab, env.User, usr)
+			if err != nil {
+				logrus.Errorf("Failed to send email for collaborator %d, user id: %d err: %+v", collab.ID, env.User.ID, err)
+			}
+		}()
+	}
 
 	collabData := map[string]interface{}{
 		"collaborator": map[string]interface{}{

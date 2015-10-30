@@ -334,8 +334,8 @@ var _ = Describe("models/freetier", func() {
 
 	Describe("IdleFreeHosts()", func() {
 		var (
-			h1, h2, h3, h4, h5, h6, h7, h8 *host.Host
-			t1, t2, t3, t4                 time.Time
+			h1, h2, h3, h4, h5, h6, h7, h8, h9 *host.Host
+			t1, t2, t3, t4                     time.Time
 		)
 
 		BeforeEach(func() {
@@ -440,13 +440,27 @@ var _ = Describe("models/freetier", func() {
 				ProviderTemplateID: h1.ProviderTemplateID,
 			}
 			Expect(h8.Insert(db)).To(BeNil())
+
+			// host which was started but has never been pinged (no websockets
+			// support, user didn't open IDE, etc)
+			h9 = &host.Host{
+				Slug:               "my-host-9",
+				State:              host.StateRunning,
+				LastPingedAt:       pq.NullTime{Valid: false},
+				AutoShutdown:       true,
+				UserID:             u.ID,
+				PlanID:             h1.PlanID,
+				RegionID:           h1.RegionID,
+				ProviderTemplateID: h1.ProviderTemplateID,
+			}
+			Expect(h9.Insert(db)).To(BeNil())
 		})
 
 		It("returns a list of idle hosts that are eligible for auto shutdown", func() {
 			res, err := freetier.IdleFreeHosts(db)
 			Expect(err).To(BeNil())
-			Expect(res).To(HaveLen(2))
-			Expect([]int64{res[0].ID, res[1].ID}).To(Equal([]int64{h8.ID, h4.ID}))
+			Expect(res).To(HaveLen(3))
+			Expect([]int64{res[0].ID, res[1].ID, res[2].ID}).To(Equal([]int64{h8.ID, h4.ID, h9.ID}))
 
 			// sanity-check that SQL query populates Provider field (required by hostcontrol)
 			Expect(res[0].Provider).To(Equal("docker"))
@@ -494,6 +508,13 @@ var _ = Describe("models/freetier", func() {
 			Expect(h.Insert(db)).To(BeNil())
 
 			idle, err := freetier.IsIdle(db, h)
+			Expect(err).To(BeNil())
+			Expect(idle).To(BeTrue())
+
+			// even if last_pinged_at is not set
+			_, err = db.Exec(`UPDATE hosts SET last_pinged_at = NULL WHERE id = $1`, h.ID)
+			Expect(err).To(BeNil())
+			idle, err = freetier.IsIdle(db, h)
 			Expect(err).To(BeNil())
 			Expect(idle).To(BeTrue())
 

@@ -31,16 +31,16 @@ func main() {
 	}
 	configData, err := ioutil.ReadFile(*flConfigPath)
 	if err != nil {
-		fatal("Missing config file", *flConfigPath)
+		fatalf("Missing config file: %s", *flConfigPath)
 	}
 	config := new(compass.Config)
 	err = json.Unmarshal(configData, &config)
 	if err != nil {
-		fatal("Invalid config file at ./config.json", err)
+		fatalf("Invalid config file at ./config.json: %s", err)
 	}
 	s, err := compass.NewServer(config)
 	if err != nil {
-		fatal("Failed to start compass server:", err)
+		fatalf("Failed to start compass server: %s", err)
 	}
 
 	ch := make(chan os.Signal, 10)
@@ -56,6 +56,6 @@ func main() {
 	logrus.Info("compass: exited")
 }
 
-func fatal(a ...interface{}) {
-	logrus.Fatal(a...)
+func fatalf(a ...interface{}) {
+	logrus.Fatalf(a...)
 }

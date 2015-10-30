@@ -143,7 +143,7 @@ var _ = Describe("controllers/passwords", func() {
 				Expect(res.Code).To(Equal(http.StatusNotFound))
 			})
 
-			It("changes user's password'", func() {
+			It("changes user's password and clears the reset password token", func() {
 				oldPassword := u.EncryptedPassword
 				err := u.SetResetPasswordToken(db)
 				Expect(err).To(BeNil())
@@ -155,6 +155,32 @@ var _ = Describe("controllers/passwords", func() {
 				u, err := user.FindByID(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(u.EncryptedPassword).NotTo(Equal(oldPassword))
+				Expect(u.ResetPasswordToken.String).To(BeEmpty())
+			})
+
+			It("allows a reset password token to be only used once", func() {
+				err := u.SetResetPasswordToken(db)
+				Expect(err).To(BeNil())
+
+				token := u.ResetPasswordToken.String
+
+				res := doRequest(token, "newpass1")
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				// Reload user.
+				u, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				newEncryptedPassword := u.EncryptedPassword
+
+				res = doRequest(token, "newpass2")
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				// Reload user.
+				u, err = user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+
+				// Verify that password is unchanged.
+				Expect(newEncryptedPassword).To(Equal(u.EncryptedPassword))
 			})
 
 			It("removes all other login tokens", func() {
