@@ -54,8 +54,9 @@ var (
 	ErrPhoneInvalid     = errors.New("phone number is not valid")
 	ErrCardBanned       = errors.New("credit card is banned")
 
-	ErrMaxHostsReached = errors.New("reached maximum number of hosts")
-	ErrNoCard          = errors.New("not added credit card")
+	ErrMaxHostsReached            = errors.New("reached maximum number of hosts")
+	ErrNoCard                     = errors.New("not added credit card")
+	ErrResetPasswordTokenRequired = errors.New("reset password token is required")
 
 	ErrConfirmationLapsed           = errors.New("confirmation has expired")
 	ErrConfirmationAlreadyCompleted = errors.New("email has already been confirmed")
@@ -161,6 +162,9 @@ func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 }
 
 func FindByResetPasswordToken(d db.QueryReceiver, token string) (*User, error) {
+	if token == "" {
+		return nil, ErrResetPasswordTokenRequired
+	}
 	user := &User{}
 	lastValidSentAt := time.Now().Add(-resetPasswordWithin)
 	err := d.Get(user, "SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_sent_at > $2 AND deleted_at IS NULL", token, lastValidSentAt)
@@ -472,11 +476,11 @@ func (u *User) SetResetPasswordToken(d db.QueryReceiver) error {
 	if err != nil {
 		return err
 	}
-	err = nstmt.QueryRowx(u).StructScan(u)
-	if err != nil {
-		return err
-	}
-	return nil
+	return nstmt.QueryRowx(u).StructScan(u)
+}
+
+func (u *User) ClearResetPasswordToken(d db.QueryReceiver) error {
+	return d.QueryRowx("UPDATE users SET reset_password_token = NULL WHERE id = $1 RETURNING *;", u.ID).StructScan(u)
 }
 
 func (u *User) encryptPassword() error {

@@ -1259,6 +1259,33 @@ var _ = Describe("models/user", func() {
 			Expect(err).To(MatchError(sql.ErrNoRows))
 			Expect(u1).To(BeNil())
 		})
+
+		It("should return an error when the token is empty", func() {
+			_, err := user.FindByResetPasswordToken(db, "")
+			Expect(err).To(Equal(user.ErrResetPasswordTokenRequired))
+		})
+	})
+
+	Describe("ClearResetPasswordToken()", func() {
+		It("sets reset_password_token to null", func() {
+			u := &user.User{
+				Username: "qux",
+				Name:     "quxboy",
+				Password: "123456",
+				Email:    "qux@example.com",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			err = u.SetResetPasswordToken(db)
+			Expect(err).To(BeNil())
+
+			Expect(u.ResetPasswordToken.String).NotTo(BeEmpty())
+
+			err = u.ClearResetPasswordToken(db)
+			Expect(err).To(BeNil())
+			Expect(u.ResetPasswordToken.String).To(BeEmpty())
+		})
 	})
 
 	Describe("FindByConfirmationToken()", func() {
