@@ -11,19 +11,21 @@ import (
 
 // ProgressEvent represents the progress data that is emitted.
 type ProgressEvent struct {
-	ID       int64  `json:"id"`
-	Slug     string `json:"slug"`
-	Progress string `json:"progress"`
+	ID         int64  `json:"id"`
+	Slug       string `json:"slug"`
+	Progress   string `json:"progress"`
+	Repository string `json:"repository"`
 }
 
 // ProgressBroadcaster acts like an io.Writer but writes the data into pubsub
 // pipe instead
 type ProgressPublisher struct {
-	EventName EventName
-	Topic     pubsub.Topic
-	ID        int64
-	Slug      string
-	Events    *pubsub.Pubsub
+	EventName  EventName
+	Topic      pubsub.Topic
+	ID         int64
+	Slug       string
+	Repository string
+	Events     *pubsub.Pubsub
 
 	// handle fragments that is not newline terminated
 	buffer string
@@ -51,9 +53,10 @@ func (b *ProgressPublisher) Write(p []byte) (int, error) {
 
 		if line != "" {
 			e := NewEvent(b.EventName, &ProgressEvent{
-				ID:       b.ID,
-				Slug:     b.Slug,
-				Progress: strings.TrimSpace(line),
+				ID:         b.ID,
+				Slug:       b.Slug,
+				Repository: b.Repository,
+				Progress:   strings.TrimSpace(line),
 			})
 			b.Events.Publish(e, b.Topic)
 		}

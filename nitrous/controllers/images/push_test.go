@@ -152,6 +152,7 @@ var _ = Describe("controllers/images", func() {
 					data := e.Data.(*controllers.ProgressEvent)
 					Expect(data.ID).To(Equal(i.ID), "emitted image pushing with invalid image")
 					Expect(data.Progress).To(Equal(`{"status":"Pushing..."}`), "failed to include progress data")
+					Expect(data.Repository).To(Equal("nitrousio/devenv"), "failed to provide repository")
 				case <-timeout:
 					Fail("expected EventImagePushing but timed out")
 				}
