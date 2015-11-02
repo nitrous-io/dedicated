@@ -36,6 +36,11 @@ const ValidityPeriodSeconds = int(ValidityPeriod / time.Second)
 const RedisTempDataTTL = 600 // 600 seconds
 
 var (
+	Authorize middleware.Middleware = middleware.RateLimit(authorize)
+	Repos     middleware.Middleware = middleware.RateLimit(repos)
+)
+
+var (
 	verifier  = msgverifier.New(envvars.SecretToken)
 	oauthConf = &oauth2.Config{
 		ClientID:     envvars.GitHubOAuthClientID,
@@ -195,9 +200,9 @@ func init() {
 }
 
 // /api/v0/github/authorize
-// Authorize returns GitHub authorization url that front-end needs to redirect to.
+// authorize returns GitHub authorization url that front-end needs to redirect to.
 // FIXME: allow this API to be called only if user is not yet linked with a GitHub account
-func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if !permission.AuthorizeGitHub(env.Token, env.User) {
 		return errAuthorizeForbidden
 	}
@@ -218,7 +223,7 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 }
 
 // /api/v0/github/authorize_to_login
-// Authorize returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
+// AuthorizeToLogin returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
 func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	beta := r.FormValue("beta") == "true"
 
@@ -254,8 +259,8 @@ func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Reque
 }
 
 // /api/v0/github/repos
-// Repos returns user's public/private github repositories
-func Repos(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+// repos returns user's public/private github repositories
+func repos(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	repositories, err := FetchRepos(env)
 	if err == ErrTokenEmpty {
 		return errNotConnectedWithGitHub
