@@ -154,20 +154,6 @@ func (h *Host) acquireInstance(provider instanceProvider, instancetype string) (
 	return instance, nil
 }
 
-// releaseInstance releases an instance to the pool of available instances. We
-// indicate that an instance is in a pool by adding a "dedicated:pool=true" tag.
-func (h *Host) releaseInstance(provider instanceProvider) error {
-	tags := []ec2.Tag{
-		{Key: poolTag, Value: "true"},
-		{Key: "Name", Value: "userhost-pool"},
-	}
-	if _, err := provider.CreateTags([]string{h.instance.InstanceId}, tags); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (h *Host) poolMutexName(instancetype string) string {
 	return fmt.Sprintf("pool-%s-%s", h.Config.RegionID, instancetype)
 }
