@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/net/context"
+
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
-	"golang.org/x/net/context"
 )
 
 // Start starts an instance and allocate the desired IP address to it
@@ -127,11 +128,6 @@ func (h *Host) startWithPool() (*host.Info, error) {
 	return h.Info()
 }
 
-type stepWithRecovery struct {
-	host.Step
-	RecoveryFunc func(*host.HostContext) error
-}
-
 // attachToNewInstance creates a new EC2 instance and attaches the given volume
 // to the instance as its user volume.
 func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
@@ -153,7 +149,7 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 	}()
 
 	steps := h.growSteps()
-	steps = append(steps, []stepWithRecovery{
+	steps = append(steps, []host.StepWithRecovery{
 		{
 			Step: host.Step{
 				Description: "Attaching user's volume",
@@ -298,88 +294,4 @@ func (h *Host) recoverAttachElasticIP() error {
 	}
 
 	return nil
-}
-
-func (h *Host) growSteps() []stepWithRecovery {
-	return []stepWithRecovery{
-		{
-			Step: host.Step{
-				Description: "Checking image's availability",
-				Func:        inspectSourceAMI,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Creating workspace",
-				Func:        createInstance,
-				Timeout:     5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Setting workspace's name",
-				Func:        associateInstanceTags,
-			},
-		},
-		{
-			Step: host.Step{
-				Func:    host.WaitForSSH,
-				Timeout: 5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Assigning network address",
-				Func:        attachElasticIP,
-			},
-			RecoveryFunc: func(ctx *host.HostContext) error {
-				h := ctx.Host.(*Host)
-				return h.recoverAttachElasticIP()
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Connecting via SSH",
-				Func:        host.WaitForSSH,
-				Timeout:     5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Discovering new disk",
-				Func: func(ctx *host.HostContext) error {
-					// Get info of the volume attached to instance, so that we can
-					// detach and delete it.
-					h := ctx.Host.(*Host)
-
-					userVolume, err := h.getVolumeByDeviceName(userDeviceName)
-					if err != nil {
-						return err
-					}
-
-					h.userVolume = userVolume
-
-					return nil
-				},
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Unmount new volume",
-				Func:        unmountUserVolume,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Detaching new volume",
-				Func:        detachUserVolume,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Deleting new volume",
-				Func:        deleteOldVolume,
-			},
-		},
-	}
 }

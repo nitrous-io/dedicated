@@ -30,6 +30,11 @@ type Step struct {
 	Timeout     time.Duration
 }
 
+type StepWithRecovery struct {
+	Step
+	RecoveryFunc func(*HostContext) error
+}
+
 // Run executes a step's Func within the given Timeout.
 func (ctx *HostContext) Run(step Step) error {
 	w := ctx.Writer
