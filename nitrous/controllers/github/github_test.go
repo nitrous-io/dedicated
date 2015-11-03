@@ -178,6 +178,28 @@ var _ = Describe("controllers/github", func() {
 			Expect(pc2.PropsSet["github_authorized_date"]).To(BeTemporally("~", time.Now(), time.Minute))
 		})
 
+		It("redirects to app account", func() {
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			Expect(err).To(BeNil())
+
+			res := doRequest("githubcode", state, state)
+			Expect(res.Code).To(Equal(http.StatusFound))
+
+			Expect(res.Header().Get("Location")).To(Equal("/app/#/account"))
+		})
+
+		It("redirects to envvars.BetaDashboardLocation if the purpose is beta", func() {
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnectBeta)
+			Expect(err).To(BeNil())
+
+			envvars.BetaDashboardLocation = "/beta/#/dashboard/settings"
+
+			res := doRequest("githubcode", state, state)
+			Expect(res.Code).To(Equal(http.StatusFound))
+
+			Expect(res.Header().Get("Location")).To(Equal("/beta/#/dashboard/settings"))
+		})
+
 		Context("purpose is 'login'", func() {
 			var (
 				state                      string
