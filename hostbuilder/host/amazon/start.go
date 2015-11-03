@@ -152,86 +152,8 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 		}
 	}()
 
-	steps := []stepWithRecovery{
-		{
-			Step: host.Step{
-				Description: "Checking image's availability",
-				Func:        inspectSourceAMI,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Creating workspace",
-				Func:        createInstance,
-				Timeout:     5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Setting workspace's name",
-				Func:        associateInstanceTags,
-			},
-		},
-		{
-			Step: host.Step{
-				Func:    host.WaitForSSH,
-				Timeout: 5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Assigning network address",
-				Func:        attachElasticIP,
-			},
-			RecoveryFunc: func(ctx *host.HostContext) error {
-				h := ctx.Host.(*Host)
-				return h.recoverAttachElasticIP()
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Connecting via SSH",
-				Func:        host.WaitForSSH,
-				Timeout:     5 * time.Minute,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Discovering new disk",
-				Func: func(ctx *host.HostContext) error {
-					// Get info of the volume attached to instance, so that we can
-					// detach and delete it.
-					h := ctx.Host.(*Host)
-
-					userVolume, err := h.getVolumeByDeviceName(userDeviceName)
-					if err != nil {
-						return err
-					}
-
-					h.userVolume = userVolume
-
-					return nil
-				},
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Unmount new volume",
-				Func:        unmountUserVolume,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Detaching new volume",
-				Func:        detachUserVolume,
-			},
-		},
-		{
-			Step: host.Step{
-				Description: "Deleting new volume",
-				Func:        deleteOldVolume,
-			},
-		},
+	steps := h.growSteps()
+	steps = append(steps, []stepWithRecovery{
 		{
 			Step: host.Step{
 				Description: "Attaching user's volume",
@@ -263,7 +185,7 @@ func (h *Host) attachToNewInstance(volumeID string) (*host.Info, error) {
 				return h.recoverFromStart()
 			},
 		},
-	}
+	}...)
 	for _, step := range steps {
 		if err := hctx.Run(step.Step); err != nil {
 			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
@@ -376,4 +298,88 @@ func (h *Host) recoverAttachElasticIP() error {
 	}
 
 	return nil
+}
+
+func (h *Host) growSteps() []stepWithRecovery {
+	return []stepWithRecovery{
+		{
+			Step: host.Step{
+				Description: "Checking image's availability",
+				Func:        inspectSourceAMI,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Creating workspace",
+				Func:        createInstance,
+				Timeout:     5 * time.Minute,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Setting workspace's name",
+				Func:        associateInstanceTags,
+			},
+		},
+		{
+			Step: host.Step{
+				Func:    host.WaitForSSH,
+				Timeout: 5 * time.Minute,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Assigning network address",
+				Func:        attachElasticIP,
+			},
+			RecoveryFunc: func(ctx *host.HostContext) error {
+				h := ctx.Host.(*Host)
+				return h.recoverAttachElasticIP()
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Connecting via SSH",
+				Func:        host.WaitForSSH,
+				Timeout:     5 * time.Minute,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Discovering new disk",
+				Func: func(ctx *host.HostContext) error {
+					// Get info of the volume attached to instance, so that we can
+					// detach and delete it.
+					h := ctx.Host.(*Host)
+
+					userVolume, err := h.getVolumeByDeviceName(userDeviceName)
+					if err != nil {
+						return err
+					}
+
+					h.userVolume = userVolume
+
+					return nil
+				},
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Unmount new volume",
+				Func:        unmountUserVolume,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Detaching new volume",
+				Func:        detachUserVolume,
+			},
+		},
+		{
+			Step: host.Step{
+				Description: "Deleting new volume",
+				Func:        deleteOldVolume,
+			},
+		},
+	}
 }
