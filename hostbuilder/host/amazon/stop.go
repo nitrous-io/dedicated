@@ -135,33 +135,18 @@ func (h *Host) stopWithPool(qp queue.Publisher, queueInfo *host.QueueInfo) (*hos
 	}
 
 	instanceID := h.instance.InstanceId
-	instanceType := h.instance.InstanceType
 	h.Printf("successfully detached user volume %s from instance %s", userVolume.VolumeId, instanceID)
 
 	go func() {
-		poolFull, err := h.isPoolFull(h.provider, instanceType)
-		if err != nil {
-			h.Printf("failed to check whether pool for %q is full, err: %v", instanceType, err)
+		// we do not reuse pooled instances to avoid any security issues from
+		// users breaking out of their container.  The core invariant is: an
+		// instance will only ever be used by a single user.
 
-			// We assume the pool is full if we're unable to check its status.
-			poolFull = true
+		h.Printf("terminating instance %s after stopping hotswapped workspace", instanceID)
+		if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
+			h.Printf("failed to terminate instance %s, err: %v", instanceID, err)
 		}
-
-		// If instance pool is full, we terminate the instance.
-		// Otherwise, we release the (still running) instance to the pool.
-		if poolFull {
-			h.Printf("pool for %q is full, terminating instance %s after stopping workspace", instanceType, instanceID)
-			if _, err := h.provider.TerminateInstances([]string{instanceID}); err != nil {
-				h.Printf("failed to terminate instance %s, err: %v", instanceID, err)
-			}
-			return
-		}
-
-		h.Printf("releasing instance %s of stopped workspace to pool for %q", instanceID, instanceType)
-		if err := h.releaseInstance(h.provider); err != nil {
-			h.Printf("failed to release instance %s to pool, err: %v", instanceID, err)
-			return
-		}
+		return
 	}()
 
 	info := &host.Info{
