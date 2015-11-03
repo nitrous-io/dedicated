@@ -86,9 +86,10 @@ type GitHubRepository struct {
 }
 
 const (
-	OAuthStatePurposeConnect = "connect"
-	OAuthStatePurposeLogin   = "login"
-	OAuthStatePurposeSignUp  = "signup"
+	OAuthStatePurposeConnect     = "connect"
+	OAuthStatePurposeConnectBeta = "connect-beta"
+	OAuthStatePurposeLogin       = "login"
+	OAuthStatePurposeSignUp      = "signup"
 )
 
 // return gitHubUserName and gitHubTokenJson
@@ -201,7 +202,12 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errAuthorizeForbidden
 	}
 
-	state, err := setOrReuseState(w, r, env.User.ID)
+	purpose := OAuthStatePurposeConnect
+	if r.FormValue("beta") == "true" {
+		purpose = OAuthStatePurposeConnectBeta
+	}
+
+	state, err := setOrReuseState(w, r, env.User.ID, purpose)
 	if err != nil {
 		return err
 	}
@@ -351,7 +357,12 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			return mh.Error(err, errLabel)
 		}
 
-		http.Redirect(w, r, "/app/#/account", http.StatusFound)
+		redirect := "/app/#/account"
+		if state.Purpose == OAuthStatePurposeConnectBeta {
+			redirect = envvars.BetaDashboardLocation
+		}
+
+		http.Redirect(w, r, redirect, http.StatusFound)
 	}
 
 	return nil
@@ -524,7 +535,7 @@ func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, e
 
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
-func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
+func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string) (string, error) {
 	// Check if existing github_state cookie is set.
 	cookie, err := r.Cookie("github_state")
 	if err == nil {
@@ -537,7 +548,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID, "", OAuthStatePurposeConnect)
+	state, err := makeOAuthState(userID, "", purpose)
 	if err != nil {
 		return "", err
 	}
