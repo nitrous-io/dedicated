@@ -271,6 +271,15 @@ var _ = Describe("controllers/github", func() {
 					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
 					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
 				})
+
+				It("redirects to login page if a user exists with the same email", func() {
+					github.FetchGitHubUser = mockFetchGitHubUser
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+				})
 			})
 
 			Context("the user exists", func() {
@@ -397,6 +406,15 @@ var _ = Describe("controllers/github", func() {
 					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
 					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
 				})
+
+				It("redirects to login page if a user exists with the same email", func() {
+					github.FetchGitHubUser = mockFetchGitHubUser
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+				})
 			})
 
 			Context("the user exist", func() {
@@ -444,6 +462,10 @@ var _ = Describe("controllers/github", func() {
 				BeforeEach(func() {
 					_, err := redisClient.Del("github:oauth:tempkey").Result()
 					Expect(err).NotTo(HaveOccurred())
+
+					github.FetchGitHubUser = func(code string) (string, string, string, error) {
+						return "new-github-user", `{ "access_token": "new-token" }`, "newgithub@example.com", nil
+					}
 				})
 
 				It("redirects to signin page with oauthError=true", func() {

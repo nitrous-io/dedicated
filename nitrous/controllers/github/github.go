@@ -329,6 +329,18 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
 		if err == sql.ErrNoRows {
+			// if an existing user exists with the same email
+			u, err := user.FindByEmail(db, gitHubUserEmail)
+			if err != nil && err != sql.ErrNoRows {
+				http.Redirect(w, r, redirectUrlForError, http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+			if u != nil {
+				url := fmt.Sprintf("%s?existingGitHubEmail=%s", loginPath, gitHubUserEmail)
+				http.Redirect(w, r, url, http.StatusFound)
+				return nil
+			}
+
 			// Fetch data from github and keep in Redis since there is no user profile record
 			// It will be used when a user create an account with github username
 			err = storeGitHubInfoInRedis(state, gitHubUserName, tokenJSON)
