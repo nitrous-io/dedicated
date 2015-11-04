@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -215,6 +216,18 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		}
 		if err := nstmt.QueryRow(sub).StructScan(sub); err != nil {
 			return err
+		}
+
+		// update user segment to no longer have access to free
+		if p.IsFree() {
+			sid, err := segment.UserDefaultID(tx)
+			if err != nil {
+				return err
+			}
+			u.SegmentID = sid
+			if err := u.Update(tx); err != nil {
+				return err
+			}
 		}
 
 		bp.TrialEligible = false
