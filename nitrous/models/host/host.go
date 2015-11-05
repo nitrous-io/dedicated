@@ -90,6 +90,7 @@ type Host struct {
 	// from the associated Plan since size is often read.
 	Size sql.NullString `db:"size"`
 
+	// FIXME delete preprovisioned field and column
 	Preprovisioned bool `db:"preprovisioned"`
 
 	AssignedAt   *time.Time `db:"assigned_at"`
@@ -333,18 +334,6 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	}
 
 	return host, err
-}
-
-func FindPreprovisioned(db *db.Database, r *region.Region, p *plan.Plan) (*Host, error) {
-	host := &Host{}
-	if err := db.Get(host,
-		`SELECT * FROM hosts
-		WHERE region_id = $1 AND plan_id = $2 AND state = $3
-		AND preprovisioned = TRUE AND terminated_at IS NULL ORDER BY id;`,
-		r.ID, p.ID, StateRunning); err != nil {
-		return nil, err
-	}
-	return host, nil
 }
 
 func (h Host) String() string {
