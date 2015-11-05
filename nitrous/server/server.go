@@ -106,15 +106,6 @@ func (s *Server) Router() *mux.Router {
 }
 
 func (s *Server) Start(host string, port uint16) error {
-	if err := s.Provisioner.Start(); err != nil {
-		switch err {
-		case provisioner.ErrPreprovisionerNotConfigured:
-			logrus.Warn("nitrous/server: Pre-provisioner not configured")
-		default:
-			return err
-		}
-	}
-
 	addr := fmt.Sprintf("%s:%d", host, port)
 	srv := &http.Server{
 		Addr:    addr,
@@ -138,7 +129,7 @@ func (s *Server) Start(host string, port uint16) error {
 }
 
 func (s *Server) Stop() {
-	s.Provisioner.Stop()
+	// no-op (adhere to interface)
 }
 
 func (s *Server) namespace(ns string, f func()) {
