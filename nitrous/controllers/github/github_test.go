@@ -126,10 +126,10 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("responds with error message when state is different from cookie", func() {
-			state1, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			state1, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
-			state2, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			state2, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state1, state2)
@@ -140,7 +140,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects with error message when code is missing", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("", state, state)
@@ -150,7 +150,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("inserts github username and token to database", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state, state)
@@ -179,7 +179,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("redirects to app account", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
 			res := doRequest("githubcode", state, state)
@@ -188,8 +188,8 @@ var _ = Describe("controllers/github", func() {
 			Expect(res.Header().Get("Location")).To(Equal("/app/#/account"))
 		})
 
-		It("redirects to envvars.BetaDashboardLocation if the purpose is beta", func() {
-			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnectBeta)
+		It("redirects to beta dashboard if the state is beta", func() {
+			state, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, true)
 			Expect(err).To(BeNil())
 
 			envvars.BetaDashboardLocation = "/beta/#/dashboard/settings"
@@ -209,7 +209,7 @@ var _ = Describe("controllers/github", func() {
 			)
 
 			BeforeEach(func() {
-				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin)
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, false)
 				Expect(err).NotTo(HaveOccurred())
 				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
 				github.GetRedisKeyForOAuth = func(token string) string {
@@ -247,6 +247,18 @@ var _ = Describe("controllers/github", func() {
 					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
+				It("redirects to the beta signup page if the state is beta", func() {
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					envvars.BetaSignupLocation = "/beta-app/#/signupnow"
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/beta-app/#/signupnow?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+				})
+
 				It("keeps github info in redis", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
@@ -258,6 +270,15 @@ var _ = Describe("controllers/github", func() {
 
 					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
 					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
+				})
+
+				It("redirects to login page if a user exists with the same email", func() {
+					github.FetchGitHubUser = mockFetchGitHubUser
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -279,6 +300,22 @@ var _ = Describe("controllers/github", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
+				})
+
+				It("redirects to the beta login page if the state is beta", func() {
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeLogin, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					envvars.BetaLoginLocation = "/beta-app/#/loginnow"
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					t, err = token.FindByUser(db, u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedUrl := fmt.Sprintf("/beta-app/#/loginnow?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
 
@@ -311,7 +348,7 @@ var _ = Describe("controllers/github", func() {
 			)
 
 			BeforeEach(func() {
-				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp)
+				state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, false)
 				Expect(err).NotTo(HaveOccurred())
 				orgGetRedisKeyForOAuthFunc = github.GetRedisKeyForOAuth
 				github.GetRedisKeyForOAuth = func(token string) string {
@@ -345,6 +382,18 @@ var _ = Describe("controllers/github", func() {
 					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
+				It("redirects to the beta signup page if the state is beta", func() {
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					envvars.BetaSignupLocation = "/beta-app/#/signupnow"
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/beta-app/#/signupnow?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+				})
+
 				It("keeps github info in redis", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
@@ -356,6 +405,15 @@ var _ = Describe("controllers/github", func() {
 
 					Expect(gitHubUserInfo.UserName).To(Equal("new-github-user"))
 					Expect(gitHubUserInfo.TokenJSON).To(Equal(`{ "access_token": "new-token" }`))
+				})
+
+				It("redirects to login page if a user exists with the same email", func() {
+					github.FetchGitHubUser = mockFetchGitHubUser
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -382,12 +440,32 @@ var _ = Describe("controllers/github", func() {
 					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
+
+				It("redirects to the beta login page if the state is beta", func() {
+					state, err = github.MakeOAuthState(0, "tempkey", github.OAuthStatePurposeSignUp, true)
+					Expect(err).NotTo(HaveOccurred())
+
+					envvars.BetaLoginLocation = "/beta-app/#/loginnow"
+
+					res := doRequest("githubcode", state, state)
+					Expect(res.Code).To(Equal(http.StatusFound))
+
+					t, err = token.FindByUser(db, u.ID)
+					Expect(err).NotTo(HaveOccurred())
+
+					expectedUrl := fmt.Sprintf("/beta-app/#/loginnow?token=%s", t.Token)
+					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
+				})
 			})
 
 			Context("the redis key is expired or does not exist", func() {
 				BeforeEach(func() {
 					_, err := redisClient.Del("github:oauth:tempkey").Result()
 					Expect(err).NotTo(HaveOccurred())
+
+					github.FetchGitHubUser = func(code string) (string, string, string, error) {
+						return "new-github-user", `{ "access_token": "new-token" }`, "newgithub@example.com", nil
+					}
 				})
 
 				It("redirects to signin page with oauthError=true", func() {
@@ -448,7 +526,7 @@ var _ = Describe("controllers/github", func() {
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize", nil)
 			Expect(err).To(BeNil())
 
-			existingState, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect)
+			existingState, err := github.MakeOAuthState(u.ID, "", github.OAuthStatePurposeConnect, false)
 			Expect(err).To(BeNil())
 
 			req.AddCookie(&http.Cookie{
@@ -491,8 +569,12 @@ var _ = Describe("controllers/github", func() {
 			github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
 		})
 
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_login", nil)
+		doRequest := func(beta bool) *httptest.ResponseRecorder {
+			params := &url.Values{}
+			if beta {
+				params.Set("beta", "true")
+			}
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_login", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -500,7 +582,7 @@ var _ = Describe("controllers/github", func() {
 		}
 
 		It("returns valid json response", func() {
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := map[string]interface{}{}
@@ -527,7 +609,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("sets github state to cookie", func() {
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			cookies := (&http.Response{Header: res.Header()}).Cookies()
@@ -543,6 +625,27 @@ var _ = Describe("controllers/github", func() {
 			Expect(state.UserID).To(BeZero())
 			Expect(state.Token).NotTo(BeZero())
 			Expect(state.Purpose).To(Equal(github.OAuthStatePurposeLogin))
+			Expect(state.Beta).To(BeFalse())
+		})
+
+		It("sets beta state if request is beta", func() {
+			res := doRequest(true)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			state, err := github.ReadOAuthState(cookieState)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(state.UserID).To(BeZero())
+			Expect(state.Token).NotTo(BeZero())
+			Expect(state.Purpose).To(Equal(github.OAuthStatePurposeLogin))
+			Expect(state.Beta).To(BeTrue())
 		})
 
 		It("saves temporal key in redis with expiry", func() {
@@ -552,7 +655,7 @@ var _ = Describe("controllers/github", func() {
 				redisClient.Close()
 			}()
 
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			val, err := redisClient.Get("github:oauth:tempkey").Result()
@@ -606,8 +709,12 @@ var _ = Describe("controllers/github", func() {
 			github.GetRedisKeyForOAuth = orgGetRedisKeyForOAuthFunc
 		})
 
-		doRequest := func() *httptest.ResponseRecorder {
-			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_signup", nil)
+		doRequest := func(beta bool) *httptest.ResponseRecorder {
+			params := &url.Values{}
+			if beta {
+				params.Set("beta", "true")
+			}
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/github/authorize_to_signup", params)
 			Expect(err).To(BeNil())
 			res := httptest.NewRecorder()
 			svr.Router().ServeHTTP(res, req)
@@ -615,7 +722,7 @@ var _ = Describe("controllers/github", func() {
 		}
 
 		It("returns valid json response", func() {
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := map[string]interface{}{}
@@ -642,7 +749,7 @@ var _ = Describe("controllers/github", func() {
 		})
 
 		It("sets github state to cookie", func() {
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			cookies := (&http.Response{Header: res.Header()}).Cookies()
@@ -660,6 +767,26 @@ var _ = Describe("controllers/github", func() {
 			Expect(state.Purpose).To(Equal(github.OAuthStatePurposeSignUp))
 		})
 
+		It("sets beta state if request is beta", func() {
+			res := doRequest(true)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			cookies := (&http.Response{Header: res.Header()}).Cookies()
+			Expect(len(cookies)).To(Equal(1))
+
+			cookie := cookies[0]
+			Expect(cookie.Name).To(Equal("github_state"))
+
+			cookieState := cookie.Value
+			state, err := github.ReadOAuthState(cookieState)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(state.UserID).To(BeZero())
+			Expect(state.Token).NotTo(BeZero())
+			Expect(state.Beta).To(BeTrue())
+			Expect(state.Purpose).To(Equal(github.OAuthStatePurposeSignUp))
+		})
+
 		It("saves temporal key in redis with expiry", func() {
 			redisClient, err := redistest.PrepareRedis(envvars.RedisHost, envvars.RedisPort, envvars.RedisDB, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -667,7 +794,7 @@ var _ = Describe("controllers/github", func() {
 				redisClient.Close()
 			}()
 
-			res := doRequest()
+			res := doRequest(false)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			val, err := redisClient.Get("github:oauth:tempkey").Result()
