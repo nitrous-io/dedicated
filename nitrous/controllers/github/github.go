@@ -109,6 +109,7 @@ var FetchGitHubUser = func(code string) (string, string, string, error) {
 
 	// get github user name of authenticated user
 	user, _, err := client.Users.Get("")
+	logrus.Printf("GitHub data: %v\n, err: %v, token: %v", user, err, token)
 	if err != nil {
 		return "", "", "", err
 	}
