@@ -94,10 +94,9 @@ type Config struct {
 }
 
 type ProvisionOptions struct {
-	Async              bool
-	Preprovision       bool
-	BypassPreprovision bool
-	OutputStream       io.Writer
+	Async        bool
+	Preprovision bool
+	OutputStream io.Writer
 
 	Slug     string
 	Name     string
@@ -363,14 +362,11 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		return nil, err
 	}
 
-	if !opts.BypassPreprovision {
-		// Assign a pre-provisioned host if one is available.
-		preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
-		if err == nil {
-			return p.usePreprovisionedHost(preprovisioned, opts)
-		} else if err != sql.ErrNoRows {
-			logrus.Warnf("Error finding preprovisioned hosts: %s", err)
-		}
+	preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
+	if err == nil {
+		return p.usePreprovisionedHost(preprovisioned, opts)
+	} else if err != sql.ErrNoRows {
+		logrus.Warnf("Error finding preprovisioned hosts: %s", err)
 	}
 
 	return p.provisionNewHost(opts)

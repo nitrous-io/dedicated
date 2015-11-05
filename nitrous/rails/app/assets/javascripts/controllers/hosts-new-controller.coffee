@@ -12,7 +12,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   invalidField: null
   host: null
   savingBinding: 'App.hostSaving'
-  bypassPreprovision: false
   templateName: null
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
@@ -73,7 +72,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       invalidField: null
       host: null
       saving: false
-      bypassPreprovision: false
       templateName: null
       nameFieldEdited: false
       countryDict: null
@@ -193,7 +191,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
       params =
         async: true
-        bypass_preprovision: @get('bypassPreprovision')
         template_name: @get('templateName')
         container_template_slug: App.get('pendingContainerData.selectedTemplate.slug')
         container_name: App.get('pendingContainerData.name')

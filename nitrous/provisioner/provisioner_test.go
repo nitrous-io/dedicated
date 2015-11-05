@@ -108,7 +108,7 @@ var _ = Describe("provisioner", func() {
 			defer prov.Stop()
 		})
 
-		It("assigns hosts instead of preprovisioning if they are available with no bypass", func() {
+		It("assigns hosts instead of preprovisioning if they are available", func() {
 			hs, err := test.CreateHostStack(db, &test.HostStack{
 				H: &host.Host{
 					Preprovisioned: true,
@@ -199,69 +199,6 @@ var _ = Describe("provisioner", func() {
 				}
 				return h.AutoShutdown
 			}, 5*time.Second, 500*time.Millisecond).Should(BeTrue())
-		})
-
-		It("bypasses preprovisioned if option given even if host is available", func() {
-			hs, err := test.CreateHostStack(db, &test.HostStack{
-				H: &host.Host{Preprovisioned: true},
-				PT: &providertemplate.ProviderTemplate{
-					PreprovisionMax: 1,
-					Provider:        "docker",
-				},
-			})
-			Expect(err).To(BeNil())
-			count, err := host.CountPreprovisioned(db, hs.R, hs.P)
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(1), "Pre-condition: 1 pre-provisioned hosts.")
-
-			cfg := &provisioner.Config{
-				Username: provisionerUser.Username,
-				Interval: 50 * time.Millisecond,
-			}
-			prov := provisioner.NewProvisioner(db, nil, cfg)
-			err = prov.Start()
-			Expect(err).To(BeNil())
-			defer prov.Stop()
-
-			_, err = db.Exec("UPDATE user_profiles SET max_hosts = 99 WHERE user_id = $1", hs.U.ID)
-			Expect(err).To(BeNil())
-			_, err = db.Exec("UPDATE billing_profiles SET state = 'paid' WHERE user_id = $1", hs.U.ID)
-			Expect(err).To(BeNil())
-
-			err = hs.U.CanCreateHosts(db)
-			Expect(err).To(BeNil())
-
-			// Add a plan belonging to a different provider - it should not be returned.
-			p2 := &plan.Plan{
-				Slug:          "ultimate",
-				Name:          "Ultimate Edition SP1",
-				MaxContainers: 20,
-				AutoShutdown:  true,
-			}
-			Expect(p2.Insert(db)).To(BeNil())
-
-			newHost, err := prov.ProvisionHost(provisioner.ProvisionOptions{
-				OutputStream:       GinkgoWriter,
-				Slug:               "bypassed",
-				Name:               "new-name",
-				User:               hs.U,
-				Region:             hs.R,
-				Plan:               p2,
-				Template:           hs.PT,
-				UUID:               "DEF",
-				BypassPreprovision: true,
-			})
-			Expect(err).To(BeNil())
-			Expect(newHost.ID).NotTo(Equal(hs.H.ID))
-			Expect(newHost.AutoShutdown).To(BeTrue())
-			Expect(newHost.MaxContainers.Int64).To(Equal(int64(20)))
-
-			// assert post config data
-			var hcfg hostbuilderclient.Config
-			Expect(rt.Requests).To(HaveLen(1))
-			req := rt.Requests[0]
-			json.Unmarshal([]byte(req.FormValue("config")), &hcfg)
-			Expect(hcfg["host_id"]).To(Equal(float64(newHost.ID)))
 		})
 
 		It("does not pre-provision hosts in a region that is disabled", func() {
