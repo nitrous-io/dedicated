@@ -210,6 +210,55 @@ var _ = Describe("models/user", func() {
 		})
 	})
 
+	Describe("FindByEmail()", func() {
+		Context("when a user record with a email exists", func() {
+			It("returns the user record", func() {
+				u, err := user.FindByEmail(db, "bar@example.com")
+				Expect(err).To(BeNil())
+				Expect(u).NotTo(BeNil())
+				Expect(u.ID).NotTo(BeZero())
+				Expect(u.Username).To(Equal("bar"))
+				Expect(u.Email).To(Equal("bar@example.com"))
+				Expect(u.Name).To(Equal("bar baz"))
+				Expect(u.EncryptedPassword).To(Equal("barbar"))
+				Expect(u.Admin).To(BeFalse())
+			})
+		})
+
+		Context("when a username is provided", func() {
+			It("returns error", func() {
+				u, err := user.FindByEmail(db, "foo")
+				Expect(u).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+
+		Context("when a user record with a given username does not exist", func() {
+			It("returns error", func() {
+				u, err := user.FindByEmail(db, "bat@example.com")
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when a user record has been deleted", func() {
+			It("returns error", func() {
+				u, err := user.FindByEmail(db, "dell@example.com")
+				Expect(u).To(BeNil())
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+
+		Context("when some error happens", func() {
+			It("returns error", func() {
+				db.Close()
+				u, err := user.FindByEmail(db, "bar@example.com")
+				Expect(u).To(BeNil())
+				Expect(err).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("FindByUsernameOrEmail()", func() {
 		Context("when a user record with a given username or email exists", func() {
 			It("returns the user record", func() {

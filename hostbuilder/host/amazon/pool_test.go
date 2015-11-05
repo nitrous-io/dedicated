@@ -467,55 +467,6 @@ var _ = Describe("acquireInstance", func() {
 	})
 })
 
-var _ = Describe("releaseInstance", func() {
-	It("tags and renames the instance", func() {
-		driverCfg := driverConfig{
-			Env: "test",
-			Redis: redisConfig{
-				Host: test.RedisHost,
-				Port: test.RedisPort,
-			},
-		}
-		driver := &Host{
-			driverConfig: driverCfg,
-			Config:       &hostConfig{RegionID: "ap-southeast-42"},
-			instance:     &ec2.Instance{InstanceId: "i-abcde"},
-		}
-
-		fakeEC2 := &fakeInstanceProvider{}
-
-		err := driver.releaseInstance(fakeEC2)
-		Expect(err).To(BeNil())
-
-		Expect(fakeEC2.receivedTags).To(ConsistOf(
-			ec2.Tag{Key: poolTag, Value: "true"},
-			ec2.Tag{Key: "Name", Value: "userhost-pool"},
-		))
-	})
-
-	It("returns an error if it fails to tag the instance", func() {
-		driverCfg := driverConfig{
-			Env: "test",
-			Redis: redisConfig{
-				Host: test.RedisHost,
-				Port: test.RedisPort,
-			},
-		}
-		driver := &Host{
-			driverConfig: driverCfg,
-			Config:       &hostConfig{RegionID: "ap-southeast-42"},
-			instance:     &ec2.Instance{InstanceId: "i-abcde"},
-		}
-
-		fakeEC2 := &fakeInstanceProvider{
-			createTagsErr: errors.New("EC2 tagging API timed out"),
-		}
-
-		err := driver.releaseInstance(fakeEC2)
-		Expect(err).To(HaveOccurred())
-	})
-})
-
 var _ = Describe("poolMutexName", func() {
 	It("includes the configured region and given instance type", func() {
 		driver := &Host{

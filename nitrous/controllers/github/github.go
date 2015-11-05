@@ -66,6 +66,7 @@ var (
 type OAuthState struct {
 	UserID    int64     `json:"user_id"`
 	Token     string    `json:"token,omitempty"`
+	Beta      bool      `json:"beta"`
 	Purpose   string    `json:"purpose,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -201,7 +202,9 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errAuthorizeForbidden
 	}
 
-	state, err := setOrReuseState(w, r, env.User.ID)
+	beta := r.FormValue("beta") == "true"
+
+	state, err := setOrReuseState(w, r, env.User.ID, OAuthStatePurposeConnect, beta)
 	if err != nil {
 		return err
 	}
@@ -217,7 +220,9 @@ func Authorize(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 // /api/v0/github/authorize_to_login
 // Authorize returns GitHub authorization url that front-end needs to redirect to for login with GitHub.
 func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	state, err := setState(w, r, OAuthStatePurposeLogin)
+	beta := r.FormValue("beta") == "true"
+
+	state, err := setState(w, r, OAuthStatePurposeLogin, beta)
 	if err != nil {
 		return err
 	}
@@ -233,7 +238,9 @@ func AuthorizeToLogin(env *middleware.Env, w http.ResponseWriter, r *http.Reques
 // /api/v0/github/authorize_to_signup
 // AuthorizeToSignUp returns GitHub authorization url that front-end needs to redirect to for sign up with GitHub.
 func AuthorizeToSignUp(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	state, err := setState(w, r, OAuthStatePurposeSignUp)
+	beta := r.FormValue("beta") == "true"
+
+	state, err := setState(w, r, OAuthStatePurposeSignUp, beta)
 	if err != nil {
 		return err
 	}
@@ -305,17 +312,35 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 	switch state.Purpose {
 	case OAuthStatePurposeLogin, OAuthStatePurposeSignUp:
+		loginPath := "/app/#/login"
+		signupPath := "/app/#/signup"
+		if state.Beta {
+			loginPath = envvars.BetaLoginLocation
+			signupPath = envvars.BetaSignupLocation
+		}
 		// If `Purpose` is `login` or `signup`, we proceed based on whether the user exists or not
 		// If the user exists, it proceeds to login otherwise redirects to signup page
 		redirectUrlForError := ""
 		if state.Purpose == OAuthStatePurposeLogin {
-			redirectUrlForError = "/app/#/login?oauthError=true"
+			redirectUrlForError = fmt.Sprintf("%s?oauthError=true", loginPath)
 		} else {
-			redirectUrlForError = "/app/#/signup?oauthError=true"
+			redirectUrlForError = fmt.Sprintf("%s?oauthError=true", signupPath)
 		}
 
 		_, err := userprofile.FindByGitHubUserName(db, gitHubUserName)
 		if err == sql.ErrNoRows {
+			// if an existing user exists with the same email
+			u, err := user.FindByEmail(db, gitHubUserEmail)
+			if err != nil && err != sql.ErrNoRows {
+				http.Redirect(w, r, redirectUrlForError, http.StatusFound)
+				return mh.Error(err, errLabel)
+			}
+			if u != nil {
+				url := fmt.Sprintf("%s?existingGitHubEmail=%s", loginPath, gitHubUserEmail)
+				http.Redirect(w, r, url, http.StatusFound)
+				return nil
+			}
+
 			// Fetch data from github and keep in Redis since there is no user profile record
 			// It will be used when a user create an account with github username
 			err = storeGitHubInfoInRedis(state, gitHubUserName, tokenJSON)
@@ -324,7 +349,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 				return mh.Error(err, errLabel)
 			}
 
-			url := fmt.Sprintf("/app/#/signup?gitHubUserName=%s&gitHubUserEmail=%s", gitHubUserName, gitHubUserEmail)
+			url := fmt.Sprintf("%s?gitHubUserName=%s&gitHubUserEmail=%s", signupPath, gitHubUserName, gitHubUserEmail)
 			http.Redirect(w, r, url, http.StatusFound)
 		} else if err == nil {
 			err = loginWithGitHub(env, w, state, gitHubUserName, tokenJSON)
@@ -339,7 +364,7 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 				return mh.Error(err, errLabel)
 			}
 
-			urlWithToken := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+			urlWithToken := fmt.Sprintf("%s?token=%s", loginPath, t.Token)
 			http.Redirect(w, r, urlWithToken, http.StatusFound)
 		} else {
 			http.Redirect(w, r, redirectUrlForError, http.StatusFound)
@@ -351,7 +376,12 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 			return mh.Error(err, errLabel)
 		}
 
-		http.Redirect(w, r, "/app/#/account", http.StatusFound)
+		redirect := "/app/#/account"
+		if state.Beta {
+			redirect = envvars.BetaDashboardLocation
+		}
+
+		http.Redirect(w, r, redirect, http.StatusFound)
 	}
 
 	return nil
@@ -452,11 +482,12 @@ func storeGitHubInfoInRedis(state *OAuthState, gitHubUserName string, tokenJSON 
 	return nil
 }
 
-func makeOAuthState(userID int64, token string, purpose string) (string, error) {
+func makeOAuthState(userID int64, token string, purpose string, beta bool) (string, error) {
 	createdAt := time.Now().UTC()
 	return verifier.Generate(&OAuthState{
 		UserID:    userID,
 		Token:     token,
+		Beta:      beta,
 		Purpose:   purpose,
 		CreatedAt: createdAt,
 		ExpiresAt: createdAt.Add(ValidityPeriod),
@@ -497,9 +528,9 @@ func readOAuthState(signedState string) (*OAuthState, error) {
 	return state, nil
 }
 
-func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, error) {
+func setState(w http.ResponseWriter, r *http.Request, purpose string, beta bool) (string, error) {
 	tempKey := uuid.Make()
-	state, err := makeOAuthState(0, tempKey, purpose)
+	state, err := makeOAuthState(0, tempKey, purpose, beta)
 	if err != nil {
 		return "", err
 	}
@@ -524,7 +555,7 @@ func setState(w http.ResponseWriter, r *http.Request, purpose string) (string, e
 
 // Reuse existing cookie state if it has been set previously by the
 // same API call. Otherwise generate new signed state.
-func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (string, error) {
+func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpose string, beta bool) (string, error) {
 	// Check if existing github_state cookie is set.
 	cookie, err := r.Cookie("github_state")
 	if err == nil {
@@ -537,7 +568,7 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64) (stri
 	}
 
 	// Otherwise generate new state
-	state, err := makeOAuthState(userID, "", OAuthStatePurposeConnect)
+	state, err := makeOAuthState(userID, "", purpose, beta)
 	if err != nil {
 		return "", err
 	}

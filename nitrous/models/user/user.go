@@ -152,6 +152,15 @@ func FindByUsername(d db.QueryReceiver, username string) (*User, error) {
 	return user, nil
 }
 
+func FindByEmail(d db.QueryReceiver, email string) (*User, error) {
+	user := &User{}
+	err := d.Get(user, "SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL", email)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 func FindByUsernameOrEmail(d db.QueryReceiver, login string) (*User, error) {
 	user := &User{}
 	err := d.Get(user, "SELECT * FROM users WHERE (username = $1 OR email = $1) AND deleted_at IS NULL", login)

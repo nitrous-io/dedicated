@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/verification"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/logintoken"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -37,10 +38,11 @@ var (
 		"index_users_on_email":                        httperror.New(http.StatusBadRequest, "validation_failed", "email is taken"),
 		"index_users_on_phone_and_phone_country_code": httperror.New(http.StatusBadRequest, "validation_failed", "phone number already exists"),
 	}
-	reconfirmInvalidUser = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
-	errUpdateForbidden   = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
-	errExistsForbidden   = httperror.New(http.StatusForbidden, "forbidden", "forbidden")
-	errUserNotFound      = httperror.New(http.StatusNotFound, "user_not_found", "not found")
+	reconfirmInvalidUser       = httperror.New(http.StatusBadRequest, "validation_failed", "specified user does not exist")
+	errUpdateForbidden         = httperror.New(http.StatusForbidden, "update_forbidden", "You do not have permission to change user settings")
+	errExistsForbidden         = httperror.New(http.StatusForbidden, "forbidden", "forbidden")
+	errUserNotFound            = httperror.New(http.StatusNotFound, "user_not_found", "not found")
+	errExistingPasswordNoMatch = httperror.New(http.StatusBadRequest, "incorrect_existing_password", "your existing passsword is incorrect")
 )
 
 func EmailCapture(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -80,10 +82,15 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	email, password, name := r.PostFormValue("email"), r.PostFormValue("password"), r.PostFormValue("name")
+	existingPassword := r.PostFormValue("existing_password")
 
 	if email == "" && password == "" && name == "" {
 		userResponse(env, u)
 		return nil
+	}
+
+	if existingPassword != "" && password != "" && !bcrypt.Verify(u.EncryptedPassword, existingPassword) {
+		return errExistingPasswordNoMatch
 	}
 
 	emailChanged := false

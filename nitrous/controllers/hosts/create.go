@@ -75,9 +75,8 @@ type createOpts struct {
 	ContainerTemplateSlug string `json:"container_template_slug"`
 
 	// the following fields are only available to admin for now
-	Provider           string `json:"provider"`            // use to change provider. Also look at TemplateName
-	BypassPreprovision bool   `json:"bypass_preprovision"` // use to ignore pre-provisioned host
-	TemplateName       string `json:"template_name"`       // use to manually set provider_template
+	Provider     string `json:"provider"`      // use to change provider. Also look at TemplateName
+	TemplateName string `json:"template_name"` // use to manually set provider_template
 }
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -208,18 +207,17 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	provisioned := make(chan *host.Host, 1)
 	h, err := prov.ProvisionHost(provisioner.ProvisionOptions{
-		Async:              options.Async,
-		BypassPreprovision: options.BypassPreprovision,
-		OutputStream:       outstream,
-		Slug:               options.Slug,
-		Name:               options.Name,
-		User:               u,
-		Region:             reg,
-		Plan:               pl,
-		Org:                o,
-		Template:           template,
-		ProvisionFailedFn:  publishProvisionFailure,
-		UUID:               env.UUID,
+		Async:             options.Async,
+		OutputStream:      outstream,
+		Slug:              options.Slug,
+		Name:              options.Name,
+		User:              u,
+		Region:            reg,
+		Plan:              pl,
+		Org:               o,
+		Template:          template,
+		ProvisionFailedFn: publishProvisionFailure,
+		UUID:              env.UUID,
 		ProvisionSucceededFn: func(h *host.Host) {
 			provisioned <- h
 		},
@@ -298,7 +296,6 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 			Org:                   r.FormValue("org"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
-		opts.BypassPreprovision, _ = strconv.ParseBool(r.FormValue("bypass_preprovision"))
 	}
 
 	if opts.Size == "" {
@@ -319,8 +316,6 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 	}
 
 	if !u.Admin {
-		// if user is not admin, always enforce bypass_preprovision
-		opts.BypassPreprovision = false
 		// if user is not admin, reject custom template name
 		opts.TemplateName = ""
 	}

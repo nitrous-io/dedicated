@@ -109,15 +109,6 @@ func main() {
 		)
 	}
 
-	pu := envvars.ProvisionerUser
-	if pu == "" {
-		logrus.Fatal("nitrousd: PROVISIONER_USER is not defined")
-	}
-	pi, err := time.ParseDuration(envvars.ProvisionerInterval)
-	if err != nil {
-		logrus.Fatal("nitrousd: PROVISIONER_INTERVAL is not a valid duration: %v", err)
-	}
-
 	// Setting Defer Panic
 	var deferstatsClient *deferstats.Client
 	if envvars.DeferPanicToken != "" {
@@ -126,7 +117,7 @@ func main() {
 		go deferstatsClient.CaptureStats()
 	}
 
-	conf := &provisioner.Config{Username: pu, Interval: pi}
+	conf := &provisioner.Config{}
 	svr := server.NewServer(envvars.RootDir, dbConn, conf, deferstatsClient)
 
 	st, err := time.ParseDuration(envvars.StopTimeout)

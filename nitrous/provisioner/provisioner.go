@@ -8,14 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"sync"
-	"syscall"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -64,27 +59,14 @@ var (
 	validations = map[string]error{
 		"index_hosts_on_slug": ErrSlugIsTaken,
 	}
-
-	// default mapping for digitalocean regions
-	doRegionsMap = map[string]string{
-		"sgp": "sgp1",
-		"nyc": "nyc3",
-		"sfo": "sfo1",
-		"ams": "ams3",
-	}
 )
 
 type Provisioner struct {
-	db      *db.Database
-	events  *pubsub.Pubsub
-	didStop chan struct{}
+	db     *db.Database
+	events *pubsub.Pubsub
 
-	muIsRunning sync.Mutex
-	isRunning   bool
-
-	config           *Config
-	preprovisionUser *user.User
-	caInfo           *certauth.CAInfo
+	config *Config
+	caInfo *certauth.CAInfo
 }
 
 // Config is the configuration of a host provisioner.
@@ -94,10 +76,8 @@ type Config struct {
 }
 
 type ProvisionOptions struct {
-	Async              bool
-	Preprovision       bool
-	BypassPreprovision bool
-	OutputStream       io.Writer
+	Async        bool
+	OutputStream io.Writer
 
 	Slug     string
 	Name     string
@@ -195,144 +175,10 @@ func init() {
 
 func NewProvisioner(d *db.Database, e *pubsub.Pubsub, conf *Config) *Provisioner {
 	return &Provisioner{
-		db:      d,
-		events:  e,
-		didStop: make(chan struct{}),
-		config:  conf,
+		db:     d,
+		events: e,
+		config: conf,
 	}
-}
-
-func (p *Provisioner) IsRunning() bool {
-	p.muIsRunning.Lock()
-	p.muIsRunning.Unlock()
-	return p.isRunning
-}
-
-// Start kicks off a goroutine that pre-provisions hosts.
-func (p *Provisioner) Start() error {
-
-	if p.config == nil {
-		return ErrPreprovisionerNotConfigured
-	}
-
-	p.muIsRunning.Lock()
-	if p.isRunning {
-		logrus.Info("provisioner: Start() called but already started")
-		p.muIsRunning.Unlock()
-		return nil
-	}
-
-	if err := p.configureUser(); err != nil {
-		p.muIsRunning.Unlock()
-		return err
-	}
-
-	p.didStop = make(chan struct{})
-	p.isRunning = true
-	p.muIsRunning.Unlock()
-
-	// Allow provisioner to be restarted with SIGUSR2.
-	go func() {
-		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, syscall.SIGUSR2)
-		<-ch
-
-		logrus.Infof("provisioner: SIGUSR2 received, restarting")
-		p.Stop()
-		// Replace hostbuilder client with a new one.
-		hostbuilderURL := envvars.HostBuilderURL
-		if hostbuilderURL == "" {
-			panic("provisioner: HOSTBUILDER_URL is not set")
-		}
-		HostbuilderClient = hostbuilderclient.NewHostbuilder(hostbuilderURL)
-		p.Start()
-	}()
-
-	logrus.Debugf("provisioner: starting with config %+v", p.config)
-
-	// Periodically determine if we need to pre-provision any hosts.
-	go func() {
-		db := p.db
-		ticker := time.NewTicker(p.config.Interval)
-		for {
-			select {
-			case <-ticker.C:
-				ticker.Stop()
-				pts, err := providertemplate.Preprovisioned(db)
-				if err != nil {
-					p.StopWithError(err)
-					return
-				}
-
-				for _, pt := range pts {
-					r := &region.Region{ID: pt.RegionID}
-					// Skip if there are pre-provisioned orphan hosts in this region.
-					numOrphans, err := host.CountPreprovisionedOrphans(db, r)
-					if err != nil {
-						p.StopWithError(err)
-						return
-					}
-					if numOrphans > 0 {
-						logrus.Debugf("provisioner: %d orphan(s) in region %d, skipping job",
-							numOrphans, pt.RegionID)
-						continue
-					}
-
-					numHosts, err := host.CountPreprovisioned(db, r, &plan.Plan{ID: pt.PlanID})
-					if err != nil {
-						p.StopWithError(err)
-						return
-					}
-					logPrefix := fmt.Sprintf("provisioner: host count for (template,region,plan) (%d,%d,%d) is %d, max is %d:",
-						pt.ID, pt.RegionID, pt.PlanID, numHosts, pt.PreprovisionMax)
-					needed := pt.PreprovisionMax - numHosts
-					if needed <= 0 {
-						logrus.Debugf("%s skipping", logPrefix)
-						continue
-					}
-					logrus.Debugf("%s creating job", logPrefix)
-
-					j := job{template: &pt}
-
-					h, err := p.preprovision(j)
-					if err != nil {
-						logrus.Errorf("provisioner: job %s/%d/%d failed, err: %v",
-							j.template.Provider, j.template.RegionID, j.template.PlanID, err)
-						continue
-					}
-
-					logrus.Infof("provisioner: job %s/%d/%d successfully pre-provisioned host ID: %d",
-						j.template.Provider, j.template.RegionID, j.template.PlanID, h.ID)
-				}
-
-				ticker = time.NewTicker(p.config.Interval)
-			case <-p.didStop:
-				logrus.Debug("provisioner: job creator quitting")
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-
-	logrus.Debug("provisioner: started")
-
-	return nil
-}
-
-func (p *Provisioner) StopWithError(err error) {
-	logrus.Errorf("provisioner: job creator encountered error: %s", err)
-	p.Stop()
-}
-
-func (p *Provisioner) Stop() {
-	p.muIsRunning.Lock()
-	defer p.muIsRunning.Unlock()
-	if !p.isRunning {
-		return
-	}
-	p.isRunning = false
-	logrus.Info("provisioner: stopped")
-	close(p.didStop)
 }
 
 // ProvisionHost creates a new Host record (and its associated records),
@@ -363,50 +209,7 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		return nil, err
 	}
 
-	if !opts.BypassPreprovision {
-		// Assign a pre-provisioned host if one is available.
-		preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
-		if err == nil {
-			return p.usePreprovisionedHost(preprovisioned, opts)
-		} else if err != sql.ErrNoRows {
-			logrus.Warnf("Error finding preprovisioned hosts: %s", err)
-		}
-	}
-
 	return p.provisionNewHost(opts)
-}
-
-var (
-	assignments = make(map[int64]bool)
-	mutex       = &sync.Mutex{}
-)
-
-// markAssignment records that a pre-provisioned host is in the process of being
-// assigned to a real user and returns true if successful. A mutex is used so
-// that we can safely assign hosts across multiple goroutines.
-func markAssignment(h *host.Host) bool {
-	mutex.Lock()
-	defer mutex.Unlock()
-	if assignments[h.ID] {
-		return false
-	}
-	assignments[h.ID] = true
-	return true
-}
-
-func unmarkAssignment(h *host.Host) {
-	mutex.Lock()
-	assignments[h.ID] = false
-	mutex.Unlock()
-}
-
-func (p *Provisioner) usePreprovisionedHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
-	assignedHost, err := p.assignHost(h, opts)
-	if err != nil {
-		logrus.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
-		return p.provisionNewHost(opts)
-	}
-	return assignedHost, nil
 }
 
 func (p *Provisioner) provisionNewHost(opts ProvisionOptions) (*host.Host, error) {
@@ -421,68 +224,6 @@ func (p *Provisioner) provisionNewHost(opts ProvisionOptions) (*host.Host, error
 	}
 
 	return p.provision(phost, opts)
-}
-
-func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOptions) (h *host.Host, err error) {
-	if !markAssignment(preprovisionedHost) {
-		return nil, fmt.Errorf("provisioner: host %d became assigned while we weren't looking", preprovisionedHost.ID)
-	}
-	defer unmarkAssignment(preprovisionedHost)
-
-	cp := *preprovisionedHost // Copy of function arg.
-	h = &cp
-
-	defer func() {
-		if err == nil {
-			if opts.ProvisionSucceededFn != nil {
-				opts.ProvisionSucceededFn(h)
-			}
-		} else {
-			if opts.ProvisionFailedFn != nil {
-				opts.ProvisionFailedFn(h, err)
-			}
-		}
-	}()
-
-	// Update host in hostbuilder (e.g. rename host).
-	config := preprovisionedHost.MachineConfig()
-	config["name"] = opts.Slug
-	config["apt_username"] = strconv.FormatInt(h.ID, 10)
-	config["apt_password"] = h.Secret
-	config["apt_location"] = opts.AptLocation
-	config["apt_dist"] = opts.AptDist
-
-	urlArgs := host.URLArgsFromHost(h)
-	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
-	if err != nil {
-		if e, ok := err.(net.Error); ok && e.Timeout() {
-			logrus.Errorf("hostbuilder timeout updating host: %v", e)
-		}
-		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
-	}
-
-	// Update host record with new info.
-	h.Slug = opts.Slug
-	h.Name = sql.NullString{opts.Name, true}
-	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
-	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
-	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
-	h.HourlyPrice = opts.Plan.HourlyPrice()
-	h.Free = opts.Plan.IsFree()
-	h.AutoShutdown = opts.Plan.AutoShutdown
-	h.OrgID = opts.OrgID()
-	h.Preprovisioned = false
-	if err = h.UpdateWithPrice(p.db); err != nil {
-		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
-		return
-	}
-
-	if err = h.Reassign(p.db, opts.User); err != nil {
-		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
-		return
-	}
-
-	return
 }
 
 func getOptionDisableEIP(opts ProvisionOptions) bool {
@@ -517,7 +258,6 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		Size:               sql.NullString{opts.Plan.Slug, true},
 		State:              host.StateBorn,
 		OrgID:              opts.OrgID(),
-		Preprovisioned:     opts.Preprovision,
 		FreighterdVersion:  fv,
 		DockerVersion:      dv,
 		// If the host's provider_template.config has disable_eip => true, static_ip
@@ -535,17 +275,15 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		return nil, fmt.Errorf("provisioner: failed to begin db transaction for host %s, err: %v", h.Slug, err)
 	}
 
-	if !opts.Preprovision {
-		// Don't allow hosts to be created concurrently.
-		locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(opts.User.ID))
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-		if !locked {
-			tx.Rollback()
-			return nil, ErrMultipleHostCreationNotAllowed
-		}
+	// Don't allow hosts to be created concurrently.
+	locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(opts.User.ID))
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if !locked {
+		tx.Rollback()
+		return nil, ErrMultipleHostCreationNotAllowed
 	}
 
 	if err := p.canCreateHosts(opts); err != nil {
@@ -648,57 +386,6 @@ func (p *Provisioner) provision(phost *preparedHost, opts ProvisionOptions) (*ho
 		h = nH
 	}
 	return h, nil
-}
-
-func (p *Provisioner) configureUser() error {
-	u, err := user.FindByUsername(p.db, p.config.Username)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("User '%s' could not be found", p.config.Username)
-		}
-		return err
-	}
-	p.preprovisionUser = u
-	return nil
-}
-
-func (p *Provisioner) preprovision(j job) (*host.Host, error) {
-	r, err := region.FindByID(p.db, j.template.RegionID)
-	if err != nil {
-		return nil, err
-	}
-	if r == nil {
-		return nil, fmt.Errorf("region %d not found", j.template.RegionID)
-	}
-	if r.Disabled() {
-		return nil, fmt.Errorf("region %d is disabled", r.ID)
-	}
-	pl, err := plan.FindByID(p.db, j.template.PlanID)
-	if err != nil {
-		return nil, err
-	}
-
-	slug := fmt.Sprintf("pre-provisioned-%d", time.Now().UnixNano())
-	opts := ProvisionOptions{
-		Async:        false,
-		Preprovision: true,
-		OutputStream: ioutil.Discard,
-		Slug:         slug,
-		Name:         "Pre-provisioned host",
-		User:         p.preprovisionUser,
-		Region:       r,
-		Plan:         pl,
-		Template:     j.template,
-		AptLocation:  defaultAPTLocation,
-		AptDist:      defaultAPTDist,
-	}
-
-	phost, err := p.prepare(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return p.provision(phost, opts)
 }
 
 func (p *Provisioner) mkHostbuilderConfig(phost *preparedHost, opts ProvisionOptions) hostbuilderclient.Config {

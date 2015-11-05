@@ -38,6 +38,10 @@ var (
 	PreviewHostname    = os.Getenv("PREVIEW_HOSTNAME")
 	WebHostname        = os.Getenv("WEB_HOSTNAME")
 
+	BetaDashboardLocation = os.Getenv("BETA_DASHBOARD_LOCATION")
+	BetaLoginLocation     = os.Getenv("BETA_LOGIN_LOCATION")
+	BetaSignupLocation    = os.Getenv("BETA_SIGNUP_LOCATION")
+
 	StopTimeout = os.Getenv("STOP_TIMEOUT")
 	KillTimeout = os.Getenv("KILL_TIMEOUT")
 

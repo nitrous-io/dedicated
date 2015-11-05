@@ -56,6 +56,6 @@ func main() {
 	logrus.Info("compass: exited")
 }
 
-func fatalf(a ...interface{}) {
-	logrus.Fatalf(a...)
+func fatalf(format string, v ...interface{}) {
+	logrus.Fatalf(format, v...)
 }
