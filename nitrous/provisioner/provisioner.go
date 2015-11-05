@@ -362,47 +362,7 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 		return nil, err
 	}
 
-	preprovisioned, err := host.FindPreprovisioned(p.db, opts.Region, opts.Plan)
-	if err == nil {
-		return p.usePreprovisionedHost(preprovisioned, opts)
-	} else if err != sql.ErrNoRows {
-		logrus.Warnf("Error finding preprovisioned hosts: %s", err)
-	}
-
 	return p.provisionNewHost(opts)
-}
-
-var (
-	assignments = make(map[int64]bool)
-	mutex       = &sync.Mutex{}
-)
-
-// markAssignment records that a pre-provisioned host is in the process of being
-// assigned to a real user and returns true if successful. A mutex is used so
-// that we can safely assign hosts across multiple goroutines.
-func markAssignment(h *host.Host) bool {
-	mutex.Lock()
-	defer mutex.Unlock()
-	if assignments[h.ID] {
-		return false
-	}
-	assignments[h.ID] = true
-	return true
-}
-
-func unmarkAssignment(h *host.Host) {
-	mutex.Lock()
-	assignments[h.ID] = false
-	mutex.Unlock()
-}
-
-func (p *Provisioner) usePreprovisionedHost(h *host.Host, opts ProvisionOptions) (*host.Host, error) {
-	assignedHost, err := p.assignHost(h, opts)
-	if err != nil {
-		logrus.Warnf("provisioner: could not assign pre-provisioned host %d, err: %v", h.ID, err)
-		return p.provisionNewHost(opts)
-	}
-	return assignedHost, nil
 }
 
 func (p *Provisioner) provisionNewHost(opts ProvisionOptions) (*host.Host, error) {
@@ -417,68 +377,6 @@ func (p *Provisioner) provisionNewHost(opts ProvisionOptions) (*host.Host, error
 	}
 
 	return p.provision(phost, opts)
-}
-
-func (p *Provisioner) assignHost(preprovisionedHost *host.Host, opts ProvisionOptions) (h *host.Host, err error) {
-	if !markAssignment(preprovisionedHost) {
-		return nil, fmt.Errorf("provisioner: host %d became assigned while we weren't looking", preprovisionedHost.ID)
-	}
-	defer unmarkAssignment(preprovisionedHost)
-
-	cp := *preprovisionedHost // Copy of function arg.
-	h = &cp
-
-	defer func() {
-		if err == nil {
-			if opts.ProvisionSucceededFn != nil {
-				opts.ProvisionSucceededFn(h)
-			}
-		} else {
-			if opts.ProvisionFailedFn != nil {
-				opts.ProvisionFailedFn(h, err)
-			}
-		}
-	}()
-
-	// Update host in hostbuilder (e.g. rename host).
-	config := preprovisionedHost.MachineConfig()
-	config["name"] = opts.Slug
-	config["apt_username"] = strconv.FormatInt(h.ID, 10)
-	config["apt_password"] = h.Secret
-	config["apt_location"] = opts.AptLocation
-	config["apt_dist"] = opts.AptDist
-
-	urlArgs := host.URLArgsFromHost(h)
-	hostinfo, err := HostbuilderClient.Update(opts.Template.Provider, config, opts.OutputStream, p.hostbuilderHeaders(opts), urlArgs)
-	if err != nil {
-		if e, ok := err.(net.Error); ok && e.Timeout() {
-			logrus.Errorf("hostbuilder timeout updating host: %v", e)
-		}
-		return nil, fmt.Errorf("provisioner: failed to update host in Hostbuilder, err: %v", err)
-	}
-
-	// Update host record with new info.
-	h.Slug = opts.Slug
-	h.Name = sql.NullString{opts.Name, true}
-	h.IPAddress = sql.NullString{hostinfo.IPAddress, true}
-	h.FreighterdPort = sql.NullInt64{int64(hostinfo.FreighterdPort), true}
-	h.ProviderIdentifier = sql.NullString{hostinfo.ID, true}
-	h.HourlyPrice = opts.Plan.HourlyPrice()
-	h.Free = opts.Plan.IsFree()
-	h.AutoShutdown = opts.Plan.AutoShutdown
-	h.OrgID = opts.OrgID()
-	h.Preprovisioned = false
-	if err = h.UpdateWithPrice(p.db); err != nil {
-		err = fmt.Errorf("provisioner: failed to update pre-provisioned host record, err: %v", err)
-		return
-	}
-
-	if err = h.Reassign(p.db, opts.User); err != nil {
-		err = fmt.Errorf("provisioner: failed to assign pre-provisioned host %d to real user, err: %v", h.ID, err)
-		return
-	}
-
-	return
 }
 
 func getOptionDisableEIP(opts ProvisionOptions) bool {
