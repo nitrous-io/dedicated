@@ -27,6 +27,11 @@ var (
 	errPoolEmpty         = errors.New("pool is empty")
 )
 
+// swap out in tests for fake provider
+var ProviderFn = func(a aws.Auth, r aws.Region) instanceProvider {
+	return ec2.New(a, r)
+}
+
 // returns map of region name -> (instance type -> count)
 func (h *Host) ListPools() (map[string]map[string]int, error) {
 	start := time.Now()
@@ -51,7 +56,7 @@ func (h *Host) ListPools() (map[string]map[string]int, error) {
 				errs   []error
 				counts = make(map[string]int)
 			)
-			conn := ec2.New(h.auth, region)
+			conn := ProviderFn(h.auth, region)
 
 			pooled, err := h.instancesInPool(conn, "")
 			if err != nil {

@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
+
 	"github.com/nitrous-io/dedicated/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -120,7 +122,60 @@ func (f *fakeInstanceProvider) CreateTags(ids []string, tags []ec2.Tag) (*ec2.Si
 	return &ec2.SimpleResp{}, f.createTagsErr
 }
 
+var _ = Describe("ListPools", func() {
+	var (
+		fakeEC2       *fakeInstanceProvider
+		oldProviderFn func(aws.Auth, aws.Region) instanceProvider
+	)
+
+	BeforeEach(func() {
+		oldProviderFn = ProviderFn
+		ProviderFn = func(aws.Auth, aws.Region) instanceProvider {
+			return fakeEC2
+		}
+	})
+
+	AfterEach(func() {
+		ProviderFn = oldProviderFn
+	})
+
+	It("returns a map of regions to instance counts", func() {
+		// the simple fakeInstanceProvider doesn't handle multiple goroutines, so
+		// the values we give here will be returned for all regions
+		driver := &Host{
+			driverConfig: driverConfig{Env: "test"},
+			Config:       &hostConfig{RegionID: "ap-southeast-42"},
+		}
+
+		fakeEC2 = &fakeInstanceProvider{
+			instances: []ec2.Instance{
+				{InstanceId: "i-abcde", InstanceType: "t2.micro"},
+				{InstanceId: "i-bcdef", InstanceType: "t2.small"},
+				{InstanceId: "i-cdefg", InstanceType: "t2.small"},
+			},
+		}
+
+		counts, err := driver.ListPools()
+		Expect(err).To(BeNil())
+
+		apse, ok := counts["ap-southeast-1"]
+		Expect(ok).To(BeTrue())
+		Expect(apse).To(Equal(map[string]int{"t2.micro": 1, "t2.small": 2}))
+	})
+})
+
 var _ = Describe("instancesInPool", func() {
+	// Build up the expected filter. Since ec2.Filter does not expose a way
+	// to get at its values, we have to compare them using deep equality.
+	makeExpectedFilter := func() *ec2.Filter {
+		expectedFilter := ec2.NewFilter()
+		expectedFilter.Add(fmt.Sprintf(`tag:%s`, poolTag), "true")
+		expectedFilter.Add("tag:dedicated", "test")
+		expectedFilter.Add("instance-state-name", "running")
+
+		return expectedFilter
+	}
+
 	It("looks up instances using filters", func() {
 		driver := &Host{
 			driverConfig: driverConfig{Env: "test"},
@@ -140,14 +195,23 @@ var _ = Describe("instancesInPool", func() {
 
 		Expect(fakeEC2.receivedIDs).To(BeNil())
 
-		// Build up the expected filter. Since ec2.Filter does not expose a way
-		// to get at its values, we have to compare them using deep equality.
-		expectedFilter := ec2.NewFilter()
+		expectedFilter := makeExpectedFilter()
 		expectedFilter.Add("instance-type", "t2.micro")
-		expectedFilter.Add(fmt.Sprintf(`tag:%s`, poolTag), "true")
-		expectedFilter.Add("tag:dedicated", "test")
-		expectedFilter.Add("instance-state-name", "running")
+		Expect(fakeEC2.receivedFilter).To(Equal(expectedFilter))
+	})
 
+	It("does not set instance-type filter if given empty string for instanceType param", func() {
+		driver := &Host{
+			driverConfig: driverConfig{Env: "test"},
+			Config:       &hostConfig{RegionID: "ap-southeast-42"},
+		}
+
+		fakeEC2 := &fakeInstanceProvider{}
+
+		_, err := driver.instancesInPool(fakeEC2, "")
+		Expect(err).To(BeNil())
+
+		expectedFilter := makeExpectedFilter() // instance-type filter not added
 		Expect(fakeEC2.receivedFilter).To(Equal(expectedFilter))
 	})
 })
