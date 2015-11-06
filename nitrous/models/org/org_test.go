@@ -2,6 +2,7 @@ package org_test
 
 import (
 	"database/sql"
+	"strconv"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
@@ -9,6 +10,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -115,6 +118,26 @@ var _ = Describe("models/org", func() {
 				Expect(o).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("FindByIdOrSlug()", func() {
+		It("returns the record with given slug or ID", func() {
+			o, err := org.FindByIdOrSlug(db, "foobar")
+			Expect(err).To(BeNil())
+			Expect(o.ID).To(Equal(o1.ID))
+			Expect(o.Name).To(Equal("Foo Bar, Inc."))
+			Expect(o.Slug).To(Equal("foobar"))
+			Expect(o.Email).To(Equal("eng@foobar.com"))
+
+			id := strconv.FormatInt(o1.ID, 10)
+			o, err = org.FindByIdOrSlug(db, id)
+			Expect(err).To(BeNil())
+			Expect(o.ID).To(Equal(o1.ID))
+			Expect(o.Slug).To(Equal("foobar"))
+			Expect(o.Name).To(Equal("Foo Bar, Inc."))
+			Expect(o.Slug).To(Equal("foobar"))
+			Expect(o.Email).To(Equal("eng@foobar.com"))
 		})
 	})
 
@@ -619,6 +642,49 @@ var _ = Describe("models/org", func() {
 				Expect(err).NotTo(BeNil())
 				Expect(bp.State).To(Equal("no_card"))
 			})
+		})
+	})
+
+	Describe("Plans", func() {
+		var (
+			orgDefaultSegmentID int64
+			o                   *org.Org
+		)
+
+		BeforeEach(func() {
+			plans := []*plan.Plan{
+				{Slug: "plus", Price: 6400},
+				{Slug: "pro", Price: 12800},
+			}
+
+			// Get default segment ID
+			err := db.QueryRow(`SELECT id from segments where org_default='t'`).Scan(&orgDefaultSegmentID)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, pl := range plans {
+				Expect(pl.Insert(db)).To(BeNil())
+
+				ps := plan_segment.PlanSegment{SegmentID: orgDefaultSegmentID, PlanID: pl.ID}
+				Expect(ps.Insert(db)).NotTo(HaveOccurred())
+			}
+
+			// Add org
+			o = &org.Org{
+				Name:      "Test",
+				Email:     "test@nitrous.io",
+				Slug:      "test_org",
+				SegmentID: orgDefaultSegmentID,
+			}
+			Expect(o.Insert(db)).To(BeNil())
+		})
+
+		It("returns org plans", func() {
+			plans, err := o.Plans(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(plans).To(HaveLen(2))
+			Expect(plans[0].Slug).To(Equal("plus"))
+			Expect(plans[1].Slug).To(Equal("pro"))
 		})
 	})
 })

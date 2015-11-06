@@ -49,9 +49,11 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   canUpgrade: (->
     return false if @get('hostIsTransitioning')
     return true unless curPlan = @get('plan')
-    App.get('eligiblePlans').any (plan) =>
-      plan.get('isPaidPlan') && !plan.get('hidden') && (curPlan.get('org') == plan.get('org')) && (plan.get('price') > @get('plan.price'))
-  ).property 'App.eligiblePlans.@each', 'plan', 'hostIsTransitioning'
+    plans = App.get('plans')
+
+    plans.any (plan) =>
+      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > @get('plan.price'))
+  ).property 'App.plans.@each', 'plan', 'hostIsTransitioning'
 
   cancel: ->
     Em.RSVP.Promise.cast Em.$.ajax
@@ -84,4 +86,5 @@ klass.reopenClass
   url: '/subscriptions'
   primaryKey: 'slug'
   rootKey: 'subscription'
+
   collectionKey: 'subscriptions'

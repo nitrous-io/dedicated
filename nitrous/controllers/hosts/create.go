@@ -149,6 +149,14 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	if err := planEligible(db, pl, u, o); err != nil {
+		// allow admins to create regardless of segments; ignore errors if
+		// template name is given
+		if options.TemplateName == "" {
+			return err
+		}
+	}
+
 	err = freetier.CreateHostWithPlanAllowed(db, u, bp, pl)
 	if err != nil {
 		switch err {
@@ -335,6 +343,25 @@ func findPlan(db ndb.QueryReceiver, size string) (*plan.Plan, error) {
 		return nil, fmt.Errorf("no matching plan for '%s', error %s", size, err)
 	}
 	return pl, nil
+}
+
+func planEligible(db ndb.QueryReceiver, pl *plan.Plan, u *user.User, o *org.Org) error {
+	var eligPlans []*plan.Plan
+	var err error
+	if o == nil {
+		eligPlans, err = plan.PlansFor(db, u)
+	} else {
+		eligPlans, err = o.Plans(db)
+	}
+	if err != nil {
+		return err
+	}
+	for _, elp := range eligPlans {
+		if elp.Slug == pl.Slug {
+			return nil
+		}
+	}
+	return errPlanNotFound
 }
 
 func findRegion(db ndb.QueryReceiver, regionSlug string) (*region.Region, error) {

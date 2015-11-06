@@ -20,6 +20,7 @@ App.OrgBillingComponent = Em.Component.extend App.OrgMembersMixin,
     @fetchMembers()
     @reloadSubscriptions()
     @reloadInvoices()
+    @reloadOrgPlans()
 
   reloadSubscriptions: (->
     subscriptions = @get 'org.subscriptions'
@@ -32,6 +33,15 @@ App.OrgBillingComponent = Em.Component.extend App.OrgMembersMixin,
     if invoices && invoices.get('loaded')
       invoices.reload()
   ).observes 'org'
+
+  reloadOrgPlans: (->
+    if @get('org')
+      plans = App.OrgPlan.fetch(orgSlug: @get('org.slug')).value
+      if @get('org.subscriptions')
+        @get('org.subscriptions').forEach (subscription) ->
+          subscription.set('plans', plans)
+
+  ).observes 'org', 'org.subscriptions.@each'
 
   actions:
     updateCard: ->

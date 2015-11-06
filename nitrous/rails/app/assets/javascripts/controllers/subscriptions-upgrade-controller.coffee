@@ -13,12 +13,28 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
   hostsUpgrading: null
   manyHostsUpgrading: false
 
+  orgPlans: null
+
   availablePlans: (->
     return [] unless @get 'model.plan'
     curPlan = @get('model.plan')
-    App.get('eligiblePlans').filter (plan) ->
-      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('org') == curPlan.get('org')) && (plan.get('price') > curPlan.get('price'))
-  ).property 'App.eligiblePlans.@each', 'model.plan'
+    plans = App.get('plans')
+
+    if @get('model.orgId')
+      if @get('orgPlans')
+        plans = @get('orgPlans')
+      else
+        return []
+
+    plans.filter (plan) ->
+      plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > curPlan.get('price'))
+  ).property 'App.plans.@each', 'model.plan', 'orgPlans'
+
+  updateOrgPlans: ( ->
+    if @get('model.orgId')
+      App.OrgPlan.fetch(orgSlug: @get('model.orgId')).then (plans) =>
+        @set 'orgPlans', plans
+  ).observes 'model.orgId'
 
   upgradeSubscriptionDisabled: (->
     @get('selectedPlan') == @get('model.plan')

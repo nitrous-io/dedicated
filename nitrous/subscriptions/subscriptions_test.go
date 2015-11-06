@@ -25,6 +25,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
+	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -590,6 +591,41 @@ var _ = Describe("subscriptions", func() {
 
 		Context("as a user", func() {
 			sharedExamples()
+
+			It("updates user subscribing to free plan with new segment", func() {
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				freeSID, err := segment.FreeUserDefaultID(db)
+				Expect(err).To(BeNil())
+
+				defaultSID, err := segment.UserDefaultID(db)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE users SET segment_id = $1 WHERE id = $2",
+					freeSID, u.ID)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE plans SET price = 0, base_price = 0 WHERE id = $1", pl.ID)
+				Expect(err).To(BeNil())
+				pl, err = plan.FindByID(db, pl.ID)
+				Expect(err).To(BeNil())
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				u2, err := user.FindByID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(u2.SegmentID).To(Equal(defaultSID))
+			})
 		})
 
 		Context("as a organisation", func() {
@@ -684,6 +720,14 @@ var _ = Describe("subscriptions", func() {
 			Expect(r1["method"]).To(Equal("DELETE"))
 			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
 			Expect(r1["at_period_end"]).To(BeEmpty())
+
+			// and update user segment back to free
+			sid, err := segment.FreeUserDefaultID(db)
+			Expect(err).To(BeNil())
+			Expect(u.SegmentID).NotTo(Equal(sid))
+			u2, err := user.FindByID(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(u2.SegmentID).To(Equal(sid))
 		})
 
 		It("should cancel immediately if on free trial", func() {
