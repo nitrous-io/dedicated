@@ -37,6 +37,7 @@ import (
 
 type Provider interface {
 	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (*subscription.Subscription, error)
+	SubscribeOrgPlan(d *db.Database, p *plan.Plan, o *org.Org) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 	Reactivate(d *db.Database, sub *subscription.Subscription) error
@@ -258,6 +259,10 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		}
 	}
 
+	return
+}
+
+func (s *SubscriptionProvider) SubscribeOrgPlan(d *db.Database, p *plan.Plan, o *org.Org) (sub *subscription.Subscription, err error) {
 	return
 }
 

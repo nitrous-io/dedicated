@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -211,6 +213,38 @@ func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "reactivated",
+	}
+	return nil
+}
+
+func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	orgSlug := mux.Vars(r)["org_slug"]
+
+	o, err := org.FindBySlug(env.DB, orgSlug)
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return err
+	}
+
+	planID, err := strconv.ParseInt(r.FormValue("plan_id"), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	pl, err := plan.FindByID(env.DB, planID)
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return err
+	}
+
+	_, err = subProvider.SubscribeOrgPlan(env.DB, pl, o)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusCreated
+	env.Data = map[string]interface{}{
+		"subscription": "created",
 	}
 	return nil
 }

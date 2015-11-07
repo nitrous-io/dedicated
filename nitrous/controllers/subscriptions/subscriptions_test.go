@@ -18,6 +18,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
+	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -685,6 +687,76 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			Expect(fsub.ReactivateCalled).To(BeFalse())
 			Expect(fsub.ReactivateSubscription).To(BeNil())
+		})
+	})
+
+	Describe("POST /api/v0/orgs/:slug/subscriptions", func() {
+		var (
+			fsub  *test.FakeSubscriptionProvider
+			pl    *plan.Plan
+			o     *org.Org
+			orgBP *billingprofile.BillingProfile
+		)
+		doRequest := func(orgSlug string, planID int64) *httptest.ResponseRecorder {
+			uri := fmt.Sprintf("/api/v0/orgs/%s/subscriptions", orgSlug)
+			params := &url.Values{
+				"plan_id": []string{strconv.FormatInt(planID, 10)},
+			}
+			req, err := test.NewAuthedRequest(t, "POST", uri, params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			fsub = &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			// Insert plan
+			pl = &plan.Plan{
+				Slug:          "org-plan",
+				Name:          "large-org-plan",
+				Storage:       "1024 GB",
+				Price:         500000,
+				Memory:        "68 GB",
+				Org:           true,
+				MaxHosts:      50,
+				MaxContainers: 16,
+				StripePlanID:  sql.NullString{"org-large", true},
+			}
+			Expect(pl.Insert(db)).To(BeNil())
+
+			orgSegmentID, err := segment.OrgDefaultID(db)
+			Expect(err).NotTo(HaveOccurred())
+
+			ps := plan_segment.PlanSegment{SegmentID: orgSegmentID, PlanID: pl.ID}
+			Expect(ps.Insert(db)).NotTo(HaveOccurred())
+
+			o = &org.Org{
+				Slug:      "large-org",
+				Name:      "Large Org",
+				Email:     "large@nitrous.io",
+				SegmentID: orgSegmentID,
+			}
+			Expect(o.Insert(db)).NotTo(HaveOccurred())
+
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			orgBP, err = billingprofile.FindForOrg(db, o.ID)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("subscribes org plan", func() {
+			res := doRequest(o.Slug, pl.ID)
+			Expect(res.Code).To(Equal(http.StatusCreated))
+			Expect(fsub.SubscribeOrgPlanCalled).To(BeTrue())
+			Expect(fsub.SubscribeOrgPlanPlan.ID).To(Equal(pl.ID))
+			Expect(fsub.SubscribeOrgPlanOrg.ID).To(Equal(o.ID))
 		})
 	})
 })

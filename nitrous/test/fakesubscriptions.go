@@ -20,6 +20,12 @@ type FakeSubscriptionProvider struct {
 	SubscribeError  error
 	SubscribeReturn *subscription.Subscription
 
+	SubscribeOrgPlanCalled bool
+	SubscribeOrgPlanPlan   *plan.Plan
+	SubscribeOrgPlanOrg    *org.Org
+	SubscribeOrgPlanError  error
+	SubscribeOrgPlanReturn *subscription.Subscription
+
 	CancelCalled       bool
 	CancelSubscription *subscription.Subscription
 	CancelError        error
@@ -70,6 +76,13 @@ func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *pl
 	s.SubscribeUser = u
 	s.SubscribeOrg = o
 	return s.SubscribeReturn, s.SubscribeError
+}
+
+func (s *FakeSubscriptionProvider) SubscribeOrgPlan(d *db.Database, p *plan.Plan, o *org.Org) (sub *subscription.Subscription, err error) {
+	s.SubscribeOrgPlanCalled = true
+	s.SubscribeOrgPlanPlan = p
+	s.SubscribeOrgPlanOrg = o
+	return s.SubscribeOrgPlanReturn, s.SubscribeOrgPlanError
 }
 
 func (s *FakeSubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscription) error {
