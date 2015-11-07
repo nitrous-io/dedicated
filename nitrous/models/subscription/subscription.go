@@ -35,6 +35,8 @@ type Subscription struct {
 	CancelPending bool        `db:"cancel_pending"`
 	CancelledAt   pq.NullTime `db:"cancelled_at"`
 
+	MaxHosts int64 `db:"max_hosts"`
+
 	// to facilitate downgrades we need to cancel the current subscription
 	// wait for it to notify us of a delete, then create a new one with the plan
 	PendingPlanID sql.NullInt64 `db:"pending_plan_id"`
@@ -57,8 +59,8 @@ type SubscriptionWithUserInfo struct {
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
-		(plan_id, billing_profile_id, state, stripe_id, slug)
-    VALUES (:plan_id, :billing_profile_id, :state, :stripe_id, :slug)
+		(plan_id, billing_profile_id, state, stripe_id, slug, max_hosts)
+		VALUES (:plan_id, :billing_profile_id, :state, :stripe_id, :slug, :max_hosts)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -68,8 +70,8 @@ func (s *Subscription) Insert(tx *sqlx.Tx) error {
 
 func (s *Subscription) Update(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`UPDATE subscriptions
-		SET (state, plan_id, stripe_id, current_period_start, current_period_end, updated_at)
-		= (:state, :plan_id, :stripe_id, :current_period_start, :current_period_end, now())
+		SET (state, plan_id, stripe_id, current_period_start, current_period_end, updated_at, max_hosts)
+		= (:state, :plan_id, :stripe_id, :current_period_start, :current_period_end, now(), :max_hosts)
 		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {

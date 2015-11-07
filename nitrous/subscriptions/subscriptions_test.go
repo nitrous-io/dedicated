@@ -111,6 +111,10 @@ var _ = Describe("subscriptions", func() {
 		}
 	})
 
+	AfterEach(func() {
+		db.Close()
+	})
+
 	Describe("Subscribe()", func() {
 		var (
 			o *org.Org
@@ -1188,6 +1192,57 @@ var _ = Describe("subscriptions", func() {
 			Expect(h.MaxContainers.Int64).To(Equal(int64(19)))
 			Expect(h.AutoShutdown).To(BeFalse())
 			Expect(h.Size.String).To(Equal("newStripePlan"))
+		})
+	})
+
+	Describe("SubscribeOrgPlan()", func() {
+		var (
+			o *org.Org
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+
+			// corrupt the user's billing profile so we ensure the operation runs over the org BP
+			Expect(bp.OrgID.Valid).To(BeFalse())
+			bp.State = billingprofile.StateNoCard
+			bp.StripeID = sql.NullString{stripeCustomerID + "-disabled", true}
+			Expect(bp.Update(db)).To(BeNil())
+
+			bp, err = billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+			bp.State = billingprofile.StatePaid
+			bp.StripeID = sql.NullString{stripeCustomerID, true}
+			Expect(bp.Update(db)).To(BeNil())
+		})
+
+		It("should return an error if the plan is not subscribable", func() {
+			p := &plan.Plan{}
+			s, err := subProvider.SubscribeOrgPlan(db, p, o)
+			Expect(err).To(Equal(subscriptions.ErrNotSubscribablePlan))
+			Expect(s).To(BeNil())
+		})
+
+		It("should return an error if the billing profile is ineligible", func() {
+			bp.State = billingprofile.StateDelinquent
+			Expect(bp.Update(db)).To(BeNil())
+
+			s, err := subProvider.SubscribeOrgPlan(db, pl, o)
+			Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
+			Expect(s).To(BeNil())
 		})
 	})
 
@@ -2897,5 +2952,19 @@ func findByHostID(d ndb.QueryReceiver, id int64) (*subscription.Subscription, er
 	if err != nil {
 		return nil, err
 	}
+	return sub, nil
+}
+
+func findByOrgID(d ndb.QueryReceiver, id int64) (*subscription.Subscription, error) {
+	sub := &subscription.Subscription{}
+	err := d.Get(sub, `SELECT subscriptions.* FROM subscriptions
+	JOIN billing_profiles ON billing_profiles.id = subscriptions.billing_profile_id
+	JOIN orgs ON orgs.id = billing_profiles.org_id
+	WHERE orgs.id = $1;`, id)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return sub, nil
 }
