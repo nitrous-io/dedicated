@@ -81,12 +81,14 @@ var _ = Describe("controllers/orgs", func() {
 	})
 
 	Describe("POST /api/v0/orgs", func() {
-		doRequest := func() {
+		doRequest := func() *httptest.ResponseRecorder {
 			var err error
 			req, err = test.NewFormRequest("POST", "/api/v0/orgs", params)
 			Expect(err).To(BeNil())
 			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
 			handler.ServeHTTP(res, req)
+			return res
 		}
 
 		BeforeEach(func() {
@@ -97,11 +99,8 @@ var _ = Describe("controllers/orgs", func() {
 		})
 
 		Context("when valid params are received", func() {
-			BeforeEach(func() {
-				doRequest()
-			})
-
 			It("returns 201 Created and creates an org in the db", func() {
+				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusCreated))
 				o, err := org.FindBySlug(db, "nitrous")
 				Expect(err).To(BeNil())
@@ -115,6 +114,7 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			It("should create a billing profile for the organisation", func() {
+				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusCreated))
 				o, err := org.FindBySlug(db, "nitrous")
 				Expect(err).To(BeNil())
@@ -124,6 +124,8 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			It("responds with a json representation of the org that's been created", func() {
+				res := doRequest()
+
 				o, err := org.FindBySlug(db, "nitrous")
 				Expect(err).To(BeNil())
 
@@ -142,6 +144,8 @@ var _ = Describe("controllers/orgs", func() {
 			})
 
 			It("adds the user as the owner of the org", func() {
+				doRequest()
+
 				o, err := org.FindBySlug(db, "nitrous")
 				Expect(err).To(BeNil())
 
@@ -152,6 +156,23 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(m[0].Username).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
+		})
+
+		It("responds with HTTP 400 Bad Request when slug is taken by another org", func() {
+			res := doRequest() // Create org.
+			Expect(res.Code).To(Equal(http.StatusCreated))
+
+			_, err := org.FindBySlug(db, "nitrous")
+			Expect(err).To(BeNil())
+
+			res = doRequest() // Try to create org with the same slug.
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			var j map[string]string
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j["error"]).To(Equal("validation_failed"))
+			Expect(j["error_description"]).To(Equal("slug is taken"))
 		})
 
 		Context("when invalid params are received", func() {
@@ -178,10 +199,10 @@ var _ = Describe("controllers/orgs", func() {
 							} else {
 								params.Set(t.param, t.value)
 							}
-							doRequest()
 						})
 
-						It("responds with 400 bad request", func() {
+						It("responds with HTTP 400 Bad Request", func() {
+							res := doRequest()
 							Expect(res.Code).To(Equal(http.StatusBadRequest))
 							var j map[string]string
 							err := json.Unmarshal(res.Body.Bytes(), &j)
@@ -211,10 +232,10 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(err).To(BeNil())
 
 				params.Set("email", "foo@example.com")
-				doRequest()
 			})
 
 			It("responds with 400 bad request", func() {
+				res := doRequest()
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 				var j map[string]string
 				err := json.Unmarshal(res.Body.Bytes(), &j)
