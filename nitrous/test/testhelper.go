@@ -57,10 +57,6 @@ func TestDatabase(dbname string) (*db.Database, error) {
 		d.Close()
 		return nil, err
 	}
-	if err := populateSeedData(d); err != nil {
-		d.Close()
-		return nil, err
-	}
 	return d, nil
 }
 
@@ -112,15 +108,6 @@ func truncateTables(db *db.Database) error {
 	}
 
 	return nil
-}
-
-// any statements run here will be included in all tests by default since this
-// is called from TestDatabase
-func populateSeedData(db *db.Database) error {
-	_, err := db.Exec(`
-		INSERT INTO segments (slug, is_default) VALUES ('default', true)
-	`)
-	return err
 }
 
 func getTables(db *db.Database) ([]string, error) {
