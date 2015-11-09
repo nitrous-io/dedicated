@@ -23,6 +23,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   nameFieldEdited: false
 
   orgs: Em.computed.alias 'controllers.orgs.collection'
+
   orgPlans: null
 
   selectedOrg: (->
@@ -42,28 +43,19 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   selectedOrgSlugDidChange: (->
     if @get('selectedOrgSlug')
-      orgPlans = @get('selectedOrg.plans')
-      if orgPlans
-          @set('orgPlans', orgPlans)
-          @updateSelectedOrgPlans()
-      else
-        @get('selectedOrg').fetchPlans().then( (plans) =>
-          @set('orgPlans', plans)
-          @updateSelectedOrgPlans()
-        )
+      App.OrgPlan.fetch(orgSlug: @get('selectedOrgSlug')).then (orgPlans) =>
+        @set('orgPlans', orgPlans)
+
+        sortedOrgPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
+          content: orgPlans
+          sortProperties: ['totalPrice']
+
+        @set 'sortedOrgPlans', sortedOrgPlans
+        @set 'selectedPlan', @get('sortedOrgPlans.firstObject')
     else
       # if user wants to create a host personally and currently selected plan is an org plan
       @set 'selectedPlan', @get('paidPlans.firstObject')
   ).observes 'selectedOrgSlug'
-
-  updateSelectedOrgPlans: ->
-    if orgPlans = @get('orgPlans')
-      sortedOrgPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
-        content: orgPlans
-        sortProperties: ['totalPrice']
-
-      @set 'sortedOrgPlans', sortedOrgPlans
-      @set 'selectedPlan', @get('sortedOrgPlans.firstObject')
 
   clear: ->
     plans = @get 'plans'
