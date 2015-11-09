@@ -27,10 +27,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
-	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -124,7 +122,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		Expect(err).To(BeNil())
 
 		orgHs, err = test.CreateHostStack(db, &test.HostStack{
-			R: hs.R,
+			R: &region.Region{Slug: "use2"},
 			P: &plan.Plan{Name: "OrgLarge", Slug: "org-large", Price: 10000, Org: true},
 		})
 		Expect(err).To(BeNil())
@@ -135,24 +133,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Email: "eng@foobar.com",
 		}
 		err = o.Insert(db)
-		Expect(err).To(BeNil())
-
-		userSID, err := segment.UserDefaultID(db)
-		Expect(err).To(BeNil())
-		ups := &plan_segment.PlanSegment{
-			PlanID:    hs.P.ID,
-			SegmentID: userSID,
-		}
-		err = ups.Insert(db)
-		Expect(err).To(BeNil())
-
-		orgSID, err := segment.OrgDefaultID(db)
-		Expect(err).To(BeNil())
-		ops := &plan_segment.PlanSegment{
-			PlanID:    orgHs.P.ID,
-			SegmentID: orgSID,
-		}
-		err = ops.Insert(db)
 		Expect(err).To(BeNil())
 
 		params = &url.Values{}
@@ -264,18 +244,6 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		params.Set("size", planSlug)
 		res := doRequest(params)
 
-		Expect(res.Code).To(Equal(http.StatusBadRequest))
-
-		errType, errDesc := test.ErrorSlug(res.Body)
-		Expect(errType).To(Equal("invalid_request"))
-		Expect(errDesc).To(Equal("no matching plan found"))
-	})
-
-	It("responds with plan not found when the requested plan is not in user's segment", func() {
-		_, err := db.Exec(`TRUNCATE plan_segments`)
-		Expect(err).To(BeNil())
-
-		res := doRequest(params)
 		Expect(res.Code).To(Equal(http.StatusBadRequest))
 
 		errType, errDesc := test.ErrorSlug(res.Body)
@@ -505,7 +473,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(h.Hotswap).To(BeTrue())
 		})
 
-		Context("if org is specified", func() {
+		Context("if org is speicifed", func() {
 			It("sets the org_id on the host", func() {
 				err := db.WithTransaction(func(t *sqlx.Tx) error {
 					return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
@@ -799,11 +767,16 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 
 		It("allows a hidden plan", func() {
-			_, err := db.Exec(`UPDATE plans SET hidden = true WHERE id = $1`,
-				hs.P.ID)
+			planSlug := "1gb-always-on"
+			_, err := test.CreateHostStack(db, &test.HostStack{
+				P: &plan.Plan{Hidden: true, Slug: planSlug, Price: 500},
+				R: hs.R,
+			})
 			Expect(err).To(BeNil())
 
+			params.Set("size", planSlug)
 			res := doRequest(params)
+
 			Expect(res.Code).To(Equal(http.StatusOK))
 		})
 	})
@@ -1052,8 +1025,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
 			Expect(err).To(BeNil())
 
+			_, err = db.Exec(`UPDATE plans SET price=123, org=true;`)
+			Expect(err).To(BeNil())
+
 			params.Set("org", o.Slug)
-			params.Set("size", orgHs.P.Slug)
 		})
 
 		It("creates the host", func() {

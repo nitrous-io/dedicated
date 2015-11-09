@@ -222,7 +222,7 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 	return
 }
 
-func (o *Org) Plans(d db.QueryReceiver) ([]*plan.Plan, error) {
+func (o *Org) Plans(d *db.Database) ([]*plan.Plan, error) {
 	plans := []*plan.Plan{}
 
 	err := d.Select(&plans, `
