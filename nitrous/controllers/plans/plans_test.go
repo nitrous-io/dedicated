@@ -9,8 +9,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -101,10 +102,6 @@ var _ = Describe("controllers/plans", func() {
 		}
 
 		Context("when plans exist", func() {
-			var (
-				userDefaultSegmentID     int64
-				freeUserDefaultSegmentID int64
-			)
 			plans := []*plan.Plan{
 				{Slug: "free", Price: 0},
 				{Slug: "start", Price: 500},
@@ -114,13 +111,6 @@ var _ = Describe("controllers/plans", func() {
 			}
 
 			BeforeEach(func() {
-				// Get default segment ID
-				err := db.QueryRow(`SELECT id from segments where user_default='t'`).Scan(&userDefaultSegmentID)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = db.QueryRow(`SELECT id from segments where free_user_default='t'`).Scan(&freeUserDefaultSegmentID)
-				Expect(err).NotTo(HaveOccurred())
-
 				r := region.Region{
 					Slug: "sfo",
 					Name: "US West",
@@ -129,14 +119,12 @@ var _ = Describe("controllers/plans", func() {
 
 				for _, pl := range plans {
 					Expect(pl.Insert(db)).To(BeNil())
-
-					// Add plan segments
-					if pl.Slug != "free" {
-						ps := plan_segment.PlanSegment{SegmentID: freeUserDefaultSegmentID, PlanID: pl.ID}
-						Expect(ps.Insert(db)).NotTo(HaveOccurred())
+					pt := providertemplate.ProviderTemplate{
+						PlanID:   pl.ID,
+						RegionID: r.ID,
+						Provider: envvars.DefaultProvider,
 					}
-					ps := plan_segment.PlanSegment{SegmentID: userDefaultSegmentID, PlanID: pl.ID}
-					Expect(ps.Insert(db)).NotTo(HaveOccurred())
+					Expect(pt.Insert(db)).To(BeNil())
 				}
 
 				// Add a plan that uses another plan as its base plan.
@@ -149,16 +137,27 @@ var _ = Describe("controllers/plans", func() {
 					Hidden:     true,
 				}
 				Expect(pl.Insert(db)).To(BeNil())
-				// Add plan segments
-				ps := plan_segment.PlanSegment{SegmentID: freeUserDefaultSegmentID, PlanID: pl.ID}
-				Expect(ps.Insert(db)).NotTo(HaveOccurred())
-				ps = plan_segment.PlanSegment{SegmentID: userDefaultSegmentID, PlanID: pl.ID}
-				Expect(ps.Insert(db)).NotTo(HaveOccurred())
+				pt := providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: envvars.DefaultProvider,
+				}
+				Expect(pt.Insert(db)).To(BeNil())
+
+				// Add a plan belonging to another provider - it should not be returned.
+				pl = plan.Plan{Slug: "start-windows-azure", Price: 3000}
+				Expect(pl.Insert(db)).To(BeNil())
+				pt = providertemplate.ProviderTemplate{
+					PlanID:   pl.ID,
+					RegionID: r.ID,
+					Provider: "windows-azure",
+				}
+				Expect(pt.Insert(db)).To(BeNil())
 			})
 
 			Context("When user is not logged in", func() {
 				It("should show all plans", func() {
-					plans := fetchPlans("/api/v0/plans", false)
+					plans := fetchPlans("/api/v0/plans?eligible=true", false)
 					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
 				})
 			})
@@ -167,13 +166,10 @@ var _ = Describe("controllers/plans", func() {
 				BeforeEach(func() {
 					_, err := db.Exec(`UPDATE billing_profiles SET state='paid' WHERE user_id=$1;`, u.ID)
 					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE users SET segment_id=$1 WHERE id=$2;`, freeUserDefaultSegmentID, u.ID)
-					Expect(err).To(BeNil())
 				})
 
 				It("should return paid plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans", true)
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
 					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
 				})
 
@@ -185,20 +181,39 @@ var _ = Describe("controllers/plans", func() {
 
 			Context("when user is in free tier", func() {
 				BeforeEach(func() {
-					u.SegmentID = userDefaultSegmentID
-					err := u.Update(db)
-					Expect(err).NotTo(HaveOccurred())
+					_, err := db.Exec(`UPDATE billing_profiles SET state='free' WHERE user_id=$1;`, u.ID)
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec(`UPDATE users SET phone_authed = true WHERE id = $1;`, u.ID)
+					Expect(err).To(BeNil())
 				})
 
 				It("should return free plans of the default provider", func() {
-					plans := fetchPlans("/api/v0/plans", true)
+					plans := fetchPlans("/api/v0/plans?eligible=true", true)
 					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
+				})
+
+				Context("When user has created a free-tier host", func() {
+					BeforeEach(func() {
+						_, err := CreateHostStack(db, &HostStack{
+							U: u,
+							// first plan fixture is free plan,
+							// but it doesn't really matter for this test
+							P: plans[0],
+						})
+						Expect(err).To(BeNil())
+					})
+
+					It("should return only paid plans", func() {
+						plans := fetchPlans("/api/v0/plans?eligible=true", true)
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
+					})
 				})
 			})
 		})
 
 		It("returns empty plans array when no plans exist", func() {
-			doRequest("/api/v0/plans", true)
+			doRequest("/api/v0/plans?eligible=true", true)
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			j := struct {
