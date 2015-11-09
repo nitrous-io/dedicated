@@ -27,12 +27,3 @@ func FreeUserDefaultID(d db.QueryReceiver) (int64, error) {
 
 	return id, nil
 }
-
-func UserDefaultID(d db.QueryReceiver) (int64, error) {
-	var id int64
-	if err := d.QueryRowx(`SELECT id from segments where user_default=true`).Scan(&id); err != nil {
-		return 0, err
-	}
-
-	return id, nil
-}

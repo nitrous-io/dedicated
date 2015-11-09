@@ -18,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
-	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -286,29 +285,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 				})
 			}
 
-			ItUpdatesSegmentToFreeUserDefault := func() {
-				It("returns the created billing profile", func() {
-					fakeStripe.Responses = []string{test.StripeCustomerResponse}
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					b, err := billingprofile.FindByID(db, bp.ID)
-					Expect(err).To(BeNil())
-
-					u, err := user.FindByID(db, b.UserID)
-					Expect(err).NotTo(HaveOccurred())
-
-					freeUserDefaultSegmentID, err := segment.UserDefaultID(db)
-					Expect(err).NotTo(HaveOccurred())
-
-					Expect(u.SegmentID).To(Equal(freeUserDefaultSegmentID))
-				})
-			}
-
 			It("should return an error when credit card token is not provided", func() {
 				p := &url.Values{}
 				p.Set("card_token", "")
@@ -339,7 +315,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 				})
 
 				ItReturnsTheCreatedBillingProfile(billingprofile.StatePaid)
-				ItUpdatesSegmentToFreeUserDefault()
 
 				It("should update the existing customer object", func() {
 					fakeStripe.Responses = []string{test.StripeCustomerResponse}
@@ -857,14 +832,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 						Expect(b.ExpYear.Int64).To(Equal(int64(2018)))
 						Expect(b.CardType.String).To(Equal("Visa"))
 						Expect(b.LastFour.String).To(Equal("4242"))
-
-						u, err := user.FindByID(db, b.UserID)
-						Expect(err).NotTo(HaveOccurred())
-
-						freeUserDefaultSegmentID, err := segment.UserDefaultID(db)
-						Expect(err).NotTo(HaveOccurred())
-
-						Expect(u.SegmentID).To(Equal(freeUserDefaultSegmentID))
 					})
 				}
 
