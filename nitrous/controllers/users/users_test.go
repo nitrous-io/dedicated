@@ -301,9 +301,7 @@ var _ = Describe("controllers/users", func() {
 
 		Context("with an existing user", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`
-					INSERT INTO users (segment_id, username, email, encrypted_password)
-					VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%')`)
+				_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
 				Expect(err).To(BeNil())
 				params = &url.Values{}
 				params.Set("email", "lol@example.com")
@@ -353,10 +351,7 @@ var _ = Describe("controllers/users", func() {
 			err := test.WrapInTransaction(db, b.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				INSERT INTO users (segment_id, username, email, encrypted_password, deleted_at, banned_at, banned_by_id)
-				VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%', now(), now(), $1)`,
-				b.ID)
+			_, err = db.Exec("INSERT INTO users (username, email, encrypted_password, deleted_at, banned_at, banned_by_id) VALUES ('foo', 'foo@example.com', '!@#$%', now(), now(), $1)", b.ID)
 			Expect(err).To(BeNil())
 
 			params = &url.Values{}
