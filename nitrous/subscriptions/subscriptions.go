@@ -278,25 +278,6 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 	// subscription is terminated during free trial or is a free plan.
 	endCancel := !(pl.IsFree() || sub.WithinFreeTrial())
 
-	// if the subsequent stripesub.Cancel call fails, this update will run even
-	// though it shouldn't, but there are other checks in place to prevent an
-	// additional free host
-	if pl.IsFree() {
-		sid, err := segment.FreeUserDefaultID(d)
-		if err != nil {
-			return err
-		}
-		// we assume that only users (not orgs) can create free plans
-		u, err := user.FindByID(d, bp.UserID)
-		if err != nil {
-			return err
-		}
-		u.SegmentID = sid
-		if err := u.Update(d); err != nil {
-			return err
-		}
-	}
-
 	return stripesub.Cancel(
 		sub.StripeID.String,
 		&stripe.SubParams{Customer: bp.StripeID.String, EndCancel: endCancel},

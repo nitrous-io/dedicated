@@ -720,14 +720,6 @@ var _ = Describe("subscriptions", func() {
 			Expect(r1["method"]).To(Equal("DELETE"))
 			Expect(r1["path"]).To(Equal(fmt.Sprintf("/customers/%s/subscriptions/sub1", stripeCustomerID)))
 			Expect(r1["at_period_end"]).To(BeEmpty())
-
-			// and update user segment back to free
-			sid, err := segment.FreeUserDefaultID(db)
-			Expect(err).To(BeNil())
-			Expect(u.SegmentID).NotTo(Equal(sid))
-			u2, err := user.FindByID(db, u.ID)
-			Expect(err).To(BeNil())
-			Expect(u2.SegmentID).To(Equal(sid))
 		})
 
 		It("should cancel immediately if on free trial", func() {
