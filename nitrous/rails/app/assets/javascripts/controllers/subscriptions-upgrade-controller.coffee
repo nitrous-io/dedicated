@@ -16,9 +16,9 @@ App.SubscriptionsUpgradeController = Em.ObjectController.extend App.PerformActio
   availablePlans: (->
     return [] unless @get 'model.plan'
     curPlan = @get('model.plan')
-    App.get('plans').filter (plan) ->
+    App.get('eligiblePlans').filter (plan) ->
       plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('org') == curPlan.get('org')) && (plan.get('price') > curPlan.get('price'))
-  ).property 'App.plans.@each', 'model.plan'
+  ).property 'App.eligiblePlans.@each', 'model.plan'
 
   upgradeSubscriptionDisabled: (->
     @get('selectedPlan') == @get('model.plan')
