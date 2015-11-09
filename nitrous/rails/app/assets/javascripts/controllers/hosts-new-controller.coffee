@@ -16,15 +16,12 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
-  sortedOrgPlans: null
   countryDict: null
   freePlanNotAllowed: false
 
   nameFieldEdited: false
 
   orgs: Em.computed.alias 'controllers.orgs.collection'
-
-  orgPlans: null
 
   selectedOrg: (->
     if slug = @get 'selectedOrgSlug'
@@ -41,17 +38,17 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       plan.get('isFreePlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
 
+  orgPlans: (->
+    @get('sortedPlans').filter (plan) ->
+      plan.get('isPaidPlan') && !plan.get('hidden') && plan.get('org')
+  ).property 'sortedPlans.@each'
+
   selectedOrgSlugDidChange: (->
     if @get('selectedOrgSlug')
-      App.OrgPlan.fetch(orgSlug: @get('selectedOrgSlug')).then (orgPlans) =>
-        @set('orgPlans', orgPlans)
-
-        sortedOrgPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
-          content: orgPlans
-          sortProperties: ['totalPrice']
-
-        @set 'sortedOrgPlans', sortedOrgPlans
-        @set 'selectedPlan', @get('sortedOrgPlans.firstObject')
+      # if user wants to create a host under an org and currently selected plan isn't an org plan
+      unless @get 'selectedPlan.org'
+        # select an org plan
+        @set 'selectedPlan', @get('orgPlans.firstObject')
     else
       # if user wants to create a host personally and currently selected plan is an org plan
       if @get 'selectedPlan.org'
@@ -79,8 +76,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       nameFieldEdited: false
       countryDict: null
       freePlanNotAllowed: false
-      orgPlans: null
-      sortedOrgPlans: null
 
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
