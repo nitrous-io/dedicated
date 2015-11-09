@@ -18,6 +18,13 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
   trialEnd: attr('date', as: 'trial_end')
 
   _plan: attr('object', as: 'plan')
+  orgPlans: null
+
+  updateOrgPlans: (->
+    if @get('orgId')
+      App.OrgPlan.fetch(orgSlug: @get('orgId')).then (orgPlans) =>
+        @set('orgPlans', orgPlans)
+  ).observes 'orgId'
 
   plan: (->
     p = App.Plan.create()
@@ -51,9 +58,16 @@ App.Subscription = klass = App.Model.extend App.GroupedInvoiceItemsMixin,
     return true unless curPlan = @get('plan')
     plans = App.get('plans')
 
+    # if org plans is not set, returns false and wait for it to be ready
+    if @get('orgId')
+      if @get('orgPlans')
+        plans = @get('orgPlans')
+      else
+        return false
+
     plans.any (plan) =>
       plan.get('isPaidPlan') && !plan.get('hidden') && (plan.get('price') > @get('plan.price'))
-  ).property 'App.plans.@each', 'plan', 'hostIsTransitioning'
+  ).property 'App.plans.@each', 'plan', 'hostIsTransitioning', 'orgPlans'
 
   cancel: ->
     Em.RSVP.Promise.cast Em.$.ajax
