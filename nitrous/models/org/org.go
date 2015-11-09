@@ -48,8 +48,6 @@ type Org struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
-
-	SegmentID int64 `db:"segment_id"`
 }
 
 type OrgWithRole struct {

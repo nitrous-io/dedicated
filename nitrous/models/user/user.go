@@ -115,8 +115,6 @@ type User struct {
 
 	CreatedByClientID sql.NullInt64 `db:"created_by_client_id"`
 
-	SegmentID int64 `db:"segment_id"`
-
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
 }
@@ -246,8 +244,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	u.CheckSuspicious()
 
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name, promo_code, suspicious, created_by_client_id, segment_id)
-		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious, :created_by_client_id, (SELECT id FROM segments WHERE is_default = TRUE))
+		(email, username, encrypted_password, name, promo_code, suspicious, created_by_client_id)
+		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious, :created_by_client_id)
 		RETURNING *;`)
 	if err != nil {
 		return err
