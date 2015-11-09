@@ -179,7 +179,6 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/billing_profile":         r("billingprofiles.Show", billingprofiles.Show),
 				"/orgs/{org_slug}/subscriptions":           r("subscriptions.Index", subscriptions.Index),
 				"/orgs/{org_slug}/invoices":                r("billing.Invoices", billing.Invoices),
-				"/orgs/{org_slug}/plans":                   r("plans.Index", plans.Index),
 				"/github/repos":                            r("github.Repos", github.Repos),
 			},
 			"POST": {

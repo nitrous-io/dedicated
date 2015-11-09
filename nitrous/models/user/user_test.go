@@ -40,29 +40,14 @@ var _ = Describe("models/user", func() {
 		db, err = test.TestDatabase("nitrous_test")
 		Expect(err).To(BeNil())
 
-		_, err = db.Exec(`
-			INSERT INTO users (segment_id, username, email, name, encrypted_password)
-			VALUES ((SELECT id FROM segments WHERE user_default = true),
-			$1, $2, $3, $4);`,
-			"foo", "foo@example.com", "foo bar", "foofoo")
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "foo", "foo@example.com", "foo bar", "foofoo")
 		Expect(err).To(BeNil())
-		_, err = db.Exec(` INSERT INTO users (segment_id, username, email, name, encrypted_password)
-			VALUES ((SELECT id FROM segments WHERE user_default = true),
-			$1, $2, $3, $4);`,
-			"bar", "bar@example.com", "bar baz", "barbar")
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password) values ($1, $2, $3, $4);", "bar", "bar@example.com", "bar baz", "barbar")
 		Expect(err).To(BeNil())
 		// setting admin flag to true on last user
-		_, err = db.Exec(`
-			INSERT INTO users (segment_id, username, email, name, encrypted_password, admin, max_containers)
-			VALUES ((SELECT id FROM segments WHERE user_default = true),
-			$1, $2, $3, $4, $5, $6);`,
-			"baz", "baz@example.com", "baz qux", "bazbaz", true, 30)
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, admin, max_containers) values ($1, $2, $3, $4, $5, $6);", "baz", "baz@example.com", "baz qux", "bazbaz", true, 30)
 		Expect(err).To(BeNil())
-		_, err = db.Exec(`
-			INSERT INTO users (segment_id, username, email, name, encrypted_password, deleted_at)
-			VALUES ((SELECT id FROM segments WHERE user_default = true),
-			$1, $2, $3, $4, now());`,
-			"dell", "dell@example.com", "baz qux", "bazbaz")
+		_, err = db.Exec("INSERT INTO users (username, email, name, encrypted_password, deleted_at) values ($1, $2, $3, $4, now());", "dell", "dell@example.com", "baz qux", "bazbaz")
 		Expect(err).To(BeNil())
 	})
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
@@ -229,9 +228,7 @@ var _ = Describe("models/billingprofile", func() {
 
 		Context("when called on a profile with an empty StripeID", func() {
 			It("returns StripeProfileRequiredError", func() {
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.StripeProfileRequiredError))
 			})
 		})
@@ -253,9 +250,7 @@ var _ = Describe("models/billingprofile", func() {
 			It("updates the record in database, if the Stripe call was successful", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -274,9 +269,7 @@ var _ = Describe("models/billingprofile", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateNoCard
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -289,9 +282,7 @@ var _ = Describe("models/billingprofile", func() {
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
 				bp.State = billingprofile.StateFree
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -302,33 +293,25 @@ var _ = Describe("models/billingprofile", func() {
 
 			It("returns CardDeclined error, if Stripe returns a card declined error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardDeclined}
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardDeclined))
 			})
 
 			It("returns ErrCardExpired error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeCardExpired}
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardExpired))
 			})
 
 			It("returns ErrIncorrectCvc error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectCvc}
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectCvc))
 			})
 
 			It("returns ErrIncorrectZipErr error, if Stripe returns a card expired error", func() {
 				fakeStripe.Errors = []*stripe.Error{test.StripeIncorrectZip}
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrIncorrectZipErr))
 			})
 
@@ -341,9 +324,7 @@ var _ = Describe("models/billingprofile", func() {
 					},
 				}
 
-				err := db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err := bp.UpdateCard(db, "token")
 				Expect(err).NotTo(BeNil())
 
 				bp, err = billingprofile.FindByID(db, bp.ID)
@@ -384,9 +365,7 @@ var _ = Describe("models/billingprofile", func() {
 
 				fakeStripe.Responses = []string{test.StripeCustomerResponse}
 
-				err = db.WithTransaction(func(tx *sqlx.Tx) error {
-					return bp.UpdateCard(tx, "token")
-				})
+				err = bp.UpdateCard(db, "token")
 				Expect(err).To(Equal(billingprofile.ErrCardBanned))
 			})
 		})

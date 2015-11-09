@@ -11,7 +11,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
@@ -49,8 +48,6 @@ type Org struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 
 	DeletedAt pq.NullTime `db:"deleted_at"`
-
-	SegmentID int64 `db:"segment_id"`
 }
 
 type OrgWithRole struct {
@@ -65,23 +62,6 @@ func FindBySlug(d db.QueryReceiver, slug string) (*Org, error) {
 	if err != nil {
 		return nil, err
 	}
-	return org, nil
-}
-
-func FindByIdOrSlug(d db.QueryReceiver, identifier string) (*Org, error) {
-	org := &Org{}
-	id, err := strconv.ParseInt(identifier, 10, 64)
-
-	if err == nil {
-		if err := d.Get(org, "SELECT * FROM orgs WHERE id = $1 AND deleted_at IS NULL", id); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := d.Get(org, "SELECT * FROM orgs WHERE slug = $1 AND deleted_at IS NULL", identifier); err != nil {
-			return nil, err
-		}
-	}
-
 	return org, nil
 }
 
@@ -112,8 +92,8 @@ func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*OrgWithRole, error
 func (o *Org) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO orgs
-		(segment_id, slug, name, email)
-		VALUES ((SELECT id FROM segments WHERE org_default = true), :slug, :name, :email)
+		(slug, name, email)
+		VALUES (:slug, :name, :email)
 		RETURNING *;
 	`)
 	if err != nil {
@@ -220,20 +200,4 @@ func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingP
 
 	err = bp.Activate(d, c)
 	return
-}
-
-func (o *Org) Plans(d db.QueryReceiver) ([]*plan.Plan, error) {
-	plans := []*plan.Plan{}
-
-	err := d.Select(&plans, `
-		SELECT plans.* FROM plans
-			JOIN plan_segments ON plan_segments.plan_id = plans.id
-			WHERE NOT disabled
-			AND plan_segments.segment_id = $1
-		ORDER BY (price, max_containers, name);`, o.SegmentID)
-	if err != nil {
-		return nil, err
-	}
-
-	return plans, nil
 }

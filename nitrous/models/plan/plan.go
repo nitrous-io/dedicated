@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 )
 
 const (
@@ -172,6 +171,24 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 	return plans, nil
 }
 
+func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT * FROM plans
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		)
+		ORDER BY (price, max_containers, name);`, provider)
+
+	if err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org)
@@ -198,33 +215,4 @@ func (p *Plan) TrialEnd(startTime int64) int64 {
 		return 0
 	}
 	return (time.Unix(startTime, 0).Add(time.Duration(p.TrialPeriodDays*24) * time.Hour)).Unix()
-}
-
-func PlansFor(d db.QueryReceiver, u *user.User) ([]*Plan, error) {
-	plans := []*Plan{}
-
-	if u != nil {
-		err := d.Select(&plans, `
-		SELECT plans.* FROM plans
-			JOIN plan_segments ON plan_segments.plan_id = plans.id
-			WHERE NOT disabled
-			AND plan_segments.segment_id = $1
-		ORDER BY (price, max_containers, name);`, u.SegmentID)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := d.Select(&plans, `
-		SELECT plans.* FROM plans
-			JOIN plan_segments ON plan_segments.plan_id = plans.id
-			JOIN segments ON segments.id = plan_segments.segment_id
-			WHERE NOT disabled
-			AND segments.user_default
-		ORDER BY (price, max_containers, name);`)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return plans, nil
 }

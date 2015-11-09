@@ -37,6 +37,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
   templates: null
   billingUsage: null
 
+  eligiblePlans: null
+
   terminalJsPath: null
   terminalCssPath: null
 
@@ -160,8 +162,8 @@ window.Nitrous = Em.Application.extend Em.Evented,
     @get('hosts.loaded') && @get('hosts.length') == 1
   ).property 'hosts.loaded', 'hosts.length'
 
-  reloadPlans: (->
-    @get('plans')?.reload()
+  reloadEligiblePlans: (->
+    @get('eligiblePlans')?.reload()
   ).observes 'billingProfile.state', 'user.phoneAuthed'
 
   restrictedAccount: Em.computed.equal 'billingProfile.state', 'delinquent'
@@ -244,9 +246,9 @@ window.Lib = Ember.Namespace.create()
 App.on 'load', ->
   App.__container__.lookup('adapter:application') # init app adapter class
   App.set 'snackbar', App.Snackbar.create()
+  App.set 'plans', App.Plan.fetch().value
   App.set 'regions', App.Region.fetch().value
   App.set 'templates', App.Template.fetch().value
-  App.loadPlans()
   Em.run.later(->
     Em.run.scheduleOnce 'afterRender', ->
       webapp?.loading.stop()
@@ -263,6 +265,7 @@ App.on 'fetchUser', (user) ->
   billingProfile.load user.get('_billingProfile')
   App.set 'billingProfile', billingProfile
 
+  App.loadPlans()
   App.refreshUsage()
   App.refreshBillingProfile()
   App.refreshInvoices()
@@ -309,7 +312,7 @@ App.refreshSubscriptions = ->
   subscriptions
 
 App.loadPlans = ->
-  App.set 'plans', App.Plan.fetch().value
+  App.set 'eligiblePlans', App.Plan.fetch({ eligible: true }).value
 
 App.didChangeTitle()
 

@@ -23,7 +23,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
-	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -218,18 +217,6 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			return err
 		}
 
-		// update user segment to no longer have access to free
-		if p.IsFree() {
-			sid, err := segment.UserDefaultID(tx)
-			if err != nil {
-				return err
-			}
-			u.SegmentID = sid
-			if err := u.Update(tx); err != nil {
-				return err
-			}
-		}
-
 		bp.TrialEligible = false
 		if err := bp.Update(tx); err != nil {
 			logrus.Errorf("bp.Update: Failed to update billing profile trial_eligible on new subscription: err: %v", strSub, err)
@@ -277,25 +264,6 @@ func (s *SubscriptionProvider) Cancel(d *db.Database, sub *subscription.Subscrip
 	// Set EndCancel to false to terminate subscription immediately if
 	// subscription is terminated during free trial or is a free plan.
 	endCancel := !(pl.IsFree() || sub.WithinFreeTrial())
-
-	// if the subsequent stripesub.Cancel call fails, this update will run even
-	// though it shouldn't, but there are other checks in place to prevent an
-	// additional free host
-	if pl.IsFree() {
-		sid, err := segment.FreeUserDefaultID(d)
-		if err != nil {
-			return err
-		}
-		// we assume that only users (not orgs) can create free plans
-		u, err := user.FindByID(d, bp.UserID)
-		if err != nil {
-			return err
-		}
-		u.SegmentID = sid
-		if err := u.Update(d); err != nil {
-			return err
-		}
-	}
 
 	return stripesub.Cancel(
 		sub.StripeID.String,

@@ -12,8 +12,6 @@ App.Org = klass = App.NewModel.extend
 
   members: null
 
-  plans: null
-
   serialize: ->
     slug: @get 'slug'
     name: @get 'name'
@@ -40,12 +38,6 @@ App.Org = klass = App.NewModel.extend
     p = App.OrgMember.fetch(null, orgSlug: @get('slug'))
     p.then (members) =>
       @set 'members', members
-    p
-
-  fetchPlans: ->
-    p = App.OrgPlan.fetch(orgSlug: @get('slug'))
-    p.then (plans) =>
-      @set 'plans', plans
     p
 
   subscriptions: (->

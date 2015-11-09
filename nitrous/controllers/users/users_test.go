@@ -24,7 +24,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
-	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -302,9 +301,7 @@ var _ = Describe("controllers/users", func() {
 
 		Context("with an existing user", func() {
 			BeforeEach(func() {
-				_, err := db.Exec(`
-					INSERT INTO users (segment_id, username, email, encrypted_password)
-					VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%')`)
+				_, err := db.Exec("INSERT INTO users (username, email, encrypted_password) VALUES ('foo', 'foo@example.com', '!@#$%')")
 				Expect(err).To(BeNil())
 				params = &url.Values{}
 				params.Set("email", "lol@example.com")
@@ -354,10 +351,7 @@ var _ = Describe("controllers/users", func() {
 			err := test.WrapInTransaction(db, b.Insert)
 			Expect(err).To(BeNil())
 
-			_, err = db.Exec(`
-				INSERT INTO users (segment_id, username, email, encrypted_password, deleted_at, banned_at, banned_by_id)
-				VALUES ((SELECT id FROM segments WHERE user_default = true), 'foo', 'foo@example.com', '!@#$%', now(), now(), $1)`,
-				b.ID)
+			_, err = db.Exec("INSERT INTO users (username, email, encrypted_password, deleted_at, banned_at, banned_by_id) VALUES ('foo', 'foo@example.com', '!@#$%', now(), now(), $1)", b.ID)
 			Expect(err).To(BeNil())
 
 			params = &url.Values{}
@@ -1163,22 +1157,6 @@ var _ = Describe("controllers/users", func() {
 			bp, err := billingprofile.Find(db, u.ID)
 			Expect(err).To(BeNil())
 			Expect(bp.State).To(Equal(billingprofile.StateFree))
-		})
-
-		It("sets user's segment to free user default if phone number belongs to a whitelisted country", func() {
-			params := &url.Values{}
-			params.Set("code", v.Code)
-			doRequest(params)
-
-			Expect(res.Code).To(Equal(http.StatusOK))
-
-			updatedUser, err := user.FindByID(db, u.ID)
-			Expect(err).NotTo(HaveOccurred())
-
-			freeUserDefaultSegmentID, err := segment.FreeUserDefaultID(db)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(updatedUser.SegmentID).To(Equal(freeUserDefaultSegmentID))
 		})
 
 		It("does not change user's billing profile to free tier if phone number does not belong to a whitelisted country", func() {

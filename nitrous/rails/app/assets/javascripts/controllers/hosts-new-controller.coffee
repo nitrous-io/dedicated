@@ -13,17 +13,15 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   host: null
   savingBinding: 'App.hostSaving'
   templateName: null
-  plansBinding: Em.Binding.oneWay 'App.plans'
+  plansBinding: Em.Binding.oneWay 'App.eligiblePlans'
   promoCodeBinding: Em.Binding.oneWay 'App.user.promoCode'
   sortedPlans: null
-  sortedOrgPlans: null
   countryDict: null
   freePlanNotAllowed: false
 
   nameFieldEdited: false
 
   orgs: Em.computed.alias 'controllers.orgs.collection'
-  orgPlans: null
 
   selectedOrg: (->
     if slug = @get 'selectedOrgSlug'
@@ -32,44 +30,37 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
 
   paidPlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isPaidPlan')
+      plan.get('isPaidPlan') && !plan.get('hidden') && !plan.get('org')
   ).property 'sortedPlans.@each'
 
   freePlans: (->
     @get('sortedPlans').filter (plan) ->
-      plan.get('isFreePlan')
+      plan.get('isFreePlan') && !plan.get('hidden') && !plan.get('org')
+  ).property 'sortedPlans.@each'
+
+  orgPlans: (->
+    @get('sortedPlans').filter (plan) ->
+      plan.get('isPaidPlan') && !plan.get('hidden') && plan.get('org')
   ).property 'sortedPlans.@each'
 
   selectedOrgSlugDidChange: (->
     if @get('selectedOrgSlug')
-      orgPlans = @get('selectedOrg.plans')
-      if orgPlans
-          @set('orgPlans', orgPlans)
-          @updateSelectedOrgPlans()
-      else
-        @get('selectedOrg').fetchPlans().then( (plans) =>
-          @set('orgPlans', plans)
-          @updateSelectedOrgPlans()
-        )
+      # if user wants to create a host under an org and currently selected plan isn't an org plan
+      unless @get 'selectedPlan.org'
+        # select an org plan
+        @set 'selectedPlan', @get('orgPlans.firstObject')
     else
       # if user wants to create a host personally and currently selected plan is an org plan
-      @set 'selectedPlan', @get('paidPlans.firstObject')
+      if @get 'selectedPlan.org'
+        # select a personal plan
+        @set 'selectedPlan', @get('paidPlans.firstObject')
   ).observes 'selectedOrgSlug'
-
-  updateSelectedOrgPlans: ->
-    if orgPlans = @get('orgPlans')
-      sortedOrgPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
-        content: orgPlans
-        sortProperties: ['totalPrice']
-
-      @set 'sortedOrgPlans', sortedOrgPlans
-      @set 'selectedPlan', @get('sortedOrgPlans.firstObject')
 
   clear: ->
     plans = @get 'plans'
 
     sortedPlans = Em.ArrayProxy.createWithMixins Em.SortableMixin,
-      contentBinding: Em.Binding.oneWay 'App.plans'
+      contentBinding: Em.Binding.oneWay 'App.eligiblePlans'
       sortProperties: ['totalPrice']
 
     @setProperties
@@ -85,8 +76,6 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
       nameFieldEdited: false
       countryDict: null
       freePlanNotAllowed: false
-      orgPlans: null
-      sortedOrgPlans: null
 
     if @get('hasPendingContainer')
       @set('name', App.get('user.username'))
@@ -94,6 +83,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
     plans?.reload().then =>
       # if user belongs to an org, choose org owner by default
       if @get('orgs.length') > 0
+        @set 'selectedPlan', @get('orgPlans.firstObject')
         @set 'selectedOrgSlug', @get('orgs.firstObject.slug')
       else
         @set 'selectedPlan', @get('paidPlans.firstObject')
@@ -103,9 +93,7 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).property 'pendingContainer', 'App.pendingContainerData'
 
   plansDidChange: (->
-    unless @get('selectedOrgSlug')
-      # update selected plan only if user's plans is updated
-      @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
+    @set('selectedPlan', @get('plans')?.findBy('isPaidPlan'))
   ).observes 'plans.@each'
 
   regionsDidChange: (->
@@ -130,6 +118,9 @@ App.HostsNewController = Em.ObjectController.extend App.PromoCodeInfoMixin,
   ).property 'cardRequired'
 
   actions:
+    selectPlan: (plan)->
+      @set 'selectedPlan', plan
+
     cancel: ->
       @transitionToRoute 'home.index'
       false

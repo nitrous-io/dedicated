@@ -20,6 +20,31 @@ var (
 	ErrLastRunningAtInvalid  = errors.New("last_running_at is invalid")
 )
 
+func EligiblePlansForUser(d *db.Database, u *user.User, provider string) ([]*plan.Plan, error) {
+	bp, err := u.BillingProfile(d)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.IsCardRequired() && !u.PhoneAuthed {
+		return plan.AllPlansForProvider(d, provider)
+	}
+
+	if bp.IsFreeTier() {
+		err := createFreeTierHostAllowed(d, u)
+		switch err {
+		case nil, ErrPhoneAuthRequired:
+			return plan.AllPlansForProvider(d, provider)
+		case ErrFreePlanNotAllowed, ErrMaxFreeHostReached:
+			return plan.PaidPlansForProvider(d, provider)
+		default:
+			return nil, err
+		}
+	}
+
+	return plan.PaidPlansForProvider(d, provider)
+}
+
 // Checks whether a free/paid user can create a host of given plan.
 func CreateHostWithPlanAllowed(d *db.Database, u *user.User, bp *billingprofile.BillingProfile, p *plan.Plan) error {
 	if bp.IsFreeTier() && !bp.OrgID.Valid {
@@ -94,7 +119,7 @@ func IdleFreeHosts(d *db.Database) ([]*host.Host, error) {
 				last_pinged_at IS NULL
 			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
-			AND
+			AND 
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		ORDER BY last_pinged_at ASC
@@ -119,7 +144,7 @@ func IsIdle(d *db.Database, h *host.Host) (bool, error) {
 				last_pinged_at IS NULL
 			)
 			-- if host has been running for less than 2700 seconds = 45 minutes; not idle
-			AND
+			AND 
 			  (last_running_at IS NULL OR MOD(CAST(EXTRACT(EPOCH FROM now() - last_running_at) as numeric), 3600) > 2700)
 			AND terminated_at IS NULL
 		`, h.ID, true, host.StateRunning).Scan(&count)

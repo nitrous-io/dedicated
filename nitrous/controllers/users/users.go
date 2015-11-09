@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/containers"
@@ -19,7 +18,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/emailcapture"
-	"github.com/nitrous-io/dedicated/nitrous/models/segment"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -291,19 +289,8 @@ func VerifyPhone(env *middleware.Env, w http.ResponseWriter, r *http.Request) er
 	}
 	if bp.State == billingprofile.StateNoCard &&
 		inWhitelist(u.PhoneCountryCode.String) {
-		err := d.WithTransaction(func(tx *sqlx.Tx) error {
-			bp.State = billingprofile.StateFree
-			if err := bp.Update(tx); err != nil {
-				return err
-			}
-			segmentID, err := segment.FreeUserDefaultID(tx)
-			if err != nil {
-				return err
-			}
-
-			u.SegmentID = segmentID
-			return u.Update(tx)
-		})
+		bp.State = billingprofile.StateFree
+		err := bp.Update(d)
 		if err != nil {
 			return err
 		}
