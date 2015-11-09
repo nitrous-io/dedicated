@@ -8,6 +8,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan_segment"
+	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
+	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
@@ -324,6 +326,71 @@ var _ = Describe("models/plan", func() {
 				hs2.H.ID: plan.PlanPricing{Price: 2016, BasePrice: 0},
 			}
 			Expect(m).To(Equal(exMap))
+		})
+	})
+
+	Describe("PlansForProvider()", func() {
+		It("returns all enabled plans for the given provider", func() {
+			sfo := &region.Region{Slug: "sfo", Name: "US West"}
+			azure := &region.Region{Slug: "sfo-azure", Name: "Azure West"}
+			for _, r := range []*region.Region{sfo, azure} {
+				Expect(r.Insert(db)).To(BeNil(), "failed to insert %s", r.Slug)
+			}
+
+			// Add associated provider templates for the plans in the database.
+			var ids []int64
+			db.Select(&ids, `SELECT id FROM plans;`)
+			for _, id := range ids {
+				t := providertemplate.ProviderTemplate{
+					PlanID:   id,
+					RegionID: sfo.ID,
+					Provider: "digitalocean",
+				}
+				Expect(t.Insert(db)).To(BeNil())
+			}
+
+			var (
+				p  *plan.Plan
+				pt *providertemplate.ProviderTemplate
+			)
+
+			// Add a plan belonging to a different provider - it should not be returned.
+			p = &plan.Plan{
+				Slug:          "ultimate",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 1,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+			pt = &providertemplate.ProviderTemplate{
+				PlanID:   p.ID,
+				RegionID: azure.ID,
+				Provider: "windows-azure",
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+
+			// Add a plan belonging to a disabled provider template - it should
+			// not be returned
+			p = &plan.Plan{
+				Slug:          "ultimate-disabled",
+				Name:          "Ultimate Edition SP1",
+				MaxContainers: 1,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+			pt = &providertemplate.ProviderTemplate{
+				PlanID:   p.ID,
+				RegionID: azure.ID,
+				Provider: "digitalocean",
+				Disabled: true,
+			}
+			Expect(pt.Insert(db)).To(BeNil())
+
+			plans, err := plan.PaidPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"1gb", "2gb"}))
+
+			plans, err = plan.AllPlansForProvider(db, "digitalocean")
+			Expect(err).To(BeNil())
+			Expect(mapPlansToSlugs(plans)).To(ConsistOf([]string{"free", "1gb", "2gb"}))
 		})
 	})
 

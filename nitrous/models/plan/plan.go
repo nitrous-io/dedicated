@@ -172,6 +172,24 @@ func PaidPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) 
 	return plans, nil
 }
 
+func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
+	plans := []*Plan{}
+	err := d.Select(&plans, `
+		SELECT * FROM plans
+		WHERE NOT disabled
+		AND plans.id IN (
+			SELECT DISTINCT plan_id
+			FROM provider_templates AS pt
+			WHERE pt.provider=$1 AND NOT pt.disabled
+		)
+		ORDER BY (price, max_containers, name);`, provider)
+
+	if err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
 		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org)
