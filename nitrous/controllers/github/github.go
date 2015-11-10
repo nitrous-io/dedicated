@@ -304,21 +304,21 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 
 	code := r.FormValue("code")
 	if code == "" {
-		redirectError(w, r, "failed to connect with GitHub")
+		redirectError(w, r, "failed to connect with GitHub", state.Beta)
 		return mh.Error(errInvalidOauthCode, errLabel)
 	}
 
 	gitHubUserName, tokenJSON, gitHubUserEmail, err := FetchGitHubUser(code)
 	if err != nil {
 		logrus.Errorf("failed to fetch GitHub user: '%s'", err)
-		redirectError(w, r, "failed to connect with GitHub")
+		redirectError(w, r, "failed to connect with GitHub", state.Beta)
 		return mh.Error(err, errLabel)
 	}
 
 	switch state.Purpose {
 	case OAuthStatePurposeLogin, OAuthStatePurposeSignUp:
-		loginPath := "/app/#/login"
-		signupPath := "/app/#/signup"
+		loginPath := "/legacy/#/login"
+		signupPath := "/legacy/#/signup"
 		if state.Beta {
 			loginPath = envvars.BetaLoginLocation
 			signupPath = envvars.BetaSignupLocation
@@ -377,11 +377,11 @@ func OAuthCallback(env *middleware.Env, w http.ResponseWriter, r *http.Request) 
 		}
 	default:
 		if err := connectToGitHub(env, state, gitHubUserName, tokenJSON); err != nil {
-			redirectError(w, r, "failed to connect with GitHub")
+			redirectError(w, r, "failed to connect with GitHub", state.Beta)
 			return mh.Error(err, errLabel)
 		}
 
-		redirect := "/app/#/account"
+		redirect := "/legacy/#/account"
 		if state.Beta {
 			redirect = envvars.BetaDashboardLocation
 		}
@@ -587,9 +587,13 @@ func setOrReuseState(w http.ResponseWriter, r *http.Request, userID int64, purpo
 	return state, nil
 }
 
-func redirectError(w http.ResponseWriter, r *http.Request, errMsg string) {
+func redirectError(w http.ResponseWriter, r *http.Request, errMsg string, beta bool) {
 	// note: don't url.QueryEscape() errMsg, Redirect will do it
-	uri := "/app/#/account?errmsg=" + errMsg
+	path := "app"
+	if !beta {
+		path = "legacy"
+	}
+	uri := fmt.Sprintf("/%s/#/account?errmsg=%s", path, errMsg)
 	http.Redirect(w, r, uri, http.StatusFound)
 }
 
