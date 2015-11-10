@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -585,8 +586,9 @@ var _ = Describe("controllers/subscriptions", func() {
 
 	Describe("POST /api/v0/subscriptions/{id}/reactivate", func() {
 		var (
-			s *subscription.Subscription
-			p *plan.Plan
+			s  *subscription.Subscription
+			p  *plan.Plan
+			hs *test.HostStack
 		)
 
 		BeforeEach(func() {
@@ -613,6 +615,18 @@ var _ = Describe("controllers/subscriptions", func() {
 				Slug:             "SLUG",
 			}
 			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs.H.ID)
 			Expect(err).To(BeNil())
 		})
 
@@ -648,6 +662,25 @@ var _ = Describe("controllers/subscriptions", func() {
 			errSlug, errDesc := test.ErrorSlug(res.Body)
 			Expect(errSlug).To(Equal("invalid_request"))
 			Expect(errDesc).To(Equal("you cannot reactivate a subscription that has not been cancelled"))
+
+			Expect(fsub.ReactivateCalled).To(BeFalse())
+		})
+
+		It("should return a not found if host is terminated", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET state='terminated', terminated_at = NOW() WHERE subscription_id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("subscription_not_found"))
+			Expect(errDesc).To(Equal("subscription does not exist"))
 
 			Expect(fsub.ReactivateCalled).To(BeFalse())
 		})
