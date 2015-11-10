@@ -27,32 +27,6 @@
       .pricing-container
         .pricing-block
           ul
-
-            li.selectable.free-plan data-index='4' data-slug='free'
-              .title Starter
-              .desc
-                | Optimal environment for learning
-                br
-                | and experimenting
-              .price
-                .focus
-                  span.price
-                    | FREE
-              ul.details
-                li
-                  strong
-                    ' 1
-                  | Container
-                li
-                  strong
-                    ' 1 GB
-                  | Memory
-                li
-                  strong
-                    ' 5 GB
-                  | Storage
-              a.btn.blue.ripple href="/app/#/signup/" Get Started
-
             li.selectable data-index='0' data-slug='basic'
               .title Basic
               .desc
@@ -80,7 +54,7 @@
                   strong
                     ' 10 GB
                   | Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign up
+              a.btn.blue.ripple href="/app/#/signup/" 7-Day Free Trial
 
             li.selectable.popular data-index='1' data-slug='standard'
               .most-popular
@@ -142,22 +116,16 @@
                   strong
                     ' 50 GB
                   | Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign up
+              a.btn.blue.ripple href="/app/#/signup/"
+                | Sign up
 
           .box-wrapper.auto.pricing-details
-            .box.free-plan
-              ul
-                li.ticked
-                  i.fa.fa-check
-                  | Root Access
-
-                li.ticked
-                  i.fa.fa-check
-                  | Live Collaboration
-
             .box.grow-2
               .box-wrapper
                 .box
+                  h3.centered
+                    | All plans come with
+
                   ul
                     li.ticked
                       i.fa.fa-check
@@ -167,8 +135,6 @@
                       i.fa.fa-check
                       | Dedicated Resources
 
-                .box
-                  ul
                     li.ticked
                       i.fa.fa-check
                       | Live Collaboration
@@ -177,8 +143,6 @@
                       i.fa.fa-check
                       | Desktop File Sync
 
-                .box
-                  ul
                     li.ticked
                       i.fa.fa-check
                       | SSH Access
@@ -199,33 +163,34 @@
                 h3 Educators &amp; Students
                 p Register your course to obtain group pricing plans for your students.
 
-
-
   article.qa.darker
     a name='faq'
     .container
       h3.big-title Frequently Asked Questions
       .columns
         .item
-          h4 How am I billed?
-          p Each workspace is billed immediately upon creation, and your billing cycle will begin on this date. Your next charge will be on the same or nearest date the following month.
+          h4 How does the free trial work?
+          p Some plans come with a 7-day free trial. You can cancel your subscription at any time in the first 7 days without being billed.
         .item
-          h4 Do I have to pay the full cost of the workspace every time I create a new one?
-          p Yes. You are billed for a full month on the day a workspace is created.
+          h4 How am I billed?
+          p If you are on a plan with a free trial, your plan is billed 7 days after signup. If you are on any other plan, you are billed immediately upon selecting a plan, and your billing cycle begins on this date. Your next charge will be on the same or nearest date the following month.
         .item
           h4 Am I charged when I enter a credit card?
-          p Your credit card will be charged for the first month once you have created a workspace.
+          p Your credit card will be charged for the first month upon signup unless you are on a free trial plan.
         .item
           h4 When is my credit card billed?
-          p We will charge your credit card on the day which you create a new workspace. The next charge will be on the same or nearest date the following month.
+          p We will charge your credit card on the day which you create your workstation. The next charge will be on the same or nearest date the following month.
         .item
-          h4 What are containers, and how do they relate to workspaces?
-          p A workspace is a dedicated virtual machine that runs multiple containers. Each container is an isolated development environment. All containers within the workspace will share the workspace's resources.
+          h4 What are projects, and how do they relate to workstations?
+          p A workstation is a dedicated cloud virtual machine that can run multiple projects. Each project is an isolated development environment. All projects on the same workstation share the workstation's resources.
         .item
-          h4 Can I create multiple workspaces?
-          p Yes. Multiple workspaces can be added to a single account. The billing cycle for each workspace begins when it was created, and you will be charged separately if workspaces are created on different days of the month.
+          h4 Can I create multiple workstations?
+          p
+            | You will need to create a new account if you wish to have another workstation. If you are creating multiple workstations for business purposes, you should consider&nbsp;
+            a href="/app/#/signup/?intent=org" creating an organization
+            | .
         .item
-          h4 Am I charged while my workspace is in a stopped state?
+          h4 Am I charged while my workstation is stopped?
           p Yes. The monthly plans offered are a flat rate, so your monthly billing will not vary based off of usage.
         .item
           h4 What forms of payment do you accept?
@@ -238,7 +203,7 @@
             | .
         .item
           h4 How do I cancel my account?
-          p You can cancel your account anytime through the account settings page after you have terminated all workspaces you own.
+          p You can cancel your account anytime through the account settings.
 
       p.centered.solo
         | Have more questions? Please feel free to&nbsp;
