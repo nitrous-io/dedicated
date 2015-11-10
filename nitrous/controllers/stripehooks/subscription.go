@@ -2,14 +2,16 @@ package stripehooks
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
-	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	stripe "github.com/stripe/stripe-go"
 )
@@ -68,11 +70,7 @@ func handleInvoiceCreatedEvent(env *middleware.Env, e *stripe.Event, stripeID st
 }
 
 func publishSubscriptionEvent(env *middleware.Env, ev controllers.EventName, sub *subscription.Subscription) error {
-	u := &user.User{}
-	err := env.DB.Get(u, `SELECT users.* FROM users
-		INNER JOIN billing_profiles ON users.id = billing_profiles.user_id
-		INNER JOIN subscriptions ON subscriptions.billing_profile_id = billing_profiles.id
-		WHERE subscriptions.id = $1`, sub.ID)
+	bp, err := billingprofile.FindByID(env.DB, sub.BillingProfileID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil
@@ -82,6 +80,7 @@ func publishSubscriptionEvent(env *middleware.Env, ev controllers.EventName, sub
 
 	sWSlug := &subscription.SubscriptionWithHostSlug{
 		Subscription: sub,
+		OrgID: bp.OrgID,
 	}
 
 	err = env.DB.Get(&sWSlug.HostSlug, `SELECT hosts.slug FROM hosts WHERE subscription_id = $1`, sub.ID)
@@ -102,7 +101,7 @@ func publishSubscriptionEvent(env *middleware.Env, ev controllers.EventName, sub
 		controllers.NewEvent(ev, map[string]interface{}{
 			"subscription": subSer,
 		}),
-		u.Topic(),
+		pubsub.Topic(fmt.Sprintf("user-%d", bp.UserID)),
 	)
 	return nil
 }
