@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
+
 	"github.com/nitrous-io/dedicated/pkg/distsync"
+	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
 /*
@@ -22,6 +26,60 @@ var (
 	errPoolNotConfigured = errors.New("no pool configured")
 	errPoolEmpty         = errors.New("pool is empty")
 )
+
+// swap out in tests for fake provider
+var ProviderFn = func(a aws.Auth, r aws.Region) instanceProvider {
+	return ec2.New(a, r)
+}
+
+// returns map of region name -> (instance type -> count)
+func (h *Host) ListPools() (map[string]map[string]int, error) {
+	start := time.Now()
+	label := h.MetricsLabel("pooled_instances")
+	defer func() {
+		mh.UpdateSince(label, start)
+	}()
+
+	var (
+		mu      sync.Mutex
+		r       = make(map[string]map[string]int)
+		errmsgs []error
+
+		wg sync.WaitGroup
+	)
+
+	for _, region := range KnownRegions {
+		wg.Add(1)
+		go func(region aws.Region) {
+			defer wg.Done()
+			var ( // goroutine locals to reduce mutex locks
+				errs   []error
+				counts = make(map[string]int)
+			)
+			conn := ProviderFn(h.auth, region)
+
+			pooled, err := h.instancesInPool(conn, "")
+			if err != nil {
+				errs = append(errs, err)
+				return
+			}
+			for _, inst := range pooled {
+				counts[inst.InstanceType] += 1
+			}
+			mu.Lock()
+			errmsgs = append(errmsgs, errs...)
+			r[region.Name] = counts
+			mu.Unlock()
+
+			return
+		}(region)
+	}
+	wg.Wait()
+	if len(errmsgs) > 0 {
+		return nil, fmt.Errorf("pooledInstances(): %v", errmsgs)
+	}
+	return r, nil
+}
 
 // instancePoolConfig returns the configuration for the instance pool of the
 // given instance type.
@@ -46,9 +104,12 @@ func (h *Host) instancePoolConfig(instancetype string) *instancePoolConfig {
 
 // instancesInPool returns the instances in the pool for the given instance
 // type. Instances should be running and tagged with "dedicated:pool=true".
+// When instancetype is an empty value, all instance types are returned
 func (h *Host) instancesInPool(provider instanceProvider, instancetype string) ([]*ec2.Instance, error) {
 	filter := ec2.NewFilter()
-	filter.Add("instance-type", instancetype)
+	if instancetype != "" {
+		filter.Add("instance-type", instancetype)
+	}
 	filter.Add(fmt.Sprintf(`tag:%s`, poolTag), "true")
 	filter.Add(`tag:dedicated`, h.driverConfig.Env)
 	filter.Add("instance-state-name", "running")
