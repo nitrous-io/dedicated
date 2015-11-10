@@ -321,7 +321,7 @@ var _ = Describe("controllers/github", func() {
 			res := doRequest("githubcode", state, state)
 			Expect(res.Code).To(Equal(http.StatusFound))
 
-			Expect(res.Header().Get("Location")).To(Equal("/app/#/account"))
+			Expect(res.Header().Get("Location")).To(Equal("/legacy/#/account"))
 		})
 
 		It("redirects to beta dashboard if the state is beta", func() {
@@ -380,7 +380,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
@@ -414,7 +414,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -435,7 +435,7 @@ var _ = Describe("controllers/github", func() {
 					t, err = token.FindByUser(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 
-					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+					expectedUrl := fmt.Sprintf("/legacy/#/login?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
 
@@ -469,7 +469,7 @@ var _ = Describe("controllers/github", func() {
 						Expect(err).To(Equal(token.ErrInvalidToken))
 						Expect(t).To(BeNil())
 
-						Expect(res.Header().Get("Location")).To(Equal("/app/#/login?oauthError=true"))
+						Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?oauthError=true"))
 					})
 				})
 			})
@@ -515,7 +515,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
@@ -549,7 +549,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -573,7 +573,7 @@ var _ = Describe("controllers/github", func() {
 					t, err = token.FindByUser(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 
-					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+					expectedUrl := fmt.Sprintf("/legacy/#/login?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
 
@@ -608,7 +608,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?oauthError=true"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?oauthError=true"))
 				})
 			})
 		})
