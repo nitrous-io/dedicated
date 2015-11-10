@@ -9,6 +9,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
@@ -22,6 +23,10 @@ var (
 	errBannedEmail  = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
 	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
 	errNoPermission = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+
+	validations = map[string]error{
+		"index_orgs_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
+	}
 )
 
 func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -55,6 +60,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	err = db.WithTransaction(func(tx *sqlx.Tx) error {
 		if err := o.Insert(tx); err != nil {
+			if e, ok := err.(*pq.Error); ok && e.Code.Name() == "unique_violation" {
+				if validationErr, ok := validations[e.Constraint]; ok {
+					return validationErr
+				}
+			}
 			return err
 		}
 
@@ -68,7 +78,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 		return nil
 	})
-
 	if err != nil {
 		return err
 	}

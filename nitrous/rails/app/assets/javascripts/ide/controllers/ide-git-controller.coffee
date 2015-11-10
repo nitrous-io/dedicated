@@ -4,6 +4,7 @@ App.IdeGitController = Em.Controller.extend
   containerKeyAddedToGitHub: false
   cloneFromGitHubDialog: null
   selectedRepository: null
+  githubRepos: null
 
   initialize: ->
     @updateContainerKeyStatus()
@@ -16,22 +17,30 @@ App.IdeGitController = Em.Controller.extend
 
   showCloneFromGitHubDialog: ->
     cloneFromGitHubDialog = App.CloneFromGitHubDialog.create()
-    if @get('containerKeyAddedToGitHub')
+    if @get('githubRepos')
       @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
-      Em.$.ajax(
-        type: 'GET'
-        url: '/api/v0/github/repos'
-        headers: { Authorization: "Bearer #{App.get 'token'}" }
-      ).done (data) =>
-        cloneFromGitHubDialog.set('loaded', true)
-        repos = cloneFromGitHubDialog.get('repositories')
-        for repo in data.repos
-          repos.pushObject(repo)
+      cloneFromGitHubDialog.set('loaded', true)
+      cloneFromGitHubDialog.set('repositories', @get('githubRepos'))
     else
-      cloneFromGitHubDialog.setProperties
-        error: "Please add your container key to GitHub"
-        loaded: true
-      @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
+      if @get('containerKeyAddedToGitHub')
+        @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
+        Em.$.ajax(
+          type: 'GET'
+          url: '/api/v0/github/repos'
+          headers: { Authorization: "Bearer #{App.get 'token'}" }
+        ).done((data) =>
+          cloneFromGitHubDialog.set('loaded', true)
+          repos = cloneFromGitHubDialog.get('repositories')
+          for repo in data.repos
+            repos.pushObject(repo)
+          @set 'githubRepos', repos
+        ).fail (jqxhr) =>
+          App.postError(jqxhr.responseJSON, 'Failed to get repos!')
+      else
+        cloneFromGitHubDialog.setProperties
+          error: "Please add your container key to GitHub"
+          loaded: true
+        @set 'cloneFromGitHubDialog', cloneFromGitHubDialog
 
   openTerminalAndCloneRepo: (gitUrl) ->
     # i.e. git://github.com/username/project-name.git => project-name

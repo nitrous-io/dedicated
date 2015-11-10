@@ -10,6 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -201,6 +202,11 @@ func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 
 	if !s.CancelPending {
 		return errCannotReactivate
+	}
+
+	_, err = host.FindBySubscriptionID(env.DB, s.ID)
+	if err != nil {
+		return errSubscriptionNotFound
 	}
 
 	err = subProvider.Reactivate(env.DB, s)

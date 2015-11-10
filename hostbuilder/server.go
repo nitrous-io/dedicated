@@ -13,6 +13,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
+	"github.com/nitrous-io/dedicated/hostbuilder/host/amazon"
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 	"github.com/nitrous-io/dedicated/pkg/queue"
 	"github.com/nitrous-io/dedicated/pkg/uuid"
@@ -397,6 +398,43 @@ func (s *Server) sleep(w http.ResponseWriter, r *http.Request) (err error) {
 	return nil
 }
 
+func (s *Server) listPools(w http.ResponseWriter, r *http.Request) error {
+	// TODO This is independent of any particular host so we don't need to use
+	// host-specific form data.
+	driver, err := s.driverFromRequest(r, map[string]string{"ignore_region": "true"})
+	if err != nil {
+		label := fmt.Sprintf("listPools.%s", r.Form.Get("provider"))
+		return mh.Error(err, label)
+	}
+	if r.Form.Get("provider") != "amazon" {
+		return fmt.Errorf("listPools is amazon-only")
+	}
+
+	label := fmt.Sprintf("listPools.%s", driver.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	adriver, ok := driver.(*amazon.Host)
+	if !ok { // sanity check; should never happen
+		return fmt.Errorf("listPools cast to amazon broken")
+	}
+
+	counts, err := adriver.ListPools()
+	if err != nil {
+		return mh.Error(err, label)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(counts)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		data = []byte(fmt.Sprintf(`{"status":"error", "error": "%v"}`, err))
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	w.Write(data)
+	return nil
+}
+
 func (s *Server) listHosts(w http.ResponseWriter, r *http.Request) error {
 	// TODO This is independent of any particular host so we don't need to use
 	// host-specific form data.
@@ -485,6 +523,7 @@ func (s *Server) createRouter() {
 	m := map[string]map[string]httpHandler{
 		"GET": {
 			"/hosts": s.listHosts,
+			"/pools": s.listPools,
 		},
 		"POST": {
 			"/hosts":         s.createHost,

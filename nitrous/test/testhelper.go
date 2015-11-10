@@ -57,10 +57,6 @@ func TestDatabase(dbname string) (*db.Database, error) {
 		d.Close()
 		return nil, err
 	}
-	if err := populateSeedData(d); err != nil {
-		d.Close()
-		return nil, err
-	}
 	return d, nil
 }
 
@@ -112,19 +108,6 @@ func truncateTables(db *db.Database) error {
 	}
 
 	return nil
-}
-
-// any statements run here will be included in all tests by default since this
-// is called from TestDatabase
-func populateSeedData(db *db.Database) error {
-	// FreeUserDefault is to support free-tier which will be removed.
-	_, err := db.Exec(`
-		INSERT INTO segments (slug, user_default, org_default, free_user_default) VALUES
-			('user-default', true, false, false),
-			('org-default', false, true, false),
-			('free-user-default', false, false, true);
-	`)
-	return err
 }
 
 func getTables(db *db.Database) ([]string, error) {

@@ -336,6 +336,16 @@ func FindByIdentifier(db *db.Database, identifier string) (*Host, error) {
 	return host, err
 }
 
+func FindBySubscriptionID(db *db.Database, subscriptionID int64) (*Host, error) {
+	host := &Host{}
+	err := db.Get(host,
+		`SELECT hosts.* FROM hosts
+		WHERE terminated_at IS NULL
+		AND state <> 'terminated'
+		AND subscription_id = $1;`, subscriptionID)
+	return host, err
+}
+
 func (h Host) String() string {
 	type h2 Host
 	hs := h2(h)

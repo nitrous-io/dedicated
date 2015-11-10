@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	gh "github.com/nitrous-io/dedicated/nitrous/models/github"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -27,6 +28,7 @@ import (
 var (
 	errInvalidRequest      = httperror.New(http.StatusBadRequest, "invalid_request", "auth token is required")
 	errInvalidToken        = httperror.New(http.StatusUnauthorized, "invalid_token", "auth token is invalid")
+	errRateLimitExceeded   = httperror.New(http.StatusForbidden, "request_forbidden", "you have exceeded the number of GitHub accesses. Please try again later")
 	ErrHostNotFound        = httperror.New(http.StatusNotFound, "host_not_found", "host does not exist")
 	ErrOutstandingInvoices = httperror.New(http.StatusBadRequest, "outstanding_invoices", "you have outstanding invoices, please check your billing settings")
 	ErrNotFound            = httperror.New(http.StatusNotFound, "not_found", "not found")
@@ -414,5 +416,20 @@ func Call(label string, mw Middleware) Middleware {
 		} else {
 			return mh.Error(err, label)
 		}
+	}
+}
+
+func RateLimit(mw Middleware) Middleware {
+	return func(env *Env, w http.ResponseWriter, r *http.Request) error {
+
+		exceeded, err := gh.Exceeded(env.DB, env.User.ID)
+		if err != nil {
+			logrus.Errorf("Error occurred while rate limiting github access: %v", err)
+		}
+		if exceeded {
+			return errRateLimitExceeded
+		}
+
+		return mw(env, w, r)
 	}
 }

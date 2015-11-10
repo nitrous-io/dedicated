@@ -8,13 +8,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	gh "github.com/nitrous-io/dedicated/nitrous/models/github"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/userprofile"
@@ -41,11 +44,13 @@ type FetchReposFunc func(env *middleware.Env) ([]github.GitHubRepository, error)
 
 var _ = Describe("controllers/github", func() {
 	var (
-		db  *db.Database
-		svr *server.Server
-		t   *token.Token
-		u   *user.User
-		ft  *test.FakeTracker
+		db      *db.Database
+		svr     *server.Server
+		t       *token.Token
+		u       *user.User
+		ft      *test.FakeTracker
+		res     *httptest.ResponseRecorder
+		handler *mux.Router
 	)
 
 	BeforeEach(func() {
@@ -57,6 +62,8 @@ var _ = Describe("controllers/github", func() {
 		ft = test.NewFakeTracker()
 		svr = server.NewServer("", db, nil, nil)
 		svr.Tracker = ft
+		handler = svr.Router()
+		res = httptest.NewRecorder()
 
 		u = &user.User{
 			Username: "alice",
@@ -79,6 +86,135 @@ var _ = Describe("controllers/github", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("RateLimit", func() {
+		var (
+			env           *middleware.Env
+			handlerCalled bool
+		)
+
+		BeforeEach(func() {
+			env = &middleware.Env{
+				DB:   db,
+				User: u,
+			}
+
+			handlerCalled = false
+
+			h := func(w http.ResponseWriter, r *http.Request) {
+				mw := middleware.RateLimit(func(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+					handlerCalled = true
+					return nil
+				})
+				err := mw(env, w, r)
+				if err != nil {
+					svr.HandleError(env, w, r, err)
+				}
+			}
+			handler = mux.NewRouter()
+			handler.HandleFunc("/api/v0/github/{action}", h).Methods("GET")
+		})
+
+		Context("when there is no existing github record for user", func() {
+			It("inserts a new record", func() {
+				_, err := gh.FindByUserID(db, u.ID)
+				Expect(err).ToNot(BeNil())
+
+				req, err := test.NewRequest("GET", "/api/v0/github/repos", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(handlerCalled).To(BeTrue())
+
+				g, err := gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(g.UserID).To(Equal(u.ID))
+				Expect(g.Threshold).To(Equal(10))
+
+				timestamps, err := g.Accesses()
+				Expect(err).To(BeNil())
+				Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Unix())))
+			})
+		})
+
+		Context("when there is an existing github record for user", func() {
+			BeforeEach(func() {
+				_, err := gh.FindByUserID(db, u.ID)
+				Expect(err).ToNot(BeNil())
+
+				_, err = db.Exec(`INSERT INTO github (user_id, accesses_at) VALUES ($1, $2);`, u.ID, strconv.Itoa(int(time.Now().Add(-30*time.Minute).Unix())))
+				Expect(err).To(BeNil())
+
+				_, err = gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("appends unix timestamp to accesses_at string", func() {
+				req, err := test.NewRequest("GET", "/api/v0/github/repos", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(handlerCalled).To(BeTrue())
+
+				g, err := gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(g.UserID).To(Equal(u.ID))
+				Expect(g.Threshold).To(Equal(10))
+
+				timestamps, err := g.Accesses()
+				Expect(err).To(BeNil())
+				Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix()), BeNumerically("~", time.Now().Unix())))
+
+			})
+
+			It("deletes from accesses_at string if unix timestamp has expired", func() {
+				g, err := gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+				g.Update(db, strconv.Itoa(int(time.Now().Add(-2*time.Hour).Unix())))
+				Expect(err).To(BeNil())
+
+				timestamps, err := g.Accesses()
+				Expect(err).To(BeNil())
+				Expect(timestamps).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix()), BeNumerically("~", time.Now().Add(-2*time.Hour).Unix())))
+
+				req, err := test.NewRequest("GET", "/api/v0/github/repos", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(handlerCalled).To(BeTrue())
+
+				g, err = gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(g.UserID).To(Equal(u.ID))
+				Expect(g.Threshold).To(Equal(10))
+
+				timestamps1, err := g.Accesses()
+				Expect(err).To(BeNil())
+				Expect(timestamps1).To(ConsistOf(BeNumerically("~", time.Now().Add(-30*time.Minute).Unix()), BeNumerically("~", time.Now().Unix())))
+
+			})
+
+			It("returns error if threshold is exceeded", func() {
+				_, err := db.Exec(`UPDATE github SET threshold=1 WHERE user_id=$1;`, u.ID)
+				Expect(err).To(BeNil())
+				g, err := gh.FindByUserID(db, u.ID)
+				Expect(err).To(BeNil())
+				g.Update(db, strconv.Itoa(int(time.Now().Add(-30*time.Minute).Unix())))
+				Expect(err).To(BeNil())
+
+				req, err := test.NewRequest("GET", "/api/v0/github/repos", nil)
+				Expect(err).To(BeNil())
+				handler.ServeHTTP(res, req)
+
+				Expect(handlerCalled).To(BeFalse())
+
+				Expect(res.Code).To(Equal(http.StatusForbidden))
+				_, errDesc := test.ErrorSlug(res.Body)
+				Expect(errDesc).To(Equal("you have exceeded the number of GitHub accesses. Please try again later"))
+			})
+
+		})
 	})
 
 	Describe("GET /api/v0/github/oauth_cb", func() {
@@ -185,7 +321,7 @@ var _ = Describe("controllers/github", func() {
 			res := doRequest("githubcode", state, state)
 			Expect(res.Code).To(Equal(http.StatusFound))
 
-			Expect(res.Header().Get("Location")).To(Equal("/app/#/account"))
+			Expect(res.Header().Get("Location")).To(Equal("/legacy/#/account"))
 		})
 
 		It("redirects to beta dashboard if the state is beta", func() {
@@ -244,7 +380,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
@@ -278,7 +414,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -299,7 +435,7 @@ var _ = Describe("controllers/github", func() {
 					t, err = token.FindByUser(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 
-					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+					expectedUrl := fmt.Sprintf("/legacy/#/login?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
 
@@ -333,7 +469,7 @@ var _ = Describe("controllers/github", func() {
 						Expect(err).To(Equal(token.ErrInvalidToken))
 						Expect(t).To(BeNil())
 
-						Expect(res.Header().Get("Location")).To(Equal("/app/#/login?oauthError=true"))
+						Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?oauthError=true"))
 					})
 				})
 			})
@@ -379,7 +515,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?gitHubUserName=new-github-user&gitHubUserEmail=newgithub@example.com"))
 				})
 
 				It("redirects to the beta signup page if the state is beta", func() {
@@ -413,7 +549,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/login?existingGitHubEmail=alice@example.com"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/login?existingGitHubEmail=alice@example.com"))
 				})
 			})
 
@@ -437,7 +573,7 @@ var _ = Describe("controllers/github", func() {
 					t, err = token.FindByUser(db, u.ID)
 					Expect(err).NotTo(HaveOccurred())
 
-					expectedUrl := fmt.Sprintf("/app/#/login?token=%s", t.Token)
+					expectedUrl := fmt.Sprintf("/legacy/#/login?token=%s", t.Token)
 					Expect(res.Header().Get("Location")).To(Equal(expectedUrl))
 				})
 
@@ -472,7 +608,7 @@ var _ = Describe("controllers/github", func() {
 					res := doRequest("githubcode", state, state)
 					Expect(res.Code).To(Equal(http.StatusFound))
 
-					Expect(res.Header().Get("Location")).To(Equal("/app/#/signup?oauthError=true"))
+					Expect(res.Header().Get("Location")).To(Equal("/legacy/#/signup?oauthError=true"))
 				})
 			})
 		})
