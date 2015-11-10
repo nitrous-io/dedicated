@@ -341,17 +341,20 @@
 
       .pricing-details
         > .box
-          border-top: 1px solid #434D55
-          padding-top: 1px
+          background: lighten($n2oGray1000, 6%)
+          padding: 40px 0 20px
+          border-top: none
+          // padding-top: 1px
           transition: opacity .15s ease-in-out, border-color .15s ease-in-out
           opacity: .6
+          font-size: 16px
 
           .ticked i
             color: #a5b3be
 
           &.active
             opacity: 1
-            border-top: 2px solid #0099ED
+            border-top: none
             padding-top: 0
 
             .ticked i

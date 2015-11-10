@@ -532,6 +532,7 @@ article.with-pulled-visual
   max-width: 1000px
   column-width: 445px
   column-gap: 100px
+  column-fill: auto
   margin: 40px auto 0 auto
 
   .item
@@ -540,6 +541,9 @@ article.with-pulled-visual
     column-break-inside: avoid
     break-inside: avoid
     margin-bottom: 60px
+    &:nth-of-type(5)
+      margin-bottom: 0
+
     h4
       margin-bottom: 8px
     h4, p
