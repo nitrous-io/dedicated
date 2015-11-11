@@ -41,6 +41,7 @@ const (
 	StateRestarting   = "restarting"
 	StateUpdating     = "updating"
 	StateOrphan       = "orphan"
+	StateTerminating  = "terminating"
 	StateTerminated   = "terminated"
 	StateMigrating    = "migrating"
 	StateRespeccing   = "respeccing"

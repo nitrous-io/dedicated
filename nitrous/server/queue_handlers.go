@@ -102,7 +102,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 				if err := s.db.WithTransaction(func(tx *sqlx.Tx) error {
 					hdrs := http.Header{}
 					hdrs.Set(constants.NitrousUUIDHeader, m.UUID)
-					return hostcontrol.Terminate(tx, h, hdrs, u.ID)
+					return hostcontrol.Terminate(tx, h, hdrs, u.ID, h.State)
 				}); err != nil {
 					logrus.Errorf("Unable to terminate host %d, will modify DB: %v", h.ID, err)
 					// attempting to mark host as terminated
@@ -111,7 +111,7 @@ func (s *Server) handleCreateMessage(m *queue.Message) error {
 					err := s.db.WithTransaction(func(tx *sqlx.Tx) error {
 						hdrs := http.Header{}
 						hdrs.Set(constants.NitrousUUIDHeader, m.UUID)
-						return hostcontrol.Terminate(tx, h, hdrs, u.ID)
+						return hostcontrol.Terminate(tx, h, hdrs, u.ID, h.State)
 					})
 					if err != nil {
 						logrus.Errorf("Unable to terminate host at DB level %d: %v", h.ID, err)

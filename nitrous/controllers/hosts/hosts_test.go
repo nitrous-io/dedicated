@@ -1051,6 +1051,28 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(payload.Hotswap).To(Equal(true))
 		})
 
+		It("publishes a host destroying event with the host that's being destroyed", func() {
+			ch := svr.Events.Subscribe(u.Topic())
+			defer svr.Events.Unsubscribe(ch, u.Topic())
+
+			doRequest(hs.H.Slug, t.Token)
+
+			select {
+			case <-time.After(50 * time.Millisecond):
+				Fail("Timed out waiting for host destroying event")
+			case msg := <-ch:
+				e := msg.(*controllers.Event)
+				Expect(e.Name).To(Equal(controllers.EventHostDestroying))
+
+				host, err := queryHost(db, hs.H.ID)
+				Expect(err).To(BeNil())
+
+				serializedHost := e.Data.(map[string]*serializers.Host)["host"]
+				Expect(serializedHost.ID).To(Equal(host.ID))
+				Expect(serializedHost.Slug).To(Equal(host.Slug))
+			}
+		})
+
 		Context("when hostbuilder successfully deletes the host", func() {
 			BeforeEach(func() {
 				hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -1139,10 +1161,19 @@ var _ = Describe("controllers/hosts", func() {
 
 				doRequest(hs.H.Slug, t.Token)
 
+				destroyedEvent := make(chan *controllers.Event)
+				go func() {
+					for msg := range ch {
+						if e := msg.(*controllers.Event); e.Name == controllers.EventHostDestroyed {
+							destroyedEvent <- e
+						}
+					}
+				}()
+
 				select {
 				case <-time.After(50 * time.Millisecond):
 					Fail("Timed out waiting for host destroyed event")
-				case msg := <-ch:
+				case msg := <-destroyedEvent:
 					deleted, err := queryHost(db, hs.H.ID)
 					Expect(err).To(BeNil())
 					Expect(msg).To(Equal(&controllers.Event{

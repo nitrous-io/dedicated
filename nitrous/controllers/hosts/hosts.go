@@ -212,9 +212,16 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 		}
 	}
 
+	origState := h.State
+	if err := h.UpdateState(env.DB, host.StateTerminating); err != nil {
+		return err
+	}
+	PublishHostEvent(env, controllers.EventHostDestroying, h)
+
 	err := env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID)
+		return hostcontrol.Terminate(tx, h, hostbuilderHeaders(env), env.User.ID, origState)
 	})
+
 	if err != nil {
 		return err
 	}

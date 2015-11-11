@@ -85,7 +85,7 @@ func OnStopped(db *db.Database, h *host.Host, info *HostInfo, initiatorID int64)
 	})
 }
 
-func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
+func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error {
 	// Don't delete the host in Hostbuilder if provider identifier is empty,
 	// unless this is a hotswap instance (where an empty provider identifier is
 	// legal).
@@ -100,7 +100,9 @@ func Terminate(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64
 		}
 	}
 
-	origState := h.State
+	if origState == "" {
+		origState = h.State
+	}
 
 	if err := h.Delete(tx); err != nil {
 		return err
