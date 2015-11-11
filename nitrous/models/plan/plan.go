@@ -176,6 +176,7 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	err := d.Select(&plans, `
 		SELECT * FROM plans
 		WHERE NOT disabled
+		AND NOT hidden
 		AND plans.id IN (
 			SELECT DISTINCT plan_id
 			FROM provider_templates AS pt
