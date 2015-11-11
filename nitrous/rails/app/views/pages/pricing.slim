@@ -26,13 +26,10 @@
     .container
       .pricing-container
         .pricing-block
-          ul
-            li.selectable data-index='0' data-slug='basic'
-              .title Basic
+          ul.plan-list
+            li.selectable data-index='0'
+              .title
               .desc
-                | Ideal for developing small-scale
-                br
-                | projects and hobby apps
               .plan-price
                 .monthly
                   .focus
@@ -42,28 +39,26 @@
                     small
                       ' /mo.
               ul.details
-                li
+                li.containers
+                  ' Up to
                   strong
-                    ' 3
+                  '
                   | Containers
-                li
+                li.memory
                   strong
-                    ' 1 GB
+                  '
                   | Memory
-                li
+                li.storage
                   strong
-                    ' 10 GB
-                  | Storage
-              a.btn.blue.ripple href="/app/#/signup/" 7-Day Free Trial
+                  '
+                  | SSD Storage
+              a.btn.blue.ripple href="/app/#/signup/" Sign Up
 
-            li.selectable.popular data-index='1' data-slug='standard'
+            li.selectable.popular data-index='1'
               .most-popular
                 .ribbon Most Popular
-              .title Standard
+              .title
               .desc
-                | Perfect balance of value and
-                br
-                | performance for most projects
               .plan-price
                 .monthly
                   .focus
@@ -73,27 +68,24 @@
                     small
                       ' /mo.
               ul.details
-                li
+                li.containers
                   ' Up to
                   strong
-                    ' 5
+                  '
                   | Containers
-                li
+                li.memory
                   strong
-                    ' 2 GB
+                  '
                   | Memory
-                li
+                li.storage
                   strong
-                    ' 25 GB
-                  | Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign up
+                  '
+                  | SSD Storage
+              a.btn.blue.ripple href="/app/#/signup/" Sign Up
 
-            li.selectable data-index='2' data-slug='plus'
-              .title Plus
+            li.selectable data-index='2'
+              .title
               .desc
-                | Enhanced performance for
-                br
-                | professional projects
               .plan-price
                 .monthly
                   .focus
@@ -103,24 +95,23 @@
                     small
                       ' /mo.
               ul.details
-                li
+                li.containers
                   ' Up to
                   strong
-                    ' 10
+                  '
                   | Containers
-                li
+                li.memory
                   strong
-                    ' 4 GB
+                  '
                   | Memory
-                li
+                li.storage
                   strong
-                    ' 50 GB
-                  | Storage
-              a.btn.blue.ripple href="/app/#/signup/"
-                | Sign up
+                  '
+                  | SSD Storage
+              a.btn.blue.ripple href="/app/#/signup/" Sign Up
 
           .box-wrapper.auto.pricing-details
-            .box.grow-2
+            .box.grow-2.active
               .box-wrapper
                 .box
                   h3.centered
