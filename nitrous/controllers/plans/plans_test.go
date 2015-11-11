@@ -158,7 +158,7 @@ var _ = Describe("controllers/plans", func() {
 			Context("When user is not logged in", func() {
 				It("should show all plans", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", false)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 			})
 
@@ -190,7 +190,7 @@ var _ = Describe("controllers/plans", func() {
 
 				It("should return free plans of the default provider", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo", "shift-always-on"}))
+					Expect(plans).To(ConsistOf([]string{"free", "start", "shift", "turbo"}))
 				})
 
 				Context("When user has created a free-tier host", func() {
