@@ -45,6 +45,6 @@ pages.Pricing =
         else
           0
       for p in pl
-        if (p.price + p.base_price) > 0
+        if (p.price + p.base_price) > 0 && !p.org && !p.hidden
           plans.push(p)
       updateNumbers()
