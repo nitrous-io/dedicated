@@ -35,7 +35,13 @@ func SerializeOrg(o *org.Org) *Org {
 	return serialized
 }
 
-func SerializeOrgWithRoles(orgs []*org.OrgWithRole) []*Org {
+func SerializeOrgWithRole(o *org.OrgWithRole) *Org {
+	serialized := SerializeOrg(o.Org)
+	serialized.Role = o.Role
+	return serialized
+}
+
+func SerializeOrgsWithRoles(orgs []*org.OrgWithRole) []*Org {
 	ret := make([]*Org, len(orgs))
 	for i, o := range orgs {
 		ret[i] = SerializeOrg(o.Org)

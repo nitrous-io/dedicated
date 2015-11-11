@@ -141,6 +141,8 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.Slug).To(Equal("nitrous"))
 				Expect(j.Org.BillingProfile).ToNot(BeNil())
 				Expect(j.Org.BillingProfile.State).To(Equal(billingprofile.StateNoCard))
+
+				Expect(j.Org.Role).To(Equal(orgmembership.RoleOwner))
 			})
 
 			It("adds the user as the owner of the org", func() {
