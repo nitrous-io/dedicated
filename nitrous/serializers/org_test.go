@@ -97,7 +97,26 @@ var _ = Describe("org serializer", func() {
 		})
 	})
 
-	Describe("SerializeOrgWithRoles", func() {
+	Describe("SerializeOrgWithRole", func() {
+		It("serializes to JSON", func() {
+			orgWithRole := &org.OrgWithRole{Org: model, Role: "owner"}
+
+			serializedOrg := serializers.SerializeOrgWithRole(orgWithRole)
+			b, err := json.Marshal(serializedOrg)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Macrosoft Corp.",
+				"slug": "macrosoft",
+				"email": "bill@macrosoft.com",
+				"role": "owner",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+	})
+
+	Describe("SerializeOrgsWithRoles", func() {
 		var model2 *org.Org
 
 		BeforeEach(func() {
@@ -120,7 +139,7 @@ var _ = Describe("org serializer", func() {
 				Org:  model2,
 				Role: "owner",
 			}
-			b, err := json.Marshal(serializers.SerializeOrgWithRoles([]*org.OrgWithRole{or1, or2}))
+			b, err := json.Marshal(serializers.SerializeOrgsWithRoles([]*org.OrgWithRole{or1, or2}))
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`[
 				{

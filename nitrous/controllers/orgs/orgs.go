@@ -72,7 +72,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 
-		if err := orgmembership.AddMember(tx, o.ID, user.ID, "owner"); err != nil {
+		if err := orgmembership.AddMember(tx, o.ID, user.ID, orgmembership.RoleOwner); err != nil {
 			return err
 		}
 
@@ -86,7 +86,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	ser := serializers.SerializeOrg(o)
+
+	// The creator of an org is always its owner.
+	orgWithRole := &org.OrgWithRole{Org: o, Role: orgmembership.RoleOwner}
+	ser := serializers.SerializeOrgWithRole(orgWithRole)
 	ser.BillingProfile = serializers.SerializeBillingProfile(bp)
 
 	env.Status = http.StatusCreated
@@ -123,7 +126,7 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		bpMap[bp.OrgID.Int64] = bp
 	}
 
-	ser := serializers.SerializeOrgWithRoles(orgs)
+	ser := serializers.SerializeOrgsWithRoles(orgs)
 	for _, o := range ser {
 		bp, ok := bpMap[o.ID]
 		if !ok {
