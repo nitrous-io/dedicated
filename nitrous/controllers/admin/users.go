@@ -130,7 +130,7 @@ func banUser(env *middleware.Env, w http.ResponseWriter, r *http.Request) (err e
 
 	for _, h := range hosts {
 		err = env.DB.WithTransaction(func(tx *sqlx.Tx) error {
-			return terminateFunc(tx, h, hdrs, env.User.ID)
+			return terminateFunc(tx, h, hdrs, env.User.ID, h.State)
 		})
 		if err != nil {
 			return err

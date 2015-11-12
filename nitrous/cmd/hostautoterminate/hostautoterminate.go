@@ -105,7 +105,7 @@ func termHost(dbConn *db.Database, hst *host.Host) {
 	headers := http.Header{}
 	headers.Set(constants.NitrousUUIDHeader, "hostautoterminate")
 	err := dbConn.WithTransaction(func(tx *sqlx.Tx) error {
-		return hostcontrol.Terminate(tx, hst, headers, initiatorID)
+		return hostcontrol.Terminate(tx, hst, headers, initiatorID, hst.State)
 	})
 	if err != nil {
 		logrus.Errorf("Unable to terminate host %s, err: %v", hst.Slug, err)

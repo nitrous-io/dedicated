@@ -225,7 +225,7 @@ var _ = Describe("controllers/admin", func() {
 			Expect(err).To(BeNil())
 
 			tFuncCalled := false
-			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
+			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, orgState string) error {
 				tFuncCalled = true
 				Expect(h.ID).To(Equal(hs1.H.ID))
 				Expect(initiatorID).To(Equal(u.ID))
@@ -276,7 +276,7 @@ var _ = Describe("controllers/admin", func() {
 			Expect(err).To(BeNil())
 
 			tFuncCalled := false
-			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64) error {
+			tFunc := func(tx *sqlx.Tx, h *host.Host, headers http.Header, initiatorID int64, origState string) error {
 				tFuncCalled = true
 				Expect(h.ID).To(Equal(hs1.H.ID))
 				Expect(initiatorID).To(Equal(u.ID))
