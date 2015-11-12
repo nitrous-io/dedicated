@@ -7,10 +7,8 @@ require "json"
 client = HTTPClient.new
 client.receive_timeout = 10000
 
-id = ARGV[0]
-
 params = {
-  name: 'testgrow',
+  name: 'testgrow', # will be overridden to 'available_pool-{{env}}'
   region_id: 'ap-southeast-1',
   source_ami: 'ami-904e89f3',
   subnet_id: 'subnet-1d77896a',

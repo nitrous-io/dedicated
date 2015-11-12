@@ -9,6 +9,10 @@ import (
 	mh "github.com/nitrous-io/dedicated/pkg/metricshelper"
 )
 
+const (
+	poolInstanceName = "available_pool-{{env}}"
+)
+
 // Grow grows the instance pool by a host whose parameters are defined by h
 func (h *Host) Grow() (*host.Info, error) {
 	label := h.MetricsLabel("grow")
@@ -20,6 +24,11 @@ func (h *Host) Grow() (*host.Info, error) {
 	)
 	ctx, cancel = context.WithTimeout(context.Background(), h.createTimeout())
 	defer cancel()
+
+	// hard override - name config is ignored.  This is checked by other
+	// helpers (setting instance tags, etc) to determine if the instance is a
+	// pool instance during the grow steps
+	h.Config.Name = poolInstanceName
 
 	hctx := host.NewContext(ctx, h, h, nil)
 	defer func() {
