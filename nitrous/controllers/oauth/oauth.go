@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/bcrypt"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -110,18 +109,9 @@ func IssueToken(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return errUnknown
 	}
 
-	if r.FormValue("client_id") != "" {
-		oauthClient, err := getOauthClient(env, r)
-		if err != nil {
-			return err
-		}
-		if err := env.LoginWithOauthClient(u, w, oauthClient); err != nil {
-			return err
-		}
-	} else {
-		if err = env.Login(u, w); err != nil {
-			return err
-		}
+	err = env.Login(u, w)
+	if err != nil {
+		return err
 	}
 
 	env.User = u
@@ -151,25 +141,4 @@ func Logout(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"status": "ok",
 	}
 	return nil
-}
-
-func getOauthClient(env *middleware.Env, r *http.Request) (*oauthclient.Client, error) {
-	var client *oauthclient.Client
-	var err error
-
-	clientID := r.FormValue("client_id")
-	clientSecret := r.FormValue("client_secret")
-
-	if clientID != "" && clientSecret != "" {
-		client, err = oauthclient.FindWithSecret(env.DB, clientID, clientSecret)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, errClientNotFound
-			}
-			return nil, err
-		}
-	} else {
-		return nil, errClientNotFound
-	}
-	return client, nil
 }

@@ -173,13 +173,6 @@ func (t *Token) IsValid() bool {
 	if t == nil {
 		return false
 	}
-
-	// If the token is issued by third party application,
-	// we don't check expiry date
-	if t.ClientID.Valid {
-		return true
-	}
-
 	maxLastUsed := t.LastSeenAt.Add(MaxLastUsedDuration)
 	return time.Now().Before(maxLastUsed)
 }

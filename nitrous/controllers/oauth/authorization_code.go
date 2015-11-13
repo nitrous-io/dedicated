@@ -186,6 +186,9 @@ func TokenFromAuthorizationCode(env *middleware.Env, w http.ResponseWriter, r *h
 
 	clientID := r.FormValue("client_id")
 	if clientID != code.ClientID {
+		if err == sql.ErrNoRows {
+			return errUnauthorizedClient
+		}
 		return errInvalidClientID
 	}
 

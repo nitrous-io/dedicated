@@ -357,17 +357,5 @@ var _ = Describe("plain token behavior", func() {
 			t.LastSeenAt = &ti
 			Expect(t.IsValid()).To(BeFalse())
 		})
-
-		Context("client_id is not null", func() {
-			BeforeEach(func() {
-				t.ClientID = sql.NullInt64{1, true}
-			})
-
-			It("should be true even if the LastSeenAt is not recent", func() {
-				ti := time.Now().Add(token.MaxLastUsedDuration * -1)
-				t.LastSeenAt = &ti
-				Expect(t.IsValid()).To(BeTrue())
-			})
-		})
 	})
 })
