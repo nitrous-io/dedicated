@@ -20,9 +20,10 @@ import (
 )
 
 var (
-	errBannedEmail  = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
-	errNotFound     = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
-	errNoPermission = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+	errBannedEmail      = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
+	errNotFound         = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
+	errNoPermission     = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+	errCannotRemoveSelf = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
 
 	validations = map[string]error{
 		"index_orgs_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
@@ -332,10 +333,6 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return errNotFound
 	}
 
-	if currentUser.Username == username {
-		return httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself")
-	}
-
 	o, err := org.FindBySlug(db, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -371,7 +368,18 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if !containsString(permissableRoles, m.Role) {
+	canRemove := true
+	isSelf := cuMembership.UserID == u.ID
+	if isSelf {
+		canLeave := cuMembership.Role == orgmembership.RoleAdmin || cuMembership.Role == orgmembership.RoleMember
+		if !canLeave {
+			return errCannotRemoveSelf
+		}
+	} else {
+		canRemove = containsString(permissableRoles, m.Role)
+	}
+
+	if !canRemove {
 		return errNoPermission
 	}
 
@@ -381,6 +389,14 @@ func RemoveMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 			return errNotFound
 		}
 		return err
+	}
+
+	if isSelf {
+		env.Status = http.StatusOK
+		env.Data = map[string]interface{}{
+			"removed": true,
+		}
+		return nil
 	}
 
 	members, err := orgmembership.FindAllByOrgID(db, o.ID)
