@@ -105,6 +105,45 @@ func (s *Server) providerConfig(provider string) map[string]interface{} {
 	return cp
 }
 
+func (s *Server) growPool(w http.ResponseWriter, r *http.Request) error {
+	driver, err := s.driverFromRequest(r, nil)
+	if err != nil {
+		return mh.Error(err, fmt.Sprintf("create.%s", r.Form.Get("provider")))
+	}
+	if driver.DriverName() != "amazon" {
+		return mh.Error(fmt.Errorf("only amazon driver supports grow"), fmt.Sprintf("grow.%s", driver.DriverName()))
+	}
+	label := fmt.Sprintf("grow.%s", driver.DriverName())
+	defer mh.UpdateSince(label, time.Now())
+
+	requestID := r.Header.Get(NitrousUUIDHeader)
+
+	adriver, ok := driver.(*amazon.Host)
+	if !ok { // sanity check; should never happen
+		return fmt.Errorf("growPool cast to amazon broken")
+	}
+
+	logrus.Infof("uuid=%s Growing pool", requestID)
+	info, err := adriver.Grow()
+	if err != nil {
+		return mh.Error(err, label)
+	}
+
+	resp := &Response{
+		StatusCode: http.StatusOK,
+		Status:     "grown",
+		Provider:   info.Provider,
+		ID:         info.ID,
+		VolumeID:   info.VolumeID,
+		Name:       info.Name,
+		IPAddress:  info.IPAddress,
+		Region:     info.Region,
+		State:      info.State.String(),
+	}
+	writeResponse(w, resp)
+	return nil
+}
+
 // createHost streams progress data to the output. For example
 //
 // In success case:
@@ -533,6 +572,7 @@ func (s *Server) createRouter() {
 			"/hosts/stop":    s.stopHost,
 			"/hosts/start":   s.startHost,
 			"/hosts/restart": s.restartHost,
+			"/pools/grow":    s.growPool,
 		},
 	}
 	if s.Config.Debug {
