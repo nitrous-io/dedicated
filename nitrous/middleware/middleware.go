@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	gh "github.com/nitrous-io/dedicated/nitrous/models/github"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
@@ -111,6 +112,30 @@ func (env *Env) Login(u *user.User, w http.ResponseWriter) error {
 	return nil
 }
 
+func (env *Env) LoginWithOauthClient(u *user.User, w http.ResponseWriter, client *oauthclient.Client) error {
+	t := &token.Token{
+		UserID:   u.ID,
+		Type:     "login",
+		Scope:    token.ScopeFull,
+		ClientID: sql.NullInt64{client.ID, true},
+	}
+
+	err := t.Insert(env.DB)
+	if err != nil {
+		return err
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"access_token": t.Token,
+		"token_type":   "Bearer",
+	}
+
+	return nil
+}
 func (env *Env) SetEmptyResponseBody() {
 	env.Status = http.StatusAccepted
 	env.Data = map[string]interface{}{}
