@@ -425,6 +425,7 @@ var _ = Describe("controllers/hosts", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Shared).To(BeTrue())
 			})
 
 			It("responds with 404 if the user is not a collaborator", func() {
