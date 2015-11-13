@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"fmt"
 	"time"
 
 	"golang.org/x/net/context"
@@ -17,6 +18,14 @@ const (
 func (h *Host) Grow() (*host.Info, error) {
 	label := h.MetricsLabel("grow")
 	defer mh.UpdateSince(label, time.Now())
+
+	isFull, err := h.isPoolFull(h.provider, h.Config.InstanceType)
+	if err != nil {
+		return nil, err
+	}
+	if isFull {
+		return nil, fmt.Errorf("maximum instances in pool reached: (%s, %s)", h.Config.RegionID, h.Config.InstanceType)
+	}
 
 	var (
 		ctx    context.Context
