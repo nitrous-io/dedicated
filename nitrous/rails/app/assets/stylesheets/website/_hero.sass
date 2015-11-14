@@ -194,11 +194,7 @@
 // Home
 #home
   .hero
-    background-color: #2C3944
-    background-image: linear-gradient(10deg, rgba(44,57,68,.3) 40%, rgba(44,57,68,.9) 100%), image_url('home/home-hero-bg.jpg')
-    background-position: top center
-    background-repeat: no-repeat
-    background-size: cover
+    background: $blue
 
     .shadows, .patternshadows
       position: absolute
@@ -211,12 +207,62 @@
 
     .shadows
       background-image: linear-gradient(0deg, rgba(42,50,57,0) 47%, rgba(42,50,57,0.30) 90%)
-      opacity: 1
+      opacity: .25
       animation: fadeIn 3.15s
       animation-iteration-count: 1
 
     .patternshadows
       background-image: radial-gradient(ellipse at center, rgba(48,60,71,.70) 0%,rgba(48,60,71,1) 68%)
+
+    .hero-copy
+      h2
+        font-size: 42px
+        padding-bottom: 12px
+
+      h3
+        opacity: 1
+        color: #FFF
+
+      .form-wrapper
+        form
+          width: auto
+
+      input[type="email"], input[type="text"]
+        background: $blue
+        border: 2px solid #FFF
+        color: #FFF
+        font-weight: default
+
+      ::-webkit-input-placeholder
+        color: rgba(255,255,255,.75)
+
+      :-moz-placeholder
+        color: rgba(255,255,255,.75)
+
+      ::-moz-placeholder
+        color: rgba(255,255,255,.75)
+
+      :-ms-input-placeholder
+        color: rgba(255,255,255,.75)
+
+      .btn
+        height: 46px
+        background: #FFF
+        color: $blue
+
+        &.white
+          width: 288px
+          height: 48px
+          border-radius: 4px
+          line-height: 48px
+          font-size: 18px
+          font-weight: 400
+          display: inline
+          margin: 40px auto 0 auto
+
+          &:hover
+            background: rgba(255,255,255,.95)
+            box-shadow: 0 0 6px rgba(0,0,0,.15)
 
 // --------------------------------------
 // Logo pattern

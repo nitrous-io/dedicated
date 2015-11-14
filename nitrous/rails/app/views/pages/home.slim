@@ -1,5 +1,5 @@
 - @title = 'Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'home'
 
 - content_for :body_before
@@ -31,19 +31,22 @@
       = render partial: 'layouts/webnav', locals: { active: 'home' }
       .hero-copy
         h2
-          | Software Development Without the Pain
+          | Build apps faster
         h3
-          | Cloud-based code editor with collaboration, one-click installs and snapshots
+          | Professional developers use Nitrous to create, snapshot
+          br
+          | and share development environments in the cloud
 
-        = render 'layouts/cta_form'
-      .shadows
+        //= render 'layouts/cta_form'
+        a.btn.white href='/signup'
+          | Start your 7-day free trial
 
-  .notice
+  .notice.darker
     .container
       p
-        a href='/flatiron'
+        a href='https://community.nitrous.io/posts/the-new-nitrous-dashboard-free-trials' target='_blank'
           span.new Latest
-          | The Flatiron School has selected Nitrous as its software development platform
+          | The New Nitrous Dashboard &amp; Free Trials
           span.link Read more
           i.fa.fa-chevron-right
 
@@ -54,25 +57,12 @@
         | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
         br
         | Run web servers, databases, caches and more, right from your Web browser.
+
       .full-visual
         .window-controls.osx
           span
           span
           span
-
-        video autoplay="autoplay" loop="loop" muted="true"
-          source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.webm" type="video/webm"
-          source src="https://nitrous-image-icons.s3.amazonaws.com/nitrous-pro-collab.mp4" type="video/mp4"
-
-        .annotations
-          .annotation-dot.tooltip.blue.zoom data-id="1" data-tooltip="Browse, upload, manage files and folders, just as you would on your desktop"
-            .target
-          .annotation-dot.tooltip.blue.zoom data-id="2" data-tooltip="Lightning-fast code editor in the browser, with rich language support"
-            .target
-          .annotation-dot.tooltip.blue.zoom data-id="3" data-tooltip="Dedicated Linux containers with full root-enabled shell access"
-            .target
-          .annotation-dot.tooltip.blue.zoom data-id="4" data-tooltip="Edit files side by side with Nitrous's new Split Editing mode"
-            .target
 
 
   article.featurette
@@ -185,36 +175,37 @@
         label.carousel-control.next.control-4 for="carousel-1"
           i.fa.fa-chevron-right
 
-  article.for-everyone.lighter
-    .container
-      .box-wrapper.four
-        .box
-          h3.larger For Teams
-          p Work collaboratively on applications and private repos. Leverage Nitrous's cutting-edge cloud IDE to stay productive wherever you are.
-          a.learn-more href="/orgs"
-            | Learn more
-            i.fa.fa-chevron-right
+  - if false
+    article.for-everyone.lighter
+      .container
+        .box-wrapper.four
+          .box
+            h3.larger For Teams
+            p Work collaboratively on applications and private repos. Leverage Nitrous's cutting-edge cloud IDE to stay productive wherever you are.
+            a.learn-more href="/orgs"
+              | Learn more
+              i.fa.fa-chevron-right
 
-        .box
-          h3.larger For Agencies
-          p Create a sandboxed environment for each of your clients in just minutes. Snapshot your projects and maintain a working application environment to revisit anytime.
-          a.learn-more href="/agencies"
-            | Learn more
-            i.fa.fa-chevron-right
+          .box
+            h3.larger For Agencies
+            p Create a sandboxed environment for each of your clients in just minutes. Snapshot your projects and maintain a working application environment to revisit anytime.
+            a.learn-more href="/agencies"
+              | Learn more
+              i.fa.fa-chevron-right
 
-        .box
-          h3.larger For Developers
-          p Stop wasting time on system setup and maintenance. Go straight to what you do best: coding. Spin up boxes, build apps, deploy, and start again.
-          a.learn-more href="/enterprises"
-            | Learn more
-            i.fa.fa-chevron-right
+          .box
+            h3.larger For Developers
+            p Stop wasting time on system setup and maintenance. Go straight to what you do best: coding. Spin up boxes, build apps, deploy, and start again.
+            a.learn-more href="/enterprises"
+              | Learn more
+              i.fa.fa-chevron-right
 
-        .box
-          h3.larger For Students
-          p Work on your projects from Chromebooks, Windows machines, or school computer. Your development environment follows you wherever you are.
-          a.learn-more href="/education"
-            | Learn more
-            i.fa.fa-chevron-right
+          .box
+            h3.larger For Students
+            p Work on your projects from Chromebooks, Windows machines, or school computer. Your development environment follows you wherever you are.
+            a.learn-more href="/education"
+              | Learn more
+              i.fa.fa-chevron-right
 
 
   = render partial: 'layouts/companies', locals: { theme: '' }
