@@ -241,14 +241,16 @@ var _ = Describe("controllers/userkeys", func() {
 						Expect(err).To(BeNil())
 					})
 
-					It("responds with bad request", func() {
+					It("does not return an error", func() {
 						params = &url.Values{}
 						params.Set("key", validKeys[0])
 						doRequest("valid-token", c.Slug)
 
-						Expect(res.Code).To(Equal(http.StatusBadRequest))
-						_, errDesc := ErrorSlug(res.Body)
-						Expect(errDesc).To(Equal("key already exists"))
+						Expect(res.Code).To(Equal(http.StatusCreated))
+						j := map[string]string{}
+						err := json.NewDecoder(res.Body).Decode(&j)
+						Expect(err).To(BeNil())
+						Expect(j["status"]).To(Equal("created"))
 					})
 				})
 

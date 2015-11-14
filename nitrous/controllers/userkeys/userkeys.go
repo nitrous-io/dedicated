@@ -80,6 +80,7 @@ func create(cn *container.Container, h *host.Host, env *middleware.Env, w http.R
 		tx.Rollback()
 		return err
 	}
+
 	if err := cl.AddUserKeys(cn.CID, []string{pk.Key}); err != nil {
 		tx.Rollback()
 		return freighterError(err)
