@@ -737,18 +737,55 @@ var _ = Describe("controllers/orgs", func() {
 		})
 
 		Context("when target user is same as requesting user", func() {
-			It("responds with 400 bad request", func() {
+			It("allows a regular member to be deleted", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "member")
+				Expect(err).To(BeNil())
+
+				doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				Expect(err).To(Equal(sql.ErrNoRows))
+
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(BeNil())
+				Expect(j["removed"]).To(BeTrue())
+			})
+
+			It("allows an admin to be deleted", func() {
 				err := orgmembership.AddMember(db, o.ID, u.ID, "admin")
+				Expect(err).To(BeNil())
+
+				doRequest(o.Slug, u.Username)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				Expect(err).To(Equal(sql.ErrNoRows))
+
+				j := map[string]interface{}{}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j["error"]).To(BeNil())
+				Expect(j["removed"]).To(BeTrue())
+			})
+
+			It("should not allow an owner to be deleted", func() {
+				err := orgmembership.AddMember(db, o.ID, u.ID, "owner")
 				Expect(err).To(BeNil())
 
 				doRequest(o.Slug, u.Username)
 				Expect(res.Code).To(Equal(http.StatusBadRequest))
 
+				_, err = orgmembership.FindByUsernameAndOrgSlug(db, u.Username, o.Slug)
+				Expect(err).To(BeNil())
+
 				j := map[string]string{}
 				err = json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
 				Expect(j["error"]).To(Equal("invalid_action"))
-				Expect(j["error_description"]).To(Equal("you cannot remove yourself"))
+				Expect(j["error_description"]).To(Equal("you cannot remove yourself from this organization"))
 			})
 		})
 

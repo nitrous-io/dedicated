@@ -56,8 +56,11 @@ var _ = Describe("controllers/oauth", func() {
 
 	Describe("POST /oauth/token", func() {
 		var (
-			u *user.User
-			j map[string]interface{}
+			u                 *user.User
+			j                 map[string]interface{}
+			oauthClientID     string
+			oauthClientSecret string
+			oauthClient       *oauthclient.Client
 		)
 
 		doRequest := func() {
@@ -79,20 +82,47 @@ var _ = Describe("controllers/oauth", func() {
 			Expect(u.ID).NotTo(BeZero())
 
 			j = map[string]interface{}{}
+
+			oauthClientID = "whateverClientID"
+			oauthClientSecret = "whateverClientSecret"
+
+			clientUser := &user.User{
+				Username: "oauth_owner",
+				Password: "whatever",
+				Email:    "info@whatever.com",
+			}
+			err = WrapInTransaction(db, clientUser.Insert)
+			Expect(err).To(BeNil())
+
+			oauthClient = &oauthclient.Client{
+				UserID:      clientUser.ID,
+				Name:        "Whatever",
+				Description: "Whatever",
+				ClientID:    oauthClientID,
+				RedirectURI: "https://blu.co/oauth/callback",
+			}
+			err = oauthClient.InsertWithSecret(db, oauthClientSecret)
+			Expect(err).To(BeNil())
 		})
 
 		itRespondsWithUniqueAccessToken := func() {
 			It("responds with a unique access token", func() {
-				Expect(res.Code).To(Equal(http.StatusOK))
+				doRequest()
+
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
+				Expect(res.Code).To(Equal(http.StatusOK))
+
 				Expect(j["access_token"]).NotTo(BeNil())
 				Expect(j["token_type"]).To(Equal("Bearer"))
 			})
 
 			It("persists the token in the database", func() {
+				doRequest()
+
 				err := json.Unmarshal(res.Body.Bytes(), &j)
 				Expect(err).To(BeNil())
+
 				t, err := token.FindByToken(db, j["access_token"].(string))
 				Expect(err).To(BeNil())
 				Expect(t).NotTo(BeNil())
@@ -102,6 +132,8 @@ var _ = Describe("controllers/oauth", func() {
 			})
 
 			It("has no-cache headers", func() {
+				doRequest()
+
 				Expect(res.Header().Get("Cache-Control")).To(Equal("no-store"))
 				Expect(res.Header().Get("Pragma")).To(Equal("no-cache"))
 			})
@@ -110,6 +142,8 @@ var _ = Describe("controllers/oauth", func() {
 				var prevToken interface{}
 
 				BeforeEach(func() {
+					doRequest()
+
 					res = httptest.NewRecorder()
 					prevToken = j["access_token"]
 					doRequest()
@@ -123,6 +157,37 @@ var _ = Describe("controllers/oauth", func() {
 					Expect(j["token_type"]).To(Equal("Bearer"))
 				})
 			})
+
+			Context("client_id and client_secret are specified", func() {
+				BeforeEach(func() {
+					params.Set("client_id", oauthClientID)
+					params.Set("client_secret", oauthClientSecret)
+				})
+
+				It("creates a token with client_id", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusOK))
+					err := json.Unmarshal(res.Body.Bytes(), &j)
+					Expect(err).To(BeNil())
+					t, err := token.FindByToken(db, j["access_token"].(string))
+
+					Expect(err).To(BeNil())
+					Expect(t).NotTo(BeNil())
+					Expect(t.UserID).To(Equal(u.ID))
+					Expect(t.ClientID.Int64).To(Equal(oauthClient.ID))
+				})
+
+				Context("given oauth client is not present", func() {
+					BeforeEach(func() {
+						params.Set("client_id", "IamNotHere")
+					})
+
+					It("responds with bad request", func() {
+						doRequest()
+						Expect(res.Code).To(Equal(http.StatusNotFound))
+					})
+				})
+			})
 		}
 
 		Context("when grant_type is password", func() {
@@ -130,6 +195,7 @@ var _ = Describe("controllers/oauth", func() {
 				params.Set("grant_type", "password")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
+
 			})
 
 			logins := []string{
@@ -143,10 +209,6 @@ var _ = Describe("controllers/oauth", func() {
 				Context("when requested with valid login("+l+") and password", func() {
 					BeforeEach(func() {
 						params.Set("username", l)
-						doRequest()
-
-						err := json.Unmarshal(res.Body.Bytes(), &j)
-						Expect(err).To(BeNil())
 					})
 
 					itRespondsWithUniqueAccessToken()
@@ -294,7 +356,6 @@ var _ = Describe("controllers/oauth", func() {
 					loginToken, err := logintoken.Generate(u.ID)
 					Expect(err).To(BeNil())
 					params.Set("token", loginToken)
-					doRequest()
 				})
 
 				itRespondsWithUniqueAccessToken()

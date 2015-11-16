@@ -140,6 +140,26 @@ var _ = Describe("models/userkey", func() {
 				Expect(err).To(Equal(userkey.ErrInvalidKey))
 			})
 		})
+
+		Context("when insert same key", func() {
+			It("does not duplicate", func() {
+				err := pk.Insert(db)
+				Expect(err).To(BeNil())
+
+				pk2 := &userkey.UserKey{
+					UserID:      hs.U.ID,
+					ContainerID: c.ID,
+					Key:         validRSA,
+				}
+
+				err = pk2.Insert(db)
+				Expect(err).To(BeNil())
+
+				keys, err := userkey.FindAll(db, hs.U.ID, c.ID)
+				Expect(err).To(BeNil())
+				Expect(keys).To(HaveLen(1))
+			})
+		})
 	})
 
 	Describe("Find", func() {

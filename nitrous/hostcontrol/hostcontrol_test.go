@@ -182,7 +182,7 @@ var _ = Describe("hostcontrol", func() {
 
 		terminateHost := func() error {
 			return db.WithTransaction(func(tx *sqlx.Tx) error {
-				return hostcontrol.Terminate(tx, h, hbHeaders(), hs.H.UserID)
+				return hostcontrol.Terminate(tx, h, hbHeaders(), hs.H.UserID, h.State)
 			})
 		}
 

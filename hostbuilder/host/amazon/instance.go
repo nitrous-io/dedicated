@@ -47,6 +47,9 @@ func setTags(provider instanceProvider, h *Host) error {
 	if h.driverConfig.HostVersion != "" {
 		tags = append(tags, ec2.Tag{"dedicated:version", h.driverConfig.HostVersion})
 	}
+	if h.Config.Name == poolInstanceName {
+		tags = append(tags, ec2.Tag{poolTag, "true"})
+	}
 
 	h.Printf("setting tags on %s to %#v", h.instance.InstanceId, tags)
 	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)

@@ -77,10 +77,21 @@ func (pk *UserKey) Insert(d db.QueryReceiver) error {
 	}
 	pk.Fingerprint = fingerprint
 
-	nstmt, err := d.PrepareNamed(`INSERT INTO public_keys
-		(user_id, container_id, key, fingerprint)
-		VALUES (:user_id, :container_id, :key, :fingerprint)
-		RETURNING *;`)
+	nstmt, err := d.PrepareNamed(`
+		WITH selection AS (
+			SELECT * FROM public_keys WHERE fingerprint = :fingerprint AND container_id = :container_id
+		), insertion AS (
+			INSERT INTO public_keys (user_id, container_id, key, fingerprint)
+			(
+				SELECT :user_id, :container_id, :key, :fingerprint
+				WHERE NOT EXISTS (SELECT * FROM selection)
+			)
+			RETURNING *
+		)
+		(SELECT * FROM insertion)
+		UNION
+		(SELECT * FROM selection)
+	`)
 	if err != nil {
 		return err
 	}
@@ -92,6 +103,7 @@ func (pk *UserKey) Validate() error {
 	if pk.Key == "" {
 		return ErrKeyBlank
 	}
+
 	// We can do more checks with
 	// https://godoc.org/golang.org/x/crypto/ssh#ParsePublicKey but
 	// seems overkill for now
