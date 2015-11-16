@@ -42,6 +42,8 @@ type Host struct {
 
 	SubscriptionSlug string `json:"subscription_slug,omitempty"`
 	Free             bool   `json:"free"`
+
+	Shared bool `json:"shared"`
 }
 
 func SerializeHost(h *host.Host) *Host {
@@ -75,6 +77,7 @@ func SerializeHost(h *host.Host) *Host {
 		PendingRespec:             h.PendingRespec,
 		SubscriptionSlug:          h.SubscriptionSlug.String,
 		Free:                      h.Free,
+		Shared:                    h.Shared,
 	}
 	if h.AssignedAt != nil {
 		serialized.CreatedAt = h.AssignedAt

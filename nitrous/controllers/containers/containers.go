@@ -687,8 +687,13 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 			return err
 		}
 
-		if cn.UserID != env.User.ID && !allowCollab {
-			return errContainerNotFound
+		shared := false
+		if cn.UserID != env.User.ID {
+			if allowCollab {
+				shared = true
+			} else {
+				return errContainerNotFound
+			}
 		}
 
 		h, err := host.FindByIdentifier(db, strconv.FormatInt(cn.HostID, 10))
@@ -698,6 +703,7 @@ func WithContainerAndHost(fn containerHandler, opts ...WithContainerAndHostOpt) 
 			}
 			return err
 		}
+		h.Shared = shared
 		if touchHost {
 			touchFn := func() {
 				if err := h.Touch(db); err != nil {

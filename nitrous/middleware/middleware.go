@@ -405,6 +405,9 @@ func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Mid
 			if err == nil {
 				logrus.Infof("Collaborator user %d accessed host %d", env.User.ID, h.ID)
 			}
+			if h != nil {
+				h.Shared = true
+			}
 		}
 		if err != nil {
 			if err == sql.ErrNoRows {
