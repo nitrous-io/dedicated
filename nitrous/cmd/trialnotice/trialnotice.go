@@ -53,11 +53,11 @@ func main() {
 		logrus.Fatalf("subscription.FindAllFreeTrialEnding() days left %v failed with '%v'", firstEmailDaysRange[1], err)
 	}
 	for _, s := range subs1 {
-		go func() {
+		go func(s *subscription.SubscriptionWithUserInfo) {
 			if err := subscription.SendTrialEndingEmail(dbConn, s, dryrun); err != nil {
 				logrus.Errorf("subscription.SendTrialEndingEmail err: %v", err)
 			}
-		}()
+		}(s)
 	}
 
 	subs2, err := subscription.FindAllTrialEnding(dbConn, secondEmailDaysRange[0], secondEmailDaysRange[1])
@@ -65,11 +65,11 @@ func main() {
 		logrus.Fatalf("subscription.FindAllFreeTrialEnding() days left %v failed with '%v'", secondEmailDaysRange[1], err)
 	}
 	for _, s := range subs2 {
-		go func() {
+		go func(s *subscription.SubscriptionWithUserInfo) {
 			if err := subscription.SendTrialEndingEmail(dbConn, s, dryrun); err != nil {
 				logrus.Errorf("subscription.SendTrialEndingEmail err: %v", err)
 			}
-		}()
+		}(s)
 	}
 
 }
