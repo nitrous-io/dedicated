@@ -54,6 +54,8 @@ type Plan struct {
 	CustomDomain    bool  `db:"custom_domain"`
 	CustomTemplates bool  `db:"custom_templates"`
 	Org             bool  `db:"org"`
+
+	MaxHosts sql.NullInt64 `db:"max_hosts"`
 }
 
 type PlanPricing struct {

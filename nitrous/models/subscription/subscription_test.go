@@ -77,6 +77,7 @@ var _ = Describe("models/subscription", func() {
 				State:            subscription.StateCreating,
 				StripeID:         sql.NullString{"sub_1", true},
 				Slug:             "IAMASLUG90",
+				MultiHost:        true,
 			}
 			err = test.WrapInTransaction(db, s.Insert)
 			Expect(err).To(BeNil())
@@ -728,6 +729,71 @@ var _ = Describe("models/subscription", func() {
 				TrialEnd: pq.NullTime{time.Now().Add(24 * time.Hour), false},
 			}
 			Expect(s.WithinFreeTrial()).To(BeFalse())
+		})
+	})
+
+	Describe("FindMultiHostSubscription", func() {
+		var (
+			s1 *subscription.Subscription
+			s3 *subscription.Subscription
+			u2 *user.User
+			bp *billingprofile.BillingProfile
+			bp2 *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			// Insert subscriptions
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s1 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SUB1",
+				MultiHost: true,
+			}
+			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"X", true},
+				Slug:             "SUB2",
+			}
+			Expect(test.WrapInTransaction(db, s2.Insert)).To(BeNil())
+
+			u2 = &user.User{
+				Username: "user2",
+				Email:    "user2@example.com",
+				Password: "123456",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			bp2, err = u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+			s3 = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp2.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"3", true},
+				Slug:             "SUB3",
+			}
+			Expect(test.WrapInTransaction(db, s3.Insert)).To(BeNil())
+		})
+
+		It("should find the multi host subscription", func() {
+			s, err := subscription.FindMultiHostSubscription(db, bp.ID)
+			Expect(err).To(BeNil())
+			Expect(s).To(Equal(s1))
+		})
+
+		It("should not find a multi host subscription if one doesn't exist for the BP", func() {
+			s, err := subscription.FindMultiHostSubscription(db, bp2.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(s).To(BeNil())
 		})
 	})
 })
