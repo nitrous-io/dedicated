@@ -149,17 +149,19 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 
 func FindAllTrialEnding(d db.QueryReceiver, minHours, maxHours int) ([]*SubscriptionWithUserInfo, error) {
 	subscriptions := []*SubscriptionWithUserInfo{}
-	err := d.Select(&subscriptions, `SELECT s.*, users.id AS user_id, users.username AS user_username
-                FROM subscriptions s
-                JOIN billing_profiles bp ON bp.id = s.billing_profile_id
-                LEFT JOIN users ON users.id = bp.user_id
-                WHERE (
-                  (
-                    date_part('days', s.trial_end - now()) * 24 +
-                    date_part('hours', s.trial_end - now())
-                  )
-                  BETWEEN $1 AND $2
-                );`, minHours, maxHours)
+	err := d.Select(&subscriptions, `SELECT distinct(subs.id), subs.*,
+					users.id AS user_id, users.username AS user_username
+					FROM subscriptions subs
+					JOIN billing_profiles bp ON bp.id = subs.billing_profile_id
+					JOIN users ON users.id = bp.user_id
+					WHERE
+					(
+						(date_part('days', subs.trial_end - now()) * 24 +
+						 date_part('hours', subs.trial_end - now()))
+						BETWEEN $1 AND $2
+					)
+					AND subs.state = 'trialing'
+				;`, minHours, maxHours)
 	if err != nil {
 		return nil, err
 	}

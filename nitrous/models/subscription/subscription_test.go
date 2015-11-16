@@ -696,7 +696,16 @@ var _ = Describe("models/subscription", func() {
 
 			Expect(subscriptions).To(HaveLen(1))
 			Expect(subscriptions[0].Slug).To(Equal("SUB3"))
+
+			// not if they are deleted (trial cancelled)
+			_, err = db.Exec(`UPDATE subscriptions SET state = 'deleted' WHERE slug = $1`, "SUB3")
+			Expect(err).To(BeNil())
+
+			subscriptions, err = subscription.FindAllTrialEnding(db, 0, 1*24)
+			Expect(err).To(BeNil())
+			Expect(subscriptions).To(HaveLen(0))
 		})
+
 	})
 
 	Describe("WithinFreeTrial()", func() {
