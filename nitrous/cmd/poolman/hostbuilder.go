@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Sirupsen/logrus"
+
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
 
@@ -19,6 +21,45 @@ func parseList(body []byte) (map[string]map[string]int, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// meant to be called as goroutine; errors logged instead of returned
+func growPool(region, itype string) {
+	f := logrus.Fields{
+		"func":          "growPool",
+		"region":        region,
+		"instance_type": itype,
+	}
+	var rc regionConfig
+	for _, reg := range appConfig.Regions {
+		if reg.ID == region {
+			rc = reg
+			break
+		}
+	}
+	if rc.ID == "" {
+		logrus.WithFields(f).Errorf("region not found")
+		return
+	}
+	config := map[string]string{
+		"region_id":         rc.ID,
+		"instance_type":     itype,
+		"source_ami":        rc.SourceAMI,
+		"subnet_id":         rc.SubnetID,
+		"security_group_id": rc.SecurityGroupID,
+	}
+	cjson, err := json.Marshal(config)
+	if err != nil {
+		logrus.WithFields(f).Errorf("error marshalling json: %v", err)
+		return
+	}
+	params := url.Values{}
+	params.Set("config", string(cjson))
+	bs, err := hbClient.Grow(params)
+	if err != nil {
+		logrus.WithFields(f).Errorf("grow call failed: %v", err)
+	}
+	logrus.WithFields(f).Infof("hostbuilder response: %s", string(bs))
 }
 
 type HBClient struct {
@@ -60,6 +101,7 @@ func (hb HBClient) Grow(params url.Values) ([]byte, error) {
 	endpoint := fmt.Sprintf("%s/pools/grow", hb.URL)
 	params.Set("provider", "amazon")
 
+	logrus.Debugf("calling %s with params %+v", endpoint, params)
 	response, err := hb.PostForm(endpoint, &params)
 	if err != nil {
 		return nil, fmt.Errorf("hb grow error: %v", err)

@@ -16,6 +16,7 @@ type Config struct {
 
 type regionConfig struct {
 	ID              string       `json:"id"`
+	SourceAMI       string       `json:"source_ami"`
 	SubnetID        string       `json:"subnet_id"`
 	SecurityGroupID string       `json:"security_group_id"`
 	InstancePool    []poolConfig `json:"instance_pool"`
