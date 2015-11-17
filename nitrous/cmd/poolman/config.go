@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	AccessKey string         `json:"access_key"`
-	SecretKey string         `json:"secret_key"`
-	Env       string         `json:"env"`
-	Regions   []regionConfig `json:"regions"`
+	HostbuilderURL string         `json:"hostbuilder_url"`
+	AccessKey      string         `json:"access_key"`
+	SecretKey      string         `json:"secret_key"`
+	Env            string         `json:"env"`
+	Regions        []regionConfig `json:"regions"`
 }
 
 type regionConfig struct {

@@ -1,5 +1,6 @@
 {
 	"env": "development",
+    "hostbuilder_url": "http://localhost:6666",
     "access_key": "fixme",
     "secret_key": "fixme",
     "regions": [
