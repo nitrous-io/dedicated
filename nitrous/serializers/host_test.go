@@ -286,7 +286,7 @@ var _ = Describe("host serializer", func() {
 			lastRunning := pq.NullTime{time.Date(2013, time.November, 8, 0, 0, 0, 0, time.UTC), true}
 			model.LastRunningAt = lastRunning
 
-			hosts := serializers.SerializeHosts([]host.Host{*model})
+			hosts := serializers.SerializeHosts([]*host.Host{model})
 			b, err := json.Marshal(hosts)
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`[{
