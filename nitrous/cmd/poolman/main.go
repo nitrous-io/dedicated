@@ -98,7 +98,6 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("error parsing config: %v", err)
 	}
-	logrus.Infof("Running with config: %+v\n", appConfig)
 
 	awsConnect()
 	for i, reg := range appConfig.Regions {
@@ -108,6 +107,8 @@ func main() {
 		}
 		appConfig.Regions[i].SourceAMI = latest
 	}
+
+	logrus.Infof("Running with config: %+v\n", appConfig)
 
 	hbClient = NewHBClient(appConfig.HostbuilderURL)
 	poll()
