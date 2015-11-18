@@ -25,6 +25,8 @@ type Subscription struct {
 	OrgID    int64  `json:"org_id,omitempty"`
 
 	Plan *Plan `json:"plan,omitempty"`
+
+	MultiHost bool `json:"multi_host"`
 }
 
 func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscription {
@@ -38,6 +40,7 @@ func SerializeSubscription(s *subscription.SubscriptionWithHostSlug) *Subscripti
 		HostSlug:         s.HostSlug.String,
 		CancelPending:    s.CancelPending,
 		OrgID:            s.OrgID.Int64,
+		MultiHost:        s.MultiHost,
 	}
 
 	if s.CurrentPeriodStart.Valid {

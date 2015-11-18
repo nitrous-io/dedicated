@@ -372,12 +372,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned, freighterd_version, docker_version,
-			region_identifier, last_pinged_at, auto_shutdown, hotswap
+			region_identifier, last_pinged_at, auto_shutdown, hotswap, subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
-			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap
+			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap, :subscription_id
 		)
 		RETURNING *;`)
 	if err != nil {

@@ -213,7 +213,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 		logData.Debugf("queueProvisionTracer: failed to get the plan. err: %+v h: %+v", uuid, err, h)
 	}
 
-	if p.IsSubscription() {
+	if p.IsSubscription() && !h.SubscriptionID.Valid {
 		var o *org.Org
 		if h.OrgID.Valid {
 			o, err = org.Find(db, h.OrgID.Int64)

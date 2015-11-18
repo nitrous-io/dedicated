@@ -194,6 +194,48 @@ var _ = Describe("models/orgmembership", func() {
 		})
 	})
 
+	Describe("FindByUserIDAndOrgID()", func() {
+		BeforeEach(func() {
+			_, err := db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o2.ID, u2.ID, "admin")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u3.ID, "member")
+			Expect(err).To(BeNil())
+		})
+
+		It("returns an org membership", func() {
+			m, err := orgmembership.FindByUserIDAndOrgID(db, u.ID, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m.OrgID).To(Equal(o.ID))
+			Expect(m.UserID).To(Equal(u.ID))
+			Expect(m.Role).To(Equal("owner"))
+
+			m, err = orgmembership.FindByUserIDAndOrgID(db, u2.ID, o2.ID)
+			Expect(err).To(BeNil())
+			Expect(m.OrgID).To(Equal(o2.ID))
+			Expect(m.UserID).To(Equal(u2.ID))
+			Expect(m.Role).To(Equal("admin"))
+
+			m, err = orgmembership.FindByUserIDAndOrgID(db, u3.ID, o.ID)
+			Expect(err).To(BeNil())
+			Expect(m.OrgID).To(Equal(o.ID))
+			Expect(m.UserID).To(Equal(u3.ID))
+			Expect(m.Role).To(Equal("member"))
+		})
+
+		Context("when there is no match", func() {
+			It("returns error", func() {
+				_, err := orgmembership.FindByUserIDAndOrgID(db, u.ID, o2.ID)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				_, err = orgmembership.FindByUserIDAndOrgID(db, u2.ID, o.ID)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+				_, err = orgmembership.FindByUserIDAndOrgID(db, u3.ID, o2.ID)
+				Expect(err).To(MatchError(sql.ErrNoRows))
+			})
+		})
+	})
+
 	Describe("AddMember()", func() {
 		Context("when an invalid role is given", func() {
 			It("returns error", func() {

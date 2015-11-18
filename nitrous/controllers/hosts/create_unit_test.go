@@ -93,25 +93,15 @@ var _ = Describe("buildCreateOptions", func() {
 		Expect(opts.TemplateName).To(Equal("azure-sfo-1000GB"))
 	})
 
-	It("rejects empty size or region or name", func() {
-		// empty size
+	It("rejects empty region or name", func() {
+		// empty region
 		data := url.Values{}
-		data.Set("region", "us-west-2")
+		data.Set("size", "1gb")
 		data.Set("name", "windows XP")
 		r, _ := http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		_, err := buildCreateOptions(r, &user.User{})
-		Expect(err).To(Equal(errSizeRequired))
-
-		// empty region
-		data = url.Values{}
-		data.Set("size", "1gb")
-		data.Set("name", "windows XP")
-		r, _ = http.NewRequest("POST", "/hosts", strings.NewReader(data.Encode()))
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-		_, err = buildCreateOptions(r, &user.User{})
 		Expect(err).To(Equal(errRegionRequired))
 
 		// empty name

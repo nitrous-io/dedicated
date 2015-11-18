@@ -74,6 +74,56 @@ var _ = Describe("controllers/subscriptions", func() {
 		}
 	})
 
+	setupForOrg := func(s *subscription.Subscription, role string) {
+		u2 := &user.User{
+			Username: "user2org",
+			Password: "123456",
+			Email:    "user2org@example.com",
+		}
+		err := test.WrapInTransaction(db, u2.Insert)
+		Expect(err).To(BeNil())
+
+		o := &org.Org{
+			Name:  "Foo Bar, Inc.",
+			Slug:  "foobar",
+			Email: "eng@foobar.com",
+		}
+		err = o.Insert(db)
+		Expect(err).To(BeNil())
+		err = db.WithTransaction(func(t *sqlx.Tx) error {
+			Expect(billingprofile.Create(t, u2.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+			return nil
+		})
+		Expect(err).To(BeNil())
+		err = orgmembership.AddMember(db, o.ID, u.ID, role)
+		Expect(err).To(BeNil())
+
+		bp, err := billingprofile.FindForOrg(db, o.ID)
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec("UPDATE subscriptions SET multi_host = TRUE, billing_profile_id = $1 WHERE id = $2;", bp.ID, s.ID)
+		Expect(err).To(BeNil())
+
+		// join the user via a host if needed
+		_, err = subscription.FindBySlug(db, s.Slug, u.ID)
+		if err == nil {
+			return
+		}
+
+		Expect(err).To(Equal(sql.ErrNoRows), "Unexpected error from join check")
+		hs, err := test.CreateHostStack(db, &test.HostStack{
+			H: &host.Host{
+				Slug:        "my-joining-org-host",
+				HourlyPrice: 2000,
+			},
+			U: u,
+		})
+		Expect(err).To(BeNil())
+
+		_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs.H.ID)
+		Expect(err).To(BeNil())
+	}
+
 	Describe("GET /api/v0/subscriptions", func() {
 		var (
 			s *subscription.Subscription
@@ -255,6 +305,137 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 
+	Describe("POST /api/v0/orgs/{org_slug}/subscriptions", func() {
+		var (
+			o    *org.Org
+			p    *plan.Plan
+			fsub *test.FakeSubscriptionProvider
+		)
+
+		doRequest := func() *httptest.ResponseRecorder {
+			u := &url.Values{}
+			if p != nil {
+				u.Set("plan", p.Slug)
+			}
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/orgs/foobar/subscriptions", u)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			fsub = &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+
+			// Insert plan
+			p = &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+				Hidden:        true,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+		})
+
+		It("should return an error if a plan slug is not provided", func() {
+			p = nil
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("plan_not_provided"))
+			Expect(errDesc).To(Equal("`plan` must be provided"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should return an error if the plan slug does not exist", func() {
+			p = &plan.Plan{Slug: "not-here-too-bad"}
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("plan_not_found"))
+			Expect(errDesc).To(Equal("the specified `plan` does not exist"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should not allow access if user is not an owner", func() {
+			_, err := db.Exec("UPDATE org_memberships SET role = 'admin' WHERE user_id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("incorrect_role"))
+			Expect(errDesc).To(Equal("You don't have permission to access this subscription"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should return an error if a subscriptions.ErrExistingMultiHostSubscription is returned", func() {
+			fsub.SubscribeError = sub.ErrExistingMultiHostSubscription
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("upgrade_plan"))
+			Expect(errDesc).To(Equal("You already have a subscription, please upgrade."))
+
+			Expect(fsub.SubscribeCalled).To(BeTrue())
+		})
+
+		It("should return a serialized subscription on success", func() {
+			sub := &subscription.Subscription{
+				Slug:   "new-thing",
+				PlanID: p.ID,
+				State:  "active",
+			}
+			fsub.SubscribeReturn = sub
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var respData struct {
+				Subscription *serializers.Subscription `json:"subscription"`
+			}
+
+			err := json.NewDecoder(res.Body).Decode(&respData)
+			Expect(err).To(BeNil())
+			s := respData.Subscription
+			Expect(s.Slug).To(Equal(s.Slug))
+			Expect(s.PlanID).To(Equal(s.PlanID))
+			Expect(s.State).To(Equal(s.State))
+			Expect(s.Plan).ToNot(BeNil())
+			Expect(s.Plan.Slug).To(Equal(p.Slug))
+			Expect(s.HostSlug).To(BeEmpty())
+		})
+	})
+
 	Describe("GET /api/v0/subscriptions/:slug/upgrade", func() {
 		var (
 			s          *subscription.Subscription
@@ -375,6 +556,23 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(r["subscription"]).To(Equal(s.StripeID.String))
 			Expect(r["subscription_plan"]).To(Equal("upgrade-to-exempt"))
 		})
+
+		It("should return forbidden if the subscription is MultiHost not owned by the user", func() {
+			setupForOrg(s, "member")
+			res := doRequest(s.Slug, trgtPlan.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("should be allowed if the subscription is MultiHost and is owned by the user", func() {
+			setupForOrg(s, "owner")
+			fakeStripe.Errors = []*stripe.Error{nil}
+			fakeStripe.Responses = []string{
+				stripeUpgradeResponse,
+			}
+
+			res := doRequest(s.Slug, trgtPlan.ID)
+			Expect(res.Code).To(Equal(http.StatusOK))
+		})
 	})
 
 	Describe("POST /api/v0/subscriptions/:slug/upgrade", func() {
@@ -463,6 +661,22 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.UpgradeSubscription.ID).To(Equal(s.ID))
 			Expect(fsub.UpgradePlan.ID).To(Equal(trgtPlan.ID))
 			Expect(fsub.UpgradeUser.ID).To(Equal(u.ID))
+		})
+
+		It("should return forbidden if the subscription is MultiHost not owned by the user", func() {
+			setupForOrg(s, "member")
+			res := doRequest(s.Slug, trgtPlan.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			Expect(fsub.UpgradeCalled).To(BeFalse())
+		})
+
+		It("should be allowed if the subscription is MultiHost and is owned by the user", func() {
+			setupForOrg(s, "owner")
+			res := doRequest(s.Slug, trgtPlan.ID)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.UpgradeCalled).To(BeTrue())
 		})
 	})
 
@@ -577,10 +791,33 @@ var _ = Describe("controllers/subscriptions", func() {
 			subscriptions.SetSubscriptionProvider(fsub)
 
 			res := doRequest(s2.Slug)
-			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+			Expect(res.Code).To(Equal(http.StatusNotFound))
 
 			Expect(fsub.CancelCalled).To(BeFalse())
 			Expect(fsub.CancelSubscription).To(BeNil())
+		})
+
+		It("should return forbidden if the subscription is MultiHost not owned by the user", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			setupForOrg(s, "member")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
+		It("should be allowed if the subscription is MultiHost and is owned by the user", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			setupForOrg(s, "owner")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.CancelCalled).To(BeTrue())
+			Expect(fsub.CancelSubscription.ID).To(Equal(s.ID))
 		})
 	})
 
@@ -718,6 +955,32 @@ var _ = Describe("controllers/subscriptions", func() {
 
 			Expect(fsub.ReactivateCalled).To(BeFalse())
 			Expect(fsub.ReactivateSubscription).To(BeNil())
+		})
+
+		It("should return forbidden if the subscription is MultiHost not owned by the user", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			setupForOrg(s, "member")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			Expect(fsub.ReactivateCalled).To(BeFalse())
+		})
+
+		It("should be allowed if the subscription is MultiHost and is owned by the user", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			setupForOrg(s, "owner")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.ReactivateCalled).To(BeTrue())
+			Expect(fsub.ReactivateSubscription.ID).To(Equal(s.ID))
 		})
 	})
 })

@@ -97,6 +97,9 @@ var _ = Describe("HostQueueHandler", func() {
 		if redisClient != nil {
 			redisClient.Close()
 		}
+		if db != nil {
+			db.Close()
+		}
 	})
 
 	Describe("Host Create Message", func() {
@@ -446,6 +449,39 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(1))
 				Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+			})
+
+			It("should not perform a subscribe if the host has a subscription", func() {
+				bp, err := u.BillingProfile(db)
+				Expect(err).To(BeNil())
+
+				mSub := &subscription.Subscription{
+					PlanID:           hs.P.ID,
+					BillingProfileID: bp.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"sub_1", true},
+					Slug:             "SLUG",
+					MultiHost:        true,
+				}
+				err = test.WrapInTransaction(db, mSub.Insert)
+				Expect(err).To(BeNil())
+
+				_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2", mSub.ID, hs.H.ID)
+				Expect(err).To(BeNil())
+
+				fsub.SubscribeError = nil
+
+				err = handler(message)
+				Expect(err).To(BeNil())
+				Expect(rt.Requests).To(HaveLen(0))
+
+				Expect(fsub.SubscribeCalled).To(BeFalse())
+
+				hosts, err := host.FindAllByUser(db, u.ID)
+				Expect(err).To(BeNil())
+				Expect(hosts).To(HaveLen(1))
+				Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+				Expect(hosts[0].SubscriptionID.Int64).To(Equal(mSub.ID))
 			})
 
 			Context("with an organisation", func() {

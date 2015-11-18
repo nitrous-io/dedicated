@@ -85,6 +85,19 @@ func FindByUsernameAndOrgSlug(d db.QueryReceiver, username, slug string) (*OrgMe
 	return member, nil
 }
 
+func FindByUserIDAndOrgID(d db.QueryReceiver, userID, orgID int64) (*OrgMembership, error) {
+	member := &OrgMembership{}
+	err := d.Get(member, `
+		SELECT org_memberships.*
+		FROM org_memberships
+		WHERE user_id = $1
+		AND org_id = $2`, userID, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return member, nil
+}
+
 func AddMember(d db.QueryReceiver, orgID, userID int64, role string) error {
 	if _, ok := ValidRoles[role]; !ok {
 		return InvalidRoleError{Role: role}

@@ -17,16 +17,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 )
 
-var (
-	errStripeProfileRequired = httperror.New(http.StatusBadRequest, "billing_profile_not_active", "There's no existing card associated to this account.")
-
-	errCardDeclined = httperror.New(http.StatusBadRequest, "card_declined", "Your Credit Card was declined. Try contacting the bank directly for assistance.")
-	errCardExpired  = httperror.New(http.StatusBadRequest, "card_expired", "Your Credit Card has expired. Please try again with a recent card.")
-	errIncorrectCvc = httperror.New(http.StatusBadRequest, "incorrect_cvc", "Your CVC is incorrect. Please try again.")
-	errIncorrectZip = httperror.New(http.StatusBadRequest, "incorrect_zip", "Your Zip code is incorrect. Please try again.")
-	errCardBanned   = httperror.New(http.StatusBadRequest, "card_banned", "Your credit card is banned.")
-)
-
 func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
@@ -70,7 +60,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 	if bp.StripeID.Valid {
 		err = bp.UpdateCard(db, cardToken)
 		if err != nil {
-			return handleBillingError(err)
+			return shared.HandleBillingError(err)
 		}
 	} else {
 		if bp.OrgID.Valid {
@@ -84,7 +74,7 @@ func Activate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error
 			bp, err = u.ActivateBillingProfile(db, cardToken)
 		}
 		if err != nil {
-			return handleBillingError(err)
+			return shared.HandleBillingError(err)
 		}
 	}
 
@@ -149,7 +139,7 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err := bp.UpdateCard(db, cardToken); err != nil {
-		return handleBillingError(err)
+		return shared.HandleBillingError(err)
 	}
 
 	env.Status = http.StatusOK
@@ -157,25 +147,6 @@ func Update(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		"billing_profile": serializers.SerializeBillingProfile(bp),
 	}
 	return nil
-}
-
-func handleBillingError(err error) error {
-	switch err {
-	case billingprofile.StripeProfileRequiredError:
-		return errStripeProfileRequired
-	case billingprofile.ErrCardDeclined:
-		return errCardDeclined
-	case billingprofile.ErrCardExpired:
-		return errCardExpired
-	case billingprofile.ErrIncorrectCvc:
-		return errIncorrectCvc
-	case billingprofile.ErrIncorrectZipErr:
-		return errIncorrectZip
-	case user.ErrCardBanned, billingprofile.ErrCardBanned:
-		return errCardBanned
-	default:
-		return err
-	}
 }
 
 func awardCredits(d *db.Database, user *user.User) int64 {

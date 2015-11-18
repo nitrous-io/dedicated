@@ -54,6 +54,8 @@ type Plan struct {
 	CustomDomain    bool  `db:"custom_domain"`
 	CustomTemplates bool  `db:"custom_templates"`
 	Org             bool  `db:"org"`
+
+	MaxHosts sql.NullInt64 `db:"max_hosts"`
 }
 
 type PlanPricing struct {
@@ -192,8 +194,8 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org, max_hosts)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org, :max_hosts)
 		RETURNING *;`)
 	if err != nil {
 		return err

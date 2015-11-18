@@ -39,6 +39,9 @@ type Subscription struct {
 	// wait for it to notify us of a delete, then create a new one with the plan
 	PendingPlanID sql.NullInt64 `db:"pending_plan_id"`
 
+	// indicates the subscription supports multiple hosts under one
+	MultiHost bool `db:"multi_host"`
+
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
 }
@@ -57,8 +60,8 @@ type SubscriptionWithUserInfo struct {
 
 func (s *Subscription) Insert(tx *sqlx.Tx) error {
 	nstmt, err := tx.PrepareNamed(`INSERT INTO subscriptions
-		(plan_id, billing_profile_id, state, stripe_id, slug)
-    VALUES (:plan_id, :billing_profile_id, :state, :stripe_id, :slug)
+		(plan_id, billing_profile_id, state, stripe_id, slug, multi_host)
+    VALUES (:plan_id, :billing_profile_id, :state, :stripe_id, :slug, :multi_host)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -123,6 +126,7 @@ func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHo
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
+                AND s.multi_host IS FALSE
                 WHERE bp.org_id = $1 AND s.cancelled_at IS NULL
                 ORDER BY s.created_at ASC;`, orgID)
 	if err != nil {
@@ -136,6 +140,7 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
+                AND s.multi_host IS FALSE
                 WHERE (
                         (bp.user_id = $1 AND bp.org_id IS NULL) OR
                         (bp.org_id IS NOT NULL AND hosts.user_id = $1)
@@ -166,6 +171,15 @@ func FindAllTrialEnding(d db.QueryReceiver, minHours, maxHours int) ([]*Subscrip
 		return nil, err
 	}
 	return subscriptions, nil
+}
+
+// helps find the current multi host plan that a BP is on
+func FindMultiHostSubscription(d db.QueryReceiver, bpID int64) (*Subscription, error) {
+	sub := &Subscription{}
+	if err := d.Get(sub, `SELECT * FROM subscriptions WHERE billing_profile_id = $1 AND multi_host IS TRUE;`, bpID); err != nil {
+		return nil, err
+	}
+	return sub, nil
 }
 
 func (s *Subscription) AlreadyCanceled() bool {
