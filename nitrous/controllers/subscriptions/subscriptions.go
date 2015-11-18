@@ -2,6 +2,7 @@ package subscriptions
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/shared"
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -31,6 +33,7 @@ var (
 	errCannotReactivate     = httperror.New(http.StatusBadRequest, "invalid_request", "you cannot reactivate a subscription that has not been cancelled")
 	errOrgForbidden         = httperror.New(http.StatusForbidden, "org_forbidden", "you do not have access to this organization")
 	errSubscriptionNotFound = httperror.New(http.StatusNotFound, "subscription_not_found", "subscription does not exist")
+	errOwnerOnly            = httperror.New(http.StatusForbidden, "owner_only", "only a org owner can modify this subscription")
 
 	errPlanEmpty    = httperror.New(http.StatusBadRequest, "plan_not_provided", "`plan` must be provided")
 	errPlanNotFound = httperror.New(http.StatusBadRequest, "plan_not_found", "the specified `plan` does not exist")
@@ -160,9 +163,7 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 }
 
 func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	slug := mux.Vars(r)["slug"]
-
-	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	s, err := fetchSubscriptionForWriting(env, r)
 	if err != nil {
 		return err
 	}
@@ -218,9 +219,7 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 }
 
 func Upgrade(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	slug := mux.Vars(r)["slug"]
-
-	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	s, err := fetchSubscriptionForWriting(env, r)
 	if err != nil {
 		return err
 	}
@@ -251,9 +250,7 @@ func Upgrade(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 }
 
 func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	slug := mux.Vars(r)["slug"]
-
-	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	s, err := fetchSubscriptionForWriting(env, r)
 	if err != nil {
 		return err
 	}
@@ -274,11 +271,9 @@ func Cancel(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
-	slug := mux.Vars(r)["slug"]
-
-	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	s, err := fetchSubscriptionForWriting(env, r)
 	if err != nil {
-		return errSubscriptionNotFound
+		return err
 	}
 
 	if !s.CancelPending {
@@ -300,6 +295,54 @@ func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		"status": "reactivated",
 	}
 	return nil
+}
+
+// multi-host subscriptions should only be modifed by an owner of the Billing Profile (or Org)
+// so we still allow users to view susbcriptions they depend on (they may have a host)
+// but we prevent any modification of a subscription unless they "own" it
+func fetchSubscriptionForWriting(env *middleware.Env, r *http.Request) (*subscription.Subscription, error) {
+	slug := mux.Vars(r)["slug"]
+
+	s, err := subscription.FindBySlug(env.DB, slug, env.User.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errSubscriptionNotFound
+		}
+		return nil, err
+	}
+
+	// we are only checking multi-host for permision, other subscriptions have existing control
+	if !s.MultiHost {
+		return s, nil
+	}
+
+	bp, err := billingprofile.FindByID(env.DB, s.BillingProfileID)
+	if err != nil {
+		return nil, err
+	}
+
+	if bp.UserID == env.User.ID {
+		return s, nil
+	}
+
+	// perform sanity check
+	if !bp.OrgID.Valid {
+		return nil, fmt.Errorf("Expected OrgID to be set on billing profile %d", bp.ID)
+	}
+
+	mem, err := orgmembership.FindByUserIDAndOrgID(env.DB, env.User.ID, bp.OrgID.Int64)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errSubscriptionNotFound
+		}
+		return nil, err
+	}
+
+	if mem.Role != orgmembership.RoleOwner {
+		return nil, errOwnerOnly
+	}
+
+	return s, nil
 }
 
 func fetchPlansForSubscription(d ndb.QueryReceiver, subs []*subscription.SubscriptionWithHostSlug) (map[int64]*serializers.Plan, error) {
