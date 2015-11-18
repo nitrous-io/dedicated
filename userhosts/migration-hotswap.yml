@@ -1,0 +1,253 @@
+---
+- hosts: userhosts
+  vars:
+    - psql_app: pro-n2ostaging-com
+    - dedicated_environment: staging
+    - environment: staging
+    - regions:
+        ap-southeast-1:
+          zone: ap-southeast-1a
+          snapshot: snap-ef49110e
+        eu-west-1:
+          zone: eu-west-1a
+          snapshot: snap-774209be
+        us-east-1:
+          zone: us-east-1c
+          snapshot: snap-638c68f5
+        us-west-2:
+          zone: us-west-2a
+          snapshot: snap-fa330a63
+  gather_facts: no
+  sudo: yes
+  tasks:
+
+  # Requirements:
+  # - heroku configured on your workstation
+  # - AWS_SECRET_KEY and AWS_ACCESS_KEY configured in your environment
+  # - aws cli (for getting information that ansible is not able to get)
+  # - jq (for parsing jsons)
+
+  # TODO: The inventory should be done via ./scripts/migration-inventory
+
+
+  # Step 1
+  # Gather information about the instance
+  - name: Get provider_identifier and instance_state
+    shell: heroku pg:psql --app {{ psql_app }} -c "select provider_identifier, provider_storage_identifier, state from hosts where slug = '{{ inventory_hostname }}';"
+    register: out
+    sudo: no
+    delegate_to: 127.0.0.1
+  - set_fact:
+      provider_identifier={{out.stdout_lines[2].split("|")[0] | trim }}
+      provider_storage_identifier={{out.stdout_lines[2].split("|")[1] | trim }}
+      instance_state={{out.stdout_lines[2].split("|")[2] | trim }}
+  - name: Get instance tags from amazon
+    ec2_tag: resource={{provider_identifier}} ec2_url=https://ec2.{{ region }}.amazonaws.com state=list
+    delegate_to: 127.0.0.1
+    register: ec2_tags
+    sudo: no
+  - set_fact: ec2_name={{ec2_tags.tags.Name}}
+  - debug: msg="provider_identifier={{ provider_identifier }} provider_storage_identifier={{provider_storage_identifier}} state={{ instance_state }} ec2_name={{ec2_name}}"
+
+
+  # Get the size of the volume (and the tags)
+  - name: Get information about the volume
+    shell: "aws ec2 describe-volumes --region {{ region }} --volume-ids {{ provider_storage_identifier }} | jq -r '.Volumes[0].Size' "
+    register: ec2_original_volume_size
+    sudo: no
+    delegate_to: 127.0.0.1
+  - set_fact:
+      size={{ec2_original_volume_size.stdout_lines[0] | trim }}
+  - debug: var=size
+
+  # Start the host if it's stopped.
+  # This will maybe change the IP
+  - name: Ensure that the instance is running
+    ec2:
+      instance_ids={{ provider_identifier }}
+      state=running
+      ec2_url=https://ec2.{{ region }}.amazonaws.com
+      wait=yes
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  - name: Ensure we have ssh access to the instance
+    wait_for: host={{ ansible_ssh_host }} port=65100 delay=10 timeout=320 state=started
+
+  - name: Ensure that docker is running
+    service: name=docker state=started
+
+  - name: Wait until docker is running
+    wait_for: path=/var/run/docker.sock timeout=30 delay=1
+
+
+  # The migration starts: set host state to 'updating'
+  - name: Set instance status to "updating"
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set state='updating' where provider_identifier='{{provider_identifier}}' and slug='{{ inventory_hostname }}'"
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  # Create a new volume with the same size
+  - name: Create a new volume of the same size
+    ec2_vol:
+      device_name=/dev/xvdu
+      ec2_url=https://ec2.{{ region }}.amazonaws.com
+      instance={{ provider_identifier }}
+      snapshot={{regions[region].snapshot}}
+      volume_size={{size}}
+      volume_type='gp2'
+      zone={{regions[region].zone}}
+    delegate_to: 127.0.0.1
+    sudo: no
+    register: create_volume
+
+  - set_fact: new_provider_storage_identifier={{ create_volume.volume_id }}
+  - debug: var=create_volume
+
+  - name: Ensure that the new volume is attached
+    wait_for: path=/dev/xvdu delay=3 state=present
+
+  - name: Stop freighter
+    service: name=freighterd state=stopped
+
+  - name: Collect number of docker images
+    shell: docker images -q | sort
+    sudo: yes
+    register: docker_images_count
+
+  - name: Collect number of docker containers
+    shell: docker ps -qa | sort
+    sudo: yes
+    register: docker_containers_count
+
+  - name: Stop docker
+    service: name=docker state=stopped
+
+  - name: Create /mnt/userdata
+    file: path=/mnt/userdata state=directory mode=0755
+
+
+  # Before mounting the volume, we need to resize it from snapshot size (3g) to the real size
+  - name: Resize the volume
+    shell: resize2fs /dev/xvdu
+
+  - name: mount the volume
+    mount: fstype=ext4 name=/mnt/userdata src=/dev/xvdu state=mounted
+
+  - name: Delete default content
+    file: name={{item}} state=absent
+    with_items:
+      - /mnt/userdata/etc/freighterd
+      - /mnt/userdata/var/lib/freighter
+      - /mnt/userdata/var/lib/docker
+
+  - name: copy contents
+    shell: cp -r {{item}} /mnt/userdata{{item}}
+    with_items:
+      - /etc/freighterd
+      - /var/lib/docker
+      - /var/lib/freighter
+
+  - name: Backup old config data
+    shell: mv {{item}} {{item}}.bak
+    with_items:
+      - /etc/freighterd
+      - /var/lib/docker
+      - /var/lib/freighter
+
+  - name: link new data
+    file: name={{item}} state=link src=/mnt/userdata{{ item }}
+    with_items:
+      - /etc/freighterd
+      - /var/lib/docker
+      - /var/lib/freighter
+
+  - name: Ensure the data is copied
+    shell: sync
+
+  - name: Start docker
+    service: name=docker state=started
+
+  # Sometimes the docker daemon is not started and the next commands fails, so I
+  # added a wait time here. 15 seconds is a lot but some instances will not have
+  # big cpus.
+  - name: Wait until docker is running
+    wait_for: path=/var/run/docker.sock timeout=30 delay=15
+
+  - name: Collect number of docker images
+    shell: docker images -q | sort
+    register: docker_images_count_new
+    failed_when: docker_images_count.stdout_lines != docker_images_count_new.stdout_lines
+
+  - name: Collect number of docker containers
+    shell: docker ps -qa | sort
+    register: docker_containers_count_new
+    failed_when: docker_containers_count.stdout_lines != docker_containers_count_new.stdout_lines
+
+  # Just for debugging purposes
+  - debug: var=docker_images_count
+  - debug: var=docker_images_count_new
+  - debug: var=docker_containers_count
+  - debug: var=docker_containers_count_new
+
+  - name: Stop docker
+    service: name=docker state=stopped
+
+  - name: revert to original state. Unlink
+    file: name={{item}} state=absent
+    with_items:
+      - /etc/freighterd
+      - /var/lib/docker
+      - /var/lib/freighter
+
+  - name: revert to original state. Move
+    shell: mv {{item}}.bak {{item}}
+    with_items:
+      - /etc/freighterd
+      - /var/lib/docker
+      - /var/lib/freighter
+
+
+  - name: Umount /mnt/userdata
+    mount: fstype=ext4 name=/mnt/userdata src=/dev/xvdu state=unmounted
+
+  # - set_fact: new_provider_storage_identifier=vol-594e029e
+  - name: Detach the new volume
+    ec2_vol:
+      region={{region}}
+      id={{new_provider_storage_identifier}}
+      instance=None
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  - debug: var=dedicated_environment
+
+  - name: Tag the new volume
+    ec2_tag: resource={{new_provider_storage_identifier}} region={{region}} state=present
+    args:
+      tags: '{"Name": "{{ ec2_name }}", "dedicated": "{{ dedicated_environment }}"}'
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  - name: Wait for the volume to be detached
+    wait_for: path=/dev/xvdu delay=30 state=absent
+
+  - name: Tag the old instance as migrated
+    ec2_tag: resource={{ provider_identifier }} region={{region}} state=present
+    args:
+      tags:
+        dedicated: migrated
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  - name: Stop the old instance
+    ec2: instance_ids={{ provider_identifier }} state=stopped region={{region}} wait=True
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  # TODO: What happens with the elasticIP??????
+
+  - name: Updating database
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
+    delegate_to: 127.0.0.1
+    sudo: no

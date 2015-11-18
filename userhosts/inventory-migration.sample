@@ -1,0 +1,7 @@
+[userhosts:vars]
+ansible_ssh_port=65100
+ansible_ssh_user=ubuntu
+host_key_checking=False
+
+[userhosts]
+testmigration-apse-8708 ansible_ssh_host=52.74.70.137 ansible_ssh_private_key_file=/Users/jsegura/work/keypairs/hostbuilder.ap-southeast-1.staging.pem region=ap-southeast-1
