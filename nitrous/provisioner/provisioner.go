@@ -17,6 +17,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/cert"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/keypairs"
@@ -25,6 +26,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -55,6 +57,8 @@ var (
 	ErrOrgPermissionDenied            = errors.New("you do not have access to this organization")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
 	ErrUnknownProvider                = errors.New("unknown provider")
+	ErrNoSubscriptionProvided         = errors.New("a subscription must be provided when MaxHosts is set on a Plan")
+	ErrExceededPlanMaxHosts           = errors.New("you have exceeded the number of workstations allowed for this plan")
 
 	validations = map[string]error{
 		"index_hosts_on_slug": ErrSlugIsTaken,
@@ -79,13 +83,14 @@ type ProvisionOptions struct {
 	Async        bool
 	OutputStream io.Writer
 
-	Slug     string
-	Name     string
-	User     *user.User
-	Region   *region.Region
-	Plan     *plan.Plan
-	Template *providertemplate.ProviderTemplate
-	Org      *org.Org
+	Slug         string
+	Name         string
+	User         *user.User
+	Region       *region.Region
+	Plan         *plan.Plan
+	Template     *providertemplate.ProviderTemplate
+	Org          *org.Org
+	Subscription *subscription.Subscription
 
 	UUID string
 
@@ -265,6 +270,11 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 		StaticIP: !getOptionDisableEIP(opts),
 	}
 
+	// only use an existing subscription if it supports MaxHosts
+	if opts.Subscription != nil && opts.Subscription.MultiHost && opts.Plan.MaxHosts.Valid {
+		h.SubscriptionID = sql.NullInt64{opts.Subscription.ID, true}
+	}
+
 	if err := h.Validate(); err != nil {
 		return nil, &InvalidHostError{Err: err}
 	}
@@ -276,7 +286,19 @@ func (p *Provisioner) prepare(opts ProvisionOptions) (*preparedHost, error) {
 	}
 
 	// Don't allow hosts to be created concurrently.
-	locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(opts.User.ID))
+	var bp *billingprofile.BillingProfile
+	if opts.Org != nil {
+		bp, err = billingprofile.FindForOrg(p.db, opts.Org.ID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		bp, err = opts.User.BillingProfile(p.db)
+		if err != nil {
+			return nil, err
+		}
+	}
+	locked, err := db.TransactionLock(tx, db.HOST_CREATE_LOCK, int(bp.ID))
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -434,9 +456,33 @@ func (p *Provisioner) updateProviderDetails(h *host.Host) error {
 
 func (p *Provisioner) canCreateHosts(opts ProvisionOptions) error {
 	if opts.Org != nil {
-		return opts.Org.CanCreateHosts(p.db)
+		err := opts.Org.CanCreateHosts(p.db)
+		if err != nil {
+			return err
+		}
 	}
-	return opts.User.CanCreateHosts(p.db)
+	if err := opts.User.CanCreateHosts(p.db); err != nil {
+		return err
+	}
+
+	// check plan's MaxHosts has not been exceeded
+	if opts.Plan.MaxHosts.Valid {
+		if opts.Subscription == nil {
+			return ErrNoSubscriptionProvided
+		}
+		var size int64
+		if err := p.db.QueryRowx(`SELECT count(h.id)
+			FROM hosts h
+			WHERE subscription_id = $1 AND terminated_at IS NULL;`,
+			opts.Subscription.ID).Scan(&size); err != nil {
+			return err
+		}
+		if size >= opts.Plan.MaxHosts.Int64 {
+			return ErrExceededPlanMaxHosts
+		}
+	}
+
+	return nil
 }
 
 // generateKey generates and returns a private key together with its public key.

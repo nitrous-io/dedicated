@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/constants"
@@ -270,6 +271,12 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		})
 
 		It("responds with an error if org is specified and plan selected is not an org plan", func() {
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
 			params.Set("size", hs.P.Slug)
 			params.Set("region", hs.R.Slug)
 			res := doRequest(params)
@@ -701,7 +708,9 @@ var _ = Describe("POST /api/v0/hosts", func() {
 
 		It("does not create the host when there's a host creation going on", func() {
 			tx, _ := db.Beginx()
-			ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(u.ID))
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+			ndb.TransactionLock(tx, ndb.HOST_CREATE_LOCK, int(bp.ID))
 			defer tx.Rollback()
 
 			params.Set("name", "host-unique")
@@ -1108,6 +1117,143 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			errType, errDesc := test.ErrorSlug(res.Body)
 			Expect(errType).To(Equal("free_plan_not_allowed"))
 			Expect(errDesc).To(Equal("You are not allowed to create a free tier workspace"))
+		})
+	})
+
+	Context("when creating host under multi host subscription", func() {
+		var (
+			mPl  *plan.Plan
+			mSub *subscription.Subscription
+		)
+		BeforeEach(func() {
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			mPl = &plan.Plan{
+				Slug:          "multiPlan",
+				Name:          "multiPlan",
+				MaxContainers: 1,
+				Price:         1499,
+				StripePlanID:  sql.NullString{"multi-plan-id", true},
+				MaxHosts:      sql.NullInt64{1, true},
+			}
+			Expect(mPl.Insert(db)).To(BeNil())
+
+			tem := &providertemplate.ProviderTemplate{
+				Name:     "default-2",
+				Provider: hs.PT.Provider,
+				RegionID: hs.PT.RegionID,
+				PlanID:   mPl.ID,
+			}
+			Expect(tem.Insert(db)).To(BeNil())
+
+			mSub = &subscription.Subscription{
+				PlanID:           mPl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_1", true},
+				Slug:             "SLUG",
+				MultiHost:        true,
+			}
+			err = test.WrapInTransaction(db, mSub.Insert)
+			Expect(err).To(BeNil())
+
+			params.Del("size")
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: fmt.Sprintf(`
+				{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+				`, hs.PT.Name),
+				Status: http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+		})
+
+		It("should prevent a misconfigured plan from being used", func() {
+			_, err := db.Exec("UPDATE plans SET max_hosts = NULL WHERE id = $1", mPl.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusInternalServerError))
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(BeEmpty())
+		})
+
+		It("should create a host assigning it to an existing subscription", func() {
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			host := hosts[0]
+			Expect(host.SubscriptionID.Int64).To(Equal(mSub.ID))
+			Expect(host.PlanID).To(Equal(mPl.ID))
+		})
+
+		It("should not allow another host if the plan's MaxHost has been exceeded", func() {
+			h1 := &host.Host{
+				UserID:             u.ID,
+				Slug:               "multi-host-1",
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				SubscriptionID:     sql.NullInt64{mSub.ID, true},
+			}
+			Expect(h1.Insert(db)).To(BeNil())
+
+			h2 := &host.Host{
+				UserID:             u.ID,
+				Slug:               "multi-host-2",
+				RegionID:           hs.R.ID,
+				PlanID:             hs.P.ID,
+				ProviderTemplateID: hs.PT.ID,
+				SubscriptionID:     sql.NullInt64{mSub.ID, true},
+			}
+			Expect(h2.Insert(db)).To(BeNil())
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("max_hosts_reached"))
+			Expect(errDesc).To(Equal("You have exceeded the number of hosts for this plan, please upgrade"))
+		})
+
+		It("should support orgs", func() {
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				return billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleMember)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`UPDATE plans SET org=true WHERE id = $1;`, mPl.ID)
+			Expect(err).To(BeNil())
+
+			params.Set("org", o.Slug)
+
+			bp, err := billingprofile.FindForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec(`UPDATE billing_profiles SET state='paid' WHERE id = $1;`, bp.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE subscriptions SET billing_profile_id = $1 WHERE id = $2", bp.ID, mSub.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest(params)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			hosts, err := host.FindAllByUser(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(1))
+			host := hosts[0]
+			Expect(host.SubscriptionID.Int64).To(Equal(mSub.ID))
+			Expect(host.PlanID).To(Equal(mPl.ID))
+			Expect(host.OrgID.Int64).To(Equal(o.ID))
 		})
 	})
 

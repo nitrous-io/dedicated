@@ -24,6 +24,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/certauth"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -53,6 +54,8 @@ var (
 	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden", "You do not have access to this organization")
 	errOrgNotFound         = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
 	errNotOrgPlan          = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
+
+	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
 )
 
 // hostCreateRequest describes the JSON request used to create a host
@@ -115,13 +118,11 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		if err != nil {
 			return err
 		}
-		pl, err = findPlan(db, options.Size)
-		if err != nil {
-			return err
-		}
-		template, err = findTemplate(db, pl, reg, options.Provider)
-		if err != nil {
-			return err
+		if options.Size != "" {
+			pl, err = findPlan(db, options.Size)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -135,15 +136,46 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
-		if !pl.Org {
-			return errNotOrgPlan
-		}
 		bp, err = billingprofile.FindForOrg(db, o.ID)
 		if err != nil {
 			return err
 		}
 	} else {
 		bp, err = u.BillingProfile(db)
+		if err != nil {
+			return err
+		}
+	}
+
+	var sub *subscription.Subscription
+	if pl == nil {
+		sub, err = subscription.FindMultiHostSubscription(db, bp.ID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errSizeRequired
+			}
+			return err
+		}
+
+		pl, err = plan.FindByID(db, sub.PlanID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return errSizeRequired
+			}
+			return err
+		}
+		// prevent misconfiguration issues
+		if !pl.MaxHosts.Valid {
+			return fmt.Errorf("The plan %d is linked to a MultiHost subscription (%d) but does not define MaxHosts.", pl.ID, sub.ID)
+		}
+	}
+
+	if o != nil && !pl.Org {
+		return errNotOrgPlan
+	}
+
+	if template == nil {
+		template, err = findTemplate(db, pl, reg, options.Provider)
 		if err != nil {
 			return err
 		}
@@ -215,6 +247,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Region:            reg,
 		Plan:              pl,
 		Org:               o,
+		Subscription:      sub,
 		Template:          template,
 		ProvisionFailedFn: publishProvisionFailure,
 		UUID:              env.UUID,
@@ -242,6 +275,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errOrgPermissionDenied
 		case user.ErrMaxHostsReached:
 			return errUserMaxHostsReached
+		case provisioner.ErrExceededPlanMaxHosts:
+			return errPlanMaxHostsReached
 		// Delinquent users are blocked by middleware,
 		// and users with no card are directed to add
 		// card page when attempting to create host.
@@ -298,9 +333,6 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 	}
 
-	if opts.Size == "" {
-		return nil, errSizeRequired
-	}
 	if opts.Region == "" {
 		return nil, errRegionRequired
 	}
