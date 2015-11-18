@@ -126,6 +126,7 @@ func FindAllActiveForOrg(d db.QueryReceiver, orgID int64) ([]*SubscriptionWithHo
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
+                AND s.multi_host IS FALSE
                 WHERE bp.org_id = $1 AND s.cancelled_at IS NULL
                 ORDER BY s.created_at ASC;`, orgID)
 	if err != nil {
@@ -139,6 +140,7 @@ func FindAllActiveByUserID(d db.QueryReceiver, userID int64) ([]*SubscriptionWit
 	err := d.Select(&subscriptions, `SELECT s.*, hosts.slug AS host_slug, bp.org_id AS org_id FROM subscriptions s
                 JOIN billing_profiles bp ON bp.id = s.billing_profile_id
                 LEFT JOIN hosts ON hosts.subscription_id = s.id
+                AND s.multi_host IS FALSE
                 WHERE (
                         (bp.user_id = $1 AND bp.org_id IS NULL) OR
                         (bp.org_id IS NOT NULL AND hosts.user_id = $1)

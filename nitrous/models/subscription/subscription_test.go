@@ -464,6 +464,9 @@ var _ = Describe("models/subscription", func() {
 				Slug:             "SUB1",
 			}
 			Expect(test.WrapInTransaction(db, orgSub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", orgSub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
 		})
 
 		It("should find subscriptions under the org", func() {
@@ -471,6 +474,30 @@ var _ = Describe("models/subscription", func() {
 			Expect(err).To(BeNil())
 			Expect(subs).To(HaveLen(1))
 			Expect(subs[0].ID).To(Equal(orgSub.ID))
+			Expect(subs[0].HostSlug.String).To(Equal("my-host-1"))
+		})
+
+		It("should not duplicate if subscription is multi host", func() {
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				P: pl,
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", orgSub.ID, hs2.H.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE subscriptions SET multi_host = TRUE WHERE id = $1", orgSub.ID)
+			Expect(err).To(BeNil())
+
+			subs, err := subscription.FindAllActiveForOrg(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(subs).To(HaveLen(1))
+			Expect(subs[0].ID).To(Equal(orgSub.ID))
+			Expect(subs[0].HostSlug.Valid).To(BeFalse())
 		})
 	})
 
@@ -544,6 +571,33 @@ var _ = Describe("models/subscription", func() {
 
 			Expect(subscriptions[1].ID).To(Equal(s2.ID))
 			Expect(subscriptions[1].HostSlug.String).To(Equal("my-host-1"))
+		})
+
+		It("should not duplicate if subscription is multi host", func() {
+			hs2, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				P: pl,
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s2.ID, hs2.H.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE subscriptions SET multi_host = TRUE WHERE id = $1", s2.ID)
+			Expect(err).To(BeNil())
+
+			subscriptions, err := subscription.FindAllActiveByUserID(db, u.ID)
+			Expect(err).To(BeNil())
+
+			Expect(subscriptions).To(HaveLen(2))
+			Expect(subscriptions[0].ID).To(Equal(s1.ID))
+			Expect(subscriptions[0].HostSlug.Valid).To(BeFalse())
+
+			Expect(subscriptions[1].ID).To(Equal(s2.ID))
+			Expect(subscriptions[1].HostSlug.Valid).To(BeFalse())
 		})
 
 		Context("with organisation", func() {
@@ -734,10 +788,10 @@ var _ = Describe("models/subscription", func() {
 
 	Describe("FindMultiHostSubscription", func() {
 		var (
-			s1 *subscription.Subscription
-			s3 *subscription.Subscription
-			u2 *user.User
-			bp *billingprofile.BillingProfile
+			s1  *subscription.Subscription
+			s3  *subscription.Subscription
+			u2  *user.User
+			bp  *billingprofile.BillingProfile
 			bp2 *billingprofile.BillingProfile
 		)
 
@@ -752,7 +806,7 @@ var _ = Describe("models/subscription", func() {
 				State:            "active",
 				StripeID:         sql.NullString{"1", true},
 				Slug:             "SUB1",
-				MultiHost: true,
+				MultiHost:        true,
 			}
 			Expect(test.WrapInTransaction(db, s1.Insert)).To(BeNil())
 
