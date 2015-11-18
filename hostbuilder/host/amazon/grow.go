@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mitchellh/goamz/ec2"
 	"golang.org/x/net/context"
 
 	"github.com/nitrous-io/dedicated/hostbuilder/host"
@@ -46,7 +47,23 @@ func (h *Host) Grow() (*host.Info, error) {
 		}
 	}()
 
-	for _, step := range h.growSteps() {
+	steps := h.growSteps()
+	steps = append(steps, host.StepWithRecovery{
+		Step: host.Step{
+			Description: "Tag pool instance as available",
+			Func: func(ctx *host.HostContext) error {
+				tags := []ec2.Tag{{poolTag, "true"}}
+				h.Printf("upserting tags on %s to %#v", h.instance.InstanceId, tags)
+				_, err := h.provider.CreateTags([]string{h.instance.InstanceId}, tags)
+				if err != nil {
+					return fmt.Errorf("failed to set tags on instance %s", h.instance.InstanceId)
+				}
+				return nil
+			},
+		},
+	})
+
+	for _, step := range steps {
 		if err := hctx.Run(step.Step); err != nil {
 			h.Printf("ERROR: failed in step %q: %v", step.Description, err)
 

@@ -425,6 +425,23 @@ var _ = Describe("controllers/hosts", func() {
 				err := json.NewDecoder(res.Body).Decode(&j)
 				Expect(err).To(BeNil())
 				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Shared).To(BeTrue())
+			})
+
+			It("responds with host info from the database if the user is a collaborator and an admin", func() {
+				_, err := db.Exec("UPDATE users SET admin = true WHERE id = $1", recv.ID)
+				Expect(err).To(BeNil())
+
+				doRequest(hs.H.Slug, tok.Token)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Host *serializers.Host `json:"host"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+				Expect(j.Host.ID).To(Equal(hs.H.ID))
+				Expect(j.Host.Shared).To(BeTrue())
 			})
 
 			It("responds with 404 if the user is not a collaborator", func() {

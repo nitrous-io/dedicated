@@ -49,6 +49,7 @@ var _ = Describe("host serializer", func() {
 			AutoShutdown:              true,
 			PendingRespec:             true,
 			Free:                      true,
+			Shared:                    true,
 		}
 	})
 
@@ -83,7 +84,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -120,7 +122,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -158,7 +161,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -192,7 +196,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -228,7 +233,8 @@ var _ = Describe("host serializer", func() {
 				"max_containers": 3,
 				"pending_respec": true,
 				"subscription_slug": "ASUB",
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -263,7 +269,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}`, model.Hostname(), model.ProxyHostname())))
 		})
 
@@ -310,7 +317,8 @@ var _ = Describe("host serializer", func() {
 				"auto_shutdown": true,
 				"max_containers": 3,
 				"pending_respec": true,
-				"free": true
+				"free": true,
+				"shared": true
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})

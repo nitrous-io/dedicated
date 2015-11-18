@@ -139,6 +139,7 @@ build_nitrous() {
     "nitrous/cmd/hosts-inventory" \
     "nitrous/cmd/monitor-freighter" \
     "nitrous/cmd/trialnotice" \
+    "nitrous/cmd/poolman" \
   )
   if [ "$ENV" != "development" ]; then
     (build_assets)

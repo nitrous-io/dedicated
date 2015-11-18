@@ -397,6 +397,15 @@ func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Mid
 		var err error
 		if env.User.Admin {
 			h, err = host.FindByIdentifier(env.DB, param)
+
+			// allow admins to still receive `shared` flag
+			if h != nil && h.UserID != env.User.ID {
+				_, err := host.FindShared(env.DB, env.User, param)
+				if err == nil {
+					h.Shared = true
+				}
+			}
+
 		} else {
 			h, err = host.Find(env.DB, env.User, param)
 		}
@@ -404,6 +413,9 @@ func withHost(src string, srcVar string, fn hostHandlerFn, allowCollab bool) Mid
 			h, err = host.FindShared(env.DB, env.User, param)
 			if err == nil {
 				logrus.Infof("Collaborator user %d accessed host %d", env.User.ID, h.ID)
+			}
+			if h != nil {
+				h.Shared = true
 			}
 		}
 		if err != nil {

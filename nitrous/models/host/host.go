@@ -141,6 +141,9 @@ type Host struct {
 
 	// Stroage Device ID ( VolumeID for amazon )
 	ProviderStorageIdentifier sql.NullString `db:"provider_storage_identifier"`
+
+	// this is determined externally but provided to the serializer
+	Shared bool
 }
 
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {

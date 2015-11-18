@@ -1,0 +1,27 @@
+{
+	"env": "development",
+    "hostbuilder_url": "http://localhost:6666",
+    "access_key": "fixme",
+    "secret_key": "fixme",
+    "regions": [
+    {
+        "id": "ap-southeast-1",
+        "subnet_id": "subnet-1d77896a",
+        "security_group_id": "sg-b9cd64dc",
+        "instance_pool": [
+            {
+              "type": "t2.micro",
+              "min": 2
+            },
+            {
+              "type": "t2.small",
+              "min": 0
+            },
+            {
+              "type": "t2.medium",
+              "min": 0
+            }
+        ]
+    }
+    ]
+}
