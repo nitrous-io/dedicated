@@ -255,6 +255,137 @@ var _ = Describe("controllers/subscriptions", func() {
 		})
 	})
 
+	Describe("POST /api/v0/orgs/{org_slug}/subscriptions", func() {
+		var (
+			o    *org.Org
+			p    *plan.Plan
+			fsub *test.FakeSubscriptionProvider
+		)
+
+		doRequest := func() *httptest.ResponseRecorder {
+			u := &url.Values{}
+			if p != nil {
+				u.Set("plan", p.Slug)
+			}
+			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/orgs/foobar/subscriptions", u)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			fsub = &test.FakeSubscriptionProvider{}
+			subscriptions.SetSubscriptionProvider(fsub)
+
+			o = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			err := o.Insert(db)
+			Expect(err).To(BeNil())
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+			err = orgmembership.AddMember(db, o.ID, u.ID, "owner")
+			Expect(err).To(BeNil())
+
+			// Insert plan
+			p = &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+				Hidden:        true,
+			}
+			Expect(p.Insert(db)).To(BeNil())
+		})
+
+		It("should return an error if a plan slug is not provided", func() {
+			p = nil
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("plan_not_provided"))
+			Expect(errDesc).To(Equal("`plan` must be provided"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should return an error if the plan slug does not exist", func() {
+			p = &plan.Plan{Slug: "not-here-too-bad"}
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("plan_not_found"))
+			Expect(errDesc).To(Equal("the specified `plan` does not exist"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should not allow access if user is not an owner", func() {
+			_, err := db.Exec("UPDATE org_memberships SET role = 'admin' WHERE user_id = $1", u.ID)
+			Expect(err).To(BeNil())
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("incorrect_role"))
+			Expect(errDesc).To(Equal("You don't have permission to access this subscription"))
+
+			Expect(fsub.SubscribeCalled).To(BeFalse())
+		})
+
+		It("should return an error if a subscriptions.ErrExistingMultiHostSubscription is returned", func() {
+			fsub.SubscribeError = sub.ErrExistingMultiHostSubscription
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("upgrade_plan"))
+			Expect(errDesc).To(Equal("You already have a subscription, please upgrade."))
+
+			Expect(fsub.SubscribeCalled).To(BeTrue())
+		})
+
+		It("should return a serialized subscription on success", func() {
+			sub := &subscription.Subscription{
+				Slug:   "new-thing",
+				PlanID: p.ID,
+				State:  "active",
+			}
+			fsub.SubscribeReturn = sub
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var respData struct {
+				Subscription *serializers.Subscription `json:"subscription"`
+			}
+
+			err := json.NewDecoder(res.Body).Decode(&respData)
+			Expect(err).To(BeNil())
+			s := respData.Subscription
+			Expect(s.Slug).To(Equal(s.Slug))
+			Expect(s.PlanID).To(Equal(s.PlanID))
+			Expect(s.State).To(Equal(s.State))
+			Expect(s.Plan).ToNot(BeNil())
+			Expect(s.Plan.Slug).To(Equal(p.Slug))
+			Expect(s.HostSlug).To(BeEmpty())
+		})
+	})
+
 	Describe("GET /api/v0/subscriptions/:slug/upgrade", func() {
 		var (
 			s          *subscription.Subscription

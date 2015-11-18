@@ -228,6 +228,7 @@ func (s *Server) drawRoutes() {
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
 				"/orgs":                                    r("orgs.Create", orgs.Create, EventOrgCreated),
 				"/orgs/{org_slug}/billing_profile": r("billingprofiles.Activate", billingprofiles.Activate, EventBillingProfileActivated),
+				"/orgs/{org_slug}/subscriptions":   r("subscriptions.Subscribe", subscriptions.Subscribe, EventOrgSubscriptionSubscribed),
 			},
 			"PUT": {
 				"/users":                           r("users.Update", users.Update, EventUserUpdatedProfile),
