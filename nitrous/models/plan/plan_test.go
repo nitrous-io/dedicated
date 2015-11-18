@@ -486,6 +486,12 @@ var _ = Describe("models/plan", func() {
 			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
 		})
 
+		It("should be false if current plan is supported by max hosts but the other plan is not", func() {
+			p := &plan.Plan{Price: 2000, Org: true}
+			p2 := &plan.Plan{Price: 2500, Org: true, MaxHosts: sql.NullInt64{10, true}}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
 		It("should be true both current plan and target plan are org plans", func() {
 			p := &plan.Plan{Price: 2000, Org: true}
 			p2 := &plan.Plan{Price: 2500, Org: true}

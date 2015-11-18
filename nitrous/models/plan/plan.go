@@ -81,6 +81,9 @@ func (p *Plan) CanUpgradeToPlan(newPlan *Plan) bool {
 	if p.Org != newPlan.Org {
 		return false
 	}
+	if p.MaxHosts.Valid != newPlan.MaxHosts.Valid {
+		return false
+	}
 
 	return newPlan.Price > p.Price
 }
