@@ -475,6 +475,7 @@ var _ = Describe("controllers/stripehooks", func() {
 
 	Describe("SerializeInvoices()", func() {
 		var (
+			s1               *subscription.Subscription
 			h1               *host.Host
 			itm1, itm2, itm3 *invoiceitem.InvoiceItem
 		)
@@ -494,7 +495,7 @@ var _ = Describe("controllers/stripehooks", func() {
 			bp, err := u.BillingProfile(db)
 			Expect(err).To(BeNil())
 
-			s1 := &subscription.Subscription{
+			s1 = &subscription.Subscription{
 				PlanID:           h1.PlanID,
 				BillingProfileID: bp.ID,
 				State:            "active",
@@ -558,6 +559,15 @@ var _ = Describe("controllers/stripehooks", func() {
 
 			Expect(sInv.Items[0].Description).To(Equal(invoiceitem.ItemDescription(itm3, h1)))
 			Expect(sInv.Items[1].Description).To(Equal(invoiceitem.ItemDescription(itm1, h1)))
+		})
+
+		It("should not provide host detail if the subscription is a multi host", func() {
+			_, err := db.Exec("UPDATE subscriptions SET multi_host = true WHERE id = $1", s1.ID)
+			Expect(err).To(BeNil())
+
+			sInv, err := stripehooks.SerializeInvoice(db, inv)
+			Expect(err).To(BeNil())
+			Expect(sInv.Items).To(BeEmpty())
 		})
 	})
 })
