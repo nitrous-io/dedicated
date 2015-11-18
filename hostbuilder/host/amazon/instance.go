@@ -48,10 +48,12 @@ func setTags(provider instanceProvider, h *Host) error {
 		tags = append(tags, ec2.Tag{"dedicated:version", h.driverConfig.HostVersion})
 	}
 	if h.Config.Name == poolInstanceName {
-		tags = append(tags, ec2.Tag{poolTag, "true"})
+		// it should be set to 'true' but at this point the instance should not
+		// be considered available yet
+		tags = append(tags, ec2.Tag{poolTag, "building"})
 	}
 
-	h.Printf("setting tags on %s to %#v", h.instance.InstanceId, tags)
+	h.Printf("upserting tags on %s to %#v", h.instance.InstanceId, tags)
 	_, err := provider.CreateTags([]string{h.instance.InstanceId}, tags)
 	if err != nil {
 		return fmt.Errorf("failed to set tags on instance %s", h.instance.InstanceId)
