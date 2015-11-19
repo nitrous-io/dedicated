@@ -131,7 +131,7 @@ func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.Resp
 		return err
 	}
 
-	if (!noEmail) {
+	if !noEmail {
 		go func() {
 			err := sendEmail(env.DB, cn, collab, env.User, usr)
 			if err != nil {

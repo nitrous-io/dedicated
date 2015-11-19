@@ -7,11 +7,11 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/nitrous-io/dedicated/nitrous/controllers"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
-	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/pubsub"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	stripe "github.com/stripe/stripe-go"
 )
@@ -80,7 +80,7 @@ func publishSubscriptionEvent(env *middleware.Env, ev controllers.EventName, sub
 
 	sWSlug := &subscription.SubscriptionWithHostSlug{
 		Subscription: sub,
-		OrgID: bp.OrgID,
+		OrgID:        bp.OrgID,
 	}
 
 	err = env.DB.Get(&sWSlug.HostSlug, `SELECT hosts.slug FROM hosts WHERE subscription_id = $1`, sub.ID)
