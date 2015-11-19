@@ -18,6 +18,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
@@ -40,6 +41,7 @@ var _ = Describe("controllers/containercollabs", func() {
 		u   *user.User
 		t   *token.Token
 		cnr *container.Container
+		h   *host.Host
 
 		svr     *server.Server
 		handler *mux.Router
@@ -69,6 +71,7 @@ var _ = Describe("controllers/containercollabs", func() {
 			U: u,
 		})
 		Expect(err).To(BeNil())
+		h = hs.H
 
 		t = &token.Token{
 			UserID: u.ID,
@@ -233,6 +236,21 @@ var _ = Describe("controllers/containercollabs", func() {
 
 			handler.ServeHTTP(res, req)
 		}
+
+		It("should return collab limit error if collab limit is reached", func() {
+			_, err := db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u.ID)
+			Expect(err).To(BeNil())
+
+			doRequest("")
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("collab_limit_reached"))
+			Expect(errDesc).To(Equal("you have reached the maximum number of collaborators under your current plan"))
+
+			Expect(fakeMailer.SendMailCalled).To(BeFalse())
+		})
 
 		It("should return an error if no user is provided", func() {
 			doRequest("")
@@ -618,12 +636,15 @@ var _ = Describe("controllers/containercollabs", func() {
 		})
 
 		It("should not allow the same user to be added twice", func() {
+			_, err := db.Exec(`UPDATE plans SET max_collaborators=NULL WHERE id=$1;`, h.PlanID)
+			Expect(err).To(BeNil())
+
 			otherUser := &user.User{
 				Username: "steve",
 				Email:    "steve@stevey.com",
 				Password: "Password1",
 			}
-			err := test.WrapInTransaction(db, otherUser.Insert)
+			err = test.WrapInTransaction(db, otherUser.Insert)
 			Expect(err).To(BeNil())
 
 			_, err = db.Exec(`UPDATE users SET confirmed_at = now() WHERE id = $1;`, otherUser.ID)
