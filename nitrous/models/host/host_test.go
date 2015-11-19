@@ -13,6 +13,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
@@ -1476,6 +1477,64 @@ var _ = Describe("models/host", func() {
 			Expect(state).To(BeFalse())
 		})
 
+	})
+
+	Describe("UpdateAvailability()", func() {
+		It("updates available host to unavailable", func() {
+			h := hs.H
+			err := h.UpdateAvailability(db, false)
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, h.Slug)
+			Expect(err).To(BeNil())
+			Expect(h2.UnavailableAt.Valid).To(BeTrue())
+
+			ht, err := hosttransition.FindMostRecentForHost(db, h.ID)
+			Expect(err).To(BeNil())
+			Expect(ht.PreviousState.String).To(Equal("running"))
+			Expect(ht.State).To(Equal("unavailable"))
+		})
+
+		It("updates unavailable host to available", func() {
+			h := hs.H
+			h.UnavailableAt = pq.NullTime{Time: time.Now(), Valid: true}
+			err := h.UpdateAvailability(db, true)
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, h.Slug)
+			Expect(err).To(BeNil())
+			Expect(h2.UnavailableAt.Valid).To(BeFalse())
+
+			ht, err := hosttransition.FindMostRecentForHost(db, h.ID)
+			Expect(err).To(BeNil())
+			Expect(ht.PreviousState.String).To(Equal("unavailable"))
+			Expect(ht.State).To(Equal("running"))
+		})
+
+		It("is no-op when setting unavailable host to unavailable", func() {
+			h := hs.H
+			_, err := db.Exec(`UPDATE hosts SET unavailable_at = now() WHERE id = $1`,
+				h.ID)
+			Expect(err).To(BeNil())
+			// UpdateAvailability does not re-read state from db
+			h.UnavailableAt = pq.NullTime{Time: time.Now(), Valid: true}
+
+			err = h.UpdateAvailability(db, false)
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, h.Slug)
+			Expect(err).To(BeNil())
+			Expect(h2.UnavailableAt.Valid).To(BeTrue())
+		})
+
+		It("is no-op when setting available host to available", func() {
+			err := hs.H.UpdateAvailability(db, true)
+			Expect(err).To(BeNil())
+
+			h2, err := host.FindByIdentifier(db, hs.H.Slug)
+			Expect(err).To(BeNil())
+			Expect(h2.UnavailableAt.Valid).To(BeFalse())
+		})
 	})
 
 	Describe("Validate()", func() {
