@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
@@ -193,6 +194,37 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 		return nil, err
 	}
 	return plans, nil
+}
+
+func PlansForMultiHostOrgs(d db.QueryReceiver, orgIds []int64) (map[int64]*Plan, error) {
+	mp := make(map[int64]*Plan)
+	if len(orgIds) == 0 {
+		return mp, nil
+	}
+
+	type orgPlan struct {
+		*Plan
+		OrgID int64 `db:"org_id"`
+	}
+	plans := []*orgPlan{}
+	q, args, err := sqlx.In(`SELECT plans.*, bp.org_id FROM plans
+		INNER JOIN subscriptions s ON s.plan_id = plans.id
+		INNER JOIN billing_profiles bp ON s.billing_profile_id = bp.id
+		WHERE s.multi_host IS TRUE
+		AND s.cancelled_at IS NULL
+		AND bp.org_id IN (?)`, orgIds)
+	if err != nil {
+		return mp, err
+	}
+	if err := d.Select(&plans, d.Rebind(q), args...); err != nil {
+		return mp, err
+	}
+
+	for _, pl := range plans {
+		mp[pl.OrgID] = pl.Plan
+	}
+
+	return mp, nil
 }
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
