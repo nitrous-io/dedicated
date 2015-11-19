@@ -135,6 +135,9 @@ type Host struct {
 	IdleNoticesSent int         `db:"idle_notices_sent"`
 	IdleNextCheck   pq.NullTime `db:"idle_next_check"`
 
+	// non-null if freighter cannot be reached
+	UnavailableAt pq.NullTime `db:"unavailable_at"`
+
 	Hotswap bool `db:"hotswap"`
 
 	PendingRespec bool
