@@ -148,5 +148,41 @@ var _ = Describe("plan serializer", func() {
 				"org": false
 			}`))
 		})
+
+		It("includes MaxHosts if it is defined", func() {
+			model.MaxHosts = sql.NullInt64{12, true}
+			p := serializers.SerializePlan(model)
+			b, err := json.Marshal(p)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 123,
+				"base_plan_id": 1,
+				"hosting_mode_plan_id": 2,
+				"slug": "1gb",
+				"name": "Small",
+				"description": "Small plan - 1GB",
+				"type": "usage-based",
+				"price": 1000,
+				"base_price": 2000,
+				"hourly_price": 1489,
+				"cpu": "2",
+				"memory": "1 GB",
+				"storage": "20 GB",
+				"most_popular": true,
+				"subscription": false,
+				"hidden": false,
+				"trial_period_days": 0,
+				"auto_shutdown": true,
+				"max_containers": 3,
+				"max_snapshots": 10,
+				"max_hosts": 12,
+				"clean_preview": true,
+				"desktop_app": false,
+				"ssh": true,
+				"custom_domain": false,
+				"custom_templates": true,
+				"org": false
+			}`))
+		})
 	})
 })

@@ -14,6 +14,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -127,13 +128,21 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		bpMap[bp.OrgID.Int64] = bp
 	}
 
+	plMap, err := plan.PlansForMultiHostOrgs(db, orgIDs)
+	if err != nil {
+		logrus.Errorf("Error fetching multi host plans for orgs %v err: %v", orgIDs, err)
+	}
+
 	ser := serializers.SerializeOrgsWithRoles(orgs)
 	for _, o := range ser {
-		bp, ok := bpMap[o.ID]
-		if !ok {
-			continue
+		if bp, ok := bpMap[o.ID]; ok {
+			o.BillingProfile = serializers.SerializeBillingProfile(bp)
 		}
-		o.BillingProfile = serializers.SerializeBillingProfile(bp)
+		// if the org is part of multi host (otherwise it is an old org)
+		if pl, ok := plMap[o.ID]; ok {
+			o.Plan = serializers.SerializePlan(pl)
+			o.MultiHost = true
+		}
 	}
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
@@ -174,6 +183,16 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		ser.BillingProfile = serializers.SerializeBillingProfile(bp)
+	}
+
+	plMap, err := plan.PlansForMultiHostOrgs(db, []int64{o.ID})
+	if err != nil {
+		logrus.Errorf("Error fetching multi host plans for org ID %d err: %v", o.ID, err)
+	} else {
+		if pl, ok := plMap[o.ID]; ok {
+			ser.Plan = serializers.SerializePlan(pl)
+			ser.MultiHost = true
+		}
 	}
 
 	env.Status = http.StatusOK

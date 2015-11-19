@@ -16,6 +16,8 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -953,6 +955,37 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Org.BillingProfile).To(BeNil())
 			})
 
+			It("includes plan information if the org is subscribed to a multi host plan", func() {
+				pl := &plan.Plan{Name: "Large", Slug: "large", Price: 500}
+				Expect(pl.Insert(db)).To(BeNil())
+
+				oBP, err := billingprofile.FindForOrg(db, o.ID)
+				Expect(err).To(BeNil())
+
+				oS := &subscription.Subscription{
+					PlanID:           pl.ID,
+					BillingProfileID: oBP.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"orgSub", true},
+					Slug:             "SUB1",
+					MultiHost:        true,
+				}
+				Expect(test.WrapInTransaction(db, oS.Insert)).To(BeNil())
+
+				doRequest(o.Slug)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Org *serializers.Org `json:"org"`
+				}
+				err = json.NewDecoder(res.Body).Decode(&j)
+				Expect(err).To(BeNil())
+
+				Expect(j.Org.MultiHost).To(BeTrue())
+				Expect(j.Org.Plan).ToNot(BeNil())
+				Expect(j.Org.Plan.ID).To(Equal(pl.ID))
+			})
+
 			It("includes the billing profile if the user is an admin", func() {
 				for _, role := range []string{"owner", "admin"} {
 					_, err := db.Exec("UPDATE org_memberships SET role = $1 WHERE org_id = $2 and user_id = $3", role, o.ID, u.ID)
@@ -1193,6 +1226,44 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(j.Orgs[1].Email).To(Equal(o3.Email))
 				Expect(j.Orgs[1].Name).To(Equal(o3.Name))
 				Expect(j.Orgs[1].Slug).To(Equal(o3.Slug))
+			})
+
+			It("includes plan information if the org is subscribed to a multi host plan", func() {
+				pl := &plan.Plan{Name: "Large", Slug: "large", Price: 500}
+				Expect(pl.Insert(db)).To(BeNil())
+
+				err := db.WithTransaction(func(tx *sqlx.Tx) error {
+					return billingprofile.Create(tx, u.ID, sql.NullInt64{o3.ID, true})
+				})
+				Expect(err).To(BeNil())
+
+				oBP, err := billingprofile.FindForOrg(db, o3.ID)
+				Expect(err).To(BeNil())
+
+				oS := &subscription.Subscription{
+					PlanID:           pl.ID,
+					BillingProfileID: oBP.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"orgSub", true},
+					Slug:             "SUB1",
+					MultiHost:        true,
+				}
+				Expect(test.WrapInTransaction(db, oS.Insert)).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				var j struct {
+					Orgs []*serializers.Org `json:"orgs"`
+				}
+				err = json.Unmarshal(res.Body.Bytes(), &j)
+				Expect(err).To(BeNil())
+				Expect(j.Orgs).To(HaveLen(2))
+
+				Expect(j.Orgs[1].ID).To(Equal(o3.ID))
+				Expect(j.Orgs[1].MultiHost).To(BeTrue())
+				Expect(j.Orgs[1].Plan).ToNot(BeNil())
+				Expect(j.Orgs[1].Plan.ID).To(Equal(pl.ID))
 			})
 
 			It("returns the billing profile if a member can see the billing profile", func() {

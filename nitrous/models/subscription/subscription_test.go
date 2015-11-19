@@ -849,5 +849,13 @@ var _ = Describe("models/subscription", func() {
 			Expect(err).To(Equal(sql.ErrNoRows))
 			Expect(s).To(BeNil())
 		})
+
+		It("should not find a cancelled multi host subscription", func() {
+			_, err := db.Exec("UPDATE subscriptions SET cancelled_at = now() WHERE billing_profile_id = $1", bp.ID)
+			Expect(err).To(BeNil())
+			s, err := subscription.FindMultiHostSubscription(db, bp.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(s).To(BeNil())
+		})
 	})
 })

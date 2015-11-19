@@ -162,7 +162,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
 			Slug:             slug[:10],
-			MultiHost: p.MaxHosts.Valid,
+			MultiHost:        p.MaxHosts.Valid,
 		}
 		if err := sub.Insert(tx); err != nil {
 			return err

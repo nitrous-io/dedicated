@@ -176,7 +176,7 @@ func FindAllTrialEnding(d db.QueryReceiver, minHours, maxHours int) ([]*Subscrip
 // helps find the current multi host plan that a BP is on
 func FindMultiHostSubscription(d db.QueryReceiver, bpID int64) (*Subscription, error) {
 	sub := &Subscription{}
-	if err := d.Get(sub, `SELECT * FROM subscriptions WHERE billing_profile_id = $1 AND multi_host IS TRUE;`, bpID); err != nil {
+	if err := d.Get(sub, `SELECT * FROM subscriptions WHERE billing_profile_id = $1 AND cancelled_at IS NULL AND multi_host IS TRUE;`, bpID); err != nil {
 		return nil, err
 	}
 	return sub, nil

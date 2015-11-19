@@ -346,8 +346,18 @@ func FindBySubscriptionID(db *db.Database, subscriptionID int64) (*Host, error) 
 		`SELECT hosts.* FROM hosts
 		WHERE terminated_at IS NULL
 		AND state <> 'terminated'
-		AND subscription_id = $1;`, subscriptionID)
+		AND subscription_id = $1`, subscriptionID)
 	return host, err
+}
+
+func FindAllBySubscriptionID(db *db.Database, subscriptionID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts,
+		`SELECT hosts.* FROM hosts
+		WHERE terminated_at IS NULL
+		AND state <> 'terminated'
+		AND subscription_id = $1;`, subscriptionID)
+	return hosts, err
 }
 
 func (h Host) String() string {

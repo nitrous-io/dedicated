@@ -636,7 +636,7 @@ var _ = Describe("subscriptions", func() {
 					State:            "active",
 					StripeID:         sql.NullString{"1", true},
 					Slug:             "SUB1",
-					MultiHost: true,
+					MultiHost:        true,
 				}
 				Expect(test.WrapInTransaction(db, s.Insert)).To(BeNil())
 
@@ -922,6 +922,13 @@ var _ = Describe("subscriptions", func() {
 
 		It("returns an error if new plan is not of the same type", func() {
 			newPlan.Org = true
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))
+		})
+
+		It("returns an error if the plan isn't multi host compatible", func() {
+			newPlan.MaxHosts = sql.NullInt64{12, true}
 
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))

@@ -41,6 +41,7 @@ var _ = Describe("org serializer", func() {
 				"name": "Macrosoft Corp.",
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
+				"multi_host": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -77,6 +78,7 @@ var _ = Describe("org serializer", func() {
 				"email": "bill@macrosoft.com",
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
+				"multi_host": false,
 				"billing_profile": {
 					"id": 10,
 					"user_id": 25,
@@ -110,6 +112,7 @@ var _ = Describe("org serializer", func() {
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
 				"role": "owner",
+				"multi_host": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -148,6 +151,7 @@ var _ = Describe("org serializer", func() {
 					"slug": "macrosoft",
 					"email": "bill@macrosoft.com",
 					"role": "limited",
+					"multi_host": false,
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				},
@@ -157,6 +161,7 @@ var _ = Describe("org serializer", func() {
 					"slug": "foobar",
 					"email": "eng@foobar.com",
 					"role": "owner",
+					"multi_host": false,
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				}

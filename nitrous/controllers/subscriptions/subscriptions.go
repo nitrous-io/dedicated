@@ -280,9 +280,11 @@ func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 		return errCannotReactivate
 	}
 
-	_, err = host.FindBySubscriptionID(env.DB, s.ID)
-	if err != nil {
-		return errSubscriptionNotFound
+	if !s.MultiHost {
+
+		if _, err := host.FindBySubscriptionID(env.DB, s.ID); err != nil {
+			return errSubscriptionNotFound
+		}
 	}
 
 	err = subProvider.Reactivate(env.DB, s)
@@ -293,6 +295,24 @@ func Reactivate(env *middleware.Env, w http.ResponseWriter, r *http.Request) err
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
 		"status": "reactivated",
+	}
+	return nil
+}
+
+func Hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	s, err := fetchSubscriptionForWriting(env, r)
+	if err != nil {
+		return err
+	}
+
+	hosts, err := host.FindAllBySubscriptionID(env.DB, s.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"hosts": serializers.SerializeHosts(hosts),
 	}
 	return nil
 }

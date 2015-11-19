@@ -983,6 +983,150 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.ReactivateSubscription.ID).To(Equal(s.ID))
 		})
 	})
+
+	Describe("GET /api/v0/subscriptions/{slug}/hosts", func() {
+		var (
+			s   *subscription.Subscription
+			p   *plan.Plan
+			hs  *test.HostStack
+			hs2 *test.HostStack
+		)
+
+		BeforeEach(func() {
+			// Insert plan
+			p = &plan.Plan{
+				Slug:          "plan-a",
+				Name:          "cozy-workplace",
+				MaxContainers: 16,
+				Storage:       "1024 GB",
+				Price:         1024,
+				Memory:        "68 GB",
+			}
+			p.Insert(db)
+
+			// Insert subscriptions
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s = &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"1", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, s.Insert)
+			Expect(err).To(BeNil())
+
+			hs, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			hs2, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs2.H.ID)
+			Expect(err).To(BeNil())
+
+			hs3, err := test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-3",
+					HourlyPrice: 2000,
+					State:       "terminated",
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", s.ID, hs3.H.ID)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-4",
+					HourlyPrice: 2000,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(slug string) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/subscriptions/%s/hosts", slug)
+			req, err := test.NewAuthedRequest(t, "GET", url, nil)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("should return a not found if the subscription does not belong to the user", func() {
+			u2 := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+
+			bp, err := u2.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			s2 := &subscription.Subscription{
+				PlanID:           p.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"2", true},
+				Slug:             "SLUG2",
+			}
+			err = test.WrapInTransaction(db, s2.Insert)
+			Expect(err).To(BeNil())
+
+			res := doRequest(s2.Slug)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("subscription_not_found"))
+			Expect(errDesc).To(Equal("subscription does not exist"))
+		})
+
+		It("should return forbidden if the subscription is MultiHost not owned by the user", func() {
+			setupForOrg(s, "member")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("should be allowed if the subscription is MultiHost and is owned by the user", func() {
+			_, err := db.Exec("UPDATE subscriptions SET cancel_pending = true WHERE id = $1;", s.ID)
+			Expect(err).To(BeNil())
+
+			setupForOrg(s, "owner")
+			res := doRequest(s.Slug)
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				Hosts []*serializers.Host `json:"hosts"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			Expect(j.Hosts).To(HaveLen(2))
+			Expect([]int64{j.Hosts[0].ID, j.Hosts[1].ID}).To(ConsistOf(hs.H.ID, hs2.H.ID))
+		})
+	})
 })
 
 var stripeUpgradeResponse = `

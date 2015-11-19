@@ -2,10 +2,13 @@ package plan_test
 
 import (
 	"database/sql"
+	"github.com/jmoiron/sqlx"
 	"testing"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
+	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
@@ -393,6 +396,130 @@ var _ = Describe("models/plan", func() {
 		})
 	})
 
+	Describe("PlansForMultiHostOrgs()", func() {
+		var (
+			o1, o2 *org.Org
+			p1, p2 *plan.Plan
+		)
+		BeforeEach(func() {
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			o1 = &org.Org{
+				Name:  "Foo Bar, Inc.",
+				Slug:  "foobar",
+				Email: "eng@foobar.com",
+			}
+			Expect(o1.Insert(db)).To(BeNil())
+
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o1.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			p1, err = plan.FindBySlug(db, "1gb")
+			Expect(err).To(BeNil())
+
+			oBP, err := billingprofile.FindForOrg(db, o1.ID)
+			Expect(err).To(BeNil())
+
+			oS := &subscription.Subscription{
+				PlanID:           p1.ID,
+				BillingProfileID: oBP.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"orgSub", true},
+				Slug:             "SUB1",
+				MultiHost:        true,
+			}
+			Expect(test.WrapInTransaction(db, oS.Insert)).To(BeNil())
+
+			o2 = &org.Org{
+				Name:  "Foo Bar2, Inc.",
+				Slug:  "foobar2",
+				Email: "eng@foobar2.com",
+			}
+			Expect(o2.Insert(db)).To(BeNil())
+
+			err = db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o2.ID, true})).To(BeNil())
+				return nil
+			})
+			Expect(err).To(BeNil())
+
+			p2, err = plan.FindBySlug(db, "2gb")
+			Expect(err).To(BeNil())
+
+			oBP, err = billingprofile.FindForOrg(db, o2.ID)
+			Expect(err).To(BeNil())
+
+			oS = &subscription.Subscription{
+				PlanID:           p2.ID,
+				BillingProfileID: oBP.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"orgSub2", true},
+				Slug:             "SUB2",
+				MultiHost:        true,
+			}
+			Expect(test.WrapInTransaction(db, oS.Insert)).To(BeNil())
+		})
+
+		It("should return an empty map if no ids are provided", func() {
+			mp, err := plan.PlansForMultiHostOrgs(db, []int64{})
+			Expect(err).To(BeNil())
+			Expect(mp).To(BeEmpty())
+		})
+
+		It("should map the orgs to plans", func() {
+			mp, err := plan.PlansForMultiHostOrgs(db, []int64{o1.ID, o2.ID})
+			Expect(err).To(BeNil())
+			Expect(mp).ToNot(BeEmpty())
+
+			Expect(mp[o1.ID]).ToNot(BeNil())
+			Expect(mp[o1.ID].ID).To(Equal(p1.ID))
+
+			Expect(mp[o2.ID]).ToNot(BeNil())
+			Expect(mp[o2.ID].ID).To(Equal(p2.ID))
+		})
+
+		It("should exclude plans that do not support multi host", func() {
+			_, err := db.Exec(`UPDATE subscriptions
+				SET multi_host = FALSE
+				WHERE billing_profile_id IN (SELECT id FROM billing_profiles WHERE org_id = $1);`, o2.ID)
+			Expect(err).To(BeNil())
+
+			mp, err := plan.PlansForMultiHostOrgs(db, []int64{o1.ID, o2.ID})
+			Expect(err).To(BeNil())
+			Expect(mp).ToNot(BeEmpty())
+
+			Expect(mp[o1.ID]).ToNot(BeNil())
+			Expect(mp[o1.ID].ID).To(Equal(p1.ID))
+
+			Expect(mp[o2.ID]).To(BeNil())
+		})
+
+		It("should exclude plans that have been cancelled", func() {
+			_, err := db.Exec(`UPDATE subscriptions
+				SET cancelled_at = now()
+				WHERE billing_profile_id IN (SELECT id FROM billing_profiles WHERE org_id = $1);`, o2.ID)
+			Expect(err).To(BeNil())
+
+			mp, err := plan.PlansForMultiHostOrgs(db, []int64{o1.ID, o2.ID})
+			Expect(err).To(BeNil())
+			Expect(mp).ToNot(BeEmpty())
+
+			Expect(mp[o1.ID]).ToNot(BeNil())
+			Expect(mp[o1.ID].ID).To(Equal(p1.ID))
+
+			Expect(mp[o2.ID]).To(BeNil())
+		})
+	})
+
 	Describe("Insert()", func() {
 		var p *plan.Plan
 
@@ -483,6 +610,12 @@ var _ = Describe("models/plan", func() {
 		It("should be false if current plan is personal plan and target plan is org plan", func() {
 			p := &plan.Plan{Price: 2000}
 			p2 := &plan.Plan{Price: 2500, Org: true}
+			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
+		})
+
+		It("should be false if current plan is supported by max hosts but the other plan is not", func() {
+			p := &plan.Plan{Price: 2000, Org: true}
+			p2 := &plan.Plan{Price: 2500, Org: true, MaxHosts: sql.NullInt64{10, true}}
 			Expect(p.CanUpgradeToPlan(p2)).To(BeFalse())
 		})
 

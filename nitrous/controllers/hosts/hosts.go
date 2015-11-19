@@ -195,13 +195,14 @@ func Destroy(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.R
 	// We only allow host to be terminated if:
 	// 1. it is a free host (in which case we cancel the subscription), or
 	// 2. it is a paid host whose subscription has already been canceled.
+	// 3. the subscription supports multiple hosts
 	if h.SubscriptionID.Valid {
 		sub, err := subscription.Find(env.DB, h.SubscriptionID.Int64)
 		if err != nil {
 			return err
 		}
 
-		if !(sub.CancelPending || sub.State == subscription.StateDeleted) {
+		if !sub.MultiHost && !(sub.CancelPending || sub.State == subscription.StateDeleted) {
 			if h.Free {
 				if err := subProvider.Cancel(env.DB, sub); err != nil {
 					return err

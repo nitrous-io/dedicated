@@ -944,6 +944,50 @@ var _ = Describe("controllers/hosts", func() {
 			Expect(fsub.CancelCalled).To(BeFalse())
 		})
 
+		It("should terminate the host if it is part of a multi host subscription", func() {
+			fsub := &test.FakeSubscriptionProvider{}
+			hosts.SetSubscriptionProvider(fsub)
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				StripeID:         sql.NullString{"abc1", true},
+				PlanID:           hs.P.ID,
+				BillingProfileID: bp.ID,
+				Slug:             "SLUG",
+				State:            "active",
+				MultiHost:        true,
+			}
+			Expect(test.WrapInTransaction(db, sub.Insert)).To(BeNil())
+
+			_, err = db.Exec("UPDATE hosts SET subscription_id = $1 WHERE id = $2;", sub.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+
+			hb := hostbuilderclient.NewHostbuilder("www.example.com")
+			rt := &test.FakeRoundTripper{
+				Message: okResponse,
+				Status:  http.StatusOK,
+			}
+			replaceTransport(hb, rt)
+			hosts.HostbuilderClient = hb
+
+			doRequest(hs.H.Slug, t.Token)
+
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(rt.Requests).To(HaveLen(1))
+			var j struct {
+				Host *serializers.Host `json:"host"`
+			}
+			err = json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+			Expect(j.Host.ID).To(Equal(hs.H.ID))
+			Expect(j.Host.State).To(Equal(host.StateTerminated))
+
+			Expect(fsub.CancelCalled).To(BeFalse())
+		})
+
 		It("should terminate the host without trying to cancel the subscription when the subscription is already deleted", func() {
 			fsub := &test.FakeSubscriptionProvider{}
 			hosts.SetSubscriptionProvider(fsub)
