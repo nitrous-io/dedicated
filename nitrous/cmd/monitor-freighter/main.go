@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
-	"github.com/nitrous-io/dedicated/nitrous/pkg/mailer"
 )
 
 const (
@@ -21,7 +19,7 @@ const (
 
 	// user will supply remainder of query
 	queryf = `
-	SELECT hosts.slug, users.email
+	SELECT hosts.slug
 	FROM hosts
 	JOIN users ON hosts.user_id = users.id
 	WHERE hosts.state = 'running'
@@ -30,7 +28,7 @@ const (
 )
 
 var (
-	usage = fmt.Sprintf(`Usage: monitor-freighter -q <aux query> [--live-run] [-d duration between mails]
+	usage = fmt.Sprintf(`Usage: monitor-freighter -q <aux query> [--live-run]
 
 	Where <aux query> is an addition to this query:
 	
@@ -46,28 +44,20 @@ var (
 
 	dbConn *db.Database
 
-	pollInterval, mailInterval time.Duration
-	failsBeforeMail            int // number of failed attempts to wait between e-mails
-	sgMailer                   mailer.Mailer
-
-	mu          sync.Mutex
-	consecFails map[string]int // workspace slug -> number of times it has failed to ping
+	pollInterval time.Duration
 )
 
+// can use a channel of slugs (strings) instead -- this is light futureproofing
 type Workspace struct {
-	Slug  string `db:"slug"`
-	Email string `db:"email"`
+	Slug string `db:"slug"`
 }
 
 func init() {
-	consecFails = make(map[string]int)
-
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 
 	flag.BoolVar(&liverun, "live-run", false, "enable live run")
 	flag.StringVar(&auxQuery, "q", "", "custom SQL for workspaces to dispatch")
-	flag.DurationVar(&mailInterval, "d", 24*time.Hour, "duration between mails. Units are: 's', 'm', 'h'")
 	flag.DurationVar(&pollInterval, "i", 1*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
 
 	envvars.CheckDB()
@@ -78,10 +68,6 @@ func init() {
 	if err != nil {
 		logrus.Fatalf("db.NewDatabase() failed with '%s'", err)
 	}
-
-	envvars.CheckSendgrid()
-	sgMailer = mailer.NewSendGridMailer(envvars.SendgridUsername, envvars.SendgridPassword)
-
 }
 
 func dispatcher(ch chan Workspace) {
@@ -126,8 +112,8 @@ func worker(ch chan Workspace) {
 func ping(w Workspace) {
 	proxyURL := fmt.Sprintf("https://%s.nitrousproxy.com:65333", w.Slug)
 	fields := logrus.Fields{
-		"url":   proxyURL,
-		"email": w.Email,
+		"slug": w.Slug,
+		"url":  proxyURL,
 	}
 
 	resp, err := http.Get(proxyURL)
@@ -136,41 +122,11 @@ func ping(w Workspace) {
 		logrus.WithFields(fields).Error()
 		return
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if resp.StatusCode == http.StatusOK {
+	avail := resp.StatusCode == http.StatusOK
+	if avail {
 		logrus.WithFields(fields).Info("passed")
-		consecFails[w.Slug] = 0
-		return
-	}
-	consecFails[w.Slug] += 1
-	numFails := consecFails[w.Slug]
-	fields["code"] = resp.StatusCode
-	fields["fails"] = numFails
-	logrus.WithFields(fields).Warn("bad")
-
-	// we don't want to repeatedly e-mail, so only mail once after 5 failed
-	// attempts, and thereafter every N attempts (where N is calculated
-	// from polling interval to be less frequent than once an hour)
-	if (numFails-5)%failsBeforeMail != 0 {
-		return
-	}
-	if !liverun {
-		logrus.WithFields(fields).Info("not e-mailing user (dry run)")
-		return
-	}
-	from := envvars.SupportEmail
-	to := w.Email
-	subject := fmt.Sprintf("Workspace %s unavailable for %s", w.Slug, time.Duration(float64(numFails)*pollInterval.Seconds())*time.Second)
-	fields["from"] = from
-	fields["to"] = to
-	fields["subject"] = subject
-	logrus.WithFields(fields).Info("sending e-mail")
-	err = sgMailer.SendMail(from, []string{to}, []string{from}, nil, from,
-		subject, "(no body)", "(no body)")
-	if err != nil {
-		fields["err"] = err
-		logrus.WithFields(fields).Error("error sending email")
+	} else {
+		logrus.WithFields(fields).Warn("failed")
 	}
 }
 
@@ -180,14 +136,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, usage)
 		os.Exit(1)
 	}
-	if pollInterval.Seconds() >= mailInterval.Seconds() {
-		logrus.WithFields(logrus.Fields{
-			"polling_interval": pollInterval,
-			"mail_interval":    mailInterval,
-		}).Fatalf("Polling interval must be less than mail interval")
-	}
-	// e-mails are spaced out so they will not be more than specified mail interval
-	failsBeforeMail = int(mailInterval.Seconds()) / int(pollInterval.Seconds())
 
 	if !liverun {
 		logrus.Warnf("Operating as a dry-run, no e-mails will be sent")
@@ -196,12 +144,10 @@ func main() {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"liverun":                       liverun,
-		"aux_query":                     auxQuery,
-		"num_workers":                   workers,
-		"polling_interval":              pollInterval,
-		"mail_interval":                 mailInterval,
-		"failed_attempts_between_mails": failsBeforeMail,
+		"liverun":          liverun,
+		"aux_query":        auxQuery,
+		"num_workers":      workers,
+		"polling_interval": pollInterval,
 	}).Info("running with this config")
 
 	wch := make(chan Workspace)
