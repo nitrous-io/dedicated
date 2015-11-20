@@ -110,6 +110,12 @@ var _ = Describe("subscriptions", func() {
 		}
 	})
 
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
+		}
+	})
+
 	Describe("Subscribe()", func() {
 		var (
 			o *org.Org
@@ -586,6 +592,61 @@ var _ = Describe("subscriptions", func() {
 
 				Expect(latestBp.TrialEligible).To(BeFalse())
 			})
+
+			It("should not allow subscription if the host is nil and the plan is not multi host", func() {
+				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrHostNotProvided))
+				Expect(s).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
+			})
+
+			It("should allow a subscription without a host if the plan is a multi host", func() {
+				fakeStripe.Responses = []string{
+					`{
+					"object": "subscription",
+					"id": "abc1",
+					"status": "active",
+					"current_period_start": 1434418419,
+					"current_period_end": 1437010419
+				}`,
+				}
+
+				pl.MaxHosts = sql.NullInt64{3, true}
+				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
+				s, err = subscription.Find(db, s.ID)
+				Expect(err).To(BeNil())
+				Expect(s.PlanID).To(Equal(pl.ID))
+				Expect(s.StripeID.String).To(Equal("abc1"))
+				Expect(s.State).To(Equal("active"))
+				Expect(s.Slug).To(HaveLen(10))
+				Expect(s.CancelPending).To(BeFalse())
+				Expect(s.MultiHost).To(BeTrue())
+			})
+
+			It("should not allow multile subscriptions to a multi-host plan", func() {
+				s := &subscription.Subscription{
+					PlanID:           pl.ID,
+					BillingProfileID: bp.ID,
+					State:            "active",
+					StripeID:         sql.NullString{"1", true},
+					Slug:             "SUB1",
+					MultiHost:        true,
+				}
+				Expect(test.WrapInTransaction(db, s.Insert)).To(BeNil())
+
+				pl.MaxHosts = sql.NullInt64{3, true}
+				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrExistingMultiHostSubscription))
+				Expect(s).To(BeNil())
+
+				Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
+			})
 		}
 
 		Context("as a user", func() {
@@ -861,6 +922,13 @@ var _ = Describe("subscriptions", func() {
 
 		It("returns an error if new plan is not of the same type", func() {
 			newPlan.Org = true
+
+			err := subProvider.Upgrade(db, sub, newPlan, u)
+			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))
+		})
+
+		It("returns an error if the plan isn't multi host compatible", func() {
+			newPlan.MaxHosts = sql.NullInt64{12, true}
 
 			err := subProvider.Upgrade(db, sub, newPlan, u)
 			Expect(err).To(Equal(subscriptions.ErrCannotUpgrade))

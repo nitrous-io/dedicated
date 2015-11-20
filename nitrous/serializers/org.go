@@ -17,6 +17,9 @@ type Org struct {
 	CreatedAt *time.Time `json:"created_at"`
 	UpdatedAt *time.Time `json:"updated_at"`
 
+	MultiHost bool  `json:"multi_host"`
+	Plan      *Plan `json:"plan,omitempty"`
+
 	BillingProfile *BillingProfile `json:"billing_profile,omitempty"`
 }
 

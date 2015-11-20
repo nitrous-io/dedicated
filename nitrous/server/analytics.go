@@ -52,4 +52,6 @@ const (
 	EventOrgCreated       = "Org Created"
 	EventOrgMemberUpdated = "Org Member Updated"
 	EventOrgMemberRemoved = "Org Member Removed"
+
+	EventOrgSubscriptionSubscribed = "Org Subscription Subscribed"
 )

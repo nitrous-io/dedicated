@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
 
@@ -54,6 +55,8 @@ type Plan struct {
 	CustomDomain    bool  `db:"custom_domain"`
 	CustomTemplates bool  `db:"custom_templates"`
 	Org             bool  `db:"org"`
+
+	MaxHosts sql.NullInt64 `db:"max_hosts"`
 }
 
 type PlanPricing struct {
@@ -77,6 +80,9 @@ func (p *Plan) CanUpgradeToPlan(newPlan *Plan) bool {
 		return false
 	}
 	if p.Org != newPlan.Org {
+		return false
+	}
+	if p.MaxHosts.Valid != newPlan.MaxHosts.Valid {
 		return false
 	}
 
@@ -190,10 +196,41 @@ func AllPlansForProvider(d db.QueryReceiver, provider string) ([]*Plan, error) {
 	return plans, nil
 }
 
+func PlansForMultiHostOrgs(d db.QueryReceiver, orgIds []int64) (map[int64]*Plan, error) {
+	mp := make(map[int64]*Plan)
+	if len(orgIds) == 0 {
+		return mp, nil
+	}
+
+	type orgPlan struct {
+		*Plan
+		OrgID int64 `db:"org_id"`
+	}
+	plans := []*orgPlan{}
+	q, args, err := sqlx.In(`SELECT plans.*, bp.org_id FROM plans
+		INNER JOIN subscriptions s ON s.plan_id = plans.id
+		INNER JOIN billing_profiles bp ON s.billing_profile_id = bp.id
+		WHERE s.multi_host IS TRUE
+		AND s.cancelled_at IS NULL
+		AND bp.org_id IN (?)`, orgIds)
+	if err != nil {
+		return mp, err
+	}
+	if err := d.Select(&plans, d.Rebind(q), args...); err != nil {
+		return mp, err
+	}
+
+	for _, pl := range plans {
+		mp[pl.OrgID] = pl.Plan
+	}
+
+	return mp, nil
+}
+
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org, max_hosts)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org, :max_hosts)
 		RETURNING *;`)
 	if err != nil {
 		return err

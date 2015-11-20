@@ -163,6 +163,7 @@ func (s *Server) drawRoutes() {
 				"/billing/current_usage":                   r("billing.CurrentUsage", billing.CurrentUsage),
 				"/subscriptions":                           r("subscriptions.Index", subscriptions.Index),
 				"/subscriptions/{slug}/upgrade":            r("subscriptions.UpgradeEstimate", subscriptions.UpgradeEstimate),
+				"/subscriptions/{slug}/hosts":              r("subscriptions.Hosts", subscriptions.Hosts),
 				"/admin/announcements/global":              r("announcements.ShowGlobalAnnouncements", announcements.ShowGlobal),
 				"/admin/announcements/all":                 r("announcements.ShowAll", announcements.ShowAll),
 				"/admin/amazon/healthcheck":                r("amazon.Healthcheck", amazon.Healthcheck),
@@ -228,6 +229,7 @@ func (s *Server) drawRoutes() {
 				"/admin/credit":                            r("admin.CreditUser", admin.CreditUser),
 				"/orgs":                                    r("orgs.Create", orgs.Create, EventOrgCreated),
 				"/orgs/{org_slug}/billing_profile": r("billingprofiles.Activate", billingprofiles.Activate, EventBillingProfileActivated),
+				"/orgs/{org_slug}/subscriptions":   r("subscriptions.Subscribe", subscriptions.Subscribe, EventOrgSubscriptionSubscribed),
 			},
 			"PUT": {
 				"/users":                           r("users.Update", users.Update, EventUserUpdatedProfile),

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -134,6 +136,9 @@ type Host struct {
 
 	IdleNoticesSent int         `db:"idle_notices_sent"`
 	IdleNextCheck   pq.NullTime `db:"idle_next_check"`
+
+	// non-null if freighter cannot be reached
+	UnavailableAt pq.NullTime `db:"unavailable_at"`
 
 	Hotswap bool `db:"hotswap"`
 
@@ -346,8 +351,18 @@ func FindBySubscriptionID(db *db.Database, subscriptionID int64) (*Host, error) 
 		`SELECT hosts.* FROM hosts
 		WHERE terminated_at IS NULL
 		AND state <> 'terminated'
-		AND subscription_id = $1;`, subscriptionID)
+		AND subscription_id = $1`, subscriptionID)
 	return host, err
+}
+
+func FindAllBySubscriptionID(db *db.Database, subscriptionID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts,
+		`SELECT hosts.* FROM hosts
+		WHERE terminated_at IS NULL
+		AND state <> 'terminated'
+		AND subscription_id = $1;`, subscriptionID)
+	return hosts, err
 }
 
 func (h Host) String() string {
@@ -372,12 +387,12 @@ func (h *Host) Insert(d db.QueryReceiver) error {
 			user_id, org_id, region_id, plan_id, provider_template_id, slug, name, secret,
 			state, ip_address, static_ip, provider_identifier, max_containers, size, freighterd_port,
 			hourly_price, free, preprovisioned, freighterd_version, docker_version,
-			region_identifier, last_pinged_at, auto_shutdown, hotswap
+			region_identifier, last_pinged_at, auto_shutdown, hotswap, subscription_id
 		) VALUES (
 			:user_id, :org_id, :region_id, :plan_id, :provider_template_id, :slug, :name, :secret,
 			:state, :ip_address, :static_ip, :provider_identifier, :max_containers, :size, :freighterd_port,
 			:hourly_price, :free, :preprovisioned, :freighterd_version, :docker_version,
-			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap
+			:region_identifier, :last_pinged_at, :auto_shutdown, :hotswap, :subscription_id
 		)
 		RETURNING *;`)
 	if err != nil {
@@ -520,6 +535,43 @@ func (h *Host) Validate() error {
 	}
 	if !slugRe.MatchString(h.Slug) {
 		return ErrSlugInvalid
+	}
+	return nil
+}
+
+// sets unavailable_at based on value of `avail` and inserts appropriate host
+// transition.  No-op if `avail` matches current state. When inserting host
+// transitions, assumes that the previous state is 'running'
+func (h *Host) UpdateAvailability(d *db.Database, avail bool) error {
+	switch {
+	case h.UnavailableAt.Valid && avail:
+		return d.WithTransaction(func(tx *sqlx.Tx) error {
+			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = NULL WHERE id = $1`, h.ID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(`INSERT INTO host_transitions
+				(host_id, previous_state, state) VALUES
+				($1, $2, $3)
+			`, h.ID, "unavailable", "running")
+			return err
+		})
+	case !h.UnavailableAt.Valid && !avail:
+		return d.WithTransaction(func(tx *sqlx.Tx) error {
+			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = now() WHERE id = $1`, h.ID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(`INSERT INTO host_transitions
+				(host_id, previous_state, state) VALUES
+				($1, $2, $3)
+			`, h.ID, "running", "unavailable")
+			return err
+		})
+	case h.UnavailableAt.Valid && !avail:
+		// no-op
+	case !h.UnavailableAt.Valid && avail:
+		// no-op
 	}
 	return nil
 }

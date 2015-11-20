@@ -31,6 +31,7 @@ var _ = Describe("subscription serializer", func() {
 				TrialEnd:           pq.NullTime{time.Date(2015, time.July, 1, 0, 0, 0, 0, time.UTC), true},
 				CreatedAt:          &timestamp,
 				UpdatedAt:          &timestamp,
+				MultiHost:          true,
 			},
 		}
 	})
@@ -50,7 +51,8 @@ var _ = Describe("subscription serializer", func() {
 				"trial_end": "2015-07-01T00:00:00Z",
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
-				"cancel_pending": false
+				"cancel_pending": false,
+				"multi_host": true
 			}`))
 		})
 
@@ -71,7 +73,8 @@ var _ = Describe("subscription serializer", func() {
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
 				"cancel_pending": true,
-				"host_slug": "abc"
+				"host_slug": "abc",
+				"multi_host": true
 			}`))
 		})
 
@@ -91,7 +94,8 @@ var _ = Describe("subscription serializer", func() {
 				"created_at": "2014-11-01T00:00:00Z",
 				"updated_at": "2014-11-01T00:00:00Z",
 				"cancel_pending": false,
-				"org_id": 23
+				"org_id": 23,
+				"multi_host": true
 			}`))
 		})
 	})

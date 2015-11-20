@@ -12,6 +12,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	stripe "github.com/stripe/stripe-go"
@@ -91,6 +92,17 @@ func serializeInvoice(d db.QueryReceiver, inv *invoice.Invoice) (*serializers.In
 	err := d.Select(&items, "SELECT * FROM invoice_items WHERE invoice_id = $1 ORDER BY id DESC;", inv.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	// ignore hosts for now if the invoice involve multi hosts
+	if inv.SubscriptionID.Valid {
+		sub, err := subscription.Find(d, inv.SubscriptionID.Int64)
+		if err != nil {
+			return nil, err
+		}
+		if sub.MultiHost {
+			return sInv, nil
+		}
 	}
 
 	type hst struct {

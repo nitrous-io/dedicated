@@ -77,6 +77,10 @@ var (
 	ErrCardDeclined = errors.New("Your Card was declined. Try contacting the bank directly for assistance.")
 
 	ErrCannotUpgrade = errors.New("You cannot upgrade to this plan")
+
+	ErrHostNotProvided = errors.New("You must provide a host when subscribing to a single host plan")
+
+	ErrExistingMultiHostSubscription = errors.New("You can only have one multi-host subscription at a time")
 )
 
 type updatedAvailableCredits struct {
@@ -126,6 +130,23 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		return
 	}
 
+	if (!p.MaxHosts.Valid || p.MaxHosts.Int64 == 1) && h == nil {
+		err = ErrHostNotProvided
+		return
+	}
+
+	if p.MaxHosts.Valid {
+		// verify user does not have an existing multi-host plan (enforcing one per BP for now)
+		_, err = subscription.FindMultiHostSubscription(d, bp.ID)
+		if err != sql.ErrNoRows {
+			if err == nil {
+				err = ErrExistingMultiHostSubscription
+			}
+			return
+		}
+		err = nil
+	}
+
 	var strItem *stripe.InvoiceItem
 	var strSub *stripe.Sub
 
@@ -141,6 +162,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			BillingProfileID: bp.ID,
 			State:            subscription.StateCreating,
 			Slug:             slug[:10],
+			MultiHost:        p.MaxHosts.Valid,
 		}
 		if err := sub.Insert(tx); err != nil {
 			return err
@@ -221,6 +243,11 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		if err := bp.Update(tx); err != nil {
 			logrus.Errorf("bp.Update: Failed to update billing profile trial_eligible on new subscription: err: %v", strSub, err)
 			return err
+		}
+
+		// skip if this is a multi host plan
+		if h == nil {
+			return nil
 		}
 
 		return tx.QueryRowx(`UPDATE hosts
