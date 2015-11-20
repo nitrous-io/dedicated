@@ -257,6 +257,10 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			params.Set("size", orgHs.P.Slug)
 			params.Set("region", orgHs.R.Slug)
 			params.Set("org", o.Slug)
+
+			// mimic user being fresh
+			_, err := db.Exec("UPDATE billing_profiles SET state = 'no_card' WHERE user_id = $1", u.ID)
+			Expect(err).To(BeNil())
 		})
 
 		It("responds with an error if the org could not be found", func() {
