@@ -250,8 +250,11 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
                         LEFT JOIN orgs ON hosts.org_id = orgs.id
-			WHERE hosts.user_id = $1 AND hosts.slug = $2
-			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, identifier)
+			WHERE hosts.slug = $1 AND
+				(hosts.user_id = $2 OR
+					(hosts.org_id IS NOT NULL AND EXISTS (SELECT 1 FROM org_memberships WHERE org_id = hosts.org_id AND user_id = $2 AND role = 'owner'))
+				)
+			AND terminated_at IS NULL AND preprovisioned = FALSE;`, identifier, user.ID)
 	} else {
 		err = db.Get(host,
 			`SELECT hosts.*, pt.provider, pt.config, sub.slug AS subscription_slug, orgs.slug AS org_slug
@@ -259,8 +262,11 @@ func Find(db *db.Database, user *user.User, identifier string) (*Host, error) {
 			INNER JOIN provider_templates AS pt ON hosts.provider_template_id = pt.id
 			LEFT JOIN subscriptions AS sub ON hosts.subscription_id = sub.id
                         LEFT JOIN orgs ON hosts.org_id = orgs.id
-			WHERE hosts.user_id = $1 AND hosts.id = $2
-			AND terminated_at IS NULL AND preprovisioned = FALSE;`, user.ID, id)
+			WHERE hosts.id = $1 AND
+				(hosts.user_id = $2 OR
+					(hosts.org_id IS NOT NULL AND EXISTS (SELECT 1 FROM org_memberships WHERE org_id = hosts.org_id AND user_id = $2 AND role = 'owner'))
+				)
+			AND terminated_at IS NULL AND preprovisioned = FALSE;`, id, user.ID)
 	}
 
 	if err != nil {
