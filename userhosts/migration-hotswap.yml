@@ -246,6 +246,22 @@
     sudo: no
 
   # TODO: What happens with the elasticIP??????
+  - name: Get the elastip ip
+    shell: heroku pg:psql --app {{ psql_app }} -c "select static_ip, ip_address from hosts where slug='{{ inventory_hostname }}';"
+    register: sql_eip
+    delegate_to: 127.0.0.1
+    sudo: no
+
+  - set_fact:
+      has_eip={{sql_eip.stdout_lines[2].split("|")[0] | trim }}
+      eip_address={{sql_eip.stdout_lines[2].split("|")[1] | trim }}
+
+  - name: Dissasociate elastic ip
+    ec2_eip: instance_id={{ provider_identifier }} ip={{ eip_address }} state=absent region={{region}}
+    delegate_to: 127.0.0.1
+    sudo: no
+    when: has_eip == "t"
+
 
   - name: Updating database
     shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
