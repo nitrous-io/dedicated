@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
@@ -134,6 +136,9 @@ type Host struct {
 
 	IdleNoticesSent int         `db:"idle_notices_sent"`
 	IdleNextCheck   pq.NullTime `db:"idle_next_check"`
+
+	// non-null if freighter cannot be reached
+	UnavailableAt pq.NullTime `db:"unavailable_at"`
 
 	Hotswap bool `db:"hotswap"`
 
@@ -530,6 +535,43 @@ func (h *Host) Validate() error {
 	}
 	if !slugRe.MatchString(h.Slug) {
 		return ErrSlugInvalid
+	}
+	return nil
+}
+
+// sets unavailable_at based on value of `avail` and inserts appropriate host
+// transition.  No-op if `avail` matches current state. When inserting host
+// transitions, assumes that the previous state is 'running'
+func (h *Host) UpdateAvailability(d *db.Database, avail bool) error {
+	switch {
+	case h.UnavailableAt.Valid && avail:
+		return d.WithTransaction(func(tx *sqlx.Tx) error {
+			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = NULL WHERE id = $1`, h.ID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(`INSERT INTO host_transitions
+				(host_id, previous_state, state) VALUES
+				($1, $2, $3)
+			`, h.ID, "unavailable", "running")
+			return err
+		})
+	case !h.UnavailableAt.Valid && !avail:
+		return d.WithTransaction(func(tx *sqlx.Tx) error {
+			_, err := tx.Exec(`UPDATE hosts SET unavailable_at = now() WHERE id = $1`, h.ID)
+			if err != nil {
+				return err
+			}
+			_, err = tx.Exec(`INSERT INTO host_transitions
+				(host_id, previous_state, state) VALUES
+				($1, $2, $3)
+			`, h.ID, "running", "unavailable")
+			return err
+		})
+	case h.UnavailableAt.Valid && !avail:
+		// no-op
+	case !h.UnavailableAt.Valid && avail:
+		// no-op
 	}
 	return nil
 }
