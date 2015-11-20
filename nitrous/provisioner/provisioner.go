@@ -460,8 +460,7 @@ func (p *Provisioner) canCreateHosts(opts ProvisionOptions) error {
 		if err != nil {
 			return err
 		}
-	}
-	if err := opts.User.CanCreateHosts(p.db); err != nil {
+	} else if err := opts.User.CanCreateHosts(p.db); err != nil {
 		return err
 	}
 
