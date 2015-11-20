@@ -16,8 +16,6 @@ import (
 )
 
 const (
-	workers = 8 // controls number of concurrent http calls
-
 	// user will supply remainder of query
 	queryf = `
 	SELECT hosts.slug
@@ -40,12 +38,13 @@ var (
 	  monitor-freighter -q 'AND users.id = 3'
 	`, queryf)
 
-	liverun  = false
-	auxQuery string
+	// flags
+	workers      int
+	pollInterval time.Duration
+	liverun      = false
+	auxQuery     string
 
 	dbConn *db.Database
-
-	pollInterval time.Duration
 )
 
 // can use a channel of slugs (strings) instead -- this is light futureproofing
@@ -57,6 +56,7 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 
+	flag.IntVar(&workers, "w", 8, "number of concurrent http connections")
 	flag.BoolVar(&liverun, "live-run", false, "enable live run")
 	flag.StringVar(&auxQuery, "q", "", "custom SQL for workspaces to dispatch")
 	flag.DurationVar(&pollInterval, "i", 10*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
