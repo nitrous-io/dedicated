@@ -12,10 +12,11 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 )
 
 const (
-	workers = 4 // controls number of concurrent http calls
+	workers = 8 // controls number of concurrent http calls
 
 	// user will supply remainder of query
 	queryf = `
@@ -58,7 +59,7 @@ func init() {
 
 	flag.BoolVar(&liverun, "live-run", false, "enable live run")
 	flag.StringVar(&auxQuery, "q", "", "custom SQL for workspaces to dispatch")
-	flag.DurationVar(&pollInterval, "i", 1*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
+	flag.DurationVar(&pollInterval, "i", 10*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
 
 	envvars.CheckDB()
 	dbURL := envvars.NitrousPgUrl
@@ -127,6 +128,17 @@ func ping(w Workspace) {
 		logrus.WithFields(fields).Info("passed")
 	} else {
 		logrus.WithFields(fields).Warn("failed")
+	}
+	h, err := host.FindByIdentifier(dbConn, w.Slug)
+	if err != nil {
+		fields["err"] = err
+		logrus.WithFields(fields).Error("error finding host")
+		return
+	}
+	if err := h.UpdateAvailability(dbConn, avail); err != nil {
+		fields["err"] = err
+		logrus.WithFields(fields).Error("error updating host")
+		return
 	}
 }
 
