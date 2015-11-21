@@ -15,6 +15,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/hosttransition"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
+	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -634,6 +635,59 @@ var _ = Describe("models/host", func() {
 				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
 			})
+
+			Context("when the host belongs to an org", func() {
+				var (
+					u2 *user.User
+				)
+				BeforeEach(func() {
+					o := &org.Org{
+						Name:  "Foo Bar, Inc.",
+						Slug:  "foobar",
+						Email: "eng@foobar.com",
+					}
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+
+					u2 = &user.User{
+						Username: "barbaz2",
+						Email:    "barbaz2@example.com",
+						Password: "123456",
+					}
+					err = test.WrapInTransaction(db, u2.Insert)
+					Expect(err).To(BeNil())
+
+					err = orgmembership.AddMember(db, o.ID, u2.ID, "owner")
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("UPDATE hosts SET org_id = $1 WHERE id = $2", o.ID, hs.H.ID)
+					Expect(err).To(BeNil())
+				})
+				It("should allow an owner access", func() {
+					h, err := host.Find(db, u2, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(BeNil())
+					Expect(h).ToNot(BeNil())
+					Expect(h.ID).To(Equal(hs.H.ID))
+				})
+
+				It("should not allow a regular member access", func() {
+					_, err := db.Exec("UPDATE org_memberships SET role = 'member' WHERE user_id = $1", u2.ID)
+					Expect(err).To(BeNil())
+
+					h, err := host.Find(db, u2, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(MatchError(sql.ErrNoRows))
+					Expect(h).To(BeNil())
+				})
+
+				It("should not allow an owner if they have no relation to the host", func() {
+					_, err := db.Exec("UPDATE hosts SET org_id = NULL WHERE id = $1", hs.H.ID)
+					Expect(err).To(BeNil())
+
+					h, err := host.Find(db, u2, strconv.FormatInt(hs.H.ID, 10))
+					Expect(err).To(MatchError(sql.ErrNoRows))
+					Expect(h).To(BeNil())
+				})
+			})
 		})
 
 		Context("when given param is a slug", func() {
@@ -667,6 +721,59 @@ var _ = Describe("models/host", func() {
 				h, err := host.Find(db, hs.U, "vivabrazil")
 				Expect(err).To(MatchError(sql.ErrNoRows))
 				Expect(h).To(BeNil())
+			})
+
+			Context("when the host belongs to an org", func() {
+				var (
+					u2 *user.User
+				)
+				BeforeEach(func() {
+					o := &org.Org{
+						Name:  "Foo Bar, Inc.",
+						Slug:  "foobar",
+						Email: "eng@foobar.com",
+					}
+					err := o.Insert(db)
+					Expect(err).To(BeNil())
+
+					u2 = &user.User{
+						Username: "barbaz2",
+						Email:    "barbaz2@example.com",
+						Password: "123456",
+					}
+					err = test.WrapInTransaction(db, u2.Insert)
+					Expect(err).To(BeNil())
+
+					err = orgmembership.AddMember(db, o.ID, u2.ID, "owner")
+					Expect(err).To(BeNil())
+
+					_, err = db.Exec("UPDATE hosts SET org_id = $1 WHERE id = $2", o.ID, hs.H.ID)
+					Expect(err).To(BeNil())
+				})
+				It("should allow an owner access", func() {
+					h, err := host.Find(db, u2, hs.H.Slug)
+					Expect(err).To(BeNil())
+					Expect(h).ToNot(BeNil())
+					Expect(h.ID).To(Equal(hs.H.ID))
+				})
+
+				It("should not allow a regular member access", func() {
+					_, err := db.Exec("UPDATE org_memberships SET role = 'member' WHERE user_id = $1", u2.ID)
+					Expect(err).To(BeNil())
+
+					h, err := host.Find(db, u2, hs.H.Slug)
+					Expect(err).To(MatchError(sql.ErrNoRows))
+					Expect(h).To(BeNil())
+				})
+
+				It("should not allow an owner if they have no relation to the host", func() {
+					_, err := db.Exec("UPDATE hosts SET org_id = NULL WHERE id = $1", hs.H.ID)
+					Expect(err).To(BeNil())
+
+					h, err := host.Find(db, u2, hs.H.Slug)
+					Expect(err).To(MatchError(sql.ErrNoRows))
+					Expect(h).To(BeNil())
+				})
 			})
 		})
 
