@@ -44,6 +44,7 @@ var (
 	errUserNotConfirmed     = httperror.New(http.StatusBadRequest, "user_not_confirmed", "the specified user has not confirmed their account")
 	errCollaboratorNotFound = httperror.New(http.StatusNotFound, "collaborator_not_found", "the specified collaborator was not found")
 	errRemoveForbidden      = httperror.New(http.StatusForbidden, "invalid_request", "you do not have permission to remove this collaborator")
+	errCollabLimitReached   = httperror.New(http.StatusForbidden, "collab_limit_reached", "you have reached the maximum number of collaborators under your current plan")
 	errEmailAlreadySent     = errors.New("email already sent")
 	Mailer                  mailer.Mailer
 )
@@ -95,6 +96,13 @@ func index(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 }
 
 func add(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if err := containercollab.CanAddCollaborator(env.DB, cn.ID); err != nil {
+		if err == containercollab.ErrCollabLimitReached {
+			return errCollabLimitReached
+		}
+		return err
+	}
+
 	username := r.FormValue("user")
 	if username == "" {
 		return errMissingUserParam

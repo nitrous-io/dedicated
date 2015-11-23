@@ -2,11 +2,14 @@ package containercollab
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 )
+
+var ErrCollabLimitReached = errors.New("collaborators limit reached")
 
 type ContainerCollabUser struct {
 	ContainerCollab
@@ -71,4 +74,22 @@ func GetCollaboratorIDs(d db.QueryReceiver, cID int64) ([]int64, error) {
 		return userIDs, err
 	}
 	return userIDs, nil
+}
+
+// max_collaborators on plans has a default value of 1. Where org=true, max_collaborators is set to NULL.
+func CanAddCollaborator(d db.QueryReceiver, cnID int64) error {
+	var can bool
+	if err := d.QueryRowx(`SELECT
+	  (COUNT(cc.id) < COALESCE(MIN(p.max_collaborators), 0) OR MIN(p.max_collaborators) IS NULL)
+		FROM containers c
+		JOIN container_collabs cc ON (cc.container_id = c.id)
+		JOIN hosts h ON (h.id = c.host_id)
+		JOIN plans p ON (p.id = h.plan_id) WHERE c.id=$1;`,
+		cnID).Scan(&can); err != nil {
+		return err
+	}
+	if !can {
+		return ErrCollabLimitReached
+	}
+	return nil
 }

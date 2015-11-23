@@ -57,6 +57,8 @@ type Plan struct {
 	Org             bool  `db:"org"`
 
 	MaxHosts sql.NullInt64 `db:"max_hosts"`
+	// MaxCollaborators has default value of 1. Where org=true, default is NULL.
+	MaxCollaborators sql.NullInt64 `db:"max_collaborators"`
 }
 
 type PlanPricing struct {
@@ -229,8 +231,8 @@ func PlansForMultiHostOrgs(d db.QueryReceiver, orgIds []int64) (map[int64]*Plan,
 
 func (p *Plan) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO plans
-		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org, max_hosts)
-		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org, :max_hosts)
+		(slug, name, max_containers, price, base_price, cpu, memory, storage, disabled, hidden, most_popular, base_plan_id, paid_plan_id, stripe_plan_id, auto_shutdown, org, max_hosts, max_collaborators)
+		VALUES (:slug, :name, :max_containers, :price, :base_price, :cpu, :memory, :storage, :disabled, :hidden, :most_popular, :base_plan_id, :paid_plan_id, :stripe_plan_id, :auto_shutdown, :org, :max_hosts, :max_collaborators)
 		RETURNING *;`)
 	if err != nil {
 		return err
