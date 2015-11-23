@@ -225,7 +225,7 @@
   - name: Tag the new volume
     ec2_tag: resource={{new_provider_storage_identifier}} region={{region}} state=present
     args:
-      tags: '{"Name": "{{ ec2_name }}", "dedicated": "{{ dedicated_environment }}"}'
+      tags: '{"Name": "{{ ec2_name | replace("userhost", "userdata") }}", "dedicated": "{{ dedicated_environment }}"}'
     delegate_to: 127.0.0.1
     sudo: no
 
