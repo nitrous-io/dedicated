@@ -66,6 +66,9 @@ type Host struct {
 	PlanID             int64 `db:"plan_id"`
 	ProviderTemplateID int64 `db:"provider_template_id"`
 
+	// SourceAMI is used to override what is sent in machine config if non-null
+	SourceAMI sql.NullString `db:"source_ami"`
+
 	// Slug is used as a DNS label in the host's FQDN (thus limited to 63 chars).
 	Slug              string         `db:"slug"`
 	Name              sql.NullString `db:"name"`
@@ -616,6 +619,13 @@ func (h *Host) MachineConfig() hostbuilderclient.Config {
 				disableEIP, _ = strconv.ParseBool(v.String)
 			}
 			cfg["disable_eip"] = disableEIP
+
+			if h.SourceAMI.Valid {
+				// override the source_ami from pt.
+				// This is set manually when performing operations on hosts
+				// outside of nitrousd/hostbuilder
+				cfg["source_ami"] = h.SourceAMI.String
+			}
 		default:
 			// Don't care about other providers.
 		}

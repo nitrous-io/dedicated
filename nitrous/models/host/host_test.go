@@ -1790,6 +1790,30 @@ var _ = Describe("models/host", func() {
 					"source_ami":    "ami-zxcv",
 					"storage_size":  10,
 				},
+				&host.Host{
+					ID:        42,
+					SourceAMI: sql.NullString{"ami-deadface", true},
+					ProviderTemplate: &providertemplate.ProviderTemplate{
+						Provider: "amazon",
+						Config: hstore.Hstore{
+							Map: map[string]sql.NullString{
+								"source_ami":   sql.NullString{"ami-zxcv", true},
+								"storage_size": sql.NullString{"9", true},
+							},
+						},
+					},
+				}: hostbuilderclient.Config{
+					"host_id":      int64(42),
+					"id":           "",
+					"volume_id":    "",
+					"region_id":    "",
+					"ip_address":   "",
+					"hotswap":      false,
+					"name":         "userhost-{{env}}-42",
+					"disable_eip":  false,
+					"source_ami":   "ami-deadface",
+					"storage_size": 9,
+				},
 			}
 
 			for h, cfg := range testCases {
