@@ -8,15 +8,19 @@
         ap-southeast-1:
           zone: ap-southeast-1a
           snapshot: snap-ef49110e
+          source_ami: ami-cc6aacaf
         eu-west-1:
           zone: eu-west-1a
           snapshot: snap-774209be
+          source_ami: ami-a7a17bd4
         us-east-1:
           zone: us-east-1c
           snapshot: snap-638c68f5
+          source_ami: ami-33d3a959
         us-west-2:
           zone: us-west-2a
           snapshot: snap-fa330a63
+          source_ami: ami-928c9df3
   gather_facts: no
   sudo: yes
   tasks:
@@ -47,6 +51,10 @@
     register: ec2_tags
     sudo: no
   - set_fact: ec2_name={{ec2_tags.tags.Name}}
+
+  # If the host is on hosting mode, this tag will be set.
+  - set_fact: keep_ip={{ec2_tags.tags['keep-eip'] | default("false")}}
+
   - debug: msg="provider_identifier={{ provider_identifier }} provider_storage_identifier={{provider_storage_identifier}} state={{ instance_state }} ec2_name={{ec2_name}}"
 
 
@@ -68,11 +76,29 @@
       state=running
       ec2_url=https://ec2.{{ region }}.amazonaws.com
       wait=yes
+      assign_public_ip=yes
     delegate_to: 127.0.0.1
     sudo: no
+    register: start_output
+
+  - set_fact: public_ip={{start_output.instances[0].public_ip}}
+  - debug: var=public_ip
+
+  - name: Set the connection ip
+    set_fact: ansible_ssh_host={{public_ip}}
+
+
+  - name: Get instance tags from amazon (new ip)
+    ec2_tag: resource={{provider_identifier}} ec2_url=https://ec2.{{ region }}.amazonaws.com state=list
+    delegate_to: 127.0.0.1
+    register: ec2_newinstance_tags
+    sudo: no
+
 
   - name: Ensure we have ssh access to the instance
     wait_for: host={{ ansible_ssh_host }} port=65100 delay=10 timeout=320 state=started
+    delegate_to: 127.0.0.1
+    sudo: no
 
   - name: Ensure that docker is running
     service: name=docker state=started
@@ -240,12 +266,20 @@
     delegate_to: 127.0.0.1
     sudo: no
 
+  - name: Tag the old volume as migrated
+    ec2_tag: resource={{ provider_storage_identifier }} region={{region}} state=present
+    args:
+      tags:
+        dedicated: migrated
+    delegate_to: 127.0.0.1
+    sudo: no
+
   - name: Stop the old instance
     ec2: instance_ids={{ provider_identifier }} state=stopped region={{region}} wait=True
     delegate_to: 127.0.0.1
     sudo: no
 
-  # TODO: What happens with the elasticIP??????
+
   - name: Get the elastip ip
     shell: heroku pg:psql --app {{ psql_app }} -c "select static_ip, ip_address from hosts where slug='{{ inventory_hostname }}';"
     register: sql_eip
@@ -262,8 +296,20 @@
     sudo: no
     when: has_eip == "t"
 
+  - name: Update statip_ip information
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set static_ip=false where slug='{{ inventory_hostname }}';"
+    delegate_to: 127.0.0.1
+    sudo: no
+    when: keep_ip == False
+
+  # This is not possible with ansible command
+  - name: Release IP address
+    shell: aws ec2 release-address --region {{region}} --public-ip {{eip_address}}
+    delegate_to: 127.0.0.1
+    sudo: no
+    when: keep_ip == False
 
   - name: Updating database
-    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, source_ami='{{regions[region].source_ami}}', provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
     delegate_to: 127.0.0.1
     sudo: no
