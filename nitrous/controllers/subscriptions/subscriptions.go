@@ -178,7 +178,7 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	bp, err := env.User.BillingProfile(env.DB)
+	bp, err := billingprofile.FindByID(env.DB, s.BillingProfileID)
 	if err != nil {
 		return err
 	}
