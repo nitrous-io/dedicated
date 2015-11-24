@@ -312,7 +312,7 @@ func Hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hosts": serializers.SerializeHosts(hosts),
+		"hosts": serializers.SerializeUserHosts(hosts),
 	}
 	return nil
 }

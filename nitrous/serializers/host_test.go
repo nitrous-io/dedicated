@@ -322,4 +322,58 @@ var _ = Describe("host serializer", func() {
 			}]`, model.Hostname(), model.ProxyHostname())))
 		})
 	})
+
+	Describe("SerializeUserHosts", func() {
+		It("serializes to JSON", func() {
+			lastRunning := pq.NullTime{time.Date(2013, time.November, 8, 0, 0, 0, 0, time.UTC), true}
+			model.LastRunningAt = lastRunning
+
+			records := []*host.HostWithUser{
+				&host.HostWithUser{
+					Host: model,
+					Username: "callumjones",
+					UserEmail: "callum@nitrous.io",
+				},
+			}
+
+			hosts := serializers.SerializeUserHosts(records)
+			b, err := json.Marshal(hosts)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`[{
+				"host": {
+					"id": 10,
+					"user_id": 11,
+					"region_id": 12,
+					"plan_id": 13,
+					"org_id": null,
+					"slug": "wild-rocket-23",
+					"name": "wildrocket.xxx",
+					"ip_address": "1.2.3.4",
+					"static_ip": false,
+					"freighterd_port": 65000,
+					"freighterd_version": "1.0.69-bed0c-88",
+					"docker_version": "1.4.1-nitrous",
+					"provider_identifier": "digitalocean",
+					"provider_storage_identifier": "vol-beef",
+					"hotswap": true,
+					"hostname": "%s",
+					"proxy_hostname": "%s",
+					"size": "micro",
+					"state": "running",
+					"terminated_at": "2013-11-03T00:00:00Z",
+					"created_at": "2013-11-01T00:00:00Z",
+					"updated_at": "2013-11-02T00:00:00Z",
+					"last_running_at": "2013-11-08T00:00:00Z",
+					"last_pinged_at": "2013-11-02T01:00:00Z",
+					"auto_shutdown": true,
+					"max_containers": 3,
+					"pending_respec": true,
+					"free": true,
+					"shared": true
+				},
+				"username": "callumjones",
+				"gravatar_hash": "5da5f76403ef85e41cde264a32b886ac"
+			}]`, model.Hostname(), model.ProxyHostname())))
+		})
+	})
 })

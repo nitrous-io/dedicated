@@ -154,6 +154,13 @@ type Host struct {
 	Shared bool
 }
 
+type HostWithUser struct {
+	*Host
+
+	Username string `db:"username"`
+	UserEmail string `db:"user_email"`
+}
+
 func FindAllByProvider(db *db.Database, provider string) ([]*Host, error) {
 	hosts := []*Host{}
 	err := db.Select(&hosts, `SELECT hosts.*, username FROM hosts
@@ -364,10 +371,11 @@ func FindBySubscriptionID(db *db.Database, subscriptionID int64) (*Host, error) 
 	return host, err
 }
 
-func FindAllBySubscriptionID(db *db.Database, subscriptionID int64) ([]*Host, error) {
-	hosts := []*Host{}
+func FindAllBySubscriptionID(db *db.Database, subscriptionID int64) ([]*HostWithUser, error) {
+	hosts := []*HostWithUser{}
 	err := db.Select(&hosts,
-		`SELECT hosts.* FROM hosts
+		`SELECT hosts.*, u.username, u.email AS user_email FROM hosts
+		INNER JOIN users u ON hosts.user_id = u.id
 		WHERE terminated_at IS NULL
 		AND state <> 'terminated'
 		AND subscription_id = $1;`, subscriptionID)

@@ -46,6 +46,13 @@ type Host struct {
 	Shared bool `json:"shared"`
 }
 
+type HostWithUser struct {
+	Host *Host `json:"host,omitempty"`
+
+	Username     string `json:"username,omitempty"`
+	GravatarHash string `json:"gravatar_hash,omitempty"`
+}
+
 func SerializeHost(h *host.Host) *Host {
 	if h == nil {
 		return nil
@@ -103,6 +110,19 @@ func SerializeHosts(hosts []*host.Host) []*Host {
 	ret := make([]*Host, len(hosts))
 	for i, h := range hosts {
 		ret[i] = SerializeHost(h)
+	}
+	return ret
+}
+
+func SerializeUserHosts(hosts []*host.HostWithUser) []*HostWithUser {
+	ret := make([]*HostWithUser, len(hosts))
+	for i, h := range hosts {
+		serHost := SerializeHost(h.Host)
+		ret[i] = &HostWithUser{
+			Host: serHost,
+			Username: h.Username,
+			GravatarHash: generateGravatarHash(h.UserEmail),
+		}
 	}
 	return ret
 }

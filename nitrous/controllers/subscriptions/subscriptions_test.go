@@ -1118,13 +1118,14 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			var j struct {
-				Hosts []*serializers.Host `json:"hosts"`
+				Hosts []*serializers.HostWithUser `json:"hosts"`
 			}
 			err = json.NewDecoder(res.Body).Decode(&j)
 			Expect(err).To(BeNil())
 
 			Expect(j.Hosts).To(HaveLen(2))
-			Expect([]int64{j.Hosts[0].ID, j.Hosts[1].ID}).To(ConsistOf(hs.H.ID, hs2.H.ID))
+			Expect([]int64{j.Hosts[0].Host.ID, j.Hosts[1].Host.ID}).To(ConsistOf(hs.H.ID, hs2.H.ID))
+			Expect([]string{j.Hosts[0].Username, j.Hosts[1].Username}).To(ConsistOf(hs.U.Username, hs2.U.Username))
 		})
 	})
 })
