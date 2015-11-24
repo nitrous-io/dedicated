@@ -24,16 +24,17 @@ type Plan struct {
 
 	TrialPeriodDays int64 `json:"trial_period_days"`
 
-	AutoShutdown    bool  `json:"auto_shutdown"`
-	MaxContainers   int64 `json:"max_containers"`
-	MaxSnapshots    int64 `json:"max_snapshots"`
-	MaxHosts        int64 `json:"max_hosts,omitempty"`
-	CleanPreview    bool  `json:"clean_preview"`
-	DesktopApp      bool  `json:"desktop_app"`
-	SSH             bool  `json:"ssh"`
-	CustomDomain    bool  `json:"custom_domain"`
-	CustomTemplates bool  `json:"custom_templates"`
-	Org             bool  `json:"org"`
+	AutoShutdown     bool  `json:"auto_shutdown"`
+	MaxContainers    int64 `json:"max_containers"`
+	MaxSnapshots     int64 `json:"max_snapshots"`
+	MaxHosts         int64 `json:"max_hosts,omitempty"`
+	MaxCollaborators int64 `json:"max_collaborators,omitempty"`
+	CleanPreview     bool  `json:"clean_preview"`
+	DesktopApp       bool  `json:"desktop_app"`
+	SSH              bool  `json:"ssh"`
+	CustomDomain     bool  `json:"custom_domain"`
+	CustomTemplates  bool  `json:"custom_templates"`
+	Org              bool  `json:"org"`
 }
 
 func SerializePlan(p *plan.Plan) *Plan {
@@ -41,31 +42,32 @@ func SerializePlan(p *plan.Plan) *Plan {
 		return nil
 	}
 	serialized := &Plan{
-		ID:              p.ID,
-		Slug:            p.Slug,
-		Name:            p.Name,
-		Description:     p.Description,
-		Type:            p.Type,
-		Price:           p.Price,
-		BasePrice:       p.BasePrice,
-		HourlyPrice:     p.HourlyPrice(),
-		CPU:             p.CPU,
-		Memory:          p.Memory,
-		Storage:         p.Storage,
-		MostPopular:     p.MostPopular,
-		Subscription:    p.StripePlanID.Valid,
-		TrialPeriodDays: p.TrialPeriodDays,
-		Hidden:          p.Hidden,
-		AutoShutdown:    p.AutoShutdown,
-		MaxContainers:   p.MaxContainers,
-		MaxSnapshots:    p.MaxSnapshots,
-		MaxHosts:        p.MaxHosts.Int64,
-		CleanPreview:    p.CleanPreview,
-		DesktopApp:      p.DesktopApp,
-		SSH:             p.SSH,
-		CustomDomain:    p.CustomDomain,
-		CustomTemplates: p.CustomTemplates,
-		Org:             p.Org,
+		ID:               p.ID,
+		Slug:             p.Slug,
+		Name:             p.Name,
+		Description:      p.Description,
+		Type:             p.Type,
+		Price:            p.Price,
+		BasePrice:        p.BasePrice,
+		HourlyPrice:      p.HourlyPrice(),
+		CPU:              p.CPU,
+		Memory:           p.Memory,
+		Storage:          p.Storage,
+		MostPopular:      p.MostPopular,
+		Subscription:     p.StripePlanID.Valid,
+		TrialPeriodDays:  p.TrialPeriodDays,
+		Hidden:           p.Hidden,
+		AutoShutdown:     p.AutoShutdown,
+		MaxContainers:    p.MaxContainers,
+		MaxSnapshots:     p.MaxSnapshots,
+		MaxHosts:         p.MaxHosts.Int64,
+		MaxCollaborators: p.MaxCollaborators.Int64,
+		CleanPreview:     p.CleanPreview,
+		DesktopApp:       p.DesktopApp,
+		SSH:              p.SSH,
+		CustomDomain:     p.CustomDomain,
+		CustomTemplates:  p.CustomTemplates,
+		Org:              p.Org,
 	}
 	if p.BasePlanID.Valid {
 		serialized.BasePlanID = p.BasePlanID.Int64

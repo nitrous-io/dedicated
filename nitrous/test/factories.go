@@ -104,12 +104,13 @@ func CreateHostStack(db *db.Database, hs *HostStack) (*HostStack, error) {
 
 	if hs.P == nil {
 		hs.P = &plan.Plan{
-			Slug:          makeUnique("plan"),
-			Name:          makeUnique("desc"),
-			MaxContainers: 1,
-			Price:         500,
-			Storage:       "4 GB",
-			Memory:        "512 MB",
+			Slug:             makeUnique("plan"),
+			Name:             makeUnique("desc"),
+			MaxContainers:    1,
+			MaxCollaborators: sql.NullInt64{1, true},
+			Price:            500,
+			Storage:          "4 GB",
+			Memory:           "512 MB",
 		}
 	}
 	if hs.P.ID == 0 {

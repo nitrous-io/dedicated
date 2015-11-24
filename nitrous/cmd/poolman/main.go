@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"math"
 	"os"
 	"time"
 
@@ -18,8 +19,6 @@ import (
 * 4. call hostbuilder POST /pools/grow endpoint if counts are less than minimum
 
 * Known limitations:
-* - only grows by one per polling iteration (so if two below minimum, it will
-* take 2x polling interval to grow both)
 * - if polling interval is too short, can potentially create more than the
 * minimum (since the count will not be updated while growing is in progress)
 * - no way to reload config means that if AMI tags are updated in ec2, need to
@@ -35,18 +34,25 @@ var (
 	// flags
 	flConfPath     string
 	flPollInterval time.Duration
+	// this number is the maximum number of grows sent in a single polling
+	// period, across all instance types and regions
+	flMaxGrowsPerPoll int
 )
 
 func init() {
-	flag.DurationVar(&flPollInterval, "i", 5*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
 	flag.StringVar(&flConfPath, "c", "", "path to config file")
+	flag.DurationVar(&flPollInterval, "i", 5*time.Minute, "polling interval. Units are: 's', 'm', 'h'")
+	flag.IntVar(&flMaxGrowsPerPoll, "g", 8, "number of times we can ask hostbuilder to grow pool per poll interval")
 
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{DisableColors: true})
 }
 
 func poll() {
+	status := &growStatus{}
 	for {
+		grown := 0 // number of hostbuilder grows in this polling interval
+
 		s, err := hbClient.List()
 		if err != nil {
 			logrus.Fatalf("error getting /pools: %v", err)
@@ -74,8 +80,17 @@ func poll() {
 					logrus.WithFields(f).Debugf("available instances above minimum for type %s", poolConf.Type)
 					continue
 				}
-				logrus.WithFields(f).Infof("growing type %s", poolConf.Type)
-				go growPool(r.ID, poolConf.Type)
+				if grown >= flMaxGrowsPerPoll {
+					logrus.WithFields(f).Infof("max grows for this period reached: %d", flMaxGrowsPerPoll)
+					continue
+				}
+				numDesired := poolConf.Min - existing
+				numToGrow := int(math.Min(float64(flMaxGrowsPerPoll-grown), float64(numDesired)))
+				for i := 0; i < numToGrow; i++ {
+					grown++
+					logrus.WithFields(f).Infof("growing type %s (%d/%d)", poolConf.Type, grown, flMaxGrowsPerPoll)
+					go growPool(status, r.ID, poolConf.Type)
+				}
 			}
 		}
 
@@ -108,7 +123,11 @@ func main() {
 		appConfig.Regions[i].SourceAMI = latest
 	}
 
-	logrus.Infof("Running with config: %+v\n", appConfig)
+	logrus.WithFields(logrus.Fields{
+		"config":             appConfig,
+		"polling_interval":   flPollInterval,
+		"max_grows_per_poll": flMaxGrowsPerPoll,
+	}).Info("using config")
 
 	hbClient = NewHBClient(appConfig.HostbuilderURL)
 	poll()

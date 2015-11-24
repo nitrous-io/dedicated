@@ -5,6 +5,7 @@ import (
 
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
@@ -22,6 +23,7 @@ var _ = Describe("models/containercollab", func() {
 	var (
 		db  *ndb.Database
 		cnr *container.Container
+		h   *host.Host
 	)
 
 	BeforeEach(func() {
@@ -31,6 +33,8 @@ var _ = Describe("models/containercollab", func() {
 
 		hs, err := test.CreateHostStack(db, nil)
 		Expect(err).To(BeNil())
+
+		h = hs.H
 
 		cnr = &container.Container{
 			CID:    "cafebabe",
@@ -198,6 +202,62 @@ var _ = Describe("models/containercollab", func() {
 			ids, err := containercollab.GetCollaboratorIDs(db, cnr.ID)
 			Expect(err).To(BeNil())
 			Expect(ids).To(ConsistOf(u1.ID, u2.ID))
+		})
+	})
+
+	// max_collaborators on plans has a default value of 1. Where org=true, max_collaborators is set to NULL.
+	Describe("CanAddCollaborator", func() {
+		var (
+			u1 *user.User
+			u2 *user.User
+		)
+		BeforeEach(func() {
+			u1 = &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u1.Insert)
+			Expect(err).To(BeNil())
+
+			u2 = &user.User{
+				Username: "bar",
+				Email:    "bar@example.com",
+				Password: "123456",
+			}
+			err = test.WrapInTransaction(db, u2.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		Context("when max_collaborators set", func() {
+			It("does not return error if within limit", func() {
+				err := containercollab.CanAddCollaborator(db, cnr.ID)
+				Expect(err).To(BeNil())
+			})
+
+			It("returns error when collab limit is reached", func() {
+				_, err := db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+				Expect(err).To(BeNil())
+
+				err = containercollab.CanAddCollaborator(db, cnr.ID)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(Equal("collaborators limit reached"))
+			})
+		})
+
+		Context("when max_collaborators not set", func() {
+			BeforeEach(func() {
+				_, err := db.Exec(`UPDATE plans SET max_collaborators=NULL WHERE id=$1;`, h.PlanID)
+				Expect(err).To(BeNil())
+			})
+
+			It("does not return error", func() {
+				_, err := db.Exec(`INSERT INTO container_collabs (container_id, user_id) VALUES ($1, $2) RETURNING ID`, cnr.ID, u1.ID)
+				Expect(err).To(BeNil())
+
+				err = containercollab.CanAddCollaborator(db, cnr.ID)
+				Expect(err).To(BeNil())
+			})
 		})
 	})
 })

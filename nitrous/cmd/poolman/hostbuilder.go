@@ -7,12 +7,45 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 
 	"github.com/nitrous-io/nitrous-common/httpclient"
 )
+
+// number of consecutive fails allowed before growPool shuts down
+const maxConsecFails = 5
+
+// growStatus is a simple way of preventing unlimited grows if calls to grow
+// endpoint repeatedly fail
+type growStatus struct {
+	mu    sync.Mutex
+	fails int
+}
+
+func (g *growStatus) Inc() int {
+	g.mu.Lock()
+	g.fails++
+	fails := g.fails
+	g.mu.Unlock()
+	return fails
+}
+
+func (g *growStatus) Reset() {
+	g.mu.Lock()
+	g.fails = 0
+	g.mu.Unlock()
+}
+
+func (g *growStatus) Val() int {
+	g.mu.Lock()
+	fails := g.fails
+	g.mu.Unlock()
+	return fails
+}
 
 // parses the /pools response from Hostbuilder into a map of region -> (type -> count)
 func parseList(body []byte) (map[string]map[string]int, error) {
@@ -24,11 +57,17 @@ func parseList(body []byte) (map[string]map[string]int, error) {
 }
 
 // meant to be called as goroutine; errors logged instead of returned
-func growPool(region, itype string) {
+func growPool(s *growStatus, region, itype string) {
+	fails := s.Val()
 	f := logrus.Fields{
 		"func":          "growPool",
 		"region":        region,
 		"instance_type": itype,
+		"fails":         fails,
+	}
+	if fails >= maxConsecFails {
+		logrus.WithFields(f).Errorf("consecutive fails reached. Growing halted till restart")
+		return
 	}
 	var rc regionConfig
 	for _, reg := range appConfig.Regions {
@@ -57,7 +96,11 @@ func growPool(region, itype string) {
 	params.Set("config", string(cjson))
 	bs, err := hbClient.Grow(params)
 	if err != nil {
+		f["fails"] = s.Inc()
 		logrus.WithFields(f).Errorf("grow call failed: %v", err)
+		return
+	} else {
+		s.Reset()
 	}
 	logrus.WithFields(f).Infof("hostbuilder response: %s", string(bs))
 }
@@ -108,5 +151,15 @@ func (hb HBClient) Grow(params url.Values) ([]byte, error) {
 	}
 
 	defer response.Body.Close()
-	return ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode != 200 {
+		if strings.Contains(string(body), "maximum instances in pool reached") {
+			return body, nil
+		}
+		return body, fmt.Errorf("unsuccessful response")
+	}
+	return body, nil
 }

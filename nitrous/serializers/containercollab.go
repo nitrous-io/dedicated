@@ -1,9 +1,6 @@
 package serializers
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-	"io"
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/containercollab"
@@ -48,14 +45,11 @@ func SerializeContainerCollabUser(sc *containercollab.ContainerCollabUser) *Cont
 	// show the gravatar of either the joined user or
 	// the email of the pending invite (who has not joined Nitrous)
 	if sc.Email.Valid || sc.InviteEmail.Valid {
-		h := md5.New()
 		str := sc.Email.String
 		if str == "" {
 			str = sc.InviteEmail.String
 		}
-		io.WriteString(h, str)
-		sum := h.Sum(nil)
-		ccu.GravatarHash = hex.EncodeToString(sum)
+		ccu.GravatarHash = generateGravatarHash(str)
 	}
 
 	return ccu
