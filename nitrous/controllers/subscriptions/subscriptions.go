@@ -178,7 +178,7 @@ func UpgradeEstimate(env *middleware.Env, w http.ResponseWriter, r *http.Request
 		return err
 	}
 
-	bp, err := env.User.BillingProfile(env.DB)
+	bp, err := billingprofile.FindByID(env.DB, s.BillingProfileID)
 	if err != nil {
 		return err
 	}
@@ -312,7 +312,7 @@ func Hosts(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"hosts": serializers.SerializeHosts(hosts),
+		"hosts": serializers.SerializeUserHosts(hosts),
 	}
 	return nil
 }
