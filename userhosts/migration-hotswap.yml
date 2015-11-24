@@ -1,9 +1,9 @@
 ---
 - hosts: userhosts
   vars:
-    - psql_app: pro-n2ostaging-com
-    - dedicated_environment: staging
-    - environment: staging
+    - psql_app: pro-nitrous-io
+    - dedicated_environment: production
+    - environment: production
     - regions:
         ap-southeast-1:
           zone: ap-southeast-1a
@@ -37,7 +37,7 @@
   # Step 1
   # Gather information about the instance
   - name: Get provider_identifier and instance_state
-    shell: heroku pg:psql --app {{ psql_app }} -c "select provider_identifier, provider_storage_identifier, state from hosts where slug = '{{ inventory_hostname }}';"
+    shell: heroku pg:psql --app {{ psql_app }} -c "select provider_identifier, provider_storage_identifier, state, region_identifier from hosts where slug = '{{ inventory_hostname }}';"
     register: out
     sudo: no
     delegate_to: 127.0.0.1
@@ -45,6 +45,7 @@
       provider_identifier={{out.stdout_lines[2].split("|")[0] | trim }}
       provider_storage_identifier={{out.stdout_lines[2].split("|")[1] | trim }}
       instance_state={{out.stdout_lines[2].split("|")[2] | trim }}
+      region={{out.stdout_lines[2].split("|")[3] | trim }}
   - name: Get instance tags from amazon
     ec2_tag: resource={{provider_identifier}} ec2_url=https://ec2.{{ region }}.amazonaws.com state=list
     delegate_to: 127.0.0.1
@@ -55,7 +56,7 @@
   # If the host is on hosting mode, this tag will be set.
   - set_fact: keep_ip={{ec2_tags.tags['keep-eip'] | default("false")}}
 
-  - debug: msg="provider_identifier={{ provider_identifier }} provider_storage_identifier={{provider_storage_identifier}} state={{ instance_state }} ec2_name={{ec2_name}}"
+  - debug: msg="provider_identifier={{ provider_identifier }} provider_storage_identifier={{provider_storage_identifier}} state={{ instance_state }} ec2_name={{ec2_name}} region={{region}}"
 
 
   # Get the size of the volume (and the tags)
@@ -168,7 +169,7 @@
       - /mnt/userdata/var/lib/docker
 
   - name: copy contents
-    shell: cp -r {{item}} /mnt/userdata{{item}}
+    shell: cp -ar {{item}} /mnt/userdata{{item}}
     with_items:
       - /etc/freighterd
       - /var/lib/docker
@@ -297,17 +298,26 @@
     when: has_eip == "t"
 
   - name: Update statip_ip information
-    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set static_ip=false where slug='{{ inventory_hostname }}';"
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set static_ip=false, ip_address=null where slug='{{ inventory_hostname }}';"
     delegate_to: 127.0.0.1
     sudo: no
-    when: keep_ip == False
+    when: keep_ip == False and has_eip == "t"
 
-  # This is not possible with ansible command
-  - name: Release IP address
-    shell: aws ec2 release-address --region {{region}} --public-ip {{eip_address}}
+  - name: Get the allocation Id of the EIP
+    shell: aws ec2 describe-addresses --region {{ region}} --public-ip {{public_ip}} | jq -r '.Addresses[0].AllocationId'
+    register: allocation_id
     delegate_to: 127.0.0.1
     sudo: no
-    when: keep_ip == False
+    when: keep_ip == False and has_eip == "t"
+
+
+  # This is not possible with ansible command.
+  # Note: We assume that all hosts are inside vpc. For releasing an address we need the allocation-id (vpc only)
+  - name: Release IP address
+    shell: aws ec2 release-address --region {{region}} --allocation-id {{allocation_id.stdout_lines[0]}}
+    delegate_to: 127.0.0.1
+    sudo: no
+    when: keep_ip == False and has_eip == "t"
 
   - name: Updating database
     shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, source_ami='{{regions[region].source_ami}}', provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
