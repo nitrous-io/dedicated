@@ -1,7 +1,7 @@
 @import 'website_variables'
 // ------------------------------------
 // Notice bar below hero section
-// Used on /home and /stacks, and stack pages
+// Used on /home, /stacks, /jobs, and stack pages
 // Useful on /home for highlighting new blog posts
 .notice
   height: 48px
@@ -21,6 +21,7 @@
   ul
     text-align: center
     padding: 0
+
     li
       display: inline-block
       margin: 0 10px
@@ -123,3 +124,41 @@
   span.link + i
     font-size: 8px
     top: -1px
+
+  .breadcrumb
+    text-align: left
+
+    a, span
+      font-size: 16px
+
+    a
+      font-weight: bold
+      color: $blue
+      margin-right: 10px
+
+      &:hover
+        color: lighten($blue,5)
+
+    span
+      color: $greyBlue
+
+  & + .with-pulled-visual
+    margin-top: 60px
+
+  &.darker
+    a
+      transition: background .1s
+
+      &:before
+        content: ""
+        position: absolute
+        top: 0
+        left: 0
+        bottom: 0
+        right: 0
+        background: rgba(0,0,0,0)
+        transition: background .1s
+
+      &:hover
+        &:before
+          background: rgba(0,0,0,.02)

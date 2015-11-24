@@ -1,5 +1,5 @@
 - @title = 'Platform Engineer · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'jobs'
 
 
@@ -12,16 +12,25 @@
           | Platform Engineer
         h3
           | San Francisco — Singapore
-          
+
+  .notice.darker
+    .container
+      .breadcrumb
+        a href="/jobs"
+          .fa.fa-angle-left
+          | Open Positions
+        span
+          | / Platform Engineer
+
   article.job-listing
     .container
-    
+
       .content
         .job-intro
           h3 We're changing the way the world codes.
-          p 
+          p
             | The Nitrous platform engineering and devops team works on the infrastructure and tools that power our cutting-edge cloud development platform.
-            
+
         .job-description
           p
             | We're looking for talented engineers who are passionate about building fault-tolerant distributed systems, automating configuration and deployment, and bringing about a level of security to our deployment process which enables our application teams to deploy features quickly and consistently.
@@ -53,8 +62,17 @@
             li Resume
             li Github Profile
             li Links to side/hobby projects that you have built
-            
+
       .sidebar
+        .btn-wrapper
+          a class="btn blue" href="mailto:jobs@nitrous.io?subject=Platform Engineer @ Nitrous"
+            | Apply for this position
+
+          p.small
+            | Nitrous does not accept agency resumes.
+            br
+            | Nitrous is an equal opportunity employer.
+
         h4 Perks
         ul
           li Competitive salary &amp; equity
@@ -65,15 +83,6 @@
           li Fun company events
           li Referral bonus program
           li SF-Singapore exchange program
-        
-        a class="btn blue" href="mailto:jobs@nitrous.io?subject=Platform Engineer @ Nitrous"
-          | Apply for this position
-        
-        p.small
-          | Nitrous does not accept agency resumes.
-          br
-          | Nitrous is an equal opportunity employer.
-
 
 
 = render partial: 'layouts/footer', locals: { active: 'jobs' }

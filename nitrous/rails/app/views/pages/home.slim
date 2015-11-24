@@ -37,8 +37,7 @@
           br
           | and share development environments in the cloud
 
-        //= render 'layouts/cta_form'
-        a.btn.white href='/signup'
+        a.btn.white href='/app/#/signup'
           | Start your 7-day free trial
 
   .notice.darker
@@ -50,52 +49,75 @@
           span.link Read more
           i.fa.fa-chevron-right
 
-  article.featurette.ide.attached-bottom
-    .container
-      h3.big-title A full-featured IDE in your browser
-      h4
-        | With support for over 90 languages out of the box, Nitrous is the lightweight and modern IDE you’ve been waiting for.
-        br
-        | Run web servers, databases, caches and more, right from your Web browser.
-
-      .full-visual
-        .window-controls.osx
-          span
-          span
-          span
-
 
   article.featurette
     .container
 
-      .box-wrapper.three
-        .box.terminal
-          h3.with-icon Built-in terminal
-          p Install libraries, manage dependencies and execute scripts in your project with terminal and full root access.
+      .tabs
+        .tab
+          .tab-title
+            h3.big-title Consistent Development Environments in the Cloud
 
-        .box.code
-          h3.with-icon Zero-to-code in seconds
-          p Stop letting valuable development time go to waste on system setup and maintenance. We’ll take care of that for you, so you never have to.
+          .tab-content
+            .image-wrapper
+              = image_tag 'home/home-visual-1.png', width:"484", height:"348"
+            p
+              | With Nitrous, developers can utilize&nbsp;
+              strong pre-built development environment&nbsp;
+              | templates from the Nitrous standard library, or use their companies' own&nbsp;
+              strong private templates&nbsp;
+              |. This makes it incredibly easy to keep standard templates for a particular client's project, or to collaborate and share among teams.
 
-        .box.containers
-          h3.with-icon The power of Docker
-          p Create and work on multiple containers, or create custom containers using Docker images.
+        .tab
+          .tab-title
+            h3.big-title Scalable, Compliant Infrastructure
 
-      .box-wrapper.three
-        .box.github
-          h3.with-icon GitHub integration
-          p Connect your GitHub account, pull repos, push code, and stay productive wherever you are.
+          .tab-content
+            .image-wrapper
+              = image_tag 'home/home-visual-2.png', width:"484", height:"314"
+            p
+              | Nitrous gives you&nbsp;
+              strong complete control&nbsp;
+              | of your workstation and projects. You have&nbsp;
+              strong root access&nbsp;
+              | to each one, and you can interact with them as you would any machine. In addition, Nitrous provides robust controls to maintain&nbsp;
+              strong security and data protection&nbsp;
+              | in the cloud.
 
-        .box.collaboration
-          h3.with-icon Collaboration
-          p Code collaboratively in real-time. Get help from a friend or co-worker, and code directly on the same machine in the cloud.
+        .tab
+          .tab-title
+            h3.big-title Isolated and Replicable Projects
 
-        .box.snapshots
-          h3.with-icon Snapshots
-          p Take snapshots to preserve the state of your project's environment, and revert back to them at any time.
+          .tab-content
+            .image-wrapper
+              = image_tag 'home/home-visual-3.png', width:"484", height:"314"
+            p
+              | Start with a&nbsp;
+              strong fresh Nitrous box&nbsp;
+              | every time you begin a new project instead of running into installation and configuration issues from previous projects on your local machine or managed corporate VM. Save your base environment to reuse again, and&nbsp;
+              strong share it with team members
+              |.
+
+
+  article.featurette.full-window
+    .container
+      h3.big-title The Dashboard to all your projects
+      h4
+        | Create, share, and snapshot your development projects all in one place
+
+      .full-visual
+        .window-controls.osx-safari
+          span
+          span
+          span
+          .nav-btn
+          .nav-btn
+          .url-address
+          .nav-new-tab
+        = image_tag 'home/dashboard-next-home.png', width:"970", height:"524", alt: 'The New Nitrous Dashboard'
 
       .centered
-        a class="btn white-outline" href="/features"
+        a class="btn grey-outline" href="/features"
           | Learn more
 
   article.quotes
@@ -175,40 +197,7 @@
         label.carousel-control.next.control-4 for="carousel-1"
           i.fa.fa-chevron-right
 
-  - if false
-    article.for-everyone.lighter
-      .container
-        .box-wrapper.four
-          .box
-            h3.larger For Teams
-            p Work collaboratively on applications and private repos. Leverage Nitrous's cutting-edge cloud IDE to stay productive wherever you are.
-            a.learn-more href="/orgs"
-              | Learn more
-              i.fa.fa-chevron-right
-
-          .box
-            h3.larger For Agencies
-            p Create a sandboxed environment for each of your clients in just minutes. Snapshot your projects and maintain a working application environment to revisit anytime.
-            a.learn-more href="/agencies"
-              | Learn more
-              i.fa.fa-chevron-right
-
-          .box
-            h3.larger For Developers
-            p Stop wasting time on system setup and maintenance. Go straight to what you do best: coding. Spin up boxes, build apps, deploy, and start again.
-            a.learn-more href="/enterprises"
-              | Learn more
-              i.fa.fa-chevron-right
-
-          .box
-            h3.larger For Students
-            p Work on your projects from Chromebooks, Windows machines, or school computer. Your development environment follows you wherever you are.
-            a.learn-more href="/education"
-              | Learn more
-              i.fa.fa-chevron-right
-
-
-  = render partial: 'layouts/companies', locals: { theme: '' }
+  = render partial: 'layouts/companies', locals: { theme: 'light' }
 
   = render 'layouts/cta'
 

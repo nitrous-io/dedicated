@@ -2,16 +2,6 @@ pages.Pricing =
   init: ->
     pages.activePageName = 'Pricing'
 
-    $('.selectable').click (event) ->
-      event.preventDefault()
-      if($(this).hasClass('active'))
-        false
-      else
-        $('.paid').css('opacity','1')
-        $('.selectable.active').removeClass('active')
-        $(this).addClass('active')
-        false
-
     # fetch plans
     plans = []
 

@@ -1,5 +1,5 @@
 - @title = 'Software Engineer · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'jobs'
 
 
@@ -12,6 +12,15 @@
           | Software Engineer
         h3
           | San Francisco — Singapore
+
+  .notice.darker
+    .container
+      .breadcrumb
+        a href="/jobs"
+          .fa.fa-angle-left
+          | Open Positions
+        span
+          | / Software Engineer
 
   article.job-listing
     .container
@@ -56,6 +65,15 @@
             li Links to side/hobby projects that you have built
 
       .sidebar
+        .btn-wrapper
+          a class="btn blue" href="mailto:jobs@nitrous.io?subject=Software Engineer @ Nitrous"
+            | Apply for this position
+
+          p.small
+            | Nitrous does not accept agency resumes.
+            br
+            | Nitrous is an equal opportunity employer.
+
         h4 Perks
         ul
           li Competitive salary &amp; equity
@@ -66,14 +84,5 @@
           li Fun company events
           li Referral bonus program
           li SF-Singapore exchange program
-
-        a class="btn blue" href="mailto:jobs@nitrous.io?subject=Software Engineer @ Nitrous"
-          | Apply for this position
-
-        p.small
-          | Nitrous does not accept agency resumes.
-          br
-          | Nitrous is an equal opportunity employer.
-
 
 = render partial: 'layouts/footer', locals: { active: 'jobs' }

@@ -1,5 +1,5 @@
 - @title = 'Company · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'company'
 
 - content_for :body_after
@@ -72,9 +72,8 @@
     .cover-photo
 
 
-  article.investors.attached-bottom
+  article.investors.darker
     .container
-      h3.big-title Our investors
       ul.investor-logos
         li
           a.bvp href="http://www.bvp.com/" target="_blank"
@@ -92,7 +91,7 @@
 
   article.investors.attached-bottom
     .container
-      h3.big-title Our angels
+      h3.big-title Our Angels &amp; Advisors
       ul.angels
         li
           a href="https://angel.co/saverin" target="_blank"
@@ -119,11 +118,7 @@
             = image_tag 'home/larry-link.png', width: '62px', height: '62px', alt: 'Nitrous angel', class: 'zoom'
             span Larry Link
 
-
-  article.advisors
-    .container
-      h3.big-title Our advisors
-      ul
+      ul.advisors
         li
           a href="https://twitter.com/tobi" target="_blank"
             = image_tag 'home/tobi-lutke.png', width: '62px', height: '62px', alt: 'Nitrous advisor', class: 'zoom'
@@ -157,7 +152,7 @@
       .pin
     .map
       .address
-        .address-1 1A Trengganu St. 2nd Floor
+        .address-1 29A Teo Hong Road
         .address-2 Singapore
       .pin
 

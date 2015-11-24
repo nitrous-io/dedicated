@@ -1,5 +1,5 @@
 - @title = 'Features · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'features'
 
 - content_for :body_after
@@ -15,7 +15,7 @@
         h2
           | Making coding in the cloud a reality
         h3
-          | Be productive on any machine &amp; operating system
+          | Get coding fast, be productive like never before
 
   article.featurette
     .container
@@ -31,7 +31,7 @@
 
         .box.containers
           h3.with-icon Powered by Docker
-          p Create & develop on multiple containers within a workspace, or create custom containers using Docker images.
+          p Create & develop on multiple projects within a workstation, or create custom project using Docker images.
 
       .box-wrapper.three
         .box.collaboration
@@ -58,8 +58,7 @@
         .box.ssh
           h3.with-icon Full SSH access
           p
-            | Access your development container directly with SSH&sup1;.
-            sup &sup1;Only available on paid plans
+            | Get complete control of your workstation and projects, and access them anytime with SSH.
 
       .box-wrapper.three
         .box.ssl
@@ -75,36 +74,6 @@
           p Every user operates within their own isolated environment and cannot interact with other applications or areas of the system.
 
 
-  article.featurette.with-pulled-visual.trio
-    .container
-      h3.big-title The first cloud IDE you'll love
-      h4
-        | Light and dark themes, multiple layouts, and power-tools
-        br
-        |that will put your desktop code editor to shame
-
-      .visual-wrapper
-        .full-visual.window.centered
-          .window-controls.osx
-            span
-            span
-            span
-          = image_tag 'home/ide-featurette-2.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
-
-        .full-visual.window
-          .window-controls.osx
-            span
-            span
-            span
-          = image_tag 'home/ide-featurette-3.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
-
-        .full-visual.window
-          .window-controls.osx
-            span
-            span
-            span
-          = image_tag 'home/ide-featurette-1.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
-
   article.featurette.with-pulled-visual.cut-off
     .container
       .box-wrapper.text-on-left
@@ -113,18 +82,18 @@
           .content
             h3.big-title Self-service dashboard
             p
-              | Easily create and manage containers in your workspace, or create your own custom containers with Docker images.
+              | Easily create and manage new projects, or load your own using Docker images.
             p
-              | Access your app's public preview or SSH URLs in one click, and invite others to come collaborate on your project with you.
+              | Access your app's public preview or SSH URLs, and invite others to collaborate on your project.
 
         .box.auto
           .content
             .full-visual.window.centered
-              .window-controls.osx
+              .window-controls.osx.colored
                 span
                 span
                 span
-              = image_tag 'home/dashboard-featurette-1.png', width: '808px', height: '460px', alt: 'Self-service Dashboard'
+              = image_tag 'home/dashboard-next-features.png', width:"970", height:"524", alt: 'Self-service Dashboard'
 
 
   article.featurette.with-pulled-visual.cut-off
@@ -134,23 +103,53 @@
         .box.auto.visual-on-left
           .content
             .full-visual.window
-              .window-controls.osx
+              .window-controls.osx.colored
                 span
                 span
                 span
-              = image_tag 'home/dashboard-featurette-2.png', width: '808px', height: '460px', alt: 'Self-service Dashboard'
+              = image_tag 'home/create-next-features.png', width:"970", height:"524", alt: 'Get coding fast with Nitrous'
 
         .box.auto.text
           .content
             h3.big-title Get coding fast
             p
-              ' Containers come with a set of
+              ' Nitrous projects come with a set of
               strong pre-installed tools, libraries
-              ', and/or
+              ', and
               strong frameworks
               |  to get you coding fast.
             p
               | Stop worrying about setting up your development environment, we'll take care of that for you.
+
+  article.featurette.with-pulled-visual.trio.with-wallpaper
+    .container
+      h3.big-title Best-in-class Cloud IDE
+      h4
+        | Multiple layouts, smart auto-complete, live collaboration, and power-tools
+        br
+        |that will put your desktop code editor to shame
+
+      .visual-wrapper
+        .full-visual.window.centered
+          .window-controls.osx.colored
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-2.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
+
+        .full-visual.window
+          .window-controls.osx.colored
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-3.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
+
+        .full-visual.window
+          .window-controls.osx.colored
+            span
+            span
+            span
+          = image_tag 'home/ide-featurette-1.png', width: '808px', height: '486px', alt: 'Self-service Dashboard'
 
 
   article.downloads.lighter
@@ -164,7 +163,7 @@
             .item
               h4 Manage your cloud environments
               p
-                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous workspaces running in the cloud.
+                | Nitrous Desktop (available for Windows, OS X, and Linux) lets you manage your Nitrous projects running in the cloud.
 
             .item
               h4 Sync files, use your favorite editor

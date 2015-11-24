@@ -4,6 +4,7 @@
 .btn
   -webkit-tap-highlight-color: transparent
   cursor: pointer
+  font-weight: 400
 
   &.blue, &.grey, &.hack, &.light-grey, &.blue-outline, &.grey-outline, &.white-outline
     display: inline-block
@@ -18,6 +19,9 @@
     margin-top: 30px
     color: #FFF
     background: $blue
+
+    &:hover
+      background: lighten($blue,5)
 
   &.grey
     width: 139px
@@ -108,30 +112,46 @@
     padding: 0 14px 0 38px
     margin: 0 10px 0 0
     display: inline-block
-    background-color: #2A3239
-    background: rgba(0,0,0,.15) image_url('home/download-btns.png') 0 0 no-repeat
+    color: #FFF
+    background-color: $blue
+    background: $blue image_url('home/download-btns.png') 0 0 no-repeat
     background-size: 32px 256px
     border: 0
     border-radius: 4px
     transition: background-color .14s ease-in-out
 
     &.osx
-      background-position: 4px 5px
+      background-position: 4px -123px
     &.windows
-      background-position: 4px -28px
+      background-position: 4px -156px
     &.chrome
-      background-position: 4px -59px
+      background-position: 4px -187px
     &.linux
-      background-position: 4px -92px
+      background-position: 4px -220px
 
     &:hover
-      color: #FFF
-      background-color: $blue
-      &.osx
-        background-position: 4px -123px
-      &.windows
-        background-position: 4px -156px
-      &.chrome
-        background-position: 4px -187px
-      &.linux
-        background-position: 4px -220px
+      background-color: lighten($blue,5)
+
+
+.light
+  .hero-copy
+    .btn
+      height: 46px
+      background: #FFF
+      color: $blue
+
+      &.white
+        width: auto
+        height: 48px
+        border-radius: 4px
+        line-height: 48px
+        font-size: 18px
+        font-weight: 400
+        display: inline
+        margin: 40px auto 0 auto
+        padding: 0 40px
+        +transition(.2s ease-out)
+
+        &:hover
+          background: rgba(255,255,255,.95)
+          box-shadow: 0 0 6px rgba(0,0,0,.15)
