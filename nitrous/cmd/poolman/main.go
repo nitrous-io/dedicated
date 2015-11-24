@@ -49,6 +49,7 @@ func init() {
 }
 
 func poll() {
+	status := &growStatus{}
 	for {
 		grown := 0 // number of hostbuilder grows in this polling interval
 
@@ -88,7 +89,7 @@ func poll() {
 				for i := 0; i < numToGrow; i++ {
 					grown++
 					logrus.WithFields(f).Infof("growing type %s (%d/%d)", poolConf.Type, grown, flMaxGrowsPerPoll)
-					go growPool(r.ID, poolConf.Type)
+					go growPool(status, r.ID, poolConf.Type)
 				}
 			}
 		}
