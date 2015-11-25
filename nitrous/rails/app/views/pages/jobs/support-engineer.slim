@@ -1,5 +1,5 @@
 - @title = 'Support Engineer · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'jobs'
 
 
@@ -12,14 +12,23 @@
           | Support Engineer
         h3
           | San Francisco — Singapore
-          
+
+  .notice.darker
+    .container
+      .breadcrumb
+        a href="/jobs"
+          .fa.fa-angle-left
+          | Open Positions
+        span
+          | / Support Engineer
+
   article.job-listing
     .container
-      
+
       .content
         .job-intro
           h3 We're changing the way the world codes.
-          p 
+          p
             | Nitrous support engineers author platform documentation and provide guidance to users so they can build amazing applications.
 
         .job-description
@@ -31,14 +40,14 @@
             li Interface with users for technical support
             li Author tutorials, walkthroughs &amp; "how to" videos about platform features
             li Aggregate &amp; perform analysis on support requests to inform product decision making
-          
+
           h4 Requirements
           ul
             li Great oral and written communication skills
             li Experience with technical writing
             li Familiarity with Ruby, Python, Node.js, or Go a plus
             li A passion for helping and teaching, especially within the technology sphere
-          
+
           h4 To apply, please provide the following:
           ul
             li Resume
@@ -46,6 +55,15 @@
             li Links to blog or technical documentation if applicable
 
       .sidebar
+        .btn-wrapper
+          a class="btn blue" href="mailto:jobs@nitrous.io?subject=Support Engineer @ Nitrous"
+            | Apply for this position
+
+          p.small
+            | Nitrous does not accept agency resumes.
+            br
+            | Nitrous is an equal opportunity employer.
+
         h4 Perks
         ul
           li Competitive salary &amp; equity
@@ -56,14 +74,6 @@
           li Fun company events
           li Referral bonus program
           li SF-Singapore exchange program
-        
-        a class="btn blue" href="mailto:jobs@nitrous.io?subject=Support Engineer @ Nitrous"
-          | Apply for this position
-        
-        p.small
-          | Nitrous does not accept agency resumes.
-          br
-          | Nitrous is an equal opportunity employer.
-          
+
 
 = render partial: 'layouts/footer', locals: { active: 'jobs' }

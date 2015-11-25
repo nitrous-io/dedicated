@@ -3,9 +3,6 @@
 // Features
 #features
 
-  .featurette .full-visual
-    width: auto
-
   .featurette:first-of-type
     padding-top: 20px
     padding-bottom: 70px
@@ -34,29 +31,7 @@
     overflow: hidden
     border-radius: 4px 4px 1px 1px
 
-
-  .box
-    .big-title
-      text-align: left
-
-
-  .visual-on-left
-    .window
-      width: 808px
-      left: -340px
-
   .box.auto
-
-    &.text
-      .content
-        width: 320px
-        padding-top: 90px
-
-        h3 + p
-          padding-top: 10px
-
-        p + p
-          margin-top: 16px
 
     .content
       width: 460px
@@ -83,7 +58,7 @@
         padding: 0 0 6px 0
 
       h4, p
-        color: #a5b3be
+        color: #393C44
 
     .download-btns
       align-self: flex-end
@@ -98,14 +73,19 @@
         background: image_url('home/nitrous-chrome-icon.png') 0 0 no-repeat
         background-size: 44px 44px
 
+  article.with-pulled-visual
+    .box.auto.text
+      .content
+        padding-top: 90px
+
   article.downloads
     padding: 74px 0 50px 0
 
-  article.cut-off
-    height: 360px
-
   article.trio
-    height: 652px
+    padding-top: 80px
+
+    .big-title
+      text-align: center
 
     .full-visual:nth-child(2), .full-visual:nth-child(3)
       position: absolute
@@ -116,3 +96,11 @@
 
     .full-visual:nth-child(3)
       right: -756px
+
+  article.with-wallpaper
+
+    h4
+      padding-bottom: 60px
+
+    .window
+      box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 20px 0 rgba(0, 0, 0, 0.25), 0 0 1px rgba(0,0,0,.30)

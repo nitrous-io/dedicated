@@ -6,42 +6,53 @@
     .container
       display: flex
       position: relative
-      
+
       .content
         width: 60%
-        
+
       .sidebar
         width: 26%
         margin-left: 14%
-        
+
         .btn
-          margin-top: 40px
-        
+          width: 100%
+          margin: 0
+          padding-left: 0
+          padding-right: 0
+
         .small
-          width: 96%
           font-size: 12px
-          line-height: 20px
+          line-height: 18px
           margin: 10px 0 0 0
           text-align: center
-          color: $greyLighter
-      
+          color: $greyBlue
+          display: block
+
+        .btn-wrapper
+          background: rgba(0,0,0,.03)
+          margin-bottom: 30px
+          padding: 14px 14px
+          border-radius: 5px
+
       h3
         font-size: 22px
-      
+
       h4
+        color: $blue
         text-align: left
         padding: 20px 0
-      
+        font-weight: bold
+
       ul
         list-style: disc
         list-style-position: inside
-      
+
         & + h4
           padding-top: 30px
-        
+
       li
         margin: 6px 0
-      
+
       p
         font-size: 16px
         line-height: 26px
@@ -49,47 +60,12 @@
 
     .job-description
       padding: 20px 0
-      
 
-  .square-grid
-    min-width: 1024px
-    padding: 0
-    display: flex
-    flex-wrap: wrap
-    overflow: hidden
-    
-    .grid-item
-      width: 50%
-      display: flex
-      position: relative
-      
-      &:after
-        content: ""
-        position: absolute
-        top: -1px
-        left: 0
-        right: 0
-        bottom: -1px
-        display: block
-        border: 1px solid $n2oGray1000
-        transition: all .15s ease-in-out
-      
-      &:nth-child(2n+1) 
-        &:after
-          left: -1px
-          border-right: 0
-      
-      &:nth-child(2n)
-        &:after
-          right: -1px
-      
-      &:nth-child(3n), &:nth-child(4n)
-        &:after
-          border-top: 0
+  .box-wrapper + .box-wrapper
+    margin-top: 0
 
   .opening
-    height: 260px
-    color: #eee
+    height: 200px
     font-size: 18px
     border: 0
     margin: 0
@@ -101,20 +77,26 @@
     align-items: center
     flex-wrap: wrap
 
-    &:hover
-      &:after
-        background: rgba(0,0,0,.08)
-
     span
       display: block
+      transition: all .15s ease-out
 
       &.title
+        color: #393C44
         font-family: $boldFont
+        font-weight: 300
         font-size: 20px
         padding-bottom: 4px
 
       &.location
         color: $greyLighter
+
+    &:hover
+      .title
+        color: $blue
+
+      .location
+        color: #393C44
 
     .icon
       width: 42px
@@ -142,3 +124,15 @@
     &.job-support .icon
       background: image_url('home/jobs-support.png') 0 0 no-repeat
       background-size: 38px 39px
+
+
+  article.life-at
+    background: $blue
+    padding: 80px 0 50px 0
+
+    h3, p
+      color: #FFF
+
+    h3
+      font-family: $boldFont
+      margin-bottom: 10px

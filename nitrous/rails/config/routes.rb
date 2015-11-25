@@ -11,7 +11,6 @@ Rails.application.routes.draw do
   get '/flatiron' => 'pages#flatiron'
   get '/education' => 'pages#education'
   get '/agencies' => 'pages#agencies'
-  get '/enterprises' => 'pages#enterprises'
   get '/orgs' => 'pages#orgs'
   get '/vpc' => 'pages#vpc'
 

@@ -16,40 +16,74 @@
           br
           | multiple projects with different clients effortlessly
 
+        a.btn.white href="/app/#/signup" Sign Up For Nitrous
 
-
-  article.featurette.offset-visual
+  .notice.darker
     .container
-
-      .full-visual
-        = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
-
-      .box-wrapper.three.centered
-        .box
-          .visual
-            = image_tag 'home/large-featurette-seconds.svg', class: 'visual', alt: 'Zero-to-Code in Seconds'
-          h3.section-title Zero-to-Code in Seconds
-          p Spin up a complex development environment for any app, language or stack in seconds. Work with your favorite local tools and existing workflow. Nitrous enables you to work on any project/stack a new client may require without wasting time with setup and maintenance.
-
-        .box
-          .visual
-            = image_tag 'home/large-featurette-containers.svg', class: 'visual', alt: 'Manage Multiple Projects in the Cloud'
-          h3.section-title Manage Multiple Projects in the Cloud
-          p With a multi-container workspace, you can juggle multiple projects without breaking a sweat, even if each requires a unique, complex dev environment to operate. Leave the heavy lifting to us, while you focus on building products that your clients would love.
-
-        .box
-          .visual
-            = image_tag 'home/large-featurette-share.svg', class: 'visual', alt: 'Showcase your Project with Clients Instantly'
-          h3.section-title Showcase your Project with Clients Instantly
-          p Preview and test your app hosted instantly in the cloud at no cost. Upgrade to a paid plan to acquire custom domains once the app is ready for the world.
-
-      = render partial: 'layouts/datasheet'
-
-      .centered
-        a href="/orgs"
-          | Learn more about Nitrous Orgs
+      p
+        a href="/orgs" target='_blank'
+          | Need additional security, control, and support?
+          span.link Try Nitrous Orgs
           i.fa.fa-chevron-right
 
+  article.featurette.full-window.with-border
+    .container
+      h3.big-title All your teams's projects, in one place
+      h4
+        | Nitrous lets you and your team create, administer, share, and
+        br
+        | snapshot development projects from one convenient place
+
+      .full-visual
+        .window-controls.osx-safari
+          span
+          span
+          span
+          .nav-btn
+          .nav-btn
+          .url-address
+          .nav-new-tab
+
+        = image_tag 'home/dashboard-next-agencies.png', width:"970", height:"524"
+
+
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Snapshots
+            p
+              | Preserve the state of your project's environment, and revert back to them at any time
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/snapshots-next-agencies.png', width:"970", height:"524", alt: 'Nitrous Org member Administration'
+
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Org member Administration
+            p
+              | Quickly add and remove team members, and set their role within the team.
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/members-next-agencies.png', width:"970", height:"524", alt: 'Nitrous Org member Administration'
 
   article.colored.rails.quote
     .container
@@ -72,9 +106,9 @@
       blockquote
         = image_tag 'home/quote-wilsonsmith-logo.svg', class: 'visual', alt: 'Wilson & Smith'
         p
-          | I love the vision. It has been prophesied by the forefathers of UNIX that a day would come in which our computers would simply be a piece of glass connected to some computer on the network.
+          | I love the vision. It has been prophesied by the forefathers of UNIX that a day would come in which our computers would simply be a piece of glass connected to some computer on the network.&nbsp;
           strong Nitrous.io is making that dream a reality
-          |. Practically speaking, the feature that captivates my attention is that I have
+          |. Practically speaking, the feature that captivates my attention is that I have&nbsp;
           strong easy SSH access to a Linux machine
           |  that someone else is maintaining. Among all of my responsibilities, personal system administration is something that I am keen on delegating. If I never have to worry about keeping a machine online and its state secured, then I will be winning.
         cite

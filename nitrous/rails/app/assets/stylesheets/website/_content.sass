@@ -42,9 +42,6 @@ blockquote
       font-style: italic
       padding-left: 4px
 
-    a
-      color: rgba(0,0,0,.6)
-
     img
       width: 36px
       height: 36px
@@ -80,11 +77,6 @@ input, input[type="submit"]
   margin: 0 auto
 
 .page
-
-  h1, h2, h3, h4
-    font-weight: 200
-    color: #FFF
-
   h4
     font-size: 18px
     line-height: 21px
@@ -94,11 +86,11 @@ input, input[type="submit"]
   font-size: 20px
   color: #FFF
   padding-bottom: 30px
-  font-family: $boldFont
+  font-family: $opensans
   font-weight: 400
 
 article
-  padding: 50px 0
+  padding: 60px 0
 
   &.attached-top
     padding-top: 0
@@ -124,7 +116,6 @@ article
       margin-left: 4px
 
   h4
-    color: $greyLighter
     font-size: 16px
     line-height: 24px
     text-align: center
@@ -150,7 +141,7 @@ article
     width: 580px
     display: block
     margin: 0 auto
-    padding: 60px 0 30px 0
+    padding: 32px 0 30px 0
     font-size: 20px
     line-height: 34px
 
@@ -338,6 +329,27 @@ i.chevron-right
     .content
       justify-content: flex-end
 
+
+article.with-pulled-visual
+  .big-title
+    text-align: left
+
+  .visual-on-left
+    .window
+      width: 970px
+      left: -520px
+
+  .text
+    .content
+      width: 320px
+      padding-top: 90px
+
+      h3 + p
+        padding-top: 10px
+
+      p + p
+        margin-top: 16px
+
 h4 + .box-wrapper
   padding-top: 40px
 
@@ -469,12 +481,8 @@ h4 + .box-wrapper
         font-size: 16px
 
       a
-        color: rgba(0,0,0,.6)
-
-        &:hover
-          color: $blue
-          span
-            color: rgba(0,0,0,.6)
+        color: #FFF
+        border: 0
 
 .two
   padding: 0 60px
@@ -504,10 +512,11 @@ h4 + .box-wrapper
       width: 480px
 
 .big-title, .page .big-title
-  font-size: 26px
+  font-size: 30px
+  line-height: 38px
   text-align: center
   padding-bottom: 10px
-  font-family: $boldFont
+  font-family: $opensans
   font-weight: 400
 
 .box-wrapper
@@ -518,6 +527,9 @@ h4 + .box-wrapper
 article.with-pulled-visual
   overflow: hidden
 
+article.cut-off
+  height: 360px
+
 .visual-wrapper
   position: relative
 
@@ -526,13 +538,48 @@ article.with-pulled-visual
 
 
 // --------------------------------------
+// Full Window
+.full-window
+  border-bottom: 0
+  +webkitFix
+
+  h3
+    padding-top: 40px
+
+  & + article
+    padding-top: 40px
+    padding-bottom: 50px
+
+  .box-wrapper + .centered:last-of-type
+    padding-top: 60px
+
+  & + .featurette
+    .box-wrapper
+      padding: 0 20px
+
+  .full-visual
+    width: 970px
+    height: 551px
+    transition: none
+
+    img
+      border-radius: 0 0 4px 4px
+
+  video
+    display: block
+    width: 970px
+    height: 545px
+    border: 0
+    margin: 0
+    padding: 0
+
+// --------------------------------------
 // Columns
 .columns
   width: 100%
   max-width: 1000px
-  column-width: 445px
+  column-width: 400px
   column-gap: 100px
-  column-fill: auto
   margin: 40px auto 0 auto
 
   .item
@@ -541,6 +588,7 @@ article.with-pulled-visual
     column-break-inside: avoid
     break-inside: avoid
     margin-bottom: 60px
+
     &:nth-of-type(5)
       margin-bottom: 0
 
@@ -579,11 +627,11 @@ article.with-pulled-visual
   margin: 0 auto 30px
   padding: 0
   text-align: center
-  box-shadow: 0 2px 20px rgba(0,0,0,.2)
+  box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 0 1px rgba(0,0,0,.35)
   border-radius: 3px
 
   &, img
-    background: #1C2227
+    background: #FFF
 
   img
     box-shadow: 0 2px 20px rgba(0,0,0,.2)
@@ -591,6 +639,7 @@ article.with-pulled-visual
 // --------------------------------------
 // CTA
 .cta
+  padding: 80px 0
   text-align: center
 
   h3
@@ -657,16 +706,6 @@ article.with-pulled-visual
     &.no-border
       border-bottom: 0
 
-  //.quotes .one
-  //  blockquote
-  //    p
-  //      &:before
-  //        color: $blue
-
-  //  cite
-  //    img
-  //      border: 2px solid $blue
-  //      border-radius: 36px
 
 // --------------------------------------
 // Light-themed pages only
@@ -684,11 +723,7 @@ article.with-pulled-visual
       background: rgba(0,0,0,.04)
 
     cite
-      color: rgba(0,0,0,.8)
       font-weight: 400
-
-      span
-        color: rgba(0,0,0,.6)
 
   .colored
     blockquote
@@ -715,9 +750,18 @@ article.with-pulled-visual
       display: none
 
   .quotes
+    background: $blue
+
+    blockquote
+      p, strong, cite
+        color: #FFF
+
+      span
+        color: rgba(255,255,255,.8)
+
     .one p
       &:before
-        color: #cfcfcf
+        color: rgba(255,255,255,.4)
 
   article h4 a
     color: #a5b3be
@@ -802,12 +846,9 @@ article.with-pulled-visual
     p
       color: #000
 
-    h3, .big-title, .section-title
-      font-family: $opensans
-      font-weight: 200
-
     h3, .box h3.larger
-      color: rgba(0,0,0,.6)
+      color: #393C44
+      font-weight: 500
       padding-bottom: 10px
 
       &.with-icon
@@ -852,21 +893,11 @@ article.with-pulled-visual
         left: 50%
         margin-left: -485px
 
-  .full-visual, .full-visual img
-    background: transparent
-
   .full-visual
     overflow: hidden
 
   .full-visual img
-    height: 100%
     display: block
-
-  .visual
-    margin-bottom: 10px
-
-    &, img
-      height: 76px
 
   .visual + h3
     color: $blue
@@ -881,40 +912,21 @@ article.with-pulled-visual
     align-items: center
     justify-content: center
 
-  blockquote
-    width: 560px
-
-    .visual
-      margin: 0 auto 10px auto
-      display: block
-      opacity: .6
-
-    p
-      position: relative
-      font-size: 20px
-      line-height: 34px
-      text-indent: 60px
-      text-align: justify
-
-      &:before
-        +quoteVisual(rgba(255,255,255,.5),18px,-64px,90px)
-
-    strong
-      background: rgba(255,255,255,.1)
-      padding: 0 3px
-
-    cite
-      margin-top: 10px
-      font-size: 20px
-      font-style: normal
-
-      span
-        font-size: 16px
-        font-weight: 300
-        font-style: italic
-
   .colored
     border-bottom: 0
+
+    .visual
+      margin: 0 auto 20px auto
+      display: block
+      height: 76px
+
+    blockquote
+      width: 600px
+
+      &, p
+        font-size: 20px
+        line-height: 32px
+        text-align: justify
 
     p, cite
       color: #FFF
@@ -961,7 +973,7 @@ article.with-pulled-visual
 
   .address
     position: relative
-    top: 88px
+    top: 90px
     text-align: center
     +webkitFix
     span
@@ -969,7 +981,7 @@ article.with-pulled-visual
 
     .address-1
       font-size: 22px
-      padding-bottom: 8px
+      padding-bottom: 6px
 
     .address-2
       font-size: 18px
@@ -987,16 +999,16 @@ article.with-pulled-visual
       color: #FFF
 
   .pin
-    width: 10px
-    height: 10px
+    width: 8px
+    height: 8px
     position: absolute
     display: block
     left: 50%
     top: 50%
     margin: 60px 0 0 -5px
-    background: $blue
+    background: #FFF
     border-radius: 10px
-    border: 2px solid #22282D
+    border: 3px solid $blue
     z-index: 2
     +webkitFix
 
@@ -1005,11 +1017,10 @@ article.with-pulled-visual
       width: 72px
       height: 72px
       position: absolute
-      top: -36px
-      left: -36px
+      top: -32px
+      left: -32px
       border-radius: 100%
       background: $blue
-      border: 5px solid $blue
       animation: pulse 2s infinite
       z-index: 1
       +webkitFix
@@ -1092,3 +1103,46 @@ article.with-pulled-visual
       left: 0
       background: image_url('home/small-featurette-awsactivate.png') -2px 0 no-repeat
       background-size: 32px 32px
+
+// --------------------------------------
+// Tabs
+.tabs
+  .tab
+    display: flex
+    flex-direction: row
+    margin: 20px 0 60px
+
+    &:first-of-type
+      margin-top: 30px
+
+    &:last-of-type
+      margin-bottom: 0
+
+    .tab-title
+      width: 350px
+      display: flex
+      margin-right: 80px
+      flex-grow: 1
+
+      h3
+        width: 100%
+        text-align: right
+        display: block
+
+    .tab-content
+      width: 580px
+
+      .image-wrapper
+        position: relative
+
+      img
+        display: block
+        margin-bottom: 30px
+
+      p
+        text-align: left
+        color: $greyBlue
+
+      strong
+        color: #393C44
+        font-weight: 400

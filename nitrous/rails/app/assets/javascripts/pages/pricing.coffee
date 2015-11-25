@@ -2,16 +2,6 @@ pages.Pricing =
   init: ->
     pages.activePageName = 'Pricing'
 
-    $('.selectable').click (event) ->
-      event.preventDefault()
-      if($(this).hasClass('active'))
-        false
-      else
-        $('.paid').css('opacity','1')
-        $('.selectable.active').removeClass('active')
-        $(this).addClass('active')
-        false
-
     # fetch plans
     plans = []
 
@@ -23,7 +13,8 @@ pages.Pricing =
         $plan = $(".pricing-block li.selectable[data-index=#{i}]")
         $plan.find('.plan-price .monthly .price').text(priceToDisplay)
         $plan.find('.title').text(plan.name)
-        $plan.find('.desc').text(plan.description)
+        $plan.find('.desc span').text(plan.description)
+        $plan.find('.collaborators strong').text(if plan.max_collaborators then plan.max_collaborators.toString() else 'Unlimited')
         $plan.find('.containers strong').text(plan.max_containers.toString())
         $plan.find('.memory strong').text(plan.memory)
         $plan.find('.storage strong').text(plan.storage)
@@ -46,5 +37,11 @@ pages.Pricing =
           0
       for p in pl
         if (p.price + p.base_price) > 0 && !p.org && !p.hidden
+          plans.push(p)
+      for p in pl
+        if (p.price + p.base_price) > 0 && p.org && !p.hidden
+          p.name = "Org"
+          p.price = p.price / p.max_hosts;
+          p.description = "Minimum purchase of #{p.max_hosts} workstations required"
           plans.push(p)
       updateNumbers()
