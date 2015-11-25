@@ -39,9 +39,9 @@ pages.Pricing =
         if (p.price + p.base_price) > 0 && !p.org && !p.hidden
           plans.push(p)
       for p in pl
-        if (p.price + p.base_price) > 0 && p.org && !p.hidden
+        if (p.price + p.base_price) > 0 && p.org && !p.hidden && p.max_hosts != null && p.max_hosts > 0
           p.name = "Org"
-          p.price = p.price / p.max_hosts;
+          p.price = p.price / p.max_hosts
           p.description = "Minimum purchase of #{p.max_hosts} workstations required"
           plans.push(p)
       updateNumbers()
