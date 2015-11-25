@@ -8,7 +8,7 @@
     margin: 0
     padding: 0
     display: inline-block
-    background: #1C2227
+    background: #E3E4E6
 
     img
       display: block
@@ -44,8 +44,96 @@
       display: block
       position: relative
 
-    // Dark, OSX style
+    // OSX style
     &.osx
+      background: #E3E4E6
+      background: linear-gradient(to bottom, #e3e4e6 0%,#d9d9d9 100%)
+      border-radius: 4px 4px 0 0
+
+      span
+        width: 9px
+        height: 9px
+        background: #919196
+        border-radius: 10px
+        margin: 6px 3px 5px 2px
+
+        &:first-of-type
+          margin-left: 8px
+
+      &.colored
+        border-bottom: 1px solid rgba(0,0,0,.2)
+        span
+          box-shadow: 0 0 1px rgba(0,0,0,.2) inset
+
+        span:first-of-type
+          margin-left: 8px
+          background: #FF5E57
+        span:nth-of-type(2)
+          background: #FFBD2D
+        span:nth-of-type(3)
+          background: #28CA42
+
+
+    // OSX Safari
+    &.osx-safari
+      height: 27px
+      position: relative
+      background: #E3E4E6
+      background: linear-gradient(to bottom, #EDEBED 0%,#d9d9d9 100%)
+      border-radius: 4px 4px 0 0
+      border-bottom: 1px solid rgba(0,0,0,.2)
+
+      .nav-btn, .url-address, .nav-new-tab
+        height: 17px
+        border-radius: 3px
+        display: block
+        position: absolute
+        box-shadow: 0 1px 0 rgba(0,0,0,.12)
+        background: #FDFDFD
+        background: linear-gradient(to bottom, #FEFEFE 0%,#F2F2F2 100%)
+
+      .nav-btn
+        width: 20px
+        top: 5px
+        left: 58px
+
+        & + .nav-btn
+          left: 79px
+
+      .url-address
+        width: 340px
+        top: 5px
+        left: 50%
+        margin-left: -156px
+
+      .nav-new-tab
+        width: 20px
+        bottom: 0
+        right: 0
+        border-radius: 0
+        border-left: 1px solid #AFADAF
+        border-top: 1px solid #A7A5A7
+        background: #CAC8CA
+        background: linear-gradient(to bottom, #CAC8CA 0%,#BBB9BB 100%)
+
+      span
+        width: 9px
+        height: 9px
+        background: #919196
+        border-radius: 10px
+        margin: 9px 3px 0 2px
+        box-shadow: 0 0 1px rgba(0,0,0,.2) inset
+
+        &:first-of-type
+          margin-left: 8px
+          background: #FF5E57
+        &:nth-of-type(2)
+          background: #FFBD2D
+        &:nth-of-type(3)
+          background: #28CA42
+
+    // Dark, OSX style
+    &.osx-dark
       background: #1C2227
       border-radius: 4px 4px 0 0
 

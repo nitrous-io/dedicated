@@ -4,7 +4,7 @@
 - @body_class = 'story'
 
 .page
-  .page-hero.full-height
+  .page-hero
     .container
       = render partial: 'layouts/webnav', locals: { active: 'education' }
 
@@ -12,35 +12,127 @@
         h2
           | Nitrous Orgs
         h3
-          | Leverage Nitrous's cutting-edge cloud IDE to stay lean,
+          | Securely manage and administer your team's
           br
-          | agile and productive, wherever you are
+          | development environments
 
-        a.btn.white-outline.submit href="/app/#/signup?intent=org" Sign Up Now
+        a.btn.white href="/app/#/signup?intent=org" Sign Up For Orgs
 
-        article.featurette
+  .notice.darker
+    .container
+      p
+        span.new Orgs
+        | Nitrous Orgs offers the advanced security, controls, and support your enterprise needs
+
+
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Centralized Billing
+            p
+              | Nitrous Orgs brings you simplified billing for your team. The Org owner handles billing for all users.
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/billing-next-org.png', width:"970", height:"524", alt: 'Nitrous Centralized Billing'
+
+
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Org member Administration
+            p
+              | Quickly add and remove team members, and set their role within the organization.
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/members-next-org.png', width:"970", height:"524", alt: 'Nitrous Org member Administration'
+
+
+  article.quotes
+    .carousel
+      .carousel-inner
+
+        input#carousel-1.carousel-open type="radio" name="carousel" aria-hidden="true" hidden="" checked="checked"
+        .carousel-item
           .container
-            .box-wrapper.three.centered
-              .box
-                .visual.billing
-                h3.section-title Centralized Billing
-                p Simplified billing for your team: team owner handles billing for all users
+            .box-wrapper.one
+              blockquote
+                p
+                  ' Flatiron is growing rapidly, and to offer our summer courses in multiple locations around the country, we need a
+                  strong zero-install solution
+                  | . Nitrous allows Flatiron's students to have&nbsp;
+                  strong the flexibility of using any device
+                  |  — Windows, Mac, Linux or Chromebook — and begin coding from day one.
+                cite
+                  = image_tag 'home/quote-avi-flombaum.png'
+                  | Avi Flombaum
+                  span , Dean and Co-Founder of The Flatiron School
 
-              .box
-                .visual.team-administration
-                h3.section-title Team Administration
-                p Quickly add and remove team owners, admins, and members
+        input#carousel-2.carousel-open type="radio" name="carousel" aria-hidden="true" hidden=""
+        .carousel-item
+          .container
+            .box-wrapper.one
+              blockquote
+                p
+                  ' Many companies — including Heroku — have attempted to move development to the cloud. Nitrous is
+                  strong the first solution that doesn't feel like a toy
+                  |. I can use it to get work done, today.
+                cite
+                  = image_tag 'home/quote-max-schoening.png'
+                  | Max Schoening
+                  span , Software Designer at Heroku
 
-              .box
-                .visual.custom-templates
-                h3.section-title Custom Templates
-                p Setup and deploy your own Docker images inside Nitrous
+        label.carousel-control.prev.control-1 for="carousel-2"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-1 for="carousel-2"
+          i.fa.fa-chevron-right
+        label.carousel-control.prev.control-2 for="carousel-1"
+          i.fa.fa-chevron-left
+        label.carousel-control.next.control-2 for="carousel-1"
+          i.fa.fa-chevron-right
 
 
-  article.featurette
+  article.featurette.full-window.with-border
+    .container
+      h3.big-title All your team's projects, in one place
+      h4
+        | Nitrous Orgs lets you create, administer, share, and snapshot
+        br
+        | your team's development projects from one convenient place
+
+      .full-visual
+        .window-controls.osx-safari
+          span
+          span
+          span
+          .nav-btn
+          .nav-btn
+          .url-address
+          .nav-new-tab
+
+        = image_tag 'home/dashboard-next-org.png', width:"970", height:"524"
+
+  article.featurette.with-border
     .container
 
-      h3.big-title The Best of Nitrous
+      h3.big-title Nitrous at a glance
 
       .box-wrapper.three
         .box.terminal
@@ -80,61 +172,13 @@
         .box.ssh
           h3.with-icon Full SSH access
           p
-            | Access your development environment directly with SSH
+            | Get complete control of your workstation and projects, and access them anytime with SSH.
 
       .centered
         a class="btn grey-outline" href="/features"
           | Learn more
 
-  article.with-border
-    .container
-      .box-wrapper
-        .box.auto
-          blockquote
-            = image_tag 'home/quote-heroku-visual.png'
-            p
-              ' Many companies — including Heroku — have attempted to move development to the cloud. Nitrous is
-              strong the first solution that doesn't feel like a toy
-              |. I can use it to get work done, today.
-            cite
-              | Max Schoening
-              span Software Designer at Heroku
-
-        .box.auto
-          blockquote
-            = image_tag 'home/quote-flatiron-visual.png'
-            p
-              ' Flatiron is growing rapidly, and to offer our summer courses in multiple locations around the country, we need a
-              strong zero-install solution
-              '  for students with limited time and much enthusiasm to learn. Nitrous allows Flatiron's students to have
-              strong the flexibility of using any device
-              |  — Windows, Mac, Linux or Chromebook — and begin coding from day one.
-            cite
-              | Avi Flombaum
-              span Dean and Co-Founder of The Flatiron School
-
-      .centered
-        a class="btn grey-outline" href="/flatiron"
-          | Flatiron Case Study
-
-  article.used-by.with-border
-    .container
-      h3.section-title
-       | Used by teams at startups and corporations alike
-      .logos
-        .row
-          = image_tag 'home/sendgrid-on-light.svg',   class: 'sendgrid on-light',   alt: 'Sendgrid'
-          = image_tag 'home/lampcamp-on-light.png',      class: 'lampcamp',      alt: 'LAMPCamp'
-          = image_tag 'home/thoughtbot-on-light.svg', class: 'thoughtbot on-light', alt: 'thoughtbot'
-          = image_tag 'home/zendesk-on-light.svg',    class: 'zendesk on-light',    alt: 'Zendesk'
-          = image_tag 'home/clearsight-on-light.png',      class: 'clearsight',      alt: 'Clearsight Studio'
-        .row
-          = image_tag 'home/heroku-on-light.svg',     class: 'heroku on-light',     alt: 'Heroku'
-          = image_tag 'home/tilde-on-light.png',      class: 'tilde on-light',      alt: 'Tilde'
-          = image_tag 'home/shopify-on-light.svg',    class: 'shopify on-light',    alt: 'Shopify'
-          = image_tag 'home/facebook-on-light.svg',      class: 'facebook on-light',      alt: 'Facebook'
-          = image_tag 'home/claimable-on-light.png',      class: 'claimable',      alt: 'Claimable'
-          = image_tag 'home/divshot-on-light.svg',      class: 'divshot',      alt: 'Divshot'
+  = render partial: 'layouts/companies', locals: { theme: 'with-border' }
 
   article.datasheet-cta.with-border
     .container
@@ -143,6 +187,7 @@
   article.cta
     .container
       h3.section-title Let's get started
+      h4 Code your next project with Nitrous and see how well it works for your team
       a.btn.blue.submit href="/app/#/signup?intent=org" Sign Up for Orgs
 
 = render partial: 'layouts/footer', locals: { active: 'orgs' }

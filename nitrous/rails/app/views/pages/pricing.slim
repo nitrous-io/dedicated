@@ -1,5 +1,5 @@
 - @title = 'Pricing · Nitrous'
-- @html_class = 'dark'
+- @html_class = 'light'
 - @body_id = 'pricing'
 
 - content_for :body_after
@@ -15,35 +15,38 @@
         h2
           | Simple Pricing
         h3
-          | Plans for the needs of every developer
-
-  .pricing-toggle.container
-    label.monthly Monthly
-    .toggle-btn
-    label.hourly Hourly
+          | Plans for the needs of every team
 
   article.pricing.attached-bottom
     .container
       .pricing-container
         .pricing-block
           ul.plan-list
+
             li.selectable data-index='0'
-              .title
-              .desc
-              .plan-price
-                .monthly
-                  .focus
-                    small
-                    | $
-                    span.price
-                    small
-                      ' /mo.
+              .title-section
+                .title
+                .plan-price
+                  .monthly
+                    .focus
+                      span $
+                      span.price
+                      small
+                        ' /mo.
+                .desc
+                  span
+
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -52,27 +55,34 @@
                   strong
                   '
                   | SSD Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign Up
+              a.btn.blue-outline href="/app/#/signup/" 7-Day Free Trial
 
-            li.selectable.popular data-index='1'
+            li.selectable.popular.active data-index='1'
               .most-popular
                 .ribbon Most Popular
-              .title
-              .desc
-              .plan-price
-                .monthly
-                  .focus
-                    small
-                    | $
-                    span.price
-                    small
-                      ' /mo.
+              .title-section
+                .title
+                .plan-price
+                  .monthly
+                    .focus
+                      span $
+                      span.price
+                      small
+                        ' /mo.
+                .desc
+                  span
+
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -81,25 +91,32 @@
                   strong
                   '
                   | SSD Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign Up
+              a.btn.blue href="/app/#/signup/" Sign Up
 
             li.selectable data-index='2'
-              .title
-              .desc
-              .plan-price
-                .monthly
-                  .focus
-                    small
-                    | $
-                    span.price
-                    small
-                      ' /mo.
+              .title-section
+                .title
+                .plan-price
+                  .monthly
+                    .focus
+                      span $
+                      span.price
+                      small
+                        ' /mo.
+                .desc
+                  span
+
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -108,7 +125,43 @@
                   strong
                   '
                   | SSD Storage
-              a.btn.blue.ripple href="/app/#/signup/" Sign Up
+              a.btn.blue-outline href="/app/#/signup/" Sign Up
+
+              li.selectable data-index='3'
+                .title-section
+                  .title
+                  .plan-price
+                    .monthly
+                      .focus
+                        span $
+                        span.price
+                        small
+                          | /mo.
+                          sup 1
+                  .desc
+                    sup 1
+                    span
+
+                ul.details
+                  li.containers
+                    span
+                      ' Up to
+                    strong
+                    '
+                    | Projects
+                  li.collaborators
+                    strong
+                    '
+                    | Collaborators
+                  li.memory
+                    strong
+                    '
+                    | Memory
+                  li.storage
+                    strong
+                    '
+                    | SSD Storage
+                a.btn.blue-outline href="/app/#/signup/" Sign Up
 
           .box-wrapper.auto.pricing-details
             .box.grow-2.active
@@ -142,17 +195,15 @@
                       i.fa.fa-check
                       | Docker Support
 
+  article.education
+    .container
+      h3.big-title Educators &amp; Students
+      p.centered
+        | Register your course to obtain group pricing plans for your students
 
-          ul
-            li.horizontal.with-arrow
-              a href="/teams-pricing" target="_blank"
-                h3 Teams
-                p Register your interest to obtain custom pricing plans for your team.
-
-            li.horizontal.with-arrow
-              a href="/education-pricing" target="_blank"
-                h3 Educators &amp; Students
-                p Register your course to obtain group pricing plans for your students.
+      div.centered
+        a.btn.blue href="/education-pricing" target="_blank"
+          | Register Course
 
   article.qa.darker
     a name='faq'
@@ -172,14 +223,14 @@
           h4 When is my credit card billed?
           p We will charge your credit card on the day which you create your workstation. The next charge will be on the same or nearest date the following month.
         .item
-          h4 What are projects, and how do they relate to workstations?
-          p A workstation is a dedicated cloud virtual machine that can run multiple projects. Each project is an isolated development environment. All projects on the same workstation share the workstation's resources.
-        .item
           h4 Can I create multiple workstations?
           p
             | You will need to create a new account if you wish to have another workstation. If you are creating multiple workstations for business purposes, you should consider&nbsp;
             a href="/app/#/signup?intent=org" creating an organization
             | .
+        .item
+          h4 What are projects, and how do they relate to workstations?
+          p A workstation is a dedicated cloud virtual machine that can run multiple projects. Each project is an isolated development environment. All projects on the same workstation share the workstation's resources.
         .item
           h4 Am I charged while my workstation is stopped?
           p Yes. The monthly plans offered are a flat rate, so your monthly billing will not vary based off of usage.

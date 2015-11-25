@@ -1,8 +1,12 @@
-article.cta class=(defined?(theme) ? theme : 'darker')
+article.cta class=(defined?(theme) ? theme : '')
   .container
     h3.section-title Start coding in the cloud today
     h4
       | Build software using our Web IDE, Chrome app, or your favorite Desktop editor.
       br
       | Share your workspace and code collaboratively with teammates, right in your Web browser.
-    = render 'layouts/cta_form'
+
+    a.btn.blue.submit href="/app/#/signup"
+      | Start your&nbsp;
+      span id="trial-duration" 7-day
+      | &nbsp;free trial

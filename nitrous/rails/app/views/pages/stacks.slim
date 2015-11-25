@@ -14,26 +14,18 @@
         h3
           | Kick-off your development projects with Nitrous
 
-  .notice.darker
-    .container
-      .search-container
-        i.fa.fa-search
-        input id="stacks-search" type="text" placeholder="Search stacks..."
-
-  
   article.centered
     .container
       p.big
         | Nitrous offers a wide range of stacks with pre-configured software dependencies (languages, databases and other required components)
 
       = render 'layouts/stacks_grid'
-      
+
       .centered
-        a class="btn blue-outline" href="https://community.nitrous.io/tutorials"
-          | Access Tutorials
+        a class="btn grey-outline" href="https://community.nitrous.io/tutorials"
+          | More on Nitrous Community
 
 
   = render partial: 'layouts/cta', locals: { theme: 'darker' }
 
 = render partial: 'layouts/footer', locals: { active: 'stacks' }
-

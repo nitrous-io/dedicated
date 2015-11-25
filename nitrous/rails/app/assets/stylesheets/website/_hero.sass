@@ -31,31 +31,33 @@
     flex-grow: 1
     flex-direction: column
     justify-content: center
-    margin-top: -19px
+    margin-top: -8px
     +webkitFix
 
     h2
-      font-size: 38px
+      font-size: 42px
       padding-bottom: 2px
       font-weight: 400
       font-family: $boldFont
+      color: #FFF
 
     h3
       font-size: 22px
-      color: #A5B3BE
       font-weight: 300
 
   .hero
     height: 460px
 
   .page-hero
-    height: 260px
+    height: 280px
+    background-color: $blue
 
     .hero-copy
       h2
         font-size: 32px
       h3
-        font-size: 20px
+        font-size: 22px
+        color: rgba(255,255,255,.8)
 
 // --------------------------------------
 // Story pages
@@ -63,14 +65,12 @@
   .page-hero
     height: 460px
 
-    .hero-copy
-      padding-bottom: 36px
-
     .hero-copy h2
       font-size: 42px
-      padding-bottom: 4px
+      padding-bottom: 12px
 
     .hero-copy h3
+      opacity: 1
       color: rgba(255,255,255,.8)
 
     article
@@ -155,68 +155,63 @@
       box-shadow: 0 2px 20px rgba(0,0,0,.2), 0 16px 20px rgba(0,0,0,.1)
 
 // --------------------------------------
-// Dark-themed pages only
-.dark
-  .hero
-    background: #2C3944
-    background: linear-gradient(to bottom, rgba(40,50,58,1) 0%,rgba(49,62,73,1) 47%,rgba(54,69,80,1) 100%)
-    background-size: cover
-
-  #company .page-hero
-    background: #2C3944 image_url('home/office-hero-bg.jpg') center center no-repeat
-    background-size: cover
-
-  #jobs .page-hero
-    background: #2C3944 image_url('home/cloud-hero-bg.jpg') center center no-repeat
-    background-size: cover
-
-  .page-hero
-    border-bottom: 1px solid rgba(0,0,0,.3)
-
-  .no-hero
-    .hero-copy
-      margin-top: -8px
-
-    border: 0
-
-// --------------------------------------
-// Light-themed pages only
+// Light-theme
 .light
-  .page-hero
-    h3
-      color: rgba(255,255,255,.8)
 
   .full-height
     .page-hero
       background: #0099ED
 
+  .no-hero
+    background: #FFF
+    background: linear-gradient(to bottom, $blue 52px, #FFF 52px)
+
+    .hero-copy
+      margin-top: 0
+
+      h2
+        color: #393C44
+        font-family: $opensans
+
+      h3
+        color: $greyLighter
+
 // --------------------------------------
 // Home
 #home
   .hero
-    background-color: #2C3944
-    background-image: linear-gradient(10deg, rgba(44,57,68,.3) 40%, rgba(44,57,68,.9) 100%), image_url('home/home-hero-bg.jpg')
-    background-position: top center
-    background-repeat: no-repeat
-    background-size: cover
+    background: $blue
 
-    .shadows, .patternshadows
-      position: absolute
-      top: 0
-      right: 0
-      bottom: 0
-      left: 0
-      display: block
-      z-index: 1
+    .hero-copy
+      h2
+        font-size: 42px
+        padding-bottom: 12px
 
-    .shadows
-      background-image: linear-gradient(0deg, rgba(42,50,57,0) 47%, rgba(42,50,57,0.30) 90%)
-      opacity: 1
-      animation: fadeIn 3.15s
-      animation-iteration-count: 1
+      h3
+        opacity: 1
+        color: rgba(255,255,255,.85)
 
-    .patternshadows
-      background-image: radial-gradient(ellipse at center, rgba(48,60,71,.70) 0%,rgba(48,60,71,1) 68%)
+      .form-wrapper
+        form
+          width: auto
+
+      input[type="email"], input[type="text"]
+        background: $blue
+        border: 2px solid #FFF
+        color: #FFF
+        font-weight: default
+
+      ::-webkit-input-placeholder
+        color: rgba(255,255,255,.75)
+
+      :-moz-placeholder
+        color: rgba(255,255,255,.75)
+
+      ::-moz-placeholder
+        color: rgba(255,255,255,.75)
+
+      :-ms-input-placeholder
+        color: rgba(255,255,255,.75)
 
 // --------------------------------------
 // Logo pattern
@@ -313,11 +308,6 @@
     background: $blue image_url('home/agencies-hero.jpg') center center no-repeat
     background-size: cover
 
-#enterprises
-  .page-hero
-    background: $blue image_url('home/enterprises-hero.jpg') center center no-repeat
-    background-size: cover
-
 #teams
   .page-hero
     background: $blue image_url('home/teams-hero.jpg') center center no-repeat
@@ -325,11 +315,7 @@
 
 #orgs
   .page-hero
-    background-color: #0099ED
-    background-image: linear-gradient(10deg, rgba(0,154,237,.20) 40%, rgba(0,154,237,.72) 100%), image_url('home/orgs-pro-hero-bg.jpg')
-    background-position: top center
-    background-repeat: no-repeat
-    background-size: cover
+    background-color: $blue
 
     .hero-copy
       padding-bottom: 0

@@ -14,7 +14,7 @@ namespace :build do
       '/public/partners/awsactivate/index.html' => { layout: 'layouts/pages', template: "pages/awsactivate"}
     }
 
-    %w(pricing features company stacks press flatiron education agencies enterprises orgs vpc teams-pricing education-pricing jobs).each do |page|
+    %w(pricing features company stacks press flatiron education agencies orgs vpc teams-pricing education-pricing jobs).each do |page|
       locations["/public/#{page}/index.html"] = { layout: 'layouts/pages', template: "pages/#{page.underscore}"}
     end
 

@@ -14,41 +14,79 @@
         h3
           | Lightning-fast development in the cloud: the ultimate learning companion
 
+        a.btn.white href="/app/#/signup" Sign Up For Nitrous
 
-
-  article.featurette.offset-visual
+  .notice.darker
     .container
+      p
+        a href="/flatiron" target='_blank'
+          span.new Education
+          | Learn how the Flatiron School in NY is using Nitrous
+          span.link Read more
+          i.fa.fa-chevron-right
+
+
+  article.featurette.full-window.with-border
+    .container
+      h3.big-title All your school's projects, in one place
+      h4
+        | Nitrous lets you create, administer, share, and snapshot
+        br
+        | your school's development projects from one convenient place
 
       .full-visual
-        = image_tag 'home/ide-theme-split-5.png', width: '970px', alt: 'Nitrous Editor themes'
+        .window-controls.osx-safari
+          span
+          span
+          span
+          .nav-btn
+          .nav-btn
+          .url-address
+          .nav-new-tab
 
-      .box-wrapper.three.centered
-        .box
-          .visual
-            = image_tag 'home/large-featurette-anywhere.svg', class: 'visual', alt: 'Any language, anywhere'
-          h3.section-title Any language, anywhere
-          p Choose from popular web development templates and get setup in seconds. No configuration or setup required. Works from any computer with an internet browser.
-        
-        .box
-          .visual
-            = image_tag 'home/large-featurette-code.svg', class: 'visual', alt: 'Learn with practical execution'
-          h3.section-title Learn with practical execution
-          p No longer reduce your learning to the confines of a learning editor. Write and preview your code live like how developers operate practically.
-        
-        .box
-          .visual
-            = image_tag 'home/large-featurette-win.svg', class: 'visual', alt: 'Develop like a pro'
-          h3.section-title Develop like a pro
-          p Learning doesn't stop after Codeacademy/CodeSchool. Move on to build real-world applications that people would love to use.
+        = image_tag 'home/dashboard-next-education.png', width:"970", height:"524"
 
-      .centered
-        a href="/flatiron"
-          | Learn how the Flatiron School in NYC is using Nitrous
-          i.fa.fa-chevron-right
-          
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Org member Administration
+            p
+              | Quickly add and remove team members, and set their role within the organization.
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/members-next-education.png', width:"970", height:"524", alt: 'Nitrous Org member Administration'
+
+  article.featurette.with-pulled-visual.cut-off.with-border
+    .container
+      .box-wrapper.text-on-left
+
+        .box.auto.text
+          .content
+            h3.big-title Snapshots
+            p
+              | Preserve the state of your project's environment, and revert back to them at any time
+
+        .box.auto
+          .content
+            .full-visual.window.centered
+              .window-controls.osx.colored
+                span
+                span
+                span
+              = image_tag 'home/snapshots-next-education.png', width:"970", height:"524", alt: 'Nitrous Org member Administration'
+
   article.used-by
     .container
-      h3.section-title 
+      h3.section-title
        | Used by students &amp; instructors at universities,
        br
        | coding academies, learning groups and hackathons
@@ -70,9 +108,6 @@
           = image_tag 'home/gaslight-on-light.svg',        class: 'gaslight on-light',        alt: 'Gaslight'
           = image_tag 'home/codeacademy-on-light.svg',        class: 'codeacademy on-light',        alt: 'Code Academy'
 
-
-  
-
   article.colored.tealeaf-academy.quote
     .container
 
@@ -80,11 +115,11 @@
         = image_tag 'home/quote-tealeaf-logo.svg', class: 'visual', alt: 'Tealeaf Academy'
 
         p
-          | Nitrous.IO has 
+          | Nitrous has&nbsp;
           strong saved us a lot of time
-          |, because its one-click development environment allows our students to 
+          |, because its one-click development environment allows our students to&nbsp;
           strong focus on the most important thing: learning to code
-          |. What we love about Nitrous.IO is that it's all that you need as a developer and nothing more. In other words, when our students use Nitrous, they're learning how to work like a real developer, not learning a proprietary product. The Nitrous development environment is just Unix, and a code editor - that's how real programmers work. We love that about Nitrous.IO.
+          |. What we love about Nitrous is that it's all that you need as a developer and nothing more. In other words, when our students use Nitrous, they're learning how to work like a real developer, not learning a proprietary product. The Nitrous development environment is just Unix, and a code editor - that's how real programmers work. We love that about Nitrous.
         cite
           | Chris Lee
           span , Co-founder of Tealeaf Academy
@@ -96,13 +131,13 @@
       blockquote
         = image_tag 'home/quote-pilotdc-logo.png', class: 'visual', alt: 'PilotDC'
         p
-          | We definitely love the 
-          strong easy to use coding interface 
-          | and the 
-          strong amazing collaborative technology 
-          | that Nitrous.IO offers. In the past, we had used other code sharing software such as Git and Dropbox, but the live code collaboration that Nitrous.IO provides is just awesome. Nitrous.IO definitely 
+          | We definitely love the&nbsp;
+          strong easy-to-use coding interface
+          | &nbsp;and the&nbsp;
+          strong amazing collaborative technology
+          | &nbsp;that Nitrous offers. In the past, we had used other code sharing software such as Git and Dropbox, but the live code collaboration that Nitrous provides is just awesome. Nitrous definitely&nbsp;
           strong increased our productivity
-          |  a great deal, especially in an overnight event, where fatigue can catch up with your body and tempers can rise quickly if software doesn't cooperate.
+          | &nbsp;a great deal, especially in an overnight event, where fatigue can catch up with your body and tempers can rise quickly if software doesn't cooperate.
         cite
           | Michael Reininger
           span , part of the PilotDC hackathon's winning team from Montgomery High
