@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"testing"
+	"time"
 
 	stripe "github.com/stripe/stripe-go"
 
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/stripememo"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
 
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -42,10 +44,88 @@ var _ = Describe("models/stripememo", func() {
 		}
 	})
 
-	Context("memoInvoices()", func() {
-		It("returns an Invoice with both InvoiceJSON and Invoice populated", func() {
-			fakeStripe.Responses = []string{test.StripeInvoiceResponse}
-			invs, err := stripememo.MemoInvoices(&billingprofile.BillingProfile{
+	Context("Invoices()", func() {
+		var (
+			bp *billingprofile.BillingProfile
+		)
+
+		BeforeEach(func() {
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			bp, err = billingprofile.Find(db, u.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("does not query Stripe if there are recent invoices", func() {
+			_, err := db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json) VALUES
+			($1, $2)
+			`, bp.ID, test.StripeInvoiceResponse)
+			invs, err := stripememo.Invoices(db, bp)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
+			Expect(invs).To(HaveLen(1))
+			Expect(invs[0].Invoice).NotTo(BeNil())
+		})
+
+		It("does query Stripe if there are invoices but from more than 24 hours ago", func() {
+			fakeStripe.Responses = []string{test.StripeInvoiceListResponse}
+			_, err := db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json, created_at) VALUES
+			($1, $2, now() - interval '25 hours')
+			`, bp.ID, test.StripeInvoiceResponse)
+			invs, err := stripememo.Invoices(db, bp)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+			Expect(invs).To(HaveLen(1))
+		})
+
+		It("writes Stripe responses to db when querying Stripe", func() {
+			fakeStripe.Responses = []string{test.StripeInvoiceListResponse}
+			_, err := stripememo.Invoices(db, bp)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
+			var writtenInvs []*stripememo.Invoice
+			err = db.Select(&writtenInvs, `SELECT * FROM stripe_invoices`)
+			Expect(err).To(BeNil())
+			Expect(writtenInvs).To(HaveLen(1))
+			Expect(writtenInvs[0].BillingProfileID).To(Equal(bp.ID))
+
+			var fromJSON stripe.Invoice
+			err = json.Unmarshal([]byte(writtenInvs[0].InvoiceJSON), &fromJSON)
+			Expect(err).To(BeNil())
+			Expect(fromJSON.Amount).To(Equal(int64(3000)))
+		})
+
+		It("removes previous entries from db when querying Stripe", func() {
+			fakeStripe.Responses = []string{test.StripeInvoiceListResponse}
+			_, err := db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json, created_at) VALUES
+			($1, $2, now() - interval '25 hours')
+			`, bp.ID, test.StripeInvoiceResponse)
+			_, err = stripememo.Invoices(db, bp)
+			Expect(err).To(BeNil())
+			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+
+			var writtenInvs []*stripememo.Invoice
+			err = db.Select(&writtenInvs, `SELECT * FROM stripe_invoices`)
+			Expect(err).To(BeNil())
+			Expect(writtenInvs).To(HaveLen(1))
+			Expect(writtenInvs[0].CreatedAt).To(BeTemporally("~", time.Now(), 5*time.Second))
+		})
+	})
+
+	Context("fetchedInvoices()", func() {
+		It("returns slice of invoices with both InvoiceJSON and Invoice populated", func() {
+			fakeStripe.Responses = []string{test.StripeInvoiceListResponse}
+			invs, err := stripememo.FetchedInvoices(&billingprofile.BillingProfile{
 				StripeID: sql.NullString{"abc", true},
 			})
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))

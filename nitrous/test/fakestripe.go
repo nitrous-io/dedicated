@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -105,9 +106,8 @@ var StripeCustomerResponse = `{
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
 	}`
 
-// from api docs https://stripe.com/docs/api/go#list_invoices with {'data':
-// [invoicejson]} wrapping
-var StripeInvoiceResponse = `{"data": [{
+// from api docs https://stripe.com/docs/api/go#list_invoices
+var StripeInvoiceResponse = `{
   "id": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
   "object": "invoice",
   "amount_due": 3000,
@@ -180,7 +180,9 @@ var StripeInvoiceResponse = `{"data": [{
   "tax_percent": null,
   "total": 3000,
   "webhooks_delivered_at": 1448338461
-}]}`
+}`
+
+var StripeInvoiceListResponse = fmt.Sprintf(`{"data": [%s]}`, StripeInvoiceResponse)
 
 var StripeCardDeclined = &stripe.Error{
 	Type: stripe.ErrorType(stripe.CardErr),

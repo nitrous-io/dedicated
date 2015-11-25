@@ -1,3 +1,3 @@
 package stripememo
 
-var MemoInvoices = memoInvoices
+var FetchedInvoices = fetchedInvoices
