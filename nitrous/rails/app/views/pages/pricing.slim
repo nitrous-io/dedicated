@@ -34,13 +34,19 @@
                       small
                         ' /mo.
                 .desc
+                  span
 
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -64,13 +70,19 @@
                       small
                         ' /mo.
                 .desc
+                  span
 
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -92,13 +104,19 @@
                       small
                         ' /mo.
                 .desc
+                  span
 
               ul.details
                 li.containers
-                  ' Up to
+                  span
+                    ' Up to
                   strong
                   '
                   | Projects
+                li.collaborators
+                  strong
+                  '
+                  | Collaborators
                 li.memory
                   strong
                   '
@@ -109,34 +127,41 @@
                   | SSD Storage
               a.btn.blue-outline href="/app/#/signup/" Sign Up
 
-            li.selectable
-              .title-section
-                .title Orgs
-                .plan-price
-                  .monthly
-                    .focus
-                      span $
-                      span.price 100
-                      small
-                        ' /mo.
-                .desc
-                  | Additional security, control, and support
+              li.selectable data-index='3'
+                .title-section
+                  .title
+                  .plan-price
+                    .monthly
+                      .focus
+                        span $
+                        span.price
+                        small
+                          | /mo.
+                          sup 1
+                  .desc
+                    sup 1
+                    span
 
-              ul.details
-                li.containers
-                  ' Up to
-                  strong 25
-                  '
-                  | Projects
-                li.memory
-                  strong 8 GB
-                  '
-                  | Memory
-                li.storage
-                  strong 50 GB
-                  '
-                  | SSD Storage
-              a.btn.blue-outline href="/app/#/signup/" Sign Up
+                ul.details
+                  li.containers
+                    span
+                      ' Up to
+                    strong
+                    '
+                    | Projects
+                  li.collaborators
+                    strong
+                    '
+                    | Collaborators
+                  li.memory
+                    strong
+                    '
+                    | Memory
+                  li.storage
+                    strong
+                    '
+                    | SSD Storage
+                a.btn.blue-outline href="/app/#/signup/" Sign Up
 
           .box-wrapper.auto.pricing-details
             .box.grow-2.active
