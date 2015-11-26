@@ -6,12 +6,49 @@ import (
 	"time"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
+	"github.com/nitrous-io/dedicated/nitrous/models/stripememo"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
+
+	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("invoice serializer", func() {
+	Describe("SerializeStripeInvoice", func() {
+		var (
+			model *stripememo.Invoice
+		)
+
+		BeforeEach(func() {
+			model = &stripememo.Invoice{
+				BillingProfileID: 123,
+				UserID:           456,
+				InvoiceJSON:      test.StripeInvoiceResponse,
+			}
+		})
+
+		It("serializes to JSON", func() {
+			r := serializers.SerializeStripeInvoice(model)
+			b, err := json.Marshal(r)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 0,
+				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
+				"user_id": 456,
+				"total_charge": 3000,
+				"state": "unpaid",
+				"period_start": "2015-11-23T04:12:51Z",
+				"period_end": "2015-11-24T04:12:51Z",
+				"attempted": false,
+				"total_credit": 0,
+				"available_credit": 0,
+				"subscription": true,
+				"items": null
+			}`))
+		})
+	})
+
 	Describe("SerializeInvoice", func() {
 		var (
 			model *invoice.Invoice
