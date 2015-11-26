@@ -64,9 +64,10 @@ var _ = Describe("models/stripememo", func() {
 
 		It("does not query Stripe if there are recent invoices", func() {
 			_, err := db.Exec(`INSERT INTO stripe_invoices
-			(billing_profile_id, invoice_json) VALUES
-			($1, $2)
+			(billing_profile_id, invoice_json, invoiced_at) VALUES
+			($1, $2, now())
 			`, bp.ID, test.StripeInvoiceResponse)
+			Expect(err).To(BeNil())
 			invs, err := stripememo.Invoices(db, bp)
 			Expect(err).To(BeNil())
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
@@ -97,6 +98,7 @@ var _ = Describe("models/stripememo", func() {
 			Expect(err).To(BeNil())
 			Expect(writtenInvs).To(HaveLen(1))
 			Expect(writtenInvs[0].BillingProfileID).To(Equal(bp.ID))
+			Expect(writtenInvs[0].InvoicedAt.Equal(time.Unix(1448338447, 0))).To(BeTrue())
 
 			var fromJSON stripe.Invoice
 			err = json.Unmarshal([]byte(writtenInvs[0].InvoiceJSON), &fromJSON)

@@ -28,6 +28,9 @@ type Invoice struct { // corresponds to stripe_invoices table
 	InvoiceJSON      string    `db:"invoice_json"`
 	CreatedAt        time.Time `db:"created_at"`
 
+	// this is extracted from the 'date' field of InvoiceJSON in order to be sortable
+	InvoicedAt time.Time `db:"invoiced_at"`
+
 	// this package's finders are to unmarshal InvoiceJSON and populate this
 	*stripe.Invoice
 }
@@ -78,7 +81,7 @@ func dbRecentInvoices(d db.QueryReceiver, bpid int64) ([]*Invoice, error) {
 	var invs []*Invoice
 	err := d.Select(&invs, `SELECT * FROM stripe_invoices
 	WHERE billing_profile_id = $1
-	ORDER BY created_at -- TODO need to extract date from json and order by date
+	ORDER BY invoiced_at
 	LIMIT $2
 	`, bpid, invoicesToFetch)
 	for _, inv := range invs {
@@ -137,8 +140,8 @@ func stripeInvoices(custID string) ([]*stripe.Invoice, error) {
 
 func (inv *Invoice) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO stripe_invoices
-	(billing_profile_id, invoice_json) VALUES
-	(:billing_profile_id, :invoice_json)
+	(billing_profile_id, invoice_json, invoiced_at) VALUES
+	(:billing_profile_id, :invoice_json, :invoiced_at)
     RETURNING *;`)
 	if err != nil {
 		return err
@@ -161,8 +164,12 @@ func (inv *Invoice) populate() error {
 			return err
 		}
 		inv.InvoiceJSON = string(j)
+		inv.InvoicedAt = time.Unix(inv.Date, 0)
 	case inv.Invoice == nil && inv.InvoiceJSON != "":
-		return json.Unmarshal([]byte(inv.InvoiceJSON), &inv.Invoice)
+		if err := json.Unmarshal([]byte(inv.InvoiceJSON), &inv.Invoice); err != nil {
+			return err
+		}
+		inv.InvoicedAt = time.Unix(inv.Date, 0)
 	}
 	return nil
 }
