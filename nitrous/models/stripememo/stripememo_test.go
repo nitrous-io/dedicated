@@ -72,7 +72,9 @@ var _ = Describe("models/stripememo", func() {
 			Expect(err).To(BeNil())
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 			Expect(invs).To(HaveLen(1))
-			Expect(invs[0].Invoice).NotTo(BeNil())
+			si, err := invs[0].StripeInvoice()
+			Expect(err).To(BeNil())
+			Expect(si).NotTo(BeNil())
 		})
 
 		It("does query Stripe if there are invoices but from more than 24 hours ago", func() {
@@ -125,7 +127,7 @@ var _ = Describe("models/stripememo", func() {
 	})
 
 	Context("fetchedInvoices()", func() {
-		It("returns slice of invoices with both InvoiceJSON and Invoice populated", func() {
+		It("returns slice of invoices with both InvoiceJSON and StripeInvoice() populated", func() {
 			fakeStripe.Responses = []string{test.StripeInvoiceListResponse}
 			invs, err := stripememo.FetchedInvoices(&billingprofile.BillingProfile{
 				StripeID: sql.NullString{"abc", true},
@@ -135,14 +137,16 @@ var _ = Describe("models/stripememo", func() {
 			Expect(invs).To(HaveLen(1))
 
 			inv := invs[0]
-			Expect(inv.Invoice.ID).To(Equal("in_17AYBv2eZvKYlo2C8sW8Cs4R"))
-			Expect(inv.Invoice.Customer.ID).To(Equal("cus_7PN4EHPJGbC4D1"))
+			si, err := inv.StripeInvoice()
+			Expect(err).To(BeNil())
+			Expect(si.ID).To(Equal("in_17AYBv2eZvKYlo2C8sW8Cs4R"))
+			Expect(si.Customer.ID).To(Equal("cus_7PN4EHPJGbC4D1"))
 
 			var fromJSON stripe.Invoice
 			err = json.Unmarshal([]byte(inv.InvoiceJSON), &fromJSON)
 			Expect(err).To(BeNil())
-			Expect(fromJSON.ID).To(Equal(inv.Invoice.ID))
-			Expect(fromJSON.Customer.ID).To(Equal(inv.Invoice.Customer.ID))
+			Expect(fromJSON.ID).To(Equal(si.ID))
+			Expect(fromJSON.Customer.ID).To(Equal(si.Customer.ID))
 		})
 	})
 })

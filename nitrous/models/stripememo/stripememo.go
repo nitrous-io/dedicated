@@ -30,9 +30,6 @@ type Invoice struct { // corresponds to stripe_invoices table
 
 	// this is extracted from the 'date' field of InvoiceJSON in order to be sortable
 	InvoicedAt time.Time `db:"invoiced_at"`
-
-	// this package's finders are to unmarshal InvoiceJSON and populate this
-	*stripe.Invoice
 }
 
 // Invoices checks for memoized copies in the db (created within 24 hours),
@@ -81,14 +78,9 @@ func dbRecentInvoices(d db.QueryReceiver, bpid int64) ([]*Invoice, error) {
 	var invs []*Invoice
 	err := d.Select(&invs, `SELECT * FROM stripe_invoices
 	WHERE billing_profile_id = $1
-	ORDER BY invoiced_at
+	ORDER BY invoiced_at DESC
 	LIMIT $2
 	`, bpid, invoicesToFetch)
-	for _, inv := range invs {
-		if err := inv.populate(); err != nil {
-			return nil, err
-		}
-	}
 	return invs, err
 }
 
@@ -110,11 +102,13 @@ func fetchedInvoices(bp *billingprofile.BillingProfile) ([]*Invoice, error) {
 	for _, strinv := range invs {
 		inv := &Invoice{
 			BillingProfileID: bp.ID,
-			Invoice:          strinv,
 		}
-		if err := inv.populate(); err != nil {
+		j, err := json.Marshal(strinv)
+		if err != nil {
 			return nil, err
 		}
+		inv.InvoiceJSON = string(j)
+		inv.InvoicedAt = time.Unix(strinv.Date, 0)
 		memoInvs = append(memoInvs, inv)
 	}
 	return memoInvs, nil
@@ -149,27 +143,13 @@ func (inv *Invoice) Insert(d db.QueryReceiver) error {
 	return nstmt.QueryRowx(inv).StructScan(inv)
 }
 
-// populate will fill in either the Invoice or InvoiceJSON fields if only one
-// is present.  If both are present, no-op.  If neither are present, error
-func (inv *Invoice) populate() error {
-	switch {
-	case inv.Invoice == nil && inv.InvoiceJSON == "":
-		return fmt.Errorf("invoice missing fields: %+v", inv)
-	case inv.Invoice != nil && inv.InvoiceJSON != "":
-		// both are non-null/zero, no-op
-		return nil
-	case inv.Invoice != nil && inv.InvoiceJSON == "":
-		j, err := json.Marshal(inv.Invoice)
-		if err != nil {
-			return err
-		}
-		inv.InvoiceJSON = string(j)
-		inv.InvoicedAt = time.Unix(inv.Date, 0)
-	case inv.Invoice == nil && inv.InvoiceJSON != "":
-		if err := json.Unmarshal([]byte(inv.InvoiceJSON), &inv.Invoice); err != nil {
-			return err
-		}
-		inv.InvoicedAt = time.Unix(inv.Date, 0)
+func (inv *Invoice) StripeInvoice() (*stripe.Invoice, error) {
+	if inv.InvoiceJSON == "" {
+		return nil, fmt.Errorf("no invoice present on %+v", inv)
 	}
-	return nil
+	var strinv *stripe.Invoice
+	if err := json.Unmarshal([]byte(inv.InvoiceJSON), &strinv); err != nil {
+		return nil, err
+	}
+	return strinv, nil
 }
