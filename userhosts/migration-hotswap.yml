@@ -23,6 +23,7 @@
           source_ami: ami-928c9df3
   gather_facts: no
   sudo: yes
+  serial: 2
   tasks:
 
   # Requirements:
@@ -238,6 +239,9 @@
   - name: Umount /mnt/userdata
     mount: fstype=ext4 name=/mnt/userdata src=/dev/xvdu state=unmounted
 
+  - name: Remove from fstab /mnt/userdata
+    mount: fstype=ext4 name=/mnt/userdata src=/dev/xvdu state=absent
+
   # - set_fact: new_provider_storage_identifier=vol-594e029e
   - name: Detach the new volume
     ec2_vol:
@@ -320,6 +324,8 @@
     when: keep_ip == False and has_eip == "t"
 
   - name: Updating database
-    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, source_ami='{{regions[region].source_ami}}', provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped' where slug='{{ inventory_hostname }}';"
+    shell: heroku pg:psql --app {{ psql_app }} -c "update hosts set hotswap=true, source_ami='{{regions[region].source_ami}}', provider_storage_identifier='{{ new_provider_storage_identifier }}', state='stopped', provider_identifier='' where slug='{{ inventory_hostname }}';"
     delegate_to: 127.0.0.1
     sudo: no
+
+  # - pause: prompt="Finished"
