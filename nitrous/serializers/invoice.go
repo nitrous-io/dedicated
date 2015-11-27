@@ -65,6 +65,11 @@ func SerializeStripeInvoice(mi *stripememo.Invoice) *Invoice {
 		Attempted:    si.Attempted,
 		Subscription: si.Sub != "",
 	}
+	var items []InvoiceItem
+	for _, line := range si.Lines.Values {
+		items = append(items, SerializeStripeInvoiceItem(line))
+	}
+	inv.Items = items
 	return inv
 }
 

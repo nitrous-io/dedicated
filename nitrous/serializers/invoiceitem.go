@@ -1,21 +1,25 @@
 package serializers
 
 import (
+	stripe "github.com/stripe/stripe-go"
+
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 )
 
 type InvoiceItem struct {
 	ID          int64        `json:"id"`
-	InvoiceID   int64        `json:"invoice_id"`
-	ItemType    string       `json:"item_type"`
-	HostID      int64        `json:"host_id"`
-	HostSlug    string       `json:"host_slug"`
-	Hours       int64        `json:"hours"`
-	Terminated  bool         `json:"terminated"`
-	HourlyCents float64      `json:"hourly_cents"`
+	InvoiceID   int64        `json:"invoice_id,omitempty"`
+	ItemType    string       `json:"item_type,omitempty"`
+	HostID      int64        `json:"host_id,omitempty"`
+	HostSlug    string       `json:"host_slug,omitempty"`
+	Hours       int64        `json:"hours,omitempty"`
+	Terminated  bool         `json:"terminated,omitempty"`
+	HourlyCents float64      `json:"hourly_cents,omitempty"`
 	TotalCharge int64        `json:"total_charge"`
 	Description string       `json:"description"`
 	Usage       []*HostUsage `json:"usage"`
+
+	StripeID string `json:"sid,omitempty"`
 }
 
 func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {
@@ -30,5 +34,14 @@ func SerializeInvoiceItem(i *invoiceitem.InvoiceItem) *InvoiceItem {
 		Hours:       i.Hours.Int64,
 		Terminated:  i.Terminated,
 		HourlyCents: i.HourlyCents(),
+	}
+}
+
+func SerializeStripeInvoiceItem(siItem *stripe.InvoiceLine) InvoiceItem {
+	return InvoiceItem{
+		// No Stripe equivalent for all fields apart from charge and description
+		StripeID:    siItem.ID,
+		Description: siItem.Desc,
+		TotalCharge: siItem.Amount,
 	}
 }

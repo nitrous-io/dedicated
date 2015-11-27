@@ -107,6 +107,7 @@ var StripeCustomerResponse = `{
 	}`
 
 // from api docs https://stripe.com/docs/api/go#list_invoices
+// diff: changed Lines descriptions to be non-null
 var StripeInvoiceResponse = `{
   "id": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
   "object": "invoice",
@@ -130,7 +131,7 @@ var StripeInvoiceResponse = `{
         "object": "line_item",
         "amount": 2000,
         "currency": "usd",
-        "description": null,
+        "description": "Subscription to Basic ($9.00/month)",
         "discountable": true,
         "livemode": true,
         "metadata": {

@@ -32,6 +32,7 @@ var _ = Describe("invoice serializer", func() {
 			r := serializers.SerializeStripeInvoice(model)
 			b, err := json.Marshal(r)
 			Expect(err).To(BeNil())
+			// this also tests invoiceitem serialization
 			Expect(b).To(MatchJSON(`{
 				"id": 0,
 				"sid": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
@@ -44,7 +45,15 @@ var _ = Describe("invoice serializer", func() {
 				"total_credit": 0,
 				"available_credit": 0,
 				"subscription": true,
-				"items": null
+				"items": [
+					{
+						"id": 0,
+						"sid": "sub_7PNezyXAgzNnkn",
+						"description": "Subscription to Basic ($9.00/month)",
+						"total_charge": 2000,
+						"usage": null
+					}
+				]
 			}`))
 		})
 	})
@@ -97,13 +106,7 @@ var _ = Describe("invoice serializer", func() {
 				"subscription": false,
 				"items": [{
 					"id": 12,
-					"invoice_id": 0,
 					"item_type": "compute",
-					"host_id": 0,
-					"host_slug": "",
-					"hours": 0,
-					"terminated": false,
-					"hourly_cents": 0,
 					"total_charge": 0,
 					"description": "",
 					"usage": [{
