@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoicemanualattempt"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/stripememo"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/permission"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -126,7 +127,33 @@ func CurrentUsage(env *middleware.Env, w http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
+// no route to this at present -- use param as feature flag to test before going live
+func StripeInvoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	bp, err := shared.BillingProfileForRequest(env, r)
+	if err != nil {
+		return err
+	}
+	invoices, err := stripememo.Invoices(env.DB, bp)
+	if err != nil {
+		return err
+	}
+	serInvs := []*serializers.Invoice{}
+	for _, inv := range invoices {
+		sInv := serializers.SerializeStripeInvoice(inv)
+		serInvs = append(serInvs, sInv)
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"invoices": serInvs,
+	}
+	return nil
+}
+
 func Invoices(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	if r.FormValue("from_stripe") == "1" {
+		return StripeInvoices(env, w, r)
+	}
 	bp, err := shared.BillingProfileForRequest(env, r)
 	if err != nil {
 		return err
