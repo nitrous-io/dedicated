@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"database/sql"
 	"time"
 
 	"github.com/Sirupsen/logrus"
@@ -42,7 +43,7 @@ type Org struct {
 	Name  string `db:"name"`
 	Email string `db:"email"`
 
-	MaxHosts int64 `db:"max_hosts"`
+	MaxHosts sql.NullInt64 `db:"max_hosts"`
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -154,6 +155,10 @@ func (o *Org) CanCreateHosts(d db.QueryReceiver) error {
 		default:
 			return err
 		}
+	}
+
+	if !o.MaxHosts.Valid {
+		return nil
 	}
 
 	var b bool

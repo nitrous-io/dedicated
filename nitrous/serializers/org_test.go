@@ -26,13 +26,29 @@ var _ = Describe("org serializer", func() {
 			Name:      "Macrosoft Corp.",
 			Slug:      "macrosoft",
 			Email:     "bill@macrosoft.com",
-			MaxHosts:  2,
+			MaxHosts:  sql.NullInt64{2, true},
 			CreatedAt: &createdAt,
 			UpdatedAt: &updatedAt,
 		}
 	})
 
 	Describe("SerializeOrg", func() {
+		It("should omit an empty MaxHosts", func() {
+			model.MaxHosts = sql.NullInt64{Valid: false}
+			serializedOrg := serializers.SerializeOrg(model)
+			b, err := json.Marshal(serializedOrg)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Macrosoft Corp.",
+				"slug": "macrosoft",
+				"email": "bill@macrosoft.com",
+				"multi_host": false,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
 		It("serializes to JSON", func() {
 			serializedOrg := serializers.SerializeOrg(model)
 			b, err := json.Marshal(serializedOrg)
@@ -132,7 +148,7 @@ var _ = Describe("org serializer", func() {
 				Slug:      "foobar",
 				Name:      "Foo Bar, Inc.",
 				Email:     "eng@foobar.com",
-				MaxHosts:  2,
+				MaxHosts:  sql.NullInt64{2, true},
 				CreatedAt: &createdAt,
 				UpdatedAt: &updatedAt,
 			}
