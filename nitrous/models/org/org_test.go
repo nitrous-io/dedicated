@@ -435,6 +435,9 @@ var _ = Describe("models/org", func() {
 			_, err := db.Exec(`UPDATE orgs SET max_hosts = 1 WHERE id = $1;`, o1.ID)
 			Expect(err).To(BeNil())
 
+			o1, err = org.Find(db, o1.ID)
+			Expect(err).To(BeNil())
+
 			_, err = test.CreateHostStack(db, &test.HostStack{
 				U: u,
 				O: o1,
@@ -442,11 +445,31 @@ var _ = Describe("models/org", func() {
 			Expect(err).To(BeNil())
 
 			err = o1.CanCreateHosts(db)
-			Expect(err.Error()).To(Equal("reached maximum number of hosts"))
+			Expect(err).To(MatchError("reached maximum number of hosts"))
 		})
 
 		It("not return error if the org does not exceed the max hosts", func() {
 			_, err := db.Exec(`UPDATE orgs SET max_hosts = 2 WHERE id = $1;`, o1.ID)
+			Expect(err).To(BeNil())
+
+			o1, err = org.Find(db, o1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = test.CreateHostStack(db, &test.HostStack{
+				U: u,
+				O: o1,
+			})
+			Expect(err).To(BeNil())
+
+			err = o1.CanCreateHosts(db)
+			Expect(err).To(BeNil())
+		})
+
+		It("not return error if the org max_hosts is NULL", func() {
+			_, err := db.Exec(`UPDATE orgs SET max_hosts = NULL WHERE id = $1;`, o1.ID)
+			Expect(err).To(BeNil())
+
+			o1, err = org.Find(db, o1.ID)
 			Expect(err).To(BeNil())
 
 			_, err = test.CreateHostStack(db, &test.HostStack{

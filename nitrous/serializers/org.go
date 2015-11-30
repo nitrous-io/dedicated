@@ -33,7 +33,7 @@ func SerializeOrg(o *org.Org) *Org {
 		Slug:      o.Slug,
 		Name:      o.Name,
 		Email:     o.Email,
-		MaxHosts:  o.MaxHosts,
+		MaxHosts:  o.MaxHosts.Int64,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}
