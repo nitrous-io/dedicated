@@ -45,7 +45,7 @@ func Invoices(d *db.Database, bp *billingprofile.BillingProfile) ([]*Invoice, er
 		} else if !locked {
 			return ErrInvoiceFetchingProgress
 		}
-		hasRecent, err := hasRecentInvoices(d, bp.ID)
+		hasRecent, err := hasRecentInvoices(tx, bp.ID)
 		if err != nil {
 			return err
 		}
@@ -56,7 +56,7 @@ func Invoices(d *db.Database, bp *billingprofile.BillingProfile) ([]*Invoice, er
 
 		// delete old invoices to avoid having to compare for repeats
 		if _, err := tx.Exec(`DELETE FROM stripe_invoices
-		WHERE billing_profile_id = $1`, bp.ID); err != nil {
+			WHERE billing_profile_id = $1`, bp.ID); err != nil {
 			return err
 		}
 		fis, err := fetchedInvoices(bp)
@@ -64,7 +64,7 @@ func Invoices(d *db.Database, bp *billingprofile.BillingProfile) ([]*Invoice, er
 			return err
 		}
 		for _, fi := range fis {
-			if err := fi.Insert(d); err != nil {
+			if err := fi.Insert(tx); err != nil {
 				return err
 			}
 			memoInvs = append(memoInvs, fi)
@@ -77,9 +77,9 @@ func Invoices(d *db.Database, bp *billingprofile.BillingProfile) ([]*Invoice, er
 func dbRecentInvoices(d db.QueryReceiver, bpid int64) ([]*Invoice, error) {
 	var invs []*Invoice
 	err := d.Select(&invs, `SELECT * FROM stripe_invoices
-	WHERE billing_profile_id = $1
-	ORDER BY invoiced_at DESC
-	LIMIT $2
+		WHERE billing_profile_id = $1
+		ORDER BY invoiced_at DESC
+		LIMIT $2
 	`, bpid, invoicesToFetch)
 	return invs, err
 }
@@ -134,9 +134,9 @@ func stripeInvoices(custID string) ([]*stripe.Invoice, error) {
 
 func (inv *Invoice) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO stripe_invoices
-	(billing_profile_id, invoice_json, invoiced_at) VALUES
-	(:billing_profile_id, :invoice_json, :invoiced_at)
-    RETURNING *;`)
+		(billing_profile_id, invoice_json, invoiced_at) VALUES
+		(:billing_profile_id, :invoice_json, :invoiced_at)
+		RETURNING *;`)
 	if err != nil {
 		return err
 	}
