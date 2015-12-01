@@ -27,6 +27,7 @@ var _ = Describe("org serializer", func() {
 			Slug:      "macrosoft",
 			Email:     "bill@macrosoft.com",
 			MaxHosts:  sql.NullInt64{2, true},
+			UsedHosts: 1,
 			CreatedAt: &createdAt,
 			UpdatedAt: &updatedAt,
 		}
@@ -44,6 +45,24 @@ var _ = Describe("org serializer", func() {
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
 				"multi_host": false,
+				"used_hosts": 1,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`))
+		})
+
+		It("should omit an empty UsedHosts", func() {
+			model.UsedHosts = 0
+			serializedOrg := serializers.SerializeOrg(model)
+			b, err := json.Marshal(serializedOrg)
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`{
+				"id": 10,
+				"name": "Macrosoft Corp.",
+				"slug": "macrosoft",
+				"email": "bill@macrosoft.com",
+				"max_hosts": 2,
+				"multi_host": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -59,6 +78,7 @@ var _ = Describe("org serializer", func() {
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
 				"max_hosts": 2,
+				"used_hosts": 1,
 				"multi_host": false,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
@@ -95,6 +115,7 @@ var _ = Describe("org serializer", func() {
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
 				"max_hosts": 2,
+				"used_hosts": 1,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"multi_host": false,
@@ -131,6 +152,7 @@ var _ = Describe("org serializer", func() {
 				"slug": "macrosoft",
 				"email": "bill@macrosoft.com",
 				"max_hosts": 2,
+				"used_hosts": 1,
 				"role": "owner",
 				"multi_host": false,
 				"created_at": "2013-11-01T00:00:00Z",
@@ -149,6 +171,7 @@ var _ = Describe("org serializer", func() {
 				Name:      "Foo Bar, Inc.",
 				Email:     "eng@foobar.com",
 				MaxHosts:  sql.NullInt64{2, true},
+				UsedHosts: 1,
 				CreatedAt: &createdAt,
 				UpdatedAt: &updatedAt,
 			}
@@ -172,6 +195,7 @@ var _ = Describe("org serializer", func() {
 					"slug": "macrosoft",
 					"email": "bill@macrosoft.com",
 				  "max_hosts": 2,
+				  "used_hosts": 1,
 					"role": "limited",
 					"multi_host": false,
 					"created_at": "2013-11-01T00:00:00Z",
@@ -183,6 +207,7 @@ var _ = Describe("org serializer", func() {
 					"slug": "foobar",
 					"email": "eng@foobar.com",
 				  "max_hosts": 2,
+				  "used_hosts": 1,
 					"role": "owner",
 					"multi_host": false,
 					"created_at": "2013-11-01T00:00:00Z",
