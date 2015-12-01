@@ -1,17 +1,18 @@
 package org
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
-	"database/sql"
 	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/blacklist"
 	stripe "github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/customer"
@@ -44,6 +45,9 @@ type Org struct {
 	Email string `db:"email"`
 
 	MaxHosts sql.NullInt64 `db:"max_hosts"`
+
+	// Track number of active hosts belonging to org.
+	UsedHosts int
 
 	CreatedAt *time.Time `db:"created_at"`
 	UpdatedAt *time.Time `db:"updated_at"`
@@ -174,6 +178,11 @@ func (o *Org) CanCreateHosts(d db.QueryReceiver) error {
 	}
 
 	return nil
+}
+
+func (o *Org) UsedHostsCount(d *db.Database) (int, error) {
+	orgs, err := host.FindAllByOrgID(d, o.ID)
+	return len(orgs), err
 }
 
 func (o *Org) ActivateBillingProfile(d *db.Database, bp *billingprofile.BillingProfile, token string) (err error) {

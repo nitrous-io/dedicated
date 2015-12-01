@@ -7,8 +7,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -368,6 +370,65 @@ var _ = Describe("models/org", func() {
 				Expect(o).To(BeNil())
 				Expect(err).NotTo(BeNil())
 			})
+		})
+	})
+
+	Describe("UsedHostsCount", func() {
+		var (
+			hs1, hs2 *test.HostStack
+		)
+
+		BeforeEach(func() {
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			hs1, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-1",
+					HourlyPrice: 2000,
+				},
+				P: &plan.Plan{
+					Slug:          "hs1Plan",
+					Name:          "hs1Plan",
+					MaxContainers: 1,
+					Price:         1901,
+					BasePrice:     500,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+
+			hs2, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				P: &plan.Plan{
+					Slug:          "hs2Plan",
+					Name:          "hs2Plan",
+					MaxContainers: 1,
+					Price:         1901,
+					BasePrice:     500,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns number of hosts", func() {
+			_, err := db.Exec("UPDATE hosts SET org_id=$1 WHERE id=$2;", o1.ID, hs1.H.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE hosts SET org_id=$1 WHERE id=$2;", o1.ID, hs2.H.ID)
+			Expect(err).To(BeNil())
+
+			count, err := o1.UsedHostsCount(db)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(2))
 		})
 	})
 
