@@ -60,7 +60,8 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			}
 			return err
 		}
-		if mem.Role != orgmembership.RoleOwner {
+		allowMember, _ := strconv.ParseBool(r.FormValue("allow_member"))
+		if (mem.Role != orgmembership.RoleOwner) && !allowMember {
 			return errOrgForbidden
 		}
 		subscriptions, err = subscription.FindAllActiveForOrg(env.DB, mem.OrgID)
