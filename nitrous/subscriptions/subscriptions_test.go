@@ -760,6 +760,39 @@ var _ = Describe("subscriptions", func() {
 					Expect(use.BillingProfileID).To(Equal(bp.ID))
 				})
 
+				It("should not set trial_end if the TrialSeconds is not valid", func() {
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					pc1.TrialSeconds = sql.NullInt64{Valid: false}
+					opts.PromoCode = pc1
+
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+					r := fakeStripe.ReceivedRequests[0]
+					_, ok := r["trial_end"]
+					Expect(ok).To(BeFalse())
+
+					s, err = findByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					use := &promocode.PromoCodeUse{}
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE subscription_id = $1", s.ID)
+					Expect(err).To(BeNil())
+					Expect(use.BillingProfileID).To(Equal(bp.ID))
+				})
+
 				It("should allow a promocode to be directly used", func() {
 					fakeStripe.Responses = []string{
 						`{
