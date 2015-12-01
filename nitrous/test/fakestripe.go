@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -104,6 +105,84 @@ var StripeCustomerResponse = `{
 		},
 		"default_card": "card_14wQPX2CU2PklWtHi34KFonT"
 	}`
+
+// from api docs https://stripe.com/docs/api/go#list_invoices
+var StripeInvoiceResponse = `{
+  "id": "in_17AYBv2eZvKYlo2C8sW8Cs4R",
+  "object": "invoice",
+  "amount_due": 3000,
+  "application_fee": null,
+  "attempt_count": 0,
+  "attempted": false,
+  "charge": null,
+  "closed": false,
+  "currency": "usd",
+  "customer": "cus_7PN4EHPJGbC4D1",
+  "date": 1448338447,
+  "description": null,
+  "discount": null,
+  "ending_balance": null,
+  "forgiven": false,
+  "lines": {
+    "data": [
+      {
+        "id": "sub_7PNezyXAgzNnkn",
+        "object": "line_item",
+        "amount": 2000,
+        "currency": "usd",
+        "description": null,
+        "discountable": true,
+        "livemode": true,
+        "metadata": {
+        },
+        "period": {
+          "start": 1450933120,
+          "end": 1453611520
+        },
+        "plan": {
+          "id": "gold21323",
+          "object": "plan",
+          "amount": 2000,
+          "created": 1386247539,
+          "currency": "usd",
+          "interval": "month",
+          "interval_count": 1,
+          "livemode": false,
+          "metadata": {
+          },
+          "name": "New plan name",
+          "statement_descriptor": null,
+          "trial_period_days": null
+        },
+        "proration": false,
+        "quantity": 1,
+        "subscription": null,
+        "type": "subscription"
+      }
+    ],
+    "total_count": 1,
+    "object": "list",
+    "url": "/v1/invoices/in_17AYBv2eZvKYlo2C8sW8Cs4R/lines"
+  },
+  "livemode": false,
+  "metadata": {
+  },
+  "next_payment_attempt": 1448342047,
+  "paid": false,
+  "period_end": 1448338371,
+  "period_start": 1448251971,
+  "receipt_number": null,
+  "starting_balance": 0,
+  "statement_descriptor": null,
+  "subscription": "sub_4gmRwSQmlmUOs8",
+  "subtotal": 3000,
+  "tax": null,
+  "tax_percent": null,
+  "total": 3000,
+  "webhooks_delivered_at": 1448338461
+}`
+
+var StripeInvoiceListResponse = fmt.Sprintf(`{"data": [%s]}`, StripeInvoiceResponse)
 
 var StripeCardDeclined = &stripe.Error{
 	Type: stripe.ErrorType(stripe.CardErr),

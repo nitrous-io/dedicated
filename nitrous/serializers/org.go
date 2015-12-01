@@ -7,10 +7,11 @@ import (
 )
 
 type Org struct {
-	ID    int64  `json:"id"`
-	Slug  string `json:"slug"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID       int64  `json:"id"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	MaxHosts int64  `json:"max_hosts,omitempty"`
 
 	Role string `json:"role,omitempty"`
 
@@ -32,6 +33,7 @@ func SerializeOrg(o *org.Org) *Org {
 		Slug:      o.Slug,
 		Name:      o.Name,
 		Email:     o.Email,
+		MaxHosts:  o.MaxHosts.Int64,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}
