@@ -405,6 +405,11 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	liveContainer, err := cl.Info(cn.CID)
 	if err != nil {
 		if strings.Contains(err.Error(), "container not found") {
+			logrus.Errorf("container is mark as terminated in workspace")
+			if err := cn.Delete(env.DB); err != nil {
+				logrus.Errorf("unable to mark the container as terminated in db: %v", err)
+			}
+
 			return errContainerNotFound
 		}
 		return err
@@ -509,7 +514,7 @@ func start(cn *container.Container, h *host.Host, env *middleware.Env, w http.Re
 
 			liveContainer, err := cl.Start(cn.CID, config)
 			if err != nil {
-				return expandFreighterClientError(err)
+				return expandFreighterClientError(env.DB, cn, err)
 			}
 
 			// Update port mappings
@@ -557,6 +562,12 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 				liveContainer, err := action(env, cl, cn)
 				if err != nil {
 					if strings.Contains(err.Error(), "container not found") {
+						logrus.Errorf("container is mark as terminated in workspace")
+
+						cn.TempState = sql.NullInt64{0, false}
+						if err := cn.Delete(env.DB); err != nil {
+							logrus.Errorf("unable to mark the container as terminated in db: %v", err)
+						}
 						return errContainerNotFound
 					}
 					return err
@@ -629,6 +640,12 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 			liveContainer, err := cl.Terminate(cn.CID)
 			if err != nil {
 				if strings.Contains(err.Error(), "container not found") {
+					logrus.Errorf("container is mark as terminated in workspace")
+
+					cn.TempState = sql.NullInt64{0, false}
+					if err := cn.Delete(env.DB); err != nil {
+						logrus.Errorf("unable to mark the container as terminated in db: %v", err)
+					}
 					return errContainerNotFound
 				}
 				return err
@@ -911,7 +928,7 @@ func timePtr(t time.Time) *time.Time {
 	return nil
 }
 
-func expandFreighterClientError(err error) error {
+func expandFreighterClientError(d db.QueryReceiver, cn *container.Container, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -921,7 +938,13 @@ func expandFreighterClientError(err error) error {
 			return makeErrHostPortConflict(match[1])
 		}
 	}
+
 	if strings.Contains(err.Error(), "container not found") {
+		logrus.Errorf("container is mark as terminated in workspace")
+		cn.TempState = sql.NullInt64{0, false}
+		if err := cn.Delete(d); err != nil {
+			logrus.Errorf("unable to mark the container as terminated in db: %v", err)
+		}
 		return errContainerNotFound
 	}
 
