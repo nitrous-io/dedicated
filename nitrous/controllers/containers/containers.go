@@ -404,6 +404,9 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	// TODO Run this in a goroutine so it runs concurrently with DB query.
 	liveContainer, err := cl.Info(cn.CID)
 	if err != nil {
+		if strings.Contains(err.Error(), "container not found") {
+			return errContainerNotFound
+		}
 		return err
 	}
 	cn = hydrateContainer(cn, liveContainer, h)
@@ -553,6 +556,9 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 
 				liveContainer, err := action(env, cl, cn)
 				if err != nil {
+					if strings.Contains(err.Error(), "container not found") {
+						return errContainerNotFound
+					}
 					return err
 				}
 
@@ -622,6 +628,9 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			liveContainer, err := cl.Terminate(cn.CID)
 			if err != nil {
+				if strings.Contains(err.Error(), "container not found") {
+					return errContainerNotFound
+				}
 				return err
 			}
 
@@ -911,6 +920,9 @@ func expandFreighterClientError(err error) error {
 		if len(match) >= 2 {
 			return makeErrHostPortConflict(match[1])
 		}
+	}
+	if strings.Contains(err.Error(), "container not found") {
+		return errContainerNotFound
 	}
 
 	return err

@@ -1831,6 +1831,17 @@ var _ = Describe("controllers/containers", func() {
 				errType, _ := j["error"].(string)
 				Expect(errType).To(Equal("internal_server_error"))
 			})
+
+			Context("When the error message is 'container not found'", func() {
+				BeforeEach(func() {
+					mockClient.InfoError = errors.New("container not found")
+				})
+
+				It("responds with 404", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+				})
+			})
 		})
 
 		Context("when host is not running", func() {
@@ -2197,6 +2208,17 @@ var _ = Describe("controllers/containers", func() {
 				cntnr, err := container.FindByCID(db, "deadbeef")
 				Expect(err).To(BeNil())
 				Expect(cntnr.LockedUntil).To(BeNil())
+			})
+
+			Context("When the error message is 'container not found'", func() {
+				BeforeEach(func() {
+					*inputs.actionError = errors.New("container not found")
+				})
+
+				It("responds with 404", func() {
+					doRequest("elixir-web-1")
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+				})
 			})
 		})
 
@@ -3314,6 +3336,17 @@ var _ = Describe("controllers/containers", func() {
 
 				errType, _ := j["error"].(string)
 				Expect(errType).To(Equal("internal_server_error"))
+			})
+
+			Context("When the error message is 'container not found'", func() {
+				BeforeEach(func() {
+					mockClient.TerminateError = errors.New("container not found")
+				})
+
+				It("responds with 404", func() {
+					doRequest()
+					Expect(res.Code).To(Equal(http.StatusNotFound))
+				})
 			})
 		})
 
