@@ -157,7 +157,7 @@ type Host struct {
 type HostWithUser struct {
 	*Host
 
-	Username string `db:"username"`
+	Username  string `db:"username"`
 	UserEmail string `db:"user_email"`
 }
 
@@ -379,6 +379,16 @@ func FindAllBySubscriptionID(db *db.Database, subscriptionID int64) ([]*HostWith
 		WHERE terminated_at IS NULL
 		AND state <> 'terminated'
 		AND subscription_id = $1;`, subscriptionID)
+	return hosts, err
+}
+
+func FindAllByOrgID(db *db.Database, orgID int64) ([]*Host, error) {
+	hosts := []*Host{}
+	err := db.Select(&hosts,
+		`SELECT * FROM hosts
+		WHERE org_id=$1
+		AND terminated_at IS NULL 
+		AND state <> 'terminated';`, orgID)
 	return hosts, err
 }
 

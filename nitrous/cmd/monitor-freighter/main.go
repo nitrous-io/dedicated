@@ -103,10 +103,8 @@ func dispatcher(ch chan Workspace) {
 
 func worker(ch chan Workspace) {
 	for {
-		select {
-		case w := <-ch:
-			ping(w)
-		}
+		w := <-ch
+		ping(w)
 	}
 }
 
@@ -123,6 +121,7 @@ func ping(w Workspace) {
 		logrus.WithFields(fields).Error()
 		return
 	}
+	defer resp.Body.Close()
 	avail := resp.StatusCode == http.StatusOK
 	if avail {
 		logrus.WithFields(fields).Info("passed")
@@ -162,7 +161,7 @@ func main() {
 		"polling_interval": pollInterval,
 	}).Info("running with this config")
 
-	wch := make(chan Workspace)
+	wch := make(chan Workspace, workers)
 	for i := 0; i < workers; i++ {
 		go worker(wch)
 	}

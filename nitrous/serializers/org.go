@@ -13,6 +13,8 @@ type Org struct {
 	Email    string `json:"email"`
 	MaxHosts int64  `json:"max_hosts,omitempty"`
 
+	UsedHosts int `json:"used_hosts,omitempty"`
+
 	Role string `json:"role,omitempty"`
 
 	CreatedAt *time.Time `json:"created_at"`
@@ -34,6 +36,7 @@ func SerializeOrg(o *org.Org) *Org {
 		Name:      o.Name,
 		Email:     o.Email,
 		MaxHosts:  o.MaxHosts.Int64,
+		UsedHosts: o.UsedHosts,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}

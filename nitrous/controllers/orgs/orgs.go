@@ -117,6 +117,11 @@ func Index(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	orgIDs := make([]int64, len(orgs))
 	for i, o := range orgs {
 		orgIDs[i] = o.ID
+		count, err := o.UsedHostsCount(db)
+		if err != nil {
+			return err
+		}
+		o.UsedHosts = count
 	}
 
 	bps, err := billingprofile.FindForOrgs(db, orgIDs, user.ID)
@@ -167,6 +172,12 @@ func Show(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
+
+	count, err := o.UsedHostsCount(db)
+	if err != nil {
+		return err
+	}
+	o.UsedHosts = count
 
 	mem, err := orgmembership.FindByUsernameAndOrgSlug(db, user.Username, slug)
 	if err != nil {

@@ -115,6 +115,57 @@ var _ = Describe("models/host", func() {
 		})
 	})
 
+	Describe("FindAllByOrgID()", func() {
+		var (
+			hs2 *test.HostStack
+			o   *org.Org
+		)
+
+		BeforeEach(func() {
+			o = &org.Org{
+				Slug:  "my-org",
+				Name:  "MyOrg",
+				Email: "org@example.com",
+			}
+			Expect(o.Insert(db)).To(BeNil())
+
+			u := &user.User{
+				Username: "foo",
+				Email:    "foo@example.com",
+				Password: "123456",
+			}
+			err := test.WrapInTransaction(db, u.Insert)
+			Expect(err).To(BeNil())
+
+			hs2, err = test.CreateHostStack(db, &test.HostStack{
+				H: &host.Host{
+					Slug:        "my-host-2",
+					HourlyPrice: 2000,
+				},
+				P: &plan.Plan{
+					Slug:          "hs2Plan",
+					Name:          "hs2Plan",
+					MaxContainers: 1,
+					Price:         1901,
+					BasePrice:     500,
+				},
+				U: u,
+			})
+			Expect(err).To(BeNil())
+		})
+
+		It("returns hosts slice by org ID", func() {
+			_, err := db.Exec("UPDATE hosts SET org_id=$1 WHERE id=$2;", o.ID, hs.H.ID)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("UPDATE hosts SET org_id=$1 WHERE id=$2;", o.ID, hs2.H.ID)
+			Expect(err).To(BeNil())
+
+			hosts, err := host.FindAllByOrgID(db, o.ID)
+			Expect(err).To(BeNil())
+			Expect(hosts).To(HaveLen(2))
+		})
+	})
+
 	Describe("FindAllByProvider()", func() {
 		var (
 			fv = "1.0.69-deadbeef-88"
