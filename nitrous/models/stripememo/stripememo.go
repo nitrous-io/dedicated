@@ -30,6 +30,9 @@ type Invoice struct { // corresponds to stripe_invoices table
 
 	// this is extracted from the 'date' field of InvoiceJSON in order to be sortable
 	InvoicedAt time.Time `db:"invoiced_at"`
+
+	// needed for serialization -- to be populated manually prior to serializer
+	UserID int64
 }
 
 // Invoices checks for memoized copies in the db (created within 24 hours),
@@ -71,6 +74,9 @@ func Invoices(d *db.Database, bp *billingprofile.BillingProfile) ([]*Invoice, er
 		}
 		return nil
 	})
+	for _, mi := range memoInvs {
+		mi.UserID = bp.UserID
+	}
 	return memoInvs, err
 }
 
