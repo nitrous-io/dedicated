@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -38,7 +40,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
-	promocode := r.FormValue("promo_code")
+	promocodeSlug := r.FormValue("promo_code")
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
 	gitHubUserName := r.FormValue("github_username")
@@ -78,6 +80,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		u.CreatedByClientID = sql.NullInt64{client.ID, true}
 		if remoteAddr = r.FormValue("remote_addr"); remoteAddr == "" {
 			return invalidRemoteAddr
+		}
+	}
+
+	var pc *promocode.PromoCodeWithPlans
+	if promocodeSlug != "" {
+		pc, err = promocode.Find(db, promocodeSlug)
+		if err == sql.ErrNoRows {
+			return invalidPromoCode
+		} else if err != nil {
+			return err
 		}
 	}
 
@@ -121,8 +133,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if promocode != "" {
-		// TODO: insert a claim
+	if pc != nil {
+		if _, err := promocode.ClaimForUser(db, promocodeSlug, u.ID); err != nil {
+			logrus.Errorf("Error claiming promocode '%s' for user %s, err: %v", promocodeSlug, u.Username, err)
+		}
 	}
 
 	confirmable := client != nil

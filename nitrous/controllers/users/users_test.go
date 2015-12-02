@@ -255,16 +255,46 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("using promocodes", func() {
+			var (
+				pcID int64
+			)
+
 			BeforeEach(func() {
 				params = &url.Values{}
 				params.Set("email", "foo@example.com")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
 				params.Set("name", "Foo Bar")
+				params.Set("promo_code", "magic")
+
+				err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('magic', 10, 900, now()+interval '2 days') RETURNING id;")
+				Expect(err).To(BeNil())
+			})
+
+			It("should return an error if the promocode is invalid", func() {
+				_, err := db.Exec("UPDATE promo_codes SET expires_at = now() - interval '1 hour';")
+				Expect(err).To(BeNil())
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errSlug, errDesc := test.ErrorSlug(res.Body)
+				Expect(errSlug).To(Equal("invalid_promo_code"))
+				Expect(errDesc).To(Equal("promo code does not exist"))
 			})
 
 			It("should assign the promocode against the user if valid", func() {
-				//TODO: check pending claims
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusCreated))
+
+				u, err := user.FindByUsername(db, "foo")
+				Expect(err).To(BeNil())
+
+				var count int
+				err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses
+					WHERE promo_code_id = $1 AND user_id = $2 AND subscription_id IS NULL;`, pcID, u.ID)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 

@@ -241,15 +241,11 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 			Org:  o,
 		}
 		if o == nil {
-			bp, err := u.BillingProfile(db)
-			if err != nil {
-				return err
-			}
 			if cl, err := promocode.FindPendingClaim(db, u.ID, p.ID); err == nil {
 				opts.PromoCodeUse = cl.Use
 				opts.PromoCode = cl.Code
 			} else if err != sql.ErrNoRows {
-				logrus.Errorf("Error finding pending claim for BP %d, err: %v", bp.ID, err)
+				logrus.Errorf("Error finding pending claim for user %d, err: %v", u.ID, err)
 			}
 		}
 

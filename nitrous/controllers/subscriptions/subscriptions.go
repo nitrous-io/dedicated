@@ -141,23 +141,29 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errMultipleSubscriptionNotAllowed
 	}
 
-	var pc *promocode.PromoCodeWithPlans
-	pcSlug := r.FormValue("promo_code")
-	if pcSlug != "" {
-		pc, err = promocode.Find(db, pcSlug)
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-	}
-
 	opts := &sub.SubscribeOptions{
 		Plan: pl,
 		User: env.User,
 		Org:  o,
 	}
-	if pc != nil {
-		opts.PromoCode = pc.PromoCode
+
+	pcSlug := r.FormValue("promo_code")
+	if pcSlug != "" {
+		if pcp, err := promocode.Find(db, pcSlug); err == nil {
+			opts.PromoCode = pcp.PromoCode
+		} else if err != sql.ErrNoRows {
+			return err
+		}
+	} else {
+		// check for any outstanding promocodes awaiting claim
+		if cl, err := promocode.FindPendingClaim(db, env.User.ID, pl.ID); err == nil {
+			opts.PromoCodeUse = cl.Use
+			opts.PromoCode = cl.Code
+		} else if err != sql.ErrNoRows {
+			return err
+		}
 	}
+
 	rSub, err := subProvider.Subscribe(db, opts)
 	if err != nil {
 		return shared.HandleBillingError(err)

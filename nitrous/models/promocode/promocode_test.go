@@ -112,6 +112,75 @@ var _ = Describe("models/promocode", func() {
 		})
 	})
 
+	Describe("ClaimForUser", func() {
+		It("should return an error if the slug does not exist", func() {
+			use, err := promocode.ClaimForUser(db, "jest10", u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should return an error if the promo has expired", func() {
+			_, err := db.Exec("UPDATE promo_codes SET expires_at = now() WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should return an error if the promo has been disabled", func() {
+			_, err := db.Exec("UPDATE promo_codes SET disabled = TRUE WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should insert successfully even if no plans are associated", func() {
+			_, err := db.Exec("DELETE FROM promo_code_plans;")
+			Expect(err).To(BeNil())
+
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+			Expect(use.PromoCodeID).To(Equal(pcID1))
+		})
+
+		It("should insert successfully if there is enough room", func() {
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+			Expect(use.PromoCodeID).To(Equal(pcID1))
+		})
+
+		It("should not insert successfully if there isn't any room", func() {
+			for i := 0; i < 10; i++ {
+				ou := &user.User{
+					Username: fmt.Sprintf("user%d", i),
+					Password: "123456",
+					Email:    fmt.Sprintf("user%d@example.com", i),
+				}
+				Expect(test.WrapInTransaction(db, ou.Insert)).To(BeNil())
+
+				use, err := promocode.ClaimForUser(db, "just10", ou.ID)
+				Expect(err).To(BeNil())
+				Expect(use).ToNot(BeNil())
+				Expect(use.PromoCodeID).To(Equal(pcID1))
+				Expect(use.UserID).To(Equal(ou.ID))
+			}
+
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+
+			var count int
+			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
+				INNER JOIN promo_codes c ON c.id = u.promo_code_id
+				WHERE slug = $1`, "just10")
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(10))
+		})
+	})
+
 	Describe("Claim", func() {
 		It("should return an error if the slug does not exist", func() {
 			use, err := promocode.Claim(db, "jest10", u.ID, p.ID)
@@ -174,40 +243,6 @@ var _ = Describe("models/promocode", func() {
 				WHERE slug = $1`, "just10")
 			Expect(err).To(BeNil())
 			Expect(count).To(Equal(10))
-		})
-
-		It("should insert successfully for a different promocode", func() {
-			for i := 0; i < 10; i++ {
-				ou := &user.User{
-					Username: fmt.Sprintf("user%d", i),
-					Password: "123456",
-					Email:    fmt.Sprintf("user%d@example.com", i),
-				}
-				Expect(test.WrapInTransaction(db, ou.Insert)).To(BeNil())
-
-				use, err := promocode.Claim(db, "just10", ou.ID, p.ID)
-				Expect(err).To(BeNil())
-				Expect(use).ToNot(BeNil())
-				Expect(use.PromoCodeID).To(Equal(pcID1))
-				Expect(use.UserID).To(Equal(ou.ID))
-			}
-
-			use, err := promocode.Claim(db, "just20", u.ID, p.ID)
-			Expect(err).To(BeNil())
-			Expect(use.PromoCodeID).To(Equal(pcID2))
-
-			var count int
-			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
-				INNER JOIN promo_codes c ON c.id = u.promo_code_id
-				WHERE slug = $1`, "just10")
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(10))
-
-			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
-				INNER JOIN promo_codes c ON c.id = u.promo_code_id
-				WHERE slug = $1`, "just20")
-			Expect(err).To(BeNil())
-			Expect(count).To(Equal(1))
 		})
 	})
 

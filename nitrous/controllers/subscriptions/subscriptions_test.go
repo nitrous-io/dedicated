@@ -359,6 +359,8 @@ var _ = Describe("controllers/subscriptions", func() {
 				Hidden:        true,
 			}
 			Expect(p.Insert(db)).To(BeNil())
+
+			pc = nil
 		})
 
 		It("should return an error if a plan slug is not provided", func() {
@@ -440,7 +442,7 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(s.HostSlug).To(BeEmpty())
 		})
 
-		It("should silently ignore unquantity promocodes", func() {
+		It("should silently ignore unavailable promocodes", func() {
 			pc = &promocode.PromoCode{Slug: "cant_find_me"}
 
 			sub := &subscription.Subscription{
@@ -457,7 +459,8 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.SubscribeOpts.PromoCode).To(BeNil())
 		})
 
-		It("should pass in a quantity promocode", func() {
+		It("should pass in a available promocode", func() {
+			pc = &promocode.PromoCode{}
 			err := db.Get(pc, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING *;")
 			Expect(err).To(BeNil())
 
@@ -474,6 +477,34 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(fsub.SubscribeCalled).To(BeTrue())
 			Expect(fsub.SubscribeOpts.PromoCode).ToNot(BeNil())
 			Expect(fsub.SubscribeOpts.PromoCode.ID).To(Equal(pc.ID))
+		})
+
+		It("should use an outstanding claim if available", func() {
+			pc2 := &promocode.PromoCode{}
+			err := db.Get(pc2, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING *;")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO promo_code_plans (promo_code_id, plan_id) VALUES ($1, $2)", pc2.ID, p.ID)
+			Expect(err).To(BeNil())
+
+			use, err := promocode.ClaimForUser(db, "just10", u.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+
+			sub := &subscription.Subscription{
+				Slug:   "new-thing",
+				PlanID: p.ID,
+				State:  "active",
+			}
+			fsub.SubscribeReturn = sub
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.SubscribeCalled).To(BeTrue())
+			Expect(fsub.SubscribeOpts.PromoCode).ToNot(BeNil())
+			Expect(fsub.SubscribeOpts.PromoCode.ID).To(Equal(pc2.ID))
+			Expect(fsub.SubscribeOpts.PromoCodeUse).ToNot(BeNil())
+			Expect(fsub.SubscribeOpts.PromoCodeUse.ID).To(Equal(use.ID))
 		})
 	})
 

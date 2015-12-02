@@ -73,6 +73,27 @@ func Find(d db.QueryReceiver, slug string) (*PromoCodeWithPlans, error) {
 	}, nil
 }
 
+// allocates a claim for a promocode regardless of any plan restrictions
+func ClaimForUser(d db.QueryReceiver, slug string, uID int64) (*PromoCodeUse, error) {
+	use := &PromoCodeUse{}
+	err := d.Get(use, `INSERT INTO promo_code_uses(promo_code_id, user_id) SELECT promo_codes.id, $1 FROM (
+			SELECT promo_codes.id, COUNT(uses.id) count FROM promo_codes
+			LEFT JOIN promo_code_uses uses ON uses.promo_code_id = promo_codes.id
+			WHERE disabled IS FALSE
+			AND promo_codes.slug = $2
+			AND (expires_at IS NULL OR expires_at > now())
+			GROUP BY promo_codes.id
+		) t
+		INNER JOIN promo_codes ON t.id = promo_codes.id
+		AND t.count < promo_codes.quantity
+		RETURNING *;`,
+		uID, slug)
+	if err != nil {
+		return nil, err
+	}
+	return use, nil
+}
+
 // allocates a claim for a promocode if (and only if) the plan provided
 // is attached to that promo code slug
 func Claim(d db.QueryReceiver, slug string, uID, pID int64) (*PromoCodeUse, error) {
