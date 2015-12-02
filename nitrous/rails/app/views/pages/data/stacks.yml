@@ -40,9 +40,6 @@ laravel:
 ubuntu:
   name: 'Ubuntu'
   about: "Whether you’re a mobile app developer, an engineering manager, a music or video editor or a financial analyst with large-scale models to run ‐ in fact, anyone in need of a powerful machine for your work ‐ Ubuntu is the ideal platform."
-docker:
-  name: 'Docker'
-  about: "Docker is an open-source project that automates the deployment of applications inside software containers, by providing an additional layer of abstraction and automation of operating-system-level virtualization on Linux."
 rust:
   name: 'Rust'
   about: "Rust is a systems programming language that runs blazingly fast, prevents almost all crashes, and eliminates data races."
