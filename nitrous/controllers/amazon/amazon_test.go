@@ -532,7 +532,7 @@ var _ = Describe("controllers/amazon", func() {
 
 				select {
 				case <-time.After(50 * time.Millisecond):
-					Fail("Timeout while getting shared volume created event")
+					Fail("Timed out waiting for host updated event")
 				case evt := <-evtCh:
 					Expect(evt.Name).To(Equal(controllers.EventHostUpdated))
 					evtData, ok := evt.Data.(map[string]*serializers.Host)

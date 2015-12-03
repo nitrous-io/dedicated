@@ -88,12 +88,10 @@ func login(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Req
 		return err
 	}
 
-	err = cl.RegistryLogin(params)
-	if err != nil {
+	if err := cl.RegistryLogin(params); err != nil {
 		if err == freighterclient.ErrInvalidParams {
 			return errLoginFailed
 		}
-
 		return err
 	}
 

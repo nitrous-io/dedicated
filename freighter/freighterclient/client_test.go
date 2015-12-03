@@ -1515,7 +1515,7 @@ var _ = Describe("client", func() {
 			})
 		})
 
-		Context("when the response is not HTTP 200, 404 or 422", func() {
+		Context("when the response is not HTTP 201, 404 or 422", func() {
 			BeforeEach(func() {
 				statusCode = http.StatusInternalServerError
 			})

@@ -29,6 +29,9 @@ const (
 
 	// Admin is impersonating a user, the same as ScopeFull but owned by an admin
 	ScopeAdmin = "admin"
+
+	TypeLogin          = "login"
+	TypeDockerRegistry = "docker_registry"
 )
 
 var (
@@ -111,6 +114,18 @@ func FindByToken(d db.QueryReceiver, token string) (*Token, error) {
 	}
 	if !t.IsValid() {
 		return nil, ErrInvalidToken
+	}
+	return t, nil
+}
+
+func FindByType(d db.QueryReceiver, userID int64, typ string) (*Token, error) {
+	t := &Token{}
+	err := d.Get(t, `SELECT * FROM tokens
+		WHERE user_id = $1 AND type = $2
+		ORDER BY created_at DESC;`,
+		userID, typ)
+	if err != nil {
+		return nil, err
 	}
 	return t, nil
 }
