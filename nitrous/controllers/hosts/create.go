@@ -51,9 +51,10 @@ var (
 	errOrgNoCard          = httperror.New(http.StatusForbidden, "request_not_allowed", "your organization has not added a credit card")
 	errOrgDelinquent      = httperror.New(http.StatusForbidden, "outstanding_invoices", "your organization has outstanding invoices")
 
-	errOrgPermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden", "You do not have access to this organization")
-	errOrgNotFound         = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
-	errNotOrgPlan          = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
+	errOrgPermissionDenied       = httperror.New(http.StatusForbidden, "org_forbidden", "You do not have access to this organization")
+	errOrgCreatePermissionDenied = httperror.New(http.StatusForbidden, "org_forbidden", "You do not have permission to create workstations under this organization")
+	errOrgNotFound               = httperror.New(http.StatusBadRequest, "invalid_request", "No matching org found")
+	errNotOrgPlan                = httperror.New(http.StatusBadRequest, "invalid_request", "Not an org plan")
 
 	errPlanMaxHostsReached = httperror.New(http.StatusForbidden, "max_hosts_reached", "You have exceeded the number of hosts for this plan, please upgrade")
 )
@@ -273,6 +274,8 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 			return errOrgDelinquent
 		case provisioner.ErrOrgPermissionDenied:
 			return errOrgPermissionDenied
+		case provisioner.ErrOrgCreatePermissionDenied:
+			return errOrgCreatePermissionDenied
 		case user.ErrMaxHostsReached:
 			return errUserMaxHostsReached
 		case provisioner.ErrExceededPlanMaxHosts:
