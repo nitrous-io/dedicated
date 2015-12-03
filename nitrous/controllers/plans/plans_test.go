@@ -168,14 +168,14 @@ var _ = Describe("controllers/plans", func() {
 					Expect(err).To(BeNil())
 				})
 
-				It("should return paid plans of the default provider", func() {
+				It("should return paid non-hidden non-disabled plans of the default provider", func() {
 					plans := fetchPlans("/api/v0/plans?eligible=true", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 
-				It("should return all plans if no query parameter is provided", func() {
+				It("should return all non-hidden non-disabled plans if no query parameter is provided", func() {
 					plans := fetchPlans("/api/v0/plans", true)
-					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
+					Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 				})
 			})
 
@@ -204,9 +204,9 @@ var _ = Describe("controllers/plans", func() {
 						Expect(err).To(BeNil())
 					})
 
-					It("should return only paid plans", func() {
+					It("should return only non-hidden non-disabled paid plans", func() {
 						plans := fetchPlans("/api/v0/plans?eligible=true", true)
-						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo", "shift-always-on"}))
+						Expect(plans).To(ConsistOf([]string{"start", "shift", "turbo"}))
 					})
 				})
 			})
