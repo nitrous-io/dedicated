@@ -306,6 +306,21 @@ var _ = Describe("POST /api/v0/hosts", func() {
 			Expect(errType).To(Equal("org_forbidden"))
 			Expect(errDesc).To(Equal("You do not have access to this organization"))
 		})
+
+		It("responds with an error if the user is a limited member of the org", func() {
+			err := db.WithTransaction(func(t *sqlx.Tx) error {
+				Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
+				return orgmembership.AddMember(db, o.ID, u.ID, orgmembership.RoleLimited)
+			})
+			Expect(err).To(BeNil())
+			res := doRequest(params)
+
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("org_forbidden"))
+			Expect(errDesc).To(Equal("You do not have permission to create workstations under this organization"))
+		})
 	})
 
 	It("responds with region disabled when a disabled region is specified", func() {
