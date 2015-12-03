@@ -113,6 +113,7 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(o.Slug).To(Equal("nitrous"))
 				Expect(o.CreatedAt).NotTo(BeNil())
 				Expect(o.DeletedAt.Valid).To(BeFalse())
+				Expect(o.Edu).To(BeFalse())
 			})
 
 			It("should create a billing profile for the organisation", func() {
@@ -160,6 +161,41 @@ var _ = Describe("controllers/orgs", func() {
 				Expect(m[0].Username).To(Equal("foo"))
 				Expect(m[0].Role).To(Equal("owner"))
 			})
+
+			It("should make the org an edu if email is in the whitelist", func() {
+				_, err := db.Exec("INSERT INTO edu_emails_whitelist(email) VALUES ('accounting@nitrous.io');")
+				Expect(err).To(BeNil())
+
+				doRequest()
+
+				o, err := org.FindBySlug(db, "nitrous")
+				Expect(err).To(BeNil())
+				Expect(o.Edu).To(BeTrue())
+
+				m, err := orgmembership.FindAllByOrgID(db, o.ID)
+				Expect(err).To(BeNil())
+
+				Expect(m).To(HaveLen(1))
+				Expect(m[0].Username).To(Equal("foo"))
+				Expect(m[0].Role).To(Equal("owner"))
+			})
+		})
+
+		It("should return an error if the intent was edu but email was not whitelisted", func() {
+			_, err := db.Exec("INSERT INTO edu_emails_whitelist(email) VALUES ('accounting@nitrous.gov');")
+			Expect(err).To(BeNil())
+
+			params.Set("intent", "edu")
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errSlug, errDesc := test.ErrorSlug(res.Body)
+			Expect(errSlug).To(Equal("not_edu_whitelisted"))
+			Expect(errDesc).To(Equal("Please contact Nitrous to enable education support"))
+
+			_, err = org.FindBySlug(db, "nitrous")
+			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 
 		It("responds with HTTP 400 Bad Request when slug is taken by another org", func() {

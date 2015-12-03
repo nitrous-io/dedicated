@@ -99,8 +99,8 @@ func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*OrgWithRole, error
 func (o *Org) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO orgs
-		(slug, name, email)
-		VALUES (:slug, :name, :email)
+		(slug, name, email, edu)
+		VALUES (:slug, :name, :email, :edu)
 		RETURNING *;
 	`)
 	if err != nil {
