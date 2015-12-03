@@ -29,6 +29,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/controllers/providertemplates"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/regions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/registries"
+	"github.com/nitrous-io/dedicated/nitrous/controllers/snapshots"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/stripehooks"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/subscriptions"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/templates"
@@ -180,6 +181,7 @@ func (s *Server) drawRoutes() {
 				"/orgs/{org_slug}/billing_profile":         r("billingprofiles.Show", billingprofiles.Show),
 				"/orgs/{org_slug}/subscriptions":           r("subscriptions.Index", subscriptions.Index),
 				"/orgs/{org_slug}/invoices":                r("billing.Invoices", billing.Invoices),
+				"/orgs/{org_slug}/snapshots":               r("snapshots.ForOrg", snapshots.ForOrg),
 				"/github/repos":                            r("github.Repos", github.Repos),
 			},
 			"POST": {
