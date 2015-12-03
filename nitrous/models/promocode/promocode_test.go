@@ -1,0 +1,234 @@
+package promocode_test
+
+import (
+	"database/sql"
+	"testing"
+
+	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
+	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/test"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+func Test(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "models/promocode")
+}
+
+var _ = Describe("models/promocode", func() {
+	var (
+		db *db.Database
+		u  *user.User
+		bp *billingprofile.BillingProfile
+
+		pcID1 int64
+		pcID2 int64
+		pcID3 int64
+	)
+
+	BeforeEach(func() {
+		var err error
+
+		db, err = test.TestDatabase("nitrous_test")
+		Expect(err).To(BeNil())
+
+		u = &user.User{
+			Username: "foo",
+			Password: "123456",
+			Email:    "foo@example.com",
+		}
+		Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+		bp, err = u.BillingProfile(db)
+		Expect(err).To(BeNil())
+
+		err = db.Get(&pcID1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+		Expect(err).To(BeNil())
+		err = db.Get(&pcID2, "INSERT INTO promo_codes(slug, quantity) VALUES ('just20', 20) RETURNING id;")
+		Expect(err).To(BeNil())
+		err = db.Get(&pcID3, "INSERT INTO promo_codes(slug, quantity, trial_seconds) VALUES ('just30', 30, 400) RETURNING id;")
+		Expect(err).To(BeNil())
+	})
+
+	AfterEach(func() {
+		if db != nil {
+			db.Close()
+		}
+	})
+
+	Describe("Claim", func() {
+		It("should return an error if the slug does not exist", func() {
+			use, err := promocode.Claim(db, "jest10", bp.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should return an error if the promo has expired", func() {
+			_, err := db.Exec("UPDATE promo_codes SET expires_at = now() WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			use, err := promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should insert successfully if there is enough room", func() {
+			use, err := promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+			Expect(use.PromoCodeID).To(Equal(pcID1))
+		})
+
+		It("should not insert successfully if there isn't any room", func() {
+			for i := 0; i < 10; i++ {
+				use, err := promocode.Claim(db, "just10", bp.ID)
+				Expect(err).To(BeNil())
+				Expect(use).ToNot(BeNil())
+				Expect(use.PromoCodeID).To(Equal(pcID1))
+			}
+
+			use, err := promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+
+			var count int
+			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
+				INNER JOIN promo_codes c ON c.id = u.promo_code_id
+				WHERE slug = $1`, "just10")
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(10))
+		})
+
+		It("should insert successfully for a different promocode", func() {
+			for i := 0; i < 10; i++ {
+				use, err := promocode.Claim(db, "just10", bp.ID)
+				Expect(err).To(BeNil())
+				Expect(use).ToNot(BeNil())
+				Expect(use.PromoCodeID).To(Equal(pcID1))
+			}
+
+			use, err := promocode.Claim(db, "just20", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use.PromoCodeID).To(Equal(pcID2))
+
+			var count int
+			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
+				INNER JOIN promo_codes c ON c.id = u.promo_code_id
+				WHERE slug = $1`, "just10")
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(10))
+
+			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
+				INNER JOIN promo_codes c ON c.id = u.promo_code_id
+				WHERE slug = $1`, "just20")
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+	})
+
+	Describe("UpdateSubscriptionId", func() {
+		var (
+			use *promocode.PromoCodeUse
+			sub *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			var err error
+			use, err = promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			pl := &plan.Plan{
+				Slug:          "hs1Plan",
+				Name:          "hs1Plan",
+				MaxContainers: 1,
+				Price:         1499,
+				StripePlanID:  sql.NullString{"stripe-plan-id", true},
+			}
+			Expect(pl.Insert(db)).To(BeNil())
+
+			sub = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_1", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, sub.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("should update just the subscription_id", func() {
+			use.SubscriptionID = sql.NullInt64{sub.ID, true}
+			use.BillingProfileID = 900
+			Expect(use.UpdateSubscriptionId(db)).To(BeNil())
+
+			var count int
+			err := db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses u
+				INNER JOIN promo_codes c ON c.id = u.promo_code_id
+				WHERE slug = $1 AND subscription_id = $2 AND billing_profile_id != 900`, "just10", sub.ID)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(1))
+		})
+	})
+
+	Describe("Delete", func() {
+		var (
+			use, use2 *promocode.PromoCodeUse
+			sub       *subscription.Subscription
+		)
+
+		BeforeEach(func() {
+			var err error
+			use, err = promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+
+			use2, err = promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use2).ToNot(BeNil())
+
+			bp, err := u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			pl := &plan.Plan{
+				Slug:          "hs1Plan",
+				Name:          "hs1Plan",
+				MaxContainers: 1,
+				Price:         1499,
+				StripePlanID:  sql.NullString{"stripe-plan-id", true},
+			}
+			Expect(pl.Insert(db)).To(BeNil())
+
+			sub = &subscription.Subscription{
+				PlanID:           pl.ID,
+				BillingProfileID: bp.ID,
+				State:            "active",
+				StripeID:         sql.NullString{"sub_1", true},
+				Slug:             "SLUG",
+			}
+			err = test.WrapInTransaction(db, sub.Insert)
+			Expect(err).To(BeNil())
+		})
+
+		It("should delete the target", func() {
+			Expect(use.Delete(db)).To(BeNil())
+
+			var count int64
+			err := db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses WHERE id = $1`, use.ID)
+			Expect(err).To(BeNil())
+			Expect(count).To(BeZero())
+
+			err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses WHERE id = $1`, use2.ID)
+			Expect(err).To(BeNil())
+			Expect(count).To(Equal(int64(1)))
+		})
+	})
+})
