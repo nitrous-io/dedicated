@@ -57,3 +57,18 @@ func ShowSubscriptionPromocode(env *middleware.Env, w http.ResponseWriter, r *ht
 	}
 	return nil
 }
+
+func PendingPromoCodes(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	pcs, err := promocode.FindAllPending(db, env.User.ID)
+	if err != nil {
+		return err
+	}
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"promo_codes": serializers.SerializePromoCodes(pcs),
+	}
+	return nil
+}

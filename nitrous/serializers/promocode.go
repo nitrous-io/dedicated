@@ -20,3 +20,11 @@ func SerializePromoCode(pc *promocode.PromoCodeWithPlans) *PromoCode {
 		PlanIDs:      pc.PlanIDs,
 	}
 }
+
+func SerializePromoCodes(pcs []*promocode.PromoCodeWithPlans) []*PromoCode {
+	ret := make([]*PromoCode, len(pcs))
+	for i, pc := range pcs {
+		ret[i] = SerializePromoCode(pc)
+	}
+	return ret
+}

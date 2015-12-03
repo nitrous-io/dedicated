@@ -12,8 +12,9 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -56,33 +57,12 @@ var _ = Describe("controllers/promocodes", func() {
 
 	Describe("GET /subscriptions/promo_codes/{slug}", func() {
 		var (
-			u  *user.User
-			t  *token.Token
-			bp *billingprofile.BillingProfile
-
 			pcID1 int64
 			pcID2 int64
 		)
 
 		BeforeEach(func() {
-			u = &user.User{
-				Username: "foo",
-				Password: "123456",
-				Email:    "foo@example.com",
-			}
-			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
-
-			t = &token.Token{
-				UserID: u.ID,
-				Token:  "valid-token",
-			}
-			Expect(t.Insert(db)).To(BeNil())
-
-			var err error
-			bp, err = u.BillingProfile(db)
-			Expect(err).To(BeNil())
-
-			err = db.Get(&pcID1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+			err := db.Get(&pcID1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
 			Expect(err).To(BeNil())
 			err = db.Get(&pcID2, "INSERT INTO promo_codes(slug, quantity, expires_at) VALUES ('just20', 20, now()) RETURNING id;")
 			Expect(err).To(BeNil())
@@ -90,17 +70,12 @@ var _ = Describe("controllers/promocodes", func() {
 
 		doRequest := func(code string) {
 			var err error
-			req, err := test.NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/subscriptions/promo_codes/%v", code), nil)
+			req, err := test.NewRequest("GET", fmt.Sprintf("/api/v0/subscriptions/promo_codes/%v", code), nil)
 			Expect(err).To(BeNil())
 			handler.ServeHTTP(res, req)
 		}
 
 		It("should return 404 if the promocode does not exist", func() {
-			doRequest("jest10")
-			Expect(res.Code).To(Equal(http.StatusNotFound))
-		})
-
-		It("should return 404 if the promocode has expired", func() {
 			doRequest("jest10")
 			Expect(res.Code).To(Equal(http.StatusNotFound))
 		})
@@ -117,6 +92,104 @@ var _ = Describe("controllers/promocodes", func() {
 			Expect(j.PromoCode).ToNot(BeNil())
 			Expect(j.PromoCode.Slug).To(Equal("just10"))
 			Expect(j.PromoCode.TrialSeconds).To(Equal(int64(900)))
+		})
+	})
+
+	Describe("GET /user/promo_codes", func() {
+		var (
+			u *user.User
+			t *token.Token
+
+			pcID1, pcID2 int64
+			p1, p2       *plan.Plan
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			Expect(t.Insert(db)).To(BeNil())
+
+			p1 = &plan.Plan{
+				Slug:          "promoPlan",
+				Name:          "promoPlan",
+				MaxContainers: 1,
+				Price:         500,
+				BasePrice:     500,
+			}
+			Expect(p1.Insert(db)).To(BeNil())
+
+			p2 = &plan.Plan{
+				Slug:          "promo2Plan",
+				Name:          "promo2Plan",
+				MaxContainers: 1,
+				Price:         500,
+				BasePrice:     500,
+			}
+			Expect(p2.Insert(db)).To(BeNil())
+
+			err := db.Get(&pcID1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+			Expect(err).To(BeNil())
+			err = db.Get(&pcID2, "INSERT INTO promo_codes(slug, quantity) VALUES ('just20', 20) RETURNING id;")
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) SELECT id, $1 FROM promo_codes WHERE id IN ($2, $3)", p1.ID, pcID1, pcID2)
+			Expect(err).To(BeNil())
+			_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID1, p2.ID)
+			Expect(err).To(BeNil())
+
+			_, err = promocode.Claim(db, "just10", u.ID, p1.ID)
+			Expect(err).To(BeNil())
+
+			_, err = promocode.Claim(db, "just20", u.ID, p1.ID)
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func() {
+			var err error
+			req, err := test.NewAuthedRequest(t, "GET", "/api/v0/user/promo_codes", nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should return an empty list if none are available", func() {
+			_, err := db.Exec("DELETE FROM promo_code_uses;")
+			Expect(err).To(BeNil())
+
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				PromoCodes []*serializers.PromoCode `json:"promo_codes"`
+			}
+			err = json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.PromoCodes).To(HaveLen(0))
+		})
+
+		It("should list all promo codes for user", func() {
+			doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				PromoCodes []*serializers.PromoCode `json:"promo_codes"`
+			}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.PromoCodes).To(HaveLen(2))
+
+			Expect(j.PromoCodes[0].Slug).To(Equal("just10"))
+			Expect(j.PromoCodes[0].PlanIDs).To(ConsistOf(p1.ID, p2.ID))
+
+			Expect(j.PromoCodes[1].Slug).To(Equal("just20"))
+			Expect(j.PromoCodes[1].PlanIDs).To(Equal([]int64{p1.ID}))
 		})
 	})
 

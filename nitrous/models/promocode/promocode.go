@@ -2,6 +2,8 @@ package promocode
 
 import (
 	"database/sql"
+	"strconv"
+	"strings"
 
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
@@ -71,6 +73,51 @@ func Find(d db.QueryReceiver, slug string) (*PromoCodeWithPlans, error) {
 		PromoCode: pc,
 		PlanIDs:   planIDs,
 	}, nil
+}
+
+func FindAllPending(d db.QueryReceiver, uID int64) ([]*PromoCodeWithPlans, error) {
+	type promoCodeWithStrPlans struct {
+		*PromoCode
+		PlanIDs string `db:"plan_ids"`
+	}
+	pcs := []*promoCodeWithStrPlans{}
+	err := d.Select(&pcs, `SELECT
+		parent.*,
+		array_to_string(ARRAY(SELECT plan_id FROM promo_code_plans pls WHERE pls.promo_code_id = parent.id), ',') AS plan_ids
+		FROM promo_codes parent
+	  INNER JOIN promo_code_uses pcu ON pcu.promo_code_id = parent.id
+	  WHERE pcu.user_id = $1
+		AND pcu.subscription_id IS NULL
+		ORDER BY parent.slug ASC;`,
+		uID)
+	if err != nil {
+		return nil, err
+	}
+
+	col := []*PromoCodeWithPlans{}
+	for _, pc := range pcs {
+		if pc.PlanIDs == "" {
+			continue
+		}
+		split := strings.Split(pc.PlanIDs, ",")
+		if len(split) == 0 {
+			continue
+		}
+
+		itm := &PromoCodeWithPlans{
+			PromoCode: pc.PromoCode,
+			PlanIDs:   []int64{},
+		}
+		for _, id := range split {
+			plID, err := strconv.ParseInt(id, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			itm.PlanIDs = append(itm.PlanIDs, plID)
+		}
+		col = append(col, itm)
+	}
+	return col, nil
 }
 
 // allocates a claim for a promocode regardless of any plan restrictions

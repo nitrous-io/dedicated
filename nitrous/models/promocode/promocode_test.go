@@ -112,6 +112,40 @@ var _ = Describe("models/promocode", func() {
 		})
 	})
 
+	Describe("FindAllPending", func() {
+		BeforeEach(func() {
+			_, err := promocode.Claim(db, "just10", u.ID, p.ID)
+			Expect(err).To(BeNil())
+
+			_, err = promocode.Claim(db, "just20", u.ID, p.ID)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID1, p2.ID)
+			Expect(err).To(BeNil())
+		})
+
+		It("should be empty if none are attached to plans", func() {
+			_, err := db.Exec("DELETE FROM promo_code_plans")
+			Expect(err).To(BeNil())
+
+			pls, err := promocode.FindAllPending(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(pls).To(HaveLen(0))
+		})
+
+		It("should return all promo codes with plan IDs", func() {
+			pls, err := promocode.FindAllPending(db, u.ID)
+			Expect(err).To(BeNil())
+			Expect(pls).To(HaveLen(2))
+
+			Expect(pls[0].ID).To(Equal(pcID1))
+			Expect(pls[0].PlanIDs).To(ConsistOf(p.ID, p2.ID))
+
+			Expect(pls[1].ID).To(Equal(pcID2))
+			Expect(pls[1].PlanIDs).To(Equal([]int64{p.ID}))
+		})
+	})
+
 	Describe("ClaimForUser", func() {
 		It("should return an error if the slug does not exist", func() {
 			use, err := promocode.ClaimForUser(db, "jest10", u.ID)
