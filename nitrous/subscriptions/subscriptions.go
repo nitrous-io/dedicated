@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -35,7 +36,7 @@ import (
 )
 
 type Provider interface {
-	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (*subscription.Subscription, error)
+	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org, pc *promocode.PromoCode) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 	Reactivate(d *db.Database, sub *subscription.Subscription) error
@@ -103,7 +104,7 @@ func NewProvider() *SubscriptionProvider {
 	return s
 }
 
-func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (sub *subscription.Subscription, err error) {
+func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org, pc *promocode.PromoCode) (sub *subscription.Subscription, err error) {
 	if !p.IsSubscription() {
 		err = ErrNotSubscribablePlan
 		return
@@ -156,6 +157,15 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		err = nil
 	}
 
+	var pcUse *promocode.PromoCodeUse
+	if pc != nil {
+		pcUse, err = promocode.Claim(d, pc.Slug, bp.ID)
+		if err != nil {
+			logrus.Errorf("Unable to claim promocode %s for user %d, err: %v", pc.Slug, u.ID, err)
+			pc = nil
+		}
+	}
+
 	var strItem *stripe.InvoiceItem
 	var strSub *stripe.Sub
 
@@ -192,7 +202,9 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
-		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 && bp.TrialEligible {
+		if pc != nil && pc.TrialSeconds.Valid {
+			params.TrialEnd = time.Now().Unix() + pc.TrialSeconds.Int64
+		} else if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 && bp.TrialEligible {
 			params.TrialEnd = trialEnd
 		}
 
@@ -278,6 +290,22 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			if err := stripesub.Cancel(strSub.ID, &stripe.SubParams{Customer: bp.StripeID.String}); err != nil {
 				logrus.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
 			}
+		}
+
+		if pcUse != nil {
+			logrus.Errorf("Subscribe failed, deleting promo code claim %d", pcUse.ID)
+			if err := pcUse.Delete(d); err != nil {
+				logrus.Errorf("Unable to delete promo code claim %d, err: %v", pcUse.ID, err)
+			}
+		}
+
+		return
+	}
+
+	if pcUse != nil {
+		pcUse.SubscriptionID = sql.NullInt64{sub.ID, true}
+		if err := pcUse.Update(d); err != nil {
+			logrus.Errorf("Unable to update promo code claim %d, err: %v", pcUse.ID, err)
 		}
 	}
 

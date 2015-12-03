@@ -233,7 +233,8 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				return errUnableToCreateSubscription
 			}
 		}
-		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u, o)
+		// TODO: add promocode support
+		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u, o, nil)
 		if err != nil {
 			logData.WithFields(logrus.Fields{
 				"alert":    "nosubscription",

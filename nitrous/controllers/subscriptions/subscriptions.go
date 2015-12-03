@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -140,7 +141,16 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errMultipleSubscriptionNotAllowed
 	}
 
-	rSub, err := subProvider.Subscribe(db, nil, pl, env.User, o)
+	var pc *promocode.PromoCode
+	pcSlug := r.FormValue("promo_code")
+	if pcSlug != "" {
+		pc, err = promocode.Find(db, pcSlug)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+	}
+
+	rSub, err := subProvider.Subscribe(db, nil, pl, env.User, o, pc)
 	if err != nil {
 		return shared.HandleBillingError(err)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -309,6 +310,7 @@ var _ = Describe("controllers/subscriptions", func() {
 		var (
 			o    *org.Org
 			p    *plan.Plan
+			pc   *promocode.PromoCode
 			fsub *test.FakeSubscriptionProvider
 		)
 
@@ -316,6 +318,9 @@ var _ = Describe("controllers/subscriptions", func() {
 			u := &url.Values{}
 			if p != nil {
 				u.Set("plan", p.Slug)
+			}
+			if pc != nil {
+				u.Set("promo_code", pc.Slug)
 			}
 			req, err := test.NewAuthedRequest(t, "POST", "/api/v0/orgs/foobar/subscriptions", u)
 			Expect(err).To(BeNil())
@@ -433,6 +438,42 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(s.Plan).ToNot(BeNil())
 			Expect(s.Plan.Slug).To(Equal(p.Slug))
 			Expect(s.HostSlug).To(BeEmpty())
+		})
+
+		It("should silently ignore unquantity promocodes", func() {
+			pc = &promocode.PromoCode{Slug: "cant_find_me"}
+
+			sub := &subscription.Subscription{
+				Slug:   "new-thing",
+				PlanID: p.ID,
+				State:  "active",
+			}
+			fsub.SubscribeReturn = sub
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.SubscribeCalled).To(BeTrue())
+			Expect(fsub.SubscribePromoCode).To(BeNil())
+		})
+
+		It("should pass in a quantity promocode", func() {
+			err := db.Get(pc, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING *;")
+			Expect(err).To(BeNil())
+
+			sub := &subscription.Subscription{
+				Slug:   "new-thing",
+				PlanID: p.ID,
+				State:  "active",
+			}
+			fsub.SubscribeReturn = sub
+
+			res := doRequest()
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			Expect(fsub.SubscribeCalled).To(BeTrue())
+			Expect(fsub.SubscribePromoCode).ToNot(BeNil())
+			Expect(fsub.SubscribePromoCode.ID).To(Equal(pc.ID))
 		})
 	})
 

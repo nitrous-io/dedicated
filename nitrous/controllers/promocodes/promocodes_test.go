@@ -12,8 +12,13 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
+	"github.com/nitrous-io/dedicated/nitrous/models/token"
+	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/serializers"
 	"github.com/nitrous-io/dedicated/nitrous/server"
+	"github.com/nitrous-io/dedicated/nitrous/test"
 
 	. "github.com/nitrous-io/dedicated/nitrous/test"
 	. "github.com/onsi/ginkgo"
@@ -47,6 +52,72 @@ var _ = Describe("controllers/promocodes", func() {
 		if db != nil {
 			db.Close()
 		}
+	})
+
+	Describe("GET /subscriptions/promo_codes/{slug}", func() {
+		var (
+			u  *user.User
+			t  *token.Token
+			bp *billingprofile.BillingProfile
+
+			pcID1 int64
+			pcID2 int64
+		)
+
+		BeforeEach(func() {
+			u = &user.User{
+				Username: "foo",
+				Password: "123456",
+				Email:    "foo@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u.Insert)).To(BeNil())
+
+			t = &token.Token{
+				UserID: u.ID,
+				Token:  "valid-token",
+			}
+			Expect(t.Insert(db)).To(BeNil())
+
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			err = db.Get(&pcID1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+			Expect(err).To(BeNil())
+			err = db.Get(&pcID2, "INSERT INTO promo_codes(slug, quantity, expires_at) VALUES ('just20', 20, now()) RETURNING id;")
+			Expect(err).To(BeNil())
+		})
+
+		doRequest := func(code string) {
+			var err error
+			req, err := test.NewAuthedRequest(t, "GET", fmt.Sprintf("/api/v0/subscriptions/promo_codes/%v", code), nil)
+			Expect(err).To(BeNil())
+			handler.ServeHTTP(res, req)
+		}
+
+		It("should return 404 if the promocode does not exist", func() {
+			doRequest("jest10")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return 404 if the promocode has expired", func() {
+			doRequest("jest10")
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should return the promo code if it exists", func() {
+			doRequest("just10")
+			Expect(res.Code).To(Equal(http.StatusOK))
+
+			var j struct {
+				PromoCode *serializers.PromoCode `json:"promo_code"`
+			}
+			err := json.Unmarshal(res.Body.Bytes(), &j)
+			Expect(err).To(BeNil())
+			Expect(j.PromoCode).ToNot(BeNil())
+			Expect(j.PromoCode.Slug).To(Equal("just10"))
+			Expect(j.PromoCode.TrialSeconds).To(Equal(int64(900)))
+		})
 	})
 
 	Describe("GET /promo_codes", func() {
