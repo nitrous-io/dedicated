@@ -44,6 +44,8 @@ type Org struct {
 	Name  string `db:"name"`
 	Email string `db:"email"`
 
+	Edu bool `db:"edu"`
+
 	MaxHosts sql.NullInt64 `db:"max_hosts"`
 
 	// Track number of active hosts belonging to org.

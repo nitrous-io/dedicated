@@ -651,6 +651,22 @@ var _ = Describe("subscriptions", func() {
 
 		Context("as a user", func() {
 			sharedExamples()
+
+			It("should return an error if the plan is an org", func() {
+				pl.Org = true
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
+				Expect(s).To(BeNil())
+			})
+
+			It("should return an error if the plan is a edu", func() {
+				pl.Edu = true
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
+				Expect(s).To(BeNil())
+			})
 		})
 
 		Context("as a organisation", func() {
@@ -681,9 +697,56 @@ var _ = Describe("subscriptions", func() {
 				bp.State = billingprofile.StatePaid
 				bp.StripeID = sql.NullString{stripeCustomerID, true}
 				Expect(bp.Update(db)).To(BeNil())
+
+				pl.Org = true
 			})
 
 			sharedExamples()
+
+			It("should return an error if the plan is not an org", func() {
+				pl.Org = false
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrPlanNotOrg))
+				Expect(s).To(BeNil())
+			})
+
+			It("should return an error if the plan is a edu but the org is not", func() {
+				o.Edu = false
+				pl.Edu = true
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
+				Expect(s).To(BeNil())
+			})
+
+			It("should return an error if the org is a edu but the plan is not", func() {
+				o.Edu = true
+				pl.Edu = false
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
+				Expect(s).To(BeNil())
+			})
+
+			It("should subscribe if the org and plan are edu", func() {
+				fakeStripe.Responses = []string{
+					`{
+						"object": "subscription",
+						"id": "abc1",
+						"status": "active",
+						"current_period_start": 1434418419,
+						"current_period_end": 1437010419
+					}`,
+				}
+
+				o.Edu = true
+				pl.Edu = true
+
+				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				Expect(err).To(BeNil())
+				Expect(s).ToNot(BeNil())
+			})
 		})
 	})
 
