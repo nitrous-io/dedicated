@@ -27,6 +27,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -428,6 +429,46 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		h := hosts[0]
 		Expect(config["apt_username"]).To(Equal(strconv.FormatInt(h.ID, 10)))
 		Expect(config["apt_password"]).To(Equal(h.Secret))
+	})
+
+	It("should ignore if the promocode is unavailable", func() {
+		params.Set("promo_code", "just10")
+		hb := hostbuilderclient.NewHostbuilder("www.example.com")
+		rt := &test.FakeRoundTripper{
+			Message: fmt.Sprintf(`
+			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+			`, hs.PT.Name),
+			Status: http.StatusOK,
+		}
+		replaceTransport(hb, rt)
+		hosts.HostbuilderClient = hb
+		res := doRequest(params)
+		Expect(res.Code).To(Equal(http.StatusOK))
+	})
+
+	It("should create a claim for a promocode if supplied", func() {
+		var pcID int64
+		err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+		Expect(err).To(BeNil())
+
+		params.Set("promo_code", "just10")
+		hb := hostbuilderclient.NewHostbuilder("www.example.com")
+		rt := &test.FakeRoundTripper{
+			Message: fmt.Sprintf(`
+			{"id":"abcd1234", "ip_address":"0.0.0.0", "provider":"%s", "freighterd_port":65333}
+			`, hs.PT.Name),
+			Status: http.StatusOK,
+		}
+		replaceTransport(hb, rt)
+		hosts.HostbuilderClient = hb
+		res := doRequest(params)
+		Expect(res.Code).To(Equal(http.StatusOK))
+
+		bp, err := u.BillingProfile(db)
+		Expect(err).To(BeNil())
+		cl, err := promocode.FindPendingClaim(db, bp.ID)
+		Expect(err).To(BeNil())
+		Expect(cl.Code.ID).To(Equal(pcID))
 	})
 
 	Context("when hostbuilder successfully creates a host", func() {

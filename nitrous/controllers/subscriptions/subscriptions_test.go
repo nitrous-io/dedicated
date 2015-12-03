@@ -454,7 +454,7 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(fsub.SubscribeCalled).To(BeTrue())
-			Expect(fsub.SubscribePromoCode).To(BeNil())
+			Expect(fsub.SubscribeOpts.PromoCode).To(BeNil())
 		})
 
 		It("should pass in a quantity promocode", func() {
@@ -472,8 +472,8 @@ var _ = Describe("controllers/subscriptions", func() {
 			Expect(res.Code).To(Equal(http.StatusOK))
 
 			Expect(fsub.SubscribeCalled).To(BeTrue())
-			Expect(fsub.SubscribePromoCode).ToNot(BeNil())
-			Expect(fsub.SubscribePromoCode.ID).To(Equal(pc.ID))
+			Expect(fsub.SubscribeOpts.PromoCode).ToNot(BeNil())
+			Expect(fsub.SubscribeOpts.PromoCode.ID).To(Equal(pc.ID))
 		})
 	})
 

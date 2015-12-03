@@ -130,6 +130,26 @@ var _ = Describe("models/promocode", func() {
 		})
 	})
 
+	Describe("FindPendingClaim", func() {
+		It("should return an error if there is no pending claim", func() {
+			cl, err := promocode.FindPendingClaim(db, bp.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(cl).To(BeNil())
+		})
+
+		It("should find an outstanding claim", func() {
+			use, err := promocode.Claim(db, "just10", bp.ID)
+			Expect(err).To(BeNil())
+			Expect(use).ToNot(BeNil())
+
+			cl, err := promocode.FindPendingClaim(db, bp.ID)
+			Expect(err).To(BeNil())
+			Expect(cl).ToNot(BeNil())
+			Expect(cl.Use.ID).To(Equal(use.ID))
+			Expect(cl.Code.ID).To(Equal(pcID1))
+		})
+	})
+
 	Describe("UpdateSubscriptionId", func() {
 		var (
 			use *promocode.PromoCodeUse

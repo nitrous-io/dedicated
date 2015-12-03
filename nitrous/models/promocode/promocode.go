@@ -27,6 +27,11 @@ type PromoCodeUse struct {
 	UpdatedAt        pq.NullTime   `db:"updated_at"`
 }
 
+type PendingClaim struct {
+	Use  *PromoCodeUse
+	Code *PromoCode
+}
+
 func Find(d db.QueryReceiver, slug string) (*PromoCode, error) {
 	pc := &PromoCode{}
 	err := d.Get(pc, `SELECT promo_codes.* FROM (
@@ -64,6 +69,24 @@ func Claim(d db.QueryReceiver, slug string, bpID int64) (*PromoCodeUse, error) {
 		return nil, err
 	}
 	return use, nil
+}
+
+
+func FindPendingClaim(d db.QueryReceiver, bpID int64) (*PendingClaim, error) {
+	use := &PromoCodeUse{}
+	err := d.Get(use, `SELECT * FROM promo_code_uses WHERE subscription_id IS NULL AND billing_profile_id = $1;`, bpID)
+	if err != nil {
+		return nil, err
+	}
+	code := &PromoCode{}
+	err = d.Get(code, `SELECT * FROM promo_codes WHERE id = $1;`, use.PromoCodeID)
+	if err != nil {
+		return nil, err
+	}
+	return &PendingClaim{
+		Use:  use,
+		Code: code,
+	}, nil
 }
 
 func (pc *PromoCodeUse) UpdateSubscriptionId(d db.QueryReceiver) error {

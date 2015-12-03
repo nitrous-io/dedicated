@@ -35,8 +35,17 @@ import (
 	stripesub "github.com/stripe/stripe-go/sub"
 )
 
+type SubscribeOptions struct {
+	Host         *host.Host
+	Plan         *plan.Plan
+	User         *user.User
+	Org          *org.Org
+	PromoCode    *promocode.PromoCode
+	PromoCodeUse *promocode.PromoCodeUse
+}
+
 type Provider interface {
-	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org, pc *promocode.PromoCode) (*subscription.Subscription, error)
+	Subscribe(d *db.Database, opts *SubscribeOptions) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 	Reactivate(d *db.Database, sub *subscription.Subscription) error
@@ -104,8 +113,12 @@ func NewProvider() *SubscriptionProvider {
 	return s
 }
 
-func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org, pc *promocode.PromoCode) (sub *subscription.Subscription, err error) {
-	if !p.IsSubscription() {
+func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions) (sub *subscription.Subscription, err error) {
+	h, p := opts.Host, opts.Plan
+	u, o := opts.User, opts.Org
+	pc, pcUse := opts.PromoCode, opts.PromoCodeUse
+
+	if !opts.Plan.IsSubscription() {
 		err = ErrNotSubscribablePlan
 		return
 	}
@@ -157,8 +170,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		err = nil
 	}
 
-	var pcUse *promocode.PromoCodeUse
-	if pc != nil {
+	if pcUse == nil && pc != nil {
 		pcUse, err = promocode.Claim(d, pc.Slug, bp.ID)
 		if err != nil {
 			logrus.Errorf("Unable to claim promocode %s for user %d, err: %v", pc.Slug, u.ID, err)
@@ -304,7 +316,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 
 	if pcUse != nil {
 		pcUse.SubscriptionID = sql.NullInt64{sub.ID, true}
-		if err := pcUse.Update(d); err != nil {
+		if err := pcUse.UpdateSubscriptionId(d); err != nil {
 			logrus.Errorf("Unable to update promo code claim %d, err: %v", pcUse.ID, err)
 		}
 	}

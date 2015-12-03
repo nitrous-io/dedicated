@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/models/volume"
@@ -233,8 +234,26 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 				return errUnableToCreateSubscription
 			}
 		}
-		// TODO: add promocode support
-		_, err := s.SubscriptionProvider.Subscribe(db, h, p, u, o, nil)
+		opts := &subscriptions.SubscribeOptions{
+			Host: h,
+			Plan: p,
+			User: u,
+			Org:  o,
+		}
+		if o == nil {
+			bp, err := u.BillingProfile(db)
+			if err != nil {
+				return err
+			}
+			if cl, err := promocode.FindPendingClaim(db, bp.ID); err == nil {
+				opts.PromoCodeUse = cl.Use
+				opts.PromoCode = cl.Code
+			} else if err != sql.ErrNoRows {
+				logrus.Errorf("Error finding pending claim for BP %d, err: %v", bp.ID, err)
+			}
+		}
+
+		_, err := s.SubscriptionProvider.Subscribe(db, opts)
 		if err != nil {
 			logData.WithFields(logrus.Fields{
 				"alert":    "nosubscription",

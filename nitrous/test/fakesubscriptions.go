@@ -2,25 +2,19 @@ package test
 
 import (
 	"github.com/nitrous-io/dedicated/nitrous/db"
-	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
-	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
-	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
+	"github.com/nitrous-io/dedicated/nitrous/subscriptions"
 	stripe "github.com/stripe/stripe-go"
 )
 
 type FakeSubscriptionProvider struct {
-	SubscribeCalled    bool
-	SubscribeHost      *host.Host
-	SubscribePlan      *plan.Plan
-	SubscribeUser      *user.User
-	SubscribeOrg       *org.Org
-	SubscribePromoCode *promocode.PromoCode
-	SubscribeError     error
-	SubscribeReturn    *subscription.Subscription
+	SubscribeCalled bool
+	SubscribeOpts   *subscriptions.SubscribeOptions
+	SubscribeError  error
+	SubscribeReturn *subscription.Subscription
 
 	CancelCalled       bool
 	CancelSubscription *subscription.Subscription
@@ -65,13 +59,9 @@ type FakeSubscriptionProvider struct {
 	HandleChargeFailedError  error
 }
 
-func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org, pc *promocode.PromoCode) (sub *subscription.Subscription, err error) {
+func (s *FakeSubscriptionProvider) Subscribe(d *db.Database, opts *subscriptions.SubscribeOptions) (sub *subscription.Subscription, err error) {
 	s.SubscribeCalled = true
-	s.SubscribeHost = h
-	s.SubscribePlan = p
-	s.SubscribeUser = u
-	s.SubscribeOrg = o
-	s.SubscribePromoCode = pc
+	s.SubscribeOpts = opts
 	return s.SubscribeReturn, s.SubscribeError
 }
 

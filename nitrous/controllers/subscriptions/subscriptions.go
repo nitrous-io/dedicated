@@ -150,7 +150,13 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		}
 	}
 
-	rSub, err := subProvider.Subscribe(db, nil, pl, env.User, o, pc)
+	opts := &sub.SubscribeOptions{
+		Plan:      pl,
+		User:      env.User,
+		Org:       o,
+		PromoCode: pc,
+	}
+	rSub, err := subProvider.Subscribe(db, opts)
 	if err != nil {
 		return shared.HandleBillingError(err)
 	}
