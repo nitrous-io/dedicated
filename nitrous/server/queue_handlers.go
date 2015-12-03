@@ -245,7 +245,7 @@ func (s *Server) activateHost(uuid string, u *user.User, h *host.Host, hostInfo 
 			if err != nil {
 				return err
 			}
-			if cl, err := promocode.FindPendingClaim(db, bp.ID); err == nil {
+			if cl, err := promocode.FindPendingClaim(db, u.ID, p.ID); err == nil {
 				opts.PromoCodeUse = cl.Use
 				opts.PromoCode = cl.Code
 			} else if err != sql.ErrNoRows {

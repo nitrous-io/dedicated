@@ -19,12 +19,12 @@ type PromoCode struct {
 }
 
 type PromoCodeUse struct {
-	ID               int64         `db:"id"`
-	PromoCodeID      int64         `db:"promo_code_id"`
-	BillingProfileID int64         `db:"billing_profile_id"`
-	SubscriptionID   sql.NullInt64 `db:"subscription_id"`
-	CreatedAt        pq.NullTime   `db:"created_at"`
-	UpdatedAt        pq.NullTime   `db:"updated_at"`
+	ID             int64         `db:"id"`
+	PromoCodeID    int64         `db:"promo_code_id"`
+	UserID         int64         `db:"user_id"`
+	SubscriptionID sql.NullInt64 `db:"subscription_id"`
+	CreatedAt      pq.NullTime   `db:"created_at"`
+	UpdatedAt      pq.NullTime   `db:"updated_at"`
 }
 
 type PendingClaim struct {
@@ -51,9 +51,11 @@ func Find(d db.QueryReceiver, slug string) (*PromoCode, error) {
 	return pc, nil
 }
 
-func Claim(d db.QueryReceiver, slug string, bpID int64) (*PromoCodeUse, error) {
+// allocates a claim for a promocode if (and only if) the plan provided
+// is attached to that promo code slug
+func Claim(d db.QueryReceiver, slug string, uID, pID int64) (*PromoCodeUse, error) {
 	use := &PromoCodeUse{}
-	err := d.Get(use, `INSERT INTO promo_code_uses(promo_code_id, billing_profile_id) SELECT promo_codes.id, $1 FROM (
+	err := d.Get(use, `INSERT INTO promo_code_uses(promo_code_id, user_id) SELECT promo_codes.id, $1 FROM (
 			SELECT promo_codes.id, COUNT(uses.id) count FROM promo_codes
 			LEFT JOIN promo_code_uses uses ON uses.promo_code_id = promo_codes.id
 			WHERE disabled IS FALSE
@@ -62,19 +64,23 @@ func Claim(d db.QueryReceiver, slug string, bpID int64) (*PromoCodeUse, error) {
 			GROUP BY promo_codes.id
 		) t
 		INNER JOIN promo_codes ON t.id = promo_codes.id
-		WHERE t.count < promo_codes.quantity
+		INNER JOIN promo_code_plans ON promo_code_plans.promo_code_id = promo_codes.id
+		WHERE promo_code_plans.plan_id = $3
+		AND t.count < promo_codes.quantity
 		RETURNING *;`,
-		bpID, slug)
+		uID, slug, pID)
 	if err != nil {
 		return nil, err
 	}
 	return use, nil
 }
 
-
-func FindPendingClaim(d db.QueryReceiver, bpID int64) (*PendingClaim, error) {
+func FindPendingClaim(d db.QueryReceiver, uID, pID int64) (*PendingClaim, error) {
 	use := &PromoCodeUse{}
-	err := d.Get(use, `SELECT * FROM promo_code_uses WHERE subscription_id IS NULL AND billing_profile_id = $1;`, bpID)
+	err := d.Get(use, `SELECT promo_code_uses.* FROM promo_code_uses
+		INNER JOIN promo_code_plans ON promo_code_plans.promo_code_id = promo_code_uses.promo_code_id
+		WHERE promo_code_plans.plan_id = $1
+		AND subscription_id IS NULL AND user_id = $2;`, pID, uID)
 	if err != nil {
 		return nil, err
 	}

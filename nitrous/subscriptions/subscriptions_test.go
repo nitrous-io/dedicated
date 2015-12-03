@@ -673,6 +673,8 @@ var _ = Describe("subscriptions", func() {
 					pc2 = &promocode.PromoCode{}
 					err = db.Get(pc2, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just20', 10, 900, now()) RETURNING *;")
 					Expect(err).To(BeNil())
+					_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) SELECT id, $1 FROM promo_codes WHERE id IN ($2, $3)", pl.ID, pc1.ID, pc2.ID)
+					Expect(err).To(BeNil())
 				})
 
 				It("should silently fail if the provided promocode is no longer quantity", func() {
@@ -720,7 +722,7 @@ var _ = Describe("subscriptions", func() {
 					Expect(s).To(BeNil())
 
 					use := &promocode.PromoCodeUse{}
-					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE billing_profile_id = $1", bp.ID)
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE user_id = $1", u.ID)
 					Expect(err).To(Equal(sql.ErrNoRows))
 				})
 
@@ -757,7 +759,7 @@ var _ = Describe("subscriptions", func() {
 					use := &promocode.PromoCodeUse{}
 					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE subscription_id = $1", s.ID)
 					Expect(err).To(BeNil())
-					Expect(use.BillingProfileID).To(Equal(bp.ID))
+					Expect(use.UserID).To(Equal(u.ID))
 				})
 
 				It("should not set trial_end if the TrialSeconds is not valid", func() {
@@ -790,7 +792,7 @@ var _ = Describe("subscriptions", func() {
 					use := &promocode.PromoCodeUse{}
 					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE subscription_id = $1", s.ID)
 					Expect(err).To(BeNil())
-					Expect(use.BillingProfileID).To(Equal(bp.ID))
+					Expect(use.UserID).To(Equal(u.ID))
 				})
 
 				It("should allow a promocode to be directly used", func() {
@@ -804,9 +806,7 @@ var _ = Describe("subscriptions", func() {
 						}`,
 					}
 
-					bp, err := u.BillingProfile(db)
-					Expect(err).To(BeNil())
-					use, err := promocode.Claim(db, "just10", bp.ID)
+					use, err := promocode.Claim(db, "just10", u.ID, pl.ID)
 					Expect(err).To(BeNil())
 					Expect(use).ToNot(BeNil())
 
@@ -833,7 +833,7 @@ var _ = Describe("subscriptions", func() {
 					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE id = $1", use.ID)
 					Expect(err).To(BeNil())
 					Expect(use.SubscriptionID.Int64).To(Equal(s.ID))
-					Expect(use.BillingProfileID).To(Equal(bp.ID))
+					Expect(use.UserID).To(Equal(u.ID))
 				})
 			})
 		}

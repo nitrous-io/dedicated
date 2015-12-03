@@ -453,13 +453,13 @@ var _ = Describe("HostQueueHandler", func() {
 			})
 
 			It("passes through a PromoCodeUse if there is an outstanding one", func() {
-				_, err := db.Exec("INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days');")
+				var pcID int64
+				err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+				Expect(err).To(BeNil())
+				_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID, hs.P.ID)
 				Expect(err).To(BeNil())
 
-				bp, err := u.BillingProfile(db)
-				Expect(err).To(BeNil())
-
-				use, err := promocode.Claim(db, "just10", bp.ID)
+				use, err := promocode.Claim(db, "just10", u.ID, hs.P.ID)
 				Expect(err).To(BeNil())
 				Expect(use).ToNot(BeNil())
 

@@ -181,7 +181,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// (where subscription is actually created)
 	var pcUse *promocode.PromoCodeUse
 	if sub == nil && options.PromoCode != "" {
-		pcUse, err = promocode.Claim(db, options.PromoCode, bp.ID)
+		pcUse, err = promocode.Claim(db, options.PromoCode, u.ID, pl.ID)
 		if err != nil && err != sql.ErrNoRows {
 			return err
 		}

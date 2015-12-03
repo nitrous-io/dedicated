@@ -450,6 +450,8 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		var pcID int64
 		err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
 		Expect(err).To(BeNil())
+		_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID, hs.P.ID)
+		Expect(err).To(BeNil())
 
 		params.Set("promo_code", "just10")
 		hb := hostbuilderclient.NewHostbuilder("www.example.com")
@@ -464,9 +466,7 @@ var _ = Describe("POST /api/v0/hosts", func() {
 		res := doRequest(params)
 		Expect(res.Code).To(Equal(http.StatusOK))
 
-		bp, err := u.BillingProfile(db)
-		Expect(err).To(BeNil())
-		cl, err := promocode.FindPendingClaim(db, bp.ID)
+		cl, err := promocode.FindPendingClaim(db, u.ID, hs.P.ID)
 		Expect(err).To(BeNil())
 		Expect(cl.Code.ID).To(Equal(pcID))
 	})
