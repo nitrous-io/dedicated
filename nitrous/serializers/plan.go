@@ -34,7 +34,9 @@ type Plan struct {
 	SSH              bool  `json:"ssh"`
 	CustomDomain     bool  `json:"custom_domain"`
 	CustomTemplates  bool  `json:"custom_templates"`
+
 	Org              bool  `json:"org"`
+	Edu bool `json:"edu"`
 }
 
 func SerializePlan(p *plan.Plan) *Plan {
@@ -68,6 +70,7 @@ func SerializePlan(p *plan.Plan) *Plan {
 		CustomDomain:     p.CustomDomain,
 		CustomTemplates:  p.CustomTemplates,
 		Org:              p.Org,
+		Edu: p.Edu,
 	}
 	if p.BasePlanID.Valid {
 		serialized.BasePlanID = p.BasePlanID.Int64

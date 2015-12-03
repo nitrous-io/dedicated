@@ -28,6 +28,7 @@ var _ = Describe("org serializer", func() {
 			Email:     "bill@macrosoft.com",
 			MaxHosts:  sql.NullInt64{2, true},
 			UsedHosts: 1,
+			Edu:       true,
 			CreatedAt: &createdAt,
 			UpdatedAt: &updatedAt,
 		}
@@ -46,6 +47,7 @@ var _ = Describe("org serializer", func() {
 				"email": "bill@macrosoft.com",
 				"multi_host": false,
 				"used_hosts": 1,
+				"edu": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -63,6 +65,7 @@ var _ = Describe("org serializer", func() {
 				"email": "bill@macrosoft.com",
 				"max_hosts": 2,
 				"multi_host": false,
+				"edu": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -80,6 +83,7 @@ var _ = Describe("org serializer", func() {
 				"max_hosts": 2,
 				"used_hosts": 1,
 				"multi_host": false,
+				"edu": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -119,6 +123,7 @@ var _ = Describe("org serializer", func() {
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z",
 				"multi_host": false,
+				"edu": true,
 				"billing_profile": {
 					"id": 10,
 					"user_id": 25,
@@ -155,6 +160,7 @@ var _ = Describe("org serializer", func() {
 				"used_hosts": 1,
 				"role": "owner",
 				"multi_host": false,
+				"edu": true,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`))
@@ -198,6 +204,7 @@ var _ = Describe("org serializer", func() {
 				  "used_hosts": 1,
 					"role": "limited",
 					"multi_host": false,
+					"edu": true,
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				},
@@ -210,6 +217,7 @@ var _ = Describe("org serializer", func() {
 				  "used_hosts": 1,
 					"role": "owner",
 					"multi_host": false,
+					"edu": false,
 					"created_at": "2013-11-01T00:00:00Z",
 					"updated_at": "2013-11-02T00:00:00Z"
 				}
