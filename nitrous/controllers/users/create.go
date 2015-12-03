@@ -9,7 +9,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
@@ -45,11 +44,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	gitHubUserName := r.FormValue("github_username")
 
 	u := &user.User{
-		Email:     email,
-		Username:  username,
-		Name:      name,
-		Password:  password,
-		PromoCode: sql.NullString{promocode, true},
+		Email:    email,
+		Username: username,
+		Name:     name,
+		Password: password,
 	}
 
 	err := u.Validate()
@@ -93,16 +91,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if promocode != "" {
-		if _, err := credittype.FindValidCreditTypeByName(tx, promocode); err != nil {
-			tx.Rollback()
-			if err == sql.ErrNoRows {
-				return invalidPromoCode
-			}
-			return err
-		}
-	}
-
 	err = u.Insert(tx)
 	if err != nil {
 		tx.Rollback()
@@ -131,6 +119,10 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = tx.Commit()
 	if err != nil {
 		return err
+	}
+
+	if promocode != "" {
+		// TODO: insert a claim
 	}
 
 	confirmable := client != nil

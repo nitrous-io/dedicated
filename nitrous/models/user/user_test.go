@@ -456,7 +456,6 @@ var _ = Describe("models/user", func() {
 				Name:       "quxboy",
 				Password:   "123456",
 				Email:      "qux@example.com",
-				PromoCode:  sql.NullString{"pCode2", true},
 				Suspicious: sql.NullString{"shady", true},
 			}
 		})
@@ -477,8 +476,6 @@ var _ = Describe("models/user", func() {
 				Expect(u2.Username).To(Equal("qux"))
 				Expect(u2.Name).To(Equal("quxboy"))
 				Expect(u2.Email).To(Equal("qux@example.com"))
-				Expect(u2.PromoCode.Valid).To(BeTrue())
-				Expect(u2.PromoCode.String).To(Equal("pCode2"))
 				Expect(u2.CreatedAt).NotTo(BeNil())
 				Expect(u2.UpdatedAt).NotTo(BeNil())
 			})

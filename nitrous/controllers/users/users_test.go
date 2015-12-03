@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -264,38 +263,8 @@ var _ = Describe("controllers/users", func() {
 				params.Set("name", "Foo Bar")
 			})
 
-			It("should respond with a bad request if the promo code does not exist", func() {
-				params.Set("promo_code", "everythingfree")
-				doRequest()
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
-				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_promo_code"))
-				Expect(j["error_description"]).To(Equal("promo code does not exist"))
-			})
-
 			It("should assign the promocode against the user if valid", func() {
-				c := &credittype.CreditType{
-					Name:         "nye2013",
-					Description:  sql.NullString{"Desc", true},
-					Active:       true,
-					DefaultValue: 900,
-					Stock:        sql.NullInt64{19, true},
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-
-				params.Set("promo_code", "nye2013")
-				doRequest()
-
-				Expect(res.Code).To(Equal(http.StatusCreated))
-
-				u, err := user.FindByUsername(db, "foo")
-				Expect(err).To(BeNil())
-				Expect(u.PromoCode.Valid).To(BeTrue())
-				Expect(u.PromoCode.String).To(Equal("nye2013"))
+				//TODO: check pending claims
 			})
 		})
 
