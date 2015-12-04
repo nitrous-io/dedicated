@@ -72,6 +72,7 @@ var _ = Describe("models/stripememo", func() {
 			Expect(err).To(BeNil())
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(0))
 			Expect(invs).To(HaveLen(1))
+			Expect(invs[0].UserID).To(Equal(bp.UserID))
 			si, err := invs[0].StripeInvoice()
 			Expect(err).To(BeNil())
 			Expect(si).NotTo(BeNil())
@@ -87,6 +88,7 @@ var _ = Describe("models/stripememo", func() {
 			Expect(err).To(BeNil())
 			Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
 			Expect(invs).To(HaveLen(1))
+			Expect(invs[0].UserID).To(Equal(bp.UserID))
 		})
 
 		It("writes Stripe responses to db when querying Stripe", func() {

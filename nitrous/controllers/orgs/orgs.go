@@ -297,6 +297,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		if err == sql.ErrNoRows {
 			return errNotFound
 		}
+		return err
 	}
 
 	cuMembership, err := orgmembership.FindByUsernameAndOrgSlug(db, currentUser.Username, slug)
@@ -304,6 +305,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		if err == sql.ErrNoRows {
 			return errNoPermission
 		}
+		return err
 	}
 
 	permissableRoles, ok := orgmembership.ValidRoles[cuMembership.Role]
@@ -329,8 +331,7 @@ func PutMember(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 			return errNoPermission
 		}
 
-		err = orgmembership.UpdateMember(db, o.ID, u.ID, role)
-		if err != nil {
+		if err := orgmembership.UpdateMember(db, o.ID, u.ID, role); err != nil {
 			if err == sql.ErrNoRows {
 				return errNotFound
 			}

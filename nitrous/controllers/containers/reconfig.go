@@ -117,7 +117,7 @@ func reconfigureContainer(ctx *reconfigContext, env *middleware.Env) (err error)
 			cn.TempState = sql.NullInt64{0, false}
 			cn = hydrateContainer(cn, liveContainer, h)
 		}
-		err = expandFreighterClientError(err)
+		err = expandFreighterClientError(db, cn, err)
 		return err
 	}
 

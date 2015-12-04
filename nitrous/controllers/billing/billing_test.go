@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -185,6 +186,55 @@ var _ = Describe("controllers/billing", func() {
 			Expect(itm2.Usage[0].Minutes).To(Equal(int64(1)))
 			Expect(itm2.Usage[0].Start).To(BeTemporally("~", startTime, time.Second))
 			Expect(itm2.Usage[0].End).To(BeTemporally("~", startTime.Add(1*time.Second), time.Second))
+		})
+	})
+
+	Describe("GET /api/v0/billing/invoices?from_stripe=1", func() {
+		var (
+			bp *billingprofile.BillingProfile
+		)
+
+		doRequest := func(isOrg bool) *httptest.ResponseRecorder {
+			path := "/api/v0/billing/invoices"
+			if isOrg {
+				path = "/api/v0/orgs/foobar/invoices"
+			}
+			params := &url.Values{}
+			params.Set("from_stripe", "1")
+
+			req, err := NewAuthedRequest(t, "GET", path, params)
+			Expect(err).To(BeNil())
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		BeforeEach(func() {
+			var err error
+			bp, err = u.BillingProfile(db)
+			Expect(err).To(BeNil())
+
+			_, err = db.Exec(`INSERT INTO stripe_invoices
+			(billing_profile_id, invoice_json, invoiced_at) VALUES
+			($1, $2, now())
+			`, bp.ID, StripeInvoiceResponse)
+			Expect(err).To(BeNil())
+		})
+
+		It("serializes stripe invoices", func() {
+			var j map[string][]serializers.Invoice
+			res := doRequest(false)
+			Expect(res.Code).To(Equal(http.StatusOK))
+			err := json.NewDecoder(res.Body).Decode(&j)
+			Expect(err).To(BeNil())
+
+			invoices := j["invoices"]
+
+			Expect(invoices).To(HaveLen(1))
+			Expect(invoices[0].UserID).To(Equal(bp.UserID))
+			Expect(invoices[0].State).To(Equal(invoice.StateUnpaid))
+			Expect(invoices[0].Items).To(HaveLen(1))
+			Expect(invoices[0].Items[0].TotalCharge).To(Equal(int64(2000)))
 		})
 	})
 

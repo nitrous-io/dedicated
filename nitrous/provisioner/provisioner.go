@@ -55,6 +55,7 @@ var (
 	ErrPreprovisionerNotConfigured    = errors.New("pre-provisioner is not configured")
 	ErrMultipleHostCreationNotAllowed = errors.New("only one host can be created at any time")
 	ErrOrgPermissionDenied            = errors.New("you do not have access to this organization")
+	ErrOrgCreatePermissionDenied      = errors.New("limited user cannot create")
 	ErrSlugIsTaken                    = errors.New("slug is taken")
 	ErrUnknownProvider                = errors.New("unknown provider")
 	ErrNoSubscriptionProvided         = errors.New("a subscription must be provided when MaxHosts is set on a Plan")
@@ -200,12 +201,15 @@ func (p *Provisioner) ProvisionHost(opts ProvisionOptions) (*host.Host, error) {
 	}
 
 	if opts.Org != nil {
-		_, err := orgmembership.FindByUsernameAndOrgSlug(p.db, opts.User.Username, opts.Org.Slug)
+		om, err := orgmembership.FindByUsernameAndOrgSlug(p.db, opts.User.Username, opts.Org.Slug)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, ErrOrgPermissionDenied
 			}
 			return nil, err
+		}
+		if om.Role == orgmembership.RoleLimited {
+			return nil, ErrOrgCreatePermissionDenied
 		}
 	}
 
