@@ -23,6 +23,8 @@ type Org struct {
 	MultiHost bool  `json:"multi_host"`
 	Plan      *Plan `json:"plan,omitempty"`
 
+	Edu bool `json:"edu"`
+
 	BillingProfile *BillingProfile `json:"billing_profile,omitempty"`
 }
 
@@ -37,6 +39,7 @@ func SerializeOrg(o *org.Org) *Org {
 		Email:     o.Email,
 		MaxHosts:  o.MaxHosts.Int64,
 		UsedHosts: o.UsedHosts,
+		Edu:       o.Edu,
 		CreatedAt: o.CreatedAt,
 		UpdatedAt: o.UpdatedAt,
 	}

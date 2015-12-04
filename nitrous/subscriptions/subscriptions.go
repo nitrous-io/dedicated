@@ -65,6 +65,10 @@ const (
 var (
 	couponGetFn couponGetFunc
 
+	ErrOrgPlanProvided = errors.New("A org plan was provided but no org was provided")
+	ErrPlanNotOrg      = errors.New("The provided plan is not for orgs")
+	ErrPlanNotEdu      = errors.New("The edu state of the plan and org do not match")
+
 	ErrNotSubscribablePlan   = errors.New("Plan does not support subscriptions")
 	ErrInvalidBillingState   = errors.New("Invalid billing state")
 	ErrPlanNotFree           = errors.New("Plan not free but billing state in Free")
@@ -104,6 +108,11 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		err = ErrNotSubscribablePlan
 		return
 	}
+
+	if err = canSubscribe(u, o, p); err != nil {
+		return
+	}
+
 	var bp *billingprofile.BillingProfile
 	if o != nil {
 		bp, err = billingprofile.FindForOrg(d, o.ID)
@@ -492,6 +501,30 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 			logrus.Errorf("upgradeHosts host=%d: Error completing plan change, err: %v", h.ID, err)
 			continue
 		}
+	}
+
+	return nil
+}
+
+func canSubscribe(u *user.User, o *org.Org, p *plan.Plan) error {
+	// require an org is present for edu/org plans
+	if (p.Org || p.Edu) && o == nil {
+		return ErrOrgPlanProvided
+	}
+
+	// no further checks needed for a user
+	if o == nil {
+		return nil
+	}
+
+	// orgs must subscribe to an org plan
+	if !p.Org {
+		return ErrPlanNotOrg
+	}
+
+	// edu orgs must subscribe to edu plans
+	if p.Edu != o.Edu {
+		return ErrPlanNotEdu
 	}
 
 	return nil

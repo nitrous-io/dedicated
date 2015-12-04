@@ -36,10 +36,16 @@ pages.Pricing =
         else
           0
       for p in pl
-        if (p.price + p.base_price) > 0 && !p.org && !p.hidden
+        if p.edu || p.org || p.hidden
+          continue
+
+        if (p.price + p.base_price) > 0
           plans.push(p)
       for p in pl
-        if (p.price + p.base_price) > 0 && p.org && !p.hidden && p.max_hosts != null && p.max_hosts > 0
+        if p.hidden || p.edu || !p.org || !p.max_hosts || p.max_hosts <= 0
+          continue
+
+        if (p.price + p.base_price) > 0
           p.name = "Org"
           p.price = p.price / p.max_hosts
           p.description = "Minimum purchase of #{p.max_hosts} workstations required"

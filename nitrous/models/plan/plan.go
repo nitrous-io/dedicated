@@ -54,7 +54,9 @@ type Plan struct {
 	SSH             bool  `db:"ssh"`
 	CustomDomain    bool  `db:"custom_domain"`
 	CustomTemplates bool  `db:"custom_templates"`
-	Org             bool  `db:"org"`
+
+	Org bool `db:"org"`
+	Edu bool `db:"edu"`
 
 	MaxHosts sql.NullInt64 `db:"max_hosts"`
 	// MaxCollaborators has default value of 1. Where org=true, default is NULL.
