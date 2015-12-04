@@ -141,7 +141,7 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errMultipleSubscriptionNotAllowed
 	}
 
-	var pc *promocode.PromoCode
+	var pc *promocode.PromoCodeWithPlans
 	pcSlug := r.FormValue("promo_code")
 	if pcSlug != "" {
 		pc, err = promocode.Find(db, pcSlug)
@@ -151,10 +151,12 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	opts := &sub.SubscribeOptions{
-		Plan:      pl,
-		User:      env.User,
-		Org:       o,
-		PromoCode: pc,
+		Plan: pl,
+		User: env.User,
+		Org:  o,
+	}
+	if pc != nil {
+		opts.PromoCode = pc.PromoCode
 	}
 	rSub, err := subProvider.Subscribe(db, opts)
 	if err != nil {

@@ -844,7 +844,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is an org", func() {
 				pl.Org = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
 				Expect(s).To(BeNil())
 			})
@@ -852,7 +852,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is a edu", func() {
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
 				Expect(s).To(BeNil())
 			})
@@ -897,7 +897,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is not an org", func() {
 				pl.Org = false
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotOrg))
 				Expect(s).To(BeNil())
 			})
@@ -906,7 +906,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = false
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
 				Expect(s).To(BeNil())
 			})
@@ -915,7 +915,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = true
 				pl.Edu = false
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
 				Expect(s).To(BeNil())
 			})
@@ -934,7 +934,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = true
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 			})

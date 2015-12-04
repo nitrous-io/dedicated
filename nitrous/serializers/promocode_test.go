@@ -14,17 +14,20 @@ import (
 
 var _ = Describe("promocode serializer", func() {
 	var (
-		model *promocode.PromoCode
+		model *promocode.PromoCodeWithPlans
 	)
 
 	BeforeEach(func() {
-		model = &promocode.PromoCode{
-			ID:           2,
-			Slug:         "abc",
-			Disabled:     true,
-			Quantity:     200,
-			TrialSeconds: sql.NullInt64{200, true},
-			ExpiresAt:    pq.NullTime{time.Now(), true},
+		model = &promocode.PromoCodeWithPlans{
+			PromoCode: &promocode.PromoCode{
+				ID:           2,
+				Slug:         "abc",
+				Disabled:     true,
+				Quantity:     200,
+				TrialSeconds: sql.NullInt64{200, true},
+				ExpiresAt:    pq.NullTime{time.Now(), true},
+			},
+			PlanIDs: []int64{1, 7, 8},
 		}
 	})
 
@@ -35,9 +38,10 @@ var _ = Describe("promocode serializer", func() {
 
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
-        "slug": "abc",
-        "trial_seconds": 200
-      }`))
+				"slug": "abc",
+				"trial_seconds": 200,
+				"plan_ids": [1,7,8]
+			}`))
 		})
 
 		It("should omit empty TrialSeconds", func() {
@@ -47,7 +51,8 @@ var _ = Describe("promocode serializer", func() {
 
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(`{
-				"slug": "abc"
+				"slug": "abc",
+				"plan_ids": [1,7,8]
 			}`))
 		})
 	})

@@ -78,6 +78,40 @@ var _ = Describe("models/promocode", func() {
 		}
 	})
 
+	Describe("Find", func() {
+		It("should return an error if the slug does not exist", func() {
+			pc, err := promocode.Find(db, "jest10")
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(pc).To(BeNil())
+		})
+
+		It("should return an error if the promo has expired", func() {
+			_, err := db.Exec("UPDATE promo_codes SET expires_at = now() WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			pc, err := promocode.Find(db, "just10")
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(pc).To(BeNil())
+		})
+
+		It("should return an error if the promo is disabled", func() {
+			_, err := db.Exec("UPDATE promo_codes SET disabled = TRUE WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			pc, err := promocode.Find(db, "just10")
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(pc).To(BeNil())
+		})
+
+		It("should return the promocode with plans if it exists", func() {
+			_, err := db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID1, p2.ID)
+			Expect(err).To(BeNil())
+
+			pc, err := promocode.Find(db, "just10")
+			Expect(err).To(BeNil())
+			Expect(pc.ID).To(Equal(pcID1))
+			Expect(pc.PlanIDs).To(ConsistOf(p2.ID, p.ID))
+		})
+	})
+
 	Describe("Claim", func() {
 		It("should return an error if the slug does not exist", func() {
 			use, err := promocode.Claim(db, "jest10", u.ID, p.ID)
@@ -93,6 +127,14 @@ var _ = Describe("models/promocode", func() {
 
 		It("should return an error if the promo has expired", func() {
 			_, err := db.Exec("UPDATE promo_codes SET expires_at = now() WHERE id = $1", pcID1)
+			Expect(err).To(BeNil())
+			use, err := promocode.Claim(db, "just10", u.ID, p.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+			Expect(use).To(BeNil())
+		})
+
+		It("should return an error if the promo has been disabled", func() {
+			_, err := db.Exec("UPDATE promo_codes SET disabled = TRUE WHERE id = $1", pcID1)
 			Expect(err).To(BeNil())
 			use, err := promocode.Claim(db, "just10", u.ID, p.ID)
 			Expect(err).To(Equal(sql.ErrNoRows))

@@ -18,6 +18,20 @@ type PromoCode struct {
 	UpdatedAt    pq.NullTime   `db:"updated_at"`
 }
 
+type PromoCodeWithPlans struct {
+	*PromoCode
+	PlanIDs []int64
+}
+
+func (pp *PromoCodeWithPlans) AllowedPlan(pID int64) bool {
+	for _, id := range pp.PlanIDs {
+		if id == pID {
+			return true
+		}
+	}
+	return false
+}
+
 type PromoCodeUse struct {
 	ID             int64         `db:"id"`
 	PromoCodeID    int64         `db:"promo_code_id"`
@@ -32,7 +46,7 @@ type PendingClaim struct {
 	Code *PromoCode
 }
 
-func Find(d db.QueryReceiver, slug string) (*PromoCode, error) {
+func Find(d db.QueryReceiver, slug string) (*PromoCodeWithPlans, error) {
 	pc := &PromoCode{}
 	err := d.Get(pc, `SELECT promo_codes.* FROM (
 			SELECT promo_codes.id, COUNT(uses.id) count FROM promo_codes
@@ -48,7 +62,15 @@ func Find(d db.QueryReceiver, slug string) (*PromoCode, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pc, nil
+	var planIDs []int64
+	err = d.Select(&planIDs, `SELECT plan_id FROM promo_code_plans WHERE promo_code_id = $1;`, pc.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &PromoCodeWithPlans{
+		PromoCode: pc,
+		PlanIDs:   planIDs,
+	}, nil
 }
 
 // allocates a claim for a promocode if (and only if) the plan provided
