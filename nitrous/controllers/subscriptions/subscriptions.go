@@ -17,6 +17,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
 	"github.com/nitrous-io/dedicated/nitrous/serializers"
@@ -140,7 +141,30 @@ func Subscribe(env *middleware.Env, w http.ResponseWriter, r *http.Request) erro
 		return errMultipleSubscriptionNotAllowed
 	}
 
-	rSub, err := subProvider.Subscribe(db, nil, pl, env.User, o)
+	opts := &sub.SubscribeOptions{
+		Plan: pl,
+		User: env.User,
+		Org:  o,
+	}
+
+	pcSlug := r.FormValue("promo_code")
+	if pcSlug != "" {
+		if pcp, err := promocode.Find(db, pcSlug); err == nil {
+			opts.PromoCode = pcp.PromoCode
+		} else if err != sql.ErrNoRows {
+			return err
+		}
+	} else {
+		// check for any outstanding promocodes awaiting claim
+		if cl, err := promocode.FindPendingClaim(db, env.User.ID, pl.ID); err == nil {
+			opts.PromoCodeUse = cl.Use
+			opts.PromoCode = cl.Code
+		} else if err != sql.ErrNoRows {
+			return err
+		}
+	}
+
+	rSub, err := subProvider.Subscribe(db, opts)
 	if err != nil {
 		return shared.HandleBillingError(err)
 	}

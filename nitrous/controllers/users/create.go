@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/nitrous-io/dedicated/nitrous/controllers/github"
 	"github.com/nitrous-io/dedicated/nitrous/middleware"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/user"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/cidrblacklist"
 	"github.com/nitrous-io/dedicated/nitrous/pkg/httperror"
@@ -39,17 +40,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	username := strings.ToLower(r.FormValue("username"))
 	password := r.FormValue("password")
 	name := r.FormValue("name")
-	promocode := r.FormValue("promo_code")
+	promocodeSlug := r.FormValue("promo_code")
 	invitecode := r.FormValue("invite_code")
 	distinctID := r.FormValue("distinct_id")
 	gitHubUserName := r.FormValue("github_username")
 
 	u := &user.User{
-		Email:     email,
-		Username:  username,
-		Name:      name,
-		Password:  password,
-		PromoCode: sql.NullString{promocode, true},
+		Email:    email,
+		Username: username,
+		Name:     name,
+		Password: password,
 	}
 
 	err := u.Validate()
@@ -83,6 +83,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
+	var pc *promocode.PromoCodeWithPlans
+	if promocodeSlug != "" {
+		pc, err = promocode.Find(db, promocodeSlug)
+		if err == sql.ErrNoRows {
+			return invalidPromoCode
+		} else if err != nil {
+			return err
+		}
+	}
+
 	// if user is in CIDR blacklist, they are suspicious
 	if err := cidrblacklist.Contains(remoteAddr); err != nil {
 		u.Suspicious = sql.NullString{String: err.Error(), Valid: true}
@@ -91,16 +101,6 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
-	}
-
-	if promocode != "" {
-		if _, err := credittype.FindValidCreditTypeByName(tx, promocode); err != nil {
-			tx.Rollback()
-			if err == sql.ErrNoRows {
-				return invalidPromoCode
-			}
-			return err
-		}
 	}
 
 	err = u.Insert(tx)
@@ -131,6 +131,12 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	err = tx.Commit()
 	if err != nil {
 		return err
+	}
+
+	if pc != nil {
+		if _, err := promocode.ClaimForUser(db, promocodeSlug, u.ID); err != nil {
+			logrus.Errorf("Error claiming promocode '%s' for user %s, err: %v", promocodeSlug, u.Username, err)
+		}
 	}
 
 	confirmable := client != nil

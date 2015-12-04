@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -118,17 +119,24 @@ var _ = Describe("subscriptions", func() {
 
 	Describe("Subscribe()", func() {
 		var (
-			o *org.Org
+			o    *org.Org
+			opts *subscriptions.SubscribeOptions
 		)
 
 		BeforeEach(func() {
 			o = nil
+			opts = &subscriptions.SubscribeOptions{
+				Host: hs.H,
+				Plan: pl,
+				User: u,
+				Org:  o,
+			}
 		})
 
 		sharedExamples := func() {
 			It("should return an error if the plan is not subscribable", func() {
-				p := &plan.Plan{}
-				s, err := subProvider.Subscribe(db, hs.H, p, u, o)
+				opts.Plan = &plan.Plan{}
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrNotSubscribablePlan))
 				Expect(s).To(BeNil())
 			})
@@ -137,7 +145,7 @@ var _ = Describe("subscriptions", func() {
 				bp.State = billingprofile.StateDelinquent
 				Expect(bp.Update(db)).To(BeNil())
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrInvalidBillingState))
 				Expect(s).To(BeNil())
 			})
@@ -148,7 +156,7 @@ var _ = Describe("subscriptions", func() {
 					`{"object": null, "id": null}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(fakeStripe.Errors[0]))
 				Expect(s).To(BeNil())
 
@@ -173,7 +181,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -219,7 +227,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(fakeStripe.Errors[1]))
 				Expect(s).To(BeNil())
 
@@ -258,7 +266,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrCardExpired))
 				Expect(s).To(BeNil())
 
@@ -278,7 +286,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrCardDeclined))
 				Expect(s).To(BeNil())
 
@@ -305,7 +313,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -349,7 +357,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -389,7 +397,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -428,7 +436,7 @@ var _ = Describe("subscriptions", func() {
 					return nil, fmt.Errorf("Wrong code")
 				})
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -469,7 +477,7 @@ var _ = Describe("subscriptions", func() {
 					return nil, fmt.Errorf("Nope, try again")
 				})
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -504,7 +512,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -537,7 +545,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -574,7 +582,7 @@ var _ = Describe("subscriptions", func() {
 				}`,
 				}
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -594,7 +602,8 @@ var _ = Describe("subscriptions", func() {
 			})
 
 			It("should not allow subscription if the host is nil and the plan is not multi host", func() {
-				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				opts.Host = nil
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrHostNotProvided))
 				Expect(s).To(BeNil())
 
@@ -613,7 +622,9 @@ var _ = Describe("subscriptions", func() {
 				}
 
 				pl.MaxHosts = sql.NullInt64{3, true}
-				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				opts.Host = nil
+
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 
@@ -629,7 +640,7 @@ var _ = Describe("subscriptions", func() {
 				Expect(s.MultiHost).To(BeTrue())
 			})
 
-			It("should not allow multile subscriptions to a multi-host plan", func() {
+			It("should not allow multiple subscriptions to a multi-host plan", func() {
 				s := &subscription.Subscription{
 					PlanID:           pl.ID,
 					BillingProfileID: bp.ID,
@@ -641,11 +652,189 @@ var _ = Describe("subscriptions", func() {
 				Expect(test.WrapInTransaction(db, s.Insert)).To(BeNil())
 
 				pl.MaxHosts = sql.NullInt64{3, true}
-				s, err := subProvider.Subscribe(db, nil, pl, u, o)
+				opts.Host = nil
+
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrExistingMultiHostSubscription))
 				Expect(s).To(BeNil())
 
 				Expect(fakeStripe.ReceivedRequests).To(BeEmpty())
+			})
+
+			Context("with promocodes", func() {
+				var (
+					pc1, pc2 *promocode.PromoCode
+				)
+
+				BeforeEach(func() {
+					pc1 = &promocode.PromoCode{}
+					err := db.Get(pc1, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 hours') RETURNING *;")
+					Expect(err).To(BeNil())
+					pc2 = &promocode.PromoCode{}
+					err = db.Get(pc2, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just20', 10, 900, now()) RETURNING *;")
+					Expect(err).To(BeNil())
+					_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) SELECT id, $1 FROM promo_codes WHERE id IN ($2, $3)", pl.ID, pc1.ID, pc2.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("should silently fail if the provided promocode is no longer quantity", func() {
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					opts.PromoCode = pc2
+
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+					r := fakeStripe.ReceivedRequests[0]
+					_, ok := r["trial_end"]
+					Expect(ok).To(BeFalse())
+
+					_, err = findByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+				})
+
+				It("should unclaim the promocode if the subscription fails", func() {
+					fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.CardDeclined}}
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					opts.PromoCode = pc1
+
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).ToNot(BeNil())
+					Expect(s).To(BeNil())
+
+					use := &promocode.PromoCodeUse{}
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE user_id = $1", u.ID)
+					Expect(err).To(Equal(sql.ErrNoRows))
+				})
+
+				It("should set a trial end if the promocode is available", func() {
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					opts.PromoCode = pc1
+
+					t := time.Now().Unix()
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+					r := fakeStripe.ReceivedRequests[0]
+					trialEndStr, ok := r["trial_end"]
+					Expect(ok).To(BeTrue())
+					trialEnd, err := strconv.Atoi(trialEndStr)
+					Expect(err).To(BeNil())
+					Expect(trialEnd).To(BeNumerically(">=", t+900))
+
+					s, err = findByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					use := &promocode.PromoCodeUse{}
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE subscription_id = $1", s.ID)
+					Expect(err).To(BeNil())
+					Expect(use.UserID).To(Equal(u.ID))
+				})
+
+				It("should not set trial_end if the TrialSeconds is not valid", func() {
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					pc1.TrialSeconds = sql.NullInt64{Valid: false}
+					opts.PromoCode = pc1
+
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+					r := fakeStripe.ReceivedRequests[0]
+					_, ok := r["trial_end"]
+					Expect(ok).To(BeFalse())
+
+					s, err = findByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					use := &promocode.PromoCodeUse{}
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE subscription_id = $1", s.ID)
+					Expect(err).To(BeNil())
+					Expect(use.UserID).To(Equal(u.ID))
+				})
+
+				It("should allow a promocode to be directly used", func() {
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					use, err := promocode.Claim(db, "just10", u.ID, pl.ID)
+					Expect(err).To(BeNil())
+					Expect(use).ToNot(BeNil())
+
+					opts.PromoCode = pc1
+					opts.PromoCodeUse = use
+
+					t := time.Now().Unix()
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					Expect(fakeStripe.ReceivedRequests).To(HaveLen(1))
+					r := fakeStripe.ReceivedRequests[0]
+					trialEndStr, ok := r["trial_end"]
+					Expect(ok).To(BeTrue())
+					trialEnd, err := strconv.Atoi(trialEndStr)
+					Expect(err).To(BeNil())
+					Expect(trialEnd).To(BeNumerically(">=", t+900))
+
+					s, err = findByHostID(db, hs.H.ID)
+					Expect(err).To(BeNil())
+					Expect(s).ToNot(BeNil())
+
+					err = db.Get(use, "SELECT * FROM promo_code_uses WHERE id = $1", use.ID)
+					Expect(err).To(BeNil())
+					Expect(use.SubscriptionID.Int64).To(Equal(s.ID))
+					Expect(use.UserID).To(Equal(u.ID))
+				})
 			})
 		}
 
@@ -655,7 +844,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is an org", func() {
 				pl.Org = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
 				Expect(s).To(BeNil())
 			})
@@ -663,7 +852,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is a edu", func() {
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrOrgPlanProvided))
 				Expect(s).To(BeNil())
 			})
@@ -678,6 +867,8 @@ var _ = Describe("subscriptions", func() {
 				}
 				err := o.Insert(db)
 				Expect(err).To(BeNil())
+				opts.Org = o
+
 				err = db.WithTransaction(func(t *sqlx.Tx) error {
 					Expect(billingprofile.Create(t, u.ID, sql.NullInt64{o.ID, true})).To(BeNil())
 					return nil
@@ -706,7 +897,7 @@ var _ = Describe("subscriptions", func() {
 			It("should return an error if the plan is not an org", func() {
 				pl.Org = false
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotOrg))
 				Expect(s).To(BeNil())
 			})
@@ -715,7 +906,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = false
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
 				Expect(s).To(BeNil())
 			})
@@ -724,7 +915,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = true
 				pl.Edu = false
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(Equal(subscriptions.ErrPlanNotEdu))
 				Expect(s).To(BeNil())
 			})
@@ -743,7 +934,7 @@ var _ = Describe("subscriptions", func() {
 				o.Edu = true
 				pl.Edu = true
 
-				s, err := subProvider.Subscribe(db, hs.H, pl, u, o)
+				s, err := subProvider.Subscribe(db, opts)
 				Expect(err).To(BeNil())
 				Expect(s).ToNot(BeNil())
 			})
@@ -2543,7 +2734,7 @@ var _ = Describe("subscriptions", func() {
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
 			Expect(fakeMailer.From).To(Equal(envvars.SupportEmail))
-			Expect(fakeMailer.ReplyTo).To(Equal(envvars.SupportEmail))
+			Expect(fakeMailer.ReplyTo, nil).To(Equal(envvars.SupportEmail))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
 			Expect(fakeMailer.Ccs).To(Equal([]string{envvars.SupportEmail}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())
@@ -2618,7 +2809,7 @@ var _ = Describe("subscriptions", func() {
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
 			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo, nil).To(Equal(`"Nitrous" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
 			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())
@@ -2697,7 +2888,7 @@ var _ = Describe("subscriptions", func() {
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
 			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo, nil).To(Equal(`"Nitrous" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
 			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())
@@ -2777,7 +2968,7 @@ var _ = Describe("subscriptions", func() {
 
 			Expect(fakeMailer.SendMailCalled).To(BeTrue())
 			Expect(fakeMailer.From).To(Equal(`"Nitrous" <support@nitrous.io>`))
-			Expect(fakeMailer.ReplyTo).To(Equal(`"Nitrous" <support@nitrous.io>`))
+			Expect(fakeMailer.ReplyTo, nil).To(Equal(`"Nitrous" <support@nitrous.io>`))
 			Expect(fakeMailer.Tos).To(Equal([]string{`"foo" <foo@example.com>`}))
 			Expect(fakeMailer.Ccs).To(Equal([]string{`"Nitrous" <support@nitrous.io>`}))
 			Expect(fakeMailer.Bccs).To(BeEmpty())

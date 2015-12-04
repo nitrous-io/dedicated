@@ -14,8 +14,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nitrous-io/dedicated/nitrous/db"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
-	"github.com/nitrous-io/dedicated/nitrous/models/credit"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/token"
@@ -59,10 +57,9 @@ var _ = Describe("controllers/billingprofiles", func() {
 		authTokenInputs = test.AuthTokenInputs{Handler: handler}
 
 		u = &user.User{
-			Username:  "foo",
-			Password:  "123456",
-			Email:     "foo@example.com",
-			PromoCode: sql.NullString{credittype.SignupCreditType, true},
+			Username: "foo",
+			Password: "123456",
+			Email:    "foo@example.com",
 		}
 		err = test.WrapInTransaction(db, u.Insert)
 		Expect(err).To(BeNil())
@@ -115,52 +112,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2017)))
 				Expect(j.BillingProfile.CardType).To(Equal("Discover"))
 				Expect(j.BillingProfile.LastFour).To(Equal("1234"))
-				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(0)))
-			})
-
-			It("returns the amount credited if the user has a promocode and is in free", func() {
-				c := &credittype.CreditType{
-					Name:         "moreMoney",
-					Description:  sql.NullString{"Desc", true},
-					Active:       true,
-					DefaultValue: 1900,
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE users SET promo_code = 'moreMoney' WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
-				Expect(err).To(BeNil())
-
-				res := doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-				}
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-
-				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(1900)))
-			})
-
-			It("silently fails if the promocode could not be found", func() {
-				_, err := db.Exec(`UPDATE users SET promo_code = 'moreMoneyzz' WHERE id = $1;`, u.ID)
-				Expect(err).To(BeNil())
-
-				_, err = db.Exec(`UPDATE billing_profiles SET state = $1 WHERE user_id = $2;`, billingprofile.StateFree, u.ID)
-				Expect(err).To(BeNil())
-
-				res := doRequest()
-				Expect(res.Code).To(Equal(http.StatusOK))
-
-				var j struct {
-					BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-				}
-				err = json.Unmarshal(res.Body.Bytes(), &j)
-
-				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(0)))
 			})
 		}
 
@@ -238,7 +189,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(j.BillingProfile.ExpYear).To(Equal(int64(2019)))
 				Expect(j.BillingProfile.CardType).To(Equal("AMEX"))
 				Expect(j.BillingProfile.LastFour).To(Equal("2036"))
-				Expect(j.BillingProfile.AmountCredited).To(Equal(int64(0)))
 			})
 		})
 	})
@@ -501,177 +451,6 @@ var _ = Describe("controllers/billingprofiles", func() {
 				Expect(pc2.PropsSet["upgraded_to_paid_at"]).To(BeTemporally("~", time.Now(), time.Minute))
 
 				Expect(ft.TrackEventProperties[u.ID][0]["upgraded_to_paid_from"]).To(Equal(billingprofile.StateNoCard))
-			})
-
-			Context("rewarding credits", func() {
-				BeforeEach(func() {
-					cType := &credittype.CreditType{
-						Name:         credittype.SignupCreditType,
-						Description:  sql.NullString{"Awarded to users for signing up", true},
-						Active:       true,
-						DefaultValue: 500,
-					}
-					Expect(cType.Insert(db)).To(BeNil())
-
-					_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = true WHERE user_id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					fakeStripe.Responses = []string{test.StripeCustomerResponse}
-				})
-
-				It("should not award if the billing profile was previously activated", func() {
-					_, err := db.Exec(`UPDATE billing_profiles SET pending_activation = false WHERE user_id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var count int
-					err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				})
-
-				It("should not award if promo code is null", func() {
-					_, err := db.Exec(`UPDATE users SET promo_code = NULL WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var count int
-					err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				})
-
-				It("should not award if promo code is empty string", func() {
-					_, err := db.Exec(`UPDATE users SET promo_code = '' WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var count int
-					err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				})
-
-				It("should award if the billing profile was not previously activated", func() {
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var j struct {
-						BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-					}
-					err := json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					Expect(j.BillingProfile.AmountCredited).To(Equal(int64(500)))
-
-					credit := &credit.Credit{}
-					err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
-					Expect(err).To(BeNil())
-					Expect(credit).ToNot(BeNil())
-					Expect(credit.Amount).To(Equal(int64(500)))
-
-					var used int64
-					err = db.QueryRow(`SELECT used FROM credit_types WHERE name = $1;`, credittype.SignupCreditType).Scan(&used)
-					Expect(err).To(BeNil())
-					Expect(used).To(Equal(int64(1)))
-				})
-
-				It("should award credits if a promo code if provided", func() {
-					c := &credittype.CreditType{
-						Name:         "moreMoney",
-						Description:  sql.NullString{"Desc", true},
-						Active:       true,
-						DefaultValue: 1900,
-					}
-					err := c.Insert(db)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE users SET promo_code = 'moreMoney' WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var j struct {
-						BillingProfile *serializers.BillingProfile `json:"billing_profile"`
-					}
-					err = json.Unmarshal(res.Body.Bytes(), &j)
-					Expect(err).To(BeNil())
-
-					Expect(j.BillingProfile.AmountCredited).To(Equal(int64(1900)))
-
-					credit := &credit.Credit{}
-					err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
-					Expect(err).To(BeNil())
-					Expect(credit).ToNot(BeNil())
-					Expect(credit.Amount).To(Equal(int64(1900)))
-
-					var used int64
-					err = db.QueryRow(`SELECT used FROM credit_types WHERE id = $1;`, c.ID).Scan(&used)
-					Expect(err).To(BeNil())
-					Expect(used).To(Equal(int64(1)))
-				})
-
-				It("should not award credits if a promo code is incorrect", func() {
-					c := &credittype.CreditType{
-						Name:         "moreMoney",
-						Description:  sql.NullString{"Desc", true},
-						Active:       false,
-						DefaultValue: 1900,
-					}
-					err := c.Insert(db)
-					Expect(err).To(BeNil())
-
-					_, err = db.Exec(`UPDATE users SET promo_code = 'moreMoney' WHERE id = $1;`, u.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					credit := &credit.Credit{}
-					err = db.Get(credit, "SELECT * FROM credits WHERE user_id = $1;", u.ID)
-					Expect(err).To(Equal(sql.ErrNoRows))
-				})
-
-				It("should not award if there is an existing credit card with the same fingerprint", func() {
-					u2 := &user.User{
-						Username: "fooey",
-						Password: "123456",
-						Email:    "foo2@example.com",
-					}
-					err := test.WrapInTransaction(db, u2.Insert)
-					Expect(err).To(BeNil())
-					_, err = db.Exec(`UPDATE billing_profiles SET stripe_fingerprint = 'H0SJieNrXmTdq3qs' WHERE user_id = $1;`, u2.ID)
-					Expect(err).To(BeNil())
-
-					p := &url.Values{}
-					p.Set("card_token", "cc_token")
-					res := doRequest(p)
-					Expect(res.Code).To(Equal(http.StatusCreated))
-
-					var count int
-					err = db.QueryRow("SELECT COUNT(*) FROM credits WHERE user_id = $1;", u.ID).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				})
 			})
 		})
 	})

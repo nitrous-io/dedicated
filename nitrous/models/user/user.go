@@ -81,8 +81,6 @@ type User struct {
 	Password          string
 	EncryptedPassword string `db:"encrypted_password"`
 
-	PromoCode sql.NullString `db:"promo_code"`
-
 	LoginAttempts  int  `db:"login_attempts"`
 	Admin          bool `db:"admin"`
 	ServiceAccount bool `db:"service_account"`
@@ -117,6 +115,9 @@ type User struct {
 
 	// cached billing profile
 	billingProfile *billingprofile.BillingProfile
+
+	// deprecated
+	PreviousPromoCode sql.NullString `db:"previous_promo_code"`
 }
 
 func (u *User) BillingProfile(d db.QueryReceiver) (*billingprofile.BillingProfile, error) {
@@ -244,8 +245,8 @@ func (u *User) Insert(tx *sqlx.Tx) error {
 	u.CheckSuspicious()
 
 	nstmt, err := tx.PrepareNamed(`INSERT INTO users
-		(email, username, encrypted_password, name, promo_code, suspicious, created_by_client_id)
-		VALUES (:email, :username, :encrypted_password, :name, :promo_code, :suspicious, :created_by_client_id)
+		(email, username, encrypted_password, name, suspicious, created_by_client_id)
+		VALUES (:email, :username, :encrypted_password, :name, :suspicious, :created_by_client_id)
 		RETURNING *;`)
 	if err != nil {
 		return err

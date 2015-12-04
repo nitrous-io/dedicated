@@ -22,6 +22,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/host"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/region"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -66,12 +67,13 @@ type hostCreateRequest struct {
 
 // createOpts described options that can be used to customize a host
 type createOpts struct {
-	Size   string `json:"size"`
-	Region string `json:"region"`
-	Slug   string `json:"slug"` // will be overriden by a generated slug based on name
-	Name   string `json:"name"`
-	Async  bool   `json:"async"`
-	Org    string `json:"org"` // org slug
+	Size      string `json:"size"`
+	Region    string `json:"region"`
+	Slug      string `json:"slug"` // will be overriden by a generated slug based on name
+	Name      string `json:"name"`
+	Async     bool   `json:"async"`
+	Org       string `json:"org"` // org slug
+	PromoCode string `json:"promo_code"`
 
 	// Container-related fields for when we want to create a container on the
 	// host as well.
@@ -175,6 +177,16 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		return errNotOrgPlan
 	}
 
+	// allocate a promo code claim for consumption on successful host creation
+	// (where subscription is actually created)
+	var pcUse *promocode.PromoCodeUse
+	if sub == nil && options.PromoCode != "" {
+		pcUse, err = promocode.Claim(db, options.PromoCode, u.ID, pl.ID)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+	}
+
 	if template == nil {
 		template, err = findTemplate(db, pl, reg, options.Provider)
 		if err != nil {
@@ -222,7 +234,13 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	prov := env.Provisioner
-	publishProvisionFailure := func(h *host.Host, err error) {
+	handleProvisionFailure := func(h *host.Host, err error) {
+		if pcUse != nil {
+			if err := pcUse.Delete(db); err != nil {
+				logrus.Errorf("Unable to delete promo code claim %d, err: %v", pcUse.ID, err)
+			}
+		}
+
 		if e, ok := err.(*provisioner.HostbuilderError); ok {
 			logrus.Errorf("hostbuilder error provisioning host: %v", e)
 			// Change error into something we can display to end users.
@@ -250,7 +268,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 		Org:               o,
 		Subscription:      sub,
 		Template:          template,
-		ProvisionFailedFn: publishProvisionFailure,
+		ProvisionFailedFn: handleProvisionFailure,
 		UUID:              env.UUID,
 		ProvisionSucceededFn: func(h *host.Host) {
 			provisioned <- h
@@ -332,6 +350,7 @@ func buildCreateOptions(r *http.Request, u *user.User) (opts *createOpts, err er
 			ContainerTemplateSlug: r.FormValue("container_template_slug"),
 			ContainerName:         r.FormValue("container_name"),
 			Org:                   r.FormValue("org"),
+			PromoCode:             r.FormValue("promo_code"),
 		}
 		opts.Async, _ = strconv.ParseBool(r.FormValue("async"))
 	}

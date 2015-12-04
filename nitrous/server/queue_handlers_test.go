@@ -23,6 +23,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -349,9 +350,9 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(rt.Requests).To(HaveLen(1))
 
 				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+				Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
 
 				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
 				Expect(err).To(BeNil())
@@ -375,9 +376,9 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(rt.Requests).To(HaveLen(1))
 
 				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+				Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
 
 				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
 				Expect(err).To(BeNil())
@@ -390,7 +391,7 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(hosts).To(HaveLen(0))
 			})
 
-			It("terminates the host if the card is explired", func() {
+			It("terminates the host if the card is expired", func() {
 				ch := svr.Events.Subscribe(u.Topic())
 				defer svr.Events.Unsubscribe(ch, u.Topic())
 
@@ -401,9 +402,9 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(rt.Requests).To(HaveLen(1))
 
 				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+				Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
 
 				evt, err := test.WaitForEvent(ch, controllers.EventHostCreateFailed, 250*time.Millisecond)
 				Expect(err).To(BeNil())
@@ -441,14 +442,39 @@ var _ = Describe("HostQueueHandler", func() {
 				Expect(rt.Requests).To(HaveLen(0))
 
 				Expect(fsub.SubscribeCalled).To(BeTrue())
-				Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-				Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-				Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
+				Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
 
 				hosts, err := host.FindAllByUser(db, u.ID)
 				Expect(err).To(BeNil())
 				Expect(hosts).To(HaveLen(1))
 				Expect(hosts[0].Slug).To(HavePrefix("host-123"))
+			})
+
+			It("passes through a PromoCodeUse if there is an outstanding one", func() {
+				var pcID int64
+				err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('just10', 10, 900, now()+interval '2 days') RETURNING id;")
+				Expect(err).To(BeNil())
+				_, err = db.Exec("INSERT INTO promo_code_plans(promo_code_id, plan_id) VALUES ($1, $2);", pcID, hs.P.ID)
+				Expect(err).To(BeNil())
+
+				use, err := promocode.Claim(db, "just10", u.ID, hs.P.ID)
+				Expect(err).To(BeNil())
+				Expect(use).ToNot(BeNil())
+
+				fsub.SubscribeError = nil
+				fsub.SubscribeReturn = &subscription.Subscription{}
+
+				err = handler(message)
+				Expect(err).To(BeNil())
+				Expect(rt.Requests).To(HaveLen(0))
+
+				Expect(fsub.SubscribeCalled).To(BeTrue())
+				Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+				Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+				Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
+				Expect(fsub.SubscribeOpts.PromoCodeUse.ID).To(Equal(use.ID))
 			})
 
 			It("should not perform a subscribe if the host has a subscription", func() {
@@ -566,10 +592,10 @@ var _ = Describe("HostQueueHandler", func() {
 					Expect(rt.Requests).To(HaveLen(0))
 
 					Expect(fsub.SubscribeCalled).To(BeTrue())
-					Expect(fsub.SubscribeHost.Slug).To(HavePrefix("host-123"))
-					Expect(fsub.SubscribePlan.Slug).To(Equal(hs.P.Slug))
-					Expect(fsub.SubscribeUser.ID).To(Equal(u.ID))
-					Expect(fsub.SubscribeOrg.ID).To(Equal(o.ID))
+					Expect(fsub.SubscribeOpts.Host.Slug).To(HavePrefix("host-123"))
+					Expect(fsub.SubscribeOpts.Plan.Slug).To(Equal(hs.P.Slug))
+					Expect(fsub.SubscribeOpts.User.ID).To(Equal(u.ID))
+					Expect(fsub.SubscribeOpts.Org.ID).To(Equal(o.ID))
 
 					hosts, err := host.FindAllByUser(db, u.ID)
 					Expect(err).To(BeNil())
