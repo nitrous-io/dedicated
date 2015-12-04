@@ -41,6 +41,12 @@ type driverConfig struct {
 	Endpoint           string `json:"endpoint"`
 	FreighterdLocation string `json:"freighterd_location"`
 	DockerLocation     string `json:"docker_location"`
+	// Path to CA certificate of registry (needed if registry's cert is self-signed).
+	RegistryCALocation string `json:"registry_ca_location"`
+	// Path to CA certificate of registry inside each host.
+	// I'd use a Docker volume to inject this, but you can't use a volume path
+	// that contains a colon :"( - https://github.com/docker/docker/issues/8604.
+	RegistryCADestination string `json:"registry_ca_destination"`
 }
 
 type Host struct {
@@ -270,6 +276,14 @@ func (h *Host) createImage() (string, error) {
 	}
 	data := newTemplateData(h)
 	data.Config = string(b)
+	if h.driverConfig.RegistryCALocation != "" {
+		d, err := ioutil.ReadFile(h.driverConfig.RegistryCALocation)
+		if err != nil {
+			return "", fmt.Errorf("unable to read registry CA cert file at %s, err: %v",
+				h.driverConfig.RegistryCALocation, err)
+		}
+		data.RegistryCA = string(d)
+	}
 
 	buf := bytes.NewBuffer(nil)
 	if err := dockerfileTemplate.Execute(buf, data); err != nil {
