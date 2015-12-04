@@ -404,13 +404,8 @@ func show(cn *container.Container, h *host.Host, env *middleware.Env, w http.Res
 	// TODO Run this in a goroutine so it runs concurrently with DB query.
 	liveContainer, err := cl.Info(cn.CID)
 	if err != nil {
-		if strings.Contains(err.Error(), "container not found") {
-			logrus.Errorf("container is mark as terminated in workspace")
-			if err := cn.Delete(env.DB); err != nil {
-				logrus.Errorf("unable to mark the container as terminated in db: %v", err)
-			}
-
-			return errContainerNotFound
+		if derr := deleteIfNotFound(env.DB, cn, err); derr != nil {
+			return derr
 		}
 		return err
 	}
@@ -561,14 +556,8 @@ func controlActionHandler(action actionFn, tempState container.State, eventName 
 
 				liveContainer, err := action(env, cl, cn)
 				if err != nil {
-					if strings.Contains(err.Error(), "container not found") {
-						logrus.Errorf("container is mark as terminated in workspace")
-
-						cn.TempState = sql.NullInt64{0, false}
-						if err := cn.Delete(env.DB); err != nil {
-							logrus.Errorf("unable to mark the container as terminated in db: %v", err)
-						}
-						return errContainerNotFound
+					if derr := deleteIfNotFound(env.DB, cn, err); derr != nil {
+						return derr
 					}
 					return err
 				}
@@ -639,14 +628,8 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 
 			liveContainer, err := cl.Terminate(cn.CID)
 			if err != nil {
-				if strings.Contains(err.Error(), "container not found") {
-					logrus.Errorf("container is mark as terminated in workspace")
-
-					cn.TempState = sql.NullInt64{0, false}
-					if err := cn.Delete(env.DB); err != nil {
-						logrus.Errorf("unable to mark the container as terminated in db: %v", err)
-					}
-					return errContainerNotFound
+				if derr := deleteIfNotFound(db, cn, err); derr != nil {
+					return derr
 				}
 				return err
 			}
@@ -939,15 +922,9 @@ func expandFreighterClientError(d db.QueryReceiver, cn *container.Container, err
 		}
 	}
 
-	if strings.Contains(err.Error(), "container not found") {
-		logrus.Errorf("container is mark as terminated in workspace")
-		cn.TempState = sql.NullInt64{0, false}
-		if err := cn.Delete(d); err != nil {
-			logrus.Errorf("unable to mark the container as terminated in db: %v", err)
-		}
-		return errContainerNotFound
+	if derr := deleteIfNotFound(d, cn, err); derr != nil {
+		return derr
 	}
-
 	return err
 }
 
@@ -960,6 +937,23 @@ func getEventName(s container.State) (controllers.EventName, error) {
 	default:
 		return "", fmt.Errorf("there's no associated event for the given state - %s", s)
 	}
+}
+
+// given a container and an error from freighterclient, determines if the error
+// means that the container was not found in Docker and delete if so
+func deleteIfNotFound(d db.QueryReceiver, cn *container.Container, fcErr error) error {
+	if !strings.Contains(fcErr.Error(), "container not found") {
+		return nil
+	}
+	logrus.WithFields(logrus.Fields{
+		"container": cn.ID,
+		"host":      cn.HostID,
+	}).Errorf("container is marked as terminated in workspace")
+	cn.TempState = sql.NullInt64{0, false}
+	if err := cn.Delete(d); err != nil {
+		logrus.Errorf("unable to mark the container as terminated in db: %v", err)
+	}
+	return errContainerNotFound
 }
 
 func GetPortMappingsJsonFrom(container *freighterclient.Container) (string, error) {
