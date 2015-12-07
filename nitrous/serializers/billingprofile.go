@@ -19,8 +19,6 @@ type BillingProfile struct {
 	CreatedAt     *time.Time `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 
-	AmountCredited int64 `json:"amount_credited,omitempty"`
-
 	CardRequired     bool `json:"card_required"`
 	HasBillingIssues bool `json:"has_billing_issues"`
 }

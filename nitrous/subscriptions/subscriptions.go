@@ -21,6 +21,7 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/models/invoice"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/plan"
+	"github.com/nitrous-io/dedicated/nitrous/models/promocode"
 	"github.com/nitrous-io/dedicated/nitrous/models/providertemplate"
 	"github.com/nitrous-io/dedicated/nitrous/models/respec"
 	"github.com/nitrous-io/dedicated/nitrous/models/subscription"
@@ -34,8 +35,17 @@ import (
 	stripesub "github.com/stripe/stripe-go/sub"
 )
 
+type SubscribeOptions struct {
+	Host         *host.Host
+	Plan         *plan.Plan
+	User         *user.User
+	Org          *org.Org
+	PromoCode    *promocode.PromoCode
+	PromoCodeUse *promocode.PromoCodeUse
+}
+
 type Provider interface {
-	Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (*subscription.Subscription, error)
+	Subscribe(d *db.Database, opts *SubscribeOptions) (*subscription.Subscription, error)
 	Cancel(d *db.Database, sub *subscription.Subscription) error
 	Upgrade(d *db.Database, sub *subscription.Subscription, p *plan.Plan, u *user.User) error
 	Reactivate(d *db.Database, sub *subscription.Subscription) error
@@ -64,6 +74,10 @@ const (
 
 var (
 	couponGetFn couponGetFunc
+
+	ErrOrgPlanProvided = errors.New("A org plan was provided but no org was provided")
+	ErrPlanNotOrg      = errors.New("The provided plan is not for orgs")
+	ErrPlanNotEdu      = errors.New("The edu state of the plan and org do not match")
 
 	ErrNotSubscribablePlan   = errors.New("Plan does not support subscriptions")
 	ErrInvalidBillingState   = errors.New("Invalid billing state")
@@ -99,11 +113,20 @@ func NewProvider() *SubscriptionProvider {
 	return s
 }
 
-func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.Plan, u *user.User, o *org.Org) (sub *subscription.Subscription, err error) {
-	if !p.IsSubscription() {
+func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions) (sub *subscription.Subscription, err error) {
+	h, p := opts.Host, opts.Plan
+	u, o := opts.User, opts.Org
+	pc, pcUse := opts.PromoCode, opts.PromoCodeUse
+
+	if !opts.Plan.IsSubscription() {
 		err = ErrNotSubscribablePlan
 		return
 	}
+
+	if err = canSubscribe(u, o, p); err != nil {
+		return
+	}
+
 	var bp *billingprofile.BillingProfile
 	if o != nil {
 		bp, err = billingprofile.FindForOrg(d, o.ID)
@@ -147,6 +170,14 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 		err = nil
 	}
 
+	if pcUse == nil && pc != nil {
+		pcUse, err = promocode.Claim(d, pc.Slug, u.ID, p.ID)
+		if err != nil {
+			logrus.Errorf("Unable to claim promocode %s for user %d, err: %v", pc.Slug, u.ID, err)
+			pc = nil
+		}
+	}
+
 	var strItem *stripe.InvoiceItem
 	var strSub *stripe.Sub
 
@@ -183,7 +214,9 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			Plan:     planID,
 		}
 
-		if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 && bp.TrialEligible {
+		if pc != nil && pc.TrialSeconds.Valid {
+			params.TrialEnd = time.Now().Unix() + pc.TrialSeconds.Int64
+		} else if trialEnd := p.TrialEnd(time.Now().Unix()); trialEnd > 0 && bp.TrialEligible {
 			params.TrialEnd = trialEnd
 		}
 
@@ -269,6 +302,22 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, h *host.Host, p *plan.P
 			if err := stripesub.Cancel(strSub.ID, &stripe.SubParams{Customer: bp.StripeID.String}); err != nil {
 				logrus.Errorf("Unable to delete Stripe subscription %s, err: %v", strSub.ID, err)
 			}
+		}
+
+		if pcUse != nil {
+			logrus.Errorf("Subscribe failed, deleting promo code claim %d", pcUse.ID)
+			if err := pcUse.Delete(d); err != nil {
+				logrus.Errorf("Unable to delete promo code claim %d, err: %v", pcUse.ID, err)
+			}
+		}
+
+		return
+	}
+
+	if pcUse != nil {
+		pcUse.SubscriptionID = sql.NullInt64{sub.ID, true}
+		if err := pcUse.UpdateSubscriptionId(d); err != nil {
+			logrus.Errorf("Unable to update promo code claim %d, err: %v", pcUse.ID, err)
 		}
 	}
 
@@ -492,6 +541,30 @@ func (s *SubscriptionProvider) upgradeHosts(d *db.Database, sub *subscription.Su
 			logrus.Errorf("upgradeHosts host=%d: Error completing plan change, err: %v", h.ID, err)
 			continue
 		}
+	}
+
+	return nil
+}
+
+func canSubscribe(u *user.User, o *org.Org, p *plan.Plan) error {
+	// require an org is present for edu/org plans
+	if (p.Org || p.Edu) && o == nil {
+		return ErrOrgPlanProvided
+	}
+
+	// no further checks needed for a user
+	if o == nil {
+		return nil
+	}
+
+	// orgs must subscribe to an org plan
+	if !p.Org {
+		return ErrPlanNotOrg
+	}
+
+	// edu orgs must subscribe to edu plans
+	if p.Edu != o.Edu {
+		return ErrPlanNotEdu
 	}
 
 	return nil

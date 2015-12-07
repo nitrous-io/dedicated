@@ -101,13 +101,14 @@ func (s *Server) drawRoutes() {
 
 		nonAuth := map[string]map[string]routeData{
 			"GET": {
-				"/plans":                    r("plans.Index", plans.Index),
-				"/regions":                  r("regions.Index", regions.Index),
-				"/templates":                r("templates.Index", templates.Index),
-				"/app_settings":             r("appsettings.Index", appsettings.Index),
-				"/promo_codes/{code}":       r("promocodes.Show", promocodes.Show),
-				"/hosts/{slug}/apt_allowed": r("hosts.AptAllowed", hosts.AptAllowed),
-				"/mailchimp_hook":           r("mailchimphooks.VerifyWebhook", mailchimphooks.VerifyWebhook),
+				"/plans":                            r("plans.Index", plans.Index),
+				"/regions":                          r("regions.Index", regions.Index),
+				"/templates":                        r("templates.Index", templates.Index),
+				"/app_settings":                     r("appsettings.Index", appsettings.Index),
+				"/promo_codes/{code}":               r("promocodes.Show", promocodes.Show),
+				"/hosts/{slug}/apt_allowed":         r("hosts.AptAllowed", hosts.AptAllowed),
+				"/mailchimp_hook":                   r("mailchimphooks.VerifyWebhook", mailchimphooks.VerifyWebhook),
+				"/subscriptions/promo_codes/{slug}": r("promocodes.ShowSubscriptionPromocode", promocodes.ShowSubscriptionPromocode),
 			},
 			"POST": {
 				"/oauth/token":                  r("oauth.IssueToken", oauth.IssueToken),
@@ -138,6 +139,7 @@ func (s *Server) drawRoutes() {
 				"/user/billing_profile":                    r("billingprofiles.Show", billingprofiles.Show),
 				"/user/can_delete":                         r("users.CheckCanDelete", users.CheckCanDelete),
 				"/user/login_token":                        r("users.GetLoginToken", users.GetLoginToken),
+				"/user/promo_codes":                        r("promocodes.PendingPromoCodes", promocodes.PendingPromoCodes),
 				"/hosts":                                   r("hosts.Index", hosts.Index),
 				"/images":                                  r("images.IndexAll", images.Index),
 				"/hosts/{slug}/images":                     r("images.Index", images.Index),

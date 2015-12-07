@@ -21,10 +21,11 @@ import (
 )
 
 var (
-	errBannedEmail      = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
-	errNotFound         = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
-	errNoPermission     = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
-	errCannotRemoveSelf = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
+	errBannedEmail       = httperror.New(http.StatusBadRequest, "email_banned", "this email address is banned")
+	errNotFound          = httperror.New(http.StatusNotFound, "not_found", "requested resource could not be found")
+	errNoPermission      = httperror.New(http.StatusForbidden, "permission_denied", "you do not have permission to edit members")
+	errCannotRemoveSelf  = httperror.New(http.StatusBadRequest, "invalid_action", "you cannot remove yourself from this organization")
+	errNotEduWhitelisted = httperror.New(http.StatusForbidden, "not_edu_whitelisted", "Please contact Nitrous to enable education support")
 
 	validations = map[string]error{
 		"index_orgs_on_slug": httperror.New(http.StatusBadRequest, "validation_failed", "slug is taken"),
@@ -38,6 +39,7 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	slug := strings.ToLower(r.FormValue("slug"))
 	name := r.FormValue("name")
 	email := strings.ToLower(r.FormValue("email"))
+	intent := r.FormValue("intent")
 
 	o := &org.Org{
 		Slug:  slug,
@@ -58,6 +60,19 @@ func Create(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	if banned {
 		return errBannedEmail
+	}
+
+	// check email qualifies for edu
+	var edu bool
+	err = db.Get(&edu, `SELECT COUNT(*) > 0 FROM edu_emails_whitelist WHERE email = $1 LIMIT 1;`, o.Email)
+	if err != nil {
+		return err
+	} else {
+		o.Edu = edu
+	}
+
+	if intent == "edu" && !o.Edu {
+		return errNotEduWhitelisted
 	}
 
 	err = db.WithTransaction(func(tx *sqlx.Tx) error {

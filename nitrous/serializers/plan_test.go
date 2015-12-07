@@ -39,6 +39,7 @@ var _ = Describe("plan serializer", func() {
 				CustomDomain:      false,
 				CustomTemplates:   true,
 				Org:               false,
+				Edu: true,
 			}
 		})
 
@@ -72,7 +73,8 @@ var _ = Describe("plan serializer", func() {
 				"ssh": true,
 				"custom_domain": false,
 				"custom_templates": true,
-				"org": false
+				"org": false,
+				"edu": true
 			}`))
 		})
 
@@ -109,7 +111,8 @@ var _ = Describe("plan serializer", func() {
 				"ssh": true,
 				"custom_domain": false,
 				"custom_templates": true,
-				"org": false
+				"org": false,
+				"edu": true
 			}`))
 		})
 
@@ -145,7 +148,8 @@ var _ = Describe("plan serializer", func() {
 				"ssh": true,
 				"custom_domain": false,
 				"custom_templates": true,
-				"org": false
+				"org": false,
+				"edu": true
 			}`))
 		})
 
@@ -181,7 +185,8 @@ var _ = Describe("plan serializer", func() {
 				"ssh": true,
 				"custom_domain": false,
 				"custom_templates": true,
-				"org": false
+				"org": false,
+				"edu": true
 			}`))
 		})
 	})

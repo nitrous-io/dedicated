@@ -44,6 +44,8 @@ type Org struct {
 	Name  string `db:"name"`
 	Email string `db:"email"`
 
+	Edu bool `db:"edu"`
+
 	MaxHosts sql.NullInt64 `db:"max_hosts"`
 
 	// Track number of active hosts belonging to org.
@@ -97,8 +99,8 @@ func FindAllByMemberUserID(d db.QueryReceiver, uid int64) ([]*OrgWithRole, error
 func (o *Org) Insert(d db.QueryReceiver) error {
 	s, err := d.PrepareNamed(`
 		INSERT INTO orgs
-		(slug, name, email)
-		VALUES (:slug, :name, :email)
+		(slug, name, email, edu)
+		VALUES (:slug, :name, :email, :edu)
 		RETURNING *;
 	`)
 	if err != nil {

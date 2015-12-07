@@ -20,7 +20,6 @@ import (
 	"github.com/nitrous-io/dedicated/nitrous/envvars"
 	"github.com/nitrous-io/dedicated/nitrous/models/billingprofile"
 	"github.com/nitrous-io/dedicated/nitrous/models/container"
-	"github.com/nitrous-io/dedicated/nitrous/models/credittype"
 	"github.com/nitrous-io/dedicated/nitrous/models/oauthclient"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
@@ -256,46 +255,46 @@ var _ = Describe("controllers/users", func() {
 		})
 
 		Context("using promocodes", func() {
+			var (
+				pcID int64
+			)
+
 			BeforeEach(func() {
 				params = &url.Values{}
 				params.Set("email", "foo@example.com")
 				params.Set("username", "foo")
 				params.Set("password", "123456")
 				params.Set("name", "Foo Bar")
+				params.Set("promo_code", "magic")
+
+				err := db.Get(&pcID, "INSERT INTO promo_codes(slug, quantity, trial_seconds, expires_at) VALUES ('magic', 10, 900, now()+interval '2 days') RETURNING id;")
+				Expect(err).To(BeNil())
 			})
 
-			It("should respond with a bad request if the promo code does not exist", func() {
-				params.Set("promo_code", "everythingfree")
-				doRequest()
-
-				Expect(res.Code).To(Equal(http.StatusBadRequest))
-				j := map[string]string{}
-				err := json.Unmarshal(res.Body.Bytes(), &j)
+			It("should return an error if the promocode is invalid", func() {
+				_, err := db.Exec("UPDATE promo_codes SET expires_at = now() - interval '1 hour';")
 				Expect(err).To(BeNil())
-				Expect(j["error"]).To(Equal("invalid_promo_code"))
-				Expect(j["error_description"]).To(Equal("promo code does not exist"))
+
+				doRequest()
+				Expect(res.Code).To(Equal(http.StatusBadRequest))
+
+				errSlug, errDesc := test.ErrorSlug(res.Body)
+				Expect(errSlug).To(Equal("invalid_promo_code"))
+				Expect(errDesc).To(Equal("promo code does not exist"))
 			})
 
 			It("should assign the promocode against the user if valid", func() {
-				c := &credittype.CreditType{
-					Name:         "nye2013",
-					Description:  sql.NullString{"Desc", true},
-					Active:       true,
-					DefaultValue: 900,
-					Stock:        sql.NullInt64{19, true},
-				}
-				err := c.Insert(db)
-				Expect(err).To(BeNil())
-
-				params.Set("promo_code", "nye2013")
 				doRequest()
-
 				Expect(res.Code).To(Equal(http.StatusCreated))
 
 				u, err := user.FindByUsername(db, "foo")
 				Expect(err).To(BeNil())
-				Expect(u.PromoCode.Valid).To(BeTrue())
-				Expect(u.PromoCode.String).To(Equal("nye2013"))
+
+				var count int
+				err = db.Get(&count, `SELECT COUNT(*) FROM promo_code_uses
+					WHERE promo_code_id = $1 AND user_id = $2 AND subscription_id IS NULL;`, pcID, u.ID)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
 			})
 		})
 
