@@ -3,6 +3,7 @@
 
 CREATE TABLE snapshots (
   id bigserial PRIMARY KEY NOT NULL,
+  image_id bigint REFERENCES images(id) NOT NULL,
   user_id bigint REFERENCES users(id) NOT NULL,
   org_id bigint REFERENCES orgs(id) DEFAULT NULL,
   namespace character varying(255) NOT NULL, -- e.g. 'nitrous-io' (org slug or username)
@@ -15,6 +16,7 @@ CREATE TABLE snapshots (
   updated_at timestamp without time zone DEFAULT now()
 );
 
+CREATE INDEX index_snapshots_on_image_id ON snapshots USING btree (image_id);
 CREATE INDEX index_snapshots_on_user_id ON snapshots USING btree (user_id);
 CREATE INDEX index_snapshots_on_org_id ON snapshots USING btree (org_id);
 CREATE INDEX index_snapshots_on_repository ON snapshots USING btree (repository);

@@ -8,6 +8,7 @@ import (
 
 type Snapshot struct {
 	ID          int64  `json:"id"`
+	ImageID     int64  `json:"image_id"`
 	UserID      int64  `json:"user_id"`
 	OrgID       int64  `json:"org_id"`
 	DisplayName string `json:"display_name"`
@@ -23,6 +24,7 @@ func SerializeSnapshot(s *snapshot.Snapshot) *Snapshot {
 	}
 	serialized := &Snapshot{
 		ID:          s.ID,
+		ImageID:     s.ImageID,
 		UserID:      s.UserID,
 		DisplayName: s.DisplayName,
 		Stack:       s.Stack(),

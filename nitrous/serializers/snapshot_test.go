@@ -20,8 +20,9 @@ var _ = Describe("snapshot serializer", func() {
 
 		model = &snapshot.Snapshot{
 			ID:            10,
-			UserID:        11,
-			OrgID:         sql.NullInt64{12, true},
+			ImageID:       11,
+			UserID:        12,
+			OrgID:         sql.NullInt64{13, true},
 			Namespace:     "nitrous-io",
 			Name:          "nitrous-react-dev",
 			Tag:           "latest",
@@ -39,8 +40,9 @@ var _ = Describe("snapshot serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`{
 				"id": 10,
-				"user_id": 11,
-				"org_id": 12,
+				"image_id": 11,
+				"user_id": 12,
+				"org_id": 13,
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"created_at": "2013-11-01T00:00:00Z",
@@ -61,8 +63,9 @@ var _ = Describe("snapshot serializer", func() {
 			Expect(err).To(BeNil())
 			Expect(b).To(MatchJSON(fmt.Sprintf(`[{
 				"id": 10,
-				"user_id": 11,
-				"org_id": 12,
+				"image_id": 11,
+				"user_id": 12,
+				"org_id": 13,
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"created_at": "2013-11-01T00:00:00Z",

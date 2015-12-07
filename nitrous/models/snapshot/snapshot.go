@@ -10,9 +10,10 @@ import (
 )
 
 type Snapshot struct {
-	ID     int64         `db:"id"`
-	UserID int64         `db:"user_id"`
-	OrgID  sql.NullInt64 `db:"org_id"`
+	ID      int64         `db:"id"`
+	ImageID int64         `db:"image_id"`
+	UserID  int64         `db:"user_id"`
+	OrgID   sql.NullInt64 `db:"org_id"`
 
 	Namespace     string `db:"namespace"`
 	Name          string `db:"name"`
@@ -63,8 +64,8 @@ var stackPatterns = []struct {
 
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
-		(user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-		VALUES (:user_id, :org_id, :namespace, :name, :tag, :repository, :display_name, :original_image)
+		(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+		VALUES (:image_id, :user_id, :org_id, :namespace, :name, :tag, :repository, :display_name, :original_image)
 		RETURNING *;`)
 	if err != nil {
 		return err

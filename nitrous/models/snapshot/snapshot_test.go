@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	ndb "github.com/nitrous-io/dedicated/nitrous/db"
+	"github.com/nitrous-io/dedicated/nitrous/models/image"
 	"github.com/nitrous-io/dedicated/nitrous/models/org"
 	"github.com/nitrous-io/dedicated/nitrous/models/orgmembership"
 	"github.com/nitrous-io/dedicated/nitrous/models/snapshot"
@@ -25,6 +26,7 @@ var _ = Describe("models/snapshot", func() {
 
 		u      *user.User
 		o1, o2 *org.Org
+		i1, i2 *image.Image
 	)
 
 	BeforeEach(func() {
@@ -53,6 +55,32 @@ var _ = Describe("models/snapshot", func() {
 			Slug:  "path",
 		}
 		Expect(o2.Insert(db)).To(BeNil())
+
+		hs1, err := test.CreateHostStack(db, &test.HostStack{U: u})
+		Expect(err).To(BeNil())
+
+		hs2, err := test.CreateHostStack(db, &test.HostStack{U: u})
+		Expect(err).To(BeNil())
+
+		i1 = &image.Image{
+			UserID:      u.ID,
+			HostID:      hs1.H.ID,
+			FreighterID: "cafebabe",
+			Name:        "nestorbot",
+			Slug:        "nestorbot",
+			Tag:         "latest",
+		}
+		Expect(i1.Insert(db)).To(BeNil())
+
+		i2 = &image.Image{
+			UserID:      u.ID,
+			HostID:      hs2.H.ID,
+			FreighterID: "cafedead",
+			Name:        "car-os",
+			Slug:        "car-os",
+			Tag:         "latest",
+		}
+		Expect(i2.Insert(db)).To(BeNil())
 	})
 
 	AfterEach(func() {
@@ -93,14 +121,14 @@ var _ = Describe("models/snapshot", func() {
 
 				// Insert some snapshots belonging to the org.
 				_, err = db.Exec(`INSERT INTO snapshots
-					(user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-					u.ID, o1.ID, "zerobotlabs", "nestorbot", "latest", "zerobotlabs/nestorbot", "Nestorbot Dev", "golang:latest")
+					(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i1.ID, u.ID, o1.ID, "zerobotlabs", "nestorbot", "latest", "zerobotlabs/nestorbot", "Nestorbot Dev", "golang:latest")
 				Expect(err).To(BeNil())
 				_, err = db.Exec(`INSERT INTO snapshots
-					(user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-					u.ID, o1.ID, "zerobotlabs", "relax-rb", "latest", "zerobotlabs/relax-rb", "Relax Ruby Client", "ruby:latest")
+					(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i1.ID, u.ID, o1.ID, "zerobotlabs", "relax-rb", "latest", "zerobotlabs/relax-rb", "Relax Ruby Client", "ruby:latest")
 				Expect(err).To(BeNil())
 
 				// Insert snapshot belonging to org but a different user.
@@ -112,16 +140,16 @@ var _ = Describe("models/snapshot", func() {
 				}
 				Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
 				_, err = db.Exec(`INSERT INTO snapshots
-					(user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-					u2.ID, o1.ID, "path", "car-os", "latest", "path/car-os", "Car OS", "rust:latest")
+					(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i2.ID, u2.ID, o1.ID, "path", "car-os", "latest", "path/car-os", "Car OS", "rust:latest")
 				Expect(err).To(BeNil())
 
 				// Insert snapshot in a different org.
 				_, err = db.Exec(`INSERT INTO snapshots
-					(user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-					u.ID, o2.ID, "path", "addressgate", "latest", "path/addressgate", "Addressgate", "ruby:latest")
+					(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i2.ID, u.ID, o2.ID, "path", "addressgate", "latest", "path/addressgate", "Addressgate", "ruby:latest")
 				Expect(err).To(BeNil())
 			})
 
@@ -142,6 +170,7 @@ var _ = Describe("models/snapshot", func() {
 	Describe("Insert()", func() {
 		It("persists the snapshot in the database", func() {
 			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
 				UserID:        u.ID,
 				OrgID:         sql.NullInt64{o1.ID, true},
 				Namespace:     "zerobotlabs",
