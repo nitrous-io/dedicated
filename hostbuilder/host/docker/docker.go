@@ -4,10 +4,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +49,9 @@ type driverConfig struct {
 	// I'd use a Docker volume to inject this, but you can't use a volume path
 	// that contains a colon :"( - https://github.com/docker/docker/issues/8604.
 	RegistryCADestination string `json:"registry_ca_destination"`
+	// Hostname of registry. This will be added to /etc/hosts, pointing to the
+	// host IP of Docker containers.
+	RegistryHost string `json:"registry_host"`
 }
 
 type Host struct {
@@ -61,7 +66,12 @@ type Host struct {
 
 	requestID string
 
-	client *dockerclient.Client
+	client  *dockerclient.Client
+	gateway string
+}
+
+func init() {
+	host.Register("docker", &host.RegisteredDriver{New: New})
 }
 
 // Create creates the docker container which acts as a container host, and write the
@@ -371,6 +381,18 @@ func New(driverOptions string, hostOptions string) (host.Host, error) {
 	}
 	host.client = client
 
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		logrus.Warnf(fmt.Sprintf("Error determining docker gateway, err: %v. Continuing anyway", err))
+	} else {
+		dockerGateway, err := gatewayFromIPOutput(out)
+		if err != nil {
+			logrus.Warnf(fmt.Sprintf("Error determining docker gateway, err: %v. Continuing anyway", err))
+		} else {
+			host.gateway = dockerGateway
+		}
+	}
+
 	return host, nil
 }
 
@@ -382,12 +404,19 @@ func (h *Host) start() (*host.Info, error) {
 		binds = append(binds, fmt.Sprintf("%s:/usr/bin/docker", h.driverConfig.DockerLocation))
 	}
 
-	err := h.client.StartContainer(h.ID, &dockerclient.HostConfig{
+	hostConfig := &dockerclient.HostConfig{
 		Privileged:      true,
 		PublishAllPorts: true,
 		Binds:           binds,
-	})
-	if err != nil {
+	}
+	if h.gateway != "" {
+		hostConfig.ExtraHosts = []string{
+			fmt.Sprintf("host:%s", h.gateway),
+			fmt.Sprintf("%s:%s", h.driverConfig.RegistryHost, h.gateway),
+		}
+	}
+
+	if err := h.client.StartContainer(h.ID, hostConfig); err != nil {
 		return nil, err
 	}
 
@@ -434,8 +463,17 @@ func getState(container *dockerclient.Container) state.State {
 	return state.Stopped
 }
 
-func init() {
-	host.Register("docker", &host.RegisteredDriver{
-		New: New,
-	})
+// gatewayFromIPOutput takes the output of `ip addr show docker0` (do not turn
+// off inet family via options) and returns the docker gateway ip
+func gatewayFromIPOutput(output []byte) (string, error) {
+	// output looks like
+	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+	//     inet 10.1.42.1/16 scope global docker0
+	//        valid_lft forever preferred_lft forever
+	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
+	match := re.FindSubmatch(output)
+	if match == nil || len(match) != 2 {
+		return "", errors.New("no inet ip address found")
+	}
+	return string(match[1]), nil
 }
