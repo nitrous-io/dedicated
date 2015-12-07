@@ -24,12 +24,13 @@ import (
 )
 
 var (
-	errOrgNotFound         = httperror.New(http.StatusNotFound, "not_found", "org does not exist")
-	errNotOrgMember        = httperror.New(http.StatusForbidden, "forbidden", "you are not a member of this org")
-	errHostNotFound        = httperror.New(http.StatusNotFound, "not_found", "workstation not found")
-	errHostNotInOrg        = httperror.New(http.StatusBadRequest, "bad_request", "workstation does not belong to this org")
-	errSnapshotNotFound    = httperror.New(http.StatusNotFound, "not_found", "snapshot not found")
-	errRegistryUnreachable = httperror.New(http.StatusServiceUnavailable, "unavailable", "the snapshot service is temporarily unavailable")
+	errOrgNotFound               = httperror.New(http.StatusNotFound, "not_found", "org does not exist")
+	errNotOrgMember              = httperror.New(http.StatusForbidden, "forbidden", "you are not a member of this org")
+	errPublishSnapshotNotAllowed = httperror.New(http.StatusForbidden, "forbidden", "you are not allowed to publish snapshots")
+	errHostNotFound              = httperror.New(http.StatusNotFound, "not_found", "workstation not found")
+	errHostNotInOrg              = httperror.New(http.StatusBadRequest, "bad_request", "workstation does not belong to this org")
+	errSnapshotNotFound          = httperror.New(http.StatusNotFound, "not_found", "snapshot not found")
+	errRegistryUnreachable       = httperror.New(http.StatusServiceUnavailable, "unavailable", "the snapshot service is temporarily unavailable")
 )
 
 func ForOrg(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
@@ -77,12 +78,16 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return err
 	}
 
-	_, err = orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
+	// TODO Refactor "look up org, then look up orgmembership" to middleware.
+	membership, err := orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errNotOrgMember
 		}
 		return err
+	}
+	if !membership.SnapshotPublishAllowed() {
+		return errPublishSnapshotNotAllowed
 	}
 
 	h, err := host.Find(db, env.User, r.PostFormValue("host_id"))
@@ -98,8 +103,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		return errHostNotInOrg
 	}
 
-	imageId := r.PostFormValue("image_id")
-	img, err := image.Find(db, env.User, h, imageId)
+	img, err := image.Find(db, env.User, h, r.PostFormValue("image_id"))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return errSnapshotNotFound

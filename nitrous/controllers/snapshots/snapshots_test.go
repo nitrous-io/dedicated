@@ -140,9 +140,9 @@ var _ = Describe("controllers/snapshots", func() {
 		Context("when user is a member of the org", func() {
 			BeforeEach(func() {
 				// Add user to both orgs.
-				err := orgmembership.AddMember(db, o1.ID, u.ID, "admin")
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u.ID, "admin")
+				err = orgmembership.AddMember(db, o2.ID, u.ID, orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 
 				// Add snapshots to one of the orgs.
@@ -228,12 +228,28 @@ var _ = Describe("controllers/snapshots", func() {
 			Expect(errDesc).To(Equal("you are not a member of this org"))
 		})
 
+		It("responds with HTTP 403 Forbidden when user is a limited member of the org", func() {
+			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+			Expect(err).To(BeNil())
+
+			params := &url.Values{}
+			params.Set("host_id", strconv.FormatInt(hs.H.ID, 10))
+			params.Set("image_id", strconv.FormatInt(i1.ID, 10))
+
+			res := doRequest(o1.Slug, params)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you are not allowed to publish snapshots"))
+		})
+
 		Context("when user is member of the org", func() {
 			BeforeEach(func() {
 				// Add user to both orgs.
-				err := orgmembership.AddMember(db, o1.ID, u.ID, "admin")
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
-				err = orgmembership.AddMember(db, o2.ID, u.ID, "admin")
+				err = orgmembership.AddMember(db, o2.ID, u.ID, orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 			})
 
@@ -325,7 +341,7 @@ var _ = Describe("controllers/snapshots", func() {
 
 		Context("when params are valid", func() {
 			BeforeEach(func() {
-				err := orgmembership.AddMember(db, o1.ID, u.ID, "admin")
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
 				Expect(err).To(BeNil())
 			})
 

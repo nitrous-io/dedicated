@@ -41,7 +41,11 @@ type OrgMembership struct {
 }
 
 func (o *OrgMembership) IsAdmin() bool {
-	return o.Role == "owner" || o.Role == "admin"
+	return o.Role == RoleOwner || o.Role == RoleAdmin
+}
+
+func (o *OrgMembership) SnapshotPublishAllowed() bool {
+	return o.Role == RoleOwner || o.Role == RoleAdmin || o.Role == RoleMember
 }
 
 type OrgMember struct {
