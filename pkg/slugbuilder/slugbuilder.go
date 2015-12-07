@@ -28,25 +28,25 @@ func random(min, max int) int {
 	return rand.Intn(max-min) + min
 }
 
-func Build(n string) string {
-	if len(n) == 0 {
+func Build(s string) string {
+	if len(s) == 0 {
 		return ""
 	}
 
-	n = strings.ToLower(n)
-	n = nonAlphaNumericsRegex.ReplaceAllString(n, "-")
-	slug := fmt.Sprintf("%s-%v", n, random(1000, 9999))
+	s = strings.ToLower(s)
+	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
+	slug := fmt.Sprintf("%s-%v", s, random(1000, 9999))
 	return sanitize(slug)
 }
 
-func BuildWithNumber(n string, number int) string {
-	if len(n) == 0 {
+func BuildWithNumber(s string, number int) string {
+	if len(s) == 0 {
 		return ""
 	}
 
-	n = strings.ToLower(n)
-	n = nonAlphaNumericsRegex.ReplaceAllString(n, "-")
-	slug := fmt.Sprintf("%s-%v", n, number)
+	s = strings.ToLower(s)
+	s = nonAlphaNumericsRegex.ReplaceAllString(s, "-")
+	slug := fmt.Sprintf("%s-%v", s, number)
 	return sanitize(slug)
 }
 
