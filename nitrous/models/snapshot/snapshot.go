@@ -41,6 +41,14 @@ func FindAllByOrgID(d db.QueryReceiver, userID, orgID int64) ([]*Snapshot, error
 	return snapshots, nil
 }
 
+func FindByImageID(d db.QueryReceiver, imageID int64) (*Snapshot, error) {
+	s := &Snapshot{}
+	if err := d.Get(s, `SELECT * FROM snapshots WHERE image_id = $1;`, imageID); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 var nitrousStackPattern = regexp.MustCompile(`nitrous\/([^:]+):`)
 var stackPatterns = []struct {
 	needle string

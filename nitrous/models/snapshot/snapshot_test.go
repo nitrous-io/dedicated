@@ -167,6 +167,34 @@ var _ = Describe("models/snapshot", func() {
 		})
 	})
 
+	Describe("FindByImageID()", func() {
+		It("returns an error when there's no snapshot with the given image ID", func() {
+			_, err := snapshot.FindByImageID(db, i1.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns the snapshot with the given image ID", func() {
+			_, err := db.Exec(`INSERT INTO snapshots
+				(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs", "nestorbot", "latest", "zerobotlabs/nestorbot", "Nestorbot Dev", "golang:latest")
+			Expect(err).To(BeNil())
+
+			s, err := snapshot.FindByImageID(db, i1.ID)
+			Expect(err).To(BeNil())
+
+			Expect(s.ImageID).To(Equal(i1.ID))
+			Expect(s.UserID).To(Equal(u.ID))
+			Expect(s.OrgID.Int64).To(Equal(o1.ID))
+			Expect(s.Namespace).To(Equal("zerobotlabs"))
+			Expect(s.Name).To(Equal("nestorbot"))
+			Expect(s.Tag).To(Equal("latest"))
+			Expect(s.Repository).To(Equal("zerobotlabs/nestorbot"))
+			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
+			Expect(s.OriginalImage).To(Equal("golang:latest"))
+		})
+	})
+
 	Describe("Insert()", func() {
 		It("persists the snapshot in the database", func() {
 			s := &snapshot.Snapshot{
