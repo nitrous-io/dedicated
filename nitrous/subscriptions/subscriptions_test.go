@@ -726,6 +726,35 @@ var _ = Describe("subscriptions", func() {
 					Expect(err).To(Equal(sql.ErrNoRows))
 				})
 
+				It("should not unclaim the promocode if the subscription fails but it was provided directly", func() {
+					fakeStripe.Errors = []*stripe.Error{&stripe.Error{Code: stripe.CardDeclined}}
+					fakeStripe.Responses = []string{
+						`{
+							"object": "subscription",
+							"id": "abc1",
+							"status": "active",
+							"current_period_start": 1434418419,
+							"current_period_end": 1437010419
+						}`,
+					}
+
+					use, err := promocode.Claim(db, "just10", u.ID, pl.ID)
+					Expect(err).To(BeNil())
+					Expect(use).ToNot(BeNil())
+
+					opts.PromoCode = pc1
+					opts.PromoCodeUse = use
+
+					s, err := subProvider.Subscribe(db, opts)
+					Expect(err).ToNot(BeNil())
+					Expect(s).To(BeNil())
+
+					foundUse := &promocode.PromoCodeUse{}
+					err = db.Get(foundUse, "SELECT * FROM promo_code_uses WHERE id = $1", use.ID)
+					Expect(err).To(BeNil())
+					Expect(foundUse.SubscriptionID.Valid).To(BeFalse())
+				})
+
 				It("should set a trial end if the promocode is available", func() {
 					fakeStripe.Responses = []string{
 						`{

@@ -170,11 +170,14 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions)
 		err = nil
 	}
 
+	promoRecentlyClaimed := false
 	if pcUse == nil && pc != nil {
 		pcUse, err = promocode.Claim(d, pc.Slug, u.ID, p.ID)
 		if err != nil {
 			logrus.Errorf("Unable to claim promocode %s for user %d, err: %v", pc.Slug, u.ID, err)
 			pc = nil
+		} else {
+			promoRecentlyClaimed = true
 		}
 	}
 
@@ -304,7 +307,7 @@ func (s *SubscriptionProvider) Subscribe(d *db.Database, opts *SubscribeOptions)
 			}
 		}
 
-		if pcUse != nil {
+		if pcUse != nil && promoRecentlyClaimed {
 			logrus.Errorf("Subscribe failed, deleting promo code claim %d", pcUse.ID)
 			if err := pcUse.Delete(d); err != nil {
 				logrus.Errorf("Unable to delete promo code claim %d, err: %v", pcUse.ID, err)
