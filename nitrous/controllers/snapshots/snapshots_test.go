@@ -337,6 +337,33 @@ var _ = Describe("controllers/snapshots", func() {
 				Expect(errType).To(Equal("not_found"))
 				Expect(errDesc).To(Equal("snapshot not found"))
 			})
+
+			It("responds with HTTP 409 Conflict when image has already been published", func() {
+				// Create existing snapshot.
+				s := &snapshot.Snapshot{
+					ImageID:       i1.ID,
+					UserID:        u.ID,
+					OrgID:         sql.NullInt64{o1.ID, true},
+					Namespace:     "zerobotlabs",
+					Name:          "nestorbot",
+					Tag:           "latest",
+					Repository:    "zerobotlabs/nestorbot",
+					DisplayName:   "Nestorbot dev",
+					OriginalImage: "golang:latest",
+				}
+				Expect(s.Insert(db)).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("host_id", strconv.FormatInt(hs.H.ID, 10))
+				params.Set("image_id", strconv.FormatInt(i1.ID, 10))
+
+				res := doRequest(o1.Slug, params)
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("conflict"))
+				Expect(errDesc).To(Equal("snapshot already published"))
+			})
 		})
 
 		Context("when params are valid", func() {
@@ -423,6 +450,30 @@ var _ = Describe("controllers/snapshots", func() {
 				Expect(mockClient.ReceivedImage).To(Equal(i1.FreighterID))
 
 				expectedTargetRepo := fmt.Sprintf("%s/%s/nestorbot-%d:latest",
+					envvars.DockerRegistryHostname, o1.Slug, i1.ID)
+				Expect(mockClient.ReceivedTag).To(Equal(expectedTargetRepo))
+			})
+
+			It("converts an image name that contains spaces to a legit slug", func() {
+				// This is to handle images which have slugs containing spaces,
+				// e.g. "Laravel 12/7/2015 4:18:41 PM".
+				i1.Slug = "Laravel 12/7/2015 4:18:41 PM"
+				Expect(i1.Update(db)).To(BeNil())
+
+				params := &url.Values{}
+				params.Set("host_id", strconv.FormatInt(hs.H.ID, 10))
+				params.Set("image_id", strconv.FormatInt(i1.ID, 10))
+
+				res := doRequest(o1.Slug, params)
+				Expect(res.Code).To(Equal(http.StatusAccepted))
+
+				Eventually(func() int {
+					return mockClient.PushImageCalled
+				}).Should(Equal(1))
+
+				Expect(mockClient.ReceivedImage).To(Equal(i1.FreighterID))
+
+				expectedTargetRepo := fmt.Sprintf("%s/%s/laravel-12-7-2015-4-18-41-pm-%d:latest",
 					envvars.DockerRegistryHostname, o1.Slug, i1.ID)
 				Expect(mockClient.ReceivedTag).To(Equal(expectedTargetRepo))
 			})

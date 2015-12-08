@@ -30,6 +30,7 @@ var (
 	errHostNotFound              = httperror.New(http.StatusNotFound, "not_found", "workstation not found")
 	errHostNotInOrg              = httperror.New(http.StatusBadRequest, "bad_request", "workstation does not belong to this org")
 	errSnapshotNotFound          = httperror.New(http.StatusNotFound, "not_found", "snapshot not found")
+	errSnapshotAlreadyPublished  = httperror.New(http.StatusConflict, "conflict", "snapshot already published")
 	errRegistryUnreachable       = httperror.New(http.StatusServiceUnavailable, "unavailable", "the snapshot service is temporarily unavailable")
 )
 
@@ -109,6 +110,11 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			return errSnapshotNotFound
 		}
 		return err
+	}
+
+	// Check whether image has already been shared as a snapshot.
+	if _, err := snapshot.FindByImageID(db, img.ID); err == nil {
+		return errSnapshotAlreadyPublished
 	}
 
 	// Find Docker registry token to use as the password for logging in to the
