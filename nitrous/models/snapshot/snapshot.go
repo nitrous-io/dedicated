@@ -15,12 +15,14 @@ type Snapshot struct {
 	UserID  int64         `db:"user_id"`
 	OrgID   sql.NullInt64 `db:"org_id"`
 
-	Namespace     string `db:"namespace"`
-	Name          string `db:"name"`
-	Tag           string `db:"tag"`
-	Repository    string `db:"repository"`
-	DisplayName   string `db:"display_name"`
-	OriginalImage string `db:"original_image"`
+	Slug          string        `db:"slug"`
+	Namespace     string        `db:"namespace"`
+	Name          string        `db:"name"`
+	Tag           string        `db:"tag"`
+	Repository    string        `db:"repository"`
+	DisplayName   string        `db:"display_name"`
+	OriginalImage string        `db:"original_image"`
+	Size          sql.NullInt64 `db:"size"`
 
 	CreatedAt pq.NullTime `db:"created_at"`
 	UpdatedAt pq.NullTime `db:"updated_at"`
@@ -72,8 +74,8 @@ var stackPatterns = []struct {
 
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
-		(image_id, user_id, org_id, namespace, name, tag, repository, display_name, original_image)
-		VALUES (:image_id, :user_id, :org_id, :namespace, :name, :tag, :repository, :display_name, :original_image)
+		(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image, size)
+		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :repository, :display_name, :original_image, :size)
 		RETURNING *;`)
 	if err != nil {
 		return err
