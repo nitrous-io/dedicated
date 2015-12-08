@@ -1,6 +1,9 @@
 package serializers
 
 import (
+	"fmt"
+
+	"github.com/Sirupsen/logrus"
 	stripe "github.com/stripe/stripe-go"
 
 	"github.com/nitrous-io/dedicated/nitrous/models/invoiceitem"
@@ -41,7 +44,32 @@ func SerializeStripeInvoiceItem(siItem *stripe.InvoiceLine) InvoiceItem {
 	return InvoiceItem{
 		// No Stripe equivalent for all fields apart from charge and description
 		StripeID:    siItem.ID,
-		Description: siItem.Desc,
+		Description: desc(siItem),
 		TotalCharge: siItem.Amount,
+	}
+}
+
+func desc(siItem *stripe.InvoiceLine) string {
+	// Credit and old usage-based line items have descriptions
+	// Subscriptions do not
+	if siItem.Desc != "" {
+		return siItem.Desc
+	}
+	if siItem.Plan == nil {
+		logrus.WithFields(logrus.Fields{
+			"line_id":   siItem.ID,
+			"mailalert": true,
+		}).Errorf("Unexpected invoice line")
+		return ""
+	}
+	return fmt.Sprintf("Subscription to %s ($%s/%s)",
+		siItem.Plan.Name, currency(siItem.Plan.Amount), siItem.Plan.Interval)
+}
+
+func currency(amt uint64) string {
+	if amt%100 == 0 {
+		return fmt.Sprintf("%d", amt/100)
+	} else {
+		return fmt.Sprintf("%0.2f", float64(amt)/100.0)
 	}
 }
