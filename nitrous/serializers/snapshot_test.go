@@ -18,21 +18,27 @@ var _ = Describe("snapshot serializer", func() {
 		createdAt = time.Date(2013, time.November, 1, 0, 0, 0, 0, time.UTC)
 		updatedAt = time.Date(2013, time.November, 2, 0, 0, 0, 0, time.UTC)
 
+		model *snapshot.Snapshot
+	)
+
+	BeforeEach(func() {
 		model = &snapshot.Snapshot{
 			ID:            10,
 			ImageID:       11,
 			UserID:        12,
 			OrgID:         sql.NullInt64{13, true},
+			Slug:          "nitrous-io/nitrous-react-dev",
 			Namespace:     "nitrous-io",
 			Name:          "nitrous-react-dev",
 			Tag:           "latest",
-			Repository:    "nitrous-io/nitrous-react-dev",
+			Repository:    "registry.n2odev.com/nitrous-io/nitrous-react-dev:latest",
 			DisplayName:   "nitrous-react dev",
 			OriginalImage: "quay.io/nitrous/nodejs:latest",
+			Size:          sql.NullInt64{1024, true},
 			CreatedAt:     pq.NullTime{createdAt, true},
 			UpdatedAt:     pq.NullTime{updatedAt, true},
 		}
-	)
+	})
 
 	Describe("SerializeSnapshot", func() {
 		It("serializes to JSON", func() {
@@ -43,6 +49,26 @@ var _ = Describe("snapshot serializer", func() {
 				"image_id": 11,
 				"user_id": 12,
 				"org_id": 13,
+				"slug": "nitrous-io/nitrous-react-dev",
+				"display_name": "nitrous-react dev",
+				"stack": "%s",
+				"size": 1024,
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`, model.Stack())))
+		})
+
+		It("omits size if empty", func() {
+			model.Size = sql.NullInt64{}
+
+			b, err := json.Marshal(serializers.SerializeSnapshot(model))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 10,
+				"image_id": 11,
+				"user_id": 12,
+				"org_id": 13,
+				"slug": "nitrous-io/nitrous-react-dev",
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"created_at": "2013-11-01T00:00:00Z",
@@ -66,8 +92,10 @@ var _ = Describe("snapshot serializer", func() {
 				"image_id": 11,
 				"user_id": 12,
 				"org_id": 13,
+				"slug": "nitrous-io/nitrous-react-dev",
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
+				"size": 1024,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}]`, model.Stack())))

@@ -11,7 +11,9 @@ type Snapshot struct {
 	ImageID     int64  `json:"image_id"`
 	UserID      int64  `json:"user_id"`
 	OrgID       int64  `json:"org_id"`
+	Slug        string `json:"slug"`
 	DisplayName string `json:"display_name"`
+	Size        int64  `json:"size,omitempty"`
 	Stack       string `json:"stack"`
 
 	CreatedAt *time.Time `json:"created_at,omitempty"`
@@ -26,12 +28,16 @@ func SerializeSnapshot(s *snapshot.Snapshot) *Snapshot {
 		ID:          s.ID,
 		ImageID:     s.ImageID,
 		UserID:      s.UserID,
+		Slug:        s.Slug,
 		DisplayName: s.DisplayName,
 		Stack:       s.Stack(),
 	}
 
 	if s.OrgID.Valid {
 		serialized.OrgID = s.OrgID.Int64
+	}
+	if s.Size.Valid {
+		serialized.Size = s.Size.Int64
 	}
 	if s.CreatedAt.Valid {
 		serialized.CreatedAt = &s.CreatedAt.Time
