@@ -156,8 +156,9 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 
 	// Snapshot repository name should be of the form:
 	//   <registry hostname>/<org slug>/<slug>:latest
-	snapshotSlug := slugbuilder.BuildWithNumber(img.Slug, int(img.ID))
-	snapshotName := fmt.Sprintf("%s/%s/%s:latest", envvars.DockerRegistryHostname, o.Slug, snapshotSlug)
+	snapshotName := slugbuilder.BuildWithNumber(img.Slug, int(img.ID))
+	snapshotSlug := fmt.Sprintf("%s/%s", o.Slug, snapshotName)
+	snapshotRepo := fmt.Sprintf("%s/%s:latest", envvars.DockerRegistryHostname, snapshotSlug)
 
 	// Push snapshot to Docker registry.
 	go func() {
@@ -172,7 +173,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			topic,
 		)
 
-		if err := cl.PushImage(img.FreighterID, snapshotName, ioutil.Discard); err != nil {
+		if err := cl.PushImage(img.FreighterID, snapshotRepo, ioutil.Discard); err != nil {
 			env.Events.Publish(
 				controllers.NewEvent(controllers.EventSnapshotPublishFailed, map[string]interface{}{
 					"org_slug": o.Slug,
@@ -190,10 +191,11 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			ImageID:       img.ID,
 			UserID:        env.User.ID,
 			OrgID:         sql.NullInt64{o.ID, true},
+			Slug:          snapshotSlug,
 			Namespace:     o.Slug,
-			Name:          snapshotSlug,
+			Name:          snapshotName,
 			Tag:           "latest",
-			Repository:    snapshotName,
+			Repository:    snapshotRepo,
 			DisplayName:   img.Name,
 			OriginalImage: img.Slug, // FIXME This should be the image repo of the container.
 		}

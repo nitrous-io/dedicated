@@ -150,10 +150,11 @@ var _ = Describe("controllers/snapshots", func() {
 					ImageID:       i1.ID,
 					UserID:        u.ID,
 					OrgID:         sql.NullInt64{o1.ID, true},
+					Slug:          "zerobotlabs/nestorbot",
 					Namespace:     "zerobotlabs",
 					Name:          "nestorbot",
 					Tag:           "latest",
-					Repository:    "zerobotlabs/nestorbot",
+					Repository:    "registry.n2odev.com/zerobotlabs/nestorbot:latest",
 					DisplayName:   "Nestorbot dev",
 					OriginalImage: "golang:latest",
 				}
@@ -344,10 +345,11 @@ var _ = Describe("controllers/snapshots", func() {
 					ImageID:       i1.ID,
 					UserID:        u.ID,
 					OrgID:         sql.NullInt64{o1.ID, true},
+					Slug:          "zerobotlabs/nestorbot",
 					Namespace:     "zerobotlabs",
 					Name:          "nestorbot",
 					Tag:           "latest",
-					Repository:    "zerobotlabs/nestorbot",
+					Repository:    "registry.n2odev.com/zerobotlabs/nestorbot:latest",
 					DisplayName:   "Nestorbot dev",
 					OriginalImage: "golang:latest",
 				}
@@ -599,6 +601,7 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap).NotTo(BeNil())
 					Expect(snap.UserID).To(Equal(u.ID))
 					Expect(snap.OrgID.Int64).To(Equal(o1.ID))
+					Expect(snap.Slug).To(Equal(fmt.Sprintf("%s/%s-%d", o1.Slug, i1.Slug, i1.ID)))
 					Expect(snap.Namespace).To(Equal(o1.Slug))
 					Expect(snap.Name).To(Equal(fmt.Sprintf("%s-%d", i1.Slug, i1.ID)))
 					Expect(snap.Tag).To(Equal("latest"))
