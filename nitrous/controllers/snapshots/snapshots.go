@@ -61,7 +61,7 @@ func ForOrg(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 
 	env.Status = http.StatusOK
 	env.Data = map[string]interface{}{
-		"snapshots": serializers.SerializeSnapshots(snapshots),
+		"snapshots": serializers.SerializeSnapshotsWithOwner(snapshots),
 	}
 
 	return nil
@@ -163,6 +163,17 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	// Push snapshot to Docker registry.
 	go func() {
 		topic := env.User.Topic()
+		publishFailure := func(err error) {
+			env.Events.Publish(
+				controllers.NewEvent(controllers.EventSnapshotPublishFailed, map[string]interface{}{
+					"org_slug": o.Slug,
+					"host_id":  h.ID,
+					"image_id": img.ID,
+					"error":    err.Error(),
+				}),
+				topic,
+			)
+		}
 
 		env.Events.Publish(
 			controllers.NewEvent(controllers.EventSnapshotPublishing, map[string]interface{}{
@@ -174,15 +185,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 		)
 
 		if err := cl.PushImage(img.FreighterID, snapshotRepo, ioutil.Discard); err != nil {
-			env.Events.Publish(
-				controllers.NewEvent(controllers.EventSnapshotPublishFailed, map[string]interface{}{
-					"org_slug": o.Slug,
-					"host_id":  h.ID,
-					"image_id": img.ID,
-					"error":    err.Error(),
-				}),
-				topic,
-			)
+			publishFailure(err)
 			return
 		}
 
@@ -200,15 +203,13 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			OriginalImage: img.Slug, // FIXME This should be the image repo of the container.
 		}
 		if err := s.Insert(db); err != nil {
-			env.Events.Publish(
-				controllers.NewEvent(controllers.EventSnapshotPublishFailed, map[string]interface{}{
-					"org_slug": o.Slug,
-					"host_id":  h.ID,
-					"image_id": img.ID,
-					"error":    err.Error(),
-				}),
-				topic,
-			)
+			publishFailure(err)
+			return
+		}
+
+		swo, err := snapshot.FindByImageID(db, s.ImageID)
+		if err != nil {
+			publishFailure(err)
 			return
 		}
 
@@ -217,7 +218,7 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 				"org_slug": o.Slug,
 				"host_id":  h.ID,
 				"image_id": img.ID,
-				"snapshot": serializers.SerializeSnapshot(s),
+				"snapshot": serializers.SerializeSnapshotWithOwner(swo),
 			}),
 			topic,
 		)

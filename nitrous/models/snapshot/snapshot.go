@@ -28,11 +28,23 @@ type Snapshot struct {
 	UpdatedAt pq.NullTime `db:"updated_at"`
 }
 
-func FindAllByOrgID(d db.QueryReceiver, userID, orgID int64) ([]*Snapshot, error) {
-	snapshots := []*Snapshot{}
+type SnapshotWithOwner struct {
+	*Snapshot
+
+	OwnerUsername sql.NullString `db:"owner_username"`
+	OwnerName     sql.NullString `db:"owner_name"`
+	OwnerEmail    sql.NullString `db:"owner_email"`
+}
+
+func FindAllByOrgID(d db.QueryReceiver, userID, orgID int64) ([]*SnapshotWithOwner, error) {
+	snapshots := []*SnapshotWithOwner{}
 	err := d.Select(&snapshots, `
-		SELECT snapshots.*
+		SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
 		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
 			JOIN orgs ON snapshots.org_id = orgs.id
 			JOIN org_memberships ON orgs.id = org_memberships.org_id
 		WHERE org_memberships.user_id = $1 AND snapshots.org_id = $2;`,
@@ -43,9 +55,15 @@ func FindAllByOrgID(d db.QueryReceiver, userID, orgID int64) ([]*Snapshot, error
 	return snapshots, nil
 }
 
-func FindByImageID(d db.QueryReceiver, imageID int64) (*Snapshot, error) {
-	s := &Snapshot{}
-	if err := d.Get(s, `SELECT * FROM snapshots WHERE image_id = $1;`, imageID); err != nil {
+func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error) {
+	s := &SnapshotWithOwner{}
+	if err := d.Get(s, `SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
+		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
+		WHERE image_id = $1;`, imageID); err != nil {
 		return nil, err
 	}
 	return s, nil

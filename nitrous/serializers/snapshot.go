@@ -16,6 +16,10 @@ type Snapshot struct {
 	Size        int64  `json:"size,omitempty"`
 	Stack       string `json:"stack"`
 
+	OwnerUsername string `json:"owner_username,omitempty"`
+	OwnerName     string `json:"owner_name,omitempty"`
+	OwnerEmail    string `json:"owner_email,omitempty"`
+
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
@@ -53,6 +57,33 @@ func SerializeSnapshots(snapshots []*snapshot.Snapshot) []*Snapshot {
 	ret := make([]*Snapshot, len(snapshots))
 	for i, s := range snapshots {
 		ret[i] = SerializeSnapshot(s)
+	}
+	return ret
+}
+
+func SerializeSnapshotWithOwner(s *snapshot.SnapshotWithOwner) *Snapshot {
+	if s == nil || s.Snapshot == nil {
+		return nil
+	}
+	serialized := SerializeSnapshot(s.Snapshot)
+
+	if s.OwnerUsername.Valid {
+		serialized.OwnerUsername = s.OwnerUsername.String
+	}
+	if s.OwnerName.Valid {
+		serialized.OwnerName = s.OwnerName.String
+	}
+	if s.OwnerEmail.Valid {
+		serialized.OwnerEmail = s.OwnerEmail.String
+	}
+
+	return serialized
+}
+
+func SerializeSnapshotsWithOwner(snapshots []*snapshot.SnapshotWithOwner) []*Snapshot {
+	ret := make([]*Snapshot, len(snapshots))
+	for i, s := range snapshots {
+		ret[i] = SerializeSnapshotWithOwner(s)
 	}
 	return ret
 }

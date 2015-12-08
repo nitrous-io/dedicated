@@ -101,4 +101,68 @@ var _ = Describe("snapshot serializer", func() {
 			}]`, model.Stack())))
 		})
 	})
+
+	Describe("SerializeSnapshotWithOwner", func() {
+		It("serializes to JSON", func() {
+			model := &snapshot.SnapshotWithOwner{
+				Snapshot:      model,
+				OwnerUsername: sql.NullString{"aroonthampy", true},
+				OwnerName:     sql.NullString{"Aroon Thampy", true},
+				OwnerEmail:    sql.NullString{"aroonthampy@gmail.com", true},
+			}
+
+			b, err := json.Marshal(serializers.SerializeSnapshotWithOwner(model))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`{
+				"id": 10,
+				"image_id": 11,
+				"user_id": 12,
+				"org_id": 13,
+				"slug": "nitrous-io/nitrous-react-dev",
+				"display_name": "nitrous-react dev",
+				"stack": "%s",
+				"size": 1024,
+				"owner_username": "aroonthampy",
+				"owner_name": "Aroon Thampy",
+				"owner_email": "aroonthampy@gmail.com",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}`, model.Stack())))
+		})
+
+		It("serializes to null JSON when snapshot is nil", func() {
+			b, err := json.Marshal(serializers.SerializeSnapshotWithOwner(nil))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(`null`))
+		})
+	})
+
+	Describe("SerializeSnapshots", func() {
+		It("serializes to JSON", func() {
+			model := &snapshot.SnapshotWithOwner{
+				Snapshot:      model,
+				OwnerUsername: sql.NullString{"aroonthampy", true},
+				OwnerName:     sql.NullString{"Aroon Thampy", true},
+				OwnerEmail:    sql.NullString{"aroonthampy@gmail.com", true},
+			}
+
+			b, err := json.Marshal(serializers.SerializeSnapshotsWithOwner([]*snapshot.SnapshotWithOwner{model}))
+			Expect(err).To(BeNil())
+			Expect(b).To(MatchJSON(fmt.Sprintf(`[{
+				"id": 10,
+				"image_id": 11,
+				"user_id": 12,
+				"org_id": 13,
+				"slug": "nitrous-io/nitrous-react-dev",
+				"display_name": "nitrous-react dev",
+				"stack": "%s",
+				"size": 1024,
+				"owner_username": "aroonthampy",
+				"owner_name": "Aroon Thampy",
+				"owner_email": "aroonthampy@gmail.com",
+				"created_at": "2013-11-01T00:00:00Z",
+				"updated_at": "2013-11-02T00:00:00Z"
+			}]`, model.Stack())))
+		})
+	})
 })

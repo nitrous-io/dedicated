@@ -125,6 +125,8 @@ var _ = Describe("models/snapshot", func() {
 		})
 
 		Context("when given a user who belongs to the given org", func() {
+			var u2 *user.User
+
 			BeforeEach(func() {
 				err := orgmembership.AddMember(db, o1.ID, u.ID, "admin")
 				Expect(err).To(BeNil())
@@ -137,7 +139,7 @@ var _ = Describe("models/snapshot", func() {
 				Expect(err).To(BeNil())
 
 				// Insert snapshot belonging to org but a different user.
-				u2 := &user.User{
+				u2 = &user.User{
 					Username: "elonmusk",
 					Email:    "elonmusk@tesla.com",
 					Password: "musky",
@@ -168,6 +170,21 @@ var _ = Describe("models/snapshot", func() {
 				}
 				Expect(slugs).To(ConsistOf("zerobotlabs/nestorbot", "path/car-os"))
 			})
+
+			It("includes the owner's username, name and email", func() {
+				snapshots, err := snapshot.FindAllByOrgID(db, u.ID, o1.ID)
+				Expect(err).NotTo(HaveOccurred())
+
+				var usernames, names, emails []string
+				for _, s := range snapshots {
+					usernames = append(usernames, s.OwnerUsername.String)
+					names = append(names, s.OwnerName.String)
+					emails = append(emails, s.OwnerEmail.String)
+				}
+				Expect(usernames).To(ConsistOf(u.Username, u2.Username))
+				Expect(names).To(ConsistOf(u.Name, u2.Name))
+				Expect(emails).To(ConsistOf(u.Email, u2.Email))
+			})
 		})
 	})
 
@@ -197,6 +214,10 @@ var _ = Describe("models/snapshot", func() {
 			Expect(s.Repository).To(Equal("registry.n2odev.com/zerobotlabs/nestorbot:latest"))
 			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
 			Expect(s.OriginalImage).To(Equal("golang:latest"))
+
+			Expect(s.OwnerUsername.String).To(Equal(u.Username))
+			Expect(s.OwnerName.String).To(Equal(u.Name))
+			Expect(s.OwnerEmail.String).To(Equal(u.Email))
 		})
 	})
 

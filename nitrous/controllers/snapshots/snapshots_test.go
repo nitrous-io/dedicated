@@ -592,7 +592,7 @@ var _ = Describe("controllers/snapshots", func() {
 					snapshots, err := snapshot.FindAllByOrgID(db, u.ID, o1.ID)
 					Expect(err).To(BeNil())
 
-					var snap *snapshot.Snapshot
+					var snap *snapshot.SnapshotWithOwner
 					for _, s := range snapshots {
 						if s.ImageID == i1.ID {
 							snap = s
@@ -610,9 +610,13 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.Repository).To(Equal(expectedRepo))
 					Expect(snap.DisplayName).To(Equal(i1.Name))
 
+					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
+					Expect(snap.OwnerName.String).To(Equal(u.Name))
+					Expect(snap.OwnerEmail.String).To(Equal(u.Email))
+
 					serialized, ok := evtData["snapshot"].(*serializers.Snapshot)
 					Expect(ok).To(BeTrue())
-					Expect(serialized).To(Equal(serializers.SerializeSnapshot(snap)))
+					Expect(serialized).To(Equal(serializers.SerializeSnapshotWithOwner(snap)))
 
 					orgSlug, ok := evtData["org_slug"].(string)
 					Expect(ok).To(BeTrue())
