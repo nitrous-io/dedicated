@@ -364,6 +364,23 @@ var _ = Describe("controllers/snapshots", func() {
 				Expect(errType).To(Equal("conflict"))
 				Expect(errDesc).To(Equal("snapshot already published"))
 			})
+
+			It("should not allow image to be published concurrently", func() {
+				tx, _ := db.Beginx()
+				ndb.TransactionLock(tx, ndb.IMAGE_PUBLISH_LOCK, int(i1.ID))
+				defer tx.Rollback()
+
+				params := &url.Values{}
+				params.Set("host_id", strconv.FormatInt(hs.H.ID, 10))
+				params.Set("image_id", strconv.FormatInt(i1.ID, 10))
+
+				res := doRequest(o1.Slug, params)
+				Expect(res.Code).To(Equal(http.StatusConflict))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("conflict"))
+				Expect(errDesc).To(Equal("snapshot is currently being published"))
+			})
 		})
 
 		Context("when params are valid", func() {
