@@ -31,7 +31,6 @@ var _ = Describe("snapshot serializer", func() {
 			Namespace:     "nitrous-io",
 			Name:          "nitrous-react-dev",
 			Tag:           "latest",
-			Repository:    "registry.n2odev.com/nitrous-io/nitrous-react-dev:latest",
 			DisplayName:   "nitrous-react dev",
 			OriginalImage: "quay.io/nitrous/nodejs:latest",
 			Size:          sql.NullInt64{1024, true},

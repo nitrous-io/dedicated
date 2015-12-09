@@ -10,7 +10,6 @@ CREATE TABLE snapshots (
   namespace character varying(255) NOT NULL, -- e.g. 'nitrous-io' (org slug or username)
   name character varying(255) NOT NULL, -- e.g. 'busybox'
   tag character varying(255) NOT NULL DEFAULT 'latest', -- e.g. 'latest' or '2'
-  repository character varying(255) NOT NULL, -- e.g. 'registry.n2odev.com:5000/nitrous-io/busybox:latest' (this is a redundant field comprising of namespace, name and tag)
   original_image character varying(255) NOT NULL, -- Docker image that container was created from
   display_name character varying(255) NOT NULL, -- pretty name for display purposes
   size bigint DEFAULT NULL,
@@ -23,5 +22,4 @@ CREATE INDEX index_snapshots_on_user_id ON snapshots USING btree (user_id);
 CREATE INDEX index_snapshots_on_org_id ON snapshots USING btree (org_id);
 CREATE UNIQUE INDEX index_snapshots_on_slug_and_tag ON snapshots USING btree (slug, tag);
 CREATE INDEX index_snapshots_on_slug ON snapshots USING btree (slug);
-CREATE INDEX index_snapshots_on_repository ON snapshots USING btree (repository);
 

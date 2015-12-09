@@ -19,7 +19,6 @@ type Snapshot struct {
 	Namespace     string        `db:"namespace"`
 	Name          string        `db:"name"`
 	Tag           string        `db:"tag"`
-	Repository    string        `db:"repository"`
 	DisplayName   string        `db:"display_name"`
 	OriginalImage string        `db:"original_image"`
 	Size          sql.NullInt64 `db:"size"`
@@ -92,8 +91,8 @@ var stackPatterns = []struct {
 
 func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
-		(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image, size)
-		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :repository, :display_name, :original_image, :size)
+		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size)
+		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size)
 		RETURNING *;`)
 	if err != nil {
 		return err
@@ -102,7 +101,7 @@ func (s *Snapshot) Insert(d db.QueryReceiver) error {
 }
 
 func (s *Snapshot) Stack() string {
-	if submatches := nitrousStackPattern.FindStringSubmatch(s.OriginalImage); submatches != nil {
+	if submatches := nitrousStackPattern.FindStringSubmatch(s.OriginalImage); len(submatches) == 2 {
 		return submatches[1]
 	}
 

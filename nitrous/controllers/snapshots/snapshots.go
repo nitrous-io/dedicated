@@ -198,7 +198,6 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 			Namespace:     o.Slug,
 			Name:          snapshotName,
 			Tag:           "latest",
-			Repository:    snapshotRepo,
 			DisplayName:   img.Name,
 			OriginalImage: img.Slug, // FIXME This should be the image repo of the container.
 		}

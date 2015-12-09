@@ -133,9 +133,9 @@ var _ = Describe("models/snapshot", func() {
 
 				// Insert some snapshots belonging to the org.
 				_, err = db.Exec(`INSERT INTO snapshots
-					(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-					i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "registry.n2odev.com/zerobotlabs/nestorbot:latest", "Nestorbot Dev", "golang:latest")
+					(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
 				Expect(err).To(BeNil())
 
 				// Insert snapshot belonging to org but a different user.
@@ -147,16 +147,16 @@ var _ = Describe("models/snapshot", func() {
 				}
 				Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
 				_, err = db.Exec(`INSERT INTO snapshots
-					(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-					i2.ID, u2.ID, o1.ID, "path/car-os", "path", "car-os", "latest", "registry.n2odev.com/path/car-os:latest", "Car OS", "rust:latest")
+					(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i2.ID, u2.ID, o1.ID, "path/car-os", "path", "car-os", "latest", "Car OS", "rust:latest")
 				Expect(err).To(BeNil())
 
 				// Insert snapshot in a different org.
 				_, err = db.Exec(`INSERT INTO snapshots
-					(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-					i3.ID, u.ID, o2.ID, "path/addressgate", "path", "addressgate", "latest", "registry.n2odev.com/path/addressgate:latest", "Addressgate", "ruby:latest")
+					(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+					i3.ID, u.ID, o2.ID, "path/addressgate", "path", "addressgate", "latest", "Addressgate", "ruby:latest")
 				Expect(err).To(BeNil())
 			})
 
@@ -196,9 +196,9 @@ var _ = Describe("models/snapshot", func() {
 
 		It("returns the snapshot with the given image ID", func() {
 			_, err := db.Exec(`INSERT INTO snapshots
-				(image_id, user_id, org_id, slug, namespace, name, tag, repository, display_name, original_image)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "registry.n2odev.com/zerobotlabs/nestorbot:latest", "Nestorbot Dev", "golang:latest")
+				(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
 			Expect(err).To(BeNil())
 
 			s, err := snapshot.FindByImageID(db, i1.ID)
@@ -211,7 +211,6 @@ var _ = Describe("models/snapshot", func() {
 			Expect(s.Namespace).To(Equal("zerobotlabs"))
 			Expect(s.Name).To(Equal("nestorbot"))
 			Expect(s.Tag).To(Equal("latest"))
-			Expect(s.Repository).To(Equal("registry.n2odev.com/zerobotlabs/nestorbot:latest"))
 			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
 			Expect(s.OriginalImage).To(Equal("golang:latest"))
 
@@ -230,7 +229,6 @@ var _ = Describe("models/snapshot", func() {
 				Namespace:     "zerobotlabs",
 				Name:          "nestorbot",
 				Tag:           "latest",
-				Repository:    "zerobotlabs/nestorbot",
 				DisplayName:   "Nestorbot dev",
 				OriginalImage: "golang:latest",
 			}

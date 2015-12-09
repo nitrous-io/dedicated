@@ -154,7 +154,6 @@ var _ = Describe("controllers/snapshots", func() {
 					Namespace:     "zerobotlabs",
 					Name:          "nestorbot",
 					Tag:           "latest",
-					Repository:    "registry.n2odev.com/zerobotlabs/nestorbot:latest",
 					DisplayName:   "Nestorbot dev",
 					OriginalImage: "golang:latest",
 				}
@@ -349,7 +348,6 @@ var _ = Describe("controllers/snapshots", func() {
 					Namespace:     "zerobotlabs",
 					Name:          "nestorbot",
 					Tag:           "latest",
-					Repository:    "registry.n2odev.com/zerobotlabs/nestorbot:latest",
 					DisplayName:   "Nestorbot dev",
 					OriginalImage: "golang:latest",
 				}
@@ -605,9 +603,6 @@ var _ = Describe("controllers/snapshots", func() {
 					Expect(snap.Namespace).To(Equal(o1.Slug))
 					Expect(snap.Name).To(Equal(fmt.Sprintf("%s-%d", i1.Slug, i1.ID)))
 					Expect(snap.Tag).To(Equal("latest"))
-					expectedRepo := fmt.Sprintf("%s/%s/%s:latest",
-						envvars.DockerRegistryHostname, o1.Slug, snap.Name)
-					Expect(snap.Repository).To(Equal(expectedRepo))
 					Expect(snap.DisplayName).To(Equal(i1.Name))
 
 					Expect(snap.OwnerUsername.String).To(Equal(u.Username))
