@@ -85,7 +85,7 @@ var (
 	Stop    = WithContainerAndHost(stop, AllowCollab, TouchHost)
 	Restart = WithContainerAndHost(restart, AllowCollab, TouchHost)
 	Destroy = WithContainerAndHost(destroy, TouchHost)
-	Token   = WithContainerAndHost(token, AllowCollab)
+	Token   = WithContainerAndHost(ctoken, AllowCollab)
 )
 
 var (
@@ -653,7 +653,7 @@ func destroy(cn *container.Container, h *host.Host, env *middleware.Env, w http.
 		})
 }
 
-func token(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+func ctoken(cn *container.Container, h *host.Host, env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	// do not issue token if container is locked
 	if cn.IsLocked() {
 		return errContainerLocked

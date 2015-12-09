@@ -337,6 +337,7 @@ func (c *MockClient) RemoveImage(slug string) error {
 
 func (c *MockClient) PullImage(location string, update bool, stdout io.Writer) error {
 	c.PullImageCalled++
+	c.ReceivedImage = location
 	return c.PullImageError
 }
 

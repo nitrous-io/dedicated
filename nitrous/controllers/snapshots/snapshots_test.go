@@ -106,6 +106,7 @@ var _ = Describe("controllers/snapshots", func() {
 		if db != nil {
 			db.Close()
 		}
+		test.UnstubFreighterFn()
 	})
 
 	Describe("GET /api/v0/orgs/{org_slug}/snapshots", func() {

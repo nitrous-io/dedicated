@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"database/sql"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -130,4 +131,9 @@ func (s *Snapshot) Stack() string {
 		}
 	}
 	return ""
+}
+
+// Repository returns the fully specified Docker image repository.
+func (s *Snapshot) Repository() string {
+	return fmt.Sprintf("%s/%s:%s", s.Namespace, s.Name, s.Tag)
 }

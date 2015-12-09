@@ -1,5 +1,8 @@
 package containers
 
+// See create.go for the new create endpoint that checks whether the user can
+// create a host, pulls the Docker image, then actually create the container.
+
 import (
 	"database/sql"
 	"fmt"
@@ -87,7 +90,7 @@ func CreateContainer(h *host.Host, options url.Values, env *middleware.Env) (res
 	var containerSequence int
 	err = tx.QueryRow("SELECT NEXTVAL('containers_slug_seq')").Scan(&containerSequence)
 	if err != nil {
-		logrus.Errorf("Failed to get next value of container slug sequense")
+		logrus.Errorf("Failed to get next value of container slug sequence")
 		return nil, err
 	}
 	slug := slugbuilder.BuildWithNumber(name, containerSequence)
