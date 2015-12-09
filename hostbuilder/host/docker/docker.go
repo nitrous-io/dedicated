@@ -381,16 +381,11 @@ func New(driverOptions string, hostOptions string) (host.Host, error) {
 	}
 	host.client = client
 
-	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	dockerGateway, err := dockerGatewayIP()
 	if err != nil {
 		logrus.Warnf(fmt.Sprintf("Error determining docker gateway, err: %v. Continuing anyway", err))
 	} else {
-		dockerGateway, err := gatewayFromIPOutput(out)
-		if err != nil {
-			logrus.Warnf(fmt.Sprintf("Error determining docker gateway, err: %v. Continuing anyway", err))
-		} else {
-			host.gateway = dockerGateway
-		}
+		host.gateway = dockerGateway
 	}
 
 	return host, nil
@@ -463,16 +458,21 @@ func getState(container *dockerclient.Container) state.State {
 	return state.Stopped
 }
 
-// gatewayFromIPOutput takes the output of `ip addr show docker0` (do not turn
-// off inet family via options) and returns the docker gateway ip
-func gatewayFromIPOutput(output []byte) (string, error) {
+// dockerGatewayIP runs `ip addr show docker0` and returns the docker gateway
+// IP. This IP can be used to connect to the host from a docker container.
+func dockerGatewayIP() (string, error) {
+	out, err := exec.Command("ip", "-family", "inet", "addr", "show", "docker0").CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error looking up docker0 gateway, err: %v, output: %s", err, out)
+	}
+
 	// output looks like
 	// 2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
 	//     inet 10.1.42.1/16 scope global docker0
 	//        valid_lft forever preferred_lft forever
 	re := regexp.MustCompile(`inet ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/`)
-	match := re.FindSubmatch(output)
-	if match == nil || len(match) != 2 {
+	match := re.FindSubmatch(out)
+	if len(match) != 2 {
 		return "", errors.New("no inet ip address found")
 	}
 	return string(match[1]), nil
