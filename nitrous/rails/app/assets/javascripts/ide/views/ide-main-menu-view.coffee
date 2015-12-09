@@ -399,6 +399,15 @@ App.IdeMainMenuView = Em.View.extend
           callback: (controller) ->
             controller.gitCloneFromGitHub()
       ]
+      menu 'Collaborate', [
+        menuItem 'Invite Collaborators',
+          disabled: (->
+            !App.get('host.slug') || !App.get('container.slug')
+          ).property 'App.host.slug', 'App.container.slug'
+
+          url: "/app/#/dashboard/workstations/#{App.get('host.slug')}/projects/#{App.get('container.slug')}/collaborators"
+          target: '_blank'
+      ]
       menu 'Help', @get('helpMenuItems')
     ]
     base
