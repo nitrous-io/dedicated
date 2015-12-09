@@ -2,6 +2,37 @@
 
 Ruby autocomplete is the first major plugin for the web IDE. Using `ctags` and `ag` it is able to index a project and search the `.ruby-tags` file over standard `freighterd` ops socket functionality.
 
+
+## Freighterd and opsSocket
+
+`opSockets` (or `cops` in `freighterd`) provides a functionality for invoking commands in a shell, as part of the work for autocomplete different types of shell invocations have been added.
+
+See [Add support for small shell](https://github.com/nitrous-io/dedicated/commit/1a6ad33bb18d3a68050e21d683381964f123fb03#diff-bd3bc2562711bb8dd029835dc4591687R123) and [Better cops `run` shell](https://github.com/nitrous-io/dedicated/pull/2155) for background.
+
+### `minirun`
+
+Calls `buildWithMinimalShell` which calls `su -p -c {CMD} {USER}`. `-p` preserves the environment but does not perform a full shell login procedure. This is useful in the case of `ag` when it doesn't require any profile information, it just needs to run a command as **quickly** as possible.
+
+### `loginrun`
+
+Calls `buildWithLoginUserShell` which calls `su --login -c {CMD} {USER}`. `{CMD}` is a combination of the command plus the user's shell with `-i -l` meaning it will be started interactively and with login invoking the full shell login procedure as if the user were logging on themselves.
+
+This gives the command that will be invoked accessed to any configuration set in their profile RC or settings files. This is used when generating running `ctags` because it asks `bundler` what are the paths it should search for (to obtain gem paths). Because bundler might be provided as part of the `rbenv` scripts, it is necessary to evaluate this in the full context of a login.
+
+Because Docker `su` processes usually scrub out the current environment, `loginrun` will loop through all `NITROUS_` environment variables that `freighterd` can see (thanks to Go's `os.Environ()`) and pass it into
+
+### `run`
+
+Calls `buildWithSuUserShell` which is similar to `buildWithLoginUserShell` but it is not started interactively giving it a speedier startup time but less profile information.
+
+### Note about `su`
+
+All shells run `su` because when `freighterd` accesses the container it needs to drop the elevation in privileges. `freighterd` runs on the host but needs to `exec` onto the container.
+
+### Which one?
+
+If there is knowledge that the command does not need any shell environment variables or login features then `minirun` is the fastest option and is great for `grep`ing files or searching files. It is then best left to the implementer to test if `run` or `loginrun` are the best options: where `run` will be faster than `loginrun` (due to interactive).
+
 ## App.CodePluginsManager
 
 `CodePluginsManager` handles the following tasks
