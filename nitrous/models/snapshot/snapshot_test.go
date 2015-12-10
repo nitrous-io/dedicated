@@ -188,6 +188,43 @@ var _ = Describe("models/snapshot", func() {
 		})
 	})
 
+	Describe("FindByID()", func() {
+		It("returns an error when there's no snapshot with the given ID", func() {
+			_, err := snapshot.FindByID(db, 9000)
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns the snapshot with the given ID", func() {
+			_, err := db.Exec(`INSERT INTO snapshots
+				(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
+			Expect(err).To(BeNil())
+
+			var id int64
+			err = db.QueryRow(`SELECT id FROM snapshots WHERE image_id = $1;`, i1.ID).Scan(&id)
+			Expect(err).To(BeNil())
+			Expect(id).NotTo(BeZero())
+
+			s, err := snapshot.FindByID(db, id)
+			Expect(err).To(BeNil())
+
+			Expect(s.ImageID).To(Equal(i1.ID))
+			Expect(s.UserID).To(Equal(u.ID))
+			Expect(s.OrgID.Int64).To(Equal(o1.ID))
+			Expect(s.Slug).To(Equal("zerobotlabs/nestorbot"))
+			Expect(s.Namespace).To(Equal("zerobotlabs"))
+			Expect(s.Name).To(Equal("nestorbot"))
+			Expect(s.Tag).To(Equal("latest"))
+			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
+			Expect(s.OriginalImage).To(Equal("golang:latest"))
+
+			Expect(s.OwnerUsername.String).To(Equal(u.Username))
+			Expect(s.OwnerName.String).To(Equal(u.Name))
+			Expect(s.OwnerEmail.String).To(Equal(u.Email))
+		})
+	})
+
 	Describe("FindByImageID()", func() {
 		It("returns an error when there's no snapshot with the given image ID", func() {
 			_, err := snapshot.FindByImageID(db, i1.ID)
@@ -243,6 +280,25 @@ var _ = Describe("models/snapshot", func() {
 			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s2)
 			Expect(err).To(BeNil())
 			Expect(s).To(Equal(s2))
+		})
+	})
+
+	Describe("Delete()", func() {
+		It("removes the snapshot from the database", func() {
+			_, err := db.Exec(`INSERT INTO snapshots
+				(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
+			Expect(err).To(BeNil())
+
+			s, err := snapshot.FindByImageID(db, i1.ID)
+			Expect(err).To(BeNil())
+
+			err = s.Delete(db)
+			Expect(err).To(BeNil())
+
+			err = db.Get(s, `SELECT * FROM snapshots WHERE id = $1;`, s.ID)
+			Expect(err).To(Equal(sql.ErrNoRows))
 		})
 	})
 

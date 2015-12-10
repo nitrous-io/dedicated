@@ -54,6 +54,20 @@ func FindAllByOrgID(d db.QueryReceiver, userID, orgID int64) ([]*SnapshotWithOwn
 	return snapshots, nil
 }
 
+func FindByID(d db.QueryReceiver, id int64) (*SnapshotWithOwner, error) {
+	s := &SnapshotWithOwner{}
+	if err := d.Get(s, `SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
+		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
+		WHERE snapshots.id = $1;`, id); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error) {
 	s := &SnapshotWithOwner{}
 	if err := d.Get(s, `SELECT snapshots.*,
@@ -62,7 +76,7 @@ func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error
 			users.email AS owner_email
 		FROM snapshots
 			LEFT JOIN users ON users.id = snapshots.user_id
-		WHERE image_id = $1;`, imageID); err != nil {
+		WHERE snapshots.image_id = $1;`, imageID); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -98,6 +112,11 @@ func (s *Snapshot) Insert(d db.QueryReceiver) error {
 		return err
 	}
 	return nstmt.QueryRowx(s).StructScan(s)
+}
+
+func (s *Snapshot) Delete(d db.QueryReceiver) error {
+	_, err := d.Exec(`DELETE FROM snapshots WHERE id = $1;`, s.ID)
+	return err
 }
 
 func (s *Snapshot) Stack() string {
