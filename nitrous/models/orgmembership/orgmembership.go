@@ -48,6 +48,10 @@ func (o *OrgMembership) SnapshotPublishAllowed() bool {
 	return o.Role == RoleOwner || o.Role == RoleAdmin || o.Role == RoleMember
 }
 
+func (o *OrgMembership) SnapshotDeleteAllowed() bool {
+	return o.Role == RoleOwner || o.Role == RoleAdmin
+}
+
 type OrgMember struct {
 	OrgMembership
 

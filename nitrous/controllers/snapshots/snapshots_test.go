@@ -645,4 +645,156 @@ var _ = Describe("controllers/snapshots", func() {
 			})
 		})
 	})
+
+	Describe("DELETE /orgs/{org_slug}/snapshots/{snapshot_id}", func() {
+		var snap1, snap2 *snapshot.Snapshot
+
+		BeforeEach(func() {
+			snap1 = &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Slug:          "zerobotlabs/nestorbot",
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			Expect(snap1.Insert(db)).To(BeNil())
+
+			// Create snapshot belonging to another user.
+			u2 := &user.User{
+				Username: "otheruser",
+				Password: "123456",
+				Email:    "otheruser@example.com",
+			}
+			Expect(test.WrapInTransaction(db, u2.Insert)).To(BeNil())
+
+			hs2, err := test.CreateHostStack(db, &test.HostStack{U: u2})
+			Expect(err).To(BeNil())
+			i2 := &image.Image{
+				UserID:      u2.ID,
+				HostID:      hs2.H.ID,
+				FreighterID: "cafedead",
+				Name:        "another-image",
+				Slug:        "another-image",
+				Tag:         "latest",
+			}
+			Expect(i2.Insert(db)).To(BeNil())
+
+			snap2 = &snapshot.Snapshot{
+				ImageID:       i2.ID,
+				UserID:        u2.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Slug:          "zerobotlabs/relax-rb",
+				Namespace:     "zerobotlabs",
+				Name:          "relax-rb",
+				Tag:           "latest",
+				DisplayName:   "Relax ruby client",
+				OriginalImage: "ruby:latest",
+			}
+			Expect(snap2.Insert(db)).To(BeNil())
+		})
+
+		doRequest := func(orgSlug string, snapshotID int64) *httptest.ResponseRecorder {
+			url := fmt.Sprintf("/api/v0/orgs/%s/snapshots/%d", orgSlug, snapshotID)
+			req, err := test.NewRequest("DELETE", url, nil)
+			Expect(err).To(BeNil())
+			req.Header.Set("Authorization", "Bearer valid-token")
+			res := httptest.NewRecorder()
+			svr.Router().ServeHTTP(res, req)
+			return res
+		}
+
+		It("responds with HTTP 404 Not Found when org does not exist", func() {
+			res := doRequest("non-existent-org", 9000)
+			Expect(res.Code).To(Equal(http.StatusNotFound))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("not_found"))
+			Expect(errDesc).To(Equal("org does not exist"))
+		})
+
+		It("responds with HTTP 403 Forbidden when user does not belong in the org", func() {
+			res := doRequest(o1.Slug, 9000)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you are not a member of this org"))
+		})
+
+		It("responds with HTTP 403 Forbidden when user is a limited member of the org", func() {
+			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+			Expect(err).To(BeNil())
+
+			res := doRequest(o1.Slug, snap2.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you are not allowed to delete this snapshot"))
+		})
+
+		It("responds with HTTP 403 Forbidden when user is a regular member of the org", func() {
+			err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+			Expect(err).To(BeNil())
+
+			res := doRequest(o1.Slug, snap2.ID)
+			Expect(res.Code).To(Equal(http.StatusForbidden))
+
+			errType, errDesc := test.ErrorSlug(res.Body)
+			Expect(errType).To(Equal("forbidden"))
+			Expect(errDesc).To(Equal("you are not allowed to delete this snapshot"))
+		})
+
+		Context("when user is owner of the snapshot", func() {
+			It("allows user to delete it even if he is a limited member of the org", func() {
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleLimited)
+				Expect(err).To(BeNil())
+
+				res := doRequest(o1.Slug, snap1.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err = snapshot.FindByID(db, snap1.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+
+			It("allows user to delete it even if he is a regular member of the org", func() {
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleMember)
+				Expect(err).To(BeNil())
+
+				res := doRequest(o1.Slug, snap1.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err = snapshot.FindByID(db, snap1.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+		})
+
+		Context("when user is an admin member of the org", func() {
+			BeforeEach(func() {
+				err := orgmembership.AddMember(db, o1.ID, u.ID, orgmembership.RoleAdmin)
+				Expect(err).To(BeNil())
+			})
+
+			It("responds with HTTP 404 Not Found when snapshot does not exist", func() {
+				res := doRequest(o1.Slug, 9000)
+				Expect(res.Code).To(Equal(http.StatusNotFound))
+
+				errType, errDesc := test.ErrorSlug(res.Body)
+				Expect(errType).To(Equal("not_found"))
+				Expect(errDesc).To(Equal("snapshot not found"))
+			})
+
+			It("allows user to delete a snapshot they don't own", func() {
+				res := doRequest(o1.Slug, snap2.ID)
+				Expect(res.Code).To(Equal(http.StatusOK))
+
+				_, err := snapshot.FindByID(db, snap2.ID)
+				Expect(err).To(Equal(sql.ErrNoRows))
+			})
+		})
+	})
 })
