@@ -97,6 +97,42 @@ var _ = Describe("models/orgmembership", func() {
 		})
 	})
 
+	Describe("SnapshotPublishAllowed()", func() {
+		It("returns true for owners, admins and members", func() {
+			testCases := map[string]bool{
+				orgmembership.RoleOwner:   true,
+				orgmembership.RoleAdmin:   true,
+				orgmembership.RoleMember:  true,
+				orgmembership.RoleLimited: false,
+			}
+
+			o := &orgmembership.OrgMembership{}
+			for role, expected := range testCases {
+				o.Role = role
+				result := o.SnapshotPublishAllowed()
+				Expect(result).To(Equal(expected), fmt.Sprintf("expected SnapshotPublishAllowed() for role %q to be %v, but got %v", role, expected, result))
+			}
+		})
+	})
+
+	Describe("SnapshotDeleteAllowed()", func() {
+		It("returns true for owners and admins", func() {
+			testCases := map[string]bool{
+				orgmembership.RoleOwner:   true,
+				orgmembership.RoleAdmin:   true,
+				orgmembership.RoleMember:  false,
+				orgmembership.RoleLimited: false,
+			}
+
+			o := &orgmembership.OrgMembership{}
+			for role, expected := range testCases {
+				o.Role = role
+				result := o.SnapshotDeleteAllowed()
+				Expect(result).To(Equal(expected), fmt.Sprintf("expected SnapshotDeleteAllowed() for role %q to be %v, but got %v", role, expected, result))
+			}
+		})
+	})
+
 	Describe("FindAllByOrgID()", func() {
 		BeforeEach(func() {
 			_, err := db.Exec("INSERT INTO org_memberships (org_id, user_id, role) values ($1, $2, $3);", o.ID, u.ID, "owner")

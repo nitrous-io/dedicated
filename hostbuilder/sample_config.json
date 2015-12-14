@@ -49,7 +49,10 @@
     },
     "docker": {
       "freighterd_location": "/home/vagrant/workspace/dedicated/build/freighterd",
-      "docker_location": "/usr/bin/docker"
+      "docker_location": "/usr/bin/docker",
+      "registry_ca_location": "/home/nitrous/code/go/src/github.com/nitrous-io/dedicated/script/certs/n2odev.crt",
+      "registry_ca_destination": "/etc/docker/certs.d/registry.n2odev.com:5000/ca.crt",
+      "registry_host": "registry.n2odev.com"
     }
   },
   "queue_type": "redis",

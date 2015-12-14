@@ -29,6 +29,11 @@ RUN /bin/bash -c 'echo -e {{printf "%q" .Secret}} > {{.Paths.Secret}}'
 RUN /bin/bash -c 'echo -e {{printf "%q" .Config}} > {{.Paths.Config}}'
 {{ end }}
 
+{{ if .RegistryCA }}
+RUN /bin/bash -c 'mkdir -p "$(dirname "{{.RegistryCADestination}}")"'
+RUN /bin/bash -c 'echo -e {{printf "%q" .RegistryCA}} > {{.RegistryCADestination}}'
+{{ end }}
+
 RUN /bin/bash -c "echo -e '#!/bin/bash\nrm /var/run/docker.pid\ndocker -d >& /var/log/docker.log &\n/freighterd' > /start-freighterd" && chmod +x /start-freighterd
 
 EXPOSE 65333
@@ -44,8 +49,9 @@ type paths struct {
 
 type templateData struct {
 	*Host
-	Config string
-	Paths  paths
+	RegistryCA string // CA certificate of registry (needed if registry's cert is self-signed)
+	Config     string
+	Paths      paths
 }
 
 var dockerfileTemplate *template.Template

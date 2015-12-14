@@ -722,8 +722,7 @@ func (s *Server) loginRegistry(w http.ResponseWriter, r *http.Request) {
 	registry := r.FormValue("registry")
 
 	status := http.StatusCreated
-	err := s.provider.Login(username, password, email, registry)
-	if err != nil {
+	if err := s.provider.Login(username, password, email, registry); err != nil {
 		status = StatusUnprocessableEntity
 	}
 	s.respond(w, status, nil)
@@ -733,8 +732,7 @@ func (s *Server) logoutRegistry(w http.ResponseWriter, r *http.Request) {
 	registry := r.FormValue("registry")
 
 	status := http.StatusNoContent
-	err := s.provider.Logout(registry)
-	if err != nil {
+	if err := s.provider.Logout(registry); err != nil {
 		status = StatusUnprocessableEntity
 	}
 	s.respond(w, status, nil)
