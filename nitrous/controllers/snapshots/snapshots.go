@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -28,6 +29,7 @@ var (
 	errOrgNotFound                  = httperror.New(http.StatusNotFound, "not_found", "org does not exist")
 	errNotOrgMember                 = httperror.New(http.StatusForbidden, "forbidden", "you are not a member of this org")
 	errPublishSnapshotNotAllowed    = httperror.New(http.StatusForbidden, "forbidden", "you are not allowed to publish snapshots")
+	errDeleteSnapshotNotAllowed     = httperror.New(http.StatusForbidden, "forbidden", "you are not allowed to delete this snapshot")
 	errHostNotFound                 = httperror.New(http.StatusNotFound, "not_found", "workstation not found")
 	errHostNotInOrg                 = httperror.New(http.StatusBadRequest, "bad_request", "workstation does not belong to this org")
 	errSnapshotNotFound             = httperror.New(http.StatusNotFound, "not_found", "snapshot not found")
@@ -39,20 +41,8 @@ var (
 func ForOrg(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	orgSlug := mux.Vars(r)["org_slug"]
-	o, err := org.FindBySlug(db, orgSlug)
+	o, _, err := findOrgAndMembership(env, r)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return errOrgNotFound
-		}
-		return err
-	}
-
-	_, err = orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errNotOrgMember
-		}
 		return err
 	}
 
@@ -72,21 +62,8 @@ func ForOrg(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
 	db := env.DB
 
-	orgSlug := mux.Vars(r)["org_slug"]
-	o, err := org.FindBySlug(db, orgSlug)
+	o, membership, err := findOrgAndMembership(env, r)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return errOrgNotFound
-		}
-		return err
-	}
-
-	// TODO Refactor "look up org, then look up orgmembership" to middleware.
-	membership, err := orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return errNotOrgMember
-		}
 		return err
 	}
 	if !membership.SnapshotPublishAllowed() {
@@ -255,4 +232,70 @@ func Publish(env *middleware.Env, w http.ResponseWriter, r *http.Request) error 
 	env.SetEmptyResponseBody()
 
 	return nil
+}
+
+func Delete(env *middleware.Env, w http.ResponseWriter, r *http.Request) error {
+	db := env.DB
+
+	_, membership, err := findOrgAndMembership(env, r)
+	if err != nil {
+		return err
+	}
+
+	snapshotIDStr := mux.Vars(r)["snapshot_id"]
+	snapshotID, err := strconv.ParseInt(snapshotIDStr, 10, 64)
+	if err != nil {
+		return errSnapshotNotFound
+	}
+	snap, err := snapshot.FindByID(db, snapshotID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return errSnapshotNotFound
+		}
+		return err
+	}
+
+	// If user is not owner of snapshot, check if they're allowed to delete.
+	if snap.UserID != env.User.ID {
+		if !membership.SnapshotDeleteAllowed() {
+			return errDeleteSnapshotNotAllowed
+		}
+	}
+
+	if err := snap.Delete(db); err != nil {
+		return err
+	}
+
+	// TODO This should actually send a delete API request to our private Docker registry.
+
+	env.Status = http.StatusOK
+	env.Data = map[string]interface{}{
+		"status": "ok",
+	}
+
+	return nil
+}
+
+// TODO Refactor "look up org, then look up orgmembership" to middleware.
+func findOrgAndMembership(env *middleware.Env, r *http.Request) (*org.Org, *orgmembership.OrgMembership, error) {
+	db := env.DB
+
+	orgSlug := mux.Vars(r)["org_slug"]
+	o, err := org.FindBySlug(db, orgSlug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, errOrgNotFound
+		}
+		return nil, nil, err
+	}
+
+	membership, err := orgmembership.FindByUsernameAndOrgSlug(db, env.User.Username, orgSlug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil, errNotOrgMember
+		}
+		return nil, nil, err
+	}
+
+	return o, membership, nil
 }
