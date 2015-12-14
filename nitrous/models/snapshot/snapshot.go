@@ -85,6 +85,20 @@ func FindByImageID(d db.QueryReceiver, imageID int64) (*SnapshotWithOwner, error
 	return s, nil
 }
 
+func FindBySlug(d db.QueryReceiver, slug string) (*SnapshotWithOwner, error) {
+	s := &SnapshotWithOwner{}
+	if err := d.Get(s, `SELECT snapshots.*,
+			users.username AS owner_username,
+			users.name AS owner_name,
+			users.email AS owner_email
+		FROM snapshots
+			LEFT JOIN users ON users.id = snapshots.user_id
+		WHERE snapshots.slug = $1;`, slug); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 var nitrousStackPattern = regexp.MustCompile(`nitrous\/([^:]+):`)
 var stackPatterns = []struct {
 	needle string
@@ -110,6 +124,18 @@ func (s *Snapshot) Insert(d db.QueryReceiver) error {
 	nstmt, err := d.PrepareNamed(`INSERT INTO snapshots
 		(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads)
 		VALUES (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads)
+		RETURNING *;`)
+	if err != nil {
+		return err
+	}
+	return nstmt.QueryRowx(s).StructScan(s)
+}
+
+func (s *Snapshot) Update(d db.QueryReceiver) error {
+	nstmt, err := d.PrepareNamed(`UPDATE snapshots
+		SET (image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image, size, downloads, updated_at)
+		= (:image_id, :user_id, :org_id, :slug, :namespace, :name, :tag, :display_name, :original_image, :size, :downloads, now())
+		WHERE id = :id
 		RETURNING *;`)
 	if err != nil {
 		return err
