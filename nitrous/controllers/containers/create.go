@@ -28,9 +28,9 @@ import (
 	"github.com/nitrous-io/dedicated/pkg/slugbuilder"
 )
 
-// This is the new create endpoint that does not require callers to check
-// whether the user can create a host, nor to pull the Docker image first.
-
+// CreateAtomic is the handler for the new create endpoint that does not require
+// callers to check whether the user can create a host, nor to pull the Docker
+// image first.
 var CreateAtomic = middleware.HostViaForm("host", middleware.TouchHost(requiresRunningHost(createAtomic)))
 
 var (
@@ -86,71 +86,26 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 	skipPull, _ := strconv.ParseBool(r.PostFormValue("skip_pull"))
 
 	repository := "" // The container will be created using this Docker image.
-	containerCfg := freighterclient.ContainerConfig{}
+	containerCfg := &freighterclient.ContainerConfig{}
 
 	switch {
 	case imageSlug != "":
 		repository = imageSlug
 
 	case templateSlug != "":
-		tmpl, err := template.Find(tx, templateSlug)
+		var err error
+		repository, containerCfg, err = fromTemplate(tx, templateSlug)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
-
-		// Use container config from template.
-		tmplCfg, err := tmpl.ParsedConfig()
-		if err != nil {
-			return err
-		}
-		containerCfg.Privileged = &(tmplCfg.Privileged)
-		containerCfg.PublishAll = &(tmplCfg.PublishAll)
-		for _, e := range tmplCfg.Env {
-			containerCfg.Env = append(containerCfg.Env, e)
-		}
-		for _, p := range tmplCfg.Ports {
-			containerCfg.PortBindings = append(containerCfg.PortBindings, p)
-		}
-
-		repository = tmpl.Image
 
 	case snapshotIDStr != "":
-		snapshotID, err := strconv.ParseInt(snapshotIDStr, 10, 64)
-		if err != nil {
-			tx.Rollback()
-			return errInvalidSnapshot
-		}
-		snap, err := snapshot.FindByID(tx, snapshotID)
-		if err != nil {
-			tx.Rollback()
-			return errInvalidSnapshot
-		}
-		if !snap.OrgID.Valid {
-			// For now, we require snapshots to belong to an org.
-			// This might change when we want to allow personal accounts to
-			// create snapshots.
-			tx.Rollback()
-			return errSnapshotNoOrg
-		}
-		o, err := org.Find(tx, snap.OrgID.Int64)
+		var err error
+		repository, err = fromSnapshot(tx, env.User, snapshotIDStr)
 		if err != nil {
 			tx.Rollback()
 			return err
-		}
-
-		// Check that user is a member of org, with a valid role.
-		membership, err := orgmembership.FindByUsernameAndOrgSlug(tx, env.User.Username, o.Slug)
-		if err != nil {
-			tx.Rollback()
-			if err == sql.ErrNoRows {
-				return errNotOrgMember
-			}
-			return err
-		}
-		if !membership.SnapshotReadAllowed() {
-			tx.Rollback()
-			return errReadSnapshotNotAllowed
 		}
 
 		// Login to private Docker registry so that we'll be authenticated when
@@ -159,8 +114,6 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 			tx.Rollback()
 			return err
 		}
-
-		repository = fmt.Sprintf("%s/%s", envvars.DockerRegistryHostname, snap.Repository())
 	}
 
 	hostVols, err := hostVolumes(tx, h)
@@ -168,7 +121,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		tx.Rollback()
 		return err
 	}
-	if err := prepareConfig(&containerCfg, r.PostForm, hostVols); err != nil {
+	if err := prepareConfig(containerCfg, r.PostForm, hostVols); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -239,7 +192,7 @@ func createAtomic(h *host.Host, env *middleware.Env, w http.ResponseWriter, r *h
 		}
 
 		// Create container.
-		created, err := cl.Create(slug, repository, cn.Secret, &containerCfg)
+		created, err := cl.Create(slug, repository, cn.Secret, containerCfg)
 		if err != nil {
 			switch err.(type) {
 			case *freighterclient.StartFailedError:
@@ -353,6 +306,66 @@ func validateCreateAtomicForm(r *http.Request) error {
 		return errImageParamsRequired
 	}
 	return nil
+}
+
+func fromTemplate(d ndb.QueryReceiver, templateSlug string) (string, *freighterclient.ContainerConfig, error) {
+	tmpl, err := template.Find(d, templateSlug)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Use container config from template.
+	tmplCfg, err := tmpl.ParsedConfig()
+	if err != nil {
+		return "", nil, err
+	}
+	containerCfg := &freighterclient.ContainerConfig{
+		Privileged: &(tmplCfg.Privileged),
+		PublishAll: &(tmplCfg.PublishAll),
+	}
+	for _, e := range tmplCfg.Env {
+		containerCfg.Env = append(containerCfg.Env, e)
+	}
+	for _, p := range tmplCfg.Ports {
+		containerCfg.PortBindings = append(containerCfg.PortBindings, p)
+	}
+
+	return tmpl.Image, containerCfg, nil
+}
+
+func fromSnapshot(d ndb.QueryReceiver, u *user.User, snapshotIDStr string) (string, error) {
+	snapshotID, err := strconv.ParseInt(snapshotIDStr, 10, 64)
+	if err != nil {
+		return "", errInvalidSnapshot
+	}
+	snap, err := snapshot.FindByID(d, snapshotID)
+	if err != nil {
+		return "", errInvalidSnapshot
+	}
+	if !snap.OrgID.Valid {
+		// For now, we require snapshots to belong to an org.
+		// This might change when we want to allow personal accounts to
+		// create snapshots.
+		return "", errSnapshotNoOrg
+	}
+	o, err := org.Find(d, snap.OrgID.Int64)
+	if err != nil {
+		return "", err
+	}
+
+	// Check that user is a member of org, with a valid role.
+	membership, err := orgmembership.FindByUsernameAndOrgSlug(d, u.Username, o.Slug)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errNotOrgMember
+		}
+		return "", err
+	}
+	if !membership.SnapshotReadAllowed() {
+		return "", errReadSnapshotNotAllowed
+	}
+
+	return fmt.Sprintf("%s/%s", envvars.DockerRegistryHostname, snap.Repository()), err
 }
 
 func loginToPrivateRegistry(d ndb.QueryReceiver, u *user.User, cl freighterclient.Client) error {
