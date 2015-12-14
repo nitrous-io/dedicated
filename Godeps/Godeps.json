@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/nitrous-io/dedicated",
-	"GoVersion": "go1.5.1",
+	"GoVersion": "go1.5.2",
 	"Packages": [
 		"./..."
 	],
@@ -54,6 +54,11 @@
 			"Rev": "6ae442f8d5dae46921484681156699b1ba8ecf0c"
 		},
 		{
+			"ImportPath": "github.com/docker/distribution",
+			"Comment": "v2.2.0-25-gd7a4f6c",
+			"Rev": "d7a4f6cb6a830e6836608a4af019774a27a0540a"
+		},
+		{
 			"ImportPath": "github.com/docker/docker/nat",
 			"Comment": "v1.7.0",
 			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
@@ -62,6 +67,15 @@
 			"ImportPath": "github.com/docker/docker/pkg/parsers",
 			"Comment": "v1.7.0",
 			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/tarsum",
+			"Comment": "v1.7.0",
+			"Rev": "0baf60984522744eed290348f33f396c046b2f3a"
+		},
+		{
+			"ImportPath": "github.com/docker/libtrust",
+			"Rev": "9cbd2a1374f46905c68a4eb3694a130610adc62a"
 		},
 		{
 			"ImportPath": "github.com/facebookgo/clock",
