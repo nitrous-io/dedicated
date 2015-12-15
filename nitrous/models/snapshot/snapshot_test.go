@@ -257,6 +257,38 @@ var _ = Describe("models/snapshot", func() {
 		})
 	})
 
+	Describe("FindBySlug()", func() {
+		It("returns an error when there's no snapshot with the given slug", func() {
+			_, err := snapshot.FindBySlug(db, "non-existent")
+			Expect(err).To(Equal(sql.ErrNoRows))
+		})
+
+		It("returns the snapshot with the given slug", func() {
+			_, err := db.Exec(`INSERT INTO snapshots
+				(image_id, user_id, org_id, slug, namespace, name, tag, display_name, original_image)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+				i1.ID, u.ID, o1.ID, "zerobotlabs/nestorbot", "zerobotlabs", "nestorbot", "latest", "Nestorbot Dev", "golang:latest")
+			Expect(err).To(BeNil())
+
+			s, err := snapshot.FindBySlug(db, "zerobotlabs/nestorbot")
+			Expect(err).To(BeNil())
+
+			Expect(s.ImageID).To(Equal(i1.ID))
+			Expect(s.UserID).To(Equal(u.ID))
+			Expect(s.OrgID.Int64).To(Equal(o1.ID))
+			Expect(s.Slug).To(Equal("zerobotlabs/nestorbot"))
+			Expect(s.Namespace).To(Equal("zerobotlabs"))
+			Expect(s.Name).To(Equal("nestorbot"))
+			Expect(s.Tag).To(Equal("latest"))
+			Expect(s.DisplayName).To(Equal("Nestorbot Dev"))
+			Expect(s.OriginalImage).To(Equal("golang:latest"))
+
+			Expect(s.OwnerUsername.String).To(Equal(u.Username))
+			Expect(s.OwnerName.String).To(Equal(u.Name))
+			Expect(s.OwnerEmail.String).To(Equal(u.Email))
+		})
+	})
+
 	Describe("Insert()", func() {
 		It("persists the snapshot in the database", func() {
 			s := &snapshot.Snapshot{
@@ -280,6 +312,72 @@ var _ = Describe("models/snapshot", func() {
 			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s2)
 			Expect(err).To(BeNil())
 			Expect(s).To(Equal(s2))
+		})
+	})
+
+	Describe("Update()", func() {
+		It("updates the snapshot in the database", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			err := s.Insert(db)
+			Expect(err).To(BeNil())
+
+			s1 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s1)
+			Expect(err).To(BeNil())
+			Expect(s1.ImageID).To(Equal(i1.ID))
+
+			prevUpdatedAt := s1.UpdatedAt
+
+			s1.DisplayName = "Nestorbot dev v2"
+			err = s1.Update(db)
+			Expect(err).To(BeNil())
+
+			Expect(s1.UpdatedAt).NotTo(Equal(prevUpdatedAt))
+
+			s2 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s2)
+			Expect(err).To(BeNil())
+			Expect(s2).To(Equal(s1))
+		})
+	})
+
+	Describe("IncrementDownloads()", func() {
+		It("increments the downloads field by 1", func() {
+			s := &snapshot.Snapshot{
+				ImageID:       i1.ID,
+				UserID:        u.ID,
+				OrgID:         sql.NullInt64{o1.ID, true},
+				Namespace:     "zerobotlabs",
+				Name:          "nestorbot",
+				Tag:           "latest",
+				DisplayName:   "Nestorbot dev",
+				OriginalImage: "golang:latest",
+			}
+			err := s.Insert(db)
+			Expect(err).To(BeNil())
+			Expect(s.Downloads).To(Equal(int64(0)))
+
+			s1 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s1)
+			Expect(err).To(BeNil())
+			Expect(s1.Downloads).To(Equal(int64(0)))
+
+			err = s1.IncrementDownloads(db)
+			Expect(err).To(BeNil())
+
+			s2 := &snapshot.Snapshot{}
+			err = db.QueryRowx("SELECT * FROM snapshots WHERE id = $1", s.ID).StructScan(s2)
+			Expect(err).To(BeNil())
+			Expect(s2.Downloads).To(Equal(int64(1)))
 		})
 	})
 

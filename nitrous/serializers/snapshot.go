@@ -14,6 +14,7 @@ type Snapshot struct {
 	Slug        string `json:"slug"`
 	DisplayName string `json:"display_name"`
 	Size        int64  `json:"size,omitempty"`
+	Downloads   int64  `json:"downloads"`
 	Stack       string `json:"stack"`
 
 	OwnerUsername string `json:"owner_username,omitempty"`
@@ -34,6 +35,7 @@ func SerializeSnapshot(s *snapshot.Snapshot) *Snapshot {
 		UserID:      s.UserID,
 		Slug:        s.Slug,
 		DisplayName: s.DisplayName,
+		Downloads:   s.Downloads,
 		Stack:       s.Stack(),
 	}
 

@@ -34,6 +34,7 @@ var _ = Describe("snapshot serializer", func() {
 			DisplayName:   "nitrous-react dev",
 			OriginalImage: "quay.io/nitrous/nodejs:latest",
 			Size:          sql.NullInt64{1024, true},
+			Downloads:     42,
 			CreatedAt:     pq.NullTime{createdAt, true},
 			UpdatedAt:     pq.NullTime{updatedAt, true},
 		}
@@ -52,6 +53,7 @@ var _ = Describe("snapshot serializer", func() {
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"size": 1024,
+				"downloads": 42,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`, model.Stack())))
@@ -70,6 +72,7 @@ var _ = Describe("snapshot serializer", func() {
 				"slug": "nitrous-io/nitrous-react-dev",
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
+				"downloads": 42,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}`, model.Stack())))
@@ -95,6 +98,7 @@ var _ = Describe("snapshot serializer", func() {
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"size": 1024,
+				"downloads": 42,
 				"created_at": "2013-11-01T00:00:00Z",
 				"updated_at": "2013-11-02T00:00:00Z"
 			}]`, model.Stack())))
@@ -121,6 +125,7 @@ var _ = Describe("snapshot serializer", func() {
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"size": 1024,
+				"downloads": 42,
 				"owner_username": "aroonthampy",
 				"owner_name": "Aroon Thampy",
 				"owner_email": "aroonthampy@gmail.com",
@@ -156,6 +161,7 @@ var _ = Describe("snapshot serializer", func() {
 				"display_name": "nitrous-react dev",
 				"stack": "%s",
 				"size": 1024,
+				"downloads": 42,
 				"owner_username": "aroonthampy",
 				"owner_name": "Aroon Thampy",
 				"owner_email": "aroonthampy@gmail.com",
