@@ -849,7 +849,21 @@ func PublishContainerEventToUsers(events *pubsub.Pubsub, name controllers.EventN
 // prepareConfig accepts a ContainerConfig and modifies it with user-specified settings
 func prepareConfig(c *freighterclient.ContainerConfig, form url.Values, hv map[string]*volume.Volume) error {
 	c.Env = append(c.Env, readParam(form, "env[]")...)
-	vols := readParam(form, "volume[]")
+	volParams := readParam(form, "volume[]")
+	var vols []string
+	if len(volParams) > 0 {
+		for _, v := range volParams {
+			if v == "/opt/nitrous:/.nitrous:ro" {
+				// this is occasionally present in user containers and results in a
+				// 'Volume not found' error when trying to reconfig.  We expect
+				// this to be automatically added on the freighter end if
+				// necessary, so excluding this should fix the bug with no unwanted
+				// effects.
+				continue
+			}
+			vols = append(vols, v)
+		}
+	}
 	for _, v := range volumeSlugs(vols) {
 		if _, ok := hv[v]; !ok {
 			return errVolumeNotFound
