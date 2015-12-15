@@ -212,7 +212,7 @@ var _ = Describe("models/image", func() {
 	})
 
 	Describe("Delete()", func() {
-		It("removes the image", func() {
+		It("sets deleted_at", func() {
 			hs, err := test.CreateHostStack(db, nil)
 			Expect(err).To(BeNil())
 			_, err = db.Exec(`INSERT INTO images (user_id, host_id, freighter_id, name, slug, tag)
@@ -224,12 +224,15 @@ var _ = Describe("models/image", func() {
 			Expect(err).To(BeNil())
 			Expect(img).NotTo(BeNil())
 			Expect(img.FreighterID).To(Equal("cafebabe"))
+			Expect(img.DeletedAt.Valid).To(Equal(false))
 
 			err = img.Delete(db)
 			Expect(err).To(BeNil())
 
 			err = db.Get(img, `SELECT * FROM images WHERE id = $1`, img.ID)
-			Expect(err).To(MatchError(sql.ErrNoRows))
+			Expect(err).To(BeNil())
+			Expect(img.DeletedAt.Valid).To(Equal(true))
+			Expect(img.DeletedAt.Time).NotTo(BeZero())
 		})
 	})
 
